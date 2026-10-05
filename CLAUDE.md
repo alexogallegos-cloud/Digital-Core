@@ -69,6 +69,7 @@ Digital Core/
 ├── CLAUDE.md                                       ← este archivo (raíz)
 ├── AGENTES-UNIVERSAL-RULES-DC.md                   ← reglas universales (delivery SDLC)
 ├── CLAUDE-TEMPLATE-DC.md                           ← plantilla canónica de Component Delivery Agent
+├── 00 - Enterprise Brain/                          ← Asset transversal: Gemelo Cognitivo / Digital Brain (Brain Lifecycle)
 ├── 01 - TS&T/
 │   ├── CLAUDE.md                                   ← Component Delivery Agent — Arch Lifecycle
 │   ├── component-catalog-tst.md

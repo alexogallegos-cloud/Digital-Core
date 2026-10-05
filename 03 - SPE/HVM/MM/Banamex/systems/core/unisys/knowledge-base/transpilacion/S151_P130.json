@@ -1,0 +1,289 @@
+{
+  "slug": "S151_P130",
+  "sistema": "S151",
+  "programa": "P130",
+  "nombre": "Agrupador y Validador de Movimientos Contables (LOG151)",
+  "funcion": "Paso batch de S151 que corre por sistema origen (parámetro W77-SISTEMA-PARAM) sobre el LOG151 del día: valida cada movimiento contable, aplica defaults de desvío y genera la bitácora, CVETRAN, DESVIOS, PUNTEO y las interfaces para S028, S254, S120 y Datoteca.",
+  "resumen": "Lee secuencialmente el LOG151 del sistema origen, cuyo registro A00-R01-REGMOV trae hasta cinco pares clave de transacción e importe. Por cada movimiento con función 1 recorre los slots ocupados, valida clave y tipo de esquema, fecha contable, sucursal iniciadora, libro, sucursal promotora y tipo de crédito contra catálogos que carga al inicio desde CPPS (librerías L700 y L710), y sustituye cada dato erróneo por un valor de desvío marcándolo con una letra de la A a la G. Los movimientos con desvío se escriben en DESVIOS y en el reporte de rechazos; los de status 1 alimentan CVETRAN, CVETRANFS y PUNTEO, y para el sistema 403 se genera además el archivo ATLAS de compra y venta de divisas. Al cierre envía las interfaces vía INTELAR y dispara el WFL siguiente.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.agrupador",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — movimiento A00-R01-REGMOV con cinco slots CVEIMP",
+      "origen": {
+        "archivo": "COBOL_P130.txt",
+        "contexto": "WORKING-STORAGE · A00-R01-REGMOV"
+      },
+      "java": {
+        "archivo": "MovimientoLog151.java · SlotContable.java",
+        "contexto": "record · List<SlotContable>"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "OCCURS 5 TIMES con REDEFINES a una lista acotada de slots",
+          "linea_ini": 1464,
+          "linea_fin": 1506,
+          "origen_codigo": " 01 A00-R01-REGMOV .                                              001500\n    03 A00-R01-FUNCION                 PIC  9(02)      COMP.      001600\n    03 A00-R01-FORMATO                 PIC  9(02)      COMP.      001700\n    03 A00-R01-SISTEMA                 PIC  9(04)      COMP.      001800\n    03 A00-R01-CVEIMP                  PIC  X(95).                004100\n    03 A00-R01-CVEIMP-OC               REDEFINES A00-R01-CVEIMP.  004200\n       04 A00-R01-ELE-CVEIMP           OCCURS 5 TIMES.            004300\n          05 A00-R01-CVETRAN           PIC  9(06)      COMP.      004400\n          05 A00-R01-INDLEY            PIC  9(02)      COMP.      004500\n          05 A00-R01-ESQCON            PIC  9(04)      COMP.      004600\n          05 A00-R01-TM REDEFINES A00-R01-ESQCON PIC 9(04) COMP.  004700\n          05 A00-R01-IMPORTE           PIC  9(16)V99   COMP.      004800\n          05 A00-R01-CVE-DESVIO        PIC  9(04)      COMP.      004900\n          05 A00-R01-GUIA-DESVIO       PIC  9(04)      COMP.      005000",
+          "java_codigo": "/** A00-R01-REGMOV: cabecera del movimiento y hasta cinco slots clave-importe (A00-R01-CVEIMP, 95 bytes). */\npublic record MovimientoLog151(\n        int funcion,            // 9(02) COMP: 1 graba, 2 solo MOVSCIG, 99 fin de archivo\n        int formato,\n        int sistema,            // 9(04) COMP: sistema origen (402, 403, 404, 707, 804...)\n        List<SlotContable> slots,\n        Datos datos) {          // resto del registro: fechas, sucursales, contrato, moneda, status...\n\n    public static final int MAX_SLOTS = 5;   // OCCURS 5 TIMES\n\n    /** Recorrido de 21000-ESCOGE-MOVS: se detiene en el primer slot con clave e importe en cero. */\n    public List<SlotContable> slotsOcupados() {\n        return slots.stream().limit(MAX_SLOTS)\n                .takeWhile(s -> !(s.claveTransaccion() == 0 && s.importe().signum() == 0))\n                .toList();\n    }\n}\n\n/** A00-R01-ELE-CVEIMP (19 bytes en COMP de Unisys, 4 bits por dígito). */\npublic record SlotContable(\n        int claveTransaccion,   // 9(06) COMP\n        int indicadorLey,       // 9(02) COMP\n        int esquemaContable,    // 9(04) COMP; A00-R01-TM lo redefine como tipo de movimiento\n        BigDecimal importe,     // 9(16)V99 COMP -> escala 2, siempre no negativo\n        int claveDesvio,        // 9(04) COMP\n        int guiaDesvio) {}      // 9(04) COMP",
+          "racional": "El extracto omite las líneas 1468 a 1496 (producto, instrumento, servicio, agrupadores de desvío y libro). El área <code>A00-R01-CVEIMP</code> de 95 bytes se ve de dos formas: como tabla <code>OCCURS 5 TIMES</code> y, en la redefinición <code>A00-R01-CVEIMP-DE</code>, como cinco grupos con sufijo 1 a 5 que usa el párrafo de ATLAS. En Java basta una sola vista: una <code>List&lt;SlotContable&gt;</code> de tamaño máximo cinco, y el párrafo de ATLAS itera la misma lista. En COBOL de Unisys el uso <code>COMP</code> es decimal empaquetado sin signo, así que el importe <code>9(16)V99</code> se decodifica a <code>BigDecimal</code> con escala 2 y nunca puede ser negativo: la naturaleza cargo o abono no viaja en el signo sino en el catálogo NATS028.",
+          "reglas": [
+            "RN-S151-062"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y selección de movimientos",
+      "origen": {
+        "archivo": "COBOL_P130.txt",
+        "contexto": "PROCEDURE DIVISION · 00000-PROGRAMA-PRINCIPAL / 21000-ESCOGE-MOVS"
+      },
+      "java": {
+        "archivo": "AgrupadorJobConfig.java · EscogeMovimientosProcessor.java",
+        "contexto": "Spring Batch Job · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Programa principal a Job con pasos condicionales por sistema",
+          "linea_ini": 6340,
+          "linea_fin": 6366,
+          "origen_codigo": " 00000-PROGRAMA-PRINCIPAL .                                       465000\n* *************************                                       465100\n     PERFORM 10000-INICIO-PROGRAMA     .                          465300\n*HSC INI ALTA DISPONIBILIDAD IBM 06/02/2015                       465310\n     IF(W77-SISTEMA-PARAM = 804 OR 203)                           465320\n        AND WKS-BANDERA = 1                                       465330\n            PERFORM 010000-VERIFICA-B05.                          465340\n*HSC FIN ALTA DISPONIBILIDAD IBM 06/02/2015                       465350\n     PERFORM 11000-CARGA-ESTRUCTURA    .                          465400\n     PERFORM 12000-CARGA-CATALOGOS     .                          465500\n     PERFORM 12900-OBTEN-TIT940        .                          465600\n     PERFORM 20000-PROCESA-MOVIMIENTOS .                          465700\n     PERFORM 30000-GENERA-BITACORA     .                          465800\n*    IF W88-SISTEMA-ESQ-ETL                                       465820\n*       NEXT SENTENCE                                             465840\n*    ELSE                                                         465860\n        PERFORM 35000-GENERA-TOTXCVE                              465900\n        PERFORM 60300-CIERRA-KEYEDIOII .                          466000\n     PERFORM 60000-GENERA-RECHAZOS     .                          466100\n     CLOSE MOVIMIENTOS WITH SAVE       .                          466200\n*HSC INI ALTA DISPONIBILIDAD IBM 06/02/2015                       466210\n     IF(W77-SISTEMA-PARAM = 804 OR 203)                           466220\n        AND WKS-BANDERA = 1                                       466230\n            PERFORM 010200-ACTUALIZA-B05.                         466240\n*HSC FIN ALTA DISPONIBILIDAD IBM 06/02/2015                       466250\n     STOP RUN.                                                    466300",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P130Properties.class)\npublic class AgrupadorJobConfig {\n\n    @Bean\n    Job agrupadorS151(JobRepository repo, P130Properties props,\n                      Step verificaB05, Step cargaCatalogos, Step procesaMovimientos,\n                      Step generaBitacora, Step generaTotalesPorClave, Step generaRechazos,\n                      Step actualizaB05) {\n        // 010000/010200: control de alta disponibilidad solo para los sistemas de props.altaDisponibilidad()\n        JobExecutionDecider altaDisp = (job, step) ->\n                props.altaDisponibilidad().contains(props.sistema()) && props.banderaB05()\n                        ? new FlowExecutionStatus(\"HA\") : new FlowExecutionStatus(\"NO_HA\");\n\n        return new JobBuilder(\"S151P130\", repo)\n                .start(altaDisp).on(\"HA\").to(verificaB05).next(cargaCatalogos)\n                .from(altaDisp).on(\"NO_HA\").to(cargaCatalogos)\n                .next(procesaMovimientos)      // 20000-PROCESA-MOVIMIENTOS\n                .next(generaBitacora)          // 30000-GENERA-BITACORA\n                .next(generaTotalesPorClave)   // 35000 + 60300: hoy corre para todos los sistemas\n                .next(generaRechazos)          // 60000-GENERA-RECHAZOS\n                .next(actualizaB05)            // tasklet que no hace nada si no aplica alta disponibilidad\n                .end().build();\n    }\n}\n\n# application.yml\np130:\n  sistema: ${SISTEMA}            # W77-SISTEMA-PARAM, viene del WFL\n  alta-disponibilidad: [804, 203]",
+          "racional": "La rutina principal es una secuencia fija de <code>PERFORM</code> rodeada de dos bloques de alta disponibilidad que solo aplican a los sistemas 804 y 203. Cada bloque pasa a un <code>Step</code> y la condición de alta disponibilidad a un <code>JobExecutionDecider</code>. La lista de sistemas sale del código y va a <code>application.yml</code>. Se conserva que <code>35000-GENERA-TOTXCVE</code> corra para todos los sistemas, porque el IF que lo excluía para los sistemas ETL está comentado.",
+          "reglas": [],
+          "riesgo": "Las líneas 6354 a 6356 comentan el IF de sistemas ETL pero dejan activas las dos instrucciones del ELSE; el punto de la línea 6358 cierra la sentencia. El resultado es correcto hoy, pero cualquier descomentado parcial cambia el alcance."
+        },
+        {
+          "id": "s3",
+          "titulo": "Selección por función y recorrido de los cinco slots",
+          "linea_ini": 8135,
+          "linea_fin": 8173,
+          "origen_codigo": " 21000-ESCOGE-MOVS .                                              603600\n* ==================                                              603700\n     IF A00-R01-FUNCION   =   1 OR 2                              603810\n        MOVE A00-R01-TIPOCREDITO TO WKS-A00-R01-TIPOCREDITO      .603820\n     IF A00-R01-FUNCION   =   1                                   603840\n        IF W88-SISTEMA-ESQ-ETL                                    603850\n           PERFORM 21049-CHECA-ATLAS                             .603860\n     IF A00-R01-FUNCION   =   1                                   603900\n        IF W88-SISTEMA-ESQ-ETL                                    604010\n           PERFORM 21100-GRABA-ARCHIVOS                           604020\n                   VARYING W77-INDCVE FROM 1 BY 1                 604030\n                   UNTIL   W77-INDCVE >    5                  OR  604040\n                   (A00-R01-CVETRAN (W77-INDCVE)   =   ZERO   AND 604050\n                    A00-R01-IMPORTE (W77-INDCVE)   =   ZERO  )    604060\n        ELSE                                                      604070\n           PERFORM 21049-CHECA-ATLAS                              604100\n           PERFORM 21100-GRABA-ARCHIVOS                           604300\n                   VARYING W77-INDCVE FROM 1 BY 1                 604400\n                   UNTIL   W77-INDCVE >    5                  OR  604500\n                   (A00-R01-CVETRAN (W77-INDCVE)   =   ZERO   AND 604600\n                    A00-R01-IMPORTE (W77-INDCVE)   =   ZERO  )   .604700\n     IF W88-SISTEMA-ESQ-ETL       AND                             604820\n        ( A00-R01-FUNCION   =   1 OR   2 )                        604830\n        PERFORM 21160-GRABA-MOVSETL                               604840\n     ELSE                                                         604860\n     IF A00-R01-FUNCION   =   1   OR   2                          604900\n        PERFORM 21150-GRABA-MOVSCIG                            .  605000\n     IF W88-SISTEMA-ESQ-ETL       AND                             605120\n        ( A00-R01-FUNCION   =   1 OR   2 )                        605140\n        PERFORM 21150-GRABA-MOVSCIG                            .  605160\n     PERFORM 20300-LEER-LOG151                                 .  605200",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class EscogeMovimientosProcessor implements ItemProcessor<MovimientoLog151, SalidasMovimiento> {\n\n    private final P130Properties props;\n    private final ValidadorMovimiento validador;   // 21125-VALIDA-INFORMACION\n    private final AtlasCollector atlas;            // 21049-CHECA-ATLAS\n\n    @Override\n    public SalidasMovimiento process(MovimientoLog151 mov) {\n        var salidas = new SalidasMovimiento(mov);\n        switch (mov.funcion()) {\n            case 1 -> {\n                atlas.revisa(mov);                                  // misma posición en ambas ramas\n                for (SlotContable slot : mov.slotsOcupados()) {     // VARYING W77-INDCVE ... UNTIL\n                    salidas.agrega(validador.valida(mov, slot));    // 21100-GRABA-ARCHIVOS\n                }\n                salidas.conMovsCig(true).conEtl(props.esquemaEtl().contains(mov.sistema()));\n            }\n            case 2 -> salidas.conMovsCig(true).conEtl(props.esquemaEtl().contains(mov.sistema()));\n            default -> { return null; }      // cualquier otra función se descarta sin aviso (RN-S151-061)\n        }\n        return salidas;\n    }\n}",
+          "racional": "El párrafo distingue tres casos: la función 1 graba los archivos contables por cada slot ocupado, la función 2 solo genera MOVSCIG (y MOVSETL en los sistemas con esquema ETL, 403 y 404) y cualquier otro valor no produce salida. En Spring Batch eso es un <code>ItemProcessor</code> que devuelve <code>null</code> para filtrar. Las dos ramas del IF de ETL ejecutan la revisión de ATLAS antes de grabar los slots, así que se unifican. La lista de sistemas ETL sale del nivel 88 <code>W88-SISTEMA-ESQ-ETL</code> hacia propiedades.",
+          "reglas": [
+            "RN-S151-061",
+            "RN-S151-062",
+            "RN-S151-073",
+            "RN-S151-074"
+          ],
+          "riesgo": "Un valor de función distinto de 1, 2 y 99 se ignora sin contarlo ni reportarlo, y en los sistemas ETL MOVSCIG se escribe por un IF separado (líneas 8169 a 8171) además de MOVSETL."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de validación y desvíos A a G",
+      "origen": {
+        "archivo": "COBOL_P130.txt",
+        "contexto": "PROCEDURE DIVISION · 21125-VALIDA-INFORMACION"
+      },
+      "java": {
+        "archivo": "ValidadorMovimiento.java · Desvio.java · CatalogosContables.java",
+        "contexto": "@Service · EnumSet<Desvio>"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Clave de transacción y tipo de esquema (desvíos D y G)",
+          "linea_ini": 8517,
+          "linea_fin": 8560,
+          "origen_codigo": "*    **************************                                   629100\n*    ** VALIDA CLAVE Y TM OK **                                   629200\n*    **************************                                   629300\n     IF W88-SIST-FORM4                                            629500\n        IF W77-CVETRAN   =   WKS-CVETRA-DESVIO   OR               629700\n                         =   ZERO                                 629800\n           PERFORM 21126-MUEVE-DESVIOD                            629900\n        ELSE                                                      630000\n           IF WKS-PT-NUM-LEYEN(W77-CVETRAN, 1)   NOT =   ZEROS    630200\n              NEXT SENTENCE                                       630300\n           ELSE                                                   630400\n              PERFORM 21126-MUEVE-DESVIOD                         630500\n     ELSE                                                         630700\n        IF W77-CVETRAN   =   WKS-CVETRA-DESVIO   OR               630900\n                         =   ZERO                                 631000\n           PERFORM 21126-MUEVE-DESVIOD                            631100\n           IF W77-TM-ESQ   =   1   OR   2                         631200\n              NEXT SENTENCE                                       631300\n           ELSE                                                   631400\n              PERFORM 21127-MUEVE-DESVIOG                         631500\n        ELSE                                                      631700\n           IF W77-TM-ESQ   =   1   OR   2                         631900\n              IF WKS-PT-EXISTE(W77-CVETRAN, W77-TM-ESQ)  =   1    632100\n                 NEXT SENTENCE                                    632200\n              ELSE                                                632300\n                 PERFORM 21126-MUEVE-DESVIOD                      632400\n           ELSE                                                   632600\n              PERFORM 21126-MUEVE-DESVIOD                         632700\n              PERFORM 21127-MUEVE-DESVIOG                         632800\n              IF WKS-PT-EXISTE(W77-CVETRAN, WKS-TM-DESVIO)   =   1633000\n                 NEXT SENTENCE                                    633100\n              ELSE                                                633200\n                 MOVE W77-CVETRAN TO DES-CVETRAN                  633300\n                 PERFORM 21126-MUEVE-DESVIOD .                    633400",
+          "java_codigo": "public enum Desvio { A_FECHA, B_SUC_INICIATIVA, C_SUC_PROMOTORA, D_CLAVE, E_TIPO_CREDITO, F_LIBRO, G_ESQUEMA }\n\n@Service\n@RequiredArgsConstructor\npublic class ValidadorMovimiento {\n\n    private final CatalogosContables cat;   // WKS-PT-*, WKS-LIBRO-LM, WKS-NUM-TC... cargados de CPPS L700/L710\n    private final P130Properties props;\n\n    /** Primer bloque de 21125: valida clave y TM; reproduce el orden exacto del fuente. */\n    void validaClave(ResultadoValidacion r) {\n        int clave = r.clave(), tm = r.tipoEsquema();\n        if (props.form4().contains(r.sistema())) {                         // W88-SIST-FORM4\n            if (clave == cat.claveDesvio() || clave == 0 || cat.numLeyendas(clave, 1) == 0) {\n                r.desvia(Desvio.D_CLAVE);                                  // 21126: clave := clave de desvío\n            }\n            return;\n        }\n        if (clave == cat.claveDesvio() || clave == 0) {\n            r.desvia(Desvio.D_CLAVE);\n            if (tm != 1 && tm != 2) r.desvia(Desvio.G_ESQUEMA);            // 21127: TM := TM de desvío\n        } else if (tm == 1 || tm == 2) {\n            if (!cat.existe(clave, tm)) r.desvia(Desvio.D_CLAVE);\n        } else {\n            // TM inválido: el fuente marca D y G siempre, aunque la clave exista.\n            // El IF siguiente (línea 8556) ya evalúa la clave de desvío, no la original.\n            r.desvia(Desvio.D_CLAVE);\n            r.desvia(Desvio.G_ESQUEMA);\n        }\n    }",
+          "racional": "La validación usa la tabla de existencia por clave y tipo de esquema. Para los sistemas FORM4 (404, 707, 804, 203 y 414) solo se consulta el esquema 1 y el criterio es que la clave tenga leyendas. Cada desvío sustituye el dato por el valor parametrizado en CPPS y activa una bandera; en Java las banderas <code>W77-DESVIOA</code> a <code>W77-DESVIOH</code> son un <code>EnumSet&lt;Desvio&gt;</code> dentro del resultado. La rama de tipo de esquema inválido se tradujo por su efecto real y no por su forma, porque el IF de la línea 8556 llega con la clave ya reemplazada por la de desvío.",
+          "reglas": [
+            "RN-S151-063",
+            "RN-S151-079"
+          ],
+          "riesgo": "Con tipo de esquema distinto de 1 y 2 la clave original se reemplaza siempre por la clave de desvío, aunque exista en el catálogo; RN-S151-063 describe un desvío D solo cuando la clave no existe."
+        },
+        {
+          "id": "s5",
+          "titulo": "Fecha contable y sucursal iniciadora (desvíos A y B)",
+          "linea_ini": 8562,
+          "linea_fin": 8598,
+          "origen_codigo": "*    *************************************************************633600\n*    ** VALIDA QUE LA FECHA CONTABLE ESTE OK                    **633700\n*    *************************************************************633800\n     MOVE A00-R01-FECCONT TO WLI-DES-FECCONT.                     634000\n     IF A00-R01-FECCONT   =   WKS-FECHA-PROCESO                   634200\n        MOVE A00-R01-FECCONT TO RMC-FECHA RMCFS-FECHA             634400\n     ELSE                                                         634600\n        MOVE WKS-FECHA-PROCESO  TO RMC-FECHA RMCFS-FECHA          634700\n        MOVE 1                  TO W77-DESVIOA .                  634800\n*    *************************************************************635000\n*    ** VALIDA QUE LA SUCURSAL DE LA INICIATIVA ESTE OK         **635100\n*    *************************************************************635200\n     IF   W88-SIST-FORM4 MOVE 1      TO W77-INDTM                 635400\n     ELSE                MOVE W77-TM-ESQ TO W77-INDTM .           635500\n     IF WKS-PT-NATS028(W77-CVETRAN, W77-INDTM)   =   1   OR   2   635700\n        IF (A00-R01-SUC-INIC   >  ZERO   AND   <  10001)  OR      635800\n            W77-SISTEMA-PARAM   =   252                           635900\n              NEXT SENTENCE                                       636000\n        ELSE                                                      636100\n           IF W77-SISTEMA-PARAM   =   402   AND                   636200\n             (A00-R01-SUC-INIC    >   ZERO)                       636300\n              IF WKS-C209-EXISTE(A00-R01-SUC-INIC)   =   1        636400\n                 NEXT SENTENCE                                    636500\n              ELSE                                                636600\n                 MOVE 1 TO W77-DESVIOB                            636700\n           ELSE                                                   636800\n              MOVE 1 TO W77-DESVIOB .                             636900\n     MOVE WKS-PT-NATS028(W77-CVETRAN, W77-INDTM) TO               637100\n                                                 WLI-DES-AFEC028 .637200",
+          "java_codigo": "    void validaFechaYSucursal(ResultadoValidacion r, LocalDate fechaProceso) {\n        // Desvío A: la fecha contable distinta a la de proceso se sobrescribe, no se rechaza.\n        if (r.mov().fechaContable().equals(fechaProceso)) {\n            r.fechaContable(r.mov().fechaContable());\n        } else {\n            r.fechaContable(fechaProceso);\n            r.desvia(Desvio.A_FECHA);\n        }\n\n        int indTm = props.form4().contains(r.sistema()) ? 1 : r.tipoEsquema();   // W77-INDTM\n        int nat = cat.naturaleza028(r.clave(), indTm);                           // WKS-PT-NATS028\n        r.naturaleza028(nat);\n\n        if (nat == 1 || nat == 2) {\n            int suc = r.mov().sucursalIniciativa();\n            boolean enRango = suc > 0 && suc <= props.sucursalMaxima();          // < 10001\n            boolean bypass  = props.sinValidarSucursal().contains(r.sistema());  // 252\n            if (!enRango && !bypass) {\n                boolean ok402 = r.sistema() == 402 && suc > 0 && cat.existeEnC209(suc);\n                if (!ok402) r.desvia(Desvio.B_SUC_INICIATIVA);\n            }\n        }\n    }",
+          "racional": "La fecha contable que no coincide con la de proceso no rechaza el movimiento: se reemplaza por la fecha de proceso y queda registrada como desvío A para auditoría. La sucursal iniciadora solo se valida cuando la naturaleza contable de la clave es 1 o 2. El tope de 10000 sucursales, el bypass del sistema 252 y la excepción del 402 contra el catálogo C209 son constantes del código que pasan a <code>application.yml</code>. Para el sistema 402 el catálogo solo rescata sucursales fuera del rango numérico, porque las que están dentro ya se aceptaron antes.",
+          "reglas": [
+            "RN-S151-064",
+            "RN-S151-065",
+            "RN-S151-072"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Libro contable y centralización de sucursal promotora (desvíos F y C)",
+          "linea_ini": 8600,
+          "linea_fin": 8668,
+          "origen_codigo": "*    *****************************************                    637400\n*    ** VALIDA QUE EL LIBRO ESTE CATALOGADO **                    637500\n*    *****************************************                    637600\n     IF W88-SIST-CRED   OR   W88-SIST-CENTRAL                     637800\n        COMPUTE W77-INDLIB = A00-R01-IND-CONTA + 1                637900\n        MOVE A00-R01-MONEDA TO W77-INDMON                         638000\n        IF W77-INDLIB   <   99                                    638200\n           IF WKS-LIBRO-LM(W77-INDLIB, W77-INDMON) =              638300\n                                                 A00-R01-IND-CONTA638400\n              NEXT SENTENCE                                       638500\n           ELSE                                                   638600\n              MOVE WKS-LIBRO-DESVIO TO W77-LIBRO                  638700\n                                       DES-DEFLIBD                638800\n                                       WLI-DES-DEFLIBDZ9          638900\n                                       RMC-LIBRO-D RMCFS-LIBRO-D  639000\n                                       WKS-LIBRO-CONTABLE         639100\n                                       WKS-BITNF-LIBRO-CONTABLE   639110\n              COMPUTE W77-INDLIB = WKS-LIBRO-DESVIO + 1           639200\n              MOVE 1 TO W77-INDMON                                639300\n              MOVE 1                TO W77-DESVIOF                639400\n        ELSE                                                      639500\n           MOVE WKS-LIBRO-DESVIO TO W77-LIBRO                     639600\n                                    DES-DEFLIBD                   639700\n                                    WLI-DES-DEFLIBDZ9             639800\n                                    RMC-LIBRO-D RMCFS-LIBRO-D     639900\n                                    WKS-LIBRO-CONTABLE            640000\n                                    WKS-BITNF-LIBRO-CONTABLE      640010\n           COMPUTE W77-INDLIB = WKS-LIBRO-DESVIO + 1              640100\n           MOVE 1 TO W77-INDMON                                   640200\n           MOVE 1                TO W77-DESVIOF .                 640300\n*    ************************************************************ 640500\n*    ** VALIDA QUE LA SUC. PROM. ESTE OK Y MUEVE EL            ** 640600\n*    ** CENTRALIZADOR CONTABLE (PARA LOS SISTEMAS DE CREDITO)  ** 640700\n*    ************************************************************ 640800\n     IF WKS-PT-INDS254(W77-CVETRAN, W77-INDTM)   =   2            641000\n        IF WKS-IND-CENT-LM(W77-INDLIB,W77-INDMON) = 2 AND         641100\n           WKS-CENT-CONT-LM(W77-INDLIB,W77-INDMON) > 0            641200\n           MOVE WKS-CENT-CONT-LM(W77-INDLIB, W77-INDMON)          641300\n                                             TO W77-SUC-PROM      641400\n                                                RMC-SUC RMCFS-SUC 641500\n           MOVE ZERO                         TO RMC-CENTRA-D      641600\n                                                RMCFS-CENTRA-D    641610\n        ELSE                                                      641700\n           IF WKS-IND-CENT-LM(W77-INDLIB,W77-INDMON) = 2          641800\n              MOVE 1               TO W77-DESVIOC                 641900\n              MOVE WKS-SUCINI-DESVIO TO RMC-SUC RMCFS-SUC         642000\n              MOVE WKS-SUCINI-DESVIO TO W77-SUC-PROM              642100\n                                        RMC-CENTRA-D              642200\n                                        RMCFS-CENTRA-D            642210\n           ELSE                                                   642300\n              IF A00-R01-SUCPROM > ZERO   AND   < 10001           642400\n                 MOVE A00-R01-SUCPROM TO W77-SUC-PROM             642500\n                                         RMC-SUC RMCFS-SUC        642600\n                 MOVE ZERO            TO RMC-CENTRA-D             642700\n                                         RMCFS-CENTRA-D           642710\n              ELSE                                                642800\n              MOVE 1   TO W77-DESVIOC                             642900\n              MOVE WKS-SUCINI-DESVIO TO RMC-SUC     WKS-SIRH-DEPTO643000\n                                        RMCFS-SUC                 643010\n                                        W77-SUC-PROM              643100\n                                        WKS-BITNF-SIRH-DEPTO      643200\n                                        RMC-CENTRA-D              643300\n                                        RMCFS-CENTRA-D            643310\n     ELSE                                                         643400\n        NEXT SENTENCE.                                            643500",
+          "java_codigo": "    void validaLibroYCentralizacion(ResultadoValidacion r, Indices idx) {\n        if (props.sistemasCredito().contains(r.sistema()) || props.sistemasCentral().contains(r.sistema())) {\n            int libro = r.mov().indicadorContable();             // A00-R01-IND-CONTA 9(02)\n            int indLib = libro + 1;                               // W77-INDLIB es 9(02): 99 + 1 se volvía 00\n            int indMon = r.mov().moneda();\n            if (indLib < 99 && cat.libro(indLib, indMon) == libro) {\n                idx.fija(indLib, indMon);\n            } else {\n                r.libro(cat.libroDesvio());\n                idx.fija(cat.libroDesvio() + 1, 1);\n                r.desvia(Desvio.F_LIBRO);\n            }\n        }\n        // En COBOL, para los demás sistemas W77-INDLIB/W77-INDMON conservan el valor anterior.\n        // Aquí idx arranca vacío y se exige que esté fijado antes de usarlo.\n\n        if (cat.indicadorS254(r.clave(), r.indTm()) == 2) {\n            var lm = cat.libroMoneda(idx.requerido());           // WKS-IND-CENT-LM / WKS-CENT-CONT-LM\n            if (lm.centraliza() && lm.sucursalCentralizadora() > 0) {\n                r.sucursalPromotora(lm.sucursalCentralizadora());\n            } else if (lm.centraliza()) {\n                r.sucursalPromotora(cat.sucursalDesvio());\n                r.desvia(Desvio.C_SUC_PROMOTORA);\n            } else {\n                int suc = r.mov().sucursalPromotora();\n                if (suc > 0 && suc <= props.sucursalMaxima()) {\n                    r.sucursalPromotora(suc);\n                } else {\n                    r.sucursalPromotora(cat.sucursalDesvio());\n                    r.desvia(Desvio.C_SUC_PROMOTORA);\n                }\n            }\n        }\n    }",
+          "racional": "El libro solo se valida en los sistemas de crédito (402, 403, 404, 414) y en el central (252): debe existir en la tabla libro por moneda y, si no, se sustituye por el libro de desvío. Los índices que deja este bloque se reutilizan para decidir la sucursal centralizadora. En Java los índices son un objeto explícito por movimiento para que no se arrastre estado entre registros, y la suma de índice se hace en <code>int</code> para no heredar el desbordamiento de <code>PIC 9(02)</code>.",
+          "reglas": [
+            "RN-S151-066",
+            "RN-S151-067"
+          ],
+          "riesgo": "W77-INDLIB es PIC 9(02) y se calcula como IND-CONTA más 1 sin ON SIZE ERROR: un libro 99 da 00, pasa el filtro de menor que 99 y usa el subíndice 0. Además, en sistemas que no son de crédito ni central, el bloque de centralización usa los índices que dejó el movimiento anterior o la carga de catálogos."
+        },
+        {
+          "id": "s7",
+          "titulo": "Tipo de crédito catalogado (desvío E) y enrutamiento a DESVIOS",
+          "linea_ini": 8674,
+          "linea_fin": 8713,
+          "origen_codigo": "*    ********************************                             644100\n*    ** TIPO DE CREDITO CATALOGADO **                             644200\n*    ********************************                             644300\n     IF W88-SIST-CRED AND (W77-SISTEMA-PARAM NOT = 404 AND        644500\n                           W77-SISTEMA-PARAM NOT = 414)           644510\n        IF A00-R01-TIPOCREDITO   =   WKS-TC-DESVIO                644600\n           MOVE WKS-TC-DESVIO       TO W77-TIPOCRED               644700\n           MOVE A00-R01-TIPOCREDITO TO RMC-PRODUC-D RMCFS-PRODUC-D644800\n           MOVE 1                   TO W77-DESVIOE                644900\n        ELSE                                                      645000\n        IF A00-R01-TIPOCREDITO   >   ZERO   AND   <   100         645100\n           IF W77-SISTEMA-PARAM NOT = 403                         645110\n              IF WKS-NUM-TC(A00-R01-TIPOCREDITO)   >   ZERO       645200\n                 NEXT SENTENCE                                    645300\n              ELSE                                                645400\n                 MOVE WKS-TC-DESVIO       TO W77-TIPOCRED         645500\n                 MOVE A00-R01-TIPOCREDITO TO RMC-PRODUC-D         645600\n                                             RMCFS-PRODUC-D       645610\n                 MOVE 1                   TO W77-DESVIOE          645700\n           ELSE  NEXT SENTENCE                                    645710\n        ELSE                                                      645800\n              MOVE WKS-TC-DESVIO       TO W77-TIPOCRED            645900\n              MOVE A00-R01-TIPOCREDITO TO RMC-PRODUC-D            646000\n                                          RMCFS-PRODUC-D          646010\n              MOVE 1                   TO W77-DESVIOE .           646100\n     IF W88-SIST-FORM4                                            646300\n        PERFORM 22126-CONSULTA-CONV-PRD.                          646400\n     IF W88-DESVIOA   OR                                          646600\n        W88-DESVIOB   OR                                          646700\n        W88-DESVIOC   OR                                          646800\n        W88-DESVIOD   OR                                          646900\n        W88-DESVIOE   OR                                          647000\n        W88-DESVIOF   OR                                          647100\n        W88-DESVIOG   OR                                          647200\n        W88-DESVIOH                                               647300\n        PERFORM 21128-VALIDA-DESVIO .                             647500",
+          "java_codigo": "    void validaTipoCredito(ResultadoValidacion r) {\n        if (!props.sistemasCredito().contains(r.sistema())\n                || props.sinValidarTipoCredito().contains(r.sistema())) {   // 404 y 414\n            return;\n        }\n        int tc = r.tipoCredito();\n        boolean desvio;\n        if (tc == cat.tipoCreditoDesvio()) {\n            desvio = true;\n        } else if (tc > 0 && tc < 100) {\n            desvio = r.sistema() != 403 && cat.numTipoCredito(tc) == 0;     // 403 no consulta catálogo\n        } else {\n            desvio = true;\n        }\n        if (desvio) {\n            r.productoDesvio(tc);                       // RMC-PRODUC-D conserva el valor original\n            r.tipoCredito(cat.tipoCreditoDesvio());\n            r.desvia(Desvio.E_TIPO_CREDITO);\n        }\n    }\n\n    // fechaProceso: del ExecutionContext · desvios: DesviosWriter (archivo DESVIOS, reporte y contadores)\n\n    /** Cierre de 21125: si hubo cualquier desvío se escribe en DESVIOS y en el reporte (21128). */\n    public ResultadoValidacion valida(MovimientoLog151 mov, SlotContable slot) {\n        var r = ResultadoValidacion.de(mov, slot, props.sistema());\n        validaClave(r);\n        validaFechaYSucursal(r, fechaProceso);\n        validaLibroYCentralizacion(r, new Indices());\n        validaTipoCredito(r);\n        if (props.form4().contains(r.sistema())) conversionProducto(r);   // 22126-CONSULTA-CONV-PRD\n        if (!r.desvios().isEmpty()) desvios.registra(r);                  // contadores por letra para la alerta\n        return r;\n    }",
+          "racional": "El tipo de crédito se valida en los sistemas de crédito excepto 404 y 414. El sistema 403 solo revisa rango y valor de desvío, sin consultar el catálogo <code>WKS-NUM-TC</code>. Si hay al menos un desvío, el movimiento va al archivo DESVIOS y al reporte; la alerta ESENDAUTO no se dispara aquí sino al cerrar archivos (párrafo 21131, invocado desde 20500-CERRAR-ARCH), una vez por tipo de desvío con contador mayor que cero. En Java esa alerta es un <code>StepExecutionListener.afterStep</code> que lee los contadores.",
+          "reglas": [
+            "RN-S151-068",
+            "RN-S151-069"
+          ],
+          "riesgo": "El IF final evalúa W88-DESVIOH, pero ningún párrafo asigna W77-DESVIOH: el desvío H es código muerto."
+        }
+      ]
+    },
+    {
+      "titulo": "Escritura de salidas — CVETRAN, CVETRANE, PUNTEO y ATLAS",
+      "origen": {
+        "archivo": "COBOL_P130.txt",
+        "contexto": "PROCEDURE DIVISION · 21105-STATUS-UNO / 21049-CHECA-ATLAS / 21050-GRABA-ATLAS"
+      },
+      "java": {
+        "archivo": "CvetranWriter.java · AtlasCollector.java",
+        "contexto": "ClassifierCompositeItemWriter · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Registro CVETRAN, fideicomiso por sistema y el bloque del sistema 403",
+          "linea_ini": 8348,
+          "linea_fin": 8399,
+          "origen_codigo": " 21105-STATUS-UNO .                                               615800\n* =================                                               615900\n     MOVE A00-R01-TIPO-PROC TO W77-NPROCESO                   .   616100\n     IF  W88-NPROCESO                                             616300\n         MOVE A00-R01-TIPO-PROC TO RMC-CVE-REG                    616400\n                                   RMCFS-CVE-REG                  616410\n     ELSE                                                         616500\n         MOVE 1                 TO RMC-CVE-REG                    616600\n                                   RMCFS-CVE-REG              .   616610\n     MOVE A00-R01-MONEDA TO RMC-MONEDA RMCFS-MONEDA               616800\n     MOVE A00-R01-FONDO  TO RMC-INST-FONDO RMCFS-INST-FONDO       616900\n     IF NOT W88-SIST-FORM4                                        617100\n        MOVE WKS-PT-EVENTO(W77-CVETRAN, W77-TM-ESQ) TO RMC-EVENTO 617200\n                                                     RMCFS-EVENTO 617210\n     ELSE                                                         617220\n        MOVE 0                   TO RMCFS-EVENTO.                 617230\n     IF A00-R01-SISTEMA   =   402                                 617400\n        MOVE  A00-R01-FIDEICO402 TO RMC-FIDEICOMISO               617500\n                                    RMCFS-FIDEICOMISO             617510\n        MOVE  A00-R01-FIDEICO402 TO A00-R01-AGRU-FIDEICOMISO      617600\n     ELSE                                                         617700\n        IF A00-R01-SISTEMA =  707 OR 203                          617800\n           MOVE ZEROS            TO RMC-FIDEICOMISO               617900\n                                    RMCFS-FIDEICOMISO             617910\n                                    A00-R01-AGRU-FIDEICOMISO      618000\n        ELSE                                                      618100\n        MOVE  A00-R01-FIDEICO    TO RMC-FIDEICOMISO               618200\n                                    RMCFS-FIDEICOMISO             618210\n                                    A00-R01-AGRU-FIDEICOMISO  .   618300\n     WRITE REG-CVETRAN                                        .   618500\n     IF W88-SISTEMA-INT-FFS                                       618504\n        WRITE REG-CVETRANFS                                   .   618505\n     IF W77-SISTEMA-PARAM = 403                                   618510\n        MOVE  A00-R01-CTE-403 TO RMC-NUM-AUX                      618520\n                                 RMCFS-NUM-AUX                .   618525\n        MOVE  RMC-CVE-CAEB    TO RMC-CVE-AUT                      618530\n                                 RMCFS-CVE-AUT                .   618535\n        MOVE  RMC-CVE-AREA    TO RMC-PRODUC-D                     618540\n                                 RMCFS-PRODUC-D               .   618545\n        MOVE  RMC-CVE-INTERCOMPANY TO RMC-FEC-PART                618550\n                                      RMCFS-FEC-PART          .   618555\n        WRITE REG-CVETRANE  FROM REG-CVETRAN                  .   618560\n     PERFORM 21155-GRABA-PUNTEO                               .   618800",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CvetranWriter implements ItemWriter<ResultadoValidacion> {\n\n    private final FlatFileItemWriter<Cvetran> cvetran, cvetranE;\n    private final FlatFileItemWriter<CvetranFs> cvetranFs;\n    private final PunteoWriter punteo;                     // 21155-GRABA-PUNTEO\n    private final CatalogosContables cat;\n    private final P130Properties props;\n\n    @Override\n    public void write(Chunk<? extends ResultadoValidacion> chunk) throws Exception {\n        for (var r : chunk) {\n            if (r.mov().status() != 1) continue;\n            int tipoProc = r.mov().tipoProceso();\n            var reg = r.toCvetran()\n                    .cveRegistro(tipoProc >= 80 && tipoProc <= 89 ? tipoProc : 1)   // W88-NPROCESO\n                    .evento(props.form4().contains(r.sistema()) ? 0 : cat.evento(r.clave(), r.tipoEsquema()))\n                    .fideicomiso(fideicomiso(r));\n            cvetran.write(Chunk.of(reg));\n            if (props.integradoFfs().contains(r.sistema())) cvetranFs.write(Chunk.of(reg.toFs()));\n\n            // Comportamiento real del fuente: el punto de la línea 8390 cierra el IF del 403,\n            // así que CVETRANE se escribe para todos los sistemas.\n            var ext = reg.conAuxiliares403(r.sistema() == 403 ? r.mov().cliente403() : reg.numAux());\n            cvetranE.write(Chunk.of(ext));\n            punteo.agrega(r);\n        }\n    }\n\n    private long fideicomiso(ResultadoValidacion r) {\n        return switch (r.sistema()) {\n            case 402 -> r.mov().fideicomiso402();\n            case 707, 203 -> 0L;                               // internacional y transferencias\n            default -> r.mov().fideicomiso();\n        };\n    }\n}",
+          "racional": "Para cada slot con status 1 se arma el registro CVETRAN: la clave de registro toma el tipo de proceso solo si está entre 80 y 89, el evento sale del catálogo salvo en sistemas FORM4 y el fideicomiso depende del sistema. La escritura a varios archivos pasa a un <code>ItemWriter</code> que delega en un writer por salida. La traducción respeta lo que el compilador ejecuta y no lo que sugiere la indentación: el punto al final de la línea 8390 termina el IF del sistema 403.",
+          "reglas": [
+            "RN-S151-070",
+            "RN-S151-075",
+            "RN-S151-077",
+            "RN-S151-080"
+          ],
+          "riesgo": "Por el punto de la línea 8390 solo la asignación de RMC-NUM-AUX queda dentro del IF del 403. Los MOVE de CAEB, área e intercompany y el WRITE REG-CVETRANE corren para todos los sistemas, y CVETRANE se abre en ambas ramas de 20100-ABRIR-ARCHIVOS. RN-S151-077 lo describe como exclusivo del 403."
+        },
+        {
+          "id": "s9",
+          "titulo": "Archivo ATLAS de divisas para Mesa de Dinero (sistema 403)",
+          "linea_ini": 8175,
+          "linea_fin": 8212,
+          "origen_codigo": " 21049-CHECA-ATLAS .                                              605400\n* ==================                                              605500\n     IF A00-R01-STATUS    =     1   AND                           605700\n        A00-R01-SISTEMA   =   403                                 605800\n        IF A00-R01-MONEDA   NOT =   ZERO   AND                    606000\n                            NOT =      1   AND                    606100\n                            NOT =      3                          606200\n           PERFORM 21050-GRABA-ATLAS          .                   606400\n 21050-GRABA-ATLAS .                                              606600\n* ==================                                              606700\n     MOVE A00-R01-FOLIO-S403  TO WKS-R-ATL-FOLIO        .         606900\n     MOVE A00-R01-SUCPROM     TO WKS-R-ATL-SUCPROM      .         607000\n     MOVE A00-R01-CONTRATO    TO WKS-R-ATL-CUENTA       .         607100\n     MOVE A00-R01-IND-CONTA   TO WKS-R-ATL-BANCO        .         607200\n     MOVE A00-R01-MONEDA      TO WKS-R-ATL-MONEDA       .         607300\n     MOVE A00-R01-SUC-INIC    TO WKS-R-ATL-SUCTRAN      .         607400\n     MOVE A00-R01-TIPOCREDITO TO WKS-PROD-PASO          .         607500\n     MOVE WKS-FON-PASO        TO WKS-RATL-FON           .         607600\n     MOVE WKS-INS-PASO        TO WKS-RATL-INS           .         607700\n     IF A00-R01-CVETRAN1   =   11   OR   5                        607900\n        MOVE  A00-R01-CVETRAN1 TO   WKS-R-ATL-CVETRAN             608000\n        MOVE  A00-R01-IMPORTE1 TO   WKS-R-ATL-IMPORTE             608100\n        ADD   A00-R01-IMPORTE1 TO   WKS-TR-ATLAS-TOTIMP           608200\n        WRITE A01-REG-ATLAS    FROM WKS-REG-ATLAS                 608300\n        ADD   1                TO   WKS-TR-ATLAS-NUREG  .         608400\n     IF A00-R01-CVETRAN2   =   11   OR   5                        608600\n        MOVE  A00-R01-CVETRAN2 TO   WKS-R-ATL-CVETRAN             608700\n        MOVE  A00-R01-IMPORTE2 TO   WKS-R-ATL-IMPORTE             608800\n        ADD   A00-R01-IMPORTE2 TO   WKS-TR-ATLAS-TOTIMP           608900\n        WRITE A01-REG-ATLAS    FROM WKS-REG-ATLAS                 609000\n        ADD   1                TO   WKS-TR-ATLAS-NUREG  .         609100",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class AtlasCollector {\n\n    private final FlatFileItemWriter<RegistroAtlas> atlas;\n    private final P130Properties props;      // atlas.sistema: 403 · monedas-excluidas: [0, 1, 3] · claves: [11, 5]\n    private BigDecimal totalImporte = BigDecimal.ZERO.setScale(2);   // WKS-TR-ATLAS-TOTIMP\n    private long registros;                                          // WKS-TR-ATLAS-NUREG\n\n    void revisa(MovimientoLog151 mov) {\n        if (mov.status() != 1 || mov.sistema() != props.atlas().sistema()\n                || props.atlas().monedasExcluidas().contains(mov.moneda())) {\n            return;\n        }\n        var base = RegistroAtlas.de(mov);    // folio, sucursal promotora, cuenta, banco, moneda, fondo, instrumento\n        for (SlotContable s : mov.slots()) { // los cinco grupos CVETRAN1..CVETRAN5, sin corte por slot vacío\n            if (props.atlas().claves().contains(s.claveTransaccion())) {   // 11 compra, 5 venta\n                atlas.write(Chunk.of(base.con(s.claveTransaccion(), s.importe())));\n                totalImporte = totalImporte.add(s.importe());               // suma exacta en escala 2\n                registros++;\n            }\n        }\n    }\n}",
+          "racional": "El fuente repite cinco veces el mismo bloque, uno por cada grupo de la redefinición <code>A00-R01-CVEIMP-DE</code>; en Java es un ciclo sobre la lista de slots. A diferencia del recorrido contable, ATLAS revisa los cinco grupos sin detenerse en el primero vacío, lo que da el mismo resultado porque un slot vacío tiene clave cero. El sistema 403, las monedas excluidas 0, 1 y 3 y las claves 11 y 5 son constantes del código que pasan a propiedades.",
+          "reglas": [
+            "RN-S151-076"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Punto que cierra antes el IF del sistema 403",
+      "detalle": "En 21105-STATUS-UNO el punto al final de la línea 8390 termina el IF W77-SISTEMA-PARAM = 403. Las líneas 8391 a 8397, incluido WRITE REG-CVETRANE, se ejecutan para todos los sistemas, y RMC-FEC-PART recibe el intercompany fuera del 403. La indentación sugiere lo contrario."
+    },
+    {
+      "titulo": "Subíndice de libro con desbordamiento y estado arrastrado",
+      "detalle": "W77-INDLIB es PIC 9(02); COMPUTE W77-INDLIB = A00-R01-IND-CONTA + 1 (línea 8605) convierte el libro 99 en subíndice 00. En sistemas que no son de crédito ni central, el bloque de centralización (líneas 8638 a 8668) usa W77-INDLIB y W77-INDMON con el valor que dejó el registro anterior."
+    },
+    {
+      "titulo": "Clave válida reemplazada cuando el esquema es inválido",
+      "detalle": "Con tipo de esquema distinto de 1 y 2 (líneas 8552 a 8560) el programa marca desvío D y G de forma incondicional y el IF posterior evalúa la clave de desvío, no la original."
+    },
+    {
+      "titulo": "Código muerto y lógica comentada",
+      "detalle": "El desvío H se evalúa pero nunca se asigna. Hay IF comentados sobre W88-SISTEMA-ESQ-ETL en las líneas 6354, 8265, 8291 y 8312 que dejan activas las ramas ELSE, y un límite de depuración de 200 registros comentado en la línea 8038."
+    },
+    {
+      "titulo": "Límite del ciclo de tipos de crédito",
+      "detalle": "21107-TIPO-CRED itera hasta WKS-IND-10, que en 15080 recibe la última clave cargada del catálogo y no el máximo; si CPPS no entrega las claves en orden ascendente, las mayores no se buscan. En cada iteración sin coincidencia A00-R01-TIPOCREDITO se pone en cero."
+    },
+    {
+      "titulo": "Hardcodes de sistemas y rangos",
+      "detalle": "Sistemas 252, 402, 403, 404, 414, 707, 804 y 203, tope de sucursal 10000, monedas 0, 1 y 3 y claves 11 y 5 de ATLAS, nodo de impresión CSI por 100, y en 21104 producto e instrumento forzados a cero para la consulta S016. Todo pasa a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME si escribir CVETRANE para todos los sistemas es intencional o un defecto por el punto de la línea 8390; la regla RN-S151-077 lo describe como exclusivo del sistema 403.",
+    "Confirmar si algún sistema que no es de crédito ni central tiene claves con indicador S254 igual a 2; de ser así, la centralización depende de índices del registro anterior.",
+    "RN-S151-063 indica desvío D solo si la clave no existe; el fuente lo aplica siempre que el tipo de esquema es inválido. Revisar la redacción de la regla o el comportamiento esperado.",
+    "RN-S151-069 dice que la alerta ESENDAUTO se levanta en la primera ocurrencia de cada desvío; en el fuente se levanta al cierre (21131 desde 20500-CERRAR-ARCH) según contadores. Validar.",
+    "Los catálogos se cargan de CPPS vía librerías L700 y L710 cuyo contrato no viene en el fuente; la interfaz CatalogosContables es una propuesta.",
+    "No se revisaron en esta demostración la bitácora (30000), los totales por clave (35000), el agrupador (39000) ni el envío INTELAR."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-061",
+    "RN-S151-062",
+    "RN-S151-063",
+    "RN-S151-064",
+    "RN-S151-065",
+    "RN-S151-066",
+    "RN-S151-067",
+    "RN-S151-068",
+    "RN-S151-069",
+    "RN-S151-070",
+    "RN-S151-071",
+    "RN-S151-072",
+    "RN-S151-073",
+    "RN-S151-074",
+    "RN-S151-075",
+    "RN-S151-076",
+    "RN-S151-077",
+    "RN-S151-078",
+    "RN-S151-079",
+    "RN-S151-080",
+    "RN-S500-912",
+    "RN-S500-913",
+    "RN-S500-915",
+    "RN-S500-916",
+    "RN-S500-921",
+    "RN-S500-933",
+    "RN-S500-079",
+    "RN-S500-080",
+    "RN-S500-081",
+    "RN-S500-082",
+    "RN-S500-083",
+    "RN-S500-084",
+    "RN-S500-085",
+    "RN-S500-086",
+    "RN-S500-087",
+    "RN-S500-088",
+    "RN-S500-089",
+    "RN-S500-090",
+    "RN-S500-091",
+    "RN-S500-092",
+    "RN-S500-093",
+    "RN-S500-094",
+    "RN-S500-095",
+    "RN-S500-096",
+    "RN-S500-097",
+    "RN-S500-098",
+    "RN-S500-099",
+    "RN-S500-100",
+    "RN-S500-101",
+    "RN-S500-102",
+    "RN-S500-103",
+    "RN-S500-061",
+    "RN-S500-062",
+    "RN-S500-063",
+    "RN-S500-064",
+    "RN-S500-065",
+    "RN-S500-066",
+    "RN-S500-067",
+    "RN-S500-068",
+    "RN-S500-069",
+    "RN-S500-070",
+    "RN-S500-071"
+  ]
+}

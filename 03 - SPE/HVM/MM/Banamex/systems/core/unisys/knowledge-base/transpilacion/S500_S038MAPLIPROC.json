@@ -1,0 +1,129 @@
+{
+  "slug": "S500_S038MAPLIPROC",
+  "sistema": "S500",
+  "programa": "S038MAPLIPROC",
+  "nombre": "Capa COBOL de Invocación de la Instrumentación MAPLI",
+  "funcion": "Copybook de PROCEDURE que los programas batch de S500 incluyen con COPY para registrar en la librería de monitoreo MAPLI (S500L035) el inicio y fin del programa, sus actividades y su avance por registro.",
+  "resumen": "No declara datos ni tiene lógica de negocio: son siete párrafos independientes que el programa anfitrión ejecuta con PERFORM. El primero obtiene de CTLVERS el título vigente de la librería S500L035 y lo asigna; si falla, solo arma un mensaje de error y sigue. Los otros seis limpian WS-S038L035-RESULT, llaman a un entry point de S500L035 (inicio y fin de programa, inicio y fin de actividad, avance de un registro y total de registros de un dataset) y dejan el código de retorno para que el anfitrión decida.",
+  "arquetipo": "L",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch listeners · Micrometer",
+  "paquete_java": "mx.banamex.s500.monitoreo.mapli",
+  "secciones": [
+    {
+      "titulo": "Resolución de la librería MAPLI por control de versiones",
+      "origen": {
+        "archivo": "S500_INC_MAPLI_PRO.txt",
+        "contexto": "1000038-S038L035"
+      },
+      "java": {
+        "archivo": "MapliConfig.java · application.yml",
+        "contexto": "@Configuration · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "DAME_TIT de CTLVERS para ligar S500L035 a configuración del cliente",
+          "linea_ini": 16,
+          "linea_fin": 35,
+          "origen_codigo": " 1000038-S038L035.\n     MOVE ZEROS              TO S000-CTR-CVEERROR.\n     MOVE \"S500L035\"         TO S000-CTR-LIBID.\n     CALL \"DAME_TIT IN CTLVERS\"\n           USING      S000-CTR-LIBID\n                      S000-CTR-NOMLIB\n           GIVING     S000-CTR-CVEERROR.\n     IF S000-CTR-CVEERROR = 0\n        CHANGE ATTRIBUTE TITLE OF \"S500L035\"\n                               TO S000-CTR-NOMLIB\n     ELSE\n        MOVE 020901            TO WS-0101-CODI-MSG\n        MOVE 01                TO WS-0101-TIPO-MSG\n        MOVE S000-CTR-CVEERROR TO WS-MSG-N-02\n        STRING  \"ERROR EN CALL CTLVERS MAPLI (S500L035) \",\n                \" RESULT=\", WS-MSG-N-02\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.",
+          "java_codigo": "# application.yml  (el título de S500L035 deja de resolverse en tiempo de ejecución con CTLVERS)\nmapli:\n  habilitado: true\n  servicio: S500L035\n  version: ${MAPLI_VERSION}        # lo que antes devolvía DAME_TIT IN CTLVERS\n  falla-si-no-disponible: false    # comportamiento actual: solo se informa y el programa sigue\n\n// ---------------------------------------------------------------------------\n@Configuration\n@EnableConfigurationProperties(MapliProperties.class)\npublic class MapliConfig {\n\n    /** 1000038-S038L035: si no se puede resolver la versión, el COBOL informa y continúa. */\n    @Bean\n    MonitoreoAplicaciones monitoreoAplicaciones(MapliProperties p, MeterRegistry registry,\n                                                ObjectProvider<MapliRemoteClient> remoto) {\n        if (!p.habilitado()) return MonitoreoAplicaciones.NO_OP;\n        MapliRemoteClient cliente = remoto.getIfAvailable();\n        if (cliente == null || !cliente.disponible(p.version())) {\n            log.error(\"ERROR EN CALL CTLVERS MAPLI (S500L035) RESULT={}\",\n                      cliente == null ? \"SIN CLIENTE\" : cliente.ultimoError());   // WS-0101-CODI-MSG 020901\n            if (p.fallaSiNoDisponible()) throw new IllegalStateException(\"MAPLI no disponible\");\n        }\n        return new MapliMicrometerAdapter(registry, cliente);\n    }\n}",
+          "racional": "El párrafo pide al servicio de control de versiones el título vigente de la librería <code>S500L035</code> y con él cambia el <code>TITLE</code> antes del primer <code>CALL</code>, lo que permite desplegar una versión nueva de MAPLI sin recompilar a los anfitriones. En el destino la versión del servicio de monitoreo es configuración del despliegue y se inyecta un único <code>@Bean</code>. Se conserva la decisión actual de no detener el programa cuando el monitoreo no está disponible, y se deja una propiedad para endurecerla.",
+          "reglas": [],
+          "riesgo": "Si CTLVERS devuelve error, el TITLE de S500L035 no se cambia y el primer CALL liga la librería con el título que traiga declarado el anfitrión, que puede ser una versión distinta a la vigente; el único rastro es el mensaje 020901."
+        }
+      ]
+    },
+    {
+      "titulo": "Entry points de instrumentación a interfaz de servicio",
+      "origen": {
+        "archivo": "S500_INC_MAPLI_PRO.txt",
+        "contexto": "2000038-INI/FIN-PROG · INI/FIN-ACTI · ACTU-REG · NUM-REGS"
+      },
+      "java": {
+        "archivo": "MonitoreoAplicaciones.java · MapliMicrometerAdapter.java · MapliJobListener.java",
+        "contexto": "interface + @Component · JobExecutionListener · StepExecutionListener · ItemProcessListener"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Inicio de programa: alta en MAPLI y obtención del identificador",
+          "linea_ini": 44,
+          "linea_fin": 49,
+          "origen_codigo": " 2000038-INI-PROG-EN-MAPLI.\n     MOVE ZEROS           TO WS-S038L035-RESULT.\n     CALL \"S038L035_01_PROG_INI IN S500L035\"\n          USING WS-S038L035-01-ENTRADA\n                WS-S038L035-01-SALIDA\n          GIVING WS-S038L035-RESULT.",
+          "java_codigo": "/** Misma interfaz que exponía la librería S500L035 a través de este copybook. */\npublic interface MonitoreoAplicaciones {\n\n    /** S038L035_01_PROG_INI: WS-S038L035-01-ENTRADA -> ID-PROG-S 9(08). */\n    ResultadoMapli<Long> inicioPrograma(InicioPrograma entrada);\n\n    ResultadoMapli<Void>    finPrograma(long idPrograma);                         // _02_PROG_FIN\n    ResultadoMapli<Integer> inicioActividad(InicioActividad entrada);             // _03_ACTI_INI\n    ResultadoMapli<Void>    finActividad(long idPrograma, int numActividad);      // _04_ACTI_FIN\n    ResultadoMapli<Void>    avance(long idPrograma, int numActividad, String txt);// _05_ACTU_REG\n    ResultadoMapli<Long>    registrosDeDataset(String dataset, String base);      // _06_NUM_REGS\n\n    MonitoreoAplicaciones NO_OP = new NoOpMonitoreo();\n}\n\n/** WS-S038L035-01-ENTRADA (copybook de WORKING-STORAGE hermano). */\npublic record InicioPrograma(int numCopia, int dspInfo, int inicioGrupo,\n                             int numTipoProceso, String nomTipoProceso) {}   // X(40)\n\n/** El resultado nunca se evalúa en el copybook: se devuelve tal cual al anfitrión. */\npublic record ResultadoMapli<T>(long codigo, T valor) {          // WS-S038L035-RESULT\n    public boolean ok() { return codigo == 0; }\n}",
+          "racional": "Cada entry point de la librería se envuelve con el mismo patrón: poner el resultado en cero, hacer el <code>CALL ... IN S500L035</code> y dejar el código en <code>WS-S038L035-RESULT</code>. En el arquetipo de librería la traducción es una interfaz de servicio con un método por entry point, con los mismos parámetros de entrada y salida que declaran las estructuras <code>WS-S038L035-nn</code>, de modo que los programas migrados sigan llamando a las mismas seis operaciones. El identificador de programa que devuelve el alta se conserva como <code>long</code> porque es un número de 8 dígitos.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Fin de programa ligado al cierre del Job",
+          "linea_ini": 57,
+          "linea_fin": 61,
+          "origen_codigo": " 2000038-FIN-PROG-EN-MAPLI.\n     MOVE ZEROS           TO WS-S038L035-RESULT.\n     CALL \"S038L035_02_PROG_FIN IN S500L035\"\n          USING WS-S038L035-02-ENTRADA\n          GIVING WS-S038L035-RESULT.",
+          "java_codigo": "/** Los PERFORM 2000038-INI/FIN-PROG del anfitrión pasan a ser un listener del Job. */\n@Component\n@RequiredArgsConstructor\npublic class MapliJobListener implements JobExecutionListener {\n\n    private final MonitoreoAplicaciones mapli;\n\n    @Override\n    public void beforeJob(JobExecution job) {\n        var r = mapli.inicioPrograma(InicioPrograma.de(job.getJobParameters()));\n        if (r.ok()) job.getExecutionContext().putLong(\"mapli.idPrograma\", r.valor());\n        else log.warn(\"MAPLI inicio de programa RESULT={}\", r.codigo());   // el anfitrión decide\n    }\n\n    @Override\n    public void afterJob(JobExecution job) {\n        if (job.getExecutionContext().containsKey(\"mapli.idPrograma\")) {\n            mapli.finPrograma(job.getExecutionContext().getLong(\"mapli.idPrograma\"));\n        }\n    }\n}",
+          "racional": "El fin de programa solo envía el identificador obtenido en el alta. En COBOL cada anfitrión tiene que acordarse de ejecutar el <code>PERFORM</code> antes de <code>STOP RUN</code>; en Spring Batch se registra un <code>JobExecutionListener</code> una sola vez y el aviso de fin se envía también cuando el job termina con error, lo que hoy depende de cada programa.",
+          "reglas": [],
+          "riesgo": "Un programa que aborta con DMTERMINATE o STATUS -1 no llega a ejecutar 2000038-FIN-PROG-EN-MAPLI, por lo que MAPLI conserva programas abiertos que en realidad ya terminaron."
+        },
+        {
+          "id": "s4",
+          "titulo": "Inicio y fin de actividad ligados a cada Step",
+          "linea_ini": 70,
+          "linea_fin": 88,
+          "origen_codigo": " 2000038-INI-ACTI-EN-MAPLI.\n     MOVE ZEROS           TO WS-S038L035-RESULT.\n     CALL \"S038L035_03_ACTI_INI IN S500L035\"\n          USING WS-S038L035-03-ENTRADA\n                WS-S038L035-03-SALIDA\n          GIVING WS-S038L035-RESULT.\n 2000038-FIN-ACTI-EN-MAPLI.\n     MOVE ZEROS           TO WS-S038L035-RESULT.\n     CALL \"S038L035_04_ACTI_FIN IN S500L035\"\n          USING WS-S038L035-04-ENTRADA\n          GIVING WS-S038L035-RESULT.",
+          "java_codigo": "/** Una actividad MAPLI equivale a un Step de Spring Batch. */\n@Component\n@RequiredArgsConstructor\npublic class MapliStepListener implements StepExecutionListener {\n\n    private final MonitoreoAplicaciones mapli;\n\n    @Override\n    public void beforeStep(StepExecution step) {\n        long idProg = step.getJobExecution().getExecutionContext().getLong(\"mapli.idPrograma\", 0L);\n        if (idProg == 0) return;\n        var r = mapli.inicioActividad(new InicioActividad(\n                idProg,\n                step.getJobExecution().getExecutionContext().getLong(\"mapli.regsAProcesar.\" + step.getStepName(), 0L),\n                0, TipoActividad.de(step), 0,                         // NUM-ACTI-E: lo asigna MAPLI\n                Texto.ajusta(step.getStepName(), 40), \"\"));           // NOM-ACTI-E X(40)\n        if (r.ok()) step.getExecutionContext().putInt(\"mapli.numActividad\", r.valor());\n    }\n\n    @Override\n    public ExitStatus afterStep(StepExecution step) {\n        if (step.getExecutionContext().containsKey(\"mapli.numActividad\")) {\n            mapli.finActividad(step.getJobExecution().getExecutionContext().getLong(\"mapli.idPrograma\"),\n                               step.getExecutionContext().getInt(\"mapli.numActividad\"));\n        }\n        return step.getExitStatus();\n    }\n}",
+          "racional": "Los programas instrumentados dividen su proceso en actividades y avisan a MAPLI cuándo empieza y termina cada una, con el número de registros que piensan procesar para que el monitor pueda mostrar el avance. El equivalente natural en Spring Batch es el <code>Step</code>, y el aviso se hace en un <code>StepExecutionListener</code>. El nombre de la actividad se recorta a las 40 posiciones de <code>NOM-ACTI-E</code>.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Avance por registro con un contador en lugar de una llamada por registro",
+          "linea_ini": 97,
+          "linea_fin": 101,
+          "origen_codigo": " 2000038-ACTU-REG-EN-MAPLI.\n     MOVE ZEROS           TO WS-S038L035-RESULT.\n     CALL \"S038L035_05_ACTU_REG IN S500L035\"\n          USING WS-S038L035-05-ENTRADA\n          GIVING WS-S038L035-RESULT.",
+          "java_codigo": "/** S038L035_05_ACTU_REG se invoca una vez por registro procesado. */\n@Component\n@RequiredArgsConstructor\npublic class MapliAvanceListener implements ItemProcessListener<Object, Object>, ChunkListener {\n\n    private final MonitoreoAplicaciones mapli;\n    private final MeterRegistry registry;\n\n    @Override\n    public void afterProcess(Object in, Object out) {\n        registry.counter(\"mapli.registros\", \"step\", pasoActual()).increment();   // costo local\n    }\n\n    /** Al cerrar cada chunk se publica el avance acumulado a MAPLI. */\n    @Override\n    public void afterChunk(ChunkContext ctx) {\n        var step = ctx.getStepContext().getStepExecution();\n        mapli.avance(idPrograma(step), numActividad(step),\n                     \"LEIDOS \" + step.getReadCount() + \" ESCRITOS \" + step.getWriteCount());\n    }\n}",
+          "racional": "El entry point de avance suma un registro al total de la actividad y lo invoca el anfitrión por cada registro que procesa, lo que en un batch de millones de registros significa millones de llamadas entre librerías. La traducción conserva el conteo exacto con un contador local de Micrometer y publica el avance a MAPLI una vez por <code>chunk</code>. El dato final que ve el monitor es el mismo; cambia la granularidad de actualización, lo que debe validar el área de operación.",
+          "reglas": [],
+          "riesgo": "Este copybook no evalúa WS-S038L035-RESULT en ninguno de sus párrafos; si el anfitrión tampoco lo hace, una librería MAPLI caída pasa inadvertida y el monitoreo queda sin datos sin que nadie lo note."
+        },
+        {
+          "id": "s6",
+          "titulo": "Total de registros de un dataset para dimensionar la actividad",
+          "linea_ini": 110,
+          "linea_fin": 115,
+          "origen_codigo": " 2000038-NUM-REGS-EN-DATASET.\n     MOVE ZEROS           TO WS-S038L035-RESULT.\n     CALL \"S038L035_06_NUM_REGS IN S500L035\"\n          USING WS-S038L035-06-ENTRADA\n                WS-S038L035-06-SALIDA\n          GIVING WS-S038L035-RESULT.",
+          "java_codigo": "/** S038L035_06_NUM_REGS: DATASET-E X(17) y NOM-BASE-E X(57) -> NUM-REGS-S S9(11) BINARY. */\n@Component\n@RequiredArgsConstructor\nclass ConteoDataset {\n\n    private final JdbcTemplate jdbc;\n    private final Map<String, String> tablaPorDataset;   // mapli.datasets: S500B28COMICOB -> s500_comisiones_cobradas\n\n    /** En DMSII el total sale de la estructura; en relacional se usa la estadística, no un COUNT(*). */\n    long registros(String dataset, String base) {\n        String tabla = tablaPorDataset.get(dataset.strip());\n        if (tabla == null) return 0L;\n        Long n = jdbc.queryForObject(\n                \"select reltuples::bigint from pg_class where relname = ?\", Long.class, tabla);\n        return n == null ? 0L : n;\n    }\n}",
+          "racional": "El último entry point devuelve el número de registros de un dataset de una base para que la actividad se dé de alta con su total esperado. En DMSII ese dato es un atributo de la estructura y no implica leer los registros. En una base relacional el equivalente barato es la estadística del catálogo, por eso no se usa un <code>COUNT(*)</code> que recorrería la tabla completa; el ejemplo usa PostgreSQL y debe ajustarse al motor destino. El resultado solo alimenta el porcentaje de avance, así que una aproximación es aceptable.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Resultados nunca evaluados",
+      "detalle": "Los seis párrafos que llaman a S500L035 dejan el código en WS-S038L035-RESULT sin revisarlo; la evaluación depende de cada uno de los programas que incluyen el copybook."
+    },
+    {
+      "titulo": "Versión de librería no garantizada",
+      "detalle": "Si DAME_TIT falla (líneas 25-35) el programa sigue y liga S500L035 con el título que tenga declarado, posiblemente una versión no vigente."
+    },
+    {
+      "titulo": "Fin de programa no registrado en abortos",
+      "detalle": "El aviso de fin depende de que el anfitrión llegue a ejecutar 2000038-FIN-PROG-EN-MAPLI; los abortos por DMTERMINATE o STATUS -1 dejan el programa abierto en MAPLI."
+    },
+    {
+      "titulo": "Costo por registro",
+      "detalle": "2000038-ACTU-REG-EN-MAPLI implica una llamada entre librerías por cada registro procesado por el anfitrión."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario marca la fuente como inferida. Se confirmó por contenido: el archivo S500_INC_MAPLI_PRO.txt contiene los siete párrafos 1000038 y 2000038 que llaman a S500L035, que corresponden a S038MAPLIPROC. El comentario del encabezado lo nombra S500/INCLUDE/MAPLI/PROCEDURE/15MTP001, mientras que los anfitriones lo incluyen como S500/INC/MAPLI/PRO/15MTP001; confirmar que son el mismo objeto.",
+    "Confirmar con operación si publicar el avance a MAPLI una vez por chunk, en lugar de por registro, es aceptable para el tablero de monitoreo.",
+    "Los códigos de retorno de S500L035 no están en este archivo; revisar la librería S500_SOURCE_L035_MAPLI antes de definir qué códigos deben tratarse como error en Java.",
+    "El inventario no asocia reglas del brain a este componente."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

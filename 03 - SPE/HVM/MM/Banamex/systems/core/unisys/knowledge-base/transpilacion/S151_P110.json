@@ -1,0 +1,211 @@
+{
+  "slug": "S151_P110",
+  "sistema": "S151",
+  "programa": "P110",
+  "nombre": "Generador del archivo de la BIT (bitácora contable GL) para S500",
+  "funcion": "Paso batch o en línea de S151 (PROGRAM-ID S151-P110) que lee el LOG151 del día con sus datos complementarios, filtra los movimientos que corresponden a la BIT y escribe el archivo MOVSCIG de 1900 bytes que se transmite por WFL.",
+  "resumen": "Recibe por USING el tipo de proceso (1 línea, 2 batch) y el sistema. Carga en memoria el catálogo de parámetros de transacción y la tabla de clientes con su clave intercompany desde S080BD01CON. Recorre LOG151 y, cuando un movimiento tiene apuntador APUDES, lee su complemento en LOG151-COMP por la llave APUDES + 1. A los movimientos de función 1 con estatus 1 o 2 les asigna la clave intercompany del cliente; graba en MOVSCIG solo los de función 1 o 2, origen 1 o 3 y cuyo tipo de proceso coincide con el de la corrida. Al final escribe el trailer con registros, importes y claves, cierra y lanza el WFL de transmisión.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.bit",
+  "secciones": [
+    {
+      "titulo": "Archivos, parámetros de corrida y trailer de la BIT",
+      "origen": {
+        "archivo": "COBOL_P110.txt",
+        "contexto": "FILE-CONTROL · FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "BitFiles.java · CorridaBit.java · TrailerBit.java",
+        "contexto": "Resource · record · enum"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "LOG151 secuencial, complemento por llave relativa y MOVSCIG de 1900 bytes",
+          "linea_ini": 41,
+          "linea_fin": 156,
+          "origen_codigo": "      SELECT LOG151         ASSIGN TO DISK                        104000\n                            ACCESS MODE IS SEQUENTIAL.            104100\n      SELECT LOG151-COMP    ASSIGN TO DISK                        104200\n                            RESERVE 0 AREAS                       104300\n                            ORGANIZATION IS SEQUENTIAL            104400\n                            ACCESS MODE IS RANDOM                 104500\n                            ACTUAL KEY IS LOG-KEY.                104600\n      SELECT MOVSCIG        ASSIGN TO DISK.                       105200\n FD LOG151                                                        105700\n*=========                                                        105800\n    BLOCK CONTAINS             144 RECORDS                        105900\n    VALUE OF TITLE          IS WKS-TIT-LOGS151.                   106000\n                                                                  106100\n 01 REG-LOGS151                   PIC  X(450).                    106200\n FD LOG151-COMP                                                   109100\n*==============                                                   109200\n    BLOCK CONTAINS         120 RECORDS                            109300\n    VALUE OF TITLE WKS-TIT-DES151.                                109400\n                                                                  109500\n 01 REG-LOG-COMP                  PIC  X(540).                    109600\n                                                                  109700\n FD MOVSCIG                                                       109800\n*==========                                                       109900\n    VALUE OF AREAS IS 1000                                        110000\n    VALUE OF AREASIZE IS 6750                                     110100\n    BLOCK CONTAINS 27 RECORDS                                     110200\n    VALUE OF TITLE IS WKS-TIT-MOVSCIG.                            110300\n 01 REG-MOVSCIG                   PIC  X(1900).                   110400",
+          "java_codigo": "/** LOG151-COMP: ACCESS MODE IS RANDOM, ACTUAL KEY IS LOG-KEY (número relativo de registro). */\npublic final class ComplementoLog151 implements AutoCloseable {\n\n    private static final int LONGITUD = 540;          // REG-LOG-COMP PIC X(540)\n    private final FileChannel canal;\n\n    public ComplementoLog151(Path archivo) throws IOException {\n        this.canal = FileChannel.open(archivo, StandardOpenOption.READ);\n    }\n\n    /** READ ... INVALID KEY -> Optional.empty(). La llave es 1-based como en MCP. */\n    public Optional<byte[]> leer(long llave) throws IOException {\n        long pos = (llave - 1) * LONGITUD;\n        if (llave < 1 || pos + LONGITUD > canal.size()) return Optional.empty();\n        ByteBuffer buf = ByteBuffer.allocate(LONGITUD);\n        canal.read(buf, pos);\n        return Optional.of(buf.array());\n    }\n\n    @Override public void close() throws IOException { canal.close(); }\n}\n\n// LOG151 (X(450)) se lee con FlatFileItemReader de longitud fija y\n// MOVSCIG (X(1900)) se escribe con FlatFileItemWriter; los títulos físicos\n// (WKS-TIT-LOGS151, WKS-TIT-DES151, WKS-TIT-MOVSCIG) vienen de la librería de control.",
+          "racional": "LOG151 se procesa de forma secuencial y su archivo complementario se accede por número relativo de registro (<code>ACTUAL KEY IS LOG-KEY</code>), que en Java es un <code>FileChannel</code> con posicionamiento por llave multiplicada por la longitud del registro. Los títulos de los tres archivos no están compilados: se resuelven en tiempo de ejecución desde la librería de control del día, así que en la versión Java llegan como parámetros del job y no como literales.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Tipo de corrida por parámetro y tipo de movimiento por rango",
+          "linea_ini": 2281,
+          "linea_fin": 2053,
+          "origen_codigo": " 77 W77-TIPO-PROCESO              PIC 9(02).                      131710\n    88 W88-PROCESO-LINEA          VALUE 0 THRU  19.               131720\n    88 W88-PROCESO-BATCH          VALUE 20 THRU 99.               131730\n 77 W77-TIPO                      PIC 9(02).                      131740\n 88 W88-TIPO-LINEA                VALUE 1.                        131750\n 88 W88-TIPO-BATCH                VALUE 2.                        131760\n 01 WKS-PARAMETROS.                                               131770\n    03 WKS-PROCESO-PARAMETRO      PIC 9(02).                      131780\n    03 WKS-SISTEMA-PARAMETRO      PIC 9(03).                      131800\n 01 WKS-TR500-CIG.                                                050000\n    03 WKS-TR500-TIPO-REG            PIC  X(01)      VALUE \"9\".   050100\n    03 WKS-TR500-TOT-REG             PIC  9(13)      VALUE ZEROES.050200\n    03 WKS-TR500-TOT-IMP             PIC  9(16)V9(2) VALUE ZEROES.050300\n    03 WKS-TR500-TOT-CVES            PIC  9(08)      VALUE ZEROES.050400\n    03 FILLER                        PIC  X(1860)    VALUE SPACES.050500",
+          "java_codigo": "/** WKS-PARAMETROS: PROCEDURE DIVISION USING WKS-PARAMETROS. */\npublic record CorridaBit(TipoCorrida tipo, int sistema) {\n\n    /** W77-TIPO: 1 = línea, 2 = batch (niveles 88 W88-TIPO-LINEA / W88-TIPO-BATCH). */\n    public enum TipoCorrida { LINEA, BATCH;\n        static TipoCorrida de(int v) {\n            return switch (v) { case 1 -> LINEA; case 2 -> BATCH;\n                default -> throw new IllegalArgumentException(\"Tipo de proceso no soportado: \" + v); };\n        }\n    }\n\n    /** W77-TIPO-PROCESO del movimiento: 0..19 línea, 20..99 batch. */\n    public static TipoCorrida delMovimiento(int tipoProc) {\n        return tipoProc <= 19 ? TipoCorrida.LINEA : TipoCorrida.BATCH;\n    }\n}\n\n/** WKS-TR500-CIG: trailer tipo \"9\" de la BIT. */\npublic record TrailerBit(long registros,          // 9(13)\n                         BigDecimal importe,       // 9(16)V9(2) -> escala 2\n                         long claves) {            // 9(08)\n    public static TrailerBit vacio() { return new TrailerBit(0, BigDecimal.ZERO.setScale(2), 0); }\n}",
+          "racional": "La coherencia línea y batch depende de dos codificaciones distintas: el parámetro de la corrida vale 1 o 2, mientras que el tipo de proceso del movimiento es un rango (0 a 19 línea, 20 a 99 batch). Se modelan con un <code>enum</code> y una función de clasificación para que la comparación sea explícita. El trailer acumula registros, importe con escala 2 y número de claves; se traduce a un <code>record</code> inmutable.",
+          "reglas": [
+            "RN-S151-785"
+          ],
+          "riesgo": "Un parámetro distinto de 1 o 2 no enciende ni W88-TIPO-LINEA ni W88-TIPO-BATCH y la corrida termina sin grabar movimientos, con un archivo que solo trae header y trailer."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del programa y lectura de LOG151 con su complemento",
+      "origen": {
+        "archivo": "COBOL_P110.txt",
+        "contexto": "PROCEDURE DIVISION · 000000 / 100000 / 200000"
+      },
+      "java": {
+        "archivo": "BitJobConfig.java · Log151ConComplementoReader.java",
+        "contexto": "Spring Batch Job · ItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Programa principal a Job con step de catálogos y step de grabado",
+          "linea_ini": 2355,
+          "linea_fin": 2390,
+          "origen_codigo": " PROCEDURE DIVISION USING WKS-PARAMETROS.                         136800\n 000000-PROGRAMA.                                                 136900\n*================                                                 137000\n     PERFORM                      100000-INICIO                   137100\n     PERFORM                      200000-PROCESO                  137200\n     PERFORM                      600000-FIN                      137300\n     STOP RUN                                                    .137400\n 100000-INICIO.                                                   138800\n*==============                                                   138900\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\"    TO                   139000\n        \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".          139100\n     MOVE WKS-PROCESO-PARAMETRO   TO  W77-TIPO                    139110\n                                      WKS-TIPO-PROC               139115\n                                      WKS-TIPO-INF.               139120\n     MOVE \"S151\"                  TO  SISTEMA-LJ                  139300\n     MOVE \"P110\"                  TO  PASO-LJ                     139400\n     MOVE \"001\"                   TO  MTP-LJ                      139500\n     MOVE \"I\"                     TO  TIPO-LJ                     139600\n     MOVE 020101                  TO  CODIGO-LJ                   139700\n                                                                  139800\n     PERFORM                      110000-INICIO-PROGRAMA          139900\n     PERFORM                      120000-CARGA-CATALOGOS          140000\n     PERFORM                      130000-OBTEN-TIT940            .140100",
+          "java_codigo": "@Configuration\npublic class BitJobConfig {\n\n    @Bean\n    Job movsBit(JobRepository repo, Step controlDelDia, Step cargaCatalogos,\n                Step grabaBit, Step enviaBit) {\n        return new JobBuilder(\"S151P110\", repo)\n                .start(controlDelDia)     // 110000-INICIO-PROGRAMA: fechas, títulos, header\n                .next(cargaCatalogos)     // 120000-CARGA-CATALOGOS: transacciones y clientes\n                .next(grabaBit)           // 200000-PROCESO: LOG151 -> filtro -> MOVSCIG\n                .next(enviaBit)           // 600000-FIN + 700000-ENVIA-BIT (WFL)\n                .build();\n    }\n\n    @Bean\n    @JobScope\n    CorridaBit corrida(@Value(\"#{jobParameters['tipoProceso']}\") Integer tipo,\n                       @Value(\"#{jobParameters['sistema']}\") Integer sistema) {\n        return new CorridaBit(CorridaBit.TipoCorrida.de(tipo), sistema);   // WKS-PARAMETROS\n    }\n}",
+          "racional": "El programa tiene tres bloques (inicio, proceso y fin) y el inicio a su vez carga control del día, catálogos y el título del WFL. Cada bloque pasa a un <code>Step</code>. Los parámetros que llegan por <code>USING WKS-PARAMETROS</code> se reciben como <code>JobParameters</code>. El cambio de título de <code>LIB-DISP</code> a la librería de despliegue del S000 desaparece porque la bitácora pasa a un logger estándar.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Lectura del primer movimiento y camino S016 desactivado",
+          "linea_ini": 2801,
+          "linea_fin": 2832,
+          "origen_codigo": " 200000-PROCESO.                                                  170700\n*===============                                                  170800\n*    OPEN    INPUT                ARS016-SORTED                   170900\n*    COMPUTE W77-LASTRECORD       =                               171000\n*           (ATTRIBUTE LASTRECORD OF ARS016-SORTED                171100\n*                                 +   1)                          171200\n*    IF W77-LASTRECORD            <   500                         171300\n*       MOVE 1                    TO  W77-ACCESO                  171400\n*       PERFORM                   210000-CARGA-MEMORIA            171500\n*    ELSE                                                         171600\n*       MOVE 2                    TO  W77-ACCESO                  171700\n*       PERFORM                   220000-CARGA-ARCHIVO            171800\n*       OPEN I-O  ARCH-KEY-S016                                  .171900\n                                                                  172000\n*    CLOSE ARS016-SORTED          WITH RELEASE                    172100\n     OPEN INPUT   LOG151                                          172200\n                  LOG151-COMP                                     172300\n     MOVE ZEROS                   TO  W77-EOF                     172400\n     READ LOG151          INTO        A01-R01-DATOS               172500\n          AT END                                                  172600\n             MOVE 1               TO  W77-EOF                    .172700\n                                                                  172800\n     IF W77-EOF                   =   0                       AND 172900\n        A00-R01-APUDES            >   0                           173000\n        COMPUTE LOG-KEY           =   A00-R01-APUDES              173100\n                                  +   1                           173200\n        READ LOG151-COMP  INTO        A01-R02-TESOFE              173300\n             INVALID KEY                                          173400\n             MOVE 1               TO  W77-ERROR-BIT              .173500\n                                                                  173690\n     PERFORM                      230000-ESCOGE-MOVS              173700\n                      UNTIL       W77-EOF >   0                  .173800",
+          "java_codigo": "/** Combina cada movimiento de LOG151 con su complemento (APUDES + 1). */\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class Log151ConComplementoReader implements ItemStreamReader<MovimientoLog151> {\n\n    private final FlatFileItemReader<RegistroLog151> log151;\n    private final ComplementoLog151 complemento;\n\n    @Override\n    public MovimientoLog151 read() throws Exception {\n        RegistroLog151 r = log151.read();\n        if (r == null || r.funcion() == 99) return null;          // fin de archivo o función 99\n        Optional<byte[]> comp = Optional.empty();\n        if (r.apudes() > 0) {\n            comp = complemento.leer(r.apudes() + 1);              // COMPUTE LOG-KEY = APUDES + 1\n            if (comp.isEmpty()) {\n                log.warn(\"Complemento inexistente para APUDES {}\", r.apudes());   // W77-ERROR-BIT\n            }\n        }\n        return new MovimientoLog151(r, comp.map(Complemento::parse).orElse(null));\n    }\n}\n\n// El camino que cargaba ARS016-SORTED en memoria (menos de 500 contratos) o en\n// ARCH-KEY-S016 (500 o más) está comentado en el fuente y no se traduce.",
+          "racional": "El proceso abre LOG151 y su complemento, lee el primer movimiento y, si trae <code>A00-R01-APUDES</code> mayor a cero, lee el complemento en la llave <code>APUDES + 1</code>. El ciclo termina al fin de archivo o al encontrar un movimiento de función 99. En Java se encapsula en un <code>ItemReader</code> que entrega el movimiento ya combinado. El bloque que cargaba el archivo S016 clasificado en el paso 108 en memoria o en disco está comentado completo, así que no se migra y se documenta como camino retirado.",
+          "reglas": [
+            "RN-S151-782",
+            "RN-S151-784"
+          ],
+          "riesgo": "La primera lectura usa INTO A01-R01-DATOS (línea 2819), mientras las siguientes usan INTO A00-R01-REGMOV (línea 2896). El primer registro de LOG151 no llega al área de movimiento y nunca se evalúa; también el primer complemento se lee en A01-R02-TESOFE."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de selección, intercompany y armado del registro BIT",
+      "origen": {
+        "archivo": "COBOL_P110.txt",
+        "contexto": "PROCEDURE DIVISION · 230000 / 231000 / 21016 / 30100 / 30190 / 600000"
+      },
+      "java": {
+        "archivo": "BitItemProcessor.java · IntercompanyService.java · BitMapper.java",
+        "contexto": "ItemProcessor · JPA @Transactional(readOnly) · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Filtro de función, origen y coherencia línea o batch",
+          "linea_ini": 2875,
+          "linea_fin": 2910,
+          "origen_codigo": " 230000-ESCOGE-MOVS.                                              178100\n*===================                                              178200\n     MOVE ZEROS                   TO  WKS-CLAVE-CIA               178300\n     IF A00-R01-FUNCION           =   1                       AND 178400\n        (A00-R01-STATUS           =   1   OR  2)                  178500\n        PERFORM                   231000-CARGA-INTERCOMPANY      .178600\n     MOVE A00-R01-TIPO-PROC       TO W77-TIPO-PROCESO            .178700\n     IF (W88-TIPO-LINEA                                       AND 178730\n         W88-PROCESO-LINEA)       OR                              178740\n        (W88-TIPO-BATCH                                       AND 178750\n         W88-PROCESO-BATCH)                                       178760\n        IF (A00-R01-FUNCION       =   1   OR  2)              AND 178800\n           (A00-R01-ORIGEN        =   1   OR  3)                  178900\n           PERFORM                   232000-GRABA-MOVSCIG        .179000\n     READ LOG151              INTO    A00-R01-REGMOV              179200\n       AT END                                                     179300\n          MOVE 1                  TO  W77-EOF                    .179400\n                                                                  179500\n     IF W77-EOF                   =   0                       AND 179600\n        A00-R01-APUDES            >   0                           179700\n        COMPUTE LOG-KEY           =   A00-R01-APUDES              179800\n                                  +   1                           179900\n        READ LOG151-COMP      INTO    A01-R01-DATOS               180000\n             INVALID KEY                                          180100\n              MOVE 1              TO  W77-ERROR-BIT              .180200\n                                                                  180300\n     IF W77-EOF                   =   0                           180400\n        IF A00-R01-FUNCION        =   99                          180500\n           MOVE 1                 TO  W77-EOF                    .180600",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class BitItemProcessor implements ItemProcessor<MovimientoLog151, RegistroBit> {\n\n    private final CorridaBit corrida;\n    private final IntercompanyService intercompany;\n    private final BitMapper mapper;\n\n    @Override\n    public RegistroBit process(MovimientoLog151 m) {\n        Integer claveCia = 0;                                            // MOVE ZEROS TO WKS-CLAVE-CIA\n        if (m.funcion() == 1 && (m.status() == 1 || m.status() == 2)) {\n            claveCia = intercompany.claveDe(m.cliente(), m.contrato());  // 231000-CARGA-INTERCOMPANY\n        }\n        boolean coherente = CorridaBit.delMovimiento(m.tipoProc()) == corrida.tipo();\n        boolean funcionValida = m.funcion() == 1 || m.funcion() == 2;\n        boolean origenValido  = m.origen() == 1 || m.origen() == 3;     // cambio R08-001\n\n        if (!(coherente && funcionValida && origenValido)) {\n            return null;                                                 // no va a la BIT\n        }\n        return mapper.aBit(m, claveCia);                                 // 232000-GRABA-MOVSCIG\n    }\n}",
+          "racional": "Las tres reglas del filtro conviven en un mismo párrafo: primero se resuelve la clave intercompany para función 1 con estatus activo o pendiente, después se exige que el tipo de proceso del movimiento coincida con el de la corrida y, por último, que la función sea 1 o 2 y el origen 1 o 3. En el arquetipo A2 esto es un <code>ItemProcessor</code> que devuelve <code>null</code> para filtrar. Se respeta el orden: la búsqueda intercompany ocurre aunque el movimiento después sea descartado.",
+          "reglas": [
+            "RN-S151-781",
+            "RN-S151-783",
+            "RN-S151-785"
+          ],
+          "riesgo": "Un movimiento con función 99 corta el archivo: los registros que vengan después en LOG151 no se procesan."
+        },
+        {
+          "id": "s6",
+          "titulo": "Búsqueda intercompany en la tabla de clientes sin salida anticipada",
+          "linea_ini": 2078,
+          "linea_fin": 3797,
+          "origen_codigo": " 01  WKS-TAB-CLIENTES.                                            114320\n     02  WKS-CLIENTES-BU           OCCURS 2500 TIMES.             114325\n         03  WKS-TAB-CLIENTE       PIC 9(12) COMP.                114330\n         03  WKS-TAB-INBU          PIC 9(05).                     114335\n         03  WKS-TAB-UNIN          PIC X(05).                     114340\n                                                                  114345\n 77 W77-TOTAL-CL                   PIC 9(04).                     114350\n 77  W77-SALIDA                   PIC  9(001) VALUE 0.            130900\n 231000-CARGA-INTERCOMPANY.                                       180800\n*==========================                                       180900\n     MOVE ZERO                    TO  W77-BUSCA                   181000\n     IF A00-R01-CONTRATO          >   0                           181100\n        PERFORM 21016-BUSCA-CLIENTE                               181120\n                VARYING W77-BUSCA FROM 1 BY 1                     181140\n                UNTIL   W77-BUSCA > W77-TOTAL-CL OR               181160\n                        W77-BUSCA > 5000.                         181180\n 21016-BUSCA-CLIENTE.                                             214000\n*===================                                              215000\n     IF WKS-TAB-CLIENTE(W77-BUSCA) = A00-R01-CLIENTE              216000\n        MOVE 5001                       TO W77-SALIDA             217000\n        MOVE WKS-TAB-INBU(W77-BUSCA)    TO WKS-CLAVE-CIA.         218000",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class IntercompanyService {\n\n    private final ClienteIntercompanyRepository repo;   // catálogo S080BD01CON (L710_CONSUL_DETALLE)\n    private Map<Long, Integer> porCliente;              // WKS-TAB-CLIENTES\n\n    @PostConstruct\n    @Transactional(readOnly = true)\n    void carga() {\n        // En COBOL la tabla es OCCURS 2500 y la carga no tiene tope.\n        // Si hay clientes repetidos gana el último, igual que el recorrido completo del fuente.\n        porCliente = repo.findAllVigentes().stream()\n                .collect(Collectors.toMap(ClienteIntercompany::cliente,\n                                          ClienteIntercompany::inbu,\n                                          (primero, ultimo) -> ultimo));\n    }\n\n    /** 21016-BUSCA-CLIENTE: la búsqueda es por cliente aunque la guarda pregunta por contrato. */\n    public int claveDe(long cliente, long contrato) {\n        if (contrato <= 0) return 0;\n        return porCliente.getOrDefault(cliente, 0);\n    }\n}",
+          "racional": "La clave intercompany se resuelve hoy contra una tabla de clientes cargada del catálogo <code>S080BD01CON</code>, no contra el archivo S016 que describe el diseño original. El recorrido es lineal y, como el párrafo de búsqueda mueve 5001 a <code>W77-SALIDA</code> en lugar de a la variable de control, no se detiene al encontrar el cliente: recorre toda la tabla y se queda con la última coincidencia. En Java un <code>Map</code> da el mismo resultado en tiempo constante, con la regla de que en duplicados gana el último.",
+          "reglas": [
+            "RN-S151-783"
+          ],
+          "riesgo": "La tabla es OCCURS 2500 pero el ciclo admite hasta 5000 y 12610-CARGA-CLIENTES no tiene tope: con más de 2500 clientes el subíndice se sale de la tabla. W77-SALIDA es PIC 9(001), así que MOVE 5001 deja 1 y no se usa en ninguna condición."
+        },
+        {
+          "id": "s7",
+          "titulo": "Mapeo a BIT500, acumulación de importes y complemento",
+          "linea_ini": 3142,
+          "linea_fin": 3356,
+          "origen_codigo": " 30100-GRABA-BIT.                                                 011000\n*================                                                 011100\n    MOVE \"5\"                        TO A00-BIT500-TIPO-REG       .011200\n    MOVE A00-R01-FUNCION            TO A00-BIT500-FUNCION        .011300\n    MOVE A00-R01-SISTEMA            TO A00-BIT500-SISTEMA        .011400\n    MOVE A00-R01-PRODUCTO           TO A00-BIT500-PRODUCTO       .011500\n    MOVE A00-R01-INSTRUMENTO        TO A00-BIT500-INSTRUMENTO    .011600\n    MOVE A00-R01-SUCPROM            TO A00-BIT500-SUCPROM        .011700\n    MOVE A00-R01-CONTRATO           TO A00-BIT500-CONTRATO       .011800\n    MOVE A00-R01-CVETRAN1           TO A00-BIT500-CVETRAN (1)    .011900\n    MOVE A00-R01-INDLEY1            TO A00-BIT500-INDLEY  (1)    .012000\n    MOVE A00-R01-ESQCON1            TO A00-BIT500-ESQCON  (1)    .012100\n    MOVE A00-R01-IMPORTE1           TO A00-BIT500-IMPORTE (1)    .012200\n    ADD  A00-R01-IMPORTE1           TO WKS-TR500-TOT-IMP         .012300\n    IF A00-R01-APUDES > 0                                         040100\n       MOVE A01-R01-NOMINA-FUN1     TO A00-BIT500-NOMINA-FUN1     040200\n       MOVE A01-R01-NOMINA-FUN2     TO A00-BIT500-NOMINA-FUN2     040300\n       MOVE A01-R01-CONT-ORIG       TO A00-BIT500-CONT-ORIG       040400\n       MOVE A01-R01-REF23POS        TO A00-BIT500-REF23POS        040420\n       MOVE A01-R01-COMPREF         TO A00-BIT500-COMPREF   .     040440\n    MOVE ZERO                       TO W77-ERROR-BIT.             040500\n    IF A01-R01-APUDES > 0                                         042132\n       MOVE A01-R01-APUDES   TO REGISTRO                          042134\n       COMPUTE LOG-KEY = A01-R01-APUDES + 1                       042136\n       READ LOG151-COMP      INTO A01-R01-DATOS                   042140\n         INVALID KEY                                              042144\n           MOVE 1        TO REG-02                                042148\n           MOVE LOW-VALUES TO A01-R01-DATOS.                      042150\n    WRITE REG-MOVSCIG FROM  A00-BIT500-REGMOV.                    042300\n    ADD 1                              TO WKS-TR500-TOT-REG.      042400",
+          "java_codigo": "@Component\npublic class BitMapper {\n\n    private TrailerBit trailer = TrailerBit.vacio();\n\n    public RegistroBit aBit(MovimientoLog151 m, int claveCia) {\n        var b = RegistroBit.builder()\n                .tipoReg('5')\n                .funcion(m.funcion()).sistema(m.sistema())\n                .producto(m.producto()).instrumento(m.instrumento())\n                .sucProm(m.sucProm())\n                .contrato(m.contratoTexto())                 // número de contrato como String\n                .claveIntercompany(claveCia);\n        BigDecimal suma = BigDecimal.ZERO.setScale(2);\n        for (int i = 0; i < 5; i++) {                        // CVETRAN1..5, INDLEY, ESQCON, IMPORTE\n            var g = m.grupo(i);\n            b.grupo(i, g.cveTran(), g.indLey(), g.esqCon(), g.importe());\n            suma = suma.add(g.importe());                    // ADD A00-R01-IMPORTEn TO WKS-TR500-TOT-IMP\n        }\n        if (m.apudes() > 0 && m.complemento() != null) {\n            b.datosComplemento(m.complemento());             // nómina, contrato origen, referencias\n        }\n        trailer = new TrailerBit(trailer.registros() + 1, trailer.importe().add(suma), trailer.claves());\n        return b.build();\n    }\n}",
+          "racional": "Cada movimiento seleccionado se reescribe en el layout <code>A00-BIT500-REGMOV</code> de 1900 bytes con sus cinco grupos de clave, leyenda, esquema contable e importe, y los cinco importes se suman al total del trailer sin distinguir cargo de abono. Si el movimiento tiene apuntador, se copian los datos del complemento; si el complemento trae a su vez apuntador, se lee un segundo complemento en <code>A01-R01-APUDES + 1</code>. El acumulado del trailer vive en el componente con alcance de step, igual que los 77 del fuente.",
+          "reglas": [
+            "RN-S151-784"
+          ],
+          "riesgo": "W77-ERROR-BIT se enciende cuando el complemento no existe, pero 30100-GRABA-BIT lo pone en cero (línea 3276) sin consultarlo. El movimiento se graba igual, con los datos de complemento del registro anterior si el área no se limpió."
+        },
+        {
+          "id": "s8",
+          "titulo": "Conteo de claves activas por movimiento",
+          "linea_ini": 2981,
+          "linea_fin": 3140,
+          "origen_codigo": "     MOVE ZERO                    TO  W77-BIT-SALIDA              187300\n     PERFORM                      30190-CUENTA-CVES               187400\n                      VARYING     W77-IND FROM 1 BY 1             187500\n                      UNTIL       W77-IND >    5              OR  187600\n                                  W77-BIT-SALIDA = 1             .187700\n 30190-CUENTA-CVES.                                               009555\n*==================                                               009600\n    IF A00-BIT500-FUNCION = 1                                     009700\n       IF A00-BIT500-CVETRAN(W77-IND) = 0 AND                     009800\n          A00-BIT500-IMPORTE(W77-IND) = 0                         009900\n          IF W77-IND = 1                                          010000\n             ADD 1                  TO WKS-TR500-TOT-CVES         010100\n          ELSE                                                    010200\n             MOVE 1                 TO W77-BIT-SALIDA             010300\n       ELSE                                                       010400\n          ADD 1                     TO WKS-TR500-TOT-CVES         010500\n    ELSE                                                          010600\n       MOVE 1                       TO W77-BIT-SALIDA             010700\n       ADD 1                        TO WKS-TR500-TOT-CVES.        010800",
+          "java_codigo": "/** 30190-CUENTA-CVES con PERFORM VARYING W77-IND 1..5 UNTIL W77-BIT-SALIDA = 1. */\nstatic int clavesParaTrailer(RegistroBit b) {\n    if (b.funcion() != 1) {\n        return 1;                                  // función distinta de 1: cuenta una y sale\n    }\n    int claves = 0;\n    for (int i = 0; i < 5; i++) {\n        var g = b.grupo(i);\n        boolean vacio = g.cveTran() == 0 && g.importe().signum() == 0;\n        if (vacio) {\n            if (i == 0) { claves++; continue; }    // el primer grupo cuenta aunque venga vacío\n            break;                                 // primer grupo vacío posterior: termina\n        }\n        claves++;\n    }\n    return claves;\n}",
+          "racional": "El trailer no cuenta registros sino claves de transacción. Para función 1 recorre los cinco grupos y se detiene en el primer grupo vacío a partir del segundo; el primero se cuenta siempre. Para cualquier otra función cuenta una sola clave. La traducción replica el ciclo con salida anticipada, que es exactamente lo que hace <code>UNTIL W77-BIT-SALIDA = 1</code>.",
+          "reglas": [],
+          "riesgo": "Un grupo vacío en medio (por ejemplo el 2) oculta los grupos 3 a 5 aunque tengan importe; el total de claves del trailer queda corto."
+        },
+        {
+          "id": "s9",
+          "titulo": "Trailer, cierre y transmisión por WFL",
+          "linea_ini": 3463,
+          "linea_fin": 3476,
+          "origen_codigo": " 600000-FIN.                                                      188900\n*===========                                                      189000\n     WRITE REG-MOVSCIG    FROM        WKS-TR500-CIG               189100\n     IF W88-ACCESA-DISCO                                          189200\n        CLOSE ARCH-KEY-S016       WITH PURGE                     .189300\n                                                                  189400\n     CLOSE LOG151                                                 189500\n           LOG151-COMP                                            189600\n           MOVSCIG                WITH SAVE                       189700\n     PERFORM                      700000-ENVIA-BIT               .189800\n                                                                  189900\n 700000-ENVIA-BIT.                                                190000\n*=================                                                190100\n    CALL SYSTEM WFL       USING       WKS-TIT-WFL                .190200",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EnviaBitTasklet implements Tasklet {\n\n    private final BitMapper mapper;\n    private final TransmisionBitGateway transmision;   // reemplaza CALL SYSTEM WFL USING WKS-TIT-WFL\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws Exception {\n        Path movscig = (Path) ctx.getStepContext().getJobExecutionContext().get(\"movscig\");\n        try (var out = Files.newBufferedWriter(movscig, StandardOpenOption.APPEND)) {\n            out.write(Fixed.trailerBit(mapper.trailer()));   // tipo \"9\", 1900 bytes\n        }\n        transmision.envia(movscig);                          // SFTP / MFT al consumidor de la BIT\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al terminar se escribe el trailer con los tres totales, se cierran los archivos con <code>SAVE</code> y se lanza un WFL cuyo título se obtuvo de la librería de control (<code>130000-OBTEN-TIT940</code>). En Java el WFL se sustituye por un gateway de transferencia gestionada. El <code>CLOSE ARCH-KEY-S016 WITH PURGE</code> pertenece al camino S016 retirado y no se migra.",
+          "reglas": [],
+          "riesgo": "CALL SYSTEM WFL no revisa resultado: si el WFL no arranca, P110 termina normal y el archivo no se transmite."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Primer registro de LOG151 sin evaluar",
+      "detalle": "200000-PROCESO lee el primer registro INTO A01-R01-DATOS (línea 2819) y no INTO A00-R01-REGMOV, de modo que 230000-ESCOGE-MOVS evalúa por primera vez el área de movimiento sin datos del archivo. Si el primer registro de LOG151 es un movimiento y no un header, no llega a la BIT."
+    },
+    {
+      "titulo": "Error de complemento descartado",
+      "detalle": "W77-ERROR-BIT se activa por INVALID KEY en LOG151-COMP (líneas 2829 y 2906) y se limpia en la línea 3276 sin consultarse. RN-S151-784 lo describe como marca de integridad rota, pero en el fuente no tiene efecto."
+    },
+    {
+      "titulo": "Tabla de clientes desbordable",
+      "detalle": "WKS-CLIENTES-BU es OCCURS 2500 (línea 2079); el ciclo de búsqueda admite hasta 5000 y la carga 12610-CARGA-CLIENTES no tiene límite. Con más de 2500 clientes hay escritura fuera de la tabla."
+    },
+    {
+      "titulo": "Búsqueda intercompany sin corte",
+      "detalle": "21016-BUSCA-CLIENTE mueve 5001 a W77-SALIDA (PIC 9) en lugar de a W77-BUSCA; el recorrido no se detiene y en clientes duplicados queda la última coincidencia. El costo es lineal por movimiento."
+    },
+    {
+      "titulo": "Transmisión sin verificación",
+      "detalle": "700000-ENVIA-BIT ejecuta CALL SYSTEM WFL sin revisar resultado."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si el primer registro de LOG151 es un header; de lo contrario la lectura INTO A01-R01-DATOS de la línea 2819 es un defecto que omite un movimiento por corrida.",
+    "RN-S151-782 describe el consumo del archivo S016 del paso 108; en el fuente actual ese camino está comentado (líneas 2803-2815 y 2920-2935) y la clave intercompany sale del catálogo de clientes de S080BD01CON. Actualizar la regla en el brain.",
+    "RN-S151-784 dice que el INVALID KEY marca error de BIT; validar con SME si debe detener la corrida o solo registrarse.",
+    "Confirmar el significado de los rangos de A00-R01-TIPO-PROC (0 a 19 línea, 20 a 99 batch) frente al parámetro 1 o 2 de la corrida.",
+    "La guarda de 231000 pregunta por A00-R01-CONTRATO pero la búsqueda compara A00-R01-CLIENTE; confirmar que es intencional."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-781",
+    "RN-S151-782",
+    "RN-S151-783",
+    "RN-S151-784",
+    "RN-S151-785",
+    "RN-S500-218",
+    "RN-S500-219",
+    "RN-S500-220",
+    "RN-S500-221",
+    "RN-S500-222",
+    "RN-S500-223",
+    "RN-S500-224",
+    "RN-S500-225",
+    "RN-S500-226",
+    "RN-S500-227"
+  ]
+}

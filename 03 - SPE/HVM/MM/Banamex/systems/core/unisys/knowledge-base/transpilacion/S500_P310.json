@@ -1,0 +1,266 @@
+{
+  "slug": "S500_P310",
+  "sistema": "S500",
+  "programa": "P310",
+  "nombre": "Carga de Rendimientos de Cuenta Productiva Especial (CPE)",
+  "funcion": "Paso mensual del batch de S500 que, solo en el CSI de Valle de México, genera el archivo de saldos CPE para constancias del SAT y actualiza en S500B39CTASCPE y S500B37GRUPOCPE los rendimientos, el ISR y las comisiones del mes anterior de las cuentas de Valle de México y de Monterrey.",
+  "resumen": "Abre S500BD01CAPTACION en actualización (reintentando sin límite si la base está ocupada) y lee B02CONTROL; si el CSI no es 10 cierra y termina. En Valle de México calcula la fecha del último día del mes anterior, espera a que exista el archivo CPESEC que envía Monterrey, valida header, trailer y conteo y lo convierte en el archivo indexado CPEIND. Carga del S080 los factores de ISR de las tarifas 254 (estándar) y 259 (extranjeros) y los datos de IVA por sucursal. Escribe el archivo SALDOSCPE con un detalle por cuenta de B39 y después recorre B39 por grupo: para Valle de México toma tasa, intereses e ISR de B03 y B06, para Monterrey del índice CPEIND, marca con estatus 4 las cuentas excluidas, pide la comisión a la librería L422 y acumula por grupo para actualizar B37.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.cpe.rendimientos",
+  "secciones": [
+    {
+      "titulo": "Control del paso, fecha del mes anterior y factores de ISR",
+      "origen": {
+        "archivo": "S500_SOURCE_P310.txt",
+        "contexto": "PROCEDURE DIVISION · 000-CONTROL / 100-INICIA / 140 / 150 / 152 / 155"
+      },
+      "java": {
+        "archivo": "RendimientosCpeJobConfig.java · PeriodoCpe.java · FactoresIsr.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Ejecución completa solo en el CSI de Valle de México",
+          "linea_ini": 348,
+          "linea_fin": 399,
+          "origen_codigo": "        10 SEC-NUM-CTO    PIC 9(12).\n        10 SEC-CON-COM    PIC 9(06).\n        10 SEC-DIA-CIC    PIC 9(02).\n        10 SEC-PRO-CIC    PIC 9(12)V99.\n        10 SEC-TIP-PER    PIC 9(02).\n        10 SEC-NOM-CTE    PIC X(36).\n        10 SEC-STA-CTO    PIC 9(02).\n        10 SEC-TAS-ANT    PIC 9(03)V9999.\n        10 SEC-INT-CAP    PIC 9(12)V99.\n        10 SEC-IMP-RET    PIC 9(12)V99.\n        10 SEC-TAS-BTA    PIC 9(03)V9999.\n        10 SEC-CVE-COBRO  PIC 9(02).\n        10 SEC-IMP-COM-CAP PIC 9(06)V99.\n        10 FILLER         PIC X(52).\n*\n     05 SEC-TIP-TRAILER   REDEFINES\n        SEC-TIP-HEADER.\n        10 SEC-REG-DET    PIC 9(07).\n        10 FILLER         PIC X(171).\n*\n*   Nombre de archivo para constancias del SAT\n 01 WS-ETIQ-ARCHISAT.\n    02 FILLER              PIC X(24) VALUE\n       \"S500/FILE/A01/SALDOSCPE/\".\n    02 WS-ETIQ-FECHA-SAT   PIC X(08).\n    02 FILLER              PIC X VALUE \".\".",
+          "java_codigo": "@Configuration\nclass RendimientosCpeJobConfig {\n\n    @Bean\n    Job rendimientosCpe(JobRepository repo, Step abreControl, Step esperaCpesec, Step generaCpeind,\n                        Step cargaParametrosFiscales, Step archivoSat, Step actualizaCuentas,\n                        Step actualizaUltimoGrupo, P310Properties props) {\n        // IF B02-NUM-CSI = 10: el resto de los CSI abren, leen control y terminan.\n        JobExecutionDecider esVdm = (je, se) -> new FlowExecutionStatus(\n                je.getExecutionContext().getInt(\"miCsi\") == props.csiProcesador() ? \"VDM\" : \"OTRO\");\n\n        return new JobBuilder(\"S500P310\", repo)\n                .start(abreControl)                      // 140-BASE-DE-DATOS + 152-VALIDA-B02CONTROL\n                .next(esVdm)\n                    .on(\"OTRO\").end()                    // 305-CIERRA-BASE\n                .from(esVdm).on(\"VDM\").to(esperaCpesec)  // 154-VALIDA-RESIDE-CPESEC\n                    .next(generaCpeind)                  // 154-GENERA-CPEIND\n                    .next(cargaParametrosFiscales)       // 140 / 150 / 154-CARGA-DATOS-S080\n                    .next(archivoSat)                    // 180-GENERA-ARCHIVO-SAT\n                    .next(actualizaCuentas)              // 200-ACTUALIZA-CUENTAS\n                    .next(actualizaUltimoGrupo)          // lo que 300-TERMINA resuelve con un segundo recorrido\n                .end()\n                .build();\n    }\n}\n// p310.csi-procesador: 10   (application.yml)",
+          "racional": "El programa siempre abre la base y lee el control, pero solo hace el trabajo en el CSI 10; en Monterrey cierra y termina. En Spring Batch eso es un <code>JobExecutionDecider</code> después del step de control, con el CSI procesador en <code>application.yml</code>. La validación de versión, el registro en MAPLI y la carga de librerías solo ocurren en Valle de México, por eso quedan dentro de la rama VDM. El step <code>actualizaUltimoGrupo</code> sustituye el segundo recorrido completo que hace 300-TERMINA (ver s11).",
+          "reglas": [
+            "RN-S500-183",
+            "RN-S500-202"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Fecha del último día del mes anterior",
+          "linea_ini": 569,
+          "linea_fin": 591,
+          "origen_codigo": "        03 FILLER                    PIC X(01).\n        03 WS-MES-LARGO              PIC X(15).\n        03 FILLER                    PIC X(01).\n        03 WS-NUM-DIAS               PIC 9(02).\n*INI-STEFANINI CPE 2022R09M MTDP-2467.\n 77  WS-ISR-0-9991-259                PIC 99V9999 COMP.\n*FIN-STEFANINI CPE 2022R09M MTDP-2467.\n*\n COPY \"S500/INC/MAPLI/WOR/15MTP001\".\n*\n COPY \"S500/INC/WOR/25MTP002\".\n*",
+          "java_codigo": "/** 152-VALIDA-B02CONTROL: P310 trabaja con el mes anterior a B02-FECHA-LINEA. */\npublic record PeriodoCpe(LocalDate finMesAnterior) {\n\n    static PeriodoCpe desde(LocalDate fechaLinea) {\n        // YearMonth resuelve enero a diciembre del año anterior y febrero bisiesto\n        // con la regla gregoriana completa (2100 no es bisiesto).\n        return new PeriodoCpe(YearMonth.from(fechaLinea).minusMonths(1).atEndOfMonth());\n    }\n\n    /** Etiquetas de archivo: CPESEC y CPEIND usan PIC 9(6) y el MOVE desde 9(8) deja AAMMDD. */\n    String etiquetaArchivo() { return finMesAnterior.format(DateTimeFormatter.ofPattern(\"yyMMdd\")); }\n\n    /** SALDOSCPE usa X(08): AAAAMMDD completo. */\n    String etiquetaSat()     { return finMesAnterior.format(DateTimeFormatter.BASIC_ISO_DATE); }\n\n    /** SAT-FECHA del detalle: AAAAMM (WS-FECHA-PROC-AAAAMM). */\n    String periodoSat()      { return finMesAnterior.format(DateTimeFormatter.ofPattern(\"yyyyMM\")); }\n}",
+          "racional": "La fecha se arma restando un mes a la fecha de línea y poniendo como día el último del mes según una tabla de doce meses, con ajuste de febrero en años bisiestos. En Java <code>YearMonth.minusMonths(1).atEndOfMonth()</code> hace exactamente eso con la regla gregoriana completa. Los tres formatos que el fuente obtiene por <code>MOVE</code> a campos de distinto tamaño (seis dígitos en los títulos de CPESEC y CPEIND, ocho en el del SAT y seis en el periodo del detalle) se vuelven métodos con patrón explícito; el de seis dígitos pierde el siglo, igual que en el fuente.",
+          "reglas": [
+            "RN-S500-184"
+          ],
+          "riesgo": "El CSI de origen del archivo de Monterrey se fija con MOVE 04 TO WS-CPS-CSIO (línea 589); se traslada a application.yml."
+        },
+        {
+          "id": "s3",
+          "titulo": "Año bisiesto sin regla de siglo",
+          "linea_ini": 691,
+          "linea_fin": 698,
+          "origen_codigo": " 000-CONTROL-SECCION SECTION 01.\n*-------------------------------\n 000-CONTROL.\n*------------",
+          "java_codigo": "// 155-BISIESTO no se traduce: LocalDate/YearMonth aplica la regla gregoriana.\n// Prueba de caracterización para documentar la diferencia con el fuente:\n@Test\nvoid febreroDe2100NoEsBisiesto() {\n    var p = PeriodoCpe.desde(LocalDate.of(2100, 3, 15));\n    assertThat(p.finMesAnterior()).isEqualTo(LocalDate.of(2100, 2, 28));   // el fuente daría 29\n}\n\n@Test\nvoid eneroRetrocedeADiciembreDelAnoAnterior() {\n    assertThat(PeriodoCpe.desde(LocalDate.of(2027, 1, 10)).finMesAnterior())\n            .isEqualTo(LocalDate.of(2026, 12, 31));\n}",
+          "racional": "El ajuste de febrero divide el año entre 4 y suma un día si el residuo es cero, sin las excepciones de los siglos. Hasta 2099 el resultado coincide con el calendario; en 2100 el fuente generaría el 29 de febrero. La versión Java no reproduce el defecto y deja dos pruebas de caracterización que documentan la diferencia y el caso de enero.",
+          "reglas": [
+            "RN-S500-199"
+          ],
+          "riesgo": "155-BISIESTO solo se invoca en la rama que no es enero; la rama de enero fija diciembre con 31 días y no lo necesita."
+        },
+        {
+          "id": "s4",
+          "titulo": "Factores de ISR de las tarifas 254 y 259 del S080",
+          "linea_ini": 445,
+          "linea_fin": 524,
+          "origen_codigo": "    02 FILLER              PIC X(01) VALUE \",\".\n    02 SAT-SDOPRO          PIC 9(16)V99.\n    02 FILLER              PIC X(01) VALUE \",\".\n    02 SAT-TASANETA        PIC 9(02)V999.\n    02 FILLER              PIC X(01) VALUE \",\".\n    02 SAT-PRODNET         PIC 9(12)V99.\n    02 FILLER              PIC X(01) VALUE \",\".\n    02 SAT-OPCION          PIC 9(02).\n    02 FILLER              PIC X(01) VALUE \",\".\n    02 SAT-RAN             PIC 9(04).\n    02 FILLER              PIC X(01) VALUE \",\".\n    02 SAT-FECHA           PIC 9(06).\n    02 FILLER              PIC X(06).\n*   TRAILER\n 01 SAT-TRAILER.\n    02 SAT-TIPOREGT        PIC 9(01).\n    02 SAT-NUMRGPO         PIC 9(06).\n    02 FILLER              PIC 9(143).\n 01 WS-GRUPO-10            PIC 9(10).\n 01 WS-GRUPO-10-RED REDEFINES WS-GRUPO-10.\n    02 WS-AREA             PIC 9(01).\n    02 WS-DIV              PIC 9(01).\n    02 WS-SDIV             PIC 9(01).\n    02 WS-EJE              PIC 9(02).\n    02 WS-SGPO             PIC 9(02).\n    02 WS-GPO              PIC 9(03).\n 01 WS-NUM-MDA-12          PIC 9(12).\n 01 WS-NUM-MDA-12-RED REDEFINES WS-NUM-MDA-12.\n    02 WS-MDA-SUC          PIC 9(04).\n    02 WS-MDA-CTA          PIC 9(08).\n 01  WS-FECHA-PROCE.\n     02  WS-FEC-PROCE-AA               PIC 9(004).\n     02  WS-FEC-PROCE-MM               PIC 9(002).\n     02  WS-FEC-PROCE-DD               PIC 9(002).\n 01  WS-FECHA-PROCER REDEFINES WS-FECHA-PROCE\n                                       PIC 9(08).\n 01  WS-FECHA-PROC   REDEFINES WS-FECHA-PROCE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FactoresIsr {\n\n    private final TarifasS080Client s080;          // 20000080-L700-TARIFAS\n    private final P310Properties props;\n\n    public record Factores(BigDecimal estandar, BigDecimal extranjero) {}\n\n    /** Tarifa 254 (estándar) y 259 (residentes en el extranjero), producto 9991, instrumento 1. */\n    public Factores cargar(LocalDate fechaVigencia) {\n        BigDecimal t254 = consulta(props.tarifaIsrEstandar(), fechaVigencia);       // 254\n        BigDecimal t259 = consulta(props.tarifaIsrExtranjero(), fechaVigencia)      // 259\n                .divide(BigDecimal.valueOf(100), 4, RoundingMode.DOWN);             // / 100 y PIC 99V9999 trunca\n        return new Factores(t254, t259);\n    }\n\n    private BigDecimal consulta(int tarifa, LocalDate vigencia) {\n        var r = s080.tarifa(310, tarifa, 9991, 1, 0, vigencia);\n        if (r.resultado() != 0 && r.resultado() != 1) {\n            // El fuente deja el factor en 0 y continúa: no habría retención.\n            throw new ParametroFiscalNoDisponibleException(tarifa, r.resultado());\n        }\n        // ENT-CAMPO / 10 ** DEC-CAMPO: punto fijo a decimal, sin pérdida.\n        return new BigDecimal(BigInteger.valueOf(r.entero()), r.decimales())\n                .setScale(4, RoundingMode.DOWN);                                    // destino 99V9999\n    }\n}",
+          "racional": "Ambas tarifas se leen del catálogo 9991 del S080 con la fecha de línea como vigencia y llegan como un entero y su número de decimales; la división entre <code>10 ** DEC</code> es una conversión de punto fijo a decimal, que en Java se hace sin aritmética con <code>new BigDecimal(unscaled, scale)</code>. La tarifa 259, agregada en 2022 para residentes en el extranjero, además se divide entre 100, lo que indica que el catálogo la guarda como porcentaje y la 254 como factor. Los destinos son <code>PIC 99V9999</code> sin <code>ROUNDED</code>, de ahí el <code>RoundingMode.DOWN</code> a escala 4. Si la consulta falla, el fuente deja el factor en cero y sigue; en Java se detiene el job, porque un factor en cero significa no retener ISR.",
+          "reglas": [
+            "RN-S500-185",
+            "RN-S500-186"
+          ],
+          "riesgo": "Si L700 no regresa resultado 0 o 1, WS-ISR-0-9991-254 y WS-ISR-0-9991-259 quedan en 0 sin mensaje (líneas 467-470 y 516-519) y se graba en B39-TASA-ISR-500 una tasa de cero. 154-CARGA-DATOS-S080 sí detiene la tarea ante un error, lo que hace más visible la asimetría."
+        }
+      ]
+    },
+    {
+      "titulo": "Archivos: índice de Monterrey y saldos para el SAT",
+      "origen": {
+        "archivo": "S500_SOURCE_P310.txt",
+        "contexto": "PROCEDURE DIVISION · 154-VALIDA-RESIDE-CPESEC / 154-GENERA-CPEIND / 185-GENERA-ARCHIVO-SAT"
+      },
+      "java": {
+        "archivo": "EsperaCpesecTasklet.java · CpesecValidator.java · SaldosSatWriter.java",
+        "contexto": "Tasklet · ItemProcessor · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Espera del CPESEC de Monterrey y validación de estructura",
+          "linea_ini": 592,
+          "linea_fin": 636,
+          "origen_codigo": "******************************************************************\n PROCEDURE DIVISION.\n DECLARATIVES.\n INTERRUPT-SECCION        SECTION  00.\n     USE AS INTERRUPT PROCEDURE.\n INTERRUPT-BY-HI.\n     DISALLOW  INTERRUPT.\n     MOVE \"I\" TO W77-TIPO-DISP.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-HI-NUMHI\n     MOVE SPACES TO WS-0101-TEXT-MSG\n     IF W77-HI-NUMHI = 10\n        IF W77-DONDE-ESTOY = 0\n           STRING \"NO HE INICIADO\"\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n        ELSE\n        IF W77-DONDE-ESTOY = 1\n           STRING \"VALIDA Y GENERA ARCH INDEX MTY\"\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n        ELSE\n        IF W77-DONDE-ESTOY = 2",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass EsperaCpesecTasklet implements Tasklet {\n\n    private final P310Properties props;                 // espera: PT40S, tiempo-maximo: PT6H\n    @Value(\"#{jobExecutionContext['periodo']}\") private PeriodoCpe periodo;\n\n    /** 154-VALIDA-RESIDE-CPESEC: WAIT (40) hasta que el archivo exista, sin límite en el fuente. */\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws Exception {\n        Path cpesec = props.rutaCpesec(periodo);\n        Instant limite = Instant.now().plus(props.cpesecTiempoMaximo());\n        while (!Files.exists(cpesec)) {\n            if (Instant.now().isAfter(limite))\n                throw new ArchivoNoRecibidoException(cpesec);   // el fuente esperaría indefinidamente\n            Thread.sleep(props.cpesecEspera().toMillis());\n        }\n        return RepeatStatus.FINISHED;\n    }\n}\n\n/** 154-20-GRABA-CPEIND: primer registro 01, último 99, intermedios 02. */\n@Component\nclass CpesecValidator {\n    void valida(List<RegistroCpesec> regs, String tituloEsperado) {\n        if (regs.isEmpty()) throw new ProcesoAbortadoException(\"ARCHIVO VACIO \" + tituloEsperado);\n        var h = regs.get(0);\n        if (h.tipo() != 1) throw new ProcesoAbortadoException(\"NO TIENE REG 01 HEADER \" + h.tipo());\n        if (!tituloEsperado.equals(h.nombreArchivo()))\n            throw new ProcesoAbortadoException(\"EL NOMB-ARCH EN HEADER \" + h.nombreArchivo()\n                    + \" DIFIERE AL EXTERNO \" + tituloEsperado);\n        var t = regs.get(regs.size() - 1);\n        if (t.tipo() != 99) throw new ProcesoAbortadoException(\"NO TIENE REG 99 TRAILER \" + t.tipo());\n        long detalles = regs.stream().filter(r -> r.tipo() == 2).count();\n        if (t.registrosDetalle() != detalles)\n            throw new ProcesoAbortadoException(\"ERROR EN TRAILER EN NO. DE REGS \" + t.registrosDetalle());\n    }\n}",
+          "racional": "Valle de México depende de un archivo que genera Monterrey y lo espera revisando cada 40 segundos si ya existe en disco, sin tiempo máximo. Cuando llega, lo recorre una vez: el primer registro debe ser el header 01 con el mismo nombre que el archivo externo, el último (calculado con <code>LASTRECORD</code>) debe ser el trailer 99 con el número de detalles tipo 02, y un archivo vacío es fatal. En Java la espera se conserva pero con un tiempo máximo configurable, para que un archivo que nunca llega se convierta en una alerta y no en una tarea colgada.",
+          "reglas": [
+            "RN-S500-188",
+            "RN-S500-189"
+          ],
+          "riesgo": "La espera de 154-VALIDA-RESIDE-CPESEC no tiene límite: si Monterrey no envía CPESEC, P310 queda detenido indefinidamente y bloquea el resto del batch mensual."
+        },
+        {
+          "id": "s6",
+          "titulo": "Carga del índice CPEIND con error de tipo comentado",
+          "linea_ini": 653,
+          "linea_fin": 680,
+          "origen_codigo": "           STRING \"TERMINANDO, LEIDOS B39 \", W77-REG-LEI-B39,\n                  \", EN VDM:\", W77-SI-REG-VDM,\n                  \", NO EN VDM \", W77-NO-REG-VDM,\n                  \", EN MTY:\", W77-SI-REG-MTY,\n                  \", NO EN MTY \", W77-NO-REG-MTY\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n     ELSE\n        STRING \"NUM HI ERRONEO \", W77-HI-NUMHI\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n     SET MYSELF (TASKVALUE)  TO ZERO.\n     MOVE \"E\" TO W77-TIPO-DISP.",
+          "java_codigo": "/** ARCHIMTY indexado por IND-NUM-CTO: en Java, una tabla de paso con llave primaria. */\n@Entity\n@Table(name = \"p310_cpe_mty\")\npublic class CpeMonterrey {\n    @Id private String numContrato;                   // 9(12)\n    private int chequesGirados;                       // IND-CON-COM 9(06)\n    private int diasCiclo;\n    @Column(precision = 14, scale = 2) private BigDecimal promedioCiclo;     // 9(12)V99\n    private int tipoPersona;\n    private String nombreCliente;\n    private int statusContrato;\n    @Column(precision = 7, scale = 4)  private BigDecimal tasaAnterior;      // 9(03)V9999\n    @Column(precision = 14, scale = 2) private BigDecimal interesCapitalizado;\n    @Column(precision = 14, scale = 2) private BigDecimal impuestoRetenido;\n    @Column(precision = 7, scale = 4)  private BigDecimal tasaBruta;\n    private int claveCobro;\n    @Column(precision = 8, scale = 2)  private BigDecimal comisionCapitalizada;  // 9(06)V99\n}\n\n@Bean\nItemProcessor<RegistroCpesec, CpeMonterrey> cpesecADetalle(P310Properties props) {\n    return r -> {\n        if (r.tipo() == 1 || r.tipo() == 99) return null;\n        if (r.tipo() != 2) {\n            log.error(\"ERROR; TIPREG DET INVALIDO {}\", r.tipo());\n            if (props.abortarTipoInvalido()) throw new ProcesoAbortadoException(\"TIPREG \" + r.tipo());\n            return null;                              // comportamiento actual: DMTERMINATE comentado\n        }\n        return CpeMonterrey.desde(r);                 // DuplicateKey = INVALID KEY -> aborta\n    };\n}",
+          "racional": "Cada detalle de Monterrey se copia campo a campo al archivo indexado por contrato, que después sirve para buscar los datos de rendimiento de las cuentas de Monterrey. En Java ese índice es una tabla de paso con el contrato como llave primaria; un contrato repetido provoca violación de llave, igual que el <code>INVALID KEY</code> que aborta en el fuente. Los importes conservan sus escalas: 2 para promedios, intereses, ISR y comisión, y 4 para las tasas. Un registro con tipo distinto de 02 solo se reporta, porque el <code>DMTERMINATE</code> de esa rama está comentado; la traducción conserva ese comportamiento detrás de una propiedad.",
+          "reglas": [
+            "RN-S500-192"
+          ],
+          "riesgo": "La línea 680 tiene comentado el CALL SYSTEM DMTERMINATE: un detalle con tipo inválido se omite del índice y esa cuenta de Monterrey termina con estatus 4 sin que el paso falle."
+        },
+        {
+          "id": "s7",
+          "titulo": "Detalle del archivo SALDOSCPE para constancias del SAT",
+          "linea_ini": 753,
+          "linea_fin": 780,
+          "origen_codigo": "     IF B02-NUM-CSI = 10\n        PERFORM 110-VALIDA-VERSION\n        PERFORM 120-MOVES-ACTIV-MAPLI\n        PERFORM 1000038-S038L035\n        PERFORM 10000016-L422\n        MOVE 1 TO W77-DONDE-ESTOY\n        PERFORM 154-VALIDA-RESIDE-CPESEC UNTIL RESIDE-CPESEC\n        PERFORM 154-GENERA-CPEIND\n        MOVE 2 TO W77-DONDE-ESTOY\n        PERFORM 125-VALIDA-S080BD01CON\n        PERFORM 10000080-S080IVA\n        PERFORM 99900010-INI-PGM-MAPLI\n        PERFORM 135-INICIA-ACT01\n        PERFORM 140-CARGA-FACTOR-ISR",
+          "java_codigo": "/**\n * SAT-DETALLE: 150 posiciones, grupo de 10 dígitos sin separador y el resto separado por comas.\n * Los importes llevan punto decimal implícito: no es un CSV estándar.\n */\n@Component\nclass SaldosSatLineAggregator implements LineAggregator<CuentaCpe> {\n\n    @Override\n    public String aggregate(CuentaCpe c) {\n        String cuerpo = String.join(\",\",\n                \"2\" + \"%010d\".formatted(c.grupo()),                    // TIPOREG + AREA..GPO = B39-GRUPO\n                \"%04d\".formatted(c.subGrupo()),                        // SAT-CTE\n                \"%04d\".formatted(c.sucursalMda()),                     // primeros 4 de B39-NUM-MDA\n                \"%08d\".formatted(c.cuentaMda()),                       // últimos 8\n                Implicito.de(c.saldoPromedio(), 16, 2),                // 9(16)V99\n                Implicito.de(c.tasaNeta152(), 2, 3),                   // 9(02)V999\n                Implicito.de(c.rendimientoPagado152(), 12, 2),         // 9(12)V99\n                \"%02d\".formatted(c.opcionGrupo()),                     // B37-OPCION\n                \"%04d\".formatted(c.rangoGrupo()),                      // B37-RANGO\n                c.periodo());                                          // AAAAMM\n        return cuerpo + \" \".repeat(6);                                 // FILLER X(06)\n    }\n}\n\nfinal class Implicito {\n    /** Formatea sin punto, truncando como MOVE a un PIC más corto (RoundingMode.DOWN). */\n    static String de(BigDecimal v, int enteros, int decimales) {\n        BigDecimal t = v.setScale(decimales, RoundingMode.DOWN);\n        return (\"%0\" + (enteros + decimales) + \"d\").formatted(t.unscaledValue());\n    }\n}",
+          "racional": "Por cada cuenta de B39 se escribe un detalle con el grupo de diez dígitos (área, división, subdivisión, eje, subgrupo y grupo), el subgrupo, la sucursal y la cuenta, el saldo promedio, la tasa neta y el rendimiento de la vista 152, y la opción y el rango del grupo en B37. Los importes van con punto decimal implícito, así que el agregador formatea el valor sin escala con ceros a la izquierda en lugar de usar un formateador CSV. El header lleva la literal <code>S152</code> como identificador de sistema y el trailer el número de cuentas.",
+          "reglas": [
+            "RN-S500-197"
+          ],
+          "riesgo": "El detalle no filtra por estatus y se genera antes de 200-ACTUALIZA-CUENTAS: incluye las cuentas que en esta misma corrida quedarán con estatus 4 y usa los campos -152 de B39, no los -500 que el paso actualiza después."
+        }
+      ]
+    },
+    {
+      "titulo": "Actualización de cuentas CPE y acumulados por grupo",
+      "origen": {
+        "archivo": "S500_SOURCE_P310.txt",
+        "contexto": "PROCEDURE DIVISION · 210 / 230 / 235 / 240 / 300"
+      },
+      "java": {
+        "archivo": "CuentaCpeProcessor.java · CorteGrupoListener.java · CuentaCpeWriter.java",
+        "contexto": "ItemProcessor · ItemWriteListener · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Recorrido de B39 por grupo con corte de control",
+          "linea_ini": 794,
+          "linea_fin": 867,
+          "origen_codigo": "     ELSE\n        PERFORM 305-CIERRA-BASE.\n*\n 110-VALIDA-VERSION.\n*-------------------\n     MOVE 2          TO W77-USO-LIBLJ.\n     MOVE 051010     TO WS-0101-CODI-MSG.\n     MOVE 02         TO WS-0101-TIPO-MSG.\n     MOVE \"S500P310\" TO W77-S000-MY-ID.\n     MOVE       310  TO W77-MY-PASO.\n     MOVE     \"P310\" TO WS-0101-PASO-MSG.\n     MOVE \"25MTP004\" TO WS-0101-MTP-MSG W77-S000-MY-VERSION.\n*\n     PERFORM  10000100-VERSIONES.\n     PERFORM  20000100-CHECAME-VERSION.\n     IF S000-CTR-CVEERROR < 0\n        STRING \"ERROR DE VERSION \"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n*\n 120-MOVES-ACTIV-MAPLI.\n*----------------------\n     MOVE ZEROS     TO WKS-TB-NUMACT-LIBS.\n     MOVE 20        TO WKS-NUMACT-LIB(20).\n     MOVE 21        TO WKS-NUMACT-LIB(21).\n     MOVE 22        TO WKS-NUMACT-LIB(22).\n*\n 125-VALIDA-S080BD01CON.\n*-----------------------\n     MOVE ZEROS          TO S000-CTR-CVEERROR.\n     MOVE \"S080BD01CON\"  TO S000-CTR-LIBID.\n     PERFORM 20000100-DAME-TIT-VERS.\n     IF S000-CTR-CVEERROR = 0\n          CHANGE ATTRIBUTE TITLE OF \"S080BD01CON\"",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class CuentaCpeProcessor implements ItemProcessor<CuentaCpe, CuentaCpe> {\n\n    private final ContratoCaptacionRepository b03;\n    private final HistoricoRepository b06;\n    private final CpeMonterreyRepository cpeind;\n    private final CalculoRendimientoCpe calculo;     // 230-ACTUALIZA-B39-VDM / -MTY\n    private final P310Properties props;\n\n    @Override\n    public CuentaCpe process(CuentaCpe b39) {\n        return switch (b39.numCsi()) {\n            case 4 -> cpeind.findById(b39.contrato())\n                    .map(m -> calculo.desdeMonterrey(b39, m))\n                    .orElseGet(() -> b39.excluir());                          // STATUS 4\n            case 10 -> b03.findForUpdate(b39.contrato())\n                    .filter(c -> c.getNumProducto() == 1 && c.getNumInstrum() == 3)   // MTDP-2466\n                    .filter(c -> !props.statusBeneficiarioArt61().contains(c.getStaBenef()))  // 3 y 8\n                    .flatMap(c -> b06.findForUpdate(c.getNumContrato()).map(h -> calculo.desdeVdm(b39, c, h)))\n                    .orElseGet(() -> b39.excluir());\n            default -> null;                                                   // otros CSI: no se tocan\n        };\n    }\n}\n\n// Corte por B39-GRUPO (el lector va ordenado por B39SXGPOSBGMDA): CorteGrupoListener, en s11.\n// afterWrite: al cambiar de grupo, si hubo cuentas activas, STORE B37 y reinicia TODOS los acumulados,\n//             incluidos los cheques girados que el fuente no reinicia.\n// afterStep:  cierra el último grupo, que el ciclo del fuente nunca alcanza.",
+          "racional": "B39 se recorre por la llave de grupo. Al cambiar de grupo se actualiza B37 con lo acumulado si el grupo tuvo cuentas activas y se reinicia el acumulado. Cada cuenta de Monterrey se completa con el índice CPEIND y cada cuenta de Valle de México con B03 y B06, pero solo si es producto 1, instrumento 3 y no está en el artículo 61 (estatus de beneficiario 3 u 8); en todos los demás casos la cuenta queda con estatus 4. En Java el corte de control vive en un listener del step y el cierre del último grupo se hace en <code>afterStep</code>, que es lo que el fuente no logra dentro del ciclo.",
+          "reglas": [
+            "RN-S500-190",
+            "RN-S500-192",
+            "RN-S500-196",
+            "RN-S500-198"
+          ],
+          "riesgo": "Cualquier estado de DMSII distinto de cero al bloquear B03 o B06, no solo el de no encontrado, manda la cuenta a estatus 4 sin mensaje (líneas 841 y 851). En el corte sin cuentas activas se reinician WT-G-REND-PAG-500 y WT-G-PROM-CICLO, pero no WS-CHQS-GIR-XGPO, así que los cheques girados de ese grupo se suman al siguiente."
+        },
+        {
+          "id": "s9",
+          "titulo": "Rendimiento de una cuenta de Valle de México",
+          "linea_ini": 884,
+          "linea_fin": 911,
+          "origen_codigo": "     MOVE 1 TO WKS-88-S080BD01CON.\n*\n 140-CARGA-FACTOR-ISR.\n*-------------------\n** CARGA VALOR DE FACTOR DE AJUSTE ISR TARIFA 254 CAT. 9991 **\n     MOVE ALL @00@               TO WS-S080-0201-ENTRADA\n                                    WS-S080-0201-SALIDA.\n     MOVE 0                      TO WS-ISR-0-9991-254.\n     MOVE 310                    TO WS-S080-0201-PASO.\n     MOVE B02-FECHA-LINEA        TO WS-S080-0201-FECHVIG.\n     MOVE 254                    TO WS-S080-0201-CVTARIF.\n     MOVE 9991                   TO WS-S080-0201-PRODUCTO.\n     MOVE 1                      TO WS-S080-0201-INSTRUM.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CalculoRendimientoCpe {\n\n    private final FactoresIsr.Factores isr;\n    private final ComisionCpe comisiones;            // 240-L422-COMXCTA\n    private final GrupoCpeRepository b37;\n    private final P310Properties props;\n\n    CuentaCpe desdeVdm(CuentaCpe b39, ContratoCaptacion b03, Historico b06) {\n        boolean extranjero = props.tiposPersonaExtranjero().contains(b03.getTipoPersona());  // 11, 12, 15\n        b39.setTasaIsr500(extranjero ? isr.extranjero() : isr.estandar());\n\n        b39.setChequesGirados(b06.getContComis(50));        // subíndice 50 compilado\n        b39.setDiasCiclo(b06.getDiasCiclo());\n        b39.setSaldoPromedio(b06.getPromCiclo(12));          // subíndice 12 compilado\n        b39.setTipoPersona(b03.getTipoPersona());\n        b39.setNombre(b03.getNombre());\n        b39.setStatus(b03.getStatus());\n        comisiones.aplica(b39, b03.getNumContrato());\n\n        if (props.opcionesConRendimiento().contains(b37.opcion(b39.grupo()))) {   // 1, 2, 5\n            b39.setTasaNeta500(b03.getTasaAnterior());\n            b39.setRendPag500(b03.getIntsCapit());\n            b39.setIsrRet500(b03.getImpuestoRet());\n            b39.setTasaBruta500(b06.getTasaBruta());\n        } else {\n            b39.limpiaRendimientos500();                     // MOVE ZEROS\n        }\n        return b39;\n    }\n}",
+          "racional": "La tasa de ISR que se graba en la cuenta es la de la tarifa 259 para los tipos de persona 11, 12 y 15 y la de la 254 para el resto. Los cheques girados, los días del ciclo y el saldo promedio salen del histórico B06, usando los subíndices 50 y 12 de sus tablas, y el nombre, el tipo de persona y el estatus de B03. Tasa neta, intereses, ISR retenido y tasa bruta solo se copian si el grupo tiene opción 1, 2 o 5 en B37; si no, se ponen en cero. Son movimientos de campo a campo sin aritmética, así que no hay redondeo; los tipos de persona y las opciones pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-187",
+            "RN-S500-191"
+          ],
+          "riesgo": "Los subíndices B06-CONT-COMIS(50) y B06-PROM-CICLO(12) están compilados sin comentario; confirmar que corresponden al concepto de cheques girados y al promedio del ciclo mensual."
+        },
+        {
+          "id": "s10",
+          "titulo": "IVA por sucursal, STORE en transacción y comisión L422 con valores por omisión",
+          "linea_ini": 953,
+          "linea_fin": 999,
+          "origen_codigo": "     MOVE 310                   TO WKS-S080-NUMPASO.\n     MOVE ZERO                  TO WKS-S080-NUMSUC.\n     MOVE B02-FECHA-LOTE        TO WKS-S080-FECHA.\n     PERFORM 40000080-CARGA-DATOS-S080.\n     IF WKS-S080-RS-CARGA = 0 OR 1\n        NEXT SENTENCE\n     ELSE\n        MOVE WKS-S080-RS-CARGA       TO WS-MSG-RS\n        MOVE WKS-S080-NUMSUC         TO WS-MSG-N-04\n        STRING \" ERROR CARGA S080 RS=\", WS-MSG-RS\n               \"  ULTIMA SUC/CARGADA=\", WS-MSG-N-04\n                 DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n*\n*INI-STEFANINI CPE 2022R09M MTDP-2467.\n 150-CARGA-FACTOR-ISR-EXTR.\n*-------------------\n** CARGA VALOR DE FACTOR DE AJUSTE ISR TARIFA 259 CAT. 9991 **\n     MOVE ALL @00@               TO WS-S080-0201-ENTRADA\n                                    WS-S080-0201-SALIDA.\n     MOVE 0                      TO WS-ISR-0-9991-259.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CuentaCpeWriter implements ItemWriter<CuentaCpe> {\n\n    private final CuentaCpeRepository b39;\n    private final IvaPorSucursal iva;                // 42000080-DATOS-S080 + S080IVA\n    private final AcumuladoGrupo acum;\n\n    /** 235-STORE-B39. El chunk es la transacción; equivale a BEGIN/END-TRANSACTION NO-AUDIT. */\n    @Override\n    @Transactional\n    public void write(Chunk<? extends CuentaCpe> chunk) {\n        for (CuentaCpe c : chunk) {\n            c.setCveIva(iva.esFronteriza(c.sucProm()) ? iva.claveFrontera() : iva.claveGeneral());\n            if (c.getStatus() == 0 || c.getStatus() == 1) acum.sumaCuentaActiva();\n            b39.save(c);\n        }\n    }\n}\n\n@Component\n@RequiredArgsConstructor\nclass ComisionCpe {\n    private final ComisionesL422Client l422;         // S016 L422, sistema 500, paso 310\n    private final P310Properties props;\n\n    void aplica(CuentaCpe b39, String contrato) {\n        l422.comisionPorCuenta(500, 310, 1, 3, contrato)\n            .map(r -> r.concepto(props.conceptoL422()))   // índice (04)\n            .ifPresentOrElse(\n                k -> { b39.setUsoFut01(k.claveCobro()); b39.setTariChqGir(k.comision()); },\n                () -> { b39.setUsoFut01(props.cobroPorOmision());          // 2\n                        b39.setTariChqGir(props.comisionPorOmision()); });  // 100\n    }\n}\n// Auditoría: el fuente usa END-TRANSACTION NO-AUDIT; en JPA se desactiva Envers/auditoría\n// para esta entidad y se registra el resultado del job en el JobRepository.",
+          "racional": "Antes de grabar cada cuenta se decide la clave de IVA según si la sucursal promotora es de zona fronteriza, con los valores que entrega el S080. El <code>STORE</code> va entre <code>BEGIN-TRANSACTION</code> y <code>END-TRANSACTION NO-AUDIT</code> y cualquier error termina el programa; en Spring Batch la transacción del chunk cumple ese papel y un error revierte el chunk. Las cuentas con estatus 0 o 1 cuentan como activas para el grupo. La comisión se pide a la librería L422 y se toma el concepto 04; si la librería falla, se graban la clave de cobro 2 y la tarifa 100, ambas compiladas. En la traducción esos valores y el índice del concepto pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-193",
+            "RN-S500-194",
+            "RN-S500-195"
+          ],
+          "riesgo": "Si L422 falla, el fallback compilado (clave de cobro 2 y tarifa 100) se graba sin mensaje, así que no queda evidencia de qué cuentas recibieron la comisión por omisión."
+        },
+        {
+          "id": "s11",
+          "titulo": "Cierre del último grupo con un segundo recorrido completo",
+          "linea_ini": 1045,
+          "linea_fin": 1053,
+          "origen_codigo": "     MOVE WS-ISR-0-9991-259      TO WS-ISR-EXTR-0-NVO\n                                    WS-ISR-EXTR-0.\n*FIN-STEFANINI CPE 2022R09M MTDP-2467.\n*\n 99900010-INI-PGM-MAPLI.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CorteGrupoListener implements ItemWriteListener<CuentaCpe>, StepExecutionListener {\n\n    private final GrupoCpeRepository b37;\n    private final AcumuladoGrupo acum;\n\n    /**\n     * 300-TERMINA vuelve a ejecutar 200-ACTUALIZA-CUENTAS desde el inicio de B39 para que el\n     * primer cambio de grupo de ese segundo recorrido guarde el último grupo del primero.\n     * En Java basta con cerrar el grupo abierto al terminar el step: una sola pasada.\n     */\n    @Override\n    @Transactional\n    public ExitStatus afterStep(StepExecution se) {\n        if (acum.grupoAbierto() && acum.cuentasActivas() > 0) {\n            b37.actualiza(acum.grupo(), acum.saldoPromedio(), acum.rendimientos(), acum.chequesGirados());\n        }\n        acum.reinicia();\n        return se.getExitStatus();\n    }\n}",
+          "racional": "El ciclo de 200-ACTUALIZA-CUENTAS termina en cuanto la lectura llega al fin de B39, de modo que la rama de cambio de grupo por fin de archivo nunca se ejecuta y el último grupo no se guarda. 300-TERMINA lo resuelve llamando otra vez a 200-ACTUALIZA-CUENTAS, que reposiciona B39 al inicio: el primer cambio de grupo de ese segundo recorrido guarda el último grupo del primero, pero todas las cuentas se vuelven a leer, a calcular, a consultar en L422 y a grabar. La traducción cierra el último grupo en <code>afterStep</code> y hace una sola pasada.",
+          "reglas": [
+            "RN-S500-196"
+          ],
+          "riesgo": "El comentario de la línea 1047 dice que solo actualiza el último grupo, pero el segundo recorrido reprocesa todas las cuentas y duplica los contadores de avance. Si B39 tiene un solo grupo, el segundo recorrido no detecta cambio de grupo y B37 nunca se actualiza."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Doble recorrido de todas las cuentas",
+      "detalle": "300-TERMINA (línea 1048) vuelve a ejecutar 200-ACTUALIZA-CUENTAS desde el inicio de B39 para cerrar el último grupo. Todas las cuentas se procesan y graban dos veces, L422 se invoca dos veces por cuenta y, con un solo grupo, B37 no se actualiza nunca."
+    },
+    {
+      "titulo": "Factor de ISR en cero si falla el catálogo",
+      "detalle": "140-CARGA-FACTOR-ISR y 150-CARGA-FACTOR-ISR-EXTR no tratan un resultado de L700 distinto de 0 o 1: el factor queda en 0 y se graba como tasa de ISR en B39. Además la tarifa 259 se divide entre 100 y la 254 no, lo que supone unidades distintas en el catálogo."
+    },
+    {
+      "titulo": "Errores de base de datos tratados como exclusión",
+      "detalle": "En 210-ACTUALIZA-CUENTAS cualquier estado distinto de cero al bloquear B03 o B06 marca la cuenta con estatus 4 (líneas 841-864), igual que si no existiera. Un bloqueo o un error transitorio deja la cuenta sin rendimientos en el mes."
+    },
+    {
+      "titulo": "Esperas sin límite",
+      "detalle": "La apertura de la base reintenta cada 60 segundos mientras el error sea 39 (líneas 551-553) y la espera de CPESEC revisa cada 40 segundos (línea 599); ninguna tiene tope."
+    },
+    {
+      "titulo": "Validación comentada en el índice de Monterrey",
+      "detalle": "El DMTERMINATE para detalles de tipo inválido está comentado (línea 680); esos contratos no entran a CPEIND y quedan con estatus 4."
+    },
+    {
+      "titulo": "Archivo SAT previo a la actualización",
+      "detalle": "180-GENERA-ARCHIVO-SAT corre antes de 200-ACTUALIZA-CUENTAS, no filtra estatus y usa los campos -152 de B39. El archivo no refleja exclusiones ni valores calculados en la corrida."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "CSI 10 como procesador y 04 como origen, tarifas 254 y 259, catálogo 9991, tipos de persona 11, 12 y 15, opciones 1, 2 y 5, estatus de beneficiario 3 y 8, producto 1 instrumento 3, concepto L422 (04), fallback de cobro 2 y tarifa 100, identificador S152 y subíndices 50 y 12 de B06."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-198 afirma que el estatus 4 excluye la cuenta del archivo SAT; en el fuente el archivo se genera antes de la actualización y sin filtro de estatus (líneas 735-780). Validar con el SME y corregir la regla.",
+    "RN-S500-197 describe SALDOSCPE como CSV; el grupo de diez dígitos va sin separador y los importes llevan punto decimal implícito. El trailer usa FILLER PIC 9(143) sin VALUE; confirmar qué contenido espera el receptor.",
+    "Confirmar si la diferencia de unidades entre las tarifas 254 y 259 (solo la 259 se divide entre 100) es intencional en el catálogo S080.",
+    "Confirmar si el segundo recorrido de 300-TERMINA es conocido por operación y si hay casos con un solo grupo CPE.",
+    "Las estructuras de B03, B06, B37 y B39 vienen de copys de la base que no forman parte del fuente extraído; las escalas de B39-TASA-NTA-152 y B39-REND-PAG-152 frente a SAT-TASANETA 9(02)V999 no se pudieron verificar."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-916",
+    "RN-S500-183",
+    "RN-S500-184",
+    "RN-S500-185",
+    "RN-S500-186",
+    "RN-S500-187",
+    "RN-S500-188",
+    "RN-S500-189",
+    "RN-S500-190",
+    "RN-S500-191",
+    "RN-S500-192",
+    "RN-S500-193",
+    "RN-S500-194",
+    "RN-S500-195",
+    "RN-S500-196",
+    "RN-S500-197",
+    "RN-S500-198",
+    "RN-S500-199",
+    "RN-S500-200",
+    "RN-S500-201",
+    "RN-S500-202"
+  ]
+}

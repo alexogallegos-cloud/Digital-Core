@@ -1,0 +1,252 @@
+{
+  "slug": "S151_P199",
+  "sistema": "S151",
+  "programa": "P199",
+  "nombre": "Puente de Migración de Movimientos S500 a S151",
+  "funcion": "Programa batch de S151 (PROGRAM-ID CTASMIGCAP) que recibe como parámetro el sistema, lee el archivo MOVS de S500 desde el último punto procesado y registra o cancela movimientos de migración en S151B08TDMIGCAP de la base S151BD13BIFIN.",
+  "resumen": "Obtiene la fecha de proceso de la librería de control de S151, carga del catálogo 6 de S080 las claves de transacción aplicables con su naturaleza, abre la base con hasta seis reintentos y retoma la lectura de MOVS desde el registro guardado en CTLP199. Cada movimiento de función 1 de la sucursal 342 y caja 36 genera hasta cinco altas en B08 con status AC, una por clave; las funciones 2, 21 y 22 marcan como CA los registros que corresponden a una autorización, a un proceso o a un rango de autorizaciones. Mantiene totales por BIN de tarjeta en memoria, confirma la transacción y el punto de reinicio cada 20,000 operaciones y al final imprime el listado de totales.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration · Spring Data JPA",
+  "paquete_java": "mx.banamex.s151.migracion.captacion",
+  "secciones": [
+    {
+      "titulo": "Arranque — fecha de migración, interruptor diario y catálogo de claves",
+      "origen": {
+        "archivo": "COBOL_P199.txt",
+        "contexto": "PROCEDURE DIVISION · 200000-INICIO / 204000-LIBRERIAS / 260220-LLENA-CATALOGO6"
+      },
+      "java": {
+        "archivo": "MigracionJobConfig.java · FechaMigracionTasklet.java · CatalogoClavesMigracion.java",
+        "contexto": "Spring Batch Job · Tasklet · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Siglo fijo en 20 y el interruptor del catálogo 1565 comentado",
+          "linea_ini": 1761,
+          "linea_fin": 1775,
+          "origen_codigo": " 200000-INICIO.                                                   111400\n   MOVE 20 TO WKS-FEC-MAQ-CC                                      111600\n              WKS-FEC-MIG-CC.                                     111800\n   PERFORM 204000-LIBRERIAS.                                      112000\n   MOVE WKS-FECPRO-6D                TO WKS-FEC-MIG-AMD.          112050\n   PERFORM 206200-CATALOGO6.                                      112200\n*   PERFORM 206400-CATALOGO1565.                                  112400\n* Si no es dia de migracion termina ejecucion de programa         112600\n*   IF W88-NO-MIGRACION                                           112800\n*      PERFORM 602000-TERMINA.                                    113000\n   PERFORM 208000-ARCHIVOS.                                       113200\n   ALLOW INTERRUPT                                                113400\n   ATTACH INTERRUP-POR-HI            TO ATTRIBUTE EXCEPTIONEVENT  113600\n                                     OF MYSELF                    113800\n   PERFORM 210000-ABRE-BD.                                        114000",
+          "java_codigo": "# application.yml\np199:\n  # El fuente fija el siglo con MOVE 20 TO WKS-FEC-MIG-CC; aquí el pivote queda explícito.\n  pivote-siglo: 2000\n  # 206400-CATALOGO1565 está comentado: hoy la migración corre todos los días.\n  validar-dia-migracion: false\n\n// ---------------------------------------------------------------------------\n@Bean\nJob migracionCaptacion(JobRepository repo, Step fechaProceso, Step catalogos,\n                       Step diaMigracion, Step migra, Step totales) {\n    return new JobBuilder(\"S151P199\", repo)\n            .start(fechaProceso)              // 204000-LIBRERIAS\n            .next(catalogos)                  // 206200-CATALOGO6\n            .next(diaMigracion)               // 206400-CATALOGO1565, desactivado por propiedad\n                .on(\"NO_MIGRACION\").end()     // equivalente a W88-NO-MIGRACION y 602000-TERMINA\n            .from(diaMigracion).on(\"*\").to(migra)\n            .next(totales)                    // 480000-GUARDA-TOTALES\n            .end().build();\n}\n\nstatic LocalDate fechaMigracion(String aammdd, int pivoteSiglo) {   // WKS-FECPRO-6D\n    return LocalDate.parse(aammdd, new DateTimeFormatterBuilder()\n            .appendValueReduced(ChronoField.YEAR, 2, 2, pivoteSiglo)\n            .appendPattern(\"MMdd\").toFormatter());\n}",
+          "racional": "La fecha de migración se arma con el siglo 20 fijo y la fecha de proceso de seis dígitos. En Java el siglo es un pivote explícito en <code>application.yml</code>. Las líneas que cargaban el catálogo 1565 y terminaban el programa cuando el día no era de migración están comentadas, así que P199 procesa cualquier día en que se ejecute. El flujo Java conserva el paso de validación detrás de una propiedad apagada, de modo que el comportamiento actual no cambia y la decisión queda visible.",
+          "reglas": [
+            "RN-S151-422"
+          ],
+          "riesgo": "Como 206400-CATALOGO1565 está comentado, el interruptor que describe RN-S151-422 no opera: WKS-IND-MIGRACION nunca se evalúa y la migración no depende del catálogo."
+        },
+        {
+          "id": "s2",
+          "titulo": "Fecha de proceso de CONSISDIA y sustitución por TASKVALUE",
+          "linea_ini": 1812,
+          "linea_fin": 1834,
+          "origen_codigo": "   MOVE W77-PARAMETRO                TO WKS-B01-SISTEMA           120600\n   MOVE 01                           TO WKS-B01-FUNCION.          120800\n   CALL \"CONSISDIA IN S151-L001\"     USING  WKS-S151B01SISDIA     121000\n                                     GIVING W77-RESULT-B01.       121200\n   IF W77-RESULT-B01 > 0                                          121600\n      MOVE W77-RESULT-B01            TO W77-ERROR                 121800\n      STRING \"NO PUEDO OBTENER FECHA DE PROCESO \"                 122000\n             \" ERROR EN S151-L001 S500, ERR #\" W77-ERROR          122200\n      DELIMITED BY SIZE INTO TEXTO-LJ                             122400\n      MOVE \"O\"                       TO TIPO-LJ                   122600\n      MOVE 020901                    TO CODIGO-LJ                 122800\n      CALL \"LJ IN LIB-DISP\"          USING CONTADOR-LJ,           123000\n                                           MENSAJE-LJ             123200\n      SET MYSELF(STATUS)          TO -1                           123400\n   ELSE                                                           123600\n      MOVE WKS-B01-NOMPACMOV         TO WKS-PACK-MOVS.            123800\n      MOVE WKS-B01-FECPRO            TO WKS-FECHA-PROCESO.        124000\n   MOVE ATTRIBUTE TASKVALUE          OF MYSELF TO WKS-VALUE.      124040\n   IF WKS-VALUE > 0                                               124080\n      MOVE WKS-VALUE                 TO WKS-FECHA-PROCESO.        124100",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass FechaMigracionTasklet implements Tasklet {\n\n    private final ControlS151Client control;   // CONSISDIA IN S151-L001\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        JobParameters p = ctx.getStepContext().getStepExecution().getJobParameters();\n        String sistema = p.getString(\"sistema\");                  // W77-PARAMETRO\n\n        SistemaDia dia = control.consisdia(sistema, 1)\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"NO PUEDO OBTENER FECHA DE PROCESO\"));   // el fuente no se detiene aquí\n\n        // TASKVALUE > 0 al lanzar el programa sustituye la fecha de la librería de control.\n        LocalDate fecha = Optional.ofNullable(p.getLocalDate(\"fechaReproceso\"))\n                .orElse(dia.fecPro());\n        ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext()\n           .put(\"fechaProceso\", fecha);\n        ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext()\n           .put(\"packMovs\", dia.nomPacMov());\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El sistema que se migra llega como parámetro del programa y se consulta a CONSISDIA para obtener la fecha de proceso y el pack del archivo de movimientos. Si al lanzar el programa se le asignó un TASKVALUE mayor a cero, ese valor reemplaza a la fecha de proceso, lo que permite reprocesar un día. En Java ambos valores son <code>JobParameters</code> y el error de CONSISDIA detiene el job.",
+          "reglas": [
+            "RN-S151-444"
+          ],
+          "riesgo": "El punto al final de la línea 1828 cierra el IF: el MOVE de WKS-B01-FECPRO de la línea 1829 se ejecuta también cuando CONSISDIA falló, y SET MYSELF(STATUS) TO -1 no detiene el programa."
+        },
+        {
+          "id": "s3",
+          "titulo": "Claves aplicables del catálogo 6 según el campo 14",
+          "linea_ini": 1913,
+          "linea_fin": 1940,
+          "origen_codigo": " 260220-LLENA-CATALOGO6.                                          139800\n*========================                                         140000\n  MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,1) TO WKS-NUM-CVETRANS        140200\n  IF WKS-SL710-DAT(WKS-NUM-OCCURS,14) = 5                         140400\n     MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,11)                        140600\n                  TO WKS-CAT6-NATC(WKS-NUM-CVETRANS)              140800\n     MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,15)                        141000\n                  TO WKS-CAT6-SUMPAN(WKS-NUM-CVETRANS)            141200\n     MOVE WKS-NUM-CVETRANS                                        141400\n                  TO WKS-CAT6-CVETRAN(WKS-NUM-CVETRANS)           141600\n  ELSE                                                            142000\n    IF WKS-SL710-DAT(WKS-NUM-OCCURS,14) = 6                       142200\n       MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,11)                      142400\n                    TO WKS-CAT6-NATC(WKS-NUM-CVETRANS)            142600\n       MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,15)                      142800\n                    TO WKS-CAT6-SUMPAN(WKS-NUM-CVETRANS)          143000\n       MOVE WKS-NUM-CVETRANS                                      143200\n                    TO WKS-CAT6-CVETRAN(WKS-NUM-CVETRANS)         143400\n    ELSE                                                          143800\n      IF WKS-SL710-DAT(WKS-NUM-OCCURS,14) = 4                     144000\n         MOVE WKS-NUM-CVETRANS                                    144200\n                      TO WKS-CAT6-CVETRAN(WKS-NUM-CVETRANS)       144400\n         MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,15)                    144600\n                      TO WKS-CAT6-SUMPAN(WKS-NUM-CVETRANS)        144800\n         MOVE WKS-SL710-DAT(WKS-NUM-OCCURS,11)                    145000\n                      TO WKS-CAT6-NATC(WKS-NUM-CVETRANS).         145200",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CatalogoClavesMigracion {\n\n    private static final Set<Integer> APLICA = Set.of(4, 5, 6);   // p199.catalogo6.selector-campo14\n    private final CatalogoEstructuraClient s080;                   // L710_CONSUL_DETALLE IN S080L710\n    private Map<Integer, ClaveMigracion> claves;\n\n    @PostConstruct\n    void carga() {\n        claves = s080.recorre(6, 2, Map.of(\"llave2\", 500))           // paginado de 10 en 10\n                .filter(d -> APLICA.contains(d.campo(14)))\n                .collect(Collectors.toMap(d -> d.campo(1),\n                        d -> new ClaveMigracion(d.campo(1),\n                                                d.campo(11),        // NATC: 9 = sobregiro\n                                                d.campo(15)),       // SUMPAN\n                        (a, b) -> b));\n    }\n\n    Optional<ClaveMigracion> clave(int cveTran) { return Optional.ofNullable(claves.get(cveTran)); }\n}",
+          "racional": "Cada renglón del catálogo 6 se copia a la tabla interna solo si su campo 14 vale 4, 5 o 6; en los tres casos se guardan la clave, la naturaleza (campo 11) y el campo 15. Las tres ramas hacen lo mismo con distinto orden de MOVE, así que en Java se reducen a un filtro sobre un conjunto. La tabla se indexa por número de clave, lo que en Java es un <code>Map</code> que devuelve <code>Optional</code>.",
+          "reglas": [
+            "RN-S151-425",
+            "RN-S151-426"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Lectura con punto de reinicio y ruteo por función",
+      "origen": {
+        "archivo": "COBOL_P199.txt",
+        "contexto": "PROCEDURE DIVISION · 400000 / 460000 / 461000 / 462000"
+      },
+      "java": {
+        "archivo": "MigracionStepConfig.java · MovimientoMigracionRouter.java · AltaMigracionHandler.java",
+        "contexto": "Step chunk · IntegrationFlow route · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Reanudación desde CTLP199 con SEEK al registro siguiente",
+          "linea_ini": 2094,
+          "linea_fin": 2131,
+          "origen_codigo": " 400000-PROCESO.                                                  175200\n*===============                                                  175400\n   PERFORM 420000-LEE-ARCH-CONTROL.                               175600\n   MOVE ZERO                            TO W77-FIN-ARCHMOVS       175800\n   MOVE W77-AUT-MIGS500                 TO W77-NUMREG-MOV500      176000\n   ADD  1                               TO W77-NUMREG-MOV500      176200\n   OPEN  INPUT A01-MOVS500                                        176400\n   SEEK A01-MOVS500 RECORD.                                       176600\n   MOVE ZERO TO WKS-NUM-MIGS.                                     176800\n   PERFORM 440000-LEE-ARCH-S500.                                  177000\n   PERFORM 709300-BEGIN-TRANS.                                    177200\n   PERFORM 460000-SELECCIONA-MOVS-MIG UNTIL W77-FIN-ARCHMOVS = 1. 177400\n   PERFORM 709600-END-TRANS.                                      177600\n   MOVE 0                               TO WKS-CONT-PAG-E.        177800\n   PERFORM 480000-GUARDA-TOTALES.                                 178000\n 420000-LEE-ARCH-CONTROL.                                         178400\n*========================                                         178600\n   OPEN  I-O A03-CTLMIG                                           178800\n   READ  A03-CTLMIG                                               179000\n   MOVE  R01-REG-AUTS500        TO W77-AUT-MIGS500                179200\n   CLOSE A03-CTLMIG WITH SAVE.                                    179400\n 422000-ACT-ARCH-CONTROL.                                         179800\n*========================                                         180000\n   OPEN I-O A03-CTLMIG.                                           180200\n   MOVE 1                             TO W77-NUMREG-ACC.          180400\n   SEEK A03-CTLMIG RECORD.                                        180600\n   READ A03-CTLMIG.                                               180800\n   MOVE W77-AUT-MIGS500               TO R01-REG-AUTS500.         181000\n   REWRITE R01-REG-MIGRACION                                      181200\n         INVALID KEY NEXT SENTENCE.                               181400\n   CLOSE A03-CTLMIG WITH SAVE.                                    181600\n 440000-LEE-ARCH-S500.                                            182000\n*=====================                                            182200\n   READ A01-MOVS500 INTO A00-R01-REGMOV                           182400\n        AT END MOVE 1           TO W77-FIN-ARCHMOVS.              182600",
+          "java_codigo": "@Bean\nStep migra(JobRepository repo, PlatformTransactionManager tx,\n           ItemStreamReader<MovimientoS500> movs,            // A01-MOVS500\n           MovimientoMigracionRouter router) {\n    return new StepBuilder(\"migra\", repo)\n            .<MovimientoS500, MovimientoS500>chunk(20_000, tx)   // 461000-VALIDA-END-TRANS\n            .reader(movs)\n            .writer(router)\n            .build();\n}\n\n/** El lector guarda su posición en el ExecutionContext: sustituye a CTLP199 y al SEEK. */\nclass MovimientosS500Reader extends AbstractItemCountingItemStreamItemReader<MovimientoS500> {\n    @Override\n    protected void jumpToItem(int itemIndex) {\n        // W77-NUMREG-MOV500 = W77-AUT-MIGS500 + 1; SEEK A01-MOVS500 RECORD\n        archivo.posiciona(itemIndex + 1);\n    }\n    // doRead(): READ A01-MOVS500 INTO A00-R01-REGMOV AT END -> null\n}",
+          "racional": "El programa lee de CTLP199 el último registro migrado, posiciona MOVS en el siguiente con <code>SEEK</code> y procesa hasta el fin de archivo dentro de una transacción DMSII. Al terminar confirma la transacción e imprime totales. En Spring Batch ese punto de reinicio es el contador del <code>ItemStreamReader</code> que se persiste en el <code>JobRepository</code>, y el tamaño de chunk reproduce la confirmación cada 20,000 operaciones.",
+          "reglas": [
+            "RN-S151-423"
+          ],
+          "riesgo": "420000-LEE-ARCH-CONTROL hace READ sin SEEK ni AT END; si CTLP199 está vacío o dañado, el valor de W77-AUT-MIGS500 queda indefinido."
+        },
+        {
+          "id": "s5",
+          "titulo": "Ruteo por función y confirmación cada 20,000 operaciones",
+          "linea_ini": 2133,
+          "linea_fin": 2170,
+          "origen_codigo": " 460000-SELECCIONA-MOVS-MIG.                                      183000\n*===========================                                      183200\n   ADD  1                       TO W77-AUT-MIGS500.               183400\n   MOVE 0 TO WKS-NUM-OCURR                                        183600\n   MOVE 0 TO WKS-IMPORTE-B08.                                     183650\n   PERFORM 461000-VALIDA-END-TRANS.                               183800\n   IF (A00-R01-FUNCION = 21 OR 22)                                184200\n*      A00-R01-SUCTRAN  = WKS-CAT-SUC AND                         184220\n*      A00-R01-CAJATRAN = WKS-CAT-CAJA                            184240\n      MOVE A00-R01-FUNCION        TO W77-CANC-FUNCION             184400\n      MOVE A00-R01-TIPO-PROC      TO W77-CANC-PROC                184600\n      MOVE A00-R01-AUT-AELIM-S151 TO W77-CANC-AUT-AELIM-S151      184800\n      MOVE A00-R01-AUT-S151       TO W77-CAN-AUT-S151             185000\n      PERFORM 464000-CANCELA                                      185200\n   ELSE                                                           185400\n*JDPG SE REALIZA VALIDACION DE FUNCION 2                          185405\n      IF  A00-R01-FUNCION = 2                                     185410\n          MOVE A00-R01-AUT-AELIM-S151 TO WKS-AUT-S151             185430\n          PERFORM 705000-FIND-B08SXFECTAR-F2                      185440\n          IF W88-EXISTE-B08                                       185441\n             MOVE 1                      TO W77-BAND-STATUS-B08   185443\n             PERFORM 462200-CREA-ACTUALIZA-B08                    185444\n             ADD  1                      TO WKS-NUM-MIGS          185445\n           ELSE                                                   185446\n               NEXT SENTENCE                                      185447\n       ELSE                                                       185450\n          PERFORM 462000-VALIDA-MIG                               185600\n                  VARYING WKS-NUM-OCURR FROM 1 BY 1               185800\n                  UNTIL   WKS-NUM-OCURR > 5.                      186000\n   PERFORM 440000-LEE-ARCH-S500.                                  186200\n 461000-VALIDA-END-TRANS.                                         186600\n   IF WKS-NUM-MIGS > 20000                                        186800\n      PERFORM 709600-END-TRANS                                    187000\n      PERFORM 422000-ACT-ARCH-CONTROL                             187200\n      MOVE 0                    TO WKS-NUM-MIGS                   187400\n      PERFORM 709300-BEGIN-TRANS.                                 187600",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass MovimientoMigracionRouter implements ItemWriter<MovimientoS500> {\n\n    private final AltaMigracionHandler altas;           // 462000-VALIDA-MIG\n    private final CancelacionMigracionHandler bajas;    // 464000-CANCELA y función 2\n\n    @Override\n    public void write(Chunk<? extends MovimientoS500> chunk) {\n        for (MovimientoS500 m : chunk) {\n            switch (m.funcion()) {\n                case 21, 22 -> bajas.porProceso(m);               // sin filtro de sucursal: está comentado\n                case 2      -> bajas.porAutorizacion(m.autAElimS151());\n                default     -> altas.registra(m);                 // la función 1 se filtra adentro\n            }\n        }\n        // Al cerrar el chunk: END-TRANSACTION AUDIT, REWRITE de CTLP199 y BEGIN-TRANSACTION.\n    }\n}",
+          "racional": "Cada movimiento incrementa el contador de registros leídos y, si ya se superaron 20,000 operaciones, se confirma la transacción, se guarda el punto de reinicio y se abre otra. Después se rutea por función: 21 y 22 son cancelaciones por proceso, 2 es cancelación por autorización y cualquier otra pasa a la validación de altas, que solo actúa sobre la función 1. En el fuente el filtro de sucursal y caja para 21 y 22 está comentado. En Java el ruteo es un <code>switch</code> y la confirmación periódica la da el chunk.",
+          "reglas": [
+            "RN-S151-429",
+            "RN-S151-436"
+          ],
+          "riesgo": "La condición es WKS-NUM-MIGS > 20000, no igual: el corte ocurre en la operación 20,001. El contador solo suma operaciones sobre B08, no registros leídos, así que un archivo con muchos movimientos ignorados puede acumular una transacción muy grande."
+        },
+        {
+          "id": "s6",
+          "titulo": "Alta por clave con filtro de sucursal 342 y caja 36",
+          "linea_ini": 2172,
+          "linea_fin": 2222,
+          "origen_codigo": " 462000-VALIDA-MIG.                                               188000\n*==================                                               188200\n*JDPG SE MUEVE VALIDACION DE FUNCION DOS FUERA DE RUTINA          188250\n   MOVE 0                         TO W77-BAND-STATUS-B08.         188400\n     IF A00-R01-CVETRAN(WKS-NUM-OCURR) = 0 OR                     189600\n        A00-R01-SUCTRAN NOT = WKS-CAT-SUC OR                      189800\n        A00-R01-CAJATRAN NOT = WKS-CAT-CAJA                       190000\n        MOVE 6 TO WKS-NUM-OCURR                                   190015\n        EXIT PERFORM                                              190030\n     ELSE                                                         190033\n        MOVE A00-R01-CONTRATO TO WKS-CONTRATO                     190045\n        MOVE A00-R01-MDA-SUC  TO WKS-MDA-SUC                      190046\n        MOVE A00-R01-MDA-CTA  TO WKS-TARJETA                      190060\n        MOVE A00-R01-AUT-S151 TO WKS-AUT-S151                     190075\n        PERFORM 705000-FIND-B08SXFECTAR.                          190090\n      MOVE A00-R01-CVETRAN(WKS-NUM-OCURR) TO WKS-NUM-CVETRANS     191600\n      IF A00-R01-FUNCION = 1 AND                                  191800\n         W88-NO-EXISTE-B08   AND                                  192000\n         WKS-CAT6-CVETRAN(WKS-NUM-CVETRANS) NOT = 0               192200\n         PERFORM 462200-CREA-ACTUALIZA-B08                        192400\n         ADD  1                   TO WKS-NUM-MIGS.                192600\n 462200-CREA-ACTUALIZA-B08.                                       193000\n*==========================                                       193200\n   IF W88-ALTA-B08                                                193400\n      PERFORM 462250-ARMA-REG-B08MIG                              193600\n      MOVE B08-TAR-BIN TO WKS-BIN-BUSQ                            193800\n      PERFORM 703000-STORE-B08                                    194000\n      IF W77-DUP-B08 = 0                                          194100\n         PERFORM 462255-SUMARIZA                                  194200\n      ELSE                                                        194300\n         NEXT SENTENCE                                            194350\n   ELSE                                                           194400\n      PERFORM 705050-LOCK-B08SXFECTAR                             194450\n      PERFORM 462300-PROCESA-FN-FUNCION2 UNTIL WKS-FIN-B08A = 1.  194800\n 462250-ARMA-REG-B08MIG.                                          195000\n*=======================                                          195200\n   PERFORM 702000-CREATE-B08.                                     195400\n   MOVE WKS-FEC-MIG-S500-CAMD             TO B08-FEC-MIG          195600\n   MOVE A00-R01-MDA-SUC                   TO B08-MDA-SUC          195800\n   MOVE A00-R01-MDA-CTA                   TO B08-MDA-TARJETA      196000\n   MOVE A00-R01-AUT-S151                  TO B08-AUT-S151         196200\n   MOVE A00-R01-SUCPROM                   TO B08-SUC-PROM         196400\n   MOVE A00-R01-CONTRATO                  TO B08-CONTRATO         196600\n   MOVE A00-R01-IMPORTE(WKS-NUM-OCURR)    TO B08-IMPORTE          196800\n*       AC . ACTIVO                                               197000\n*       CA . CANCELADO                                            197200\n   MOVE \"AC\"                              TO B08-STATUS           197400\n   MOVE A00-R01-CVETRAN(WKS-NUM-OCURR)    TO B08-CVE-TRANS        197600\n   MOVE WKS-NUM-OCURR                     TO B08-NUMOCURRS        197800\n   MOVE A00-R01-TIPO-PROC                 TO B08-NUM-PRO.         198000",
+          "java_codigo": "# application.yml  (antes: WKS-CAT-SUC VALUE 342 y WKS-CAT-CAJA VALUE 36)\np199:\n  filtro:\n    sucursal-transaccion: 342\n    caja-transaccion: 36\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass AltaMigracionHandler {\n\n    private final MigracionCaptacionRepository b08;     // S151B08TDMIGCAP\n    private final CatalogoClavesMigracion catalogo;\n    private final TotalesPorBin totales;\n    private final FiltroProperties filtro;\n\n    void registra(MovimientoS500 m) {\n        if (m.sucTran() != filtro.sucursalTransaccion() || m.cajaTran() != filtro.cajaTransaccion()) return;\n        for (int occ = 1; occ <= 5; occ++) {                         // A00-R01-CVEIMP-OC OCCURS 5\n            int clave = m.cveTran(occ);\n            if (clave == 0) break;                                   // MOVE 6 TO WKS-NUM-OCURR\n            var tarjeta = Tarjeta.de(m.mdaCta());                     // 9(16): BIN 9(06) + cuenta 9(10)\n            boolean existe = b08.existe(m.fechaMigracion(), tarjeta.bin(), tarjeta.cuenta(),\n                                        m.autS151(), occ);           // FIND FIRST B08SXFECTAR\n            if (m.funcion() == 1 && !existe && catalogo.clave(clave).isPresent()) {\n                b08.save(MigracionCaptacion.activa(m, occ));          // STATUS \"AC\"\n                totales.suma(tarjeta.bin(), catalogo.clave(clave).get(), m.importe(occ));\n            }\n        }\n    }\n}",
+          "racional": "Para cada una de las cinco claves del movimiento, la primera clave en cero o una sucursal y caja distintas de 342 y 36 terminan el recorrido. Si la clave existe en el catálogo, el movimiento es de función 1 y no hay ya un registro con la misma fecha, BIN, cuenta, autorización y ocurrencia, se crea un registro B08 con status AC y se suman sus totales por BIN. Los literales 342 y 36 pasan a <code>application.yml</code>; la tarjeta de 16 dígitos se separa en BIN de 6 y cuenta de 10, igual que el REDEFINES de <code>WKS-TARJETA</code>.",
+          "reglas": [
+            "RN-S151-424",
+            "RN-S151-427",
+            "RN-S151-428",
+            "RN-S151-432",
+            "RN-S151-433"
+          ],
+          "riesgo": "Solo se migran movimientos capturados en la sucursal 342, caja 36. El filtro se evalúa con la sucursal y caja del movimiento, de modo que si llega una función 1 de otro punto se ignora sin bitácora."
+        }
+      ]
+    },
+    {
+      "titulo": "Cancelaciones, totales por BIN y manejo de duplicados",
+      "origen": {
+        "archivo": "COBOL_P199.txt",
+        "contexto": "PROCEDURE DIVISION · 462258-RESTA-A-SDO / 464000-CANCELA / 703000-STORE-B08"
+      },
+      "java": {
+        "archivo": "CancelacionMigracionHandler.java · TotalesPorBin.java",
+        "contexto": "@Transactional · JPA · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Resta de totales por BIN en acumuladores sin signo",
+          "linea_ini": 2246,
+          "linea_fin": 2268,
+          "origen_codigo": " 462258-RESTA-A-SDO.                                              200130\n*===================                                              200140\n*JDPG SE CAMBIA VALIDACION DE IMPORTE                             200141\n   IF WKS-IMPORTE-B08 = 0                                         200142\n      COMPUTE WKS-NUM-01(W77-CONT) = WKS-NUM-01(W77-CONT) - 1     200144\n      COMPUTE WKS-NUM-TOT(W77-CONT) = WKS-NUM-TOT(W77-CONT) - 1   200146\n   ELSE                                                           200148\n     IF WKS-CAT6-NATC(WKS-NUM-CVETRANS) = 9                       200150\n        COMPUTE WKS-NUM-S1(W77-CONT) = WKS-NUM-S1(W77-CONT) - 1   200152\n        COMPUTE WKS-IMP-S1(W77-CONT) = WKS-IMP-S1(W77-CONT) -     200154\n                WKS-IMPORTE-B08                                   200156\n        COMPUTE WKS-IMP-TOT(W77-CONT) = WKS-IMP-TOT(W77-CONT) -   200158\n                WKS-IMPORTE-B08                                   200160\n        COMPUTE WKS-NUM-TOT(W77-CONT) =                           200162\n                WKS-NUM-TOT(W77-CONT) - 1                         200164\n     ELSE                                                         200166\n        COMPUTE WKS-NUM-A1(W77-CONT) = WKS-NUM-A1(W77-CONT) - 1   200168\n        COMPUTE WKS-IMP-A1(W77-CONT) =  WKS-IMP-A1(W77-CONT) -    200170\n                WKS-IMPORTE-B08                                   200172\n        COMPUTE WKS-IMP-TOT(W77-CONT) =  WKS-IMP-TOT(W77-CONT) -  200174\n                WKS-IMPORTE-B08                                   200176\n        COMPUTE WKS-NUM-TOT(W77-CONT) =                           200178\n                WKS-NUM-TOT(W77-CONT) - 1.                        200180",
+          "java_codigo": "/** Tabla WKS-CVES-BIN: hasta 10 BIN con contadores CEROS, CON ABONO y SOBREGIRO. */\n@Component\nclass TotalesPorBin {\n\n    private static final int MAX_BINS = 10;                  // p199.totales.max-bins\n    private final Map<String, Totales> porBin = new LinkedHashMap<>();\n\n    /** 462258-RESTA-A-SDO. La naturaleza debe salir de la clave del registro cancelado. */\n    void resta(String bin, ClaveMigracion claveDelRegistro, BigDecimal importe) {\n        Totales t = porBin.get(bin);\n        if (t == null) return;                               // AT END NEXT SENTENCE\n        if (importe.signum() == 0) {\n            t.ceros().decrementa();\n        } else if (claveDelRegistro.naturaleza() == 9) {\n            t.sobregiro().resta(importe);                    // admite negativo, a diferencia del PIC 9(16)V99\n        } else {\n            t.conAbono().resta(importe);\n        }\n    }\n}",
+          "racional": "Cada cancelación descuenta el registro de la categoría que le corresponde en la tabla de totales por BIN: ceros si el importe es cero, sobregiro si la naturaleza de la clave es 9 y con abono en otro caso. En Java los acumuladores son <code>BigDecimal</code> con escala 2 y aceptan valores negativos, y la naturaleza se toma de la clave del registro que se cancela.",
+          "reglas": [
+            "RN-S151-434",
+            "RN-S151-435"
+          ],
+          "riesgo": "La naturaleza se busca con WKS-NUM-CVETRANS, que conserva la clave del último movimiento de alta procesado: las cancelaciones de 464100, 464200 y 462300 no lo actualizan con B08-CVE-TRANS, por lo que el descuento puede ir a la categoría equivocada. Además los acumuladores son PIC 9(08) y 9(16)V99 sin signo: si en una corrida se cancelan registros dados de alta en una corrida anterior, la resta pasa de cero y queda el valor absoluto."
+        },
+        {
+          "id": "s8",
+          "titulo": "Cancelación masiva por proceso (21) y por rango de autorizaciones (22)",
+          "linea_ini": 2309,
+          "linea_fin": 2341,
+          "origen_codigo": " 464000-CANCELA.                                                  208000\n*================                                                 208200\n   IF W77-CANC-FUNCION = 21                                       208400\n      PERFORM 706010-LOCKF-B08SXFECNUMPRO                         208600\n      PERFORM 464100-CANC-F21 UNTIL WKS-FIN-B08A = 1              208800\n   ELSE                                                           209000\n      COMPUTE  W77-NUMREG-MOV500   = W77-CANC-AUT-AELIM-S151  + 1 209200\n      COMPUTE  W77-CANC-AUT-AELIM-S151   =                        209400\n               W77-CANC-AUT-AELIM-S151  - 1                       209600\n      PERFORM 706030-LOCKFIRST-B08SXFECAUT                        209800\n      PERFORM 464200-CANC-F22 UNTIL WKS-FIN-B08A = 1.             210000\n 464100-CANC-F21.                                                 210400\n*=================                                                210600\n   MOVE B08-TAR-BIN TO WKS-BIN-BUSQ                               210700\n   MOVE B08-IMPORTE TO WKS-IMPORTE-B08                            210750\n   MOVE \"CA\" TO B08-STATUS.                                       210800\n   PERFORM 703000-STORE-B08.                                      211000\n   PERFORM 462255-RESTA.                                          211100\n   ADD 1   TO WKS-NUM-MIGS.                                       211200\n   PERFORM 461000-VALIDA-END-TRANS.                               211400\n   PERFORM 706010-LOCKNEXT-B08SXFECNUMPRO.                        211600\n 464200-CANC-F22.                                                 212000\n*=================                                                212200\n   MOVE B08-TAR-BIN TO WKS-BIN-BUSQ                               212300\n   MOVE B08-IMPORTE TO WKS-IMPORTE-B08                            212350\n   MOVE \"CA\" TO B08-STATUS.                                       212400\n   PERFORM 703000-STORE-B08.                                      212600\n   PERFORM 462255-RESTA.                                          212700\n   ADD 1   TO WKS-NUM-MIGS.                                       212800\n   PERFORM 461000-VALIDA-END-TRANS.                               213000\n   PERFORM 706030-LOCKNEXT-B08SXFECAUT.                           213200",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CancelacionMigracionHandler {\n\n    private final MigracionCaptacionRepository b08;\n    private final TotalesPorBin totales;\n    private final CatalogoClavesMigracion catalogo;\n\n    @Transactional\n    void porProceso(MovimientoS500 m) {\n        Stream<MigracionCaptacion> afectados = (m.funcion() == 21)\n                ? b08.lockByFechaYProceso(m.fechaMigracion(), m.tipoProceso())          // B08SXFECNUMPRO\n                : b08.lockByFechaAutDesdeYProceso(m.fechaMigracion(),\n                                                  m.autAElimS151(),                   // AUT >= AELIM\n                                                  m.tipoProceso());                   // B08SXFECAUT\n        afectados.forEach(r -> {\n            // El fuente no filtra por status: un registro ya \"CA\" se vuelve a restar.\n            if (r.estaActivo()) {\n                r.cancela();                                                         // STATUS \"CA\"\n                totales.resta(r.bin(), catalogo.clave(r.cveTrans()).orElseThrow(), r.importe());\n            }\n        });\n    }\n}",
+          "racional": "La función 21 bloquea y cancela todos los registros B08 de la fecha de migración con el mismo tipo de proceso. La función 22 hace lo mismo pero solo desde la autorización indicada: el fuente resta uno al límite y busca autorizaciones mayores, lo que equivale a mayor o igual. Cada registro se marca CA, se guarda y se descuenta de los totales. En Java las dos búsquedas son consultas con bloqueo pesimista y la transacción la controla el chunk; se agrega la verificación de status activo, que el SME debe confirmar.",
+          "reglas": [
+            "RN-S151-430",
+            "RN-S151-431",
+            "RN-S151-438"
+          ],
+          "riesgo": "Las búsquedas no filtran por status, así que un registro cancelado dos veces se resta dos veces de los totales. La línea 2315 asigna W77-NUMREG-MOV500, que es la ACTUAL KEY de MOVS, pero el archivo se lee en modo secuencial y no hay SEEK posterior; no se encontró efecto de esa asignación."
+        },
+        {
+          "id": "s9",
+          "titulo": "STORE con duplicado tolerado y cualquier otro error fatal",
+          "linea_ini": 2488,
+          "linea_fin": 2505,
+          "origen_codigo": " 703000-STORE-B08.                                                240400\n*=================                                                240600\n   MOVE 0 TO W77-DUP-B08.                                         240700\n   STORE  S151B08TDMIGCAP                                         240800\n        ON EXCEPTION                                              241000\n        IF DMSTATUS (DUPLICATES)                                  241200\n           MOVE 1 TO W77-DUP-B08                                  241300\n           STRING \"REG DUPLICADO B08 \"                            241400\n               \" ,CTO=\" WKS-CONTRATO DELIMITED BY SIZE ,          241600\n               \" ,SUC=\" WKS-MDA-SUC  DELIMITED BY SIZE ,          241800\n               \" ,CTA=\" WKS-MDA-CTA  DELIMITED BY SIZE ,          242000\n               \" ,AUT=\" WKS-AUT-S151 DELIMITED BY SIZE ,          242200\n               \" ,OCC=\" WKS-NUM-OCURR    DELIMITED BY SIZE ,      242400\n                                         INTO WKS-DIS-TEXTO       242600\n          PERFORM 901000-DISPLAY                                  242800\n        ELSE                                                      243000\n           MOVE \"ERROR STORE S151B08TDMIGCAP\" TO WKS-DMS-DSCERR   243200\n           PERFORM 801000-DMTERMINATE.                            243400",
+          "java_codigo": "    /** 703000-STORE-B08. */\n    boolean guarda(MigracionCaptacion r) {\n        try {\n            b08.saveAndFlush(r);\n            return true;\n        } catch (DataIntegrityViolationException dup) {         // DMSTATUS (DUPLICATES)\n            log.warn(\"REG DUPLICADO B08 ,CTO={} ,SUC={} ,CTA={} ,AUT={} ,OCC={}\",\n                     r.contrato(), r.mdaSuc(), r.mdaTarjeta(), r.autS151(), r.numOcurrs());\n            return false;                                        // W77-DUP-B08 = 1: no suma totales\n        }\n        // cualquier otra excepción se propaga y falla el step (801000-DMTERMINATE)\n    }",
+          "racional": "Un STORE que viola la llave única de B08 no detiene el programa: se registra en el log de operación y el alta no se suma a los totales. Cualquier otra excepción de DMSII termina el programa. En Java el duplicado es una <code>DataIntegrityViolationException</code> capturada y el resto se propaga para que el step quede en FAILED.",
+          "reglas": [
+            "RN-S151-440"
+          ],
+          "riesgo": "El mensaje de duplicado imprime WKS-MDA-CTA, un campo que ningún párrafo asigna (la cuenta se mueve a WKS-TARJETA en la línea 2184); el dato CTA del log siempre sale en ceros o con un valor previo."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Interruptor diario de migración desactivado",
+      "detalle": "En 200000-INICIO (líneas 1767-1770) la carga del catálogo 1565 y la terminación por W88-NO-MIGRACION están comentadas. P199 migra cualquier día en que se ejecute."
+    },
+    {
+      "titulo": "Fecha de proceso aceptada aunque CONSISDIA falle",
+      "detalle": "El punto de la línea 1828 cierra el IF y el MOVE de la fecha de la línea 1829 se ejecuta siempre. SET MYSELF(STATUS) TO -1 no detiene el programa."
+    },
+    {
+      "titulo": "Totales por BIN con naturaleza equivocada y sin signo",
+      "detalle": "462258-RESTA-A-SDO usa WKS-NUM-CVETRANS, que las cancelaciones no actualizan, y descuenta sobre acumuladores sin signo. El listado de totales puede mostrar importes positivos donde deberían ser negativos."
+    },
+    {
+      "titulo": "Cancelación repetida",
+      "detalle": "Las búsquedas de 706010 y 706030 no filtran STATUS = AC; un registro ya cancelado vuelve a marcarse y a restarse."
+    },
+    {
+      "titulo": "Siglo fijo",
+      "detalle": "MOVE 20 TO WKS-FEC-MIG-CC (línea 1762) fija el siglo de la fecha de migración y de la fecha máquina."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Sucursal 342 y caja 36 como único origen migrable, confirmación cada 20,000 operaciones, diez BIN como máximo en la tabla de totales, selector 4, 5 y 6 del campo 14 del catálogo 6 y el título de respaldo de la librería S151-L001. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-422 describe el catálogo 1565 como interruptor maestro; en el fuente esa lógica está comentada. Confirmar si la desactivación es intencional y actualizar la regla.",
+    "La tabla del catálogo 6 tiene OCCURS 10000 (WKS-CVETRAN-PC, línea 844) y se indexa con WKS-NUM-CVETRANS, PIC 9(06), sin validar el rango. Confirmar que ninguna clave del catálogo supera 10,000.",
+    "Con más de diez BIN distintos en una corrida, 462257-LOOP-AGREGA no encuentra lugar y los importes de esos BIN no aparecen en el listado de totales, sin aviso.",
+    "Confirmar el efecto de EXIT PERFORM dentro de 462000-VALIDA-MIG, que se ejecuta como PERFORM fuera de línea; se asumió que abandona la ocurrencia y que MOVE 6 TO WKS-NUM-OCURR termina el VARYING.",
+    "Confirmar con el SME si las cancelaciones de función 21 y 22 deben limitarse a la sucursal 342 y caja 36, filtro que está comentado en las líneas 2141-2142.",
+    "Confirmar si la sucursal 342 y caja 36 siguen siendo el único punto de captura de los movimientos migrables.",
+    "La línea 2315 modifica la ACTUAL KEY de MOVS durante una lectura secuencial; validar que no reposiciona el archivo en MCP."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-421",
+    "RN-S151-422",
+    "RN-S151-423",
+    "RN-S151-424",
+    "RN-S151-425",
+    "RN-S151-426",
+    "RN-S151-427",
+    "RN-S151-428",
+    "RN-S151-429",
+    "RN-S151-430",
+    "RN-S151-431",
+    "RN-S151-432",
+    "RN-S151-433",
+    "RN-S151-434",
+    "RN-S151-435",
+    "RN-S151-436",
+    "RN-S151-437",
+    "RN-S151-438",
+    "RN-S151-439",
+    "RN-S151-440",
+    "RN-S151-441",
+    "RN-S151-442",
+    "RN-S151-443",
+    "RN-S151-444",
+    "RN-S151-445",
+    "RN-S151-446",
+    "RN-S151-447",
+    "RN-S151-448",
+    "RN-S151-449",
+    "RN-S151-450",
+    "RN-S500-405",
+    "RN-S500-406",
+    "RN-S500-407",
+    "RN-S500-408",
+    "RN-S500-409"
+  ]
+}

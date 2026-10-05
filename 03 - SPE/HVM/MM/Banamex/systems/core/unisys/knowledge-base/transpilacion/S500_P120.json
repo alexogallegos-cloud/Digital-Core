@@ -1,0 +1,225 @@
+{
+  "slug": "S500_P120",
+  "sistema": "S500",
+  "programa": "P120",
+  "nombre": "Cobro de comisiones por devolución de cheques, prevenciones y cortes",
+  "funcion": "Paso batch diario 120 del S500 que cobra la comisión por cheque devuelto por fondos insuficientes, las prevenciones y revocaciones que reporta S127 y los cortes especiales de estado de cuenta, y envía los movimientos al mayor S151.",
+  "resumen": "P120 vuelca las devoluciones del dataset B08DEVOLUCION a un archivo plano, lo ordena por contrato y medio de acceso y, para cada devolución, decide si procede el cobro según el estado del contrato, la causa y la clave del movimiento, dejando un estatus de dos dígitos. Calcula la comisión con IVA contra el disponible del contrato, cobra parcial si no alcanza y registra lo pendiente en B12. Después aplica el archivo COMIPREV de S127 día por día y los cortes de estado de cuenta que entrega la librería S050/L191. Cada cargo genera movimientos para S151, un renglón en el punteo que continúa el de P102 y actualizaciones en B03, B06, B12 y B20, y al cierre consolida cifras en B09 y B14 y sella el control de paso.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.comisiones.devoluciones",
+  "secciones": [
+    {
+      "titulo": "Estructura de devolución y punteo de entrada",
+      "origen": {
+        "archivo": "S500_SOURCE_P120.txt",
+        "contexto": "WORKING-STORAGE · 20005100 / 20005120"
+      },
+      "java": {
+        "archivo": "Devolucion.java · EstatusDevolucion.java · PunteoPassThroughTasklet.java",
+        "contexto": "record · enum · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de devolución con catálogo de desenlace a record y enum",
+          "linea_ini": 680,
+          "linea_fin": 731,
+          "origen_codigo": " 01 WKS-I00-R01-DEVOL.\n    02 WKS-I00-R01-TPOREG        PIC 9(02)      COMP.\n    02 WKS-I00-R01-CONTRATO      PIC 9(12)      COMP.\n    02 WKS-I00-R01-MEDACC        PIC 9(12)      COMP.\n    02 WKS-RD-I00-R01-MEDACC     REDEFINES WKS-I00-R01-MEDACC.\n       04 WKS-I00-R01-SUC-MDAC   PIC 9(04)      COMP.\n       04 WKS-I00-R01-CTA-MDAC   PIC 9(08)      COMP.\n    02 WKS-I00-R01-CVE-MOV       PIC 9(04)      COMP.\n    02 WKS-I00-R01-NUM-CHQUE     PIC 9(10)      COMP.\n    02 WKS-I00-R01-IMP-MOV       PIC 9(12)V99   COMP.\n    02 WKS-I00-R01-SUC-PROMOTORA PIC 9(04)      COMP.\n    02 WKS-I00-R01-BCO-ENVIO     PIC 9(04)      COMP.\n    02 WKS-I00-R01-CONTADOR      PIC 9(02)      COMP.\n    02 WKS-I00-R01-AUTORIZA      PIC 9(14)      COMP.\n    02 RD-WKS-I00-R01-AUTORIZA   REDEFINES  WKS-I00-R01-AUTORIZA.\n       04 WKS-I00-R01-SUC-TRANS  PIC 9(04)      COMP.\n       04 WKS-I00-R01-CAJ-TRANS  PIC 9(02)      COMP.\n       04 WKS-I00-R01-SEQ-TRANS  PIC 9(08)      COMP.\n    02 WKS-I00-R01-CAUSA-DEV     PIC 9(02)      COMP.\n    02 WKS-I00-R01-SBCAUSA-DEV   PIC X.\n    02 WKS-I00-R01-HORA-DEV      PIC 9(06)      COMP.\n    02 WKS-I00-R01-STATUS-DEV    PIC 99         COMP.\n**     00 = DEVOLUCION\n**     01 = FUE COBRADO         POSTERIOR A LA DEVOLUCION\n**     02 = CTO CON SALDO       SUFICIENTE AL FINAL DEL DIA\n**     03 = DUPLICADO           PARA NO COBRAR DUPLICADO\n**     04 = SIN COBRO X BLOQ    BLOQ=66 RESTRICCIONES=17\n**     05 = NO EXISTE CONTRATO  NO HAY CONTRATO EN EL S500\n**     06 = NO COBRA PRODUCTO   POR FALTA DE CLAVES B05 O B17)\n**     07 = ST RECUPERADO TOTAL SE RECUPERO EN TOTAL EN EL S408\n**     08 = ERR CVE             NO ES CLAVE (2001 2002 2113)\n**     09 = ELIMINADO           DEVOLUCION ELIMINADA\n**     10 = CAUSA DEV           NO ES POR FONDOS ISUFICIENTES\n    02 WKS-I00-R01-NOM-CLIENTE   PIC X(35).\n    02 WKS-I00-R01-TPO-MSG       PIC 9          COMP.\n    02 WKS-I00-R01-TPO-ORIG      PIC 9          COMP.\n    02 WKS-I00-R01-NODO-PRM      PIC 99         COMP.\n    02 WKS-I00-R01-MONEDA        PIC 9(04)      COMP.\n    02 WKS-I00-R01-TCODE         PIC 9(06)      COMP.\n    02 WKS-I00-R01-NODO-TRANS    PIC 99         COMP.\n    02 WKS-I00-R01-FEC-DEVOL     PIC 9(08)      COMP.\n    02 WKS-I00-R01-DIFSDOB08     PIC 9(12)V99   COMP.\n    02 WKS-I00-R01-REGDIF        PIC 9(08)      COMP.\n    02 WKS-I00-R01-TOTDEV        PIC 9(12)V99   COMP.\n    02 WKS-I00-R01-SDODISP       PIC 9(12)V99   COMP.\n    02 WKS-I00-R01-DIFSOBGIRO    PIC 9(12)V99   COMP.\n    02 WKS-I00-R01-TOTRECUPST    PIC 9(12)V99   COMP.\n    02 WKS-I00-R01-COMICOB       PIC 9(04)V99   COMP.\n    02 WKS-I00-R01-TIPOCOB       PIC 99         COMP.\n    02 FILLER                    PIC X(45).",
+          "java_codigo": "/** WKS-I00-R01-DEVOL: un renglón del archivo I01-DEVOLUCION (COMP = decimal empacado en MCP). */\npublic record Devolucion(\n        String contrato,                 // 9(12)\n        String medioAcceso,              // 9(12) REDEFINES sucursal 9(04) + cuenta 9(08)\n        int claveMovimiento,             // 9(04): 2001, 2002, 2113...\n        long numCheque,                  // 9(10)\n        BigDecimal importe,              // 9(12)V99 -> escala 2\n        int sucursalPromotora, int bancoEnvio, int contador,\n        AutorizacionTransaccion autoriza, // 9(14) REDEFINES suc 9(04) + caja 9(02) + secuencia 9(08)\n        int causaDevolucion,             // 9(02): 1 = fondos insuficientes\n        char subcausa, int horaDevolucion,\n        EstatusDevolucion estatus,       // 99 COMP\n        String nombreCliente, int moneda, LocalDate fechaDevolucion,\n        BigDecimal diferenciaSaldo,      // WKS-I00-R01-DIFSDOB08 9(12)V99\n        BigDecimal comisionCobrada,      // 9(04)V99\n        int tipoCobro) {}\n\n/** Catálogo WKS-I00-R01-STATUS-DEV (fuente de verdad del ciclo de devolución). */\npublic enum EstatusDevolucion {\n    DEVOLUCION(0), COBRADO_POSTERIOR(1), SALDO_SUFICIENTE(2), DUPLICADO(3),\n    SIN_COBRO_POR_BLOQUEO(4),      // bloqueo 66 con restricciones 17\n    NO_EXISTE_CONTRATO(5),\n    NO_COBRA_PRODUCTO(6),          // faltan claves en B05 o B17\n    RECUPERADO_TOTAL_S408(7),\n    ERROR_CLAVE(8),                // no es 2001, 2002 ni 2113\n    ELIMINADO(9),\n    CAUSA_NO_FONDOS(10);           // causa distinta a fondos insuficientes\n\n    private final int codigo;\n    EstatusDevolucion(int codigo) { this.codigo = codigo; }\n    public int codigo() { return codigo; }\n    public static EstatusDevolucion of(int c) {\n        return Arrays.stream(values()).filter(e -> e.codigo == c).findFirst()\n                .orElseThrow(() -> new IllegalArgumentException(\"STATUS-DEV desconocido: \" + c));\n    }\n}",
+          "racional": "El catálogo de once desenlaces vive solo como comentario debajo de <code>WKS-I00-R01-STATUS-DEV</code>; el programa mueve números sueltos (4, 5, 6, 8, 10) en distintos párrafos. En Java el catálogo se vuelve un <code>enum</code> con el código original, de modo que cada asignación queda nombrada y un código fuera del catálogo falla al leerse. Los dos <code>REDEFINES</code> del registro (medio de acceso y autorización) son descomposiciones de un mismo número, por eso se modelan como objetos de valor y no como vistas alternativas. Los importes <code>9(12)V99</code> pasan a <code>BigDecimal</code> con escala 2 y contrato y medio de acceso a <code>String</code>.",
+          "reglas": [
+            "RN-S500-628"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Punteo de P102: validación del header y arrastre al punteo de salida",
+          "linea_ini": 1357,
+          "linea_fin": 1406,
+          "origen_codigo": "     SET  I01-DEVOLUCION (TITLE)  TO WKS-TIT-DEVOLUCION.\n     SET  I02-PUNTEOOUT  (TITLE)  TO WKS-TIT-PUNTEO.\n     SET  I03-PUNTEOIN   (TITLE)  TO WKS-TIT-PUNTEOIN.\n     OPEN INPUT     I03-PUNTEOIN.\n     OPEN OUTPUT    I01-DEVOLUCION.\n     OPEN OUTPUT    I02-PUNTEOOUT.\n 20005120-VALIDA-ARCHIVOS.\n     READ I03-PUNTEOIN INTO WKS-I02-R00-HEADER  AT END\n          CALL SYSTEM DMTERMINATE.\n     IF  WKS-I02-R00-TPOREG    = 0\n     AND WKS-I02-R00-SISORI    = 500\n     AND WKS-I02-R00-SISDES    = 500\n     AND WKS-I02-R00-FEC-MOVTO = WKS-FEC-BASE-08\n     AND WKS-I02-R00-CSI-ORIG  = W77-MY-CSI\n     AND WKS-I02-R00-PASO      = \"P102\"\n     AND WKS-I02-R00-COPIA     = 01\n         NEXT SENTENCE\n     ELSE\n         MOVE   \"ERR HEADER PUNTEO \" TO WS-0101-TEXT-MSG\n         CALL SYSTEM DMTERMINATE.\n     PERFORM 50002100-ARMA-HEADER.\n     PERFORM 20005120-PASA-PUNTEOIN\n             UNTIL W77-EOF-I03 = 1.\n**********************************************************\n 20005120-PASA-PUNTEOIN.\n     READ I03-PUNTEOIN INTO WKS-I02-R01-DATOS AT END\n          MOVE 1 TO W77-EOF-I03.\n     IF WKS-I02-R01-TPOREG = 99\n        MOVE 1   TO W77-EOF-I03.\n     IF W77-EOF-I03 = 0\n        MOVE WKS-I02-R01-DATOS TO I02-R00-PUNTEO\n        PERFORM 50007600-ESCRIBE-PUNTEO.",
+          "java_codigo": "# application.yml\np120:\n  punteo:\n    entrada: \"S500/FILE/P102/PUNTEO/{csi}/{fecha}\"     # WKS-TIT-PUNTEOIN\n    salida:  \"S500/FILE/P120/PUNTEO/{csi}/{fecha}\"     # WKS-TIT-PUNTEO\n    paso-origen: P102\n    copia-origen: 1\n\n@Component\n@RequiredArgsConstructor\nclass PunteoPassThroughTasklet implements Tasklet {\n    private final P120Properties props;\n    private final ProcesoContext ctx;                   // fecha base y CSI del nodo\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext cc) throws Exception {\n        try (var in = punteoReader(props.punteo().entrada()); var out = punteoWriter(props.punteo().salida())) {\n            PunteoHeader h = in.readHeader()\n                    .orElseThrow(() -> new ProcesoAbortadoException(\"ARCH PUNTEO VACIO\"));\n            boolean valido = h.tipoRegistro() == 0\n                    && h.sistemaOrigen() == 500 && h.sistemaDestino() == 500\n                    && h.fechaMovimiento().equals(ctx.fechaBase())\n                    && h.csiOrigen() == ctx.csi()\n                    && props.punteo().pasoOrigen().equals(h.paso())\n                    && h.copia() == props.punteo().copiaOrigen();\n            if (!valido) throw new ProcesoAbortadoException(\"ERR HEADER PUNTEO \" + h.raw());   // DMTERMINATE\n\n            out.write(PunteoHeader.deP120(ctx));                         // 50002100-ARMA-HEADER\n            for (PunteoDetalle d; (d = in.readDetalle()) != null && d.tipoRegistro() != 99; ) {\n                out.write(d);                                            // se re-emite el punteo de P102 tal cual\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Antes de cobrar, P120 abre el punteo que dejó P102 y exige que su header venga de S500 hacia S500, con la fecha base, el CSI del nodo, el paso P102 y la copia 01; cualquier diferencia aborta. Luego copia todos los detalles al punteo de salida, al que después agrega los movimientos de comisión que genera. En Spring Batch esto es un <code>Tasklet</code> previo al step de cobro. El paso, la copia y las rutas, hoy compiladas, se mueven a <code>application.yml</code>. El tipo 99 se trata como fin de archivo igual que en el fuente.",
+          "reglas": [
+            "RN-S500-631"
+          ],
+          "riesgo": "El arrastre termina al encontrar un registro tipo 99 o el fin físico; si P102 escribiera detalles después de un 99, se perderían sin aviso."
+        }
+      ]
+    },
+    {
+      "titulo": "Ciclo de devoluciones — decisión, tarifa, cobro y persistencia",
+      "origen": {
+        "archivo": "S500_SOURCE_P120.txt",
+        "contexto": "PROCEDURE DIVISION · 50003000 / 50003610 / 50004200 / 50004300 / 50006000 / 50007000"
+      },
+      "java": {
+        "archivo": "DevolucionProcessor.java · TarifaDevolucion.java · CobroComision.java · ContratoPersistencia.java",
+        "contexto": "ItemProcessor · ItemWriter · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Decisión de cobro por devolución y control de ruptura por contrato",
+          "linea_ini": 2491,
+          "linea_fin": 2523,
+          "origen_codigo": "     IF WKS-CTO-NOTFOUND = 0\n        IF WKS-IGUAL-MDA = 0\n           PERFORM 50003200-VERIFICA-DEVOLBIM.\n     IF WKS-CTO-NOTFOUND = 0\n        IF WKS-I00-R01-STATUS-DEV = 9\n           NEXT SENTENCE\n        ELSE\n        IF B03-TIPO-BLOQUEO  = 66\n       AND B03-RESTRICCIONES = 17\n           MOVE 4  TO WKS-I00-R01-STATUS-DEV\n        ELSE\n        IF WS03-88-CC-TESOFE\n        OR WS03-88-USOCTANT-TESOFE\n           NEXT SENTENCE\n        ELSE\n        IF WKS-I00-R01-CAUSA-DEV = 1\n           PERFORM 50003600-DAME-TARIFA\n           PERFORM 50004000-COBRA-COMISION\n        ELSE\n           MOVE 10 TO WKS-I00-R01-STATUS-DEV.\n     PERFORM 50006000-MODIF-ARCHIVO.\n     PERFORM 50006500-READ-DEVOL.\n     IF WKS-CTO-NOTFOUND = 0\n        IF WKS-IGUAL-CTO = 0\n           MOVE 1  TO W77-FIN-CTO\n           PERFORM 50007000-ACTUALIZA-BASE\n           MOVE 0  TO W77-FIN-CTO\n        ELSE\n        IF WKS-IGUAL-MDA = 0\n           PERFORM 50007000-ACTUALIZA-BASE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class DevolucionProcessor implements ItemProcessor<Devolucion, Devolucion> {\n\n    private final ContratoService contratos;          // 50003100-VERIFICA-CTO (LOCK B03SXCTO)\n    private final TarifaDevolucion tarifas;           // 50003600-DAME-TARIFA\n    private final CobroComision cobro;                // 50004000-COBRA-COMISION\n\n    @Override\n    public Devolucion process(Devolucion d) {\n        Optional<ContratoVista> cto = contratos.verifica(d.contrato());\n        if (cto.isEmpty()) return d.conEstatus(EstatusDevolucion.NO_EXISTE_CONTRATO);   // vía MODIF-ARCHIVO\n\n        ContratoVista c = cto.get();\n        if (d.estatus() == EstatusDevolucion.ELIMINADO) return d;\n        if (c.tipoBloqueo() == 66 && c.restricciones() == 17) {\n            return d.conEstatus(EstatusDevolucion.SIN_COBRO_POR_BLOQUEO);\n        }\n        if (c.esTesofe()) return d.conEstatus(EstatusDevolucion.DEVOLUCION);  // no se cobra; ver riesgo\n        if (d.causaDevolucion() != 1) return d.conEstatus(EstatusDevolucion.CAUSA_NO_FONDOS);\n\n        ResultadoTarifa t = tarifas.resuelve(d, c);\n        return t.cobrable() ? cobro.cobra(d, c, t) : d.conEstatus(t.estatusNoCobro());\n    }\n}\n// La ruptura por contrato y medio de acceso (W77-FIN-CTO, WKS-IGUAL-MDA) pasa a un\n// ItemWriter que agrupa por contrato: el archivo ya viene ordenado por SORT S01-SORTDEVOL.",
+          "racional": "El párrafo central aplica las exclusiones en un orden fijo: devolución eliminada, cuenta bloqueada con bloqueo 66 y restricciones 17, cuenta de la TESOFE y, por último, causa distinta de fondos insuficientes, que marca el estatus 10. Solo cuando la causa es 1 se busca tarifa y se cobra. La traducción conserva ese orden en un <code>ItemProcessor</code> y hace explícito el estatus de cada salida. El guardado en DMSII por ruptura de contrato o de medio de acceso se mueve al escritor del chunk, que recibe las devoluciones agrupadas porque el archivo se ordena antes por contrato y medio.",
+          "reglas": [
+            "RN-S500-628",
+            "RN-S500-630"
+          ],
+          "riesgo": "Para cuentas TESOFE el fuente solo hace NEXT SENTENCE y el estatus lo decide después MODIF-ARCHIVO con el valor de WKS-COBRA-INSTR, que nunca se reinicia por registro. La devolución puede quedar como 00, 06 u 08 según el registro anterior. Se dejó 00 por ser el valor inicial; debe confirmarse."
+        },
+        {
+          "id": "s4",
+          "titulo": "Tarifa de devolución: claves autorizadas y tope contra la diferencia de saldo",
+          "linea_ini": 2952,
+          "linea_fin": 2984,
+          "origen_codigo": "     IF WKS-I00-R01-CVE-MOV = 2001\n        IF WS05-CLAVE-COMIS(17) > 0\n           IF WKS-I00-R01-DIFSDOB08  > WKS-COMI-XDEV-MAYOR\n              (WKS-IND-INST WKS-IND-PERS,WS-IND-ESQC)\n              MOVE WKS-COMI-XDEV-MAYOR\n                  (WKS-IND-INST WKS-IND-PERS,WS-IND-ESQC)\n                TO WKS-TARIF-COMI\n              MOVE 1                     TO WKS-COBRA-INSTR\n           ELSE\n              MOVE WKS-I00-R01-DIFSDOB08\n                TO WKS-TARIF-COMI\n              MOVE 1                  TO WKS-COBRA-INSTR\n        ELSE\n           MOVE 0                     TO WKS-COBRA-INSTR\n           MOVE 6                     TO WKS-I00-R01-STATUS-DEV\n     ELSE\n     IF WKS-I00-R01-CVE-MOV = 2002\n        IF WS05-CLAVE-COMIS(18) > 0\n           IF WKS-I00-R01-DIFSDOB08 > WKS-COMI-XDEV-MAYOR\n              (WKS-IND-INST WKS-IND-PERS,WS-IND-ESQC)\n              MOVE WKS-COMI-XDEV-MAYOR\n                  (WKS-IND-INST WKS-IND-PERS,WS-IND-ESQC)\n                TO WKS-TARIF-COMI\n              MOVE 1                     TO WKS-COBRA-INSTR\n           ELSE\n              MOVE WKS-I00-R01-DIFSDOB08\n                TO WKS-TARIF-COMI\n              MOVE 1                     TO WKS-COBRA-INSTR\n        ELSE\n           MOVE 0                     TO WKS-COBRA-INSTR\n           MOVE 6                     TO WKS-I00-R01-STATUS-DEV\n     ELSE\n        MOVE 8                     TO WKS-COBRA-INSTR.",
+          "java_codigo": "@Component\nclass TarifaDevolucion {\n\n    /** 50003610-TARIFA-DEVOL. Índice de clave B05: 17 para la 2001, 18 para la 2002. */\n    ResultadoTarifa resuelve(Devolucion d, ContratoVista c) {\n        Integer indiceClave = switch (d.claveMovimiento()) {\n            case 2001 -> 17;\n            case 2002 -> 18;\n            default -> null;              // 2113 incluida: el fuente la manda a COBRA-INSTR = 8\n        };\n        if (indiceClave == null) return ResultadoTarifa.noCobra(EstatusDevolucion.ERROR_CLAVE);\n\n        Instrumento inst = c.instrumento();\n        if (inst.claveComision(indiceClave) <= 0) {\n            return ResultadoTarifa.noCobra(EstatusDevolucion.NO_COBRA_PRODUCTO);\n        }\n        BigDecimal tope = inst.comisionDevolucionMayor(c.tipoPersona(), c.indiceEsquema());  // 9(8)V99\n        // Se cobra el menor entre el tope del tarifario y la diferencia de saldo de B08.\n        BigDecimal tarifa = d.diferenciaSaldo().compareTo(tope) > 0 ? tope : d.diferenciaSaldo();\n        return ResultadoTarifa.cobra(tarifa.setScale(2, RoundingMode.DOWN));  // MOVE a 9(8)V99 trunca\n    }\n}",
+          "racional": "Solo las claves 2001 y 2002 tienen tarifa de devolución, y cada una usa su propia posición del arreglo de claves de comisión del instrumento (17 y 18). Si el instrumento no tiene clave de comisión, el estatus es 06; si la clave del movimiento es otra, el indicador de cobro vale 8 y la devolución termina con estatus 08. El importe es el menor entre el tope del tarifario por instrumento, tipo de persona y esquema, y la diferencia de saldo registrada en B08. El <code>MOVE</code> a <code>PIC 9(8)V99</code> trunca, de ahí el <code>RoundingMode.DOWN</code>.",
+          "reglas": [
+            "RN-S500-629",
+            "RN-S500-628"
+          ],
+          "riesgo": "El comentario del catálogo y la regla RN-S500-629 dicen que 2113 es clave válida, y 50004270-DAME-CVES-COMIS le asigna la clave de devolución 514, pero este párrafo no tiene rama para 2113: toda devolución con esa clave se marca 08 y no se cobra."
+        },
+        {
+          "id": "s5",
+          "titulo": "IVA, disponible y cobro parcial con comisión pendiente",
+          "linea_ini": 3204,
+          "linea_fin": 3343,
+          "origen_codigo": " 50004100-DAME-IVA.\n     MOVE WKS-S080-IVA1     TO WKS-TASA-IVA.\n     MOVE WKS-S080-TPO-IVA  TO WKS-TPO-IVA.\n     IF WKS-TPO-IVA = 1\n        MOVE WKS-CVE-IVA10  TO WKS-CVE-IVA\n     ELSE\n        MOVE WKS-CVE-IVA15  TO WKS-CVE-IVA.\n 50004200-CALCULA-DISPONIBLE.\n     IF B03-SDO-PENDIENTE > 0\n        ADD  B03-SDO-PENDIENTE TO B03-SDO-ACTUAL\n        MOVE 0                 TO B03-SDO-PENDIENTE\n        IF B03-IND-LINCREDIT > 0\n           MOVE 1              TO B03-IND-PENDLC.\n     IF B03-SDO-ACTUAL > B03-AUT-PENDIENTE\n        COMPUTE WKS-DISPONIBLE = B03-SDO-ACTUAL\n                               - B03-AUT-PENDIENTE\n     ELSE\n        MOVE ZERO            TO WKS-DISPONIBLE.\n 50004300-APLICA-COMISION.\n     MOVE WKS-TARIF-COMI       TO WKS-I00-R01-COMICOB.\n     IF WKS-CVE-IVA > 0\n        COMPUTE WKS-IMP-CIVA = WKS-TARIF-COMI * WKS-TASA-IVA\n        MOVE WKS-TARIF-COMI    TO WKS-IMP-SIVA\n        COMPUTE WKS-IMP-IVA  = WKS-IMP-CIVA - WKS-IMP-SIVA\n     ELSE\n        MOVE WKS-TARIF-COMI    TO WKS-IMP-CIVA WKS-IMP-SIVA\n        MOVE 0                 TO WKS-IMP-IVA.\n     MOVE WKS-IMP-IVA          TO WKS-IVA-TOTAL.\n     IF WKS-DISPONIBLE < WKS-IMP-CIVA\n        MOVE WKS-DISPONIBLE     TO WKS-IMP-CIVA\n        IF WKS-CVE-IVA > 0\n           COMPUTE WKS-IMP-SIVA ROUNDED =\n                   WKS-IMP-CIVA / WKS-TASA-IVA\n           COMPUTE WKS-IMP-IVA = WKS-IMP-CIVA - WKS-IMP-SIVA\n           COMPUTE WKS-IMP-DIFCOM = WKS-TARIF-COMI - WKS-IMP-SIVA\n           COMPUTE WKS-IMP-DIFIVA = WKS-IVA-TOTAL - WKS-IMP-IVA\n        ELSE\n           MOVE WKS-DISPONIBLE     TO WKS-IMP-SIVA\n           MOVE 0                  TO WKS-IMP-IVA\n           MOVE 0                  TO WKS-IMP-DIFIVA\n           COMPUTE WKS-IMP-DIFCOM = WKS-TARIF-COMI - WKS-IMP-SIVA\n     ELSE\n        MOVE ZERO TO WKS-IMP-DIFIVA\n        MOVE ZERO TO WKS-IMP-DIFCOM.\n     IF WKS-IMP-CIVA > 0\n        SUBTRACT WKS-IMP-CIVA    FROM B03-SDO-ACTUAL\n        MOVE 1                   TO WKS-SI-B03\n        IF WS-ESQCOM = 7 OR 8\n           ADD WKS-IMP-SIVA TO W77-COMIS-SICOB-SINMDA.\n     PERFORM 50004400-SUMA-HISTORICO.\n     IF W77-QUE-PROCESO = 1\n        PERFORM 50004410-SUMA-DEVMENSUAL.\n     IF WKS-IMP-DIFCOM > 0\n        IF WKS-IND-CPTE > 0 AND < 100\n           PERFORM 50004500-SUMA-COMPENDTE\n        ELSE\n           MOVE ZEROS TO WKS-IMP-DIFIVA\n           MOVE ZEROS TO WKS-IMP-DIFCOM.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CobroComision {\n\n    /** WKS-TASA-IVA es 9(4)V9(4): factor 1 + tasa (p. ej. 1.1600). */\n    CargoComision calcula(BigDecimal tarifa, BigDecimal factorIva, boolean llevaIva, BigDecimal disponible) {\n        BigDecimal conIva, sinIva, iva;\n        if (llevaIva) {\n            conIva = tarifa.multiply(factorIva).setScale(2, RoundingMode.DOWN);   // COMPUTE sin ROUNDED\n            sinIva = tarifa;\n            iva    = conIva.subtract(sinIva);\n        } else {\n            conIva = sinIva = tarifa;\n            iva    = BigDecimal.ZERO.setScale(2);\n        }\n        BigDecimal ivaTotal = iva, difCom = BigDecimal.ZERO.setScale(2), difIva = difCom;\n\n        if (disponible.compareTo(conIva) < 0) {                // cobro parcial hasta el disponible\n            conIva = disponible;\n            if (llevaIva) {\n                sinIva = conIva.divide(factorIva, 2, RoundingMode.HALF_UP);   // COMPUTE ... ROUNDED\n                iva    = conIva.subtract(sinIva);\n                difCom = tarifa.subtract(sinIva);\n                difIva = ivaTotal.subtract(iva);\n            } else {\n                sinIva = disponible;\n                iva    = BigDecimal.ZERO.setScale(2);\n                difCom = tarifa.subtract(sinIva);\n            }\n        }\n        return new CargoComision(conIva, sinIva, iva, difCom, difIva);\n    }\n\n    /** 50004200-CALCULA-DISPONIBLE: el saldo pendiente se integra al actual antes de calcular. */\n    static BigDecimal disponible(Contrato c) {\n        if (c.getSaldoPendiente().signum() > 0) {\n            c.setSaldoActual(c.getSaldoActual().add(c.getSaldoPendiente()));\n            c.setSaldoPendiente(BigDecimal.ZERO);\n            if (c.getIndLineaCredito() > 0) c.setIndPendienteLc(1);\n        }\n        return c.getSaldoActual().compareTo(c.getAutPendiente()) > 0\n                ? c.getSaldoActual().subtract(c.getAutPendiente()) : BigDecimal.ZERO;\n    }\n}\n// Si queda diferencia y B17-IND-COMIPEND está entre 1 y 99, se suma a B12-IMP-ACUMULADO\n// (comisión pendiente); si no, la diferencia se descarta (difCom = difIva = 0).",
+          "racional": "Es el cálculo con más peso financiero del programa. La tasa de IVA llega como factor con cuatro decimales y el importe con IVA se obtiene sin <code>ROUNDED</code>, por lo que trunca a centavos. Si el disponible del contrato no alcanza, se cobra todo el disponible y se despeja el importe sin IVA dividiendo entre el factor, esta vez con <code>ROUNDED</code>, que en Java es <code>HALF_UP</code>. La diferencia entre la tarifa y lo cobrado se registra como comisión pendiente en B12 solo si la clave tiene indicador de pendiente; en caso contrario se pierde. El disponible integra antes el saldo pendiente al saldo actual y descuenta las autorizaciones pendientes.",
+          "reglas": [],
+          "riesgo": "Cuando la clave de comisión no tiene indicador de pendiente (WKS-IND-CPTE fuera de 1-99), la diferencia no cobrada se pone en cero y no queda rastro contable de la comisión que no se pudo cobrar."
+        },
+        {
+          "id": "s6",
+          "titulo": "Estatus final, cifras del trailer y reescritura del archivo",
+          "linea_ini": 3632,
+          "linea_fin": 3659,
+          "origen_codigo": " 50006000-MODIF-ARCHIVO.\n     IF WKS-I00-R01-STATUS-DEV > 0\n        NEXT SENTENCE\n     ELSE\n     IF WKS-CTO-NOTFOUND = 1\n        MOVE 5                   TO WKS-I00-R01-STATUS-DEV\n     ELSE\n     IF WKS-COBRA-INSTR = 0\n        MOVE 6                   TO WKS-I00-R01-STATUS-DEV\n     ELSE\n     IF WKS-COBRA-INSTR = 8\n        MOVE 8                   TO WKS-I00-R01-STATUS-DEV.\n     IF (WKS-I00-R01-STATUS-DEV = 0)\n        ADD 1                    TO WKS-I00-R02-NUM-DEVUELTOS\n        ADD WKS-I00-R01-IMP-MOV  TO WKS-I00-R02-IMP-DEVUELTOS\n     ELSE\n        ADD 1                    TO WKS-I00-R02-NUM-SINCOBR\n        ADD WKS-I00-R01-IMP-MOV  TO WKS-I00-R02-IMP-SINCOBR.\n     IF WKS-CTO-NOTFOUND = 0\n        MOVE B03-NOMBRE          TO WKS-I00-R01-NOM-CLIENTE\n     ELSE\n        MOVE \"NO EXISTE EN BASE\" TO WKS-I00-R01-NOM-CLIENTE.\n     MOVE WKS-I00-R01-DEVOL  TO I01-R00-DEVOLUCION.\n     PERFORM 50006100-ESCRIBE-ARCHIVO.\n     ADD 1                   TO WKS-I00-R02-NUM-REGS.",
+          "java_codigo": "@Component\n@StepScope\nclass DevolucionArchivoWriter implements ItemWriter<Devolucion> {\n    private final TrailerDevolucion trailer = new TrailerDevolucion();   // WKS-I00-R02-*\n\n    /** 50006000-MODIF-ARCHIVO: el estatus ya asignado se respeta; si es 00 se deriva del cobro. */\n    static EstatusDevolucion estatusFinal(Devolucion d, boolean contratoExiste, int cobraInstr) {\n        if (d.estatus() != EstatusDevolucion.DEVOLUCION) return d.estatus();\n        if (!contratoExiste) return EstatusDevolucion.NO_EXISTE_CONTRATO;\n        if (cobraInstr == 0)  return EstatusDevolucion.NO_COBRA_PRODUCTO;\n        if (cobraInstr == 8)  return EstatusDevolucion.ERROR_CLAVE;\n        return EstatusDevolucion.DEVOLUCION;\n    }\n\n    @Override\n    public void write(Chunk<? extends Devolucion> chunk) {\n        for (Devolucion d : chunk) {\n            if (d.estatus() == EstatusDevolucion.DEVOLUCION) trailer.sumaDevuelto(d.importe());\n            else                                              trailer.sumaSinCobro(d.importe());\n            archivo.reescribe(d.conNombre(d.nombreCliente() == null ? \"NO EXISTE EN BASE\" : d.nombreCliente()));\n            trailer.sumaRegistro();\n        }\n    }\n}",
+          "racional": "El estatus final de cada devolución se decide en un solo lugar: si algún paso previo ya puso un estatus distinto de 00 se conserva; si no, se deriva de si existe el contrato y del indicador de cobro. El mismo párrafo alimenta los contadores del trailer (devueltos contra sin cobro) y reescribe el registro en el archivo de devoluciones abierto en I-O. En Java la derivación es una función pura fácil de probar y la reescritura la hace el <code>ItemWriter</code>.",
+          "reglas": [
+            "RN-S500-628"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Persistencia por contrato en una transacción DMSII",
+          "linea_ini": 3705,
+          "linea_fin": 3777,
+          "origen_codigo": " 50007000-ACTUALIZA-BASE.\n     IF W77-FIN-CTO = 1\n        IF W77-HAY-MOV-BATCH = 1\n           MOVE WKS-FEC-BASE-08   TO B03-FEC-ULTACT\n           MOVE ZERO              TO W77-HAY-MOV-BATCH\n           MOVE 1                 TO WKS-SI-B03.\n     PERFORM 90000000-BEGIN-TRANSACTION.\n     IF WS-STATUS-BASE > 0\n        CALL SYSTEM DMTERMINATE.\n     IF W77-FIN-CTO = 1\n        IF WKS-SI-B03 = 1\n           PERFORM 90000003-B03CONTRATOS-STORE\n           IF WS-STATUS-BASE > 0\n              CALL SYSTEM DMTERMINATE.\n     IF W77-FIN-CTO = 1\n        IF WKS-SI-B06 = 1\n           PERFORM 90000006-B06HISTORICO-STORE\n              CALL SYSTEM DMTERMINATE.\n     IF W77-FIN-CTO = 1\n        IF WKS-SI-B12 = 1\n           PERFORM 90000012-B12COMPEN-STORE\n              CALL SYSTEM DMTERMINATE.\n     IF WKS-SI-B20 = 1\n        PERFORM 90000020-B20DEVMENSUAL-STORE\n        IF WS-STATUS-BASE > 0\n           CALL SYSTEM DMTERMINATE.\n     PERFORM 90000000-END-TRANSACTIONNOAU.\n     IF WS-STATUS-BASE > 0\n        CALL SYSTEM DMTERMINATE.\n     IF W77-FIN-CTO = 1\n        MOVE ZEROS TO WKS-SI-B03 WKS-SI-B06\n                      WKS-SI-B12 WKS-SI-B20\n     ELSE\n        MOVE ZEROS TO WKS-SI-B20.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ContratoPersistencia {\n    private final ContratoRepository b03;\n    private final HistoricoRepository b06;\n    private final ComisionPendienteRepository b12;\n    private final DevolucionMensualRepository b20;\n\n    /**\n     * 50007000-ACTUALIZA-BASE. Al cambiar de contrato guarda B03, B06 y B12 si se tocaron;\n     * B20 se guarda también al cambiar solo de medio de acceso. Cualquier error aborta el job.\n     */\n    @Transactional\n    public void guarda(EstadoContrato e, boolean finContrato, LocalDate fechaBase) {\n        if (finContrato && e.huboMovimientoBatch()) {\n            e.contrato().setFechaUltimaActualizacion(fechaBase);     // B03-FEC-ULTACT\n            e.marcaB03();\n        }\n        if (finContrato) {\n            if (e.tocoB03()) b03.save(e.contrato());\n            if (e.tocoB06()) b06.save(e.historico());\n            if (e.tocoB12()) b12.save(e.comisionPendiente());\n        }\n        if (e.tocoB20()) b20.save(e.devolucionMensual());\n        e.limpiaMarcas(finContrato);                                 // todas, o solo B20\n    }\n}",
+          "racional": "Cada contrato se guarda en una transacción propia (<code>BEGIN-TRANSACTION</code> y <code>END-TRANSACTIONNOAU</code>) que incluye el maestro de contratos, el histórico y las comisiones pendientes, más el contador mensual de devoluciones. Las banderas <code>WKS-SI-Bnn</code> evitan escribir lo que no cambió. En Java es un método <code>@Transactional</code> con las mismas banderas; un error de cualquier <code>save</code> revierte el contrato completo y detiene el step, como hacía <code>DMTERMINATE</code>.",
+          "reglas": [],
+          "riesgo": "Los movimientos contables ya se enviaron a S151 con CARGAMOV1 y el punteo ya se escribió antes de esta transacción. Si el programa aborta entre ambos momentos, el mayor y el punteo reflejan una comisión que el saldo de B03 no tiene."
+        }
+      ]
+    },
+    {
+      "titulo": "Prevenciones y revocaciones de S127",
+      "origen": {
+        "archivo": "S500_SOURCE_P120.txt",
+        "contexto": "PROCEDURE DIVISION · 50200000 / 50200300 / 50200500"
+      },
+      "java": {
+        "archivo": "PrevencionesStepLoop.java · PrevencionProcessor.java",
+        "contexto": "JobExecutionDecider · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Archivo COMIPREV de S127: residencia, header y trailer por día",
+          "linea_ini": 3841,
+          "linea_fin": 3957,
+          "origen_codigo": " 50200000-PREVENCIONES.\n     MOVE ZEROS                    TO W77-EOF-PREV.\n     MOVE WKS-FECHA-PREVEN         TO WKS-TIT-E03-FEC.\n     MOVE W77-MY-CSI               TO WKS-TIT-E03-CSI.\n     SET E03-COMIPREV-ENT (TITLE)  TO WKS-TIT-COMIPREV-E.\n     IF ATTRIBUTE RESIDENT OF E03-COMIPREV-ENT IS = VALUE TRUE\n        OPEN INPUT E03-COMIPREV-ENT\n        PERFORM 50200300-VALIDA-PREV\n        IF W77-VAL-ARCHPREV = 0\n           MOVE 1       TO W77-REG-PREV\n           PERFORM 50200500-LEE-ARCH-PREVEN\n                   UNTIL W77-EOF-PREV = 1\n           CLOSE E03-COMIPREV-ENT WITH SAVE\n           PERFORM 50200120-PROYECTA-FECHA\n           IF WKS-FECHA-PREVEN = WKS-FEC-PROX-08\n              MOVE 1  TO W77-FIN-PREV\n           ELSE\n              NEXT SENTENCE\n        ELSE\n           CLOSE E03-COMIPREV-ENT WITH SAVE\n           MOVE 1 TO W77-FIN-PREV\n           PERFORM 60610200-STOP-PROGRAM\n     ELSE\n        MOVE 1 TO W77-FIN-PREV\n        IF WKS-FECHA-PREVEN < WKS-FEC-PROX-08\n           STRING \"ARCHIVO \", WKS-TIT-COMIPREV-E,\n                  \" NO ESTA RESIDENTE \"\n                  DELIMITED BY SIZE INTO WLI-R01-L06-MENSAJE\n           PERFORM 60610000-ESC-MENSAJES.\n 50200300-VALIDA-PREV.\n     MOVE 1       TO W77-REG-PREV.\n     READ E03-COMIPREV-ENT INTO WKS-E03-HEADER\n          INVALID KEY\n          MOVE 1           TO W77-EOF-PREV  W77-VAL-ARCHPREV\n     IF W77-EOF-PREV = 0\n        IF WKS-E03-HED-TPOREG    = 1\n       AND WKS-E03-HED-FECCONT   = WKS-FECHA-PREVEN\n       AND WKS-E03-HED-CSI       = W77-MY-CSI\n       AND WKS-E03-HED-SIST-ORI  = 0127\n       AND WKS-E03-HED-SIST-DEST = 0500\n       AND WKS-E03-HED-FTO       = 2\n        ELSE\n           MOVE 1          TO W77-VAL-ARCHPREV\n     MOVE ATTRIBUTE LASTRECORD OF E03-COMIPREV-ENT\n       TO W77-LAST-REC-PREV.\n     COMPUTE W77-REG-PREV   = W77-LAST-REC-PREV + 1.\n     COMPUTE W77-REG-TRL-01 = W77-LAST-REC-PREV - 1.\n     READ E03-COMIPREV-ENT INTO WKS-E03-TRAILER\n     IF W77-EOF-PREV = 0\n        IF WKS-E03-TRL-TPOREG = 9\n           IF WKS-E03-TRL-TOTREG = W77-REG-TRL-01\n           ELSE\n              MOVE 1           TO W77-VAL-ARCHPREV\n        ELSE\n           MOVE 1           TO W77-VAL-ARCHPREV\n     ELSE\n        MOVE 1           TO W77-VAL-ARCHPREV.",
+          "java_codigo": "# application.yml\np120:\n  comiprev:\n    ruta: \"(S127)S127/FILE/S500/COMIPREV/{csi}/{fecha}\"\n    sistema-origen: 127\n    sistema-destino: 500\n    formato: 2\n\n@Component\n@RequiredArgsConstructor\nclass PrevencionesStepLoop implements JobExecutionDecider {\n    private final P120Properties props;\n    private final CalendarioBancario calendario;      // LOCSUP función 13, formato 12\n\n    /** 50200000-PREVENCIONES se repite por día hasta alcanzar la fecha próxima de proceso. */\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution ultimo) {\n        LocalDate fecha = job.getExecutionContext().get(\"fechaPrevencion\", LocalDate.class);\n        LocalDate proxima = job.getExecutionContext().get(\"fechaProxima\", LocalDate.class);\n        Resource archivo = recurso(props.comiprev().ruta(), fecha);\n        if (!archivo.exists()) {\n            if (fecha.isBefore(proxima)) log.warn(\"ARCHIVO {} NO ESTA RESIDENTE\", archivo);\n            return new FlowExecutionStatus(\"FIN\");\n        }\n        if (!ComiPrevValidator.valido(archivo, fecha, props.comiprev())) {\n            return new FlowExecutionStatus(\"ARCHIVO_ERRONEO\");     // 60610200-STOP-PROGRAM: alerta al operador\n        }\n        LocalDate siguiente = calendario.sumaDias(fecha, 1);\n        job.getExecutionContext().put(\"fechaPrevencion\", siguiente);\n        return new FlowExecutionStatus(siguiente.equals(proxima) ? \"ULTIMO_DIA\" : \"OTRO_DIA\");\n    }\n}\n\nfinal class ComiPrevValidator {\n    /** Header tipo 1 con fecha, CSI, origen 0127, destino 0500 y formato 2; trailer tipo 9 con el conteo. */\n    static boolean valido(Resource r, LocalDate fecha, ComiPrevProps p) { /* ... */ return true; }\n}",
+          "racional": "El archivo de comisiones previas lo entrega S127 con un nombre que incluye CSI y fecha. P120 lo procesa día por día desde la última fecha aplicada (guardada en <code>B02-ULT-ARCH-APLI(11)</code>) hasta la fecha próxima, proyectando la fecha con LOCSUP. Antes de aplicar un archivo valida que el header venga de S127 hacia S500 con formato 2 y que el trailer cuadre con el número de registros. En Spring Batch el recorrido por días es un <code>JobExecutionDecider</code> que repite el step de prevenciones; las constantes de origen, destino y formato pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-632"
+          ],
+          "riesgo": "Si el archivo de un día no está residente, el fuente solo escribe un aviso y termina el proceso de prevenciones; la fecha no avanza, de modo que el día siguiente se reintenta, pero mientras tanto esas comisiones no se cobran."
+        },
+        {
+          "id": "s9",
+          "titulo": "Exclusiones al cobro de prevenciones, incluida una lista fija de contratos",
+          "linea_ini": 3961,
+          "linea_fin": 4003,
+          "origen_codigo": " 50200500-LEE-ARCH-PREVEN.\n     ADD  1   TO W77-REG-PREV.\n     READ E03-COMIPREV-ENT INTO WKS-E03-DATOS\n          INVALID KEY\n          MOVE 1 TO W77-EOF-PREV.\n     IF W77-EOF-PREV = 0\n        IF WKS-E03-DAT-TPOREG = 9\n           PERFORM 50200550-FIN-ARCH-PREVEN\n        ELSE\n           ADD 1   TO W77-LEIDOS-PREV\n           IF WKS-E03-DAT-TPOREG = 2\n              MOVE WKS-E03-DAT-CTO  TO W77-CONTRATO-PTE\n              PERFORM 50003100-VERIFICA-CTO\n              IF WKS-CTO-CLONADO = 1\n                 ADD 1 TO W77-RECHAZA-PEXT\n              ELSE\n              IF WKS-CTO-NOTFOUND = 0\n                 IF B03-TIPO-BLOQUEO  = 66\n                AND B03-RESTRICCIONES = 17\n                    ADD 1 TO W77-RECHAZA-PREV\n                 ELSE\n                 IF W77-SOCFUND-SINCOM = 1\n                    ADD  1  TO W77-RECHAZA-PREV\n                 ELSE\n                 IF WS03-88-CC-TESOFE\n                 OR WS03-88-USOCTANT-TESOFE\n                    ADD  1  TO W77-RECHAZA-PREV\n                 ELSE\n                 ELSE\n                    PERFORM 50201000-COBRA-COMPREV\n              ELSE\n                 ADD  1  TO W77-RECHAZA-PREV",
+          "java_codigo": "# application.yml\np120:\n  prevenciones:\n    contratos-exentos:          # antes: nueve números de contrato compilados en 50200500\n      - \"****\"                  # se cargan desde un catálogo administrado, no desde el código\n\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass PrevencionProcessor implements ItemProcessor<ComiPrevRegistro, CargoPrevencion> {\n    private final ContratoService contratos;\n    private final P120Properties props;\n    private final ContadoresPrevencion cont;          // leídos, aceptados, rechazados, extended\n\n    @Override\n    public CargoPrevencion process(ComiPrevRegistro r) {\n        cont.leido();\n        if (r.tipoRegistro() != 2) { cont.rechazado(\"TIPO DE REG ERRONEO\"); return null; }\n\n        var v = contratos.verifica(r.contrato());\n        if (v.clonado()) { cont.rechazadoExtended(); return null; }\n        if (v.contrato().isEmpty()) { cont.rechazado(\"NO EXISTE CONTRATO\"); return null; }\n\n        ContratoVista c = v.contrato().get();\n        boolean excluido = (c.tipoBloqueo() == 66 && c.restricciones() == 17)\n                || c.fondoSocialSinComision()                      // W77-SOCFUND-SINCOM\n                || c.esTesofe()\n                || props.prevenciones().contratosExentos().contains(c.numContrato());\n        if (excluido) { cont.rechazado(); return null; }\n        return cobroPrevencion.cobra(r, c);                        // 50201000-COBRA-COMPREV\n    }\n}",
+          "racional": "Cada registro de COMIPREV pasa por las mismas exclusiones que las devoluciones (bloqueo 66 con restricciones 17, fondo social sin comisión, cuentas TESOFE) y por una lista de nueve contratos escritos en el código. Esos números no se reproducen aquí; en el extracto aparecen como líneas omitidas. En Java la lista se convierte en una propiedad o, mejor, en un catálogo administrado con auditoría de altas y bajas. Los contratos clonados se cuentan aparte como extended.",
+          "reglas": [
+            "RN-S500-632"
+          ],
+          "riesgo": "La exención de nueve contratos está compilada sin comentario de autorización ni fecha de vigencia (líneas 3990-3998). Cualquier cambio requiere recompilar y no hay evidencia de quién la aprobó."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Clave 2113 nunca se cobra",
+      "detalle": "50003610-TARIFA-DEVOL (líneas 2952-2984) solo tiene ramas para 2001 y 2002; la 2113 cae en COBRA-INSTR = 8 y queda con estatus 08, aunque el catálogo (línea 710) y DAME-CVES-COMIS (línea 3290) la tratan como válida."
+    },
+    {
+      "titulo": "Estatus heredado del registro anterior",
+      "detalle": "WKS-COBRA-INSTR solo se inicializa con VALUE 1 (línea 447) y no se reinicia por devolución. En cuentas TESOFE, que no pasan por la tarifa, el estatus final depende del registro procesado antes."
+    },
+    {
+      "titulo": "Comisión no cobrada sin rastro",
+      "detalle": "Si la clave no tiene indicador de comisión pendiente, la diferencia entre tarifa y lo cobrado se pone en cero (líneas 3338-3343)."
+    },
+    {
+      "titulo": "Truncamiento del IVA",
+      "detalle": "El importe con IVA se calcula sin ROUNDED (línea 3301) y el despeje en cobro parcial sí redondea (línea 3313); la combinación puede dejar diferencias de un centavo entre IVA cobrado e IVA pendiente."
+    },
+    {
+      "titulo": "Contratos exentos compilados",
+      "detalle": "Nueve números de contrato están escritos en 50200500-LEE-ARCH-PREVEN (líneas 3990-3998) y quedan fuera del cobro de prevenciones. No se reproducen en este documento."
+    },
+    {
+      "titulo": "Atomicidad entre S151, punteo y DMSII",
+      "detalle": "Los movimientos al mayor y el punteo se emiten antes de la transacción que actualiza B03, B06 y B12; un aborto intermedio deja inconsistencias que hoy se resuelven con reproceso manual."
+    },
+    {
+      "titulo": "Hardcodes operativos",
+      "detalle": "Claves excluidas 0688, 0690 y 0692, sucursales 3667 y 3084 por nodo, banco 002 o 007, límites de 30 instrumentos, 30 movimientos por mensaje y 100 claves acumuladas. Se trasladan a configuración."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si la clave 2113 debe cobrarse como 2001 (lo que sugiere DAME-CVES-COMIS) o si su exclusión en TARIFA-DEVOL es intencional; RN-S500-629 describe el conjunto 2001, 2002 y 2113 como cobrable.",
+    "Confirmar el estatus esperado para devoluciones de cuentas TESOFE; el fuente no lo asigna explícitamente.",
+    "Validar con el SME la semántica de WKS-I00-R01-DIFSDOB08 (diferencia contra saldo) como base del cobro de devolución.",
+    "Confirmar si LASTRECORD del archivo COMIPREV es base cero; de ello depende que la comparación del trailer con LASTRECORD - 1 sea correcta.",
+    "Los contratos exentos del cobro de prevenciones deben revisarse con Cumplimiento antes de migrar la lista.",
+    "Los cortes de estado de cuenta (librería S050/L191) y la consolidación en B09 y B14 no se incluyeron en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-221",
+    "RN-S151-222",
+    "RN-S151-223",
+    "RN-S151-224",
+    "RN-S151-225",
+    "RN-S151-226",
+    "RN-S151-227",
+    "RN-S151-228",
+    "RN-S151-229",
+    "RN-S151-230",
+    "RN-S151-231",
+    "RN-S151-232",
+    "RN-S500-628",
+    "RN-S500-629",
+    "RN-S500-630",
+    "RN-S500-631",
+    "RN-S500-632"
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "slug": "S500_L040",
+  "sistema": "S500",
+  "programa": "L040",
+  "nombre": "Fachada de control de enlace hacia la librería de ligas",
+  "funcion": "Librería ALGOL residente de S500 que intermedia todas las llamadas a S500L039BD04 (consultas contrato-tarjeta y tarjeta-TEF) y permite al operador suspender o restablecer esa liga mediante interrupciones HI.",
+  "resumen": "Exporta nueve procedimientos que replican uno a uno los de S500L039BD04; cada uno delega en la librería real si la liga está activa o devuelve 99 si está suspendida. Al levantarse valida su versión con CTLVERS, salvo en el host ACYPBETA, obtiene de CTLVERS el título físico de L039 y llama a su punto de entrada de arranque. Una tarea de control atiende los HI 1 a 4 y 99 para suspender, restablecer, consultar o dar de baja la liga.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.ligas",
+  "secciones": [
+    {
+      "titulo": "Interfaz expuesta y delegación hacia L039",
+      "origen": {
+        "archivo": "S500_SOURCE_L040_LIGAS.txt",
+        "contexto": "LIBRARY LIGACALL · PROCEDURE S500L040_* · EXPORT"
+      },
+      "java": {
+        "archivo": "LigasApi.java · LigasL039Client.java · LigasFacade.java",
+        "contexto": "@Service · interfaz espejo"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Propósito y modo de compartición de la librería",
+          "linea_ini": 8,
+          "linea_fin": 18,
+          "origen_codigo": "$ SET SHARING = PRIVATE                                                 00000800\n BEGIN                                                                  00000900\n%  LIBRERIA DE CONTROL S500L040LIGA:                                    00001200\n%                                                                       00001300\n%   CONTROLA LINKS DE LIBRERIA S500L039BD04                             00001400\n%                                                                       00001500\n%   LIBRERIA S500L039BD04                                               00001600\n%     CONSULTA RELACION CONTRATO-TARJETA DEL SISTEMA S500.              00001700\n%     CONSULTA RELACION TARJETA-TEF      DEL SISTEMA S500.              00001800",
+          "java_codigo": "/**\n * S500L040LIGA: fachada que controla el enlace con S500L039BD04, la librería que consulta\n * las relaciones contrato-tarjeta y tarjeta-TEF del sistema S500.\n *\n * SHARING = PRIVATE: cada programa que la llama recibe su propia instancia. En Spring el\n * equivalente más cercano es un bean prototype por consumidor; se usa singleton porque la\n * fachada no guarda estado de negocio, solo el interruptor de enlace.\n */\n@Service\n@RequiredArgsConstructor\npublic class LigasFacade implements LigasApi {\n\n    private final LigasL039Client l039;                          // antes LIBRARY LIGACALL\n    private final AtomicBoolean ligaActiva = new AtomicBoolean(); // B_LLAMAL039\n    public static final int SIN_LIGA = 99;                        // resultado cuando la liga está suspendida\n}",
+          "racional": "L040 no tiene lógica de negocio propia: es una capa de control entre los programas de S500 y la librería S500L039BD04, que es la que consulta la base. Su único estado es un interruptor que indica si la liga con L039 está activa. Se compila con <code>SHARING = PRIVATE</code>, así que cada consumidor tiene su propia copia de ese interruptor. En Java la fachada es un <code>@Service</code> cuyo interruptor es un <code>AtomicBoolean</code>; si se quisiera conservar el aislamiento por consumidor, el bean tendría que declararse con alcance prototype.",
+          "reglas": [],
+          "riesgo": "Con SHARING = PRIVATE, un HI 1 enviado a una instancia suspende la liga solo para el programa que la usa, no para todo S500; el operador no tiene forma de saber cuántas instancias hay activas."
+        },
+        {
+          "id": "s2",
+          "titulo": "Procedimientos importados de S500L039BD04 y superficie exportada",
+          "linea_ini": 39,
+          "linea_fin": 365,
+          "origen_codigo": "  LIBRARY LIGACALL;                                                     00003900\n                                                                        00004000\n    INTEGER PROCEDURE S500L040_FECHA_S111_C(EA_SALIDA);                 00004100\n    EBCDIC ARRAY EA_SALIDA[0];                                          00004200\n    LIBRARY   LIGACALL;                                                 00004300\n                                                                        00004400\n    INTEGER PROCEDURE S500L040_DAME_TARJETA_C(EA_ENTRADA,EA_SALIDA);    00004500\n    EBCDIC ARRAY EA_ENTRADA[0], EA_SALIDA[0];                           00004600\n    LIBRARY   LIGACALL;                                                 00004700\n                                                                        00004800\n    INTEGER PROCEDURE S500L040_DAME_CONTRATO_C(EA_ENTRADA,EA_SALIDA);   00004900\n    EBCDIC ARRAY EA_ENTRADA[0], EA_SALIDA[0];                           00005000\n    LIBRARY   LIGACALL;                                                 00005100\n   EXPORT S500L040_FECHA_S111                                           00021100\n         ,S500L040_DAME_TARJETA                                         00021200\n         ,S500L040_DAME_CONTRATO                                        00021300\n         ,S500L040_DAME_TEF                                             00021350\n         ,S500L040_DAME_CTAORIG                                         00021360\n         ,S500L040_DAME_CTAGLB                                          00021370\n         , S500L040_CONINFOCTE                                          00021380\n         ;                                                              00021400",
+          "java_codigo": "/** Misma interfaz que exportaba L040; cada método devuelve el código de resultado de L039. */\npublic interface LigasApi {\n    int fechaS111(byte[] salida);                         // S500L040_FECHA_S111\n    int dameTarjeta(byte[] entrada, byte[] salida);       // S500L040_DAME_TARJETA\n    int dameContrato(byte[] entrada, byte[] salida);      // S500L040_DAME_CONTRATO\n    int dameTef(byte[] entrada, byte[] salida);           // S500L040_DAME_TEF\n    int dameCtaOrig(byte[] entrada, byte[] salida);       // S500L040_DAME_CTAORIG\n    int dameCtaGlb(byte[] entrada, byte[] salida);        // S500L040_DAME_CTAGLB\n    int archDisp(byte[] entrada, byte[] salida);          // S500L040_ARCHDISP  (sincronización S500-S016)\n    int camBase(byte[] entrada);                          // S500L040_CAMBASE   (sincronización S500-S016)\n    int conInfoCte(byte[] entrada, byte[] salida);        // S500L040_CONINFOCTE\n}\n\n/** Cliente de la librería real (antes LIBRARY LIGACALL con los procedimientos *_C). */\npublic interface LigasL039Client {\n    int fechaS111(byte[] salida);\n    int dameTarjeta(byte[] entrada, byte[] salida);\n    int dameContrato(byte[] entrada, byte[] salida);\n    // ... uno por cada procedimiento *_C importado\n    void levanta();                                       // S500L040_99_LEVANTA_C\n}",
+          "racional": "La librería importa de <code>LIGACALL</code> un procedimiento con sufijo <code>_C</code> por cada servicio y exporta otro con el mismo nombre sin sufijo. Esa simetría se conserva en dos interfaces Java: <code>LigasApi</code>, que ven los consumidores, y <code>LigasL039Client</code>, que implementa el acceso real. Los parámetros siguen siendo arreglos de bytes EBCDIC para no romper a los programas que todavía arman los registros posicionales; en una segunda etapa se sustituyen por DTOs tipados.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Delegación condicionada por el interruptor de liga",
+          "linea_ini": 155,
+          "linea_fin": 166,
+          "origen_codigo": " INTEGER PROCEDURE S500L040_DAME_TARJETA(EA_ENTRADA, EA_SALIDA);        00010200\n EBCDIC ARRAY EA_ENTRADA[0], EA_SALIDA[0];                              00010300\n%********************************************************************** 00010400\n BEGIN                                                                  00010500\n                                                                        00010600\n IF B_LLAMAL039 THEN                                                    00010700\n    S500L040_DAME_TARJETA := S500L040_DAME_TARJETA_C                    00010800\n                                 (EA_ENTRADA, EA_SALIDA)                00010900\n ELSE                                                                   00011000\n    S500L040_DAME_TARJETA := 99;                                        00011100\n                                                                        00011200\n END OF S500L040_DAME_TARJETA;                                          00011300",
+          "java_codigo": "    /** S500L040_DAME_TARJETA: si la liga está suspendida, devuelve 99 sin llamar a L039. */\n    @Override\n    public int dameTarjeta(byte[] entrada, byte[] salida) {\n        return ligaActiva.get() ? l039.dameTarjeta(entrada, salida) : SIN_LIGA;\n    }\n\n    // Los otros ocho procedimientos repiten exactamente el mismo patrón. Con Resilience4j se\n    // puede expresar como un CircuitBreaker forzado a OPEN por el operador:\n    //   circuitBreaker.transitionToForcedOpenState();   // equivale a HI 1\n    //   circuitBreaker.transitionToClosedState();       // equivale a HI 2",
+          "racional": "Los nueve procedimientos exportados tienen el mismo cuerpo: si el interruptor está encendido delegan en L039 y regresan su resultado; si no, regresan 99. Es un corte de circuito manual. En Java basta un operador condicional por método, y si se quiere estandarizar se puede usar un <code>CircuitBreaker</code> de Resilience4j en estado forzado, que además da métricas de llamadas rechazadas.",
+          "reglas": [],
+          "riesgo": "El 99 de liga suspendida no se distingue de un 99 que pudiera devolver la propia L039; el consumidor no sabe si la consulta falló por la base o por decisión del operador."
+        }
+      ]
+    },
+    {
+      "titulo": "Arranque, versión y control operativo",
+      "origen": {
+        "archivo": "S500_SOURCE_L040_LIGAS.txt",
+        "contexto": "CHECA_VERSION · PROC_LEVANTA · PROC_CONTROL · OUTER BLOCK"
+      },
+      "java": {
+        "archivo": "LigasFacade.java · LigasAdminEndpoint.java · LigasConfig.java",
+        "contexto": "@PostConstruct · Actuator @Endpoint"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Validación de versión exceptuada en el host ACYPBETA",
+          "linea_ini": 122,
+          "linea_fin": 140,
+          "origen_codigo": " PROCEDURE CHECA_VERSION;                                               00008710\n%*********************************************************************  00008715\n BEGIN                                                                  00008720\n   EBCDIC VALUE ARRAY EVA_ID_S500L040  (\"S500L040LIGA\");                00008725\n   EBCDIC VALUE ARRAY EVA_VER_S500L040 (\"25MTP002\");                    00008730\n   REPLACE EA_MY_HOST BY MYSELF.HOSTNAME;                               00008735\n   IF EA_MY_HOST = \"ACYPBETA\" THEN                                      00008740\n      B_HOST_CDL:= TRUE;                                                00008745\n   IF NOT B_HOST_CDL THEN                                               00008770\n      BEGIN                                                             00008775\n       IF CHECAME(EVA_ID_S500L040,EVA_VER_S500L040) < 0 THEN            00008780\n       BEGIN                                                            00008782\n         DF_DISP_HI                                                     00008784\n          (\"ERROR MI NOMBRE NO CORRESP. AL DE CTLVER\",\"E>050110<\");     00008785\n         MYSELF.STATUS:= -1;                                            00008786\n       END;                                                             00008788\n       DELINKLIBRARY(CTLVER);                                           00008790\n      END;                                                              00008791\n END OF CHECHA_VERSION;                                                 00008792",
+          "java_codigo": "    private final ControlVersiones ctlvers;        // LIBRARY CTLVER BYFUNCTION \"CTLVERS\"\n    private final Environment env;\n\n    /** CHECA_VERSION: la librería debe estar registrada como S500L040LIGA versión 25MTP002. */\n    void checaVersion() {\n        boolean exento = props.hostsSinValidacion()                   // [ACYPBETA]\n                .contains(env.getRequiredProperty(\"ligas.host\"));\n        if (!exento && ctlvers.checame(\"S500L040LIGA\", \"25MTP002\") < 0) {\n            lj.error(\"E>050110<\", \"ERROR MI NOMBRE NO CORRESP. AL DE CTLVER\");\n            throw new IllegalStateException(\"Versión no registrada en CTLVERS\");   // MYSELF.STATUS := -1\n        }\n    }",
+          "racional": "Al levantarse, la librería verifica con CTLVERS que su identificador y versión estén registrados; si no, termina con estado -1. En el host ACYPBETA esa verificación se omite. En Java la validación corre en el arranque del contexto y un fallo impide que el servicio quede disponible; la lista de hosts exentos pasa a propiedad para que la excepción quede documentada y no escondida en el código.",
+          "reglas": [],
+          "riesgo": "En ACYPBETA puede correr una versión de L040 no registrada en CTLVERS sin ningún aviso. Además, el texto de cierre dice CHECHA_VERSION mientras el procedimiento se llama CHECA_VERSION; el compilador ALGOL lo acepta, pero es indicio de mantenimiento sin revisión."
+        },
+        {
+          "id": "s5",
+          "titulo": "Arranque: título de L039 desde CTLVERS y activación de la liga",
+          "linea_ini": 252,
+          "linea_fin": 278,
+          "origen_codigo": " PROCEDURE PROC_DAME_TIT_S500L039;                                      00013000\n%*********************************************************************  00013100\n BEGIN                                                                  00013200\n   EBCDIC  VALUE ARRAY EVA_ID_S500L039(\"S500L039BD04\");                 00013300\n   EBCDIC  ARRAY       EA_TIT[0:71];                                    00013400\n   INTEGER RESULT;                                                      00013500\n                                                                        00013600\n   IF DAME_TIT(EVA_ID_S500L039,EA_TIT) < 0 THEN                         00013700\n   BEGIN                                                                00013800\n      DF_DISPLAY(\"ERROR CALL CTLVER S500L039BD04\");                     00014100\n   END                                                                  00014200\n   ELSE                                                                 00014300\n      REPLACE LIGACALL.TITLE BY EA_TIT FOR 72;                          00014400\n END OF PROC_DAME_TIT_S500L039;                                         00014700\n                                                                        00014800\n %**********************************************************************00014900\n PROCEDURE PROC_LEVANTA;                                                00015000\n %**********************************************************************00015100\n BEGIN                                                                  00015200\n  CHECA_VERSION;                                                        00015250\n  B_LLAMAL039:= TRUE;                                                   00015300\n  PROC_DAME_TIT_S500L039;                                               00015400\n  S500L040_99_LEVANTA_C;                                                00015500\n                                                                        00015600\n END OF PROC_LEVANTA;                                                   00015700",
+          "java_codigo": "    /** PROC_LEVANTA: valida versión, enciende la liga, resuelve el título de L039 y la levanta. */\n    @PostConstruct\n    void levanta() {\n        checaVersion();\n        ligaActiva.set(true);                                 // B_LLAMAL039 := TRUE\n        resuelveDestinoL039();                                // PROC_DAME_TIT_S500L039\n        l039.levanta();                                       // S500L040_99_LEVANTA_C\n    }\n\n    private void resuelveDestinoL039() {\n        ctlvers.dameTitulo(\"S500L039BD04\")\n               .ifPresentOrElse(l039::apuntaA,                // REPLACE LIGACALL.TITLE BY EA_TIT FOR 72\n                    () -> {\n                        lj.aviso(\"L>020901<\", \"ERROR CALL CTLVER S500L039BD04\");\n                        ligaActiva.set(false);                // nuevo: no dejar la liga encendida sin destino\n                    });\n    }",
+          "racional": "El arranque valida la versión, enciende el interruptor, pide a CTLVERS el título físico de S500L039BD04 y llama a su punto de entrada de levantamiento. El título resuelto se asigna a la librería importada, de modo que la versión de L039 que se usa la decide el catálogo de versiones y no el código. En Java ese título se convierte en la dirección del cliente (por ejemplo, la URL o el nombre de servicio). Si CTLVERS no lo resuelve, la traducción apaga la liga en lugar de seguir con el destino por omisión.",
+          "reglas": [],
+          "riesgo": "El interruptor se enciende antes de resolver el título (líneas 274 y 275). Si DAME_TIT falla, solo se despliega un mensaje y la liga queda activa con el título por omisión de LIGACALL, que no está declarado en el fuente."
+        },
+        {
+          "id": "s6",
+          "titulo": "Tarea de control: HI 1 suspende, HI 2 restablece, HI 3 consulta, HI 4 baja",
+          "linea_ini": 281,
+          "linea_fin": 334,
+          "origen_codigo": " PROCEDURE PROC_CONTROL;                                                00016000\n%********************************************************************** 00016100\n BEGIN                                                                  00016200\n   INTEGER I_EVENTO,                                                    00016300\n           I_NUM_HI,                                                    00016400\n           LIB_USERS;                                                   00016500\n   LIB_USERS:=1;                                                        00016550\n   WHILE I_NUM_HI NEQ 4 AND LIB_USERS NEQ 0 DO                          00016600\n   BEGIN                                                                00016700\n     I_EVENTO := WAITANDRESET((2), MYSELF.EXCEPTIONEVENT);              00016800\n     LIB_USERS:=MYSELF.LIBRARYUSERS;                                    00016850\n     CASE I_EVENTO OF                                                   00016900\n     BEGIN                                                              00017000\n      2: BEGIN                                                          00017100\n           I_NUM_HI := MYSELF.TASKVALUE;                                00017200\n           CASE I_NUM_HI OF                                             00017300\n           BEGIN                                                        00017400\n              1: DF_DISP_HI(\"SE SUSPENDE LIGA A L039\",\"E>041001<\");     00017500\n                 B_LLAMAL039:= FALSE;                                   00017600\n                 DELINKLIBRARY(LIGACALL);                               00017700\n              2: PROC_DAME_TIT_S500L039;                                00017800\n                 DF_DISP_HI(\"SE HACE LIGA A L039\",\"E>041001<\");         00017900\n                 B_LLAMAL039:= TRUE;                                    00018000\n                 S500L040_99_LEVANTA_C;                                 00018100\n              3:                                                        00018200\n                 IF B_LLAMAL039 THEN                                    00018300\n                 BEGIN                                                  00018400\n                   DF_DISP_HI(\"STATUS ACCESO A L039: CON\",\"E>041001<\"); 00018500\n                 END                                                    00018600\n                 ELSE                                                   00018700\n                 BEGIN                                                  00018800\n                   DF_DISP_HI(\"STATUS ACCESO A L039: SIN\",\"E>041001<\"); 00018900\n                 END;                                                   00019000\n             ELSE:;                                                     00019700\n           END;                                                         00019800\n           RESET(MYSELF.EXCEPTIONEVENT);                                00019900\n         END;                                                           00020000\n         ELSE:;                                                         00020100\n     END;                                                               00020200\n     I_EVENTO:= 0;                                                      00020300\n   END;                                                                 00020400\n   MYSELF.STATUS := VALUE(GOINGAWAY);                                   00020500",
+          "java_codigo": "@Component\n@Endpoint(id = \"ligas\")\n@RequiredArgsConstructor\npublic class LigasAdminEndpoint {\n\n    private final LigasFacade fachada;\n\n    @ReadOperation                                         // HI 3: STATUS ACCESO A L039\n    public String estado() {\n        return \"STATUS ACCESO A L039: \" + (fachada.ligaActiva() ? \"CON\" : \"SIN\");\n    }\n\n    @WriteOperation\n    @PreAuthorize(\"hasRole('OPERADOR_S500')\")\n    public String hi(@Selector int valor) {\n        return switch (valor) {\n            case 1 -> { fachada.suspendeLiga();  yield \"SE SUSPENDE LIGA A L039\"; }  // DELINKLIBRARY\n            case 2 -> { fachada.restableceLiga(); yield \"SE HACE LIGA A L039\"; }      // título + LEVANTA_C\n            case 4 -> { fachada.baja();           yield \"DESABILITA S500L040LIGA\"; }  // GOINGAWAY\n            default -> \" 1: SUSPENDE LIGA, 2: REALIZA LIGA, 3: ESTATUS, 4: DESABILITA, 99: LISTA\";\n        };\n    }\n}\n// El ciclo WAITANDRESET((2), EXCEPTIONEVENT) y la salida cuando LIBRARYUSERS = 0 los\n// reemplaza el ciclo de vida del contenedor: el bean vive mientras viva la aplicación.",
+          "racional": "Después de levantarse, la librería se congela en modo control y una tarea revisa cada dos segundos si llegó una interrupción. El HI 1 apaga el interruptor y desenlaza L039, el HI 2 vuelve a resolver el título y a levantar la liga, el HI 3 informa el estado y el HI 4, o que ya no haya usuarios, termina la librería. En Spring Boot esa consola se expone como un endpoint de Actuator con una operación de lectura para el estado y una de escritura protegida por rol para los cambios.",
+          "reglas": [],
+          "riesgo": "La tarea de control despierta cada 2 segundos durante toda la vida de la librería aunque no haya interrupciones. Si LIBRARYUSERS llega a 0 entre dos consultas, la librería se da de baja y el siguiente consumidor tiene que volver a enlazarla."
+        },
+        {
+          "id": "s7",
+          "titulo": "Bloque externo: levantar y congelar en modo control",
+          "linea_ini": 367,
+          "linea_fin": 371,
+          "origen_codigo": "   PROC_LEVANTA;                                                        00021600\n                                                                        00021700\n   FREEZE(CONTROL, PROC_CONTROL);                                       00021800\n                                                                        00021900\n END.                                                                   00022000",
+          "java_codigo": "@Configuration\npublic class LigasConfig {\n\n    /**\n     * Bloque externo: PROC_LEVANTA y FREEZE(CONTROL, PROC_CONTROL). En Spring el arranque\n     * lo hace @PostConstruct de LigasFacade y el \"congelamiento\" es simplemente que el bean\n     * permanece registrado en el contexto hasta el apagado.\n     */\n    @Bean\n    LigasL039Client ligasL039Client(RestClient.Builder http, LigasProperties props) {\n        return new LigasL039HttpClient(http.baseUrl(props.destinoPorOmision()).build());\n    }\n}",
+          "racional": "El bloque externo solo llama al arranque y congela la librería con <code>FREEZE(CONTROL, ...)</code>, lo que la mantiene residente y atendiendo llamadas mientras corre la tarea de control. En Spring no hace falta un equivalente explícito: el contenedor mantiene vivo el bean y lo destruye en el apagado. La configuración del cliente de L039 queda en una clase <code>@Configuration</code> con su destino por omisión como propiedad, para que el comportamiento sin CTLVERS sea explícito.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Liga encendida sin destino resuelto",
+      "detalle": "PROC_LEVANTA enciende B_LLAMAL039 antes de resolver el título de L039 (líneas 274-275); si DAME_TIT falla (línea 259) la liga queda activa con el título por omisión de LIGACALL."
+    },
+    {
+      "titulo": "Excepción de versión por host",
+      "detalle": "CHECA_VERSION omite la validación con CTLVERS cuando el host es ACYPBETA (líneas 128-130)."
+    },
+    {
+      "titulo": "Código 99 ambiguo",
+      "detalle": "Los nueve procedimientos devuelven 99 cuando la liga está suspendida; el consumidor no puede distinguirlo de un resultado de la propia L039."
+    },
+    {
+      "titulo": "Control por instancia privada",
+      "detalle": "Con SHARING = PRIVATE (línea 8) cada consumidor tiene su propia instancia y su propio interruptor; el HI afecta solo a la instancia que lo recibe."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario no asocia reglas del brain a L040; no se usaron IDs de regla.",
+    "Confirmar qué título usa LIGACALL cuando CTLVERS no resuelve S500L039BD04; el fuente no declara TITLE en la librería importada.",
+    "Confirmar si 99 es un código que S500L039BD04 también puede devolver, para decidir si se cambia el código de liga suspendida en la versión Java.",
+    "Confirmar el motivo de exceptuar ACYPBETA de la validación de versión."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-990",
+    "RN-S151-991",
+    "RN-S151-992",
+    "RN-S151-993",
+    "RN-S151-994",
+    "RN-S151-995",
+    "RN-S151-996",
+    "RN-S151-997",
+    "RN-S151-998",
+    "RN-S151-999",
+    "RN-S500-890"
+  ]
+}

@@ -1,0 +1,806 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>S500 · procedur → Java · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #C1272D;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · S500 procedur</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Librería / Módulo</div>
+  <h1><span class="cw">S500 · procedur</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">Es la caja de herramientas común de captación: no tiene archivos ni base propios y opera sobre el área de trabajo del programa anfitrión. Liga unas cuarenta librerías de dominio resolviendo su versión en CTLVERS, envuelve sus llamadas con traza y medición de tiempos, y contiene el ensamblador CARGAMOV1, que convierte hasta 30 movimientos del programa en registros de cinco posiciones para la librería de contabilización REGISTRAS500 de S151, aplicando ruteo contable por clave de transacción. Completa el módulo una ventana de siglo para fechas de dos dígitos y varios cientos de párrafos de acceso DMSII de un solo verbo, cada uno aislado por compilación condicional.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="S500_proccanc.html">← S500 · proccanc</a><a href="../cobol-java.html">Inventario</a><a href="S500_P005.html">S500 · P005 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">S500 · procedur · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">20,446 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Copybook de PROCEDURE que los programas en línea y batch de S500 incluyen por COPY; aporta enlace de librerías, contabilización hacia S151, utilerías de fecha y la capa de acceso a DMSII.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#9fb8c0">Librería / Módulo</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">0 de 0 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3</div></div>
+  </div>
+  <div class="sec-hdr">1 · Enlace de librerías y ensamblador de movimiento contable S151 (CARGAMOV1)</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_INC_PRO_CAN.txt</span><span class="fname">10000016-L422 · 20000151-CARGAMOV1 · CARGAMOV1-CTES</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Liga de librería por versión activa (CTLVERS) a un resolvedor reusable · L503–522">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">S016L422</span>
+ <span class="num">10000016</span>-<span class="var">L422</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZEROS</span>              <span class="kw">TO</span> <span class="var">S000-CTR-CVEERROR</span>.
+     <span class="kw">MOVE</span> <span class="str">&quot;S016L422&quot;</span>         <span class="kw">TO</span> <span class="var">S000-CTR-LIBID</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000100</span>-<span class="var">DAME-TIT-VERS</span>.
+     <span class="kw">IF</span> <span class="var">S000-CTR-CVEERROR</span> = <span class="num">0</span>
+        <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;S016L422&quot;</span>
+                               <span class="kw">TO</span> <span class="var">S000-CTR-NOMLIB</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="var">S000-CTR-CVEERROR</span> <span class="kw">TO</span> <span class="var">WS-MSG-N-02</span>
+        <span class="kw">STRING</span>  <span class="str">&quot;ERROR EN CALL CTLVERS S016L422 &quot;</span>,
+                <span class="str">&quot; RESULT=&quot;</span>, <span class="var">WS-MSG-N-02</span>
+                <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">WS-0101-TEXT-MSG</span>
+        <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>.
+     <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WKS-88-S016L422</span>.
+$<span class="var">POP</span> <span class="var">OMIT</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Orquestación de CARGAMOV1 a servicio de contabilización · L3115–3125">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">S151REGISTRA</span>
+ <span class="num">20000151</span>-<span class="var">CARGAMOV1</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-INI</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-CTES</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span> <span class="kw">TO</span> <span class="var">WS-S151-SW</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-S151-SALDO-INI</span> <span class="kw">TO</span> <span class="var">WS-S151-SALDO-FIN</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-IMP</span>
+             <span class="kw">VARYING</span> <span class="var">WS-S151-IND</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span>
+             <span class="kw">UNTIL</span> <span class="var">WS-S151-IND</span> &gt; <span class="num">30</span> <span class="kw">OR</span> <span class="var">WS-S151-SW</span> = <span class="num">1</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-CALL</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-LIMPIA</span>.</span>
+<span class="seg" data-cid="s3" data-jid="j3" title="Ruteo de sucursal y caja contable por clave de transacción · L3387–3466">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">LINEA</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) = <span class="num">4159</span> <span class="kw">OR</span> <span class="num">4160</span>
+        <span class="kw">MOVE</span> <span class="num">342</span>          <span class="kw">TO</span> <span class="var">WS-S151-0101-SUCPROM</span>.
+<span class="cmt">*    CON ESTAS CLAVES SE DEBE DE AFECTAR A RESULTADOS DE LA SUCUR-</span>
+<span class="cmt">*    SAL 350 EN LUGAR DE LA PROMOTORA DE LA CUENTA ( ESTAS  CLAVES</span>
+<span class="cmt">*    SERAN CARGADAS EN B17 PARA QUE SOLO LAS PUEDA  TRANSMITIR  LA</span>
+<span class="cmt">*    SUCURSAL 350)</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) = <span class="num">2136</span> <span class="kw">OR</span> <span class="num">2137</span> <span class="kw">OR</span> <span class="num">2138</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-0101-SUCTRAN-I</span>       <span class="kw">TO</span> <span class="var">WS-S151-0101-SUCPROM</span>.
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) = <span class="num">4449</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+                                  <span class="kw">OR</span> <span class="var">WS-CVE-ACNOMINAPORTA-PG</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">MOVE</span> <span class="num">859</span>          <span class="kw">TO</span> <span class="var">WS-S151-0101-SUCPROM</span>
+                             <span class="var">WS-S151-0101-SUCTRAN</span>
+                             <span class="var">WS-S151-0101-SUCS028</span>
+        <span class="kw">MOVE</span> <span class="num">40</span>           <span class="kw">TO</span> <span class="var">WS-S151-0101-CAJOPER</span>
+                             <span class="var">WS-S151-0101-CAJTRAN</span>
+                             <span class="var">WS-S151-0101-CAJS028</span>.
+$<span class="var">POP</span> <span class="var">OMIT</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) = <span class="num">3002</span> <span class="kw">OR</span> <span class="num">4001</span>
+                                 <span class="kw">OR</span> <span class="num">3018</span> <span class="kw">OR</span> <span class="num">4016</span>
+        <span class="kw">IF</span> <span class="var">WS03-88-PIM-CTAMAE</span>          <span class="kw">OR</span>
+           <span class="var">WS03-88-PIM-CTAMAEOP</span>        <span class="kw">OR</span>
+           <span class="var">WS03-88-PIM-CTAMAEDL</span>        <span class="kw">OR</span>
+<span class="cmt">      *&gt; ⋯ 16 líneas omitidas</span>
+           <span class="kw">MOVE</span>  <span class="num">94</span>        <span class="kw">TO</span>  <span class="var">WS-S151-0101-CAJS028</span>
+           <span class="kw">IF</span> <span class="var">WS-S151-0101-NODORI</span> = <span class="num">10</span>
+              <span class="kw">MOVE</span> <span class="num">907</span>     <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>
+           <span class="kw">ELSE</span>
+              <span class="kw">MOVE</span> <span class="num">904</span>     <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">MOVE</span>  <span class="num">79</span>        <span class="kw">TO</span>  <span class="var">WS-S151-0101-CAJS028</span>
+           <span class="kw">IF</span> <span class="var">WS-S151-0101-NODORI</span> = <span class="num">10</span>
+              <span class="kw">MOVE</span> <span class="num">907</span>     <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>
+           <span class="kw">ELSE</span>
+              <span class="kw">MOVE</span> <span class="num">904</span>     <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>.
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) = <span class="num">3027</span>
+        <span class="kw">MOVE</span>  <span class="num">55</span>          <span class="kw">TO</span>  <span class="var">WS-S151-0101-CAJS028</span>
+        <span class="kw">IF</span> <span class="var">WS-S151-0101-NODORI</span> = <span class="num">10</span>
+           <span class="kw">MOVE</span> <span class="num">907</span>       <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">MOVE</span> <span class="num">904</span>       <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) =   <span class="num">3047</span>
+        <span class="kw">MOVE</span> <span class="num">92</span>                   <span class="kw">TO</span>  <span class="var">WS-S151-0101-CAJS028</span>
+        <span class="kw">MOVE</span> <span class="num">342</span>                  <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>       .
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) =   <span class="num">1153</span>
+        <span class="kw">IF</span> <span class="var">WS-GEN-MDA-BIN</span> = <span class="num">554492</span>
+           <span class="kw">MOVE</span> <span class="num">60</span>                <span class="kw">TO</span>  <span class="var">WS-S151-0101-CAJS028</span>
+           <span class="kw">MOVE</span> <span class="num">7532</span>              <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>       .
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="num">1</span>) =   <span class="num">2534</span>
+        <span class="kw">MOVE</span> <span class="num">511</span>                  <span class="kw">TO</span>  <span class="var">WS-S151-0101-SUCS028</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>LibreriaResolver.java · RegistroMovimientoS151Service.java · RuteoContableS151.java</span><span class="fname">@Component · @Service · @ConfigurationProperties</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** Familia 10000xxx-*: resuelve el TITLE vigente de una librería con DAME_TIT IN CTLVERS. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">LibreriaResolver</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">CtlversClient</span> ctlvers;          <span class="cmt">// 20000100-DAME-TIT-VERS</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Map</span>&lt;<span class="type">String</span>, <span class="type">ServicioLigado</span>&gt; ligadas = <span class="kw">new</span> <span class="type">ConcurrentHashMap</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="type">ServicioLigado</span> liga(<span class="type">String</span> libId) {     <span class="cmt">// p. ej. &quot;S016L422&quot;</span>
+        <span class="kw">return</span> ligadas.computeIfAbsent(libId, id -&gt; {
+            <span class="type">ResultadoCtlvers</span> r = ctlvers.dameTitulo(id);   <span class="cmt">// GIVING S000-CTR-CVEERROR</span>
+            <span class="kw">if</span> (r.cveError() != <span class="num">0</span>) {
+                <span class="cmt">// COBOL solo emite el mensaje y aun así prende WKS-88-S016L422.</span>
+                log.error(<span class="str">&quot;ERROR EN CALL CTLVERS {} RESULT={}&quot;</span>, id, r.cveError());
+                <span class="kw">return</span> <span class="type">ServicioLigado</span>.noDisponible(id, r.cveError());
+            }
+            <span class="kw">return</span> <span class="type">ServicioLigado</span>.de(id, r.titulo());       <span class="cmt">// CHANGE ATTRIBUTE TITLE</span>
+        });
+    }
+}
+
+<span class="cmt">// application.yml: la versión por ambiente deja de vivir en CTLVERS</span>
+<span class="cmt">// s500.librerias.S016L422.url: http://s016-comisiones/v1</span></span>
+<span class="seg java-seg" data-jid="j2"><span class="ann">@Service</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">RegistroMovimientoS151Service</span> {
+
+    <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> MAX_MOVS = <span class="num">30</span>;               <span class="cmt">// WS-S151-01-CVES-I OCCURS 30 TIMES</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RuteoContableS151</span> ruteo;        <span class="cmt">// 20000151-CARGAMOV1-CTES</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">AgrupadorMovimientos</span> agrupador; <span class="cmt">// 20000151-CARGAMOV1-IMP</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RegistraS500Client</span> registra;    <span class="cmt">// 20000151-CARGAMOV1-CALL</span>
+
+<span class="cmt">    /** 20000151-CARGAMOV1: arma el registro S151 y lo envía en bloques de hasta 5 movimientos. */</span>
+    <span class="kw">public</span> <span class="kw">void</span> cargaMovimientos(<span class="type">EntradaS151</span> entrada) {
+        <span class="type">MovimientoS151</span> base = ruteo.aplica(<span class="type">MovimientoS151</span>.vacio(), entrada);  <span class="cmt">// INI + CTES</span>
+        <span class="kw">var</span> ctx = <span class="kw">new</span> <span class="type">ContextoSaldo</span>(entrada.saldoIni());   <span class="cmt">// SALDO-FIN = SALDO-INI</span>
+        <span class="kw">var</span> bloque = agrupador.nuevoBloque(base, ctx);
+        <span class="kw">for</span> (<span class="type">LineaS151</span> linea : entrada.lineas().subList(<span class="num">0</span>, <span class="type">Math</span>.min(MAX_MOVS, entrada.lineas().size()))) {
+            <span class="kw">if</span> (linea.cveTran() == <span class="num">0</span>) <span class="kw">break</span>;                <span class="cmt">// WS-S151-SW = 1</span>
+            bloque = agrupador.agrega(bloque, linea, ctx, registra::envia);
+        }
+        registra.envia(bloque);                             <span class="cmt">// CALL final, aunque el bloque venga vacío</span>
+        <span class="cmt">// CARGAMOV1-LIMPIA: no aplica, EntradaS151 es inmutable y se descarta.</span>
+    }
+}</span>
+<span class="seg java-seg" data-jid="j3"># application.yml  (las sucursales y cajas contables dejan de estar compiladas)
+s151:
+  ruteo:
+    sucursal-nodo-10: <span class="num">907</span>          # SUCS028 cuando NODORI = <span class="num">10</span>
+    sucursal-otro-nodo: <span class="num">904</span>
+    por-clave:
+      <span class="str">&quot;4159&quot;</span>: { sucprom: <span class="num">342</span> }      # el comentario del fuente habla de la sucursal <span class="num">350</span>
+      <span class="str">&quot;4160&quot;</span>: { sucprom: <span class="num">342</span> }
+      <span class="str">&quot;4449&quot;</span>: { sucprom: <span class="num">859</span>, suctran: <span class="num">859</span>, sucs028: <span class="num">859</span>, cajoper: <span class="num">40</span>, cajtran: <span class="num">40</span>, cajs028: <span class="num">40</span> }
+      <span class="str">&quot;3027&quot;</span>: { cajs028: <span class="num">55</span>, sucs028-por-nodo: <span class="kw">true</span> }
+      <span class="str">&quot;3047&quot;</span>: { cajs028: <span class="num">92</span>, sucs028: <span class="num">342</span> }
+      <span class="str">&quot;2534&quot;</span>: { sucs028: <span class="num">511</span> }
+    deposito-ventanilla:            # <span class="num">3002</span>, <span class="num">4001</span>, <span class="num">3018</span>, <span class="num">4016</span>
+      claves: [<span class="num">3002</span>, <span class="num">4001</span>, <span class="num">3018</span>, <span class="num">4016</span>]
+      caja-perfil-pim: <span class="num">94</span>
+      caja-otro-perfil: <span class="num">79</span>
+    bin-evolucion: { clave: <span class="num">1153</span>, bin: <span class="num">554492</span>, cajs028: <span class="num">60</span>, sucs028: <span class="num">7532</span> }
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">RuteoContableS151</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RuteoProperties</span> p;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ModoEjecucion</span> modo;   <span class="cmt">// $SET OMIT = NOT LINEA</span>
+
+    <span class="type">MovimientoS151</span> aplica(<span class="type">MovimientoS151</span> m, <span class="type">EntradaS151</span> in) {
+        <span class="kw">int</span> cve = in.lineas().get(<span class="num">0</span>).cveTran();          <span class="cmt">// WS-S151-0101-CVETRAN-I(1)</span>
+        <span class="kw">if</span> (modo.esLinea()) {
+            m = p.porClave(cve).map(r -&gt; r.aplicaA(m)).orElse(m);   <span class="cmt">// 4159/4160, 4449</span>
+            <span class="kw">if</span> (cve == <span class="num">2136</span> || cve == <span class="num">2137</span> || cve == <span class="num">2138</span>) m = m.withSucprom(in.sucTran());
+            <span class="kw">if</span> (cve == in.cveAcNominaPortaPg()) m = p.porClave(<span class="num">4449</span>).orElseThrow().aplicaA(m);
+        }
+        <span class="kw">if</span> (p.depositoVentanilla().claves().contains(cve)) {
+            <span class="kw">int</span> caja = in.perfilPim().esCuentaMaestraOEquivalente()
+                    ? p.depositoVentanilla().cajaPerfilPim()        <span class="cmt">// 94</span>
+                    : p.depositoVentanilla().cajaOtroPerfil();      <span class="cmt">// 79</span>
+            m = m.withCajs028(caja).withSucs028(sucursalPorNodo(m.nodori()));
+        }
+        <span class="cmt">// 3027, 3047, 1153 + BIN 554492 y 2534: mismas reglas declarativas de p.porClave()</span>
+        <span class="kw">return</span> m;
+    }
+
+    <span class="kw">private</span> <span class="kw">int</span> sucursalPorNodo(<span class="kw">int</span> nodori) {
+        <span class="kw">return</span> nodori == <span class="num">10</span> ? p.sucursalNodo10() : p.sucursalOtroNodo();
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Agrupación, naturaleza y envío del movimiento a REGISTRAS500</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_INC_PRO_CAN.txt</span><span class="fname">CARGAMOV1-IMP · ACUM-MOVS-XNAT · CHECA-SUMA-SDOINI · CARGAMOV1-CALL</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s4" data-jid="j4" title="Agrupación de movimientos en bloques de cinco por llamada · L4152–4254"> <span class="num">20000151</span>-<span class="var">CARGAMOV1-IMP</span>.
+     <span class="kw">IF</span>  <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="var">WS-S151-IND</span>) = <span class="num">0</span>
+         <span class="kw">MOVE</span> <span class="num">1</span>               <span class="kw">TO</span> <span class="var">WS-S151-SW</span>
+     <span class="kw">ELSE</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">LINEA</span>
+     <span class="kw">IF</span>  <span class="var">WS-S151-0101-IMPORTE-I</span>(<span class="var">WS-S151-IND</span>) = <span class="num">0</span>
+     <span class="kw">AND</span> <span class="kw">NOT</span> (<span class="var">WS88-S151-0101-CVENOCONT-I</span>(<span class="var">WS-S151-IND</span>)
+         <span class="kw">OR</span> (<span class="var">WS-GEN-CVE-ADIC-S151</span> = <span class="num">1</span> <span class="kw">AND</span>
+        <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="var">WS-S151-IND</span>) = <span class="var">WS17-CVE-ADIC-S151</span>))
+     <span class="kw">AND</span> <span class="var">WS-S151-IND</span> <span class="kw">NOT</span> = <span class="num">1</span>
+         <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+     <span class="kw">ELSE</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">ACUM-MOVS-XNAT</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CLAVES-CORRESP</span>
+$<span class="var">POP</span> <span class="var">OMIT</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">BDB17R06</span>
+        <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CHECA-SUMA-SDOINI</span>
+$<span class="var">POP</span> <span class="var">OMIT</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN1</span> = <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-SALDO-INI</span>        <span class="kw">TO</span> <span class="var">WS-S151-0101-SALDO-INI</span>
+        <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-NUM-MOVS-ENV</span>  <span class="var">W77-TOT-MOVS-ENV</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="var">WS-S151-IND</span>) <span class="kw">TO</span>
+             <span class="var">WS-S151-0101-CVETRAN1</span>
+<span class="cmt">      *&gt; ⋯ 8 líneas omitidas</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-CVETRAN2</span> = <span class="num">0</span>
+        <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-NUM-MOVS-ENV</span>  <span class="var">W77-TOT-MOVS-ENV</span>
+<span class="cmt">      *&gt; ⋯ 10 líneas omitidas</span>
+     <span class="kw">ELSE</span>
+<span class="cmt">      *&gt; ⋯ 39 líneas omitidas</span>
+        <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-CALL</span>
+        <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-SUBCVE</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-SALDO-INI</span>        <span class="kw">TO</span> <span class="var">WS-S151-0101-SALDO-INI</span>
+        <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-NUM-MOVS-ENV</span>  <span class="var">W77-TOT-MOVS-ENV</span>
+<span class="cmt">      *&gt; ⋯ 6 líneas omitidas</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-0101-REFS151</span> <span class="kw">TO</span> <span class="var">WS-S151-0101-REFS151-ANT</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="var">WS-S151-IND</span> ) <span class="kw">TO</span>
+             <span class="var">WS-S151-0101-CVETRAN1</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-0101-IMPORTE-I</span>(<span class="var">WS-S151-IND</span>) <span class="kw">TO</span>
+             <span class="var">WS-S151-0101-IMPORTE1</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="var">WS-S151-SALDO-FIN</span> <span class="kw">TO</span> <span class="var">WS-S151-SALDO-INI</span>.</span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Naturaleza del movimiento y proyección del saldo con el catálogo B17 · L4272–4309"> <span class="num">20000151</span>-<span class="var">ACUM-MOVS-XNAT</span>.
+      <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">WS-88-STORE-B17</span>
+         <span class="kw">MOVE</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="var">WS-S151-IND</span>)
+                                  <span class="kw">TO</span>  <span class="var">WS-CLAVE-TRANS</span>
+         <span class="kw">PERFORM</span>                  <span class="num">90000017</span>-<span class="var">B17AXCLAVE-FIND</span>
+         <span class="kw">IF</span> <span class="var">WS-DB-NOTERROR</span>
+            <span class="kw">IF</span> <span class="var">B17-AFECTA-S052</span> = <span class="num">1</span>
+               <span class="kw">ADD</span>  <span class="num">1</span>             <span class="kw">TO</span>  <span class="var">WS-NUM-MOVSCGO</span>
+            <span class="kw">ELSE</span>
+<span class="cmt">*INI R3-2011-BENEII       (Beneficencia F2)               ABARBOSA</span>
+               <span class="kw">IF</span> <span class="var">B17-AFECTA-S052</span> = <span class="num">2</span>             <span class="kw">OR</span>
+                 (<span class="var">B17-AFECTA-S052</span> = <span class="num">0</span>     <span class="kw">AND</span>
+                  <span class="var">B17-TIPO-MOV</span> = <span class="num">2</span> <span class="kw">AND</span> <span class="var">B17-PERMITE-ELIM</span> = <span class="num">1</span> <span class="kw">AND</span>
+                  (<span class="var">B17-POR-APLI</span> = <span class="num">1</span> <span class="kw">OR</span> <span class="var">B17-POR-TERMINAL</span>(<span class="num">1</span>) = <span class="num">1</span> <span class="kw">OR</span>
+                                       <span class="var">B17-POR-TERMINAL</span>(<span class="num">2</span>) = <span class="num">1</span>))
+<span class="cmt">*FIN R3-2011-BENEII       (Beneficencia F2)               ABARBOSA</span>
+                  <span class="kw">ADD</span>  <span class="num">1</span>          <span class="kw">TO</span>  <span class="var">WS-NUM-MOVSABO</span>
+               <span class="kw">ELSE</span>
+                  <span class="kw">ADD</span>  <span class="num">1</span>          <span class="kw">TO</span>  <span class="var">WS-NUM-MOVSNC</span>.
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">BDB17R06</span>
+ <span class="num">20000151</span>-<span class="var">CHECA-SUMA-SDOINI</span>.
+     <span class="kw">IF</span> <span class="var">WS-S151-MANDA-SDOINI</span> = <span class="num">1</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S151-0101-CVETRAN-I</span>(<span class="var">WS-S151-IND</span>) <span class="kw">TO</span>
+             <span class="var">WS-CLAVE-TRANS</span>
+        <span class="kw">PERFORM</span> <span class="num">90000017</span>-<span class="var">B17AXCLAVE-FIND</span>
+        <span class="kw">IF</span> <span class="var">WS-DB-NOTERROR</span>
+           <span class="kw">IF</span> <span class="var">B17-AFECTA-S052</span> = <span class="num">1</span>
+              <span class="kw">SUBTRACT</span> <span class="var">WS-S151-0101-IMPORTE-I</span>(<span class="var">WS-S151-IND</span>) <span class="kw">FROM</span>
+              <span class="var">WS-S151-SALDO-FIN</span>
+           <span class="kw">ELSE</span>
+           <span class="kw">IF</span> <span class="var">B17-AFECTA-S052</span> = <span class="num">2</span>
+              <span class="kw">ADD</span> <span class="var">WS-S151-0101-IMPORTE-I</span>(<span class="var">WS-S151-IND</span>) <span class="kw">TO</span>
+              <span class="var">WS-S151-SALDO-FIN</span>.</span>
+<span class="seg" data-cid="s6" data-jid="j6" title="Llamada a REGISTRAS500 con contingencia y rechazos · L3832–3858">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">LINEA</span>
+     <span class="kw">IF</span> <span class="var">WS-88-SIUSA-S151</span> <span class="kw">AND</span> <span class="var">WS-88-BASE-ORI</span>              <span class="kw">OR</span>
+        (<span class="var">WS-88-ENVIAS151-TRANCTRL</span> <span class="kw">AND</span> <span class="kw">NOT</span> <span class="var">WS-88-PREBATCH</span>)
+        <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">WS-88-EN-CONTINGENCIA-S151</span>
+           <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-INIL030</span>
+$<span class="var">POP</span> <span class="var">OMIT</span>
+         <span class="kw">CALL</span> <span class="str">&quot;CARGAMOV1 IN REGISTRAS500&quot;</span>
+               <span class="kw">USING</span>    <span class="var">WS-S151-0101-MOVIMIENTOS</span>
+               <span class="kw">GIVING</span>   <span class="var">WS-S151-0101-STATUS</span>
+           <span class="kw">PERFORM</span> <span class="num">20000151</span>-<span class="var">CARGAMOV1-FINL030</span>.
+<span class="cmt">      *&gt; ⋯ 4 líneas omitidas</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">LINEA</span>
+     <span class="kw">IF</span> <span class="var">WS-88-EN-CONTINGENCIA-S151</span>
+        <span class="kw">PERFORM</span> <span class="num">00000000</span>-<span class="var">GRABA-CONTING-S151</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span>       <span class="kw">TO</span> <span class="var">WS-S151-0101-CVEAVISO-I</span>
+                     <span class="var">WS-S151-0101-CVEAVISO</span>.
+     <span class="kw">PERFORM</span> <span class="num">00000000</span>-<span class="var">INICAMP-MOVSAD-S151</span>.
+     <span class="kw">IF</span> <span class="var">WS-S151-0101-STATUS</span> &gt; <span class="num">0</span>
+        <span class="kw">PERFORM</span> <span class="num">00000000</span>-<span class="var">GRABA-RECHAZOS-S151</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>AgrupadorMovimientos.java · NaturalezaMovimientos.java · RegistraS500Client.java</span><span class="fname">@Component · repositorio de solo lectura B17 · Micrometer</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j4"><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">AgrupadorMovimientos</span> {
+
+    <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> POSICIONES = <span class="num">5</span>;   <span class="cmt">// CVETRAN1..CVETRAN5 del registro S151</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">NaturalezaMovimientos</span> naturaleza;  <span class="cmt">// ACUM-MOVS-XNAT + CHECA-SUMA-SDOINI</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ClavesCorresponsales</span> corresp;      <span class="cmt">// 20000151-CLAVES-CORRESP</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ModoEjecucion</span> modo;
+
+    <span class="type">BloqueS151</span> agrega(<span class="type">BloqueS151</span> b, <span class="type">LineaS151</span> l, <span class="type">ContextoSaldo</span> ctx, <span class="type">Consumer</span>&lt;<span class="type">BloqueS151</span>&gt; envia) {
+        <span class="kw">boolean</span> descartable = l.importe().signum() == <span class="num">0</span>
+                &amp;&amp; !l.esNoContable()            <span class="cmt">// 88 CVENOCONT-I: 500-699, 889, 895-904, 914, 942-944</span>
+                &amp;&amp; !l.esClaveAdicional()
+                &amp;&amp; l.indice() != <span class="num">1</span>;
+        <span class="kw">if</span> (modo.esLinea() &amp;&amp; descartable) {
+            <span class="kw">return</span> b;                            <span class="cmt">// NEXT SENTENCE: no se coloca ni se acumula</span>
+        }
+        <span class="kw">if</span> (modo.esLinea()) {
+            naturaleza.acumula(l);
+            l = corresp.heredaLeyenda(l, b.primeraLinea());
+        }
+        naturaleza.proyectaSaldo(l, ctx);        <span class="cmt">// solo con BDB17R06</span>
+        <span class="type">BloqueS151</span> r;
+        <span class="kw">if</span> (b.lineas().isEmpty()) {
+            r = b.conSaldoIni(ctx.saldoIni()).mas(l);
+        } <span class="kw">else</span> <span class="kw">if</span> (b.lineas().size() &lt; POSICIONES) {
+            r = b.mas(l);
+        } <span class="kw">else</span> {
+            envia.accept(b);                     <span class="cmt">// CARGAMOV1-CALL con el bloque lleno</span>
+            r = b.siguiente()                    <span class="cmt">// SUBCVE + REFS151 -&gt; REFS151-ANT</span>
+                 .conSaldoIni(ctx.saldoIni())
+                 .mas(l);
+        }
+        ctx.cierraMovimiento();                  <span class="cmt">// SALDO-INI = SALDO-FIN</span>
+        <span class="kw">return</span> r;
+    }
+}</span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">NaturalezaMovimientos</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ClaveTransaccionRepository</span> b17;   <span class="cmt">// S500B17CVESXFUN, set B17AXCLAVE</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ContadoresNaturaleza</span> cont;        <span class="cmt">// WS-NUM-MOVSCGO / MOVSABO / MOVSNC</span>
+
+<span class="cmt">    /** 20000151-ACUM-MOVS-XNAT (P10-119 Migración Prepagada). */</span>
+    <span class="kw">void</span> acumula(<span class="type">LineaS151</span> l) {
+        <span class="kw">if</span> (cont.storeB17()) <span class="kw">return</span>;                 <span class="cmt">// WS-88-STORE-B17</span>
+        b17.findByClave(l.cveTran()).ifPresent(c -&gt; {
+            <span class="kw">if</span> (c.afectaS052() == <span class="num">1</span>) {
+                cont.cargo();
+            } <span class="kw">else</span> <span class="kw">if</span> (c.afectaS052() == <span class="num">2</span> || esAbonoBeneficencia(c)) {
+                cont.abono();
+            } <span class="kw">else</span> {
+                cont.noContable();
+            }
+        });
+    }
+
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">boolean</span> esAbonoBeneficencia(<span class="type">ClaveB17</span> c) {   <span class="cmt">// R3-2011-BENEII</span>
+        <span class="kw">return</span> c.afectaS052() == <span class="num">0</span> &amp;&amp; c.tipoMov() == <span class="num">2</span> &amp;&amp; c.permiteElim() == <span class="num">1</span>
+            &amp;&amp; (c.porApli() == <span class="num">1</span> || c.porTerminal(<span class="num">1</span>) == <span class="num">1</span> || c.porTerminal(<span class="num">2</span>) == <span class="num">1</span>);
+    }
+
+<span class="cmt">    /** 20000151-CHECA-SUMA-SDOINI. Importe 9(14)V99 COMP, saldo S9(15)V99: escala 2, suma exacta. */</span>
+    <span class="kw">void</span> proyectaSaldo(<span class="type">LineaS151</span> l, <span class="type">ContextoSaldo</span> ctx) {
+        <span class="kw">if</span> (!ctx.mandaSaldoIni()) <span class="kw">return</span>;
+        b17.findByClave(l.cveTran()).ifPresent(c -&gt; {
+            <span class="kw">if</span> (c.afectaS052() == <span class="num">1</span>)      ctx.restaFin(l.importe());   <span class="cmt">// cargo</span>
+            <span class="kw">else</span> <span class="kw">if</span> (c.afectaS052() == <span class="num">2</span>) ctx.sumaFin(l.importe());    <span class="cmt">// abono</span>
+        });
+    }
+}</span>
+<span class="seg java-seg" data-jid="j6"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">RegistraS500Client</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RegistraS500Port</span> s151;            <span class="cmt">// CALL &quot;CARGAMOV1 IN REGISTRAS500&quot;</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ContingenciaS151Repository</span> conting;  <span class="cmt">// 00000000-GRABA-CONTING-S151</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RechazoS151Repository</span> rechazos;      <span class="cmt">// 00000000-GRABA-RECHAZOS-S151</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">EstadoS151</span> estado;                   <span class="cmt">// WS-88-SIUSA-S151, BASE-ORI, CONTINGENCIA...</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">MeterRegistry</span> metrics;               <span class="cmt">// reemplaza los hooks S500L030 (INIL030/FINL030)</span>
+
+    <span class="kw">public</span> <span class="kw">int</span> envia(<span class="type">BloqueS151</span> b) {
+        <span class="kw">int</span> status = <span class="num">0</span>;
+        <span class="kw">boolean</span> llamar = (estado.usaS151() &amp;&amp; estado.baseOrigen())
+                || (estado.enviaTranControl() &amp;&amp; !estado.prebatch());
+        <span class="kw">if</span> (llamar &amp;&amp; !estado.enContingencia()) {
+            status = <span class="type">Timer</span>.builder(<span class="str">&quot;s500.cargamov1&quot;</span>).register(metrics)
+                          .recordCallable(() -&gt; s151.cargaMov1(b));   <span class="cmt">// GIVING WS-S151-0101-STATUS</span>
+        }
+        <span class="kw">if</span> (estado.enContingencia()) {
+            conting.save(<span class="type">ContingenciaS151</span>.de(b));   <span class="cmt">// se reenvía cuando S151 regrese</span>
+        }
+        <span class="kw">if</span> (status &gt; <span class="num">0</span>) {
+            rechazos.save(<span class="type">RechazoS151</span>.de(b, status));
+        }
+        <span class="kw">return</span> status;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Utilerías de fecha y acceso a DMSII</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_INC_PRO_CAN.txt</span><span class="fname">90000000-FECHA-2000 · 90000028-B28COMICOB-* · 90000000-BEGIN-TRANSACTION</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s7" data-jid="j7" title="Ventana de siglo Y2K con pivote 49 · L5386–5398">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">FECHA2000</span>
+<span class="cmt">****************************************************************</span>
+  <span class="num">90000000</span>-<span class="var">FECHA-2000</span>.
+     <span class="kw">IF</span> <span class="var">WKS-FEC-2000-06</span> = <span class="kw">ZEROS</span>
+        <span class="kw">MOVE</span> <span class="kw">ZEROS</span>   <span class="kw">TO</span> <span class="var">WKS-AA1-2000</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WKS-AA1-2000</span> = <span class="num">19</span> <span class="kw">OR</span> <span class="num">20</span>
+        <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WKS-AA-2000</span> &gt; <span class="num">49</span>
+        <span class="kw">MOVE</span> <span class="num">19</span>          <span class="kw">TO</span> <span class="var">WKS-AA1-2000</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">20</span>          <span class="kw">TO</span> <span class="var">WKS-AA1-2000</span>.</span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Comisiones cobradas particionadas en siete datasets por mes · L10669–10838">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">BDB28R01</span>
+  <span class="num">90000028</span>-<span class="var">B28COMICOB-CREATE</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-STATUS-BASE</span> <span class="kw">TO</span> <span class="var">WS-STATUS-BASE-ANT</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span>              <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>.
+     <span class="kw">IF</span> <span class="var">WS-COMICOB-DS</span> = <span class="num">1</span>
+        <span class="kw">CREATE</span> <span class="var">S500B28COMICOB</span>
+        <span class="kw">ON</span> <span class="kw">EXCEPTION</span>
+           <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>) <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS-COMICOB-DS</span> = <span class="num">2</span>
+        <span class="kw">CREATE</span> <span class="var">S500B29COMICOB</span>
+        <span class="kw">ON</span> <span class="kw">EXCEPTION</span>
+           <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>) <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>
+<span class="cmt">      *&gt; ⋯ 21 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="var">WS-COMICOB-DS</span> = <span class="num">7</span>
+        <span class="kw">CREATE</span> <span class="var">S500B34COMICOB</span>
+        <span class="kw">ON</span> <span class="kw">EXCEPTION</span>
+        <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>) <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>.
+$<span class="var">POP</span> <span class="var">OMIT</span>
+<span class="cmt">      *&gt; ⋯ 121 líneas omitidas</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">BDB28R04</span>
+ <span class="num">90000028</span>-<span class="var">B28COMICOB-NO-DS</span>.
+     <span class="kw">COMPUTE</span> <span class="var">WS-COMICOB-DS</span> = (<span class="var">WS-COMICOB-AA</span> * <span class="num">12</span>) + <span class="var">WS-COMICOB-MM</span>.
+     <span class="kw">COMPUTE</span> <span class="var">WS-COMICOB-DS</span> = <span class="var">FUNCTION</span> <span class="var">MOD</span> (<span class="var">WS-COMICOB-DS</span>,<span class="num">7</span>).
+     <span class="kw">IF</span> <span class="var">WS-COMICOB-DS</span> = <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="num">7</span>                    <span class="kw">TO</span> <span class="var">WS-COMICOB-DS</span>.
+$<span class="var">POP</span> <span class="var">OMIT</span></span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Transacción DMSII sobre la base de reinicio a @Transactional · L5454–5469">$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">BDB00R01</span>
+ <span class="num">90000000</span>-<span class="kw">BEGIN-TRANSACTION</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-STATUS-BASE</span> <span class="kw">TO</span> <span class="var">WS-STATUS-BASE-ANT</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span>              <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>.
+     <span class="kw">BEGIN-TRANSACTION</span> <span class="var">NO-AUDIT</span> <span class="var">S500B91REINICIO</span>
+           <span class="kw">ON</span> <span class="kw">EXCEPTION</span>
+              <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>) <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+$<span class="var">POP</span> <span class="var">OMIT</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">BDB00R02</span>
+ <span class="num">90000000</span>-<span class="kw">END-TRANSACTION</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-STATUS-BASE</span> <span class="kw">TO</span> <span class="var">WS-STATUS-BASE-ANT</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span>              <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>.
+     <span class="kw">END-TRANSACTION</span> <span class="var">AUDIT</span> <span class="var">S500B91REINICIO</span>
+         <span class="kw">ON</span> <span class="kw">EXCEPTION</span>
+            <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>) <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>VentanaSiglo.java · ParticionComisionCobrada.java · TransaccionCaptacion.java</span><span class="fname">LocalDate · JPA con partición · TransactionTemplate</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j7"><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">VentanaSiglo</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="kw">int</span> pivote;   <span class="cmt">// s500.fecha.pivote-siglo: 49  (CRONOS 2000)</span>
+
+    <span class="kw">public</span> <span class="type">VentanaSiglo</span>(<span class="ann">@Value</span>(<span class="str">&quot;${s500.fecha.pivote-siglo:49}&quot;</span>) <span class="kw">int</span> pivote) {
+        <span class="kw">this</span>.pivote = pivote;
+    }
+
+<span class="cmt">    /** 90000000-FECHA-2000: completa el siglo de una fecha AAMMDD. */</span>
+    <span class="kw">public</span> <span class="type">Optional</span>&lt;<span class="type">LocalDate</span>&gt; completa(<span class="kw">int</span> siglo, <span class="type">String</span> aammdd) {
+        <span class="kw">if</span> (<span class="str">&quot;000000&quot;</span>.equals(aammdd)) {
+            <span class="kw">return</span> <span class="type">Optional</span>.empty();                     <span class="cmt">// WKS-AA1-2000 = 0</span>
+        }
+        <span class="kw">int</span> aa = <span class="type">Integer</span>.parseInt(aammdd, <span class="num">0</span>, <span class="num">2</span>, <span class="num">10</span>);
+        <span class="kw">int</span> s = (siglo == <span class="num">19</span> || siglo == <span class="num">20</span>) ? siglo     <span class="cmt">// ya trae siglo válido</span>
+              : (aa &gt; pivote ? <span class="num">19</span> : <span class="num">20</span>);                 <span class="cmt">// 50-99 -&gt; 19xx, 00-49 -&gt; 20xx</span>
+        <span class="kw">return</span> <span class="type">Optional</span>.of(<span class="type">LocalDate</span>.parse(s + aammdd, <span class="type">DateTimeFormatter</span>.BASIC_ISO_DATE));
+    }
+}</span>
+<span class="seg java-seg" data-jid="j8"><span class="cmt">/** WS-COMICOB-DS: B28..B34 son el mismo registro COMICOB en 7 datasets físicos. */</span>
+<span class="kw">public</span> <span class="kw">final</span> <span class="kw">class</span> <span class="type">ParticionComisionCobrada</span> {
+
+    <span class="kw">private</span> <span class="type">ParticionComisionCobrada</span>() {}
+
+<span class="cmt">    /** 90000028-B28COMICOB-NO-DS: (AA * 12 + MM) mod 7, con 0 -&gt; 7. */</span>
+    <span class="kw">public</span> <span class="kw">static</span> <span class="kw">int</span> de(<span class="kw">int</span> aa, <span class="kw">int</span> mm) {        <span class="cmt">// WS-COMICOB-AA 9(02), WS-COMICOB-MM 9(02)</span>
+        <span class="kw">int</span> ds = <span class="type">Math</span>.floorMod(aa * <span class="num">12</span> + mm, <span class="num">7</span>);
+        <span class="kw">return</span> ds == <span class="num">0</span> ? <span class="num">7</span> : ds;
+    }
+}
+
+<span class="ann">@Entity</span>
+<span class="ann">@Table</span>(name = <span class="str">&quot;s500_comision_cobrada&quot;</span>)       <span class="cmt">// una tabla con columna de partición</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ComisionCobrada</span> {
+    <span class="ann">@EmbeddedId</span> <span class="kw">private</span> <span class="type">ComisionCobradaId</span> id;    <span class="cmt">// num_contrato + cve_acumula (BnnSXCTOCVE)</span>
+    <span class="ann">@Column</span>(name = <span class="str">&quot;particion&quot;</span>) <span class="kw">private</span> <span class="kw">int</span> particion;   <span class="cmt">// 1..7, LIST PARTITION en la BD destino</span>
+    <span class="cmt">// ...</span>
+}
+
+<span class="ann">@Service</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ComisionCobradaStore</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ComisionCobradaRepository</span> repo;
+
+    <span class="ann">@Transactional</span>
+    <span class="kw">public</span> <span class="type">ComisionCobrada</span> crea(<span class="type">ComisionCobrada</span> c, <span class="kw">int</span> aa, <span class="kw">int</span> mm) {
+        <span class="kw">int</span> ds = <span class="type">ParticionComisionCobrada</span>.de(aa, mm);
+        <span class="kw">if</span> (ds &lt; <span class="num">1</span> || ds &gt; <span class="num">7</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">IllegalStateException</span>(<span class="str">&quot;Partición COMICOB inválida &quot;</span> + ds);
+        c.setParticion(ds);
+        <span class="kw">return</span> repo.save(c);
+    }
+}</span>
+<span class="seg java-seg" data-jid="j9"><span class="cmt">/** 90000000-BEGIN-TRANSACTION / END-TRANSACTION sobre S500B91REINICIO. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">TransaccionCaptacion</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">TransactionTemplate</span> tx;            <span class="cmt">// PlatformTransactionManager de captación</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">DmsStatusTranslator</span> traductor;     <span class="cmt">// DMSTATUS(DMCATEGORY) -&gt; código 0..21</span>
+
+<span class="cmt">    /** El llamador ya no revisa WS-STATUS-BASE: recibe excepción o resultado. */</span>
+    <span class="kw">public</span> &lt;T&gt; T ejecuta(<span class="type">Supplier</span>&lt;T&gt; unidadDeTrabajo) {
+        <span class="kw">try</span> {
+            <span class="kw">return</span> tx.execute(st -&gt; unidadDeTrabajo.get());   <span class="cmt">// commit = END-TRANSACTION AUDIT</span>
+        } <span class="kw">catch</span> (<span class="type">DataAccessException</span> e) {
+            <span class="kw">throw</span> <span class="kw">new</span> <span class="type">CaptacionDbException</span>(traductor.categoria(e), e);  <span class="cmt">// ON EXCEPTION</span>
+        }
+    }
+}
+<span class="cmt">// La variante SYNC (90000000-END-TRANSACTIONSYNC) equivale al commit con</span>
+<span class="cmt">// fsync obligatorio; en la BD destino es el comportamiento por defecto.</span></span></pre></div>
+</div>
+  
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Librería marcada como ligada aunque CTLVERS falle</b><p>En la familia 10000xxx-* (por ejemplo 10000016-L422, líneas 504-521) la bandera 88 de la librería se pone en 1 fuera del IF de error. Si CTLVERS no devuelve título, el programa sigue y las llamadas posteriores usan el TITLE que la librería tenga declarado por omisión, sin aviso adicional.</p></div><div class="risk"><b>Ruteo contable compilado en un copybook</b><p>Las sucursales 342, 511, 859, 904, 907 y 7532 y las cajas 40, 55, 60, 79, 92 y 94 de CARGAMOV1-CTES (líneas 3388-3466) están compiladas en cada programa que incluye el copybook. Un cambio contable obliga a recompilar todos. Además, el comentario de las claves 4159 y 4160 contradice el valor (350 frente a 342).</p></div><div class="risk"><b>Todo el bloque hereda el ruteo de la primera clave</b><p>CARGAMOV1-CTES decide sucursal y caja con WS-S151-0101-CVETRAN-I(1). Los otros cuatro movimientos del registro, y los bloques siguientes, se contabilizan con la sucursal elegida para la primera clave de la entrada.</p></div><div class="risk"><b>Descarte silencioso de importes en cero</b><p>En línea, CARGAMOV1-IMP salta con NEXT SENTENCE los movimientos de importe cero que no son no contables ni adicionales (líneas 4157-4162), sin bitácora. En batch la misma entrada sí se envía, por lo que el comportamiento depende del tipo de programa.</p></div><div class="risk"><b>Escrituras DMSII que pueden no ocurrir sin error</b><p>Las cascadas de CREATE y STORE de COMICOB (líneas 10670-10753) no tienen rama final: con WS-COMICOB-DS fuera de 1..7 no se escribe nada y el status queda en 0.</p></div><div class="risk"><b>Ventana Y2K con pivote fijo</b><p>90000000-FECHA-2000 (líneas 5388-5398) asume que los años 50-99 son del siglo XX. Debe sustituirse por fechas con siglo completo en la base destino.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>El inventario apunta a source/S500/extracted_source/S500_INC_PRO.txt, pero ese archivo es el copybook de pantallas de captación (WS-DATA-IN-SCREEN y párrafos 00000000-MASCARA-500nn) y no contiene CARGAMOV1, FECHA-2000 ni los accesos DMSII. El fuente que corresponde a procedur, y cuya numeración coincide con el pseudocódigo, es source/S500/extracted_source/S500_INC_PRO_CAN.txt. Todos los segmentos se tomaron de ese archivo; hay que corregir el campo fuente del inventario para que el generador los verifique.</li><li>Los PIC de importe y saldo (WS-S151-0101-IMPORTE-I 9(14)V99 COMP, WS-S151-SALDO-INI S9(15)V99) y de WS-COMICOB-AA/MM se tomaron de S500_INC_WOR_CAN.txt; confirmar que es el copybook de trabajo que acompaña a esta versión del PROCEDURE.</li><li>Confirmar si la sucursal correcta para las claves 4159 y 4160 es 342 (código) o 350 (comentario).</li><li>Confirmar si REGISTRAS500 tolera un registro sin movimientos, que se envía cuando la primera clave de entrada es cero.</li><li>Confirmar qué proceso depura la partición COMICOB antes de reutilizarla: con siete particiones por mes, el mes N y el N+7 comparten dataset.</li><li>Confirmar el significado operativo de WS-88-SIUSA-S151, WS-88-BASE-ORI y WS-88-ENVIAS151-TRANCTRL; se definen fuera de este copybook.</li></ul>
+  <div class="pn"><a href="S500_proccanc.html">← S500 · proccanc</a><a href="../cobol-java.html">Inventario</a><a href="S500_P005.html">S500 · P005 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · Banamex · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Liga de librería por versión activa (CTLVERS) a un resolvedor reusable", "cobol": "$SET OMIT = NOT S016L422\n 10000016-L422.\n     MOVE ZEROS              TO S000-CTR-CVEERROR.\n     MOVE \"S016L422\"         TO S000-CTR-LIBID.\n     PERFORM 20000100-DAME-TIT-VERS.\n     IF S000-CTR-CVEERROR = 0\n        CHANGE ATTRIBUTE TITLE OF \"S016L422\"\n                               TO S000-CTR-NOMLIB\n     ELSE\n        MOVE S000-CTR-CVEERROR TO WS-MSG-N-02\n        STRING  \"ERROR EN CALL CTLVERS S016L422 \",\n                \" RESULT=\", WS-MSG-N-02\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n     MOVE 1 TO WKS-88-S016L422.\n$POP OMIT", "java": "/** Familia 10000xxx-*: resuelve el TITLE vigente de una librería con DAME_TIT IN CTLVERS. */\n@Component\n@RequiredArgsConstructor\npublic class LibreriaResolver {\n\n    private final CtlversClient ctlvers;          // 20000100-DAME-TIT-VERS\n    private final Map<String, ServicioLigado> ligadas = new ConcurrentHashMap<>();\n\n    public ServicioLigado liga(String libId) {     // p. ej. \"S016L422\"\n        return ligadas.computeIfAbsent(libId, id -> {\n            ResultadoCtlvers r = ctlvers.dameTitulo(id);   // GIVING S000-CTR-CVEERROR\n            if (r.cveError() != 0) {\n                // COBOL solo emite el mensaje y aun así prende WKS-88-S016L422.\n                log.error(\"ERROR EN CALL CTLVERS {} RESULT={}\", id, r.cveError());\n                return ServicioLigado.noDisponible(id, r.cveError());\n            }\n            return ServicioLigado.de(id, r.titulo());       // CHANGE ATTRIBUTE TITLE\n        });\n    }\n}\n\n// application.yml: la versión por ambiente deja de vivir en CTLVERS\n// s500.librerias.S016L422.url: http://s016-comisiones/v1", "rationale": "Cada uno de los cerca de cuarenta párrafos <code>10000xxx-*</code> repite el mismo patrón: pide a <code>CTLVERS</code> el título de la versión activa de una librería, lo asigna con <code>CHANGE ATTRIBUTE TITLE</code> y prende una bandera 88 que indica que la librería está ligada. En Java el patrón se colapsa en un único <code>@Component</code> que resuelve y memoriza el enlace por identificador de librería; el destino concreto (URL del servicio o bean) pasa a <code>application.yml</code>. Los <code>$SET OMIT</code> que rodean cada párrafo son compilación condicional por programa y se sustituyen por la inyección de solo los clientes que cada servicio necesita.", "risk": "La bandera WKS-88-S016L422 se pone en 1 también cuando CTLVERS devuelve error (línea 521 fuera del IF): el programa cree que la librería está ligada aunque el TITLE no se haya asignado. La versión Java devuelve un enlace marcado como no disponible.", "rules": [], "lines": "L503–522", "verified": true, "score": 100}, "s2": {"title": "Orquestación de CARGAMOV1 a servicio de contabilización", "cobol": "$SET OMIT = NOT S151REGISTRA\n 20000151-CARGAMOV1.\n     PERFORM 20000151-CARGAMOV1-INI.\n     PERFORM 20000151-CARGAMOV1-CTES.\n     MOVE 0 TO WS-S151-SW.\n     MOVE WS-S151-SALDO-INI TO WS-S151-SALDO-FIN.\n     PERFORM 20000151-CARGAMOV1-IMP\n             VARYING WS-S151-IND FROM 1 BY 1\n             UNTIL WS-S151-IND > 30 OR WS-S151-SW = 1.\n     PERFORM 20000151-CARGAMOV1-CALL.\n     PERFORM 20000151-CARGAMOV1-LIMPIA.", "java": "@Service\n@RequiredArgsConstructor\npublic class RegistroMovimientoS151Service {\n\n    static final int MAX_MOVS = 30;               // WS-S151-01-CVES-I OCCURS 30 TIMES\n\n    private final RuteoContableS151 ruteo;        // 20000151-CARGAMOV1-CTES\n    private final AgrupadorMovimientos agrupador; // 20000151-CARGAMOV1-IMP\n    private final RegistraS500Client registra;    // 20000151-CARGAMOV1-CALL\n\n    /** 20000151-CARGAMOV1: arma el registro S151 y lo envía en bloques de hasta 5 movimientos. */\n    public void cargaMovimientos(EntradaS151 entrada) {\n        MovimientoS151 base = ruteo.aplica(MovimientoS151.vacio(), entrada);  // INI + CTES\n        var ctx = new ContextoSaldo(entrada.saldoIni());   // SALDO-FIN = SALDO-INI\n        var bloque = agrupador.nuevoBloque(base, ctx);\n        for (LineaS151 linea : entrada.lineas().subList(0, Math.min(MAX_MOVS, entrada.lineas().size()))) {\n            if (linea.cveTran() == 0) break;                // WS-S151-SW = 1\n            bloque = agrupador.agrega(bloque, linea, ctx, registra::envia);\n        }\n        registra.envia(bloque);                             // CALL final, aunque el bloque venga vacío\n        // CARGAMOV1-LIMPIA: no aplica, EntradaS151 es inmutable y se descarta.\n    }\n}", "rationale": "<code>20000151-CARGAMOV1</code> es la fachada que todos los programas de captación usan para contabilizar en S151: inicializa el registro, copia constantes y ruteo, recorre hasta 30 movimientos de entrada y hace la llamada final. En Java es un <code>@Service</code> con la misma firma lógica, que recibe un objeto de entrada inmutable en lugar del área compartida <code>WS-S151-INPUT</code>; por eso desaparece el párrafo de limpieza. El corte por <code>WS-S151-SW = 1</code> al encontrar una clave en cero se traduce en un <code>break</code>.", "risk": "La llamada final a CARGAMOV1-CALL se ejecuta siempre, incluso si la primera clave de entrada es cero y no se colocó ningún movimiento.", "rules": [], "lines": "L3115–3125", "verified": true, "score": 100}, "s3": {"title": "Ruteo de sucursal y caja contable por clave de transacción", "cobol": "$SET OMIT = NOT LINEA\n     IF WS-S151-0101-CVETRAN-I(1) = 4159 OR 4160\n        MOVE 342          TO WS-S151-0101-SUCPROM.\n*    CON ESTAS CLAVES SE DEBE DE AFECTAR A RESULTADOS DE LA SUCUR-\n*    SAL 350 EN LUGAR DE LA PROMOTORA DE LA CUENTA ( ESTAS  CLAVES\n*    SERAN CARGADAS EN B17 PARA QUE SOLO LAS PUEDA  TRANSMITIR  LA\n*    SUCURSAL 350)\n     IF WS-S151-0101-CVETRAN-I(1) = 2136 OR 2137 OR 2138\n        MOVE WS-S151-0101-SUCTRAN-I       TO WS-S151-0101-SUCPROM.\n      *> ⋯ 2 líneas omitidas\n     IF WS-S151-0101-CVETRAN-I(1) = 4449\n      *> ⋯ 1 línea omitida\n                                  OR WS-CVE-ACNOMINAPORTA-PG\n      *> ⋯ 1 línea omitida\n        MOVE 859          TO WS-S151-0101-SUCPROM\n                             WS-S151-0101-SUCTRAN\n                             WS-S151-0101-SUCS028\n        MOVE 40           TO WS-S151-0101-CAJOPER\n                             WS-S151-0101-CAJTRAN\n                             WS-S151-0101-CAJS028.\n$POP OMIT\n     IF WS-S151-0101-CVETRAN-I(1) = 3002 OR 4001\n                                 OR 3018 OR 4016\n        IF WS03-88-PIM-CTAMAE          OR\n           WS03-88-PIM-CTAMAEOP        OR\n           WS03-88-PIM-CTAMAEDL        OR\n      *> ⋯ 16 líneas omitidas\n           MOVE  94        TO  WS-S151-0101-CAJS028\n           IF WS-S151-0101-NODORI = 10\n              MOVE 907     TO  WS-S151-0101-SUCS028\n           ELSE\n              MOVE 904     TO  WS-S151-0101-SUCS028\n        ELSE\n           MOVE  79        TO  WS-S151-0101-CAJS028\n           IF WS-S151-0101-NODORI = 10\n              MOVE 907     TO  WS-S151-0101-SUCS028\n           ELSE\n              MOVE 904     TO  WS-S151-0101-SUCS028.\n     IF WS-S151-0101-CVETRAN-I(1) = 3027\n        MOVE  55          TO  WS-S151-0101-CAJS028\n        IF WS-S151-0101-NODORI = 10\n           MOVE 907       TO  WS-S151-0101-SUCS028\n        ELSE\n           MOVE 904       TO  WS-S151-0101-SUCS028.\n      *> ⋯ 1 línea omitida\n     IF WS-S151-0101-CVETRAN-I(1) =   3047\n        MOVE 92                   TO  WS-S151-0101-CAJS028\n        MOVE 342                  TO  WS-S151-0101-SUCS028       .\n      *> ⋯ 2 líneas omitidas\n     IF WS-S151-0101-CVETRAN-I(1) =   1153\n        IF WS-GEN-MDA-BIN = 554492\n           MOVE 60                TO  WS-S151-0101-CAJS028\n           MOVE 7532              TO  WS-S151-0101-SUCS028       .\n      *> ⋯ 1 línea omitida\n     IF WS-S151-0101-CVETRAN-I(1) =   2534\n        MOVE 511                  TO  WS-S151-0101-SUCS028.", "java": "# application.yml  (las sucursales y cajas contables dejan de estar compiladas)\ns151:\n  ruteo:\n    sucursal-nodo-10: 907          # SUCS028 cuando NODORI = 10\n    sucursal-otro-nodo: 904\n    por-clave:\n      \"4159\": { sucprom: 342 }      # el comentario del fuente habla de la sucursal 350\n      \"4160\": { sucprom: 342 }\n      \"4449\": { sucprom: 859, suctran: 859, sucs028: 859, cajoper: 40, cajtran: 40, cajs028: 40 }\n      \"3027\": { cajs028: 55, sucs028-por-nodo: true }\n      \"3047\": { cajs028: 92, sucs028: 342 }\n      \"2534\": { sucs028: 511 }\n    deposito-ventanilla:            # 3002, 4001, 3018, 4016\n      claves: [3002, 4001, 3018, 4016]\n      caja-perfil-pim: 94\n      caja-otro-perfil: 79\n    bin-evolucion: { clave: 1153, bin: 554492, cajs028: 60, sucs028: 7532 }\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class RuteoContableS151 {\n\n    private final RuteoProperties p;\n    private final ModoEjecucion modo;   // $SET OMIT = NOT LINEA\n\n    MovimientoS151 aplica(MovimientoS151 m, EntradaS151 in) {\n        int cve = in.lineas().get(0).cveTran();          // WS-S151-0101-CVETRAN-I(1)\n        if (modo.esLinea()) {\n            m = p.porClave(cve).map(r -> r.aplicaA(m)).orElse(m);   // 4159/4160, 4449\n            if (cve == 2136 || cve == 2137 || cve == 2138) m = m.withSucprom(in.sucTran());\n            if (cve == in.cveAcNominaPortaPg()) m = p.porClave(4449).orElseThrow().aplicaA(m);\n        }\n        if (p.depositoVentanilla().claves().contains(cve)) {\n            int caja = in.perfilPim().esCuentaMaestraOEquivalente()\n                    ? p.depositoVentanilla().cajaPerfilPim()        // 94\n                    : p.depositoVentanilla().cajaOtroPerfil();      // 79\n            m = m.withCajs028(caja).withSucs028(sucursalPorNodo(m.nodori()));\n        }\n        // 3027, 3047, 1153 + BIN 554492 y 2534: mismas reglas declarativas de p.porClave()\n        return m;\n    }\n\n    private int sucursalPorNodo(int nodori) {\n        return nodori == 10 ? p.sucursalNodo10() : p.sucursalOtroNodo();\n    }\n}", "rationale": "<code>CARGAMOV1-CTES</code> fija, según la primera clave de transacción del bloque, la sucursal promotora y la sucursal y caja contable (<code>SUCS028</code>/<code>CAJS028</code>) con las que S151 contabiliza. Son constantes literales con efecto contable directo, así que se trasladan a <code>application.yml</code> como una tabla declarativa y se versionan con control de cambios contable, en lugar de vivir en un copybook que se compila en cada programa. Los bloques bajo <code>$SET OMIT = NOT LINEA</code> solo existen en los programas en línea; en Java se expresan con un indicador de modo de ejecución explícito. El perfil PIM agrupa los quince indicadores 88 de cuenta maestra, Citi One, cuenta acceso, prepagada y similares en un solo método de dominio.", "risk": "El comentario que sigue a las claves 4159 y 4160 dice que deben afectar resultados de la sucursal 350, pero el código mueve 342. Además, que el ruteo se decida solo por la clave de la posición 1 implica que todo el bloque de hasta 5 movimientos hereda la sucursal contable del primero.", "rules": [], "lines": "L3387–3466", "verified": true, "score": 100}, "s4": {"title": "Agrupación de movimientos en bloques de cinco por llamada", "cobol": " 20000151-CARGAMOV1-IMP.\n     IF  WS-S151-0101-CVETRAN-I(WS-S151-IND) = 0\n         MOVE 1               TO WS-S151-SW\n     ELSE\n$SET OMIT = NOT LINEA\n     IF  WS-S151-0101-IMPORTE-I(WS-S151-IND) = 0\n     AND NOT (WS88-S151-0101-CVENOCONT-I(WS-S151-IND)\n         OR (WS-GEN-CVE-ADIC-S151 = 1 AND\n        WS-S151-0101-CVETRAN-I(WS-S151-IND) = WS17-CVE-ADIC-S151))\n     AND WS-S151-IND NOT = 1\n         NEXT SENTENCE\n     ELSE\n      *> ⋯ 1 línea omitida\n        PERFORM 20000151-ACUM-MOVS-XNAT\n      *> ⋯ 1 línea omitida\n        PERFORM 20000151-CLAVES-CORRESP\n$POP OMIT\n$SET OMIT = NOT BDB17R06\n        PERFORM 20000151-CHECA-SUMA-SDOINI\n$POP OMIT\n     IF WS-S151-0101-CVETRAN1 = 0\n        MOVE WS-S151-SALDO-INI        TO WS-S151-0101-SALDO-INI\n        ADD 1 TO W77-NUM-MOVS-ENV  W77-TOT-MOVS-ENV\n        MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND) TO\n             WS-S151-0101-CVETRAN1\n      *> ⋯ 8 líneas omitidas\n     ELSE\n     IF WS-S151-0101-CVETRAN2 = 0\n        ADD 1 TO W77-NUM-MOVS-ENV  W77-TOT-MOVS-ENV\n      *> ⋯ 10 líneas omitidas\n     ELSE\n      *> ⋯ 39 líneas omitidas\n        PERFORM 20000151-CARGAMOV1-CALL\n        PERFORM 20000151-CARGAMOV1-SUBCVE\n        MOVE WS-S151-SALDO-INI        TO WS-S151-0101-SALDO-INI\n        ADD 1 TO W77-NUM-MOVS-ENV  W77-TOT-MOVS-ENV\n      *> ⋯ 6 líneas omitidas\n        MOVE WS-S151-0101-REFS151 TO WS-S151-0101-REFS151-ANT\n        MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND ) TO\n             WS-S151-0101-CVETRAN1\n        MOVE WS-S151-0101-IMPORTE-I(WS-S151-IND) TO\n             WS-S151-0101-IMPORTE1.\n      *> ⋯ 1 línea omitida\n     MOVE WS-S151-SALDO-FIN TO WS-S151-SALDO-INI.", "java": "@Component\npublic class AgrupadorMovimientos {\n\n    static final int POSICIONES = 5;   // CVETRAN1..CVETRAN5 del registro S151\n\n    private final NaturalezaMovimientos naturaleza;  // ACUM-MOVS-XNAT + CHECA-SUMA-SDOINI\n    private final ClavesCorresponsales corresp;      // 20000151-CLAVES-CORRESP\n    private final ModoEjecucion modo;\n\n    BloqueS151 agrega(BloqueS151 b, LineaS151 l, ContextoSaldo ctx, Consumer<BloqueS151> envia) {\n        boolean descartable = l.importe().signum() == 0\n                && !l.esNoContable()            // 88 CVENOCONT-I: 500-699, 889, 895-904, 914, 942-944\n                && !l.esClaveAdicional()\n                && l.indice() != 1;\n        if (modo.esLinea() && descartable) {\n            return b;                            // NEXT SENTENCE: no se coloca ni se acumula\n        }\n        if (modo.esLinea()) {\n            naturaleza.acumula(l);\n            l = corresp.heredaLeyenda(l, b.primeraLinea());\n        }\n        naturaleza.proyectaSaldo(l, ctx);        // solo con BDB17R06\n        BloqueS151 r;\n        if (b.lineas().isEmpty()) {\n            r = b.conSaldoIni(ctx.saldoIni()).mas(l);\n        } else if (b.lineas().size() < POSICIONES) {\n            r = b.mas(l);\n        } else {\n            envia.accept(b);                     // CARGAMOV1-CALL con el bloque lleno\n            r = b.siguiente()                    // SUBCVE + REFS151 -> REFS151-ANT\n                 .conSaldoIni(ctx.saldoIni())\n                 .mas(l);\n        }\n        ctx.cierraMovimiento();                  // SALDO-INI = SALDO-FIN\n        return r;\n    }\n}", "rationale": "El registro hacia S151 tiene cinco posiciones fijas de clave, importe, leyenda, indicador y esquema contable. <code>CARGAMOV1-IMP</code> coloca cada movimiento en la primera posición libre y, cuando las cinco están ocupadas, envía el bloque, limpia las posiciones y encadena la referencia S151 del bloque anterior en <code>REFS151-ANT</code>. En Java el bloque es un objeto inmutable con una lista acotada a cinco y el envío se inyecta como <code>Consumer</code>, lo que permite probar el agrupamiento sin llamar a S151. El saldo inicial de cada bloque es el saldo proyectado antes de su primer movimiento, igual que en el fuente.", "risk": "En programas en línea, un movimiento con importe cero que no sea clave no contable ni adicional se descarta en silencio, salvo que ocupe la posición 1 de la entrada. En batch esa validación no se compila y el movimiento sí se envía.", "rules": [], "lines": "L4152–4254", "verified": true, "score": 100}, "s5": {"title": "Naturaleza del movimiento y proyección del saldo con el catálogo B17", "cobol": " 20000151-ACUM-MOVS-XNAT.\n      IF NOT WS-88-STORE-B17\n         MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND)\n                                  TO  WS-CLAVE-TRANS\n         PERFORM                  90000017-B17AXCLAVE-FIND\n         IF WS-DB-NOTERROR\n            IF B17-AFECTA-S052 = 1\n               ADD  1             TO  WS-NUM-MOVSCGO\n            ELSE\n*INI R3-2011-BENEII       (Beneficencia F2)               ABARBOSA\n               IF B17-AFECTA-S052 = 2             OR\n                 (B17-AFECTA-S052 = 0     AND\n                  B17-TIPO-MOV = 2 AND B17-PERMITE-ELIM = 1 AND\n                  (B17-POR-APLI = 1 OR B17-POR-TERMINAL(1) = 1 OR\n                                       B17-POR-TERMINAL(2) = 1))\n*FIN R3-2011-BENEII       (Beneficencia F2)               ABARBOSA\n                  ADD  1          TO  WS-NUM-MOVSABO\n               ELSE\n                  ADD  1          TO  WS-NUM-MOVSNC.\n      *> ⋯ 2 líneas omitidas\n$SET OMIT = NOT BDB17R06\n 20000151-CHECA-SUMA-SDOINI.\n     IF WS-S151-MANDA-SDOINI = 1\n        MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND) TO\n             WS-CLAVE-TRANS\n        PERFORM 90000017-B17AXCLAVE-FIND\n        IF WS-DB-NOTERROR\n           IF B17-AFECTA-S052 = 1\n              SUBTRACT WS-S151-0101-IMPORTE-I(WS-S151-IND) FROM\n              WS-S151-SALDO-FIN\n           ELSE\n           IF B17-AFECTA-S052 = 2\n              ADD WS-S151-0101-IMPORTE-I(WS-S151-IND) TO\n              WS-S151-SALDO-FIN.", "java": "@Component\n@RequiredArgsConstructor\npublic class NaturalezaMovimientos {\n\n    private final ClaveTransaccionRepository b17;   // S500B17CVESXFUN, set B17AXCLAVE\n    private final ContadoresNaturaleza cont;        // WS-NUM-MOVSCGO / MOVSABO / MOVSNC\n\n    /** 20000151-ACUM-MOVS-XNAT (P10-119 Migración Prepagada). */\n    void acumula(LineaS151 l) {\n        if (cont.storeB17()) return;                 // WS-88-STORE-B17\n        b17.findByClave(l.cveTran()).ifPresent(c -> {\n            if (c.afectaS052() == 1) {\n                cont.cargo();\n            } else if (c.afectaS052() == 2 || esAbonoBeneficencia(c)) {\n                cont.abono();\n            } else {\n                cont.noContable();\n            }\n        });\n    }\n\n    private static boolean esAbonoBeneficencia(ClaveB17 c) {   // R3-2011-BENEII\n        return c.afectaS052() == 0 && c.tipoMov() == 2 && c.permiteElim() == 1\n            && (c.porApli() == 1 || c.porTerminal(1) == 1 || c.porTerminal(2) == 1);\n    }\n\n    /** 20000151-CHECA-SUMA-SDOINI. Importe 9(14)V99 COMP, saldo S9(15)V99: escala 2, suma exacta. */\n    void proyectaSaldo(LineaS151 l, ContextoSaldo ctx) {\n        if (!ctx.mandaSaldoIni()) return;\n        b17.findByClave(l.cveTran()).ifPresent(c -> {\n            if (c.afectaS052() == 1)      ctx.restaFin(l.importe());   // cargo\n            else if (c.afectaS052() == 2) ctx.sumaFin(l.importe());    // abono\n        });\n    }\n}", "rationale": "Ambos párrafos consultan el catálogo de claves B17 para clasificar el movimiento: <code>B17-AFECTA-S052 = 1</code> es cargo y <code>= 2</code> es abono. El primero cuenta movimientos por naturaleza y el segundo proyecta el saldo final del contrato. El repositorio Java es de solo lectura sobre la tabla migrada de B17. Importe y saldo son <code>BigDecimal</code> de escala 2 (<code>9(14)V99 COMP</code> y <code>S9(15)V99</code> en el copybook de trabajo), y como solo se suman y restan no interviene redondeo. Si la clave no existe en B17 (<code>WS-DB-NOTERROR</code> falso) no se cuenta ni se ajusta el saldo, que es lo que expresa el <code>ifPresent</code>.", "risk": "La regla de Beneficencia clasifica como abono claves con AFECTA-S052 = 0, pero CHECA-SUMA-SDOINI no las suma al saldo: el conteo de abonos y el saldo proyectado pueden no cuadrar para esas claves.", "rules": [], "lines": "L4272–4309", "verified": true, "score": 100}, "s6": {"title": "Llamada a REGISTRAS500 con contingencia y rechazos", "cobol": "$SET OMIT = NOT LINEA\n     IF WS-88-SIUSA-S151 AND WS-88-BASE-ORI              OR\n        (WS-88-ENVIAS151-TRANCTRL AND NOT WS-88-PREBATCH)\n        IF NOT WS-88-EN-CONTINGENCIA-S151\n           PERFORM 20000151-CARGAMOV1-INIL030\n$POP OMIT\n         CALL \"CARGAMOV1 IN REGISTRAS500\"\n               USING    WS-S151-0101-MOVIMIENTOS\n               GIVING   WS-S151-0101-STATUS\n           PERFORM 20000151-CARGAMOV1-FINL030.\n      *> ⋯ 4 líneas omitidas\n$SET OMIT = NOT LINEA\n     IF WS-88-EN-CONTINGENCIA-S151\n        PERFORM 00000000-GRABA-CONTING-S151.\n     MOVE 0       TO WS-S151-0101-CVEAVISO-I\n                     WS-S151-0101-CVEAVISO.\n     PERFORM 00000000-INICAMP-MOVSAD-S151.\n     IF WS-S151-0101-STATUS > 0\n        PERFORM 00000000-GRABA-RECHAZOS-S151.", "java": "@Component\n@RequiredArgsConstructor\npublic class RegistraS500Client {\n\n    private final RegistraS500Port s151;            // CALL \"CARGAMOV1 IN REGISTRAS500\"\n    private final ContingenciaS151Repository conting;  // 00000000-GRABA-CONTING-S151\n    private final RechazoS151Repository rechazos;      // 00000000-GRABA-RECHAZOS-S151\n    private final EstadoS151 estado;                   // WS-88-SIUSA-S151, BASE-ORI, CONTINGENCIA...\n    private final MeterRegistry metrics;               // reemplaza los hooks S500L030 (INIL030/FINL030)\n\n    public int envia(BloqueS151 b) {\n        int status = 0;\n        boolean llamar = (estado.usaS151() && estado.baseOrigen())\n                || (estado.enviaTranControl() && !estado.prebatch());\n        if (llamar && !estado.enContingencia()) {\n            status = Timer.builder(\"s500.cargamov1\").register(metrics)\n                          .recordCallable(() -> s151.cargaMov1(b));   // GIVING WS-S151-0101-STATUS\n        }\n        if (estado.enContingencia()) {\n            conting.save(ContingenciaS151.de(b));   // se reenvía cuando S151 regrese\n        }\n        if (status > 0) {\n            rechazos.save(RechazoS151.de(b, status));\n        }\n        return status;\n    }\n}", "rationale": "En los programas en línea la llamada a la librería de contabilización solo ocurre si S151 está activo para la base de origen o si se envía transacción de control fuera de prebatch, y nunca en contingencia; en ese caso el bloque se guarda para reenvío. En batch esos <code>IF</code> no se compilan y la llamada es incondicional. El puerto <code>RegistraS500Port</code> puede implementarse como cliente síncrono o como productor a una cola si S151 se moderniza por separado. La precedencia de <code>AND</code> sobre <code>OR</code> del COBOL se hace explícita con paréntesis.", "risk": "Si no se cumple la condición de llamada y no hay contingencia, el bloque no se envía ni se guarda, y el IF de rechazos evalúa el status que tuviera el área desde la llamada anterior. La versión Java parte de status 0.", "rules": [], "lines": "L3832–3858", "verified": true, "score": 100}, "s7": {"title": "Ventana de siglo Y2K con pivote 49", "cobol": "$SET OMIT = NOT FECHA2000\n****************************************************************\n  90000000-FECHA-2000.\n     IF WKS-FEC-2000-06 = ZEROS\n        MOVE ZEROS   TO WKS-AA1-2000\n     ELSE\n     IF WKS-AA1-2000 = 19 OR 20\n        NEXT SENTENCE\n     ELSE\n     IF WKS-AA-2000 > 49\n        MOVE 19          TO WKS-AA1-2000\n     ELSE\n        MOVE 20          TO WKS-AA1-2000.", "java": "@Component\npublic class VentanaSiglo {\n\n    private final int pivote;   // s500.fecha.pivote-siglo: 49  (CRONOS 2000)\n\n    public VentanaSiglo(@Value(\"${s500.fecha.pivote-siglo:49}\") int pivote) {\n        this.pivote = pivote;\n    }\n\n    /** 90000000-FECHA-2000: completa el siglo de una fecha AAMMDD. */\n    public Optional<LocalDate> completa(int siglo, String aammdd) {\n        if (\"000000\".equals(aammdd)) {\n            return Optional.empty();                     // WKS-AA1-2000 = 0\n        }\n        int aa = Integer.parseInt(aammdd, 0, 2, 10);\n        int s = (siglo == 19 || siglo == 20) ? siglo     // ya trae siglo válido\n              : (aa > pivote ? 19 : 20);                 // 50-99 -> 19xx, 00-49 -> 20xx\n        return Optional.of(LocalDate.parse(s + aammdd, DateTimeFormatter.BASIC_ISO_DATE));\n    }\n}", "rationale": "El párrafo completa el siglo de una fecha de seis dígitos que viaja en <code>WKS-FEC-2000-08</code> (siglo <code>99</code> más <code>AAMMDD</code> por <code>REDEFINES</code>). Si el siglo ya es 19 o 20 lo respeta; si no, aplica la ventana: años mayores a 49 son del siglo XX y el resto del XXI. En Java se devuelve un <code>LocalDate</code> y el pivote queda explícito como propiedad, tal como pide el estándar de fechas. Una fecha en ceros se representa como ausencia de valor en lugar del siglo cero.", "risk": "Con pivote fijo en 49, una fecha de dos dígitos del año 2050 o posterior se interpretaría como 1950. Las fechas que ya traen siglo no se ven afectadas.", "rules": [], "lines": "L5386–5398", "verified": true, "score": 100}, "s8": {"title": "Comisiones cobradas particionadas en siete datasets por mes", "cobol": "$SET OMIT = NOT BDB28R01\n  90000028-B28COMICOB-CREATE.\n     MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n     MOVE 0              TO WS-STATUS-BASE.\n     IF WS-COMICOB-DS = 1\n        CREATE S500B28COMICOB\n        ON EXCEPTION\n           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE\n     ELSE\n     IF WS-COMICOB-DS = 2\n        CREATE S500B29COMICOB\n        ON EXCEPTION\n           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE\n      *> ⋯ 21 líneas omitidas\n     IF WS-COMICOB-DS = 7\n        CREATE S500B34COMICOB\n        ON EXCEPTION\n        MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n$POP OMIT\n      *> ⋯ 121 líneas omitidas\n$SET OMIT = NOT BDB28R04\n 90000028-B28COMICOB-NO-DS.\n     COMPUTE WS-COMICOB-DS = (WS-COMICOB-AA * 12) + WS-COMICOB-MM.\n     COMPUTE WS-COMICOB-DS = FUNCTION MOD (WS-COMICOB-DS,7).\n     IF WS-COMICOB-DS = 0\n        MOVE 7                    TO WS-COMICOB-DS.\n$POP OMIT", "java": "/** WS-COMICOB-DS: B28..B34 son el mismo registro COMICOB en 7 datasets físicos. */\npublic final class ParticionComisionCobrada {\n\n    private ParticionComisionCobrada() {}\n\n    /** 90000028-B28COMICOB-NO-DS: (AA * 12 + MM) mod 7, con 0 -> 7. */\n    public static int de(int aa, int mm) {        // WS-COMICOB-AA 9(02), WS-COMICOB-MM 9(02)\n        int ds = Math.floorMod(aa * 12 + mm, 7);\n        return ds == 0 ? 7 : ds;\n    }\n}\n\n@Entity\n@Table(name = \"s500_comision_cobrada\")       // una tabla con columna de partición\npublic class ComisionCobrada {\n    @EmbeddedId private ComisionCobradaId id;    // num_contrato + cve_acumula (BnnSXCTOCVE)\n    @Column(name = \"particion\") private int particion;   // 1..7, LIST PARTITION en la BD destino\n    // ...\n}\n\n@Service\n@RequiredArgsConstructor\npublic class ComisionCobradaStore {\n    private final ComisionCobradaRepository repo;\n\n    @Transactional\n    public ComisionCobrada crea(ComisionCobrada c, int aa, int mm) {\n        int ds = ParticionComisionCobrada.de(aa, mm);\n        if (ds < 1 || ds > 7) throw new IllegalStateException(\"Partición COMICOB inválida \" + ds);\n        c.setParticion(ds);\n        return repo.save(c);\n    }\n}", "rationale": "El registro de comisiones cobradas existe en siete datasets idénticos (<code>S500B28COMICOB</code> a <code>S500B34COMICOB</code>) y cada <code>CREATE</code>, <code>STORE</code> y <code>LOCK</code> elige uno con una cascada de <code>IF</code> sobre <code>WS-COMICOB-DS</code>. La partición sale del número de mes absoluto módulo 7. En la base destino se recomienda una sola tabla con particionamiento por lista sobre la columna <code>particion</code>, lo que conserva la rotación y elimina las siete ramas duplicadas. El cálculo se aísla en una función pura que se puede probar contra los datos históricos.", "risk": "Si WS-COMICOB-DS no está entre 1 y 7 al llamar CREATE (por ejemplo, porque el programa no ejecutó NO-DS antes), ninguna rama aplica y WS-STATUS-BASE queda en 0: el alta no ocurre y el llamador la da por exitosa.", "rules": [], "lines": "L10669–10838", "verified": true, "score": 100}, "s9": {"title": "Transacción DMSII sobre la base de reinicio a @Transactional", "cobol": "$SET OMIT = NOT BDB00R01\n 90000000-BEGIN-TRANSACTION.\n     MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n     MOVE 0              TO WS-STATUS-BASE.\n     BEGIN-TRANSACTION NO-AUDIT S500B91REINICIO\n           ON EXCEPTION\n              MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n      *> ⋯ 1 línea omitida\n$POP OMIT\n$SET OMIT = NOT BDB00R02\n 90000000-END-TRANSACTION.\n     MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n     MOVE 0              TO WS-STATUS-BASE.\n     END-TRANSACTION AUDIT S500B91REINICIO\n         ON EXCEPTION\n            MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.", "java": "/** 90000000-BEGIN-TRANSACTION / END-TRANSACTION sobre S500B91REINICIO. */\n@Component\n@RequiredArgsConstructor\npublic class TransaccionCaptacion {\n\n    private final TransactionTemplate tx;            // PlatformTransactionManager de captación\n    private final DmsStatusTranslator traductor;     // DMSTATUS(DMCATEGORY) -> código 0..21\n\n    /** El llamador ya no revisa WS-STATUS-BASE: recibe excepción o resultado. */\n    public <T> T ejecuta(Supplier<T> unidadDeTrabajo) {\n        try {\n            return tx.execute(st -> unidadDeTrabajo.get());   // commit = END-TRANSACTION AUDIT\n        } catch (DataAccessException e) {\n            throw new CaptacionDbException(traductor.categoria(e), e);  // ON EXCEPTION\n        }\n    }\n}\n// La variante SYNC (90000000-END-TRANSACTIONSYNC) equivale al commit con\n// fsync obligatorio; en la BD destino es el comportamiento por defecto.", "rationale": "Los diez párrafos transaccionales guardan el status previo, lo ponen en cero y ejecutan <code>BEGIN-TRANSACTION</code> o <code>END-TRANSACTION</code> sobre una de las tres bases de reinicio B91, copiando la categoría DMSII a <code>WS-STATUS-BASE</code> si hay excepción. En Spring la demarcación la hace <code>TransactionTemplate</code> (o <code>@Transactional</code> en el servicio) y el error viaja como excepción tipada con la categoría DMSII traducida, de modo que ningún llamador puede olvidar revisar el status. <code>WS-STATUS-BASE-ANT</code> deja de ser necesario porque no hay un status global compartido.", "risk": "El BEGIN se declara NO-AUDIT y el END como AUDIT; habrá que confirmar con el DBA qué garantías de recuperación da esa combinación antes de fijar el nivel de aislamiento destino.", "rules": [], "lines": "L5454–5469", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

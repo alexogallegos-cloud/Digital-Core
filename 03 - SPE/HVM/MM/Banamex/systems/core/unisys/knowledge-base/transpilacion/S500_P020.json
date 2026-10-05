@@ -1,0 +1,256 @@
+{
+  "slug": "S500_P020",
+  "sistema": "S500",
+  "programa": "P020",
+  "nombre": "Servidor COMS secundario de Captación (LINCOMS)",
+  "funcion": "Tarea residente en línea de S500 que corre como cinco copias del servidor COMS secundario; recibe mensajes de terminal y aplicación, administra archivos TEF, registra en S151 y atiende interrupciones de operación.",
+  "resumen": "P020 (PROGRAM-ID LINCOMS) es la gemela secundaria de P010. Cada instancia se identifica por número de copia (1 a 5) y por host, y con eso decide qué actividades atiende, qué tipo de proceso reporta a S151 y si puede abrir el archivo TEF, que solo se procesa fuera de Monterrey. El bucle principal recibe mensajes de COMS y los enruta; además, el bloque DECLARATIVES atiende interrupciones del operador por TASKVALUE para monitor, trace, deshabilitar COMS, activar S151 y otros eventos. Para el posting ordena el archivo S02 por clave de transacción y clasifica cada clave en cargo, abono o no contable mediante rangos fijos.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.coms.secundario",
+  "secciones": [
+    {
+      "titulo": "Clasificación de claves y constantes fiscales",
+      "origen": {
+        "archivo": "S500_SOURCE_P020.txt",
+        "contexto": "WORKING-STORAGE · 00000000-ARMA-SA0-SA2-TERM"
+      },
+      "java": {
+        "archivo": "ClaseClaveTransaccion.java · ParametrosFiscales.java",
+        "contexto": "enum · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rangos de clave de transacción en niveles 88 a enum con rangos",
+          "linea_ini": 303,
+          "linea_fin": 315,
+          "origen_codigo": "       05 S01-R-MED-SUC           PIC 9(04).\n       05 S01-R-MED-CTO           PIC 9(12).\n    03 S01-R-IMP                  PIC 9(14)V99.\n    03 S01-R-STATUS-REG           PIC 9(01).\n    03 S01-R-MOTIVO-REC           PIC 9(02).\n SD S02-POSTING-T.",
+          "java_codigo": "/** WS-GEN-CLAVE-TRANS PIC 9(004) y sus niveles 88 (líneas 303-315). */\npublic enum ClaseClaveTransaccion {\n    ELIM, ELIM_DEVOL, NO_CONTABLE, ABONO, CARGO, OTRA;\n\n    public static ClaseClaveTransaccion de(int cve) {\n        if (cve == 534) return ELIM;                                   // WS-88-ELIM\n        if (cve == 575) return ELIM_DEVOL;                             // WS-88-ELIM-DEVOL\n        if (enRango(cve, 1000, 1999) || enRango(cve, 3000, 3999)) return ABONO;   // WS-88-ABONO\n        if (enRango(cve, 2000, 2999)) return CARGO;                    // WS-88-CARGO\n        if (enRango(cve, 500, 999)) return NO_CONTABLE;                // WS-88-NOCONT: 500-999 menos 534 y 575\n        return OTRA;                                                   // 0-499 y 4000-9999: ningún 88 aplica\n    }\n\n    /** Subconjunto de asignación TEF (759-762), independiente de la clase contable. */\n    public static boolean esAsignaTef(int cve)        { return enRango(cve, 759, 762); }   // WS-88-ASIGNA-TEF\n    public static boolean esAsignaTefMasivo(int cve)  { return cve == 759 || cve == 760; }\n    public static boolean esAsignaTefSimple(int cve)  { return cve == 761 || cve == 762; }\n\n    private static boolean enRango(int v, int a, int b) { return v >= a && v <= b; }\n}",
+          "racional": "Los niveles 88 sobre <code>WS-GEN-CLAVE-TRANS</code> son la tabla de clasificación de claves que usa el servidor. En Java se concentran en un <code>enum</code> con un método de fábrica, de modo que la regla vive en un solo lugar y se puede probar en aislamiento. Se respetan los huecos exactos: <code>WS-88-NOCONT</code> cubre 500-533, 535-574 y 576-999, así que las claves 0-499 no caen en ninguna clase en esta variable y se modelan como <code>OTRA</code>. La familia 759-762 de asignación TEF se deja como predicados aparte porque se traslapa con el rango no contable.",
+          "reglas": [
+            "RN-S500-115",
+            "RN-S500-121"
+          ],
+          "riesgo": "La regla del brain dice que 0-999 es no contable; eso aplica a <code>WKS-CVETXN-NCO</code> del registro de posting (línea 2381), no a esta variable, donde el rango arranca en 500."
+        },
+        {
+          "id": "s2",
+          "titulo": "Uso del clasificador al armar el encabezado SA0",
+          "linea_ini": 12218,
+          "linea_fin": 12226,
+          "origen_codigo": "  03 WS-I-PHI-FUNCION               PIC 9(02).\n 77 WS-CLONA-CAMELIA                  PIC 9(01) VA 0.",
+          "java_codigo": "/** 00000000-ARMA-SA0-SA2-TERM: código de destino del encabezado SA0. */\nstatic int codigoDestinoSa0(int claveTransaccion) {\n    return switch (ClaseClaveTransaccion.de(claveTransaccion)) {\n        case CARGO -> 10;\n        case ABONO -> 20;\n        default    -> 11;   // ELSE del fuente: no contables, eliminaciones y claves sin clase reciben 11\n    };\n}",
+          "racional": "El encabezado SA0 hacia la aplicación 0500 lleva el código 10 para cargos y 20 para abonos. El fuente no distingue ningún otro caso: todo lo que no es cargo ni abono recibe 11, incluidas las claves no contables. El <code>switch</code> con rama <code>default</code> reproduce exactamente ese <code>ELSE</code> y lo deja visible.",
+          "reglas": [
+            "RN-S500-115"
+          ],
+          "riesgo": "Las claves no contables y las de eliminación (534, 575) comparten el código 11; si el receptor interpreta 11 como eliminación de cargo, una operación no contable podría leerse como cancelación."
+        },
+        {
+          "id": "s3",
+          "titulo": "Constantes de IVA e ISR compiladas en WORKING-STORAGE",
+          "linea_ini": 882,
+          "linea_fin": 916,
+          "origen_codigo": "*LRH P0120414  - VARIABLES DELETE B10\n    03 WS-DELETE-B10P-VA-1           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-1       VALUE 1.\n    03 WS-DELETE-B10P-VA-2           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-2       VALUE 1.\n    03 WS-DELETE-B10P-VA-3           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-3       VALUE 1.\n    03 WS-DELETE-B10P-VA-4           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-4       VALUE 1.\n    03 WS-DELETE-B10P-VA-5           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-5       VALUE 1.\n    03 WS-DELETE-B10P-VA-6           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-6       VALUE 1.\n    03 WS-DELETE-B10P-VA-7           PIC 9(01) COMP.\n        88 WS-88-DELETE-B10P-7       VALUE 1.\n*DECOMISO EPP\n    03  WS-CREATE-B13P-VA            PIC 9(01) COMP.",
+          "java_codigo": "# application.yml  (valores fiscales fuera del binario; hoy están compilados como 77-level)\np020:\n  fiscal:\n    iva-general:        { anterior: 0.15, vigente: 0.16 }   # WS-IVA-GRAL-*-ANT / -NVO\n    iva-frontera:       { anterior: 0.10, vigente: 0.11 }   # WS-IVA-FRONT-*\n    isr-exencion-usd:   { anterior: 7887.00, vigente: 8668.00 }\n    isr-extraordinario: 0.049\n    inicio-iva: { pruebas: 2009-11-30, produccion: 2010-01-01 }   # WS-FEC-INI-IVA-PBAS / -PROD\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p020.fiscal\")\npublic record ParametrosFiscales(Tasa ivaGeneral, Tasa ivaFrontera,\n                                 Tasa isrExencionUsd, BigDecimal isrExtraordinario,\n                                 InicioIva inicioIva) {\n\n    /** PIC 9V99 y 9(06)V99: escala 2; PIC 9V999: escala 3. */\n    public record Tasa(BigDecimal anterior, BigDecimal vigente) {}\n    public record InicioIva(LocalDate pruebas, LocalDate produccion) {}\n}\n// WS-ISR-0, WS-ISR-0-NVO, WS-ISR-0-2017 y WS-PISR-0 no se trasladan: no se leen en la\n// PROCEDURE DIVISION. La tasa de ISR se obtiene del catálogo S080 (cat 9991, tarifas 254/255).",
+          "racional": "El bloque declara pares anterior/nuevo para IVA general, IVA fronterizo, exención de ISR en dólares y factores de ISR, con la nota de mantenimiento que pide mover valores a mano cuando cambia la tasa. Todos se trasladan a <code>application.yml</code> con <code>BigDecimal</code> para que un cambio fiscal no requiera recompilar. Al buscar estos nombres en el fuente, las 36 apariciones están en WORKING-STORAGE y ninguna en la PROCEDURE DIVISION, por eso la traducción no inventa un uso: deja la configuración disponible y documenta que los factores de ISR no se trasladan.",
+          "reglas": [
+            "RN-S500-122"
+          ],
+          "riesgo": "La nota de las líneas 904-906 pide que WS-ISR-0-NVO y WS-ISR-0 conserven el valor anterior, pero ambas valen 0.50 y la de 2017 vale 0.58; si alguna rutina de un copybook las usara, el resultado dependería de cuál de las dos lea."
+        }
+      ]
+    },
+    {
+      "titulo": "Arranque de la instancia: plaza, copia, réplica y actividad inicial",
+      "origen": {
+        "archivo": "S500_SOURCE_P020.txt",
+        "contexto": "PROCEDURE DIVISION · 10000000-CHANGE-LIBYCOMS / 20000000-VALIDA-INICIO"
+      },
+      "java": {
+        "archivo": "InstanciaComs.java · ReplicaProperties.java · ArranqueConfig.java",
+        "contexto": "@ConfigurationProperties · ApplicationRunner · TaskScheduler"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Instancia de Monterrey: TEF solo en Valle de México",
+          "linea_ini": 6747,
+          "linea_fin": 6761,
+          "origen_codigo": "*         02  LONGITUD DEL PARAMETRO DE SALIDA INSUFICIENTE      *\n*         20  NO EXISTE REGISTRO                                 *\n*         30  OPCION INVALIDA                                    *\n*         33  NO EXISTE CATALOGO (REGISTRO DE CONTROL)           *\n*         40  CATALOGO NO TIENE ESTA LLAVE DE ACCESO             *\n*         90  PROBLEMAS CON LA BASE DE DATOS                     *\n*         99  LIBRERIA EN PROBLEMAS                              *\n* WS-S080-L700CD-PARAMETRO-SAL                                   *",
+          "java_codigo": "# application.yml\np020:\n  instancia:\n    copia: ${P020_COPIA}              # WKS-NUMERO-DE-COPIA 1..5\n    plaza: ${P020_PLAZA}              # VDM | MTY  (antes: WS-DH-HOSTNAME-MTY)\n    ambiente: ${P020_AMBIENTE}        # PROD | PBA | SIT | UAT\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p020.instancia\")\npublic record InstanciaComs(int copia, Plaza plaza, Ambiente ambiente) {\n\n    /** WS-SOLO-VDM-VA = 1 en MTY; WS-88-SOLO-VDM es VALUE 0, o sea verdadero fuera de MTY. */\n    public boolean procesaTef() { return plaza != Plaza.MTY; }\n\n    /** IF NOT WS-DH-HOSTNAME-PBA PERFORM 10200000-CHECA-VERSION. */\n    public boolean validaVersion() { return ambiente != Ambiente.PBA; }\n}",
+          "racional": "La identidad de la instancia se deduce del nombre del host. Si es Monterrey se pone <code>WS-SOLO-VDM-VA</code> en 1, y la condición <code>WS-88-SOLO-VDM</code>, definida como <code>VALUE 0</code> (línea 1837), queda falsa: solo las instancias que no son de Monterrey abren el archivo TEF (líneas 6890-6892). El nombre de la condición sugiere lo contrario de su valor, así que en Java se expresa con un método de nombre explícito, <code>procesaTef()</code>. La plaza, la copia y el ambiente pasan a propiedades inyectadas por despliegue en lugar de compararse contra nombres de host compilados.",
+          "reglas": [
+            "RN-S500-110"
+          ],
+          "riesgo": "La validación de versión se omite en PBA; si un host productivo quedara clasificado como PBA por el copybook de hostnames, correría sin control de versión."
+        },
+        {
+          "id": "s5",
+          "titulo": "Tipo de proceso S151 por número de copia",
+          "linea_ini": 6934,
+          "linea_fin": 6950,
+          "origen_codigo": "* 77  W77-FIN-L710                 PIC  9(02) COMP.\n* 77  W77-L710-REGION              PIC  9(02) COMP.\n* 77  W77-INDCAT-L710              PIC  9(04) COMP.\n 01  WKS-EXISTE-BIN-VA            PIC  9(01) COMP.\n     88 WKS-88-EXISTE-BIN         VALUE 1.\n 01  WKS-L710-PARAM-ENT.\n     02 WKS-L710-CATALOGO-E       PIC  9(06) COMP.\n     02 WKS-L710-CLAVE-E          PIC  9(02) COMP.",
+          "java_codigo": "/** WS-S151-TIPO-PROC: P020 usa 33..37 (P010, la copia primaria, usa otro rango). */\nstatic int tipoProcesoS151(int copia) {\n    return switch (copia) {\n        case 1 -> 33;\n        case 2 -> 34;\n        case 3 -> 35;\n        case 4 -> 36;\n        case 5 -> 37;\n        default -> throw new IllegalStateException(\"Copia no soportada: \" + copia);\n    };\n}\n\n@Bean\nApplicationRunner inicioS151(InstanciaComs inst, RegistroS151Client s151) {\n    return args -> {\n        if (inst.modo() == Modo.LINEA) {                 // IF WS-88-TP-LINEA\n            s151.inicia(tipoProcesoS151(inst.copia()));  // 50004100-S151-INICIO\n        }\n    };\n}",
+          "racional": "Cada copia se identifica ante S151 con un tipo de proceso fijo, del 33 al 37, de modo que el libro mayor distingue qué instancia generó cada registro. El <code>IF</code> anidado sin rama final deja el campo sin asignar si la copia no fuera 1 a 5; en Java esa situación se convierte en un error de arranque. La conexión con S151 solo se inicia en modo línea, igual que en el fuente.",
+          "reglas": [
+            "RN-S500-108"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Tabla de pares de host para la réplica cross-CSI",
+          "linea_ini": 6952,
+          "linea_fin": 6999,
+          "origen_codigo": "     02 WKS-L710-REGS-E           PIC  9(02) COMP.\n     02 WKS-L710-LLAVE1-E         PIC  9(12).\n     02 WKS-L710-LLAVE2-E         PIC  9(12).\n     02 WKS-L710-LLAVE3-E         PIC  9(12).\n     02 WKS-L710-LLAVE4-E         PIC  9(12).\n     02 WKS-L710-LLAVE5-E         PIC  9(12).\n     02 WKS-L710-LLAVE6-E         PIC  9(12).\n     02 WKS-L710-FVIG-E           PIC  9(06) COMP.\n     02 WKS-L710-FINI-CON-E       PIC  9(06) COMP.\n     02 WKS-L710-NIVEL-E          PIC  9(02) COMP.\n     02 FILLER                    PIC  X(11).\n 01  WKS-L710-PARAM-SAL.\n     02 WKS-L710-REGS-S           PIC  9(02) COMP.\n     02 WKS-L710-CATALOGO-S       PIC  9(06) COMP.\n     02 WKS-L710-FINI-CON-S       PIC  9(06) COMP.\n     02 WKS-L710-NIVEL-S          PIC  9(02) COMP.\n     02 FILLER                    PIC  X(22).\n     02 WKS-L710-REGISTRO         OCCURS 10 TIMES.\n        04 WKS-L710-DATOS         PIC  9(12) OCCURS 28 TIMES.\n*INI P0126372: Automate EPP Control Figures\n        04 WKS-L710-DATOS-R REDEFINES WKS-L710-DATOS.\n           05 WKS-L710-DATOS-A    PIC  X(12) OCCURS 28 TIMES.\n*FIN P0126372: Automate EPP Control Figures",
+          "java_codigo": "# application.yml  (antes: ocho IF anidados sobre WS-DH-NOM-EQUIPO)\np020:\n  replica:\n    pares:\n      VDMBETA:   { nodo-local: 10, nodo-foraneo: 04, destino: ACYPBETA }\n      ACYPBETA:  { nodo-local: 04, nodo-foraneo: 10, destino: VDMBETA }\n      ACYPGAMA:  { nodo-local: 10, nodo-foraneo: 04, destino: MONALFA }\n      MONALFA:   { nodo-local: 04, nodo-foraneo: 10, destino: ACYPGAMA }\n      ACYPOMEGA: { nodo-local: 10, nodo-foraneo: 04, destino: VDMKAPPA }\n      VDMKAPPA:  { nodo-local: 04, nodo-foraneo: 10, destino: ACYPOMEGA }\n      VDMALFA:   { nodo-local: 10, nodo-foraneo: 04, destino: MONBETA }\n      MONBETA:   { nodo-local: 04, nodo-foraneo: 10, destino: VDMALFA }\n    # 000-CLONA-XFER agrega los pares de ambientes clonados (prefijo C)\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p020.replica\")\npublic record ReplicaProperties(Map<String, Par> pares) {\n    public record Par(String nodoLocal, String nodoForaneo, String destino) {}  // I11-TIT-NODO-L/F\n\n    public Optional<Par> para(String host) {\n        return Optional.ofNullable(pares.get(host));   // sin coincidencia: el fuente deja los campos como estaban\n    }\n}",
+          "racional": "Ocho <code>IF</code> anidados fijan para cada host su nodo local, el nodo foráneo y el host destino de la transferencia del archivo de réplica I11. Es una tabla de configuración escrita como código, por lo que pasa a <code>application.yml</code> como un mapa. Los nodos se guardan como <code>String</code> para conservar el cero de <code>04</code>. Si el host no aparece en la tabla, el fuente no hace nada y luego invoca <code>000-CLONA-XFER</code>; el <code>Optional</code> obliga a decidir explícitamente ese caso.",
+          "reglas": [
+            "RN-S500-111"
+          ],
+          "riesgo": "Un host nuevo o renombrado que no esté en la lista deja I11-TIT-NODO-L, I11-TIT-NODO-F y los hosts de XFER con su valor previo, sin aviso; la réplica podría dirigirse a un destino vacío."
+        },
+        {
+          "id": "s7",
+          "titulo": "Actividad inicial por copia y espera de 1200 segundos para la réplica",
+          "linea_ini": 7000,
+          "linea_fin": 7025,
+          "origen_codigo": "        04 WKS-L710-FALT-S        PIC  9(06) COMP.\n        04 WKS-L710-FBAJ-S        PIC  9(06) COMP.\n        04 WKS-L710-FULT-S        PIC  9(06) COMP.\n        04 WKS-L710-FVIG-S        PIC  9(06) COMP.\n        04 FILLER                 PIC  X(42).\n******************************************************************\n*         VARIABLES PARA CONSULTA DE TEF EN ESTRUCTURA           *\n******************************************************************\n 01  WKS-VARIABLES-TEF.\n     02 WKS-RESULT-FMT            PIC  9(04).\n     02 WKS-NUM-REGS-FMT          PIC  9(02).\n     02 WKS-CATALOGO-FMT          PIC  9(06).",
+          "java_codigo": "/** Actividades que atiende cada copia (catálogo en las líneas 17906-17914). */\npublic enum Actividad { COMS, ARCHIVO, B53, B54, B55, BATCH, LINEA, BASE, BAJA }\n\nstatic Actividad actividadInicial(int copia) {\n    return switch (copia) {\n        case 1 -> Actividad.B53;       // MOVE 03 TO WKS-SIGUIENTE\n        case 2 -> Actividad.COMS;      // 01\n        case 3 -> Actividad.B54;       // 04\n        case 4, 5 -> Actividad.ARCHIVO; // 02\n        default -> throw new IllegalStateException(\"Copia no soportada: \" + copia);\n    };\n}\n\n@Bean\nApplicationRunner replicaInicial(InstanciaComs inst, ReplicaI11Service replica,\n                                 TaskScheduler scheduler, P020Properties props) {\n    return args -> {\n        if (inst.modo() != Modo.LINEA || inst.copia() != 5) return;\n        Duration espera = inst.ambiente() == Ambiente.PBA\n                ? Duration.ZERO\n                : props.esperaReplica();                    // p020.espera-replica: 1200s (WAIT(1200))\n        scheduler.schedule(replica::genera, Instant.now().plus(espera));   // 50201400-I11-REPLICA\n    };\n}",
+          "racional": "Después de la tabla de hosts, cada copia recibe en <code>WKS-SIGUIENTE</code> el código de la primera actividad que atenderá. Los códigos se resuelven con el catálogo de las líneas 17906-17914: 01 es COMS, 02 ARCHIVO, 03 B53 y 04 B54. En Java se nombran con un <code>enum</code>. La copia 5 en línea genera el archivo de réplica I11, de inmediato en PBA y tras <code>WAIT(1200)</code> en los demás ambientes; el <code>WAIT</code> bloqueante se reemplaza por una tarea programada para no detener el arranque del servicio, y los 1200 segundos pasan a propiedad.",
+          "reglas": [
+            "RN-S500-109",
+            "RN-S500-112"
+          ],
+          "riesgo": "El WAIT(1200) deja a la copia 5 detenida veinte minutos en el arranque, antes de entrar al bucle de actividades."
+        }
+      ]
+    },
+    {
+      "titulo": "Interrupciones del operador (DECLARATIVES)",
+      "origen": {
+        "archivo": "S500_SOURCE_P020.txt",
+        "contexto": "DECLARATIVES · INTERRUPT-BY-HI"
+      },
+      "java": {
+        "archivo": "ComsAdminController.java",
+        "contexto": "@RestController de administración"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Interrupciones 3004 y 3104: deshabilitar COMS",
+          "linea_ini": 6338,
+          "linea_fin": 6360,
+          "origen_codigo": "          05 WSO-Z6-INTRETEFEDIA    PIC ZZZZZZZ9.\n          05 WSO-Z6-INTRETEFEMES    PIC ZZZZZZZ9.\n          05 WSO-Z6-INTRETEFEFEC    PIC Z(08).\n       03 FILLER                    PIC X(418).\n******************************************************************\n* ( WORKING-STORAGE SECTION )                                    *\n*                                             PANTALLA : (500Z9) *\n******************************************************************\n    02 WS-OUT-500Z9-ARCHS-CANC REDEFINES WS-OUT-BUFFER.",
+          "java_codigo": "@RestController\n@RequestMapping(\"/admin/coms\")\n@RequiredArgsConstructor\npublic class ComsAdminController {      // sustituye a INTERRUPT-BY-HI (DECLARATIVES)\n\n    private final InstanciaComs instancia;\n    private final ComsGateway coms;     // 90000000-CALL-SMCOMS-DISABLE\n    private final MensajesOperacion msg;\n\n    /** TASKVALUE 3004: cualquier copia se deshabilita. */\n    @PostMapping(\"/deshabilitar\")\n    public ResponseEntity<String> deshabilitar() {\n        return ejecutaDisable();\n    }\n\n    /** TASKVALUE 3104: solo la copia 1 se deshabilita; en otras copias no hace nada. */\n    @PostMapping(\"/deshabilitar-primaria\")\n    public ResponseEntity<String> deshabilitarPrimaria() {\n        if (instancia.copia() != 1) {\n            return ResponseEntity.ok(\"IGNORADO: COPIA \" + instancia.copia());   // NEXT SENTENCE\n        }\n        return ejecutaDisable();\n    }\n\n    private ResponseEntity<String> ejecutaDisable() {\n        msg.despliega(4);                                  // WS-NO-DISPLAY = 004\n        boolean ok = coms.disable() == 1;                  // WS-COMS-RESULT = 1\n        if (ok) msg.despliega(8);                          // WS-NO-DISPLAY = 008\n        return ResponseEntity.ok(ok ? \"DESHABILITADO\" : \"SIN CONFIRMACION\");\n    }\n}",
+          "racional": "En MCP el operador manda una interrupción (HI) con un <code>TASKVALUE</code> y el programa la atiende en DECLARATIVES. En un servicio Spring Boot el equivalente es un endpoint de administración protegido. 3004 deshabilita el enlace con COMS en cualquier copia; 3104 hace lo mismo solo si la instancia es la copia 1 y en las demás no hace nada. En ambos casos el programa revisa <code>WS-COMS-RESULT = 1</code> para desplegar el mensaje 008, y cuando no es 1 continúa sin aviso; la traducción devuelve un estado distinto para que la falta de confirmación quede visible.",
+          "reglas": [
+            "RN-S500-113"
+          ],
+          "riesgo": "Si SMCOMS-DISABLE no devuelve 1, el fuente no registra nada en I02-PROBLEMAS: el operador no sabe si el enlace quedó deshabilitado."
+        },
+        {
+          "id": "s9",
+          "titulo": "Interrupción 3027: encender o apagar el registro en S151",
+          "linea_ini": 6660,
+          "linea_fin": 6696,
+          "origen_codigo": "* TIENE UNA LLAVE (EL NUMERO DE BANCO) Y SU DESCRIPCION (NOMBRE  *\n* DEL BANCO).                                                    *\n*                                                                *\n* FUNCION DEL ENTRY POINT:                                       *\n*                                                                *\n* CON ESTA CONSULTA SE OBTIENE LA INFORMACION REFERENTE  A  LOS  *\n* REGISTROS DE DETALLE DE  UN  CATALOGO  DESCRIPTIVO;  DONDE  A  *\n* PARTIR DE UN NUMERO DE CATALOGO Y LA CLAVE DE REGISTRO Y/O LA  *\n* CLAVE DE REGISTRO ASOCIADO, SE PROPORCIONAN LAS DESCRIPCIONES  *\n* SOLICITADAS.                                                   *\n*                                                                *\n* SI SE QUIERE CONSULTAR  A  PARTIR  DEL  PRIMER  REGISTRO  DEL  *\n* CATALOGO, LA CLAVE DE REGISTRO / CLAVE DE  REGISTRO  ASOCIADO  *\n* DEBE SER CERO.                                                 *\n*                                                                *\n* PARAMETROS DE ENTRADA:                                         *\n*                                                                *\n* WS-S080-L700CD-SISTEMA-I     = NUMERO DE SISTEMA LLAMADOR      *",
+          "java_codigo": "    private final RegistroS151Client s151;     // REGISTRAS500 / LIB-S151L002R500\n    private final ProblemasLog problemas;      // I02-PROBLEMAS\n\n    /** TASKVALUE 3027: alterna el uso de S151. Solo en PBA y en modo línea. */\n    @PostMapping(\"/s151/alternar\")\n    public ResponseEntity<String> alternaS151() {\n        if (instancia.ambiente() != Ambiente.PBA || instancia.modo() != Modo.LINEA) {\n            return ResponseEntity.ok(\"IGNORADO\");                 // NEXT SENTENCE, sin mensaje\n        }\n        if (s151.activo()) {                                      // WS-88-SIUSA-S151\n            s151.libera();                                        // CANCEL \"REGISTRAS500\"\n            msg.despliega(42);\n            return ResponseEntity.ok(\"S151 DESACTIVADO\");\n        }\n        s151.carga();                                             // 70000000-LIB-S151L002R500\n        msg.despliega(41);\n        return ResponseEntity.ok(\"S151 ACTIVADO\");\n    }\n\n    /** Rama ELSE final: cualquier TASKVALUE no reconocido se registra como no implementado. */\n    @ExceptionHandler(NoHandlerFoundException.class)\n    public ResponseEntity<String> noImplementado(HttpServletRequest req) {\n        msg.despliega(5);\n        problemas.escribe(\">> FECHA MAQUINA: %s   HORA MAQUINA: %s HI # %s NO IMPLEMENTADO\"\n                .formatted(LocalDate.now(), LocalTime.now(), req.getRequestURI()));\n        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();\n    }",
+          "racional": "3027 alterna en caliente el uso de la librería de registro contable de S151: si está activa la libera con <code>CANCEL</code> y si no la vuelve a cargar. Solo procede en PBA y en modo línea; en producción la interrupción se ignora sin dejar rastro. La traducción mantiene esa restricción y responde explícitamente que se ignoró. La rama final del <code>IF</code> encadenado escribe en I02-PROBLEMAS cualquier <code>TASKVALUE</code> que no reconoce; en Java se resuelve con un manejador común. Al terminar, el fuente regresa <code>TASKVALUE</code> a 0 y vuelve a permitir interrupciones, lo que en HTTP no hace falta porque cada petición es independiente.",
+          "reglas": [
+            "RN-S500-114"
+          ],
+          "riesgo": "El comentario de la línea 6660 y la regla dicen que es la forma de suspender el registro en S151 sin reiniciar, pero el código lo limita a PBA: en producción no existe ese mecanismo."
+        }
+      ]
+    },
+    {
+      "titulo": "Ordenamiento del posting",
+      "origen": {
+        "archivo": "S500_SOURCE_P020.txt",
+        "contexto": "PROCEDURE DIVISION · 70000000-VAL-REG-POSTING"
+      },
+      "java": {
+        "archivo": "PostingJobConfig.java",
+        "contexto": "Spring Batch Step · Comparator"
+      },
+      "segmentos": [
+        {
+          "id": "s10",
+          "titulo": "SORT de posting por clave de transacción descendente",
+          "linea_ini": 21612,
+          "linea_fin": 21623,
+          "origen_codigo": "             ELSE\n                MOVE 0020        TO WS-CVE-ERROR-VA\n          ELSE\n             IF WSI-Z1-OPCION = \"A\" OR \"C\" OR \"D\"\n                NEXT SENTENCE\n             ELSE",
+          "java_codigo": "/** 70000000-VAL-REG-POSTING: SORT S02-POSTING-T con INPUT/OUTPUT PROCEDURE. */\n@Bean\nStep ordenaPosting(JobRepository repo, PlatformTransactionManager tx,\n                   ItemReader<PostingDetalle> postingEntrada,      // 70000000-IN-POST-SEC (I08-POSTING-I)\n                   ItemWriter<PostingDetalle> postingSalida) {      // 70000000-OU-POST-SEC\n    return new StepBuilder(\"ordenaPosting\", repo)\n            .<PostingDetalle, PostingDetalle>chunk(500, tx)\n            .reader(new SortingItemReader<>(postingEntrada, ORDEN_S02))\n            .writer(postingSalida)\n            .build();\n}\n\n/** Llave S02 en el orden del SORT; todas DESCENDING. Importe como BigDecimal (9(14)V99). */\nstatic final Comparator<PostingDetalle> ORDEN_S02 =\n        Comparator.comparingInt(PostingDetalle::claveTransaccion)\n                  .thenComparing(PostingDetalle::sucursal)\n                  .thenComparing(PostingDetalle::contrato)      // String de 12 posiciones con ceros\n                  .thenComparing(PostingDetalle::importe)\n                  .thenComparingLong(PostingDetalle::secuencia)\n                  .reversed();",
+          "racional": "El posting se ordena con un <code>SORT</code> de COBOL cuya entrada y salida son procedimientos del mismo programa. En Spring Batch eso se modela como un step con un lector que ordena en memoria o, si el volumen lo exige, con un sort externo antes del step. La llave real son cinco campos (clave de transacción, sucursal, contrato, importe y secuencia de detalle), todos en orden descendente. El contrato se compara como <code>String</code> de 12 posiciones, lo que preserva el orden numérico porque siempre trae ceros a la izquierda.",
+          "reglas": [
+            "RN-S500-117"
+          ],
+          "riesgo": "El orden es descendente y no usa producto, instrumento ni moneda, aunque esos campos forman parte del registro de llave S02 (líneas 166-168)."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Constantes fiscales sin uso visible",
+      "detalle": "Las tasas de IVA (15/16 y 10/11), la exención de ISR en dólares y los factores de ISR están declarados en las líneas 883-923, pero ninguno se lee en la PROCEDURE DIVISION del fuente. Su mantenimiento manual, que exige la nota de las líneas 904-906, no tiene efecto aparente en P020."
+    },
+    {
+      "titulo": "Condición con nombre contrario a su valor",
+      "detalle": "WS-88-SOLO-VDM es VALUE 0 (línea 1837) y se vuelve falsa cuando el host es Monterrey (línea 6753). Leída en voz alta parece decir lo opuesto de lo que hace; un cambio de mantenimiento basado en el nombre invertiría la regla de TEF."
+    },
+    {
+      "titulo": "Comportamiento por host compilado",
+      "detalle": "La plaza, el ambiente PBA y los ocho pares de réplica dependen de nombres de host escritos en el código (líneas 6952-6998) y en copybooks. Un host nuevo sin entrada deja los campos de réplica sin actualizar y sin mensaje."
+    },
+    {
+      "titulo": "Espera bloqueante de 20 minutos",
+      "detalle": "La copia 5 ejecuta WAIT(1200) en el arranque fuera de PBA (línea 7024) antes de generar la réplica I11; durante ese tiempo la copia no atiende su actividad."
+    },
+    {
+      "titulo": "Interrupciones sin confirmación registrada",
+      "detalle": "En 3004 y 3104, si COMS no confirma la deshabilitación, el flujo sigue con NEXT SENTENCE sin escribir en I02-PROBLEMAS. En 3027 fuera de PBA la interrupción se ignora sin mensaje."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-109 describe WKS-SIGUIENTE como tabla de enrutamiento entre copias y topología de failover; en el fuente es el código de la siguiente actividad de la propia copia (catálogo de las líneas 17906-17914: 01 COMS, 02 ARCHIVO, 03 B53, 04 B54, 05 B55, 20 BATCH, 21 LINEA, 22 BASE, 24 BAJA). Corregir la regla en el brain.",
+    "RN-S500-115 dice que 0-999 es no contable; en WS-GEN-CLAVE-TRANS el nivel WS-88-NOCONT empieza en 500 y en el registro de posting WKS-CVETXN-NCO cubre 0-999. Además en WKS-POSTE-DET-CVETXN el abono es solo 1000-1999, sin 3000-3999. Confirmar con SME cuál de las dos clasificaciones gobierna el envío a S151.",
+    "RN-S500-117 menciona producto, instrumento y moneda en el orden del SORT; el SORT de la línea 21615 solo usa clave, sucursal, contrato, importe y secuencia, en orden descendente.",
+    "RN-S500-122 afirma que las tasas de IVA están hardcodeadas y aplicadas; en este fuente no se encontró ninguna referencia a WS-IVA-* fuera de WORKING-STORAGE. Confirmar si algún copybook (S500/INC/WOR/25MTP004 o ADMWIN) las usa o si son código muerto también.",
+    "Las condiciones WS-DH-HOSTNAME-MTY, -PBA, -SIT y -UAT no están definidas en el fuente extraído; vienen de un copybook no incluido. No se pudo confirmar qué nombres de host corresponden a cada plaza.",
+    "La carga del tipo de proceso desde S500L020 está comentada en el arranque (líneas 6880-6884 y 7375); WS-TIPO-PROCESO-VA se cambia después por los avisos de batch y línea (líneas 14133 y 15419-15421). Confirmar con SME que la instancia arranca siempre en LINEA."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1090",
+    "RN-S151-1091",
+    "RN-S151-1092",
+    "RN-S151-1093",
+    "RN-S151-1094",
+    "RN-S151-1095",
+    "RN-S151-1096",
+    "RN-S151-1097",
+    "RN-S151-1098",
+    "RN-S151-1099",
+    "RN-S500-108",
+    "RN-S500-109",
+    "RN-S500-110",
+    "RN-S500-111",
+    "RN-S500-112",
+    "RN-S500-113",
+    "RN-S500-114",
+    "RN-S500-115",
+    "RN-S500-116",
+    "RN-S500-117",
+    "RN-S500-118",
+    "RN-S500-119",
+    "RN-S500-120",
+    "RN-S500-121",
+    "RN-S500-122"
+  ]
+}

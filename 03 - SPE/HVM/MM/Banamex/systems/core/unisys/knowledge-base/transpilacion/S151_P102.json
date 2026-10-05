@@ -1,0 +1,176 @@
+{
+  "slug": "S151_P102",
+  "sistema": "S151",
+  "programa": "P102",
+  "nombre": "Transferencia de Archivos entre Equipos Unisys",
+  "funcion": "Programa utilitario de S151 que otros pasos invocan con usercode, archivo y packs de origen y destino para copiar un archivo al equipo par mediante la librería XFER.",
+  "resumen": "P102 recibe cuatro parámetros: el usercode, el título del archivo y los packs de origen y destino. Pregunta a SOPORTECOMS en qué equipo corre y, con una tabla fija de ocho equipos agrupados en pares, decide el nodo origen y el nodo destino. Algunos archivos cambian de usercode destino: PROTCOB y cuatro archivos E01 de S500 y S701 van a S702 (estos últimos solo en CSI 10 o 12) y MOVSXTERM de S711 va a S028, con su propio nodo destino. Arma un comando ADD ... AS ... FROM ... TO ... de 193 posiciones y lo entrega a ENVIA_XFER; si falla, solo avisa al operador para que copie el archivo a mano.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s151.transferencia.archivos",
+  "secciones": [
+    {
+      "titulo": "Interfaz del programa y comando de transferencia",
+      "origen": {
+        "archivo": "COBOL_P102.txt",
+        "contexto": "WORKING-STORAGE · PROCEDURE DIVISION USING · 000100-INICIO"
+      },
+      "java": {
+        "archivo": "SolicitudTransferencia.java · ComandoXfer.java",
+        "contexto": "record · @MessagingGateway"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Cuatro parámetros de enlace a un mensaje de solicitud",
+          "linea_ini": 695,
+          "linea_fin": 723,
+          "origen_codigo": " PROCEDURE DIVISION       USING WKS-USER        ,                 007100\n                                WKS-ARCHIVO     ,                 007200\n                                WKS-PACK-ORIGEN ,                 007300\n                                WKS-PACK-DESTINO.                 007400\n 000100-INICIO.                                                   007500\n     MOVE WKS-USER               TO WKS-US-ER                     007600\n                                    WKS-USER-TARG.                007650\n     MOVE WKS-USUARIO            TO WKS-ARCH-USER.                007700\n     MOVE \"S151\"                 TO SISTEMA-LJ      .             007800\n     MOVE \"P102\"                 TO PASO-LJ         .             007900\n     MOVE 1                      TO MTP-LJ          .             008000\n     PERFORM 000100-LIBRERIAS                       .             008100\n*    DISPLAY WKS-USER                               .             008120\n*    DISPLAY WKS-ARCHIVO                            .             008140\n*    DISPLAY WKS-PACK-ORIGEN                        .             008160\n*    DISPLAY WKS-PACK-DESTINO                       .             008180\n     MOVE WKS-ARCHIVO            TO WKS-NOMB-ARCH                 008200\n                                    WKS-NOM-S015                  008225\n                                    WKS-NOM-S028                  008240\n*INI-LDRM-SOFTTEK-CC2020                                          008242\n                                    WKS-NOM-S151                  008244\n*END-LDRM-SOFTTEK-CC2020                                          008246\n                                    WKS-NOMB-ARTG   .             008250\n     MOVE WKS-PACK-ORIGEN        TO WKS-PACK-ORI    .             008300\n     MOVE WKS-PACK-DESTINO       TO WKS-PACK-DES    .             008400\n     PERFORM 000200-DETERMINA-NODOS                 .             008500\n     PERFORM 000300-ENVIA-ARCHIVO                   .             008600\n*     DISPLAY WKS-TITULO-ARCH-CAP.                                008650\n     STOP RUN.                                                    008700",
+          "java_codigo": "/** PROCEDURE DIVISION USING WKS-USER, WKS-ARCHIVO, WKS-PACK-ORIGEN, WKS-PACK-DESTINO. */\npublic record SolicitudTransferencia(String usercode,     // X(04)\n                                     String archivo,      // X(80) título completo\n                                     String packOrigen,   // X(17)\n                                     String packDestino)  // X(17)\n{}\n\n@MessagingGateway(defaultRequestChannel = \"transferencias.entrada\")\npublic interface TransferenciaGateway {\n    /** Reemplaza el CALL a P102: los pasos que copiaban archivos publican la solicitud. */\n    ResultadoTransferencia transfiere(SolicitudTransferencia solicitud);\n}\n\n@Bean\nIntegrationFlow transferencias(RuteoEquipos ruteo, XferAdapter xfer) {\n    return IntegrationFlow.from(\"transferencias.entrada\")\n            .<SolicitudTransferencia, ComandoXfer>transform(ruteo::resuelve)   // 000200-DETERMINA-NODOS\n            .handle(xfer, \"envia\")                                              // 000300-ENVIA-ARCHIVO\n            .get();\n}",
+          "racional": "P102 es un programa que otros pasos llaman con cuatro parámetros y que termina con <code>STOP RUN</code> después de un solo envío. En el arquetipo de intercambiador eso se vuelve un <code>@MessagingGateway</code> de Spring Integration con un flujo de dos etapas, ruteo y envío. El nombre del archivo se replica en varias variables de distinta longitud para compararlo contra los patrones de cada sistema; en Java esa réplica desaparece porque el ruteo compara prefijos explícitamente sobre el mismo <code>String</code>.",
+          "reglas": [
+            "RN-S151-910"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Comando ADD ... AS ... FROM ... TO ... de longitud fija",
+          "linea_ini": 656,
+          "linea_fin": 689,
+          "origen_codigo": " 01 WKS-USER                       PIC X(04).                     004000\n 01 WKS-ARCHIVO                    PIC X(80).                     004100\n 01 WKS-PACK-ORIGEN                PIC X(17).                     004200\n 01 WKS-PACK-DESTINO               PIC X(17).                     004300\n 01 WKS-USUARIO.                                                  004400\n    03 FILLER                      PIC X(01) VALUE \"(\".           004500\n    03 WKS-US-ER                   PIC X(04).                     004600\n    03 FILLER                      PIC X(01) VALUE \")\".           004700\n 01  WKS-NOM-S015                  PIC X(18).                     004900\n 01  WKS-NOM-S028                  PIC X(20).                     004950\n**INI-LDRM-SOFTTEK-CC2020                                         004960\n 01  WKS-NOM-S151                  PIC X(24).                     004970\n**END-LDRM-SOFTTEK-CC2020                                         004980\n 01  WKS-TITULO-ARCH-CAP.                                         005000\n     03 FILLER              PIC X(04) VALUE \"ADD \".               005100\n     03 WKS-ARCH-USER       PIC X(06).                            005200\n     03 WKS-NOMB-ARCH       PIC X(55).                            005300\n     03 FILLER              PIC X(05) VALUE \" AS (\".              005325\n     03 WKS-USER-TARG       PIC X(04).                            005350\n     03 FILLER              PIC X(01) VALUE \")\".                  005362\n     03 WKS-NOMB-ARTG       PIC X(55).                            005375\n     03 FILLER              PIC X(06) VALUE \" FROM \".             005400\n     03 WKS-PACK-ORI        PIC X(16).                            005500\n     03 FILLER              PIC X(01) VALUE \",\".                  005600\n     03 WKS-NODO-ORI        PIC X(09).                            005700\n     03 FILLER              PIC X(04) VALUE \" TO \".               005800\n     03 WKS-PACK-DES        PIC X(16).                            005900\n     03 FILLER              PIC X(01) VALUE \",\".                  006000\n     03 WKS-NODO-DES        PIC X(09).                            006100\n 77  WS-TRF-RESULT          PIC 9(11) BINARY.                     006300\n 77  WS-TRF-TAMACOM         PIC 9(11) BINARY.                     006400\n 01  WS-TRF-COMANDO         PIC X(200).                           006500",
+          "java_codigo": "/** WKS-TITULO-ARCH-CAP: 192 posiciones; se entrega a XFER con longitud 193. */\npublic record ComandoXfer(String usercodeOrigen, String archivo, String usercodeDestino,\n                          String archivoDestino, String packOrigen, String nodoOrigen,\n                          String packDestino, String nodoDestino) {\n\n    public String texto() {\n        return \"ADD \" + fijo(\"(\" + usercodeOrigen + \")\", 6) + fijo(archivo, 55)\n             + \" AS (\" + fijo(usercodeDestino, 4) + \")\" + fijo(archivoDestino, 55)\n             + \" FROM \" + fijo(packOrigen, 16) + \",\" + fijo(nodoOrigen, 9)\n             + \" TO \" + fijo(packDestino, 16) + \",\" + fijo(nodoDestino, 9);\n    }\n\n    /** Igual que un MOVE alfanumérico: trunca a la derecha y rellena con espacios. */\n    private static String fijo(String s, int n) {\n        String v = (s == null) ? \"\" : s;\n        if (v.length() > n) {\n            throw new TituloTruncadoException(v, n);    // el COBOL truncaría en silencio\n        }\n        return String.format(\"%-\" + n + \"s\", v);\n    }\n}",
+          "racional": "El comando que recibe XFER se construye con un grupo de longitud fija en el que se intercalan literales y campos. Se mantiene como texto de posiciones fijas porque es el contrato con la librería del mainframe mientras conviva con ella; el <code>record</code> concentra el formato en un solo lugar. Donde el COBOL truncaría un título largo o un pack de 17 caracteres, la versión Java falla para no copiar un archivo con nombre equivocado.",
+          "reglas": [
+            "RN-S151-909"
+          ],
+          "riesgo": "El título recibido mide 80 posiciones y el campo del comando 55; los packs de 17 se mueven a campos de 16."
+        }
+      ]
+    },
+    {
+      "titulo": "Ruteo por topología de equipos",
+      "origen": {
+        "archivo": "COBOL_P102.txt",
+        "contexto": "000100-LIBRERIAS · 000200-DETERMINA-NODOS · 000400-VALIDA-NODO"
+      },
+      "java": {
+        "archivo": "RuteoEquipos.java · TopologiaProperties.java",
+        "contexto": "@Component · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Identificación del equipo con CSIID de SOPORTECOMS",
+          "linea_ini": 725,
+          "linea_fin": 743,
+          "origen_codigo": " 000100-LIBRERIAS.                                                008900\n*=================                                                009000\n     CHANGE ATTRIBUTE LIBACCESS OF \"XFER\" TO BYFUNCTION.          009100\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"XFER\" TO \"XFER\".           009200\n     CHANGE ATTRIBUTE LIBACCESS    OF \"CTLVER\" TO BYFUNCTION.     009400\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"CTLVER\" TO \"CTLVERS\".      009500\n     CHANGE ATTRIBUTE LIBACCESS OF \"SOPORTECOMS\" TO BYFUNCTION.   009700\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"SOPORTECOMS\"               009800\n                                   TO \"SOPORTECOMS\".              009900\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      010100\n            \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK\".       010200\n     CALL \"CSIID OF SOPORTECOMS\" USING WKS-HOST.                  010400\n     CANCEL \"SOPORTECOMS\".                                        010600\n     CANCEL \"CTLVER\".                                             010700",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EquipoActual {\n\n    private final SoporteComsClient soporteComs;   // CALL \"CSIID OF SOPORTECOMS\" USING WKS-HOST\n\n    /** WKS-HOST: CSI 9(02), host X(10) con punto final, nombre de CSI, línea o batch. */\n    @Cacheable(\"equipo-actual\")\n    public Equipo identifica() {\n        var h = soporteComs.csiId();\n        return new Equipo(h.numCsi(), h.nombreHost().strip(), h.nombreCsi(), h.lineaBatch());\n    }\n}\n\npublic record Equipo(int csi, String host, String nombreCsi, String lineaBatch) {}",
+          "racional": "El programa enlaza por función las librerías XFER, CTLVERS y SOPORTECOMS y le pide a esta última el CSI y el nombre del equipo. En Java la identificación del equipo es un servicio cacheable, porque no cambia durante la vida del proceso. El enlace dinámico por <code>LIBACCESS BYFUNCTION</code> no tiene equivalente directo y se reemplaza por inyección de dependencias.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Pares de equipos origen y destino a application.yml",
+          "linea_ini": 745,
+          "linea_fin": 777,
+          "origen_codigo": " 000200-DETERMINA-NODOS.                                          010900\n*=======================                                          011000\n     IF WKS-NOM-HOST = \"ACYPGAMA.\" THEN                           011100\n        MOVE \"ACYPGAMA\"          TO WKS-NODO-ORI                  011200\n        MOVE \"MONALFA\"           TO WKS-NODO-DES                  011300\n     ELSE                                                         011400\n     IF WKS-NOM-HOST = \"MONALFA.\" THEN                            011500\n        MOVE \"MONALFA\"           TO WKS-NODO-ORI                  011600\n        MOVE \"ACYPGAMA\"          TO WKS-NODO-DES                  011700\n     ELSE                                                         011800\n     IF WKS-NOM-HOST = \"VDMALFA.\" THEN                            011900\n        MOVE \"VDMALFA\"           TO WKS-NODO-ORI                  012000\n        MOVE \"MONBETA\"           TO WKS-NODO-DES                  012100\n     ELSE                                                         012200\n     IF WKS-NOM-HOST = \"MONBETA.\" THEN                            012300\n        MOVE \"MONBETA\"           TO WKS-NODO-ORI                  012400\n        MOVE \"VDMALFA\"           TO WKS-NODO-DES                  012500\n     ELSE                                                         012600\n     IF WKS-NOM-HOST = \"ACYPBETA.\" THEN                           012700\n        MOVE \"ACYPBETA\"          TO WKS-NODO-ORI                  012800\n        MOVE \"VDMBETA\"           TO WKS-NODO-DES                  012900\n     ELSE                                                         013000\n     IF WKS-NOM-HOST = \"VDMBETA.\" THEN                            013100\n        MOVE \"VDMBETA\"           TO WKS-NODO-ORI                  013200\n        MOVE \"ACYPBETA\"          TO WKS-NODO-DES                  013220\n     ELSE                                                         013225\n     IF WKS-NOM-HOST = \"ACYPOMEGA.\" THEN                          013230\n        MOVE \"ACYPOMEGA\"         TO WKS-NODO-ORI                  013235\n        MOVE \"VDMKAPPA\"          TO WKS-NODO-DES                  013240\n     ELSE                                                         013245\n     IF WKS-NOM-HOST = \"VDMKAPPA.\" THEN                           013250\n        MOVE \"VDMKAPPA\"          TO WKS-NODO-ORI                  013255\n        MOVE \"ACYPOMEGA\"         TO WKS-NODO-DES.                 013260",
+          "java_codigo": "# application.yml (los pares dejan de estar compilados)\ntransferencia:\n  pares:                                  # host con punto final, como lo regresa SOPORTECOMS\n    \"ACYPGAMA.\":  { origen: ACYPGAMA,  destino: MONALFA }\n    \"MONALFA.\":   { origen: MONALFA,   destino: ACYPGAMA }\n    \"VDMALFA.\":   { origen: VDMALFA,   destino: MONBETA }\n    \"MONBETA.\":   { origen: MONBETA,   destino: VDMALFA }\n    \"ACYPBETA.\":  { origen: ACYPBETA,  destino: VDMBETA }\n    \"VDMBETA.\":   { origen: VDMBETA,   destino: ACYPBETA }\n    \"ACYPOMEGA.\": { origen: ACYPOMEGA, destino: VDMKAPPA }\n    \"VDMKAPPA.\":  { origen: VDMKAPPA,  destino: ACYPOMEGA }\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"transferencia\")\npublic record TopologiaProperties(Map<String, Par> pares, Map<String, String> destinoS702,\n                                  List<ReglaUsercode> reglas) {\n    public record Par(String origen, String destino) {}\n\n    public Par par(String host) {\n        Par p = pares.get(host);\n        if (p == null) throw new EquipoDesconocidoException(host);   // el COBOL seguía con nodos vacíos\n        return p;\n    }\n}",
+          "racional": "Cada equipo tiene un par fijo al que manda sus archivos; la cadena de ocho IF anidados es en realidad una tabla. Se traslada a <code>application.yml</code> como mapa, de modo que un cambio de topología es un cambio de configuración. Para un equipo que no está en la tabla el COBOL no hace nada y arma el comando con nodos vacíos; la traducción falla de forma explícita.",
+          "reglas": [],
+          "riesgo": "Un host fuera de la lista deja WKS-NODO-ORI y WKS-NODO-DES sin asignar y el comando se envía igual."
+        },
+        {
+          "id": "s5",
+          "titulo": "Archivos de alertas, avisos y saldos redirigidos a S702",
+          "linea_ini": 779,
+          "linea_fin": 810,
+          "origen_codigo": "*INI VL38112 2020                                                 013305\n     IF (WKS-NOM-S015 = \"S151/FILE/PROTCOB/\") OR                  013306\n        ((WKS-NOM-S151 = \"S151/FILE/E01/S500ALRCD/\" OR            013307\n        WKS-NOM-S151 = \"S151/FILE/E01/S701OCMCD/\" OR              013308\n        WKS-NOM-S151 = \"S151/FILE/E01/S500AHRCD/\" OR              013309\n        WKS-NOM-S151 = \"S151/FILE/E01/S500ACCCD/\") AND            013310\n        (WKS-NUMCSI  = 10 OR 12))                                 013312\n*FIN VL38112  2020                                                013316\n        MOVE \"S702\"              TO WKS-USER-TARG.                013318\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"VDMALFA.\"      013320\n        MOVE \"VDMALFA\"          TO WKS-NODO-DES                   013324\n     ELSE                                                         013330\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"MONBETA.\"      013336\n        MOVE \"VDMALFA\"   TO WKS-NODO-DES                          013342\n     ELSE                                                         013348\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"ACYPGAMA.\"     013354\n        MOVE \"ACYPGAMA\" TO WKS-NODO-DES                           013360\n     ELSE                                                         013366\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"MONALFA.\"      013372\n        MOVE \"ACYPGAMA\"   TO WKS-NODO-DES                         013378\n     ELSE                                                         013380\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"ACYPOMEGA.\"    013382\n        MOVE \"ACYPOMEGA\"  TO WKS-NODO-DES                         013384\n     ELSE                                                         013386\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"VDMKAPPA.\"     013388\n        MOVE \"ACYPOMEGA\"  TO WKS-NODO-DES                         013390\n     ELSE                                                         013391\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"VDMBETA.\"      013392\n        MOVE \"VDMBETA\"  TO WKS-NODO-DES                           013393\n     ELSE                                                         013394\n     IF WKS-USER-TARG = \"S702\" AND WKS-NOM-HOST = \"ACYPBETA.\"     013395\n        MOVE \"VDMBETA\"  TO WKS-NODO-DES.                          013396",
+          "java_codigo": "/** VL38112 2020: PROTCOB siempre; los cuatro E01 de S500/S701 solo en CSI 10 o 12. */\nprivate static final List<String> E01_S702 = List.of(\n        \"S151/FILE/E01/S500ALRCD/\", \"S151/FILE/E01/S701OCMCD/\",\n        \"S151/FILE/E01/S500AHRCD/\", \"S151/FILE/E01/S500ACCCD/\");\n\nboolean vaAS702(SolicitudTransferencia s, Equipo eq) {\n    return s.archivo().startsWith(\"S151/FILE/PROTCOB/\")                 // WKS-NOM-S015 X(18)\n        || (E01_S702.stream().anyMatch(s.archivo()::startsWith)          // WKS-NOM-S151 X(24)\n            && (eq.csi() == 10 || eq.csi() == 12));\n}\n\n// destinoS702 en application.yml: VDMALFA y MONBETA -> VDMALFA; ACYPGAMA y MONALFA -> ACYPGAMA;\n// ACYPOMEGA y VDMKAPPA -> ACYPOMEGA; VDMBETA y ACYPBETA -> VDMBETA.\nString nodoDestinoS702(Equipo eq) {\n    return props.destinoS702().getOrDefault(eq.host(), props.par(eq.host()).destino());\n}",
+          "racional": "Un grupo de archivos contables cambia de usercode destino a S702: el de PROTCOB en cualquier equipo y los cuatro archivos E01 de alertas, avisos y saldos de S500 y S701 solo cuando el CSI es 10 o 12. El COBOL reconoce el archivo comparando un campo truncado contra el literal, lo que equivale a un <code>startsWith</code>. El nodo destino para S702 se fija por equipo y queda en <code>application.yml</code>; si el host no tiene entrada se conserva el par normal, que es lo que hace el COBOL al no entrar a ninguna rama.",
+          "reglas": [
+            "RN-S151-907",
+            "RN-S151-910"
+          ],
+          "riesgo": "El paréntesis del IF hace que PROTCOB vaya a S702 sin importar el CSI; solo los E01 dependen del CSI 10 o 12."
+        },
+        {
+          "id": "s6",
+          "titulo": "Movimientos por terminal de S711 a S028 en el mismo equipo",
+          "linea_ini": 812,
+          "linea_fin": 856,
+          "origen_codigo": "     IF WKS-NOM-S028 = \"S711/FILE/MOVSXTERM/\"                     013420\n        MOVE \"S028\"              TO WKS-USER-TARG                 013440\n        PERFORM 000400-VALIDA-NODO.                               013460\n 000400-VALIDA-NODO.                                              015200\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"VDMALFA.\"      015300\n        MOVE \"VDMALFA\"          TO WKS-NODO-DES                   015400\n     ELSE                                                         015500\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"MONBETA.\"      015600\n        MOVE \"MONBETA\"          TO WKS-NODO-DES                   015700\n     ELSE                                                         015800\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"ACYPGAMA.\"     015900\n        MOVE \"ACYPGAMA\"         TO WKS-NODO-DES                   016000\n     ELSE                                                         016100\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"MONALFA.\"      016200\n        MOVE \"MONALFA\"          TO WKS-NODO-DES                   016300\n     ELSE                                                         016400\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"ACYPOMEGA.\"    016500\n        MOVE \"ACYPOMEGA\"        TO WKS-NODO-DES                   016600\n     ELSE                                                         016700\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"VDMKAPPA.\"     016800\n        MOVE \"VDMKAPPA\"         TO WKS-NODO-DES                   016900\n     ELSE                                                         017000\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"ACYPBETA.\"     017100\n        MOVE \"ACYPBETA\"         TO WKS-NODO-DES                   017200\n     ELSE                                                         017300\n     IF WKS-USER-TARG = \"S028\" AND WKS-NOM-HOST = \"VDMBETA.\"      017400\n        MOVE \"VDMBETA\"          TO WKS-NODO-DES.                  017500",
+          "java_codigo": "/** S711/FILE/MOVSXTERM/ (WKS-NOM-S028 X(20)): usercode S028 y destino = el propio equipo. */\npublic ComandoXfer resuelve(SolicitudTransferencia s) {\n    Equipo eq = equipo.identifica();\n    var par = props.par(eq.host());\n    String usercodeDestino = s.usercode();\n    String nodoDestino = par.destino();\n\n    if (vaAS702(s, eq)) {\n        usercodeDestino = \"S702\";\n        nodoDestino = nodoDestinoS702(eq);\n    }\n    if (s.archivo().startsWith(\"S711/FILE/MOVSXTERM/\")) {       // se evalúa después y prevalece\n        usercodeDestino = \"S028\";\n        nodoDestino = par.origen();                             // 000400-VALIDA-NODO: mismo equipo\n    }\n    return new ComandoXfer(s.usercode(), s.archivo(), usercodeDestino, s.archivo(),\n                           s.packOrigen(), par.origen(), s.packDestino(), nodoDestino);\n}",
+          "racional": "El archivo de movimientos por terminal de S711 se entrega al usercode S028. Las ocho ramas de 000400-VALIDA-NODO asignan como destino el mismo equipo en el que corre el programa, así que en Java basta con usar el nodo origen del par. La regla se evalúa después de la de S702 y, si ambas aplicaran, la de S028 gana, igual que en el fuente por el orden de las sentencias.",
+          "reglas": [
+            "RN-S151-908"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Envío por XFER y degradación a copia manual",
+      "origen": {
+        "archivo": "COBOL_P102.txt",
+        "contexto": "000300-ENVIA-ARCHIVO"
+      },
+      "java": {
+        "archivo": "XferAdapter.java",
+        "contexto": "@ServiceActivator · adaptador de salida"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "ENVIA_XFER con aviso al operador en caso de error",
+          "linea_ini": 816,
+          "linea_fin": 832,
+          "origen_codigo": " 000300-ENVIA-ARCHIVO.                                            013500\n*=====================                                            013600\n     MOVE WKS-TITULO-ARCH-CAP    TO   WS-TRF-COMANDO.             013700\n     MOVE 193                    TO   WS-TRF-TAMACOM.             013800\n     CALL \"ENVIA_XFER IN XFER\" USING  WS-TRF-COMANDO              013900\n                                      WS-TRF-TAMACOM              014000\n                               GIVING WS-TRF-RESULT.              014100\n     IF WS-TRF-RESULT > 0                                         014300\n        MOVE \"O\"                 TO TIPO-LJ                       014400\n        MOVE 020101              TO CODIGO-LJ                     014500\n        STRING \"ERROR AL LLAMAR LIBRARY XRAPID PARA ARCHIVO \",    014600\n               WKS-ARCHIVO                                   ,    014700\n               \" FAVOR DE COPIAR MANUALMENTE EL ARCHIVO \"    ,    014800\n               WKS-TITULO-ARCH-CAP DELIMITED BY SIZE INTO TEXTO-LJ014900\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ                   015000\n                                    MENSAJE-LJ.                   015100",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class XferAdapter {\n\n    private final XferClient xfer;                  // CALL \"ENVIA_XFER IN XFER\"\n    private final ApplicationEventPublisher eventos;\n\n    @ServiceActivator\n    public ResultadoTransferencia envia(ComandoXfer cmd) {\n        String texto = String.format(\"%-193s\", cmd.texto());     // MOVE 193 TO WS-TRF-TAMACOM\n        long resultado = xfer.envia(texto, 193);\n        if (resultado > 0) {\n            // Mismo criterio que el COBOL: no aborta, pide copia manual. Además se publica\n            // un evento para que el orquestador o la mesa de operación lo vean.\n            eventos.publishEvent(new TransferenciaFallida(cmd, resultado,\n                    \"FAVOR DE COPIAR MANUALMENTE EL ARCHIVO \" + texto.strip()));\n            return ResultadoTransferencia.manual(resultado);\n        }\n        return ResultadoTransferencia.ok();\n    }\n}",
+          "racional": "La transferencia se delega a la librería XFER con el comando y su longitud. Un resultado mayor a cero no detiene el programa: se manda un mensaje tipo O a la consola del operador pidiendo copiar el archivo a mano. La traducción conserva esa degradación controlada, pero devuelve el resultado al llamador y publica un evento, porque en el original el paso que invocó a P102 termina bien aunque el archivo no haya llegado.",
+          "reglas": [
+            "RN-S151-909"
+          ],
+          "riesgo": "El paso termina normalmente aunque la copia falle; el único rastro es el mensaje al operador."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Topología de equipos compilada en el programa",
+      "detalle": "Los ocho nombres de host y sus pares (líneas 745-777), el destino especial de S702 (líneas 788-810) y el de S028 (líneas 833-856) están escritos como cadenas de IF anidados. Agregar, renombrar o retirar un equipo exige recompilar P102, y un host que no esté en la lista deja WKS-NODO-ORI y WKS-NODO-DES con su contenido inicial."
+    },
+    {
+      "titulo": "Falla de transferencia sin aborto",
+      "detalle": "Si ENVIA_XFER regresa un resultado mayor a cero, P102 solo envía un mensaje al operador (líneas 824-832) y termina normalmente. El paso que lo invocó no se entera y el archivo puede no llegar al equipo destino hasta que alguien lo copie a mano."
+    },
+    {
+      "titulo": "Reconocimiento de archivos por truncamiento",
+      "detalle": "La comparación por prefijo se logra moviendo el título de 80 posiciones a campos de 18, 20 y 24 posiciones (líneas 665-668 y 711-717). Funciona porque cada literal mide exactamente lo mismo que su campo; cambiar un PIC o un literal rompe el ruteo sin error de compilación."
+    },
+    {
+      "titulo": "Títulos largos truncados en el comando",
+      "detalle": "El título recibido es X(80) pero WKS-NOMB-ARCH y WKS-NOMB-ARTG son X(55), y el pack de origen y destino X(17) se mueve a campos X(16). Un título de más de 55 caracteres o un pack de 17 se envía truncado."
+    }
+  ],
+  "pendientes_revision": [
+    "El PROGRAM-ID del fuente es CALLLIBCTL, no P102; los mensajes a operador sí se identifican como S151/P102 (líneas 703-704). Confirmar que el archivo corresponde al objeto productivo de P102.",
+    "El mensaje de error menciona la librería XRAPID aunque la llamada es a ENVIA_XFER IN XFER; confirmar con el SME si XFER es un alias de XRAPID.",
+    "Para S028 el nodo destino es siempre el mismo equipo donde corre el programa (líneas 834-856), es decir, una copia local con otro usercode. Validar que es el comportamiento esperado.",
+    "Para S702 los equipos VDMALFA, ACYPGAMA, ACYPOMEGA y VDMBETA se mandan a sí mismos y sus pares hacia ellos (líneas 788-810). Confirmar con el SME qué equipos alojan hoy el ambiente S702."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-906",
+    "RN-S151-907",
+    "RN-S151-908",
+    "RN-S151-909",
+    "RN-S151-910",
+    "RN-S500-633",
+    "RN-S500-634",
+    "RN-S500-635",
+    "RN-S500-636",
+    "RN-S500-637"
+  ]
+}

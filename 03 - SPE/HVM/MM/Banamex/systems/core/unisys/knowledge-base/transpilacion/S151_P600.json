@@ -1,0 +1,194 @@
+{
+  "slug": "S151_P600",
+  "sistema": "S151",
+  "programa": "P600",
+  "nombre": "Despliegue de Fechas Operacionales (CALLLIBCTL)",
+  "funcion": "Programa utilitario de S151 que se ejecuta a demanda para mostrar en consola las fechas de línea, batch y S151 de cada sistema activo en el CSI, los niveles de registro de su librería L002 y, para el sistema 500, los envíos y confirmaciones de L009 y L012. Su encabezado lo declara programa ejemplo de llamado a la librería de control.",
+  "resumen": "Resuelve por CTLVERS el título de la librería de control L001 y recorre con B04SISTEM todos los sistemas registrados. Para cada sistema consulta CONSISMEN y CONSISDIA (función 01) y, si el sistema está en estatus 3 o 5 y reside en el CSI de la máquina o no tiene modo de residencia, guarda sus fechas en una tabla de 50 posiciones y pide a su librería L002 (función 5 de CONTROLES) la fecha de línea y el nivel de registros recibidos. Para el sistema 500 consulta además L009 y L012. Al final despliega un renglón por sistema y otro por cada librería de envío. Su WORKING-STORAGE incluye el copy LIBCONTROL que documenta las diez funciones de CONSISDIA, aunque el programa sólo usa la consulta.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.control.fechas",
+  "secciones": [
+    {
+      "titulo": "Interfaz de LIBCONTROL — CONSISDIA y el día operativo",
+      "origen": {
+        "archivo": "COBOL_P600.txt",
+        "contexto": "WORKING-STORAGE · COPY LIBCONTROL"
+      },
+      "java": {
+        "archivo": "LibControlClient.java · SistemaDia.java",
+        "contexto": "interface · enum · record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Catálogo de las diez funciones de CONSISDIA a una interfaz Java",
+          "linea_ini": 21,
+          "linea_fin": 35,
+          "origen_codigo": "*================================================================ 000100\n*         ENTRY-POINT CONSISDIA :                               = 000200\n*                                                                 000300\n* FUNCION 1  .- CONSULTA  S151B01SISDIA                         = 000400\n* FUNCION 2  .- ACTUALIZA FECHA DE CONSULTA                     = 000500\n* FUNCION 3  .- ACTUALIZA FECHA DE PROCESO                      = 000600\n* FUNCION 4  .- ACTUALIZA ESTATUS DE BASE SEMANAL               = 000700\n* FUNCION 5  .- HABILITA FECHA.                                 = 000800\n* FUNCION 6  .- ACTUALIZA FECHA.                                = 000900\n* FUNCION 7  .- ACTUALIZA EL STATUS DEL ARCHIVO LOG.            = 001000\n* FUNCION 8  .- ACTUALIZA EL NIVEL DE ARCHIVO DE MOVIMIENTOS.   = 001100\n* FUNCION 9  .- ACTUALIZA EL NIVEL DE LA BASE DE DATOS.         = 001200\n* FUNCION 10 .- ACTUALIZA EL NIVEL DE LA BASE Y ARCHIVO DE MOVS = 001300\n*                                                               = 001400\n*================================================================ 001500",
+          "java_codigo": "/** Entry point CONSISDIA de LIB-CONTROL (L001). Una operación por función documentada. */\npublic interface LibControlClient {\n\n    enum FuncionConsisDia {\n        CONSULTA(1),                     // CONSULTA S151B01SISDIA\n        ACTUALIZA_FECHA_CONSULTA(2),\n        ACTUALIZA_FECHA_PROCESO(3),\n        ACTUALIZA_ESTATUS_BASE_SEMANAL(4),\n        HABILITA_FECHA(5),\n        ACTUALIZA_FECHA(6),\n        ACTUALIZA_STATUS_LOG(7),\n        ACTUALIZA_NIVEL_ARCHIVO_MOVS(8),\n        ACTUALIZA_NIVEL_BASE(9),\n        ACTUALIZA_NIVEL_BASE_Y_ARCHIVO(10);\n\n        public final int codigo;\n        FuncionConsisDia(int c) { codigo = c; }\n    }\n\n    SistemaDia consulta(int sistema, int csi);                  // F01, la única que usa P600\n    void actualizaFechaConsulta(int sistema, int csi, LocalDate f);   // F02\n    void actualizaFechaProceso(int sistema, int csi, LocalDate f);    // F03\n    void actualizaEstatusBaseSemanal(int sistema, int csi, int st);   // F04\n    // F05 a F10 siguen el mismo patrón; el detalle de campos está en el copy (líneas 72 en adelante).\n}",
+          "racional": "El copy LIBCONTROL documenta en comentarios las diez funciones del entry point <code>CONSISDIA</code>, todas sobre el mismo registro de 2 dígitos de función más sistema y CSI. En Java ese contrato implícito se vuelve una interfaz con un método por función y un <code>enum</code> con los códigos, de modo que cada programa migrado declara qué funciones usa en lugar de mover un número a <code>WKS-B01-FUNCION</code>. P600 sólo invoca la función 1.",
+          "reglas": [
+            "RN-S151-1132",
+            "RN-S151-1134",
+            "RN-S151-1135",
+            "RN-S151-1136",
+            "RN-S151-1137",
+            "RN-S151-1138"
+          ],
+          "riesgo": "El comentario describe la función 5 como HABILITA FECHA; la regla RN-S151-1137 la describe como el control de STAREG que bloquea a P000. El fuente de P600 no permite confirmar cuál es correcta."
+        },
+        {
+          "id": "s2",
+          "titulo": "Registro S151B01SISDIA con los diez días de control",
+          "linea_ini": 47,
+          "linea_fin": 71,
+          "origen_codigo": " 01 WKS-S151B01SISDIA WITH LOWER-BOUNDS.                          002700\n    03 WKS-B01-FUNCION             PIC 9(02).                     002800\n    03 WKS-B01-SISTEMA             PIC 9(04).                     002900\n    03 WKS-B01-CSI                 PIC 9(02).                     003000\n    03 WKS-B01-FECPRO              PIC 9(08).                     003102\n    03 WKS-B01-FECCON              PIC 9(08).                     003202\n    03 WKS-B01-FECPRO151           PIC 9(08).                     003302\n    03 WKS-B01-STAREG              PIC 9(02).                     003400\n    03 WKS-B01-NOMARCSAL           PIC X(34).                     003500\n    03 WKS-B01-NOMPACSAL           PIC X(17).                     003600\n    03 WKS-B01-NOMARCMOV           PIC X(34).                     003700\n    03 WKS-B01-NOMPACMOV           PIC X(17).                     003800\n    03 WKS-B01-NOMARCDES           PIC X(34).                     003900\n    03 WKS-B01-NOMPACDES           PIC X(17).                     004000\n    03 WKS-B01-NOMARCERR           PIC X(34).                     004100\n    03 WKS-B01-NOMPACERR           PIC X(17).                     004200\n    03 WKS-B01-NOMBDSEM            PIC X(17).                     004300\n    03 WKS-B01-STABDSEM            PIC 9(02).                     004400\n    03 WKS-B01-NUMARC              PIC 9(02).                     004500\n    03 WKS-B01-3ERNIV              PIC 9(02).                     004600\n    03 WKS-B01-CTL-DIA     OCCURS 10 TIMES.                       004700\n       05 WKS-B01-FECARCMOV        PIC 9(08).                     004802\n       05 WKS-B01-NIVARCMOV        PIC 9(08).                     004900\n       05 WKS-B01-NIVBDMOV         PIC 9(08).                     005000\n       05 WKS-B01-STAARCLOG        PIC 9(02).                     005100",
+          "java_codigo": "/** WKS-S151B01SISDIA: estado del día de un sistema en un CSI. */\npublic record SistemaDia(\n        int sistema, int csi,\n        LocalDate fechaProceso,        // FECPRO    9(08) AAAAMMDD\n        LocalDate fechaConsulta,       // FECCON\n        LocalDate fechaProcesoS151,    // FECPRO151\n        int estatusRegistro,           // STAREG\n        ArchivoMcp salida, ArchivoMcp movimientos, ArchivoMcp descriptores, ArchivoMcp errores,\n        String baseSemanal,            // NOMBDSEM X(17)\n        int estatusBaseSemanal,        // STABDSEM\n        int numArchivo, int tercerNivel,\n        List<ControlDia> dias) {       // CTL-DIA OCCURS 10\n\n    /** Nombre de archivo (X(34)) más pack (X(17)), como los arma MCP. */\n    public record ArchivoMcp(String nombre, String pack) {}\n\n    public record ControlDia(LocalDate fechaArchivoMovs,   // FECARCMOV\n                             long nivelArchivoMovs,        // NIVARCMOV 9(08)\n                             long nivelBaseMovs,           // NIVBDMOV  9(08)\n                             int statusLog) {}             // STAARCLOG 9(02)\n\n    public SistemaDia {\n        if (dias.size() != 10) throw new IllegalArgumentException(\"CTL-DIA OCCURS 10 TIMES\");\n        dias = List.copyOf(dias);\n    }\n}",
+          "racional": "El registro reúne las tres fechas del sistema (proceso, consulta y proceso de S151), los nombres de los archivos activos con su pack y un arreglo fijo de diez días con fecha, niveles y estatus del archivo de movimientos. Las fechas de 8 dígitos pasan a <code>LocalDate</code>; los niveles son contadores de registros y se modelan como <code>long</code>. Los diez días coinciden con los diez canales que mantiene la librería L002, por eso el record exige exactamente diez entradas.",
+          "reglas": [
+            "RN-S151-1133",
+            "RN-S151-1139"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Flujo del programa y selección de sistemas",
+      "origen": {
+        "archivo": "COBOL_P600.txt",
+        "contexto": "PROCEDURE DIVISION · 000100 / 000200 / 000310"
+      },
+      "java": {
+        "archivo": "FechasOperacionalesJobConfig.java · SistemasActivosReader.java",
+        "contexto": "Spring Batch Job · Flow · JobExecutionDecider · ItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal a Job con flujo de consulta y despliegue",
+          "linea_ini": 700,
+          "linea_fin": 720,
+          "origen_codigo": " 000100-INICIO.                                                   012000\n     IF ATTRIBUTE VALUE OF MYSELF = 0                             013000\n        NEXT SENTENCE                                             014000\n     ELSE                                                         015000\n        MOVE ATTRIBUTE VALUE OF MYSELF TO WKS-PARAM-FECHA.        016000\n     PERFORM 000200-LIBRERIAS.                                    018000\n     MOVE \"S151\" TO SISTEMA-LJ.                                   019000\n     MOVE \"P600\" TO PASO-LJ.                                      020000\n     MOVE  005   TO MTP-LJ.                                       021000\n     MOVE \"I\"    TO TIPO-LJ.                                      022000\n     MOVE 020201 TO CODIGO-LJ.                                    023000\n     MOVE 1                      TO WKS-CON-FUNCION.              024000\n     MOVE ZERO                   TO WKS-CON-CSI.                  025000\n     MOVE LOW-VALUES             TO WKS-B04SISTEMA .              026000\n     PERFORM 000300-LLAMA-LIBCTL.                                 027000\n     PERFORM 000500-DSP-FECHAS   VARYING W77-IND2 FROM 1 BY 1     028000\n                                 UNTIL W77-IND2 > W77-IND.        029000\n     PERFORM 000500-DSP-LIBRERIAS .                               030000\n     CANCEL \"LIBCTL\".                                             031000\n     STOP RUN.                                                    032000",
+          "java_codigo": "@Configuration\npublic class FechasOperacionalesJobConfig {\n\n    @Bean\n    Job despliegueFechas(JobRepository repo, Step consultaSistemas,\n                         Sistema500Decider es500, Step librerias500, Step despliega) {\n        return new JobBuilder(\"S151P600\", repo)\n            .start(consultaSistemas)                 // 000300-LLAMA-LIBCTL: B04 + CONSISMEN + CONSISDIA + L002\n            .next(es500).on(\"CON_500\").to(librerias500)   // 000420 L009 y 000440 L012\n                .next(despliega)\n            .from(es500).on(\"*\").to(despliega)       // 000500-DSP-FECHAS y 000500-DSP-LIBRERIAS\n            .end()\n            .build();\n    }\n}\n// ATTRIBUTE VALUE OF MYSELF -> WKS-PARAM-FECHA: el fuente lo lee pero nunca lo usa.\n// Se acepta como JobParameter opcional \"fecha\" y se registra en bitácora, sin efecto.",
+          "racional": "El programa es una secuencia corta: resolver librerías, consultar todos los sistemas y desplegar el resultado. Como orquestador ligero se modela con un <code>Job</code> de Spring Batch y un <code>JobExecutionDecider</code> para la rama del sistema 500, que es la única que consulta L009 y L012. La fecha que se puede pasar por <code>VALUE</code> de la tarea se guarda en <code>WKS-PARAM-FECHA</code> pero ningún párrafo la lee; se conserva como parámetro informativo para no romper los WFL que la envían.",
+          "reglas": [],
+          "riesgo": "El parámetro de fecha que recibe la tarea no tiene efecto: P600 siempre despliega las fechas vigentes en la librería de control."
+        },
+        {
+          "id": "s4",
+          "titulo": "Resolución de librerías por CTLVERS y CSI 32 tratado como 10",
+          "linea_ini": 722,
+          "linea_fin": 745,
+          "origen_codigo": " 000200-LIBRERIAS.                                                034000\n*=================                                                035000\n     CHANGE ATTRIBUTE LIBACCESS    OF \"CTLVER\" TO BYFUNCTION.     036000\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"CTLVER\" TO \"CTLVERS\".      037000\n     CHANGE ATTRIBUTE LIBACCESS OF \"SOPORTECOMS\" TO BYFUNCTION.   038000\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"SOPORTECOMS\"               039000\n                                   TO \"SOPORTECOMS\".              040000\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\"  TO                     041000\n            \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".      042000\n     CALL \"CSIID OF SOPORTECOMS\" USING WKS-HOST.                  043000\n     CANCEL \"SOPORTECOMS\".                                        044000\n     IF WKS-NUMCSI = 32                                           045000\n        MOVE 10                    TO WKS-NUMCSI.                 046000\n     MOVE \"S151L001CTL\"            TO WKS-LIBID.                  047000\n     CALL \"DAME_TIT IN CTLVER\" USING WKS-LIBID, WKS-NOMLIB        048000\n                               GIVING W77-ERR-CTLVER.             049000\n     IF W77-ERR-CTLVER = 0                                        050000\n        CHANGE ATTRIBUTE TITLE OF \"LIBCTL\" TO WKS-NOMLIB          051000\n     ELSE                                                         052000\n        CHANGE ATTRIBUTE TITLE OF \"LIBCTL\" TO                     053000\n        \"(S151)S151/OBJECT/L001/CONTROL  ON CMEMP\".               054000\n     CANCEL \"SOPORTECOMS\".                                        056000\n     CANCEL \"CTLVER\".                                             057000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class LibreriasResolver {\n\n    private final CtlVersClient ctlvers;          // DAME_TIT IN CTLVER\n    private final SoporteComsClient coms;         // CSIID OF SOPORTECOMS\n    private final P600Properties props;\n\n    public int csiEfectivo() {\n        int csi = coms.csiDelHost();\n        return props.aliasCsi().getOrDefault(csi, csi);         // 32 -> 10\n    }\n\n    public String tituloLibControl() {\n        return ctlvers.dameTitulo(\"S151L001CTL\")\n                .orElse(props.libControlDefault());              // título compilado de respaldo\n    }\n}\n\n# application.yml\np600:\n  alias-csi: { 32: 10 }\n  lib-control-default: \"(S151)S151/OBJECT/L001/CONTROL  ON CMEMP\"\n  lib-l002-default: \"(S151)S151/OBJECT/L002/REGISTRA ON CMEMP\"",
+          "racional": "Los títulos de las librerías se piden a CTLVERS y, si no existen, se usa un título escrito en el código. El CSI 32 se trata como 10, igual que en P073 y en L002R3. En Java ambos valores pasan a configuración; en el destino los títulos de librería se sustituyen por la URL o el nombre de servicio de cada componente, pero se mantiene la idea de un respaldo explícito.",
+          "reglas": [],
+          "riesgo": "Si CTLVERS falla, el programa usa títulos por defecto sin avisar; puede desplegar fechas de una versión de librería distinta a la registrada."
+        },
+        {
+          "id": "s5",
+          "titulo": "Recorrido de sistemas y criterio de sistema activo en el CSI",
+          "linea_ini": 766,
+          "linea_fin": 795,
+          "origen_codigo": " 000310-CALL-L001.                                                078000\n*===================                                              079000\n    MOVE WKS-B04-SISTEMA          TO WKS-B03-SISTEMA              080000\n                                     WKS-B01-SISTEMA.             081000\n    MOVE 01                       TO WKS-B03-FUNCION.             082000\n    CALL \"CONSISMEN IN LIBCTL     \" USING  WKS-S151B03SISMEN      083000\n                                    GIVING W77-RESULT-LIBCON.     084000\n    IF W77-RESULT-LIBCON = 0                                      085000\n       MOVE 01                       TO WKS-B01-FUNCION           086000\n       CALL \"CONSISDIA IN LIBCTL  \" USING  WKS-S151B01SISDIA      087000\n                                    GIVING W77-RESULT-LIBCON      088000\n       IF W77-RESULT-LIBCON = 0 AND                               089000\n         (WKS-B04-ESTATUS   = 3 OR 5) AND                         090000\n         (WKS-B03-RESCSI    = WKS-NUMCSI  OR                      091000\n          WKS-B03-MODSIS    =  0)                                 092000\n          ADD 1                  TO W77-IND                       093000\n          PERFORM 000400-LLAMA-L002                               094000\n          MOVE WKS-B01-SISTEMA   TO WKS-TAB-SISTEMA(W77-IND)      095000\n          MOVE WKS-B01-FECCON    TO WKS-TAB-FECCON (W77-IND)      096000\n          MOVE WKS-B01-FECPRO    TO WKS-TAB-FECPRO (W77-IND)      097000\n          MOVE WKS-B01-FECPRO151 TO WKS-TAB-FEC151 (W77-IND).     098000\n    MOVE ZERO                     TO W77-RESULT-LIBCON.           100000\n    MOVE 02                       TO WKS-B04-FUNCION.             101000\n    MOVE ZERO                     TO WKS-B04-PRODUCTO             102000\n                                     WKS-B04-INSTRUM.             103000\n    CALL \"B04SISTEM   IN LIBCTL\" USING  WKS-B04SISTEMA            104000\n                                 GIVING W77-RESULT-LIBCON.        105000\n    IF W77-RESULT-LIBCON > 0                                      106000\n       MOVE 1                    TO W77-FIN.                      107000",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class SistemasActivosReader implements ItemReader<SistemaDia> {\n\n    private static final Set<Integer> ESTATUS_ACTIVOS = Set.of(3, 5);   // WKS-B04-ESTATUS\n    private final LibControlClient libControl;\n    private final LibreriasResolver libs;\n    private Iterator<SistemaB04> sistemas;\n\n    @Override\n    public SistemaDia read() {\n        if (sistemas == null) sistemas = libControl.recorreB04().iterator();   // B04SISTEM función 02\n        int csi = libs.csiEfectivo();\n        while (sistemas.hasNext()) {\n            SistemaB04 s = sistemas.next();\n            var men = libControl.consisMen(s.numero());          // CONSISMEN función 01\n            if (men.isEmpty()) continue;\n            var dia = libControl.consulta(s.numero(), 0);        // CONSISDIA F01; WKS-B01-CSI nunca se asigna\n            boolean resideAqui = men.get().csiResidencia() == csi || men.get().modo() == 0;\n            if (dia != null && ESTATUS_ACTIVOS.contains(s.estatus()) && resideAqui) {\n                return dia;                                      // ADD 1 TO W77-IND\n            }\n        }\n        return null;                                             // W77-FIN = 1\n    }\n}",
+          "racional": "El programa pide a la librería de control el siguiente sistema hasta que regresa un resultado mayor que cero, y por cada uno consulta modo de residencia y estado del día. Es un lector clásico: en Java un <code>ItemReader</code> que devuelve sólo los sistemas activos y <code>null</code> al terminar. El criterio de P600 acepta estatus 3 o 5 y cualquier sistema en modo 0, que es más amplio que el de P073 (sólo estatus 3 y, en modo 0, CSI 0 o el propio).",
+          "reglas": [
+            "RN-S151-1133"
+          ],
+          "riesgo": "La tabla WKS-TAB-FECHAS tiene 50 posiciones (línea 626) y W77-IND no se valida contra ese límite; con más de 50 sistemas activos el programa escribiría fuera de la tabla. Además WKS-TAB-SISTEMA es PIC 9(03) y recibe un sistema PIC 9(04)."
+        }
+      ]
+    },
+    {
+      "titulo": "Consulta a las librerías de cada sistema y despliegue",
+      "origen": {
+        "archivo": "COBOL_P600.txt",
+        "contexto": "PROCEDURE DIVISION · 000400 / 000420 / 000440 / 000500"
+      },
+      "java": {
+        "archivo": "NivelesL002Processor.java · Librerias500Tasklet.java · DespliegueWriter.java",
+        "contexto": "ItemProcessor · Tasklet · ItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Fecha de línea y registros recibidos desde la L002 del sistema",
+          "linea_ini": 797,
+          "linea_fin": 823,
+          "origen_codigo": "  000400-LLAMA-L002.                                              109000\n*===================                                              110000\n     MOVE WKS-B01-SISTEMA          TO WKS-SIS-L002.               111000\n     MOVE WKS-LIBID-L002           TO WKS-LIBID.                  112000\n     CALL \"DAME_TIT IN CTLVER\"     USING  WKS-LIBID,              113000\n                                          WKS-NOMLIB              114000\n                                   GIVING W77-ERR-CTLVER.         115000\n     IF W77-ERR-CTLVER = 0                                        116000\n        CHANGE ATTRIBUTE TITLE  OF \"LIB-L002\" TO WKS-NOMLIB       117000\n     ELSE                                                         118000\n        CHANGE ATTRIBUTE TITLE  OF \"LIB-L002\" TO                  119000\n        \"(S151)S151/OBJECT/L002/REGISTRA ON CMEMP\".               120000\n    MOVE 5                       TO WKS-DEL-FUNCION.              121000\n    CALL \"CONTROLES IN LIB-L002\" USING  WKS-S151-DATOS            122000\n                                 GIVING W77-RESULT-LIBCON.        123000\n    IF W77-RESULT-LIBCON = 0                                      124000\n       MOVE WKS-DEL-FEC-LINEA     TO WKS-TAB-FECL002(W77-IND)     125000\n       MOVE WKS-DEL-RECIBIDOS     TO WKS-TAB-RECIBIDOS(W77-IND).  126000\n    IF WKS-B01-SISTEMA = 500                                      129000\n       MOVE 1                       TO WKS-DEL-FUNCION            129200\n       CALL \"CONTROLES IN LIB-L002\" USING  WKS-S151-DATOS         129400\n                                 GIVING W77-RESULT-LIBCON         129600\n       PERFORM 000420-LLAMA-L009                                  130000\n       PERFORM 000440-LLAMA-L012.                                 131000\n   CANCEL \"LIB-L002\".                                             131500",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class NivelesL002Processor implements ItemProcessor<SistemaDia, RenglonFechas> {\n\n    private final RegistroContableResolver l002;   // \"S151L002R\" + sistema 9(03)\n    private final ConsolaOperador consola;\n\n    @Override\n    public RenglonFechas process(SistemaDia d) {\n        RegistroContable lib = l002.para(d.sistema());               // CTLVERS o título por defecto\n        var r = lib.controles(DatosControles.funcion(5));            // fecha de proceso + nivel del canal\n        LocalDate fecLinea = r.ok() ? r.fechaLinea() : null;\n        Long recibidos = r.ok() ? r.recibidos() : null;\n        if (d.sistema() == 500) {\n            lib.controles(DatosControles.funcion(1));                // L002 despliega sus niveles en consola\n        }\n        return new RenglonFechas(d.sistema(), d.fechaConsulta(), d.fechaProceso(),\n                                 d.fechaProcesoS151(), fecLinea, recibidos);\n    }\n}",
+          "racional": "Para cada sistema activo el programa arma el identificador <code>S151L002R</code> más el número de sistema, resuelve la librería y le pide la función 5 de <code>CONTROLES</code>, que en la librería REGISTRAS devuelve el canal del día de proceso con su fecha y su nivel de registros. Para el sistema 500 llama además a la función 1, que en L002R3 sólo despliega en consola los niveles de los diez canales. En Java la librería es el servicio <code>RegistroContable</code> descrito en S151_L002R3, resuelto por sistema.",
+          "reglas": [],
+          "riesgo": "Si la función 5 falla, la fecha de línea y los registros recibidos de ese sistema conservan el contenido inicial de la tabla, que no tiene cláusula VALUE ni se inicializa, y el despliegue no indica el error."
+        },
+        {
+          "id": "s7",
+          "titulo": "Envíos y confirmaciones de L009 y L012 sólo para el sistema 500",
+          "linea_ini": 825,
+          "linea_fin": 869,
+          "origen_codigo": " 000420-LLAMA-L009.                                               133000\n*==================                                               134000\n    MOVE \"S151L009\"               TO WKS-LIBID.                   135000\n    CALL \"DAME_TIT IN CTLVER\"     USING  WKS-LIBID,               136000\n                                         WKS-NOMLIB               137000\n                                  GIVING W77-ERR-CTLVER.          138000\n    IF W77-ERR-CTLVER = 0                                         139000\n       CHANGE ATTRIBUTE TITLE       OF \"LIB-L009\" TO WKS-NOMLIB   140000\n       MOVE 5                       TO WKS-L009-FUNCION           141000\n       CALL \"FUNCIONES IN LIB-L009\" USING  WKS-S151-L009          142000\n                                    GIVING W77-RESULT-LIBCON      143000\n       IF W77-RESULT-LIBCON = 0                                   144000\n          MOVE WKS-L009-FECHA       TO WKS-TAB-FECL009            145000\n          MOVE WKS-L009-ENVIADOS    TO WKS-TAB-ENVL009            146000\n          MOVE WKS-L009-CONFIRMADOS TO WKS-TAB-CONFL009.          147000\n*    IF W77-ERR-CTLVER = 0                                        147200\n*       CHANGE ATTRIBUTE TITLE       OF \"LIB-L009\" TO WKS-NOMLIB  147300\n*       MOVE 1                       TO WKS-L009-FUNCION          147400\n*       CALL \"FUNCIONES IN LIB-L009\" USING  WKS-S151-L009         147500\n*                                    GIVING W77-RESULT-LIBCON.    147600\n    CANCEL \"LIB-L009\".                                            148000\n  000440-LLAMA-L012.                                              149000\n*==================                                               150000\n    MOVE \"S151L012\"                 TO WKS-LIBID.                 151000\n    CALL \"DAME_TIT IN CTLVER\"       USING  WKS-LIBID,             152000\n                                           WKS-NOMLIB             153000\n                                    GIVING W77-ERR-CTLVER.        154000\n    IF W77-ERR-CTLVER = 0                                         155000\n       CHANGE ATTRIBUTE TITLE       OF \"LIB-L012\" TO WKS-NOMLIB   156000\n       MOVE 5                       TO WKS-L009-FUNCION           157000\n       CALL \"FUNCIONL12 IN LIB-L012\" USING  WKS-S151-L009         158000\n                                     GIVING W77-RESULT-LIBCON     159000\n       IF W77-RESULT-LIBCON = 0                                   160000\n          MOVE WKS-L009-FECHA       TO WKS-TAB-FECL012            161000\n          MOVE WKS-L009-ENVIADOS    TO WKS-TAB-ENVL012            162000\n          MOVE WKS-L009-CONFIRMADOS TO WKS-TAB-CONFL012.          163000\n    IF W77-ERR-CTLVER = 0                                         163200\n       CHANGE ATTRIBUTE TITLE       OF \"LIB-L012\" TO WKS-NOMLIB   163300\n       MOVE 1                       TO WKS-L009-FUNCION           163400\n       CALL \"FUNCIONL12 IN LIB-L012\" USING  WKS-S151-L009         163500\n                                     GIVING W77-RESULT-LIBCON.    163600\n    CANCEL \"LIB-L012\".                                            164000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class Librerias500Tasklet implements Tasklet {\n\n    private final EnvioConfirmacionClient l009;    // FUNCIONES IN LIB-L009\n    private final EnvioConfirmacionClient l012;    // FUNCIONL12 IN LIB-L012\n    private final P600Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        l009.consulta(5).ifPresent(r -> ec.put(\"L009\", r));        // fecha, enviados, confirmados\n        l012.consulta(5).ifPresent(r -> ec.put(\"L012\", r));\n        // El fuente llama también FUNCIONL12 con función 1 (líneas 864-868); la misma llamada\n        // a L009 está comentada (841-845). Se deja configurable hasta conocer su efecto.\n        if (props.l012().invocaFuncion1()) {\n            l012.invoca(1);\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Para el sistema 500 el programa consulta con la función 5 la fecha, los registros enviados y los confirmados de las librerías L009 y L012. Después de cada consulta tenía una segunda llamada con función 1: en L009 está comentada y en L012 sigue activa. Como el fuente de L012 no está disponible, la traducción conserva la llamada detrás de una propiedad y lo deja como pendiente.",
+          "reglas": [],
+          "riesgo": "Si la resolución por CTLVERS de L009 o L012 falla, no hay título por defecto y el renglón de esa librería se despliega con el contenido inicial de WKS-FECHA-LIBS, sin mensaje de error."
+        },
+        {
+          "id": "s8",
+          "titulo": "Despliegue por sistema y por librería de envío",
+          "linea_ini": 871,
+          "linea_fin": 896,
+          "origen_codigo": " 000500-DSP-FECHAS.                                               166000\n*==================                                               167000\n    STRING \"S\"   WKS-TAB-SISTEMA(W77-IND2)                        168000\n            \" Linea \"  WKS-TAB-FECCON (W77-IND2)                  169000\n            \" Batch \"  WKS-TAB-FECPRO (W77-IND2)                  170000\n            \" S151 \"   WKS-TAB-FEC151 (W77-IND2)                  171000\n            \" L002 \"    WKS-TAB-FECL002(W77-IND2)                 172000\n            \" REG. \"    WKS-TAB-RECIBIDOS(W77-IND2)               173000\n    DELIMITED BY SIZE                                             174000\n    INTO TEXTO-LJ.                                                175000\n    PERFORM 800000-DISPLAY.                                       176000\n 000500-DSP-LIBRERIAS.                                            177000\n       STRING \"L009\"                                              178000\n               \" FEC \"  WKS-TAB-FECL009                           179000\n               \" ENV \"  WKS-TAB-ENVL009                           180000\n               \" CONF \" WKS-TAB-CONFL009                          181000\n       DELIMITED BY SIZE                                          182000\n       INTO TEXTO-LJ.                                             183000\n       PERFORM 800000-DISPLAY.                                    184000\n       STRING \"L012\"                                              185000\n               \" FEC \"  WKS-TAB-FECL012                           186000\n               \" ENV \"  WKS-TAB-ENVL012                           187000\n               \" CONF \" WKS-TAB-CONFL012                          188000\n       DELIMITED BY SIZE                                          189000\n       INTO TEXTO-LJ.                                             190000\n       PERFORM 800000-DISPLAY.                                    191000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class DespliegueWriter implements ItemWriter<RenglonFechas> {\n\n    private final ConsolaOperador consola;       // LJ IN LIB-DISP\n\n    @Override\n    public void write(Chunk<? extends RenglonFechas> chunk) {\n        for (RenglonFechas r : chunk) {\n            consola.informa(\"S%03d Linea %s Batch %s S151 %s L002 %s REG. %08d\".formatted(\n                    r.sistema(), aaaammdd(r.fechaConsulta()), aaaammdd(r.fechaProceso()),\n                    aaaammdd(r.fechaS151()), aaaammdd(r.fechaLinea()),\n                    Objects.requireNonNullElse(r.recibidos(), 0L)));\n        }\n    }\n\n    /** 000500-DSP-LIBRERIAS se ejecuta una vez, aun cuando no hubo sistema 500. */\n    public void librerias(EnvioConfirmacion l009, EnvioConfirmacion l012) {\n        consola.informa(\"L009 FEC %s ENV %08d CONF %08d\".formatted(l009.fecha(), l009.enviados(), l009.confirmados()));\n        consola.informa(\"L012 FEC %s ENV %08d CONF %08d\".formatted(l012.fecha(), l012.enviados(), l012.confirmados()));\n    }\n\n    private static String aaaammdd(LocalDate f) {\n        return f == null ? \"00000000\" : f.format(DateTimeFormatter.BASIC_ISO_DATE);\n    }\n}",
+          "racional": "El programa arma con <code>STRING</code> un renglón por sistema con las fechas de línea, batch, S151 y L002 y el número de registros, y lo manda al operador por la librería LJ. Después despliega una vez los datos de L009 y L012. En Java la salida es un <code>ItemWriter</code> hacia el mismo canal de consola o hacia un endpoint de consulta, y las fechas se formatean como AAAAMMDD para que el texto coincida con el actual durante la convivencia.",
+          "reglas": [],
+          "riesgo": "Los renglones de L009 y L012 se despliegan aunque no haya sistema 500 activo; en ese caso muestran el contenido inicial de los campos y pueden leerse como que no hubo envíos."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Tabla de sistemas sin control de límite",
+      "detalle": "WKS-TAB-FECHAS tiene 50 posiciones (línea 626) y el índice W77-IND (PIC 9(02)) no se compara contra ese límite en 000310-CALL-L001. Además WKS-TAB-SISTEMA es PIC 9(03) y recibe WKS-B01-SISTEMA de 4 dígitos."
+    },
+    {
+      "titulo": "CONSISDIA sin CSI asignado",
+      "detalle": "El copy exige sistema y CSI para la función 1, pero 000310-CALL-L001 sólo mueve el sistema a WKS-B01-SISTEMA; WKS-B01-CSI nunca se asigna. Las líneas 712-713 llenan WKS-CON-FUNCION y WKS-CON-CSI, que pertenecen a otra estructura no usada en ninguna llamada."
+    },
+    {
+      "titulo": "Parámetro de fecha sin efecto",
+      "detalle": "La fecha recibida por VALUE de la tarea se mueve a WKS-PARAM-FECHA (línea 704) y no se usa en ningún párrafo."
+    },
+    {
+      "titulo": "Llamada activa con función 1 a L012",
+      "detalle": "En 000440-LLAMA-L012 (líneas 864-868) se invoca FUNCIONL12 con función 1 después de la consulta, mientras que la llamada equivalente a L009 está comentada. En un programa de despliegue esa llamada podría tener efectos que no se conocen."
+    },
+    {
+      "titulo": "Valores compilados",
+      "detalle": "CSI 32 tratado como 10, títulos por defecto de L001 y L002, prefijo S151L002R y el sistema 500 como único con L009 y L012 están escritos en el código."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario clasifica P600 como A5 Orquestador; el fuente es un programa de consulta y despliegue que se declara programa ejemplo de llamado a la librería de control. Se tradujo como un job corto de Spring Batch con un decider, pero conviene confirmar el arquetipo.",
+    "Confirmar con qué CSI responde CONSISDIA cuando WKS-B01-CSI no se asigna antes de la llamada (línea 775).",
+    "Confirmar qué hace la función 1 de FUNCIONL12 en la librería L012, cuyo fuente no está disponible.",
+    "Confirmar si la función 5 de CONSISDIA es HABILITA FECHA, como dice el comentario del copy (línea 28), o el control de STAREG que describe RN-S151-1137.",
+    "Las reglas RN-S151-1134 a RN-S151-1138 describen funciones de CONSISDIA que P600 documenta pero no ejecuta; su semántica exacta (por ejemplo los valores de STAREG y STABDSEM) no se puede verificar en este fuente.",
+    "Se asumió que la librería S151L002R{sistema} es la misma REGISTRAS de ALGOL_L002R3; confirmar que todos los sistemas usan esa versión."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1132",
+    "RN-S151-1133",
+    "RN-S151-1134",
+    "RN-S151-1135",
+    "RN-S151-1136",
+    "RN-S151-1137",
+    "RN-S151-1138",
+    "RN-S151-1139"
+  ]
+}

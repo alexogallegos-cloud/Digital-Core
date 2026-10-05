@@ -1,0 +1,153 @@
+{
+  "slug": "S151_P021",
+  "sistema": "S151",
+  "programa": "P021",
+  "nombre": "Cierre de Pasos S500 desde S151",
+  "funcion": "Programa ALGOL de S151 que, como parte del cierre, envía el comando de consola HI a tres pasos en ejecución de S500 (9, 12 y 2), dos veces y con cinco minutos de separación.",
+  "resumen": "Obtiene de la librería de control de versiones CTLVERS el título vigente de S151L001 y lo asigna a la librería. Para cada paso de S500 consulta con B05PROCESOS el número de mix del proceso y, si la consulta es exitosa, arma el comando de consola \"{mix} HI 1\" y lo envía con DCKEYIN. Repite la secuencia 9, 12 y 2 después de una espera fija de 300 segundos. No revisa la respuesta del sistema ni el resultado de cada envío.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.cierre.s500",
+  "secciones": [
+    {
+      "titulo": "Dependencias y estructura del registro de procesos",
+      "origen": {
+        "archivo": "ALGOL_P021.txt",
+        "contexto": "LIBRARY CTLVERS / S151L001 · DEFINE IDFB05* · PROCEDURE VERSIONES"
+      },
+      "java": {
+        "archivo": "ControlProcesosClient.java · ProcesoB05.java",
+        "contexto": "interfaz de servicio · record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Librerías de control de versiones y de procesos",
+          "linea_ini": 6,
+          "linea_fin": 17,
+          "origen_codigo": "PROCEDURE PROGRAM;                                                      00006000\nBEGIN                                                                   00007000\n   LIBRARY CTLVERS(LIBACCESS=BYFUNCTION,FUNCTIONNAME=\"CTLVERS.\");       00009000\n           INTEGER PROCEDURE DAME_TIT(IDENT,TITULO);                    00010000\n                   EBCDIC ARRAY IDENT, TITULO[0];                       00011000\n           LIBRARY CTLVERS;                                             00012000\n   LIBRARY S151L001;                                                    00014000\n           INTEGER PROCEDURE B05PROCESOS(DATOS);                        00015000\n           EBCDIC    ARRAY DATOS[*];                                    00016000\n           LIBRARY   S151L001;                                          00017000",
+          "java_codigo": "/** S151L001.B05PROCESOS: consulta y actualización del registro de procesos B05. */\npublic interface ControlProcesosClient {\n    /** Función 1: consulta el proceso activo de un paso. Vacío si el resultado no es 0. */\n    Optional<ProcesoB05> consultaProceso(int sistema, int paso);\n}\n\n/** CTLVERS.DAME_TIT: resuelve el título vigente de una librería por su identificador. */\npublic interface ControlVersionesClient {\n    Optional<String> titulo(String identificador);\n}",
+          "racional": "P021 está escrito en ALGOL de MCP y depende de dos librerías ligadas por función en tiempo de ejecución: <code>CTLVERS</code>, que resuelve el título vigente de cada librería, y <code>S151L001</code>, que expone <code>B05PROCESOS</code> sobre el registro de procesos del sistema. Ninguna existe fuera de MCP, así que en Java se declaran como interfaces cliente cuya implementación será la API del orquestador destino. El programa no se puede transpilar automáticamente; se reescribe con la misma secuencia.",
+          "reglas": [
+            "RN-S151-181",
+            "RN-S151-185"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Layout del buffer B05 con DEFINE de posiciones",
+          "linea_ini": 28,
+          "linea_fin": 43,
+          "origen_codigo": "   DEFINE                                                               00028000\n%   PARAMETRO PARA MODIFICACION DEL ESTATUS DE PROYECCION DE FECHA      00030000\n    IDFB05FUNCION(A) = INTEGER(A[00]       ,02)   #, % 02               00032000\n    IDFB05SISTEMA(A) = INTEGER(A[02]       ,04)   #, % 04               00033000\n    IDFB05FECPRO (A) = INTEGER(A[06]       ,08)   #, % 08               00034000\n    IDFB05NUMPRO (A) = INTEGER(A[14]       ,04)   #, % 04               00035000\n    IDFB05STAPGMA(A) = INTEGER(A[18]       ,02)   #, % 02               00036000\n    IDFB05MIX    (A) = INTEGER(A[24]       ,08)   #, % 08               00037000\n    IDFB05FECINI (A) = INTEGER(A[32]       ,08)   #, % 08               00038000\n    IDFB05HORAINI(A) = INTEGER(A[40]       ,06)   #, % 06               00039000\n    IDFB05FECFIN (A) = INTEGER(A[46]       ,08)   #, % 08               00040000\n    IDFB05HORAFIN(A) = INTEGER(A[54]       ,06)   #, % 06               00041000\n    IDFB05REGINI (A) = INTEGER(A[60]       ,08)   #, % 08               00042000\n    IDFB05REGFIN (A) = INTEGER(A[68]       ,08)   #, % 08               00043000",
+          "java_codigo": "/** EA_ARR_B05: buffer EBCDIC de 501 posiciones; campos numéricos en display. */\npublic record ProcesoB05(\n        int funcion,        // [00] 2\n        int sistema,        // [02] 4\n        int fechaProceso,   // [06] 8  AAAAMMDD\n        int numProceso,     // [14] 4  paso\n        int statusPrograma, // [18] 2\n        long mix,           // [24] 8  número de mix del proceso en MCP\n        int fechaInicio,    // [32] 8\n        int horaInicio,     // [40] 6\n        int fechaFin,       // [46] 8\n        int horaFin,        // [54] 6\n        long regInicio,     // [60] 8\n        long regFin) {      // [68] 8\n\n    static ProcesoB05 desde(byte[] ebcdic) {\n        String s = new String(ebcdic, Charset.forName(\"IBM037\"));\n        return new ProcesoB05(num(s, 0, 2), num(s, 2, 4), num(s, 6, 8), num(s, 14, 4),\n                num(s, 18, 2), lnum(s, 24, 8), num(s, 32, 8), num(s, 40, 6),\n                num(s, 46, 8), num(s, 54, 6), lnum(s, 60, 8), lnum(s, 68, 8));\n    }\n}",
+          "racional": "Los <code>DEFINE</code> de ALGOL son macros que extraen cada campo del arreglo EBCDIC por posición y longitud. En Java se reúnen en un <code>record</code> con un método de lectura, lo que deja el layout documentado en un solo lugar. Las posiciones 20 a 23 no tienen definición y se ignoran. P021 solo usa el número de mix, pero se modela el registro completo porque es el contrato de <code>B05PROCESOS</code>.",
+          "reglas": [
+            "RN-S151-182"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Resolución del título de S151L001",
+          "linea_ini": 80,
+          "linea_fin": 89,
+          "origen_codigo": "  PROCEDURE VERSIONES;                                                  00080000\n  BEGIN                                                                 00081000\n     REPLACE EA_CTLVER_ID  BY \"S151L001CTL \";                           00082000\n     IF DAME_TIT(EA_CTLVER_ID,EA_CTLVER_NOM) < 0  THEN                  00083000\n     BEGIN                                                              00084000\n        DISPLAY(\"ERROR EN CONTROL DE VERSIONES NO EXISTE LIBRERIA\");    00085000\n     END                                                                00086000\n     ELSE                                                               00087000\n        REPLACE S151L001.TITLE BY EA_CTLVER_NOM FOR 72;                 00088000\n  END;                                                                  00089000",
+          "java_codigo": "/** PROCEDURE VERSIONES. */\nvoid resuelveLibreriaControl() {\n    Optional<String> titulo = versiones.titulo(props.idLibreriaControl());   // \"S151L001CTL\"\n    if (titulo.isEmpty()) {\n        // El fuente solo despliega el error y sigue con el título por omisión de S151L001.\n        log.error(\"ERROR EN CONTROL DE VERSIONES NO EXISTE LIBRERIA\");\n        if (props.abortarSinVersion()) {\n            throw new ControlVersionesException(props.idLibreriaControl());\n        }\n    }\n}",
+          "racional": "Antes de usar <code>S151L001</code>, el programa le pide a CTLVERS su título vigente y lo asigna a la librería. Si CTLVERS responde con error, solo lo despliega y continúa, de modo que se usa el título con el que se compiló el programa. La traducción conserva ese comportamiento por omisión y agrega una propiedad para abortar, decisión que corresponde al SME.",
+          "reglas": [
+            "RN-S151-185"
+          ],
+          "riesgo": "Con error en CTLVERS, P021 sigue trabajando contra una versión de S151L001 que puede no ser la vigente."
+        }
+      ]
+    },
+    {
+      "titulo": "Envío del comando HI a los pasos de S500",
+      "origen": {
+        "archivo": "ALGOL_P021.txt",
+        "contexto": "PROCEDURE APLICA_HI · cuerpo principal"
+      },
+      "java": {
+        "archivo": "CierreS500Tasklet.java · ConsolaMcpClient.java",
+        "contexto": "Tasklet · RetryTemplate"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Consulta del mix del proceso en B05",
+          "linea_ini": 59,
+          "linea_fin": 69,
+          "origen_codigo": "  PROCEDURE APLICA_HI;                                                  00059000\n  BEGIN                                                                 00060000\n     REPLACE EA_ARR_B05   BY 48\"00\" FOR SIZE(EA_ARR_B05);               00061000\n     REPLACE DFB05FUNCION(EA_ARR_B05) BY       1 FOR 2 DIGITS,          00062000\n                                      I_SISTEMA  FOR 4 DIGITS,          00063000\n                                      0          FOR 8 DIGITS,          00064000\n                                      I_PASO     FOR 4 DIGITS;          00065000\n     I_RESULT  := B05PROCESOS(EA_ARR_B05);                              00066000\n     IF I_RESULT = 0 THEN                                               00067000\n     BEGIN                                                              00068000\n        I_MEZCLA  := IDFB05MIX(EA_ARR_B05)  ;                           00069000",
+          "java_codigo": "/** APLICA_HI, primera parte: función 1, sistema, fecha 0 y paso. */\nprivate Optional<Long> mixDelPaso(int sistema, int paso) {\n    Optional<ProcesoB05> p = control.consultaProceso(sistema, paso);   // B05PROCESOS(EA_ARR_B05)\n    if (p.isEmpty()) {\n        log.warn(\"Paso {} de S{} sin proceso activo en B05: no se envía HI\", paso, sistema);\n    }\n    return p.map(ProcesoB05::mix);                                      // IDFB05MIX\n}",
+          "racional": "El buffer se limpia con ceros binarios y se llenan, en posiciones consecutivas, la función 1, el sistema, una fecha en cero y el paso. Si <code>B05PROCESOS</code> devuelve 0 se toma el número de mix del proceso. Cualquier otro resultado se ignora sin mensaje; en Java se deja una advertencia en bitácora para que la omisión sea visible.",
+          "reglas": [
+            "RN-S151-182",
+            "RN-S151-184"
+          ],
+          "riesgo": "Si el paso no está en B05 o la consulta falla, no se envía nada y no queda rastro; el cierre continúa como si el paso hubiera recibido la señal."
+        },
+        {
+          "id": "s5",
+          "titulo": "Armado del comando y envío por DCKEYIN",
+          "linea_ini": 70,
+          "linea_fin": 77,
+          "origen_codigo": "        REPLACE A_COMANDO   BY \" \"               FOR 201 WORDS;         00070000\n        REPLACE A_RESPUESTA BY \" \"               FOR 201 WORDS;         00071000\n        REPLACE A_COMANDO BY I_MEZCLA            FOR 4 DIGITS ,         00072000\n                             \"HI \"                            ,         00073000\n                             I_NUM_HI            FOR 4 DIGITS ,         00074000\n                             48\"00\"                           ;         00075000\n        DCKEYIN(POINTER(A_COMANDO),A_RESPUESTA);                        00076000\n     END;                                                               00077000",
+          "java_codigo": "/** APLICA_HI, segunda parte: \"{mix} HI {n}\" por la consola del sistema. */\nprivate void enviaHi(long mix, int valor) {\n    if (mix > 9999) {\n        // REPLACE ... I_MEZCLA FOR 4 DIGITS conserva solo los cuatro dígitos de menor orden\n        throw new MixFueraDeRangoException(mix);\n    }\n    String comando = \"%04d HI %04d\".formatted(mix, valor);\n    RespuestaConsola r = consola.ejecuta(comando);   // DCKEYIN(POINTER(A_COMANDO), A_RESPUESTA)\n    log.info(\"{} -> {}\", comando, r.texto());        // el fuente no lee A_RESPUESTA\n}",
+          "racional": "El comando se arma como texto: número de mix, la palabra HI y el valor 1, y se envía como si lo tecleara el operador con <code>DCKEYIN</code>. HI provoca el evento de excepción de la tarea destino con ese valor; lo que haga cada paso depende de su manejador de interrupción, como el de P060, que lee <code>TASKVALUE</code>. En el destino la consola de MCP no existe, así que <code>ConsolaMcpClient</code> se sustituye por la señal de paro del orquestador sobre el job o servicio correspondiente. La respuesta de la consola se registra en lugar de descartarse.",
+          "reglas": [
+            "RN-S151-182"
+          ],
+          "riesgo": "El mix se escribe con FOR 4 DIGITS aunque el campo B05 tiene 8 posiciones: un número de mix mayor que 9999 se truncaría y el HI llegaría a otra tarea o a ninguna."
+        },
+        {
+          "id": "s6",
+          "titulo": "Secuencia doble con espera fija de 300 segundos",
+          "linea_ini": 90,
+          "linea_fin": 98,
+          "origen_codigo": "  VERSIONES  ;                                                          00090000\n  I_SISTEMA := 500;                                                     00091000\n  I_PASO :=  9; I_NUM_HI := 1 ; APLICA_HI  ;                            00092000\n  I_PASO := 12; I_NUM_HI := 1 ; APLICA_HI  ;                            00094000\n  I_PASO :=  2; I_NUM_HI := 1 ; APLICA_HI  ;                            00095000\n  WAIT((300));                                                          00096000\n  I_PASO :=  9; I_NUM_HI := 1 ; APLICA_HI  ;                            00097000\n  I_PASO := 12; I_NUM_HI := 1 ; APLICA_HI  ;                            00099000\n  I_PASO :=  2; I_NUM_HI := 1 ; APLICA_HI  ;                            00100000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CierreS500Tasklet implements Tasklet {\n\n    private final P021Properties props;     // sistema 500, pasos [9, 12, 2], espera PT300S\n\n    @Override\n    public RepeatStatus execute(StepContribution sc, ChunkContext cc) throws InterruptedException {\n        resuelveLibreriaControl();                          // VERSIONES\n        for (int ronda = 1; ronda <= 2; ronda++) {\n            for (int paso : props.pasos()) {                // orden fijo: 9, 12, 2\n                mixDelPaso(props.sistema(), paso).ifPresent(mix -> enviaHi(mix, 1));\n            }\n            if (ronda == 1) {\n                Thread.sleep(props.espera().toMillis());    // WAIT((300)): sin verificar respuesta\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}\n\n# application.yml\np021:\n  sistema: 500\n  pasos: [9, 12, 2]\n  espera: PT300S",
+          "racional": "El cuerpo principal fija el sistema 500 y envía HI a los pasos 9, 12 y 2, espera 300 segundos y repite la misma secuencia. No hay ninguna verificación entre las dos rondas: la segunda se envía aunque los pasos ya hayan terminado o aunque la primera haya fallado. La traducción es un <code>Tasklet</code> con el mismo orden y la espera como propiedad. Una versión mejorada consultaría el estado de cada paso en lugar de esperar un tiempo fijo, pero eso cambia el comportamiento y debe aprobarlo el SME.",
+          "reglas": [
+            "RN-S151-182",
+            "RN-S151-183",
+            "RN-S151-184"
+          ],
+          "riesgo": "La espera de cinco minutos está fija en el código; si un paso tarda más en atender el primer HI, el segundo puede llegar en un estado intermedio."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Número de mix truncado a cuatro dígitos",
+      "detalle": "En APLICA_HI el mix se escribe FOR 4 DIGITS (línea 72) aunque IDFB05MIX ocupa 8 posiciones. Con un mix mayor que 9999 el comando HI se dirige a un número equivocado."
+    },
+    {
+      "titulo": "Fallas sin rastro",
+      "detalle": "Un resultado distinto de 0 en B05PROCESOS omite el envío sin mensaje, y la respuesta de DCKEYIN (A_RESPUESTA) nunca se revisa."
+    },
+    {
+      "titulo": "Versión de librería no garantizada",
+      "detalle": "Si CTLVERS no encuentra S151L001CTL, el programa solo despliega un mensaje y continúa con el título por omisión de S151L001."
+    },
+    {
+      "titulo": "Espera fija y segunda ronda incondicional",
+      "detalle": "El WAIT((300)) y la repetición de los tres HI no dependen de ningún estado de S500; son una suposición de tiempos codificada en el programa."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-182 describe HI como Halt/Initialize. En MCP el comando HI provoca el EXCEPTIONEVENT de la tarea con un TASKVALUE; el efecto real depende del manejador de interrupción de cada paso. Confirmar con el SME qué hacen los pasos 9, 12 y 2 al recibir HI 1.",
+    "Identificar qué programas de S500 corresponden a los pasos 9, 12 y 2 en el registro B05 para mapearlos a los jobs o servicios destino.",
+    "Confirmar el rango real de números de mix en producción para dimensionar el riesgo de truncamiento a cuatro dígitos.",
+    "La consola de MCP no existe en el destino; definir con arquitectura el mecanismo de señal que sustituye a DCKEYIN."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-181",
+    "RN-S151-182",
+    "RN-S151-183",
+    "RN-S151-184",
+    "RN-S151-185"
+  ]
+}

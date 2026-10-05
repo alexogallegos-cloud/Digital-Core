@@ -1,0 +1,228 @@
+{
+  "slug": "S500_P101",
+  "sistema": "S500",
+  "programa": "P101",
+  "nombre": "Control de Ejecución del WFL/LOTE (reinicio, rollback y pasos ya corridos)",
+  "funcion": "Programa utilitario que el WFL/LOTE de S500 ejecuta antes y después de cada paso, con un parámetro de 31 posiciones, para registrar el avance en el archivo CTRLWFL, decidir reinicios con o sin rollback, marcar pasos ya corridos e inyectar un proceso especial.",
+  "resumen": "Recibe opción, fecha batch, CSI, job y nombre de paso, valida el parámetro y actúa según la opción: crea el archivo de control al iniciar el WFL (1), marca inicio de paso actualizador con un punto de sincronía en S500BD01CAPTACION (2), cierra el paso y genera el archivo que evita repetirlo (3 y 8), evalúa si hay que reiniciar y con qué datos de rollback (4), cierra el WFL (5), aborta por incidente (6) o lee el archivo ESPECIALENLOTED para devolver un paso adicional (7). El resultado regresa al WFL en TASKSTRING con un código de reinicio, uno de rollback y un texto de 27 posiciones.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.lote.control",
+  "secciones": [
+    {
+      "titulo": "Contrato con el WFL — parámetro de 31 posiciones y respuesta",
+      "origen": {
+        "archivo": "S500_SOURCE_P101.txt",
+        "contexto": "WORKING-STORAGE · PROCEDURE DIVISION USING W77-PARAM-WFL"
+      },
+      "java": {
+        "archivo": "ParametroWfl.java · RespuestaWfl.java · ControlWflRunner.java",
+        "contexto": "record · validación · CommandLineRunner"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro de entrada y respuesta a records con validación",
+          "linea_ini": 345,
+          "linea_fin": 407,
+          "origen_codigo": " 77  W77-PARAM-WFL           PIC X(31) RECEIVED BY CONTENT.\n** PARAM ENTE LONGITUD 31 BYTES\n 01 WKS-PARAM-ENT.\n*************************************************************\n* VALORES DEL CAMPO WKS-WFL-P-OPCION                        *\n*      1 = INICIO WFL                                       *\n*      2 = INICIO PASO REQ ROLLBACK   (ACTUALIZA BASE)      *\n*      3 = FIN    PASO ROLLBACK Y GEN ARCH/CTRL             *\n*      4 = VALIDA REINICIO WFL                              *\n*      5 = FIN    WFL                                       *\n*      6 = TRUENE POR INCIDENTE DE PASO BATCH               *\n*      7 = LEE    ARCHIVO PARA PROCESO ESPECIAL             *\n*      8 = FIN    PASO SIN ROLLBACK GEN ARCH/CTRL           *\n*                                                           *\n*************************************************************\n    02 WKS-WFL-P-OPCION      PIC 9.\n    88 W88-WFL-P-OPCION-OK   VALUE 1 THRU 7, 8.\n    02 WKS-WFL-P-FECJOB      PIC 9(08).\n    02 WKS-WFL-P-NUMCSI      PIC 9(02).\n    88 W88-WFL-P-NUMCSI-OK   VALUE 04, 10.\n    02 WKS-WFL-P-NUMJOB      PIC 9(05).\n    88 W88-WFL-P-NUMJOB-OK   VALUE 00001 THRU 99999.\n    02 WKS-WFL-P-NUMPASO     PIC X(15).\n***********************************************************\n 01 WKS-PARAM-SAL.\n    02 WKS-SAL-P-OPC-REINI       PIC 9(01).\n    02 FILLER                    PIC X         VALUE \" \".\n    02 WKS-SAL-P-OPC-ROLL        PIC 9(01).\n    02 FILLER                    PIC X         VALUE \" \".\n    02 WKS-SAL-P-PARAMROLLB      PIC X(27).",
+          "java_codigo": "/** W77-PARAM-WFL X(31): opción 9 + fecha 9(08) + CSI 9(02) + job 9(05) + paso X(15). */\npublic record ParametroWfl(Opcion opcion, LocalDate fechaBatch, int csi, int job, String paso) {\n\n    public enum Opcion {\n        INICIO_WFL(1), INICIO_PASO(2), FIN_PASO(3), VALIDA_REINICIO(4), FIN_WFL(5),\n        INCIDENTE(6), PROCESO_ESPECIAL(7), FIN_PASO_SIN_ROLLBACK(8);\n        final int codigo;\n        Opcion(int c) { codigo = c; }\n    }\n\n    static ParametroWfl parse(String p) {                     // (\"2200501150499999S500P130CORTCOM\")\n        if (p == null || p.length() != 31) throw new ParametroErroneoException(p);\n        return new ParametroWfl(Opcion.values()[Character.digit(p.charAt(0), 10) - 1],\n                LocalDate.parse(p.substring(1, 9), DateTimeFormatter.BASIC_ISO_DATE),\n                Integer.parseInt(p.substring(9, 11)),\n                Integer.parseInt(p.substring(11, 16)),\n                p.substring(16, 31));\n    }\n}\n\n/** WKS-PARAM-SAL: \"R B TEXTO-27\"; se devuelve en TASKSTRING. */\npublic record RespuestaWfl(int opcReinicio, int opcRollback, String datos) {\n    static RespuestaWfl ok()                 { return new RespuestaWfl(0, 0, \"OK\"); }\n    static RespuestaWfl error(int c, String t) { return new RespuestaWfl(c, c, t); }\n    String toTaskString() { return \"%d %d %-27.27s\".formatted(opcReinicio, opcRollback, datos); }\n}",
+          "racional": "El parámetro es posicional y de longitud fija; se modela como <code>record</code> con un método de lectura que falla si la longitud no es 31. La respuesta usa el mismo código para reinicio y rollback en todos los errores (5, 7, 8 y 9), con un texto que identifica la causa; se conserva tal cual porque el WFL/LOTE lo interpreta. El ejemplo de la línea 95 del fuente se deja como comentario de referencia.",
+          "reglas": [
+            "RN-S500-658",
+            "RN-S500-661"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Validación integral del parámetro",
+          "linea_ini": 865,
+          "linea_fin": 907,
+          "origen_codigo": " 1000200-VALIDA-PARAM.\n     MOVE ZERO TO W77-ERR-PARAM.\n     MOVE W77-PARAM-WFL        TO WKS-PARAM-ENT.\n     MOVE WKS-WFL-P-FECJOB     TO WKS-PARAM-FECHA.\n     IF W88-WFL-P-OPCION-OK\n    AND W88-PARAM-AA-OK\n    AND W88-PARAM-MM-OK\n    AND W88-PARAM-DD-OK\n    AND W88-WFL-P-NUMCSI-OK\n    AND W88-WFL-P-NUMJOB-OK\n    AND WKS-WFL-P-NUMPASO NOT = \" \"\n        NEXT SENTENCE\n     ELSE\n        MOVE 1                    TO W77-ERR-PARAM\n        MOVE \"PARAMETRO ERRONEO \" TO TEXTO-LJ\n        PERFORM 70000050-MENSAJE.\n     STRING \"PARAMETRO RECIBIDO <\", WKS-PARAM-ENT \">\"\n            DELIMITED BY SIZE INTO TEXTO-LJ\n     PERFORM 70000050-MENSAJE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ValidadorParametro {\n\n    private final ControlWflProperties props;   // csi-validos: [4, 10] · anio-minimo: 2004 · anio-maximo: 2099\n\n    /** 1000200-VALIDA-PARAM: todas las condiciones a la vez; un solo mensaje si alguna falla. */\n    Optional<ParametroWfl> valida(String crudo) {\n        try {\n            ParametroWfl p = ParametroWfl.parse(crudo);\n            boolean ok = props.anioValido(p.fechaBatch().getYear())\n                    && props.csiValidos().contains(p.csi())\n                    && p.job() >= 1 && p.job() <= 99_999\n                    && !p.paso().isBlank();\n            if (!ok) throw new ParametroErroneoException(crudo);\n            return Optional.of(p);\n        } catch (DateTimeParseException | ParametroErroneoException | ArrayIndexOutOfBoundsException e) {\n            lj.error(\"PARAMETRO ERRONEO \");\n            return Optional.empty();\n        } finally {\n            lj.info(\"PARAMETRO RECIBIDO <\" + crudo + \">\");\n        }\n    }\n}",
+          "racional": "La validación combina los niveles 88 del parámetro: opción de 1 a 8, año 2004 a 2099, mes 01 a 12, día 01 a 31, CSI 04 o 10, job de 1 a 99999 y paso no vacío. En Java, <code>LocalDate.parse</code> ya rechaza fechas imposibles como el 31 de febrero, que el COBOL acepta porque valida día y mes por separado. Los rangos de año y la lista de CSI pasan a propiedades. El parámetro recibido se reporta siempre a LJ, sea válido o no.",
+          "reglas": [
+            "RN-S500-661"
+          ],
+          "riesgo": "El fuente acepta fechas como 20260231 porque valida el día contra 01-31 sin considerar el mes. Además el nivel 88 de opción dice VALUE 1 THRU 7, 8, que equivale a 1 THRU 8."
+        },
+        {
+          "id": "s3",
+          "titulo": "Rutina de control y salida por TASKSTRING",
+          "linea_ini": 757,
+          "linea_fin": 795,
+          "origen_codigo": " 0000000-CTRLPGM.\n     MOVE \"S500P101\"   TO W77-S000-MY-ID.\n     MOVE \"25MTP003\"   TO W77-S000-MY-VERSION.\n     MOVE \"P101\"       TO B91-IDPROG.\n     PERFORM 1000000-INICIO.\n**   PERFORM 1000100-VERSIONES.\n     PERFORM 1000200-VALIDA-PARAM.\n     PERFORM 5000000-PRINCIPAL.\n     IF WKS-WFL-P-OPCION = 7\n        IF W77-ERR-PARAM = 1\n           SET MYSELF (TASKSTRING) TO WKS-PARAM-SAL\n        ELSE\n           SET MYSELF (TASKSTRING) TO WKS-PARAM-SAL-ESP\n     ELSE\n        SET MYSELF (TASKSTRING) TO WKS-PARAM-SAL.\n     STOP RUN.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ControlWflRunner implements ApplicationRunner {\n\n    private final ValidadorParametro validador;\n    private final ControlWflService control;\n\n    /** 0000000-CTRLPGM: valida, despacha y devuelve la respuesta al orquestador. */\n    @Override\n    public void run(ApplicationArguments args) {\n        String crudo = args.getNonOptionArgs().get(0);\n        Respuesta r = validador.valida(crudo)\n                .map(control::despacha)\n                .orElse(Respuesta.de(RespuestaWfl.error(5, \"ERRPARAM\")));\n        // La opción 7 devuelve WKS-PARAM-SAL-ESP salvo error de parámetro.\n        System.out.println(r.taskString());      // TASKSTRING -> salida estándar o ExitStatus del step\n    }\n}\n// 1000100-VERSIONES (CHECAME IN CTLVERS) está comentado en la línea 771: no se verifica versión.",
+          "racional": "El programa no tiene ciclo: valida, ejecuta una sola acción y devuelve el resultado en el atributo <code>TASKSTRING</code> de la tarea, que el WFL lee para decidir. En la coexistencia con el mainframe esa interfaz se puede conservar como un ejecutable que imprime la respuesta; en el destino final la decisión la toma Spring Batch, como se describe en la siguiente sección. La verificación de versión con CTLVERS está desactivada en el fuente.",
+          "reglas": [
+            "RN-S500-658"
+          ],
+          "riesgo": "La llamada a 1000100-VERSIONES está comentada (línea 771): una versión equivocada de P101 corre sin aviso."
+        }
+      ]
+    },
+    {
+      "titulo": "Estado del lote — archivo CTRLWFL y máquina de estados",
+      "origen": {
+        "archivo": "S500_SOURCE_P101.txt",
+        "contexto": "FD I99-CTRLWFL · 5002000 / 5003000 / 5003200 / 5003210"
+      },
+      "java": {
+        "archivo": "ControlWflService.java · ControlWflDecider.java",
+        "contexto": "JobRepository · JobExecutionDecider · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Registro de control de un solo renglón a entidad de estado",
+          "linea_ini": 189,
+          "linea_fin": 231,
+          "origen_codigo": " FD I99-CTRLWFL\n    BLOCK   CONTAINS     2 RECORDS\n    RECORD  CONTAINS   180 CHARACTERS\n    VALUE OF\n             AREAS         IS 1\n             AREASIZE      IS 2\n             SECURITYTYPE  IS PUBLIC\n             TITLE         IS WKS-I99-TITLE.\n 01 I99-REGCTRL.\n    02 FD-I99-WFL-FECPROC        PIC 9(08).\n    02 FD-I99-WFL-NUMCSI         PIC 9(02).\n    02 FD-I99-WFL-NUMJOB         PIC 9(05).\n    02 FD-I99-WFL-STATUS         PIC 9(01).\n    02 FD-I99-DATOS-PASO.\n       04 FD-I99-PASO-NUMJOB     PIC 9(05).\n       04 FD-I99-PASO-NUMMIX     PIC 9(05).\n       04 FD-I99-PASO-FECINI     PIC 9(08).\n       04 FD-I99-PASO-HORAINI    PIC 9(06).\n       04 FD-I99-PASO-STATUS     PIC 9(01).\n       04 FD-I99-PASO-ROLLBACK   PIC 9(01).\n       04 FD-I99-PASO-NUMPASO    PIC X(15).",
+          "java_codigo": "/** I99-REGCTRL: estado del WFL y del último paso actualizador (180 posiciones, 57 usadas). */\n@Entity\n@Table(name = \"s500_ctrl_wfl\")\n@IdClass(CtrlWflId.class)\npublic class CtrlWfl {\n    @Id LocalDate fechaProceso;         // FD-I99-WFL-FECPROC 9(08)\n    @Id int numCsi;                     // FD-I99-WFL-NUMCSI\n    int numJob;\n    int wflStatus;                      // 1 en curso, 2 terminado\n\n    // FD-I99-DATOS-PASO: solo se guarda el paso más reciente\n    int pasoJob, pasoMix;\n    LocalDateTime pasoInicio;           // FECINI 9(08) + HORAINI 9(06)\n    int pasoStatus;                     // 0 sin iniciar, 1 en curso, 2 terminado\n    boolean pasoRequiereRollback;       // FD-I99-PASO-ROLLBACK\n    String pasoNombre;                  // X(15)\n}\n// En el destino final este estado lo lleva el JobRepository de Spring Batch\n// (BATCH_JOB_EXECUTION / BATCH_STEP_EXECUTION) y la tabla solo se usa en coexistencia.",
+          "racional": "El archivo CTRLWFL, nombrado por CSI y fecha (<code>S500/FILE/CTRLWFL/XX/AAAAMMDD/CTRLS500WFLLOTE</code>), guarda en un solo registro el estado del WFL y del paso actualizador en curso. En Java se modela como una entidad con llave fecha más CSI. Spring Batch ya mantiene este mismo estado por cada ejecución y cada paso, así que la entidad solo es necesaria mientras convivan el WFL y la plataforma nueva.",
+          "reglas": [
+            "RN-S500-659"
+          ],
+          "riesgo": "Solo se conserva el último paso: si un paso actualizador arranca sin que el anterior haya terminado, el programa lo rechaza con HAYPASOSINFIN, pero no queda historial de pasos anteriores."
+        },
+        {
+          "id": "s5",
+          "titulo": "Despacho por opción y existencia del archivo de control",
+          "linea_ini": 933,
+          "linea_fin": 1051,
+          "origen_codigo": " 5002000-BUSCA-PROCESO.\n     MOVE WKS-WFL-P-NUMCSI       TO WKS-TIT-ARCH-CSI.\n     MOVE WKS-WFL-P-FECJOB       TO WKS-TIT-ARCH-FEC.\n     IF WKS-WFL-P-OPCION = 1\n        PERFORM 5002200-INICIO-WFL\n     ELSE\n     IF WKS-WFL-P-OPCION = 6\n        PERFORM 80000090-FALLA-PASO\n     ELSE\n     IF WKS-WFL-P-OPCION = 7\n        PERFORM 80000200-PROESO-ESPE\n     ELSE\n        PERFORM 5003000-QUE-PROCESO.\n 5003000-QUE-PROCESO.\n     SET I99-CTRLWFL (TITLE)  TO WKS-I99-TITLE.\n     IF ATTRIBUTE RESIDENT OF I99-CTRLWFL = VALUE TRUE\n        IF WKS-WFL-P-OPCION = 2\n           PERFORM 5003200-INICIO-PASO\n        ELSE\n        IF WKS-WFL-P-OPCION = 3\n           PERFORM 5003400-FIN-PASO\n        ELSE\n        IF WKS-WFL-P-OPCION = 4\n           PERFORM 5005000-VAL-REINICIO\n        ELSE\n        IF WKS-WFL-P-OPCION = 5\n           PERFORM 5009000-FIN-WFL\n        ELSE\n           PERFORM 5004000-VALGEN-ARCH-PASO\n     ELSE\n     IF WKS-WFL-P-OPCION = 4\n        PERFORM 5005500-SIN-REINICIO\n     ELSE\n        MOVE 7                      TO WKS-SAL-P-OPC-REINI\n        MOVE 7                      TO WKS-SAL-P-OPC-ROLL\n        MOVE \"NOHAYARCHIVO\"         TO WKS-SAL-P-PARAMROLLB.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ControlWflService {\n\n    private final CtrlWflRepository repo;\n    private final PuntoSincroniaService sincronia;   // 5003210-ACCESA-BASE\n    private final MarcaPasoService marcas;           // archivo ESTE PASO YA CORRIO HOY\n    private final ProcesoEspecialService especial;   // ESPECIALENLOTED\n\n    @Transactional\n    public Respuesta despacha(ParametroWfl p) {\n        switch (p.opcion()) {                          // 5002000-BUSCA-PROCESO\n            case INICIO_WFL:       return Respuesta.de(iniciaWfl(p));\n            case INCIDENTE:        throw new IncidentePasoException(p.paso());   // STATUS -1: DS del paso\n            case PROCESO_ESPECIAL: return especial.lee(p);\n            default:               break;\n        }\n        Optional<CtrlWfl> ctrl = repo.findById(new CtrlWflId(p.fechaBatch(), p.csi()));\n        if (ctrl.isEmpty()) {                          // ATTRIBUTE RESIDENT = FALSE\n            return Respuesta.de(p.opcion() == Opcion.VALIDA_REINICIO\n                    ? new RespuestaWfl(1, 1, \"SINREINICIO\")\n                    : RespuestaWfl.error(7, \"NOHAYARCHIVO\"));\n        }\n        return Respuesta.de(switch (p.opcion()) {      // 5003000-QUE-PROCESO\n            case INICIO_PASO     -> iniciaPaso(ctrl.get(), p);\n            case FIN_PASO        -> finPaso(ctrl.get(), p);\n            case VALIDA_REINICIO -> validaReinicio(ctrl.get());\n            case FIN_WFL         -> finWfl(ctrl.get());\n            default              -> marcas.genera(ctrl.get(), p);  // opción 8: 5004000-VALGEN-ARCH-PASO\n        });\n    }\n}",
+          "racional": "Las opciones 1, 6 y 7 no requieren el archivo de control; las demás primero verifican que el archivo exista con el atributo <code>RESIDENT</code>. Sin archivo, la validación de reinicio responde que no hay reinicio y cualquier otra opción devuelve el error 7. El extracto une los dos párrafos de despacho. La opción 8 llega a la rama final del IF anidado y solo genera la marca del paso, sin tocar el estado de rollback.",
+          "reglas": [
+            "RN-S500-658"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Inicio de paso actualizador con marca de rollback",
+          "linea_ini": 1057,
+          "linea_fin": 1113,
+          "origen_codigo": " 5003200-INICIO-PASO.\n     OPEN I-O I99-CTRLWFL.\n     PERFORM 6001000-LEE-ARCHIVO.\n     IF FD-I99-WFL-STATUS = 1\n        IF FD-I99-PASO-STATUS = 0 OR 2\n           MOVE 1                      TO FD-I99-PASO-STATUS\n           MOVE 1                      TO FD-I99-PASO-ROLLBACK\n           MOVE WKS-NUMMIX-PASO        TO FD-I99-PASO-NUMMIX\n           MOVE WKS-NUMJOB-PASO        TO FD-I99-PASO-NUMJOB\n           MOVE WKS-FECHA-MAQ-AMD      TO FD-I99-PASO-FECINI\n           MOVE WS-HRAMAQ-HHMMSS       TO FD-I99-PASO-HORAINI\n           MOVE WKS-WFL-P-NUMPASO      TO FD-I99-PASO-NUMPASO\n           PERFORM 6002000-ESCRIBE-ARCHIVO\n           MOVE 0                      TO WKS-SAL-P-OPC-REINI\n           MOVE 0                      TO WKS-SAL-P-OPC-ROLL\n           MOVE \"OK\"                   TO WKS-SAL-P-PARAMROLLB\n           PERFORM 5003210-ACCESA-BASE\n        ELSE\n           MOVE 8                      TO WKS-SAL-P-OPC-REINI\n           MOVE 8                      TO WKS-SAL-P-OPC-ROLL\n           MOVE \"HAYPASOSINFIN\"        TO WKS-SAL-P-PARAMROLLB\n     ELSE\n        MOVE 9                         TO WKS-SAL-P-OPC-REINI\n        MOVE 9                         TO WKS-SAL-P-OPC-ROLL\n        MOVE \"NOINICIOWFL\"             TO WKS-SAL-P-PARAMROLLB.\n     CLOSE I99-CTRLWFL WITH SAVE.",
+          "java_codigo": "    /** 5003200-INICIO-PASO: el paso solo arranca si el WFL está en curso y no hay otro paso abierto. */\n    RespuestaWfl iniciaPaso(CtrlWfl c, ParametroWfl p) {\n        if (c.wflStatus != 1) return RespuestaWfl.error(9, \"NOINICIOWFL\");\n        if (c.pasoStatus != 0 && c.pasoStatus != 2) return RespuestaWfl.error(8, \"HAYPASOSINFIN\");\n        c.pasoStatus = 1;\n        c.pasoRequiereRollback = true;\n        c.pasoJob = proceso.jobNumber();             // ATTRIBUTE JOBNUMBER OF MYJOB\n        c.pasoMix = proceso.mixNumber();             // ATTRIBUTE MIXNUMBER OF MYSELF\n        c.pasoInicio = LocalDateTime.now(clock);\n        c.pasoNombre = p.paso();\n        repo.save(c);\n        sincronia.marca();                           // punto de rollback en la base\n        return RespuestaWfl.ok();\n    }",
+          "racional": "Antes de que corra un paso que actualiza la base se guarda quién lo corre (job y mix), cuándo empezó y que requiere rollback si se interrumpe. Los valores 8 y 9 de la respuesta le dicen al WFL que hay un paso abierto o que el WFL no se inició. En Java el job y el mix del MCP se sustituyen por el identificador de ejecución de Spring Batch o del orquestador.",
+          "reglas": [
+            "RN-S500-659",
+            "RN-S500-660"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Punto de sincronía en DMSII con errores que nadie revisa",
+          "linea_ini": 1119,
+          "linea_fin": 1161,
+          "origen_codigo": " 5003210-ACCESA-BASE.\n     OPEN UPDATE S500BD01CAPTACION.\n***  LOCK FIRST S500B02CONTROL\n***       ON EXCEPTION\n***          MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n***\n     BEGIN-TRANSACTION NO-AUDIT S500B91REINICIO\n           ON EXCEPTION\n              MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n***  STORE S500B02CONTROL\n***        ON EXCEPTION\n***           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n     END-TRANSACTION AUDIT S500B91REINICIO SYNC\n         ON EXCEPTION\n            MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n     CLOSE S500BD01CAPTACION.\n     CHANGE ATTRIBUTE MAXCARDS OF MYSELF TO W77-SET-MAXCARDS.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass PuntoSincroniaService {\n\n    private final JdbcTemplate jdbc;\n\n    /**\n     * 5003210-ACCESA-BASE: BEGIN/END-TRANSACTION vacíos sobre S500B91REINICIO con AUDIT SYNC.\n     * En DMSII eso fuerza un punto de auditoría desde el que se puede recuperar la base.\n     * En una base relacional el equivalente es un punto de restauración o una marca en la bitácora.\n     */\n    void marca() {\n        try {\n            jdbc.update(\"INSERT INTO s500_reinicio (id_prog, marca) VALUES ('P101', CURRENT_TIMESTAMP)\");\n        } catch (DataAccessException e) {\n            // El COBOL guarda DMSTATUS en WS-STATUS-BASE y nunca lo evalúa; aquí se falla.\n            throw new PuntoSincroniaException(\"No se pudo marcar el punto de rollback\", e);\n        }\n    }\n}",
+          "racional": "El párrafo abre la base, ejecuta una transacción sin contenido y la cierra con <code>AUDIT SYNC</code> para fijar un punto de auditoría; el bloqueo y almacenamiento de S500B02CONTROL que iba dentro está comentado. El catálogo de estatus DMSII de las líneas 579 a 625 da nombre a cada categoría de error, pero ningún párrafo consulta <code>WS-STATUS-BASE</code>. La traducción falla de forma explícita si no puede marcar el punto, porque un paso actualizador sin punto de rollback no es recuperable.",
+          "reglas": [
+            "RN-S500-660",
+            "RN-S500-664"
+          ],
+          "riesgo": "OPEN UPDATE no tiene ON EXCEPTION y el estatus de BEGIN-TRANSACTION y END-TRANSACTION se guarda pero no se evalúa: el WFL recibe OK aunque el punto de sincronía no se haya establecido."
+        }
+      ]
+    },
+    {
+      "titulo": "Reinicio, marca de paso corrido y proceso especial",
+      "origen": {
+        "archivo": "S500_SOURCE_P101.txt",
+        "contexto": "5005000 / 5004500 / 80000202"
+      },
+      "java": {
+        "archivo": "ControlWflDecider.java · MarcaPasoService.java · ProcesoEspecialService.java",
+        "contexto": "JobExecutionDecider · Flow dinámico"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Validación de reinicio a JobExecutionDecider",
+          "linea_ini": 1307,
+          "linea_fin": 1377,
+          "origen_codigo": " 5005000-VAL-REINICIO.\n     OPEN INPUT I99-CTRLWFL.\n     PERFORM 6001000-LEE-ARCHIVO.\n     IF FD-I99-WFL-STATUS = 1\n        IF FD-I99-PASO-STATUS = 1\n           PERFORM 5005400-CON-ROLLBACK\n        ELSE\n           PERFORM 5005300-SIN-ROLLBACK\n     ELSE\n        PERFORM 5005500-SIN-REINICIO.\n     CLOSE I99-CTRLWFL  WITH SAVE.\n****************************************************************\n 5005300-SIN-ROLLBACK.\n     MOVE 1              TO WKS-SAL-P-OPC-ROLL.\n     MOVE 2              TO WKS-SAL-P-OPC-REINI.\n     MOVE \"CONREINICIO\"  TO WKS-SAL-P-PARAMROLLB.\n****************************************************************\n 5005400-CON-ROLLBACK.\n     MOVE 2            TO WKS-SAL-P-OPC-ROLL.\n     MOVE 2            TO WKS-SAL-P-OPC-REINI.\n     STRING FD-I99-PASO-NUMJOB, \" \", FD-I99-PASO-NUMMIX, \" \",\n            FD-I99-PASO-FECINI, \" \", FD-I99-PASO-HORAINI\n            DELIMITED BY SIZE INTO WKS-SAL-P-PARAMROLLB.\n****************************************************************\n 5005500-SIN-REINICIO.\n     MOVE 1              TO WKS-SAL-P-OPC-ROLL.\n     MOVE 1              TO WKS-SAL-P-OPC-REINI.\n     MOVE \"SINREINICIO\"  TO WKS-SAL-P-PARAMROLLB.",
+          "java_codigo": "/** 5005000-VAL-REINICIO: decide si el lote se reanuda y si el paso interrumpido requiere rollback. */\n@Component\n@RequiredArgsConstructor\npublic class ControlWflDecider implements JobExecutionDecider {\n\n    private final CtrlWflRepository repo;\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        var id = new CtrlWflId(job.getJobParameters().getLocalDate(\"fecha\"),\n                               job.getJobParameters().getLong(\"csi\").intValue());\n        return repo.findById(id)\n                .filter(c -> c.wflStatus == 1)\n                .map(c -> c.pasoStatus == 1\n                        ? new FlowExecutionStatus(\"CON_ROLLBACK\")      // 2 2 job mix fecha hora\n                        : new FlowExecutionStatus(\"CON_REINICIO\"))     // 2 1 CONREINICIO\n                .orElse(new FlowExecutionStatus(\"SIN_REINICIO\"));      // 1 1 SINREINICIO\n    }\n\n    static String datosRollback(CtrlWfl c) {                           // 5005400-CON-ROLLBACK\n        return \"%05d %05d %s %s\".formatted(c.pasoJob, c.pasoMix,\n                c.pasoInicio.toLocalDate().format(BASIC_ISO_DATE),\n                c.pasoInicio.toLocalTime().format(DateTimeFormatter.ofPattern(\"HHmmss\")));\n    }\n}",
+          "racional": "Hay tres respuestas posibles: sin reinicio cuando el WFL no está en curso, reinicio simple cuando el último paso terminó, y reinicio con rollback cuando el paso quedó en estatus 1, en cuyo caso se devuelven job, mix, fecha y hora de inicio para que el WFL restaure la base a ese punto. En Spring Batch esa decisión es un <code>JobExecutionDecider</code> cuyas salidas llevan a flujos distintos. El reinicio propio de Spring Batch, que reanuda desde el paso fallido, sustituye al mecanismo de archivos de marca.",
+          "reglas": [
+            "RN-S500-659"
+          ]
+        },
+        {
+          "id": "s9",
+          "titulo": "Archivo de marca por paso para no repetir procesos",
+          "linea_ini": 1261,
+          "linea_fin": 1301,
+          "origen_codigo": " 5004500-GEN-ARCH-PASO.\n     MOVE WKS-WFL-P-NUMCSI  TO WKS-TIT-I01-CSI.\n     MOVE WKS-WFL-P-FECJOB  TO WKS-TIT-I01-FECH.\n     MOVE WKS-WFL-P-NUMPASO TO WKS-TIT-I01-PASO.\n     OPEN OUTPUT   I88-CTRLPASO.\n     MOVE \" \"      TO FD-I01-ARCHCWFL.\n     STRING \"ESTE PASO YA CORRIO HOY \", WKS-WFL-P-FECJOB\n            \" EN JOB \" WKS-NUMJOB-PASO\n             DELIMITED BY SIZE INTO FD-I01-ARCHCWFL.\n     WRITE FD-I01-ARCHCWFL.\n     MOVE 0                  TO WKS-SAL-P-OPC-REINI.\n     MOVE 0                  TO WKS-SAL-P-OPC-ROLL.\n     MOVE \"OK\"               TO WKS-SAL-P-PARAMROLLB.\n     CLOSE I88-CTRLPASO WITH SAVE.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass MarcaPasoService {\n\n    private final ResourceLoader rl;\n    private final ControlWflProperties props;   // ruta-marca: \"S500/FILE/CTRLWFL/{csi}/{fecha}/{paso}.\"\n\n    /** 5004500-GEN-ARCH-PASO: el WFL/LOTE verifica la residencia de este archivo antes de correr el paso. */\n    RespuestaWfl genera(CtrlWfl c, ParametroWfl p) {\n        Path marca = props.rutaMarca(p.csi(), p.fechaBatch(), p.paso().strip());\n        Files.writeString(marca, \"ESTE PASO YA CORRIO HOY %s EN JOB %05d\"\n                .formatted(p.fechaBatch().format(BASIC_ISO_DATE), proceso.jobNumber()));\n        return RespuestaWfl.ok();\n    }\n}\n// En Spring Batch la idempotencia por día la da la identidad del JobInstance:\n// un paso COMPLETED no se vuelve a ejecutar al relanzar con los mismos parámetros.",
+          "racional": "Cada paso terminado deja un archivo cuyo nombre es el nombre del paso dentro de la carpeta de CSI y fecha; el WFL comprueba su existencia para no repetirlo. Es idempotencia por archivo. En Spring Batch esa garantía la da el <code>JobInstance</code>: con los mismos parámetros, un paso completado no se vuelve a ejecutar. Se conserva el servicio solo mientras el WFL siga siendo quien decide. La ruta pasa a propiedades.",
+          "reglas": [
+            "RN-S500-662"
+          ],
+          "riesgo": "Basta con que exista un archivo con ese nombre para que el WFL no corra el paso; un archivo de marca creado por error o copiado de otra fecha suprime un proceso sin dejar rastro en CTRLWFL."
+        },
+        {
+          "id": "s10",
+          "titulo": "Proceso especial inyectado desde ESPECIALENLOTED",
+          "linea_ini": 1487,
+          "linea_fin": 1541,
+          "origen_codigo": " 80000200-PROESO-ESPE.\n     PERFORM 80000215-VE-RESIDEN-ESPE.\n     IF W77-HAY-ARCHESPE = 1\n        PERFORM 80000202-CONT-ESPE\n     ELSE\n        MOVE 1  TO W77-ERR-PARAM.\n**********************************************************\n 80000202-CONT-ESPE.\n     OPEN INPUT I55-ARCHPROC.\n     READ I55-ARCHPROC AT END\n          MOVE 1           TO W77-ERR-PARAM.\n     IF W77-ERR-PARAM = 0\n        IF FD-I55-00-TPOREG = 01\n       AND FD-I55-01-PASO  = \"P101\"\n       AND FD-I55-01-CSI   = WKS-WFL-P-NUMCSI\n       AND FD-I55-01-FECH  = WKS-WFL-P-FECJOB\n           PERFORM 80000210-LEE-REG-ESPE\n        ELSE\n          MOVE 1           TO W77-ERR-PARAM.\n     IF W77-ERR-PARAM > 0\n          MOVE 5           TO WKS-SAL-P-OPC-REINI\n          MOVE 5           TO WKS-SAL-P-OPC-ROLL\n          MOVE \"ERRARCHH\"  TO WKS-SAL-P-PARAMROLLB.\n     CLOSE I55-ARCHPROC WITH SAVE.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass ProcesoEspecialService {\n\n    private final ControlWflProperties props;   // archivo-especial: \"S500/FILE/CTRLWFL/{csi}/{fecha}/ESPECIALENLOTED.\"\n\n    /** 80000200-PROESO-ESPE: header tipo 01 de P101 con CSI y fecha; detalle tipo 03 con el paso. */\n    Respuesta lee(ParametroWfl p) {\n        Path archivo = props.archivoEspecial(p.csi(), p.fechaBatch());\n        if (!Files.exists(archivo)) {\n            return Respuesta.de(RespuestaWfl.error(5, \"ERRARCHH\"));   // ver riesgo: el COBOL no llena la respuesta\n        }\n        List<String> regs = Files.readAllLines(archivo, CP1047);\n        if (regs.isEmpty() || !esHeaderValido(regs.get(0), p)) return Respuesta.de(RespuestaWfl.error(5, \"ERRARCHH\"));\n        if (regs.size() < 2 || !regs.get(1).startsWith(\"03\"))  return Respuesta.de(RespuestaWfl.error(5, \"ERRARCHD\"));\n        var d = regs.get(1);\n        return Respuesta.especial(d.substring(3, 7), d.substring(8, 33), d.substring(34, 46));  // PASOANT, PASOESP, VALUE\n    }\n\n    private boolean esHeaderValido(String h, ParametroWfl p) {\n        return h.startsWith(\"01\") && Integer.parseInt(h.substring(2, 4)) == p.csi()\n                && h.substring(4, 12).equals(p.fechaBatch().format(BASIC_ISO_DATE))\n                && h.substring(12, 16).equals(\"P101\");\n    }\n}\n// En el destino, el paso adicional se modela como un Flow condicional del Job,\n// no como un texto que el WFL interpreta y ejecuta.",
+          "racional": "La opción 7 permite que operación agregue un paso al lote sin cambiar el WFL: se coloca un archivo con un header que identifica a P101, el CSI y la fecha, y un detalle con el paso anterior, el nombre del paso especial y su parámetro. P101 devuelve ese texto en <code>TASKSTRING</code> y el WFL lo ejecuta. Solo se lee el primer detalle; el trailer con número de registros no se valida.",
+          "reglas": [
+            "RN-S500-663"
+          ],
+          "riesgo": "Si el archivo especial no existe, 80000200 solo pone W77-ERR-PARAM en 1 y la rutina principal devuelve WKS-PARAM-SAL sin haberle asignado códigos (línea 783); el WFL recibe lo que haya en esos campos. Además el mecanismo permite inyectar cualquier paso con solo colocar un archivo, sin más control que el header."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Punto de rollback sin verificación",
+      "detalle": "En 5003210-ACCESA-BASE los errores de OPEN, BEGIN-TRANSACTION y END-TRANSACTION no se evalúan; WS-STATUS-BASE se asigna y nunca se consulta. El bloqueo y STORE de S500B02CONTROL están comentados."
+    },
+    {
+      "titulo": "Verificación de versión desactivada",
+      "detalle": "PERFORM 1000100-VERSIONES está comentado en la línea 771."
+    },
+    {
+      "titulo": "Respuesta indefinida en la opción 7",
+      "detalle": "Cuando no existe ESPECIALENLOTED, el programa devuelve WKS-PARAM-SAL sin asignar los códigos de reinicio y rollback."
+    },
+    {
+      "titulo": "Inyección de pasos por archivo",
+      "detalle": "Un archivo ESPECIALENLOTED con header válido hace que el WFL ejecute el paso que indique. No hay firma, lista blanca ni registro de quién lo colocó."
+    },
+    {
+      "titulo": "Validación de fecha incompleta",
+      "detalle": "Día y mes se validan por separado (01-31 y 01-12); fechas inexistentes pasan la validación."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Prefijo S500/FILE/CTRLWFL/, nombre CTRLS500WFLLOTE, ESPECIALENLOTED, valor inicial S151P17701 del nombre de marca, CSI 04 y 10, años 2004 a 2099 y MAXCARDS 9. Pasan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si WRITE I99-REGCTRL después de READ con OPEN I-O reescribe el registro de control o agrega uno nuevo; el programa asume un único registro y no usa REWRITE.",
+    "Confirmar el efecto de CHANGE ATTRIBUTE MAXCARDS OF MYSELF TO 9 (línea 1161) en la ejecución del WFL.",
+    "Confirmar qué hace el WFL/LOTE con la respuesta cuando la opción 7 no encuentra el archivo especial.",
+    "La opción 9 aparece en el comentario del encabezado como sin uso; el nivel 88 la rechaza como parámetro erróneo.",
+    "RN-S500-664 presenta el catálogo de DMSTATUS como base de las decisiones; en P101 ninguna decisión lo consulta."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-920",
+    "RN-S500-928",
+    "RN-S500-658",
+    "RN-S500-659",
+    "RN-S500-660",
+    "RN-S500-661",
+    "RN-S500-662",
+    "RN-S500-663",
+    "RN-S500-664"
+  ]
+}

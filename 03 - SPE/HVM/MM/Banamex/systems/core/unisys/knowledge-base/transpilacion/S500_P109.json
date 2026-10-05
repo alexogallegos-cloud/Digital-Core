@@ -1,0 +1,258 @@
+{
+  "slug": "S500_P109",
+  "sistema": "S500",
+  "programa": "P109",
+  "nombre": "Cargador de Tasas GBNP",
+  "funcion": "Paso batch de S500 que lee el archivo de tasas de rendimiento de GBNP, valida cada contrato en BD01CAPTACION, graba la tasa en B03CONTRATOS y genera el archivo de resultados GBNPRSLT; corre hasta tres veces al día por secuencia.",
+  "resumen": "Lee el archivo de GBNP de la secuencia indicada en el archivo de control. Por cada detalle convierte la tasa de texto a número con seis decimales, bloquea el contrato en B03 y descarta clones, instrumentos inválidos, contratos cancelados o sin servicio GBNP. Si el contrato es válido y no tiene un cambio de producto que lo impida, graba fecha, tasa bruta y secuencia en B03. Cada contrato produce un renglón en GBNPRSLT con su código de resultado y, en la tercera secuencia, con la tasa y el rendimiento pagados; al final se ordena el resultado y se emiten reportes de tasas y mensajes.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.gbnp.tasas",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — tasas GBNP y archivo de resultados",
+      "origen": {
+        "archivo": "S500_SOURCE_P109.txt",
+        "contexto": "FILE SECTION"
+      },
+      "java": {
+        "archivo": "TasaGbnpRecord.java · ResultadoTasaRecord.java",
+        "contexto": "record · FixedLengthTokenizer"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de tasas GBNP de entrada",
+          "linea_ini": 143,
+          "linea_fin": 183,
+          "origen_codigo": "  FD I01-ARCHGBNP\n     VALUE OF DEPENDENTSPECS IS TRUE .\n  01 I01-R-ARCHGBNP .\n     02 I01-TASA-IND           PIC X(07)        .\n     02 I01-TASA-CODE          PIC X(04)        .\n     02 I01-TASA-TILDE1        PIC X(01)        .\n     02 I01-TASA-CTA           PIC X(20)        .\n     02 I01-TASA-SUC-CTA REDEFINES I01-TASA-CTA .\n        03 I01-TASA-SPACE      PIC 9(04)        .\n        03 I01-TASA-SUC        PIC 9(04)        .\n        03 I01-TASA-CTO        PIC 9(12)        .\n     02 I01-TASA-ACCPR         PIC X(07)        .\n     02 I01-TASA-PROD          PIC X(04)        .\n     02 I01-TASA-ACCEFF        PIC X(10)        .\n     02 I01-TASA-FEC           PIC 9(08)        .\n     02 I01-TASA-ACCUDE        PIC X(08)        .\n     02 I01-TASA-UDE           PIC X(15)        .\n     02 I01-TASA-TILDE2        PIC X(01)        .\n     02 I01-TASA-TASA          PIC X(24)        .\n     02 I01-TASA-RCODE         PIC X(10)        .\n     02 FILLER                 PIC X(153)       .",
+          "java_codigo": "/** I01-R-ARCHGBNP: registro de texto de GBNP; solo los de indicador #ICACC# son detalle. */\npublic record TasaGbnpRecord(\n        String indicador,        // X(07)  \"#ICACC#\" = detalle\n        String codigo,           // X(04)\n        String sucursal,         // TASA-CTA REDEFINES: espacio 9(04) + sucursal 9(04) ...\n        String contrato,         // ... + contrato 9(12); String para conservar ceros\n        String producto,         // X(04)\n        LocalDate fecha,         // 9(08) AAAAMMDD\n        String ude,              // X(15)\n        String tasaTexto,        // X(24)  se convierte en TasaGbnpParser\n        String rcode) {          // X(10)\n\n    public boolean esDetalle() { return \"#ICACC#\".equals(indicador); }\n\n    static final FixedLengthTokenizer TOKENIZER = new FixedLengthTokenizer();\n    static {\n        TOKENIZER.setNames(\"ind\", \"code\", \"tilde1\", \"space\", \"suc\", \"cto\", \"accpr\", \"prod\",\n                           \"acceff\", \"fec\", \"accude\", \"ude\", \"tilde2\", \"tasa\", \"rcode\");\n        TOKENIZER.setColumns(new Range(1, 7), new Range(8, 11), new Range(12, 12),\n                new Range(13, 16), new Range(17, 20), new Range(21, 32), new Range(33, 39),\n                new Range(40, 43), new Range(44, 53), new Range(54, 61), new Range(62, 69),\n                new Range(70, 84), new Range(85, 85), new Range(86, 109), new Range(110, 119));\n        TOKENIZER.setStrict(false);                    // FILLER X(153) al final\n    }\n}",
+          "racional": "El archivo de GBNP llega como texto de ancho fijo y la tasa viene como cadena en <code>I01-TASA-TASA</code>, no como número. En Java se lee con un <code>FlatFileItemReader</code> y un <code>FixedLengthTokenizer</code> cuyas columnas reproducen las posiciones del FD. El campo de cuenta de 20 posiciones se redefine como cuatro espacios, sucursal y contrato; ambos se conservan como <code>String</code> para no perder ceros. Solo el indicador <code>#ICACC#</code> identifica un detalle, cualquier otro registro dispara el punto de control.",
+          "reglas": [
+            "RN-S500-279"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Registro de resultado GBNPRSLT",
+          "linea_ini": 211,
+          "linea_fin": 251,
+          "origen_codigo": "  01 I02-R-ARCHRSLT .\n     02 I02-RSLT-REC-TYPE      PIC 9(02)  .\n     02 I02-RSLT-BRANCH        PIC 9(04)  .\n     02 I02-RSLT-CTO           PIC 9(12)  .\n     02 I02-RSLT-SEQ           PIC 9(02)  .\n        88 I02-88-RSLT-SEC1    VALUE 1    .\n        88 I02-88-RSLT-SEC2    VALUE 2    .\n        88 I02-88-RSLT-SEC3    VALUE 3    .\n     02 I02-RSLT-RATE          PIC 9(10)  .\n     02 I02-RSLT-INT-T         PIC 9(02)  .\n        88 I02-88-RSLT-MES        VALUE 0 .\n        88 I02-88-RSLT-DIA        VALUE 1 .\n     02 I02-RSLT-ERR-CODE      PIC 9(04)  .\n     02 I02-RSLT-PROD          PIC 9(04)  .\n     02 I02-RSLT-INST          PIC 9(04)  .\n     02 I02-RSLT-CURR          PIC 9(02)  .\n     02 I02-RSLT-RATE-U        PIC 9(10)  .\n     02 I02-RSLT-REND-N        PIC 9(16)  .\n     02 I02-RSLT-PAGO-S        PIC 9(02)  .\n     02 I02-RSLT-FECH-S        PIC 9(08)  .\n     02 I02-RSLT-FILLER        PIC X(44)  .",
+          "java_codigo": "/** I02-R-ARCHRSLT (120 bytes): un renglón por contrato procesado, con o sin error. */\npublic record ResultadoTasaRecord(\n        int tipoRegistro,          // 9(02)\n        String sucursal,           // 9(04)\n        String contrato,           // 9(12)\n        int secuencia,             // 9(02)  1, 2 o 3 (corrida del día)\n        long tasa,                 // 9(10)  tasa con 6 decimales implícitos (WS-TASA-CONV-N)\n        int tipoInteres,           // 9(02)  0 mensual, 1 diario\n        int codigoError,           // 9(04)  0 o 1001..1014\n        int producto, int instrumento, int moneda,\n        long tasaAplicada,         // RATE-U 9(10): tasa bruta B03 x 1 000 000\n        long rendimiento,          // REND-N 9(16)\n        int pasoTasa,              // PAGO-S 9(02)\n        LocalDate fechaTasa) {     // FECH-S 9(08)\n\n    public BigDecimal tasaDecimal() {\n        return BigDecimal.valueOf(tasa, 6);    // 9(04)V9(06) -> escala 6\n    }\n}\n// Se escribe con FlatFileItemWriter + FormatterLineAggregator a 120 posiciones;\n// después se ordena (SD S01-ARCHRSLT) y se envía, ver 20000026-SORT-ARCHRSLT.",
+          "racional": "El archivo de resultados es la respuesta a GBNP: por cada contrato regresa la tasa convertida, el código de error, producto, instrumento, moneda, la tasa ya aplicada y el rendimiento. La tasa viaja como entero de 10 dígitos con seis decimales implícitos, porque se toma de la redefinición <code>WS-TASA-CONV-N</code> de un campo <code>9(04)V9(06)</code>. En Java se conserva el entero para el archivo y se expone la conversión a <code>BigDecimal</code> de escala 6 para uso interno.",
+          "reglas": [
+            "RN-S500-282"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y ciclo de lectura",
+      "origen": {
+        "archivo": "S500_SOURCE_P109.txt",
+        "contexto": "PROCEDURE DIVISION · 10000003 / 20000007 / 20000013"
+      },
+      "java": {
+        "archivo": "ValidaVersionTasklet.java · CargaTasasJobConfig.java · AplicaTasaProcessor.java",
+        "contexto": "Tasklet · Step chunk · ItemProcessor @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Validación de versión omitida en hosts de prueba",
+          "linea_ini": 1955,
+          "linea_fin": 1985,
+          "origen_codigo": " 10000003-VALIDA-VERSIONES.\n*=================\n   PERFORM 10000100-VERSIONES .\n   IF WS-DH-NOM-EQUIPO = \"ACYPBETA. \" OR \"CACYPBET. \"\n      NEXT SENTENCE\n   ELSE\n      PERFORM 20000100-CHECAME-VERSION\n      IF S000-CTR-CVEERROR < 0\n         STRING \"ERROR DE VERSION \"\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 .\n   PERFORM 00002000-MENSAJE-HOSTNAME.",
+          "java_codigo": "# application.yml\np109:\n  version:\n    # Hosts donde no se verifica la versión del programa (hoy compilados en el fuente).\n    exentos: [ \"ACYPBETA.\", \"CACYPBET.\" ]\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class ValidaVersionTasklet implements Tasklet {\n\n    private final P109Properties props;\n    private final HostnameProvider host;\n    private final ControlVersiones ctrlVers;    // 20000100-CHECAME-VERSION\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        if (props.version().exentos().contains(host.nombre().trim())) {\n            return RepeatStatus.FINISHED;        // NEXT SENTENCE\n        }\n        if (ctrlVers.verifica(\"S500P109\") < 0) {\n            // CHANGE ATTRIBUTE STATUS OF MYSELF TO -1: la tarea queda marcada en error\n            throw new VersionInvalidaException(\"ERROR DE VERSION\");\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Antes de procesar, P109 compara su versión contra el control de versiones, salvo en los equipos ACYPBETA y CACYPBET, que son de prueba. Esa lista está compilada; en Java pasa a <code>application.yml</code> y conviene sustituirla por perfiles de Spring (por ejemplo, desactivar la verificación en el perfil <code>uat</code>). El <code>CHANGE ATTRIBUTE STATUS OF MYSELF TO -1</code> se traduce en una excepción que deja el step en FAILED.",
+          "reglas": [
+            "RN-S500-280"
+          ],
+          "riesgo": "La comparación es literal contra 'ACYPBETA. ' y 'CACYPBET. ' con punto y espacio. Un host de prueba nuevo o renombrado pasaría por la verificación de versión."
+        },
+        {
+          "id": "s4",
+          "titulo": "Ciclo de lectura, punto de control y escritura del resultado",
+          "linea_ini": 3087,
+          "linea_fin": 3165,
+          "origen_codigo": " 20000007-LEE-VAL-ACT-GBNP.\n*=========================\n   IF I01-TASA-IND = \"#ICACC#\"\n      PERFORM 20000013-GUA-ARCHRSLT\n   ELSE\n      PERFORM 20000009-REW-ARCHCTRL .\n   IF WS-88-SI-BAJA\n      MOVE 1 TO WS-I01-FIN-ARCH\n   ELSE\n      PERFORM 20000006-LEE-ARCHGBNP .\n 20000013-GUA-ARCHRSLT.\n*=======================\n   PERFORM 20000014-INICIALIZA-VARIABLES.\n   IF WS-88-EVE-CONTI\n*      MOVE WS03-SUC-PROMOTORA TO WKS-S080-NUMSUC\n*      PERFORM 42000080-DATOS-S080\n*      IF W88-S080-DATO-OK\n*         IF WKS-S080-NUMCSI = WS02-NUM-CSI\n            PERFORM 20000015-VALIDA-GENERAL\n*         ELSE\n*            MOVE 1009 TO WS-I02-ERR-CODE\n*      ELSE\n*         MOVE 1015 TO WS-I02-ERR-CODE\n   ELSE\n      MOVE 1003 TO WS-I02-ERR-CODE  .\n   IF WS-88-ERR-CODE-NOK\n      PERFORM 20000042-ERR-REPMENSA .\n   IF WKS-CTO-CLO = 1\n      EXIT PERFORM.\n   PERFORM 20000018-MUEVE-ARCHRSLT  .\n   PERFORM 20000019-ESC-ARCHRSLT    .\n   IF (WS-88-EVE-CONTI   AND (WS-88-PROCE1 OR WS-88-PROCE2)) OR\n       WS-88-NOEJE-P168  AND  WS-88-PROCE3\n       PERFORM 40000004-VALIDA-30S  .",
+          "java_codigo": "@Bean\nStep aplicaTasasGbnp(JobRepository repo, PlatformTransactionManager tx,\n                     FlatFileItemReader<TasaGbnpRecord> lectorGbnp,\n                     AplicaTasaProcessor procesador,\n                     FlatFileItemWriter<ResultadoTasaRecord> escritorRslt) {\n    return new StepBuilder(\"aplicaTasasGbnp\", repo)\n            .<TasaGbnpRecord, ResultadoTasaRecord>chunk(45, tx)    // BLOCK CONTAINS 45 RECORDS\n            .reader(lectorGbnp)                                   // saveState: reemplaza I03-CTRL\n            .processor(procesador)\n            .writer(escritorRslt)\n            .faultTolerant()\n            .skip(DeadlockException.class).skipLimit(Integer.MAX_VALUE)   // 1006: se reporta y sigue\n            .build();\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class AplicaTasaProcessor implements ItemProcessor<TasaGbnpRecord, ResultadoTasaRecord> {\n\n    private final ValidadorContrato validador;       // 20000015-VALIDA-GENERAL\n    private final ReporteMensajes mensajes;          // P02-REPMENSA\n    @Value(\"#{jobExecutionContext['eventoContinua']}\") private boolean eventoContinua;\n\n    @Override\n    public ResultadoTasaRecord process(TasaGbnpRecord r) {\n        if (!r.esDetalle()) return null;             // 20000009-REW-ARCHCTRL: lo cubre el commit del chunk\n        var res = eventoContinua ? validador.valida(r) : ResultadoContrato.error(r, 1003);\n        if (res.esErrorReportable()) mensajes.error(res);   // WS-88-ERR-CODE-NOK (1001..1012)\n        if (res.esClon()) return null;               // EXIT PERFORM: los clones no van al resultado\n        return res.comoRegistro();                   // 20000018-MUEVE + 20000019-ESC-ARCHRSLT\n    }\n}",
+          "racional": "Cada registro de GBNP con indicador <code>#ICACC#</code> se valida y produce un renglón de resultado; cualquier otro registro reescribe el archivo de control <code>I03-CTRL</code> con el número de registros escritos y el último contrato, que es el punto de reinicio. En Spring Batch ese punto lo guarda el <code>JobRepository</code> al confirmar cada chunk, así que el archivo de control deja de ser necesario. Los contratos clonados se omiten del resultado devolviendo <code>null</code>. La revisión periódica 40000004-VALIDA-30S, que cada 30 segundos verifica el horario límite en la secuencia 3 o el estado de B00 en las otras, pasa a un <code>ChunkListener</code>.",
+          "reglas": [
+            "RN-S500-281",
+            "RN-S500-282"
+          ],
+          "riesgo": "EXIT PERFORM en la línea 3155 está dentro de un párrafo invocado fuera de línea y no dentro de un PERFORM en línea. Su efecto depende de la extensión de Unisys; se asumió que termina el párrafo."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de aplicación de tasa",
+      "origen": {
+        "archivo": "S500_SOURCE_P109.txt",
+        "contexto": "PROCEDURE DIVISION · 20000015 / 20000016 / 20000036 / 20000017 / 20000041"
+      },
+      "java": {
+        "archivo": "TasaGbnpParser.java · ValidadorContrato.java · AsignadorTasa.java · ActualizadorB03.java",
+        "contexto": "JPA · @Transactional · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Conversión de la tasa de texto a número",
+          "linea_ini": 3237,
+          "linea_fin": 3293,
+          "origen_codigo": " 20000015-VALIDA-TASA.\n*======================\n   MOVE 0 TO WS-TASA-CONV\n             WS-TASA-ENT\n             WS-TASA-DEC  .\n   UNSTRING I01-TASA-TASA DELIMITED BY  \"-\"\n                                    INTO     WS-TASA-ENT\n                                    COUNT IN WS-C-POINTER .\n   IF WS-C-POINTER > 0\n      UNSTRING I01-TASA-TASA DELIMITED BY \".\" OR \"~\"\n                                       INTO     WS-TASA-ENT\n                                       COUNT IN WS-C-POINTER\n      MOVE WS-C-POINTER TO WS-P-POINTER\n      ADD 2 TO WS-P-POINTER\n      UNSTRING I01-TASA-TASA DELIMITED BY \"~\"\n                                       INTO          WS-TASA-DEC\n                                       COUNT IN      WS-C-POINTER\n                                       WITH POINTER  WS-P-POINTER\n      COMPUTE WS-TASA-CONV =\n              WS-TASA-ENT + (WS-TASA-DEC/(10**WS-C-POINTER) ).\n   MOVE WS-TASA-CONV-N TO WS-I02-RATE .\n*  IF WS-I02-RATE = 0\n*     MOVE 1005 TO WS-I02-ERR-CODE .\n*  ELSE\n*  IF WS-TASA-CONV > 24\n*     MOVE 1012 TO WS-I02-ERR-CODE .",
+          "java_codigo": "/** 20000015-VALIDA-TASA: reproduce los UNSTRING y el COMPUTE sin ROUNDED. */\npublic final class TasaGbnpParser {\n\n    private static final BigDecimal TOPE = new BigDecimal(\"9999.999999\");   // 9(04)V9(06)\n\n    public static BigDecimal convierte(String tasa24) {\n        // Primer UNSTRING por \"-\": solo decide si se convierte. COUNT = 0 solo si empieza con \"-\".\n        if (tasa24.startsWith(\"-\")) {\n            return BigDecimal.ZERO.setScale(6);       // la tasa queda en cero\n        }\n        int sep = indexOfAny(tasa24, '.', '~');       // UNSTRING DELIMITED BY \".\" OR \"~\"\n        String ent = sep < 0 ? tasa24 : tasa24.substring(0, sep);\n        int desde = (sep < 0 ? tasa24.length() : sep) + 1;           // ADD 2 al COUNT (base 1)\n        int fin = tasa24.indexOf('~', desde);\n        String dec = desde >= tasa24.length() ? \"\" : tasa24.substring(desde, fin < 0 ? tasa24.length() : fin);\n\n        // MOVE a 9(04) y 9(06): se pierden los dígitos de la izquierda que no caben.\n        BigDecimal entero  = new BigDecimal(ultimos(digitos(ent), 4));\n        BigDecimal decimal = new BigDecimal(ultimos(digitos(dec), 6));\n        BigDecimal conv = entero.add(decimal.movePointLeft(dec.length()));   // 10 ** COUNT\n        return conv.setScale(6, RoundingMode.DOWN).min(TOPE);              // sin ROUNDED: trunca\n    }\n}",
+          "racional": "La tasa llega como texto, por ejemplo <code>4.250000~</code>. El fuente separa la parte entera hasta el punto o la tilde, avanza el apuntador dos posiciones y toma la parte decimal hasta la siguiente tilde, y reconstruye la tasa como entero más decimal entre 10 elevado al número de dígitos leídos. El <code>COMPUTE</code> no tiene <code>ROUNDED</code>, así que el resultado se trunca a los seis decimales de <code>9(04)V9(06)</code>: en Java es <code>RoundingMode.DOWN</code> con escala 6. Se reproduce también el efecto de mover el texto a campos numéricos de 4 y 6 dígitos, que conservan solo los dígitos de la derecha.",
+          "reglas": [
+            "RN-S500-279"
+          ],
+          "riesgo": "Las validaciones de tasa cero (1005) y tasa mayor a 24 (1012) están comentadas (líneas 3285-3293). Una tasa que empieza con '-' queda en cero y se grabaría en B03 como tasa bruta. Si la parte decimal trae más de seis dígitos, el MOVE a 9(06) pierde los de la izquierda pero el divisor usa todos, y la tasa resultante es incorrecta."
+        },
+        {
+          "id": "s6",
+          "titulo": "Validación general del contrato en B03 y clones",
+          "linea_ini": 3297,
+          "linea_fin": 3421,
+          "origen_codigo": " 20000015-VALIDA-GENERAL.\n*========================\n   PERFORM 90000003-B03SXCTO-LOCK .\n   IF WS-STATUS-BASE > 0\n      IF WS-DB-NOTFOUND\n         MOVE 1007 TO WS-I02-ERR-CODE\n      ELSE\n      IF WS-DB-DEADLOCK\n         MOVE 1006 TO WS-I02-ERR-CODE\n      ELSE\n         MOVE 1011 TO WS-I02-ERR-CODE\n         MOVE DMSTATUS(DMCATEGORY) TO  WS-STATUS-BASE\n         STRING \"ERR FIND B03CONTRATOS \", WS-STATUS-BASE\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         MOVE WS-0101-TEXT-MSG     TO  WS-DET-RM-MSG\n         PERFORM 20000038-ESC-REPMENSA\n         PERFORM 70000050-MENSAJE\n   ELSE\n   IF B03-MARCA-CLON = 2\n      MOVE 1            TO WKS-CTO-CLO\n   ELSE\n   IF B03-MARCA-CLON = 3\n      MOVE 1            TO WKS-CTO-CLO\n      MOVE 6            TO WS-SECS-OPCION\n      PERFORM 20000043-SUMA-ESTADISTICOS\n   ELSE\n      PERFORM 20000035-VAL-INSTRUME\n              VARYING  WS-B05-TB-INDEX FROM 1 BY 1\n              UNTIL    WS-B05-TB-INDEX > 30\n      IF WS-88-ERR-CODE-OK\n         PERFORM 20000044-MUEVE-B03\n         PERFORM 20000015-VALIDA-TASA\n*        IF WS-88-ERR-CODE-OK\n         PERFORM 20000016-VALIDA-CTO  .\n*        ELSE\n*        IF WS-88-PROCE3\n*           PERFORM 20000036-OBT-TASAPAGA .\n   IF WS-88-ERR-CODE-NOK OR WKS-CTO-CLO = 1\n      FREE S500B03CONTRATOS .\n 20000016-VALIDA-CTO.\n*=====================\n   IF WS03-88-S-CANCELADA\n      MOVE 1002 TO WS-I02-ERR-CODE\n   ELSE\n   IF WS03-GBNP-SERV-IND = 0\n      MOVE 1010 TO WS-I02-ERR-CODE\n   ELSE\n   IF WS-88-B05-NOP\n      MOVE 1008 TO WS-I02-ERR-CODE .\n   IF WS-88-PROCE3\n      PERFORM 20000036-OBT-TASAPAGA .\n   IF WS-88-ERR-CODE-OK\n      PERFORM 20000041-CAM-PRODUCTO .",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ValidadorContrato {\n\n    private final ContratoCaptacionRepository b03;   // S500BD01CAPTACION.B03CONTRATOS\n    private final CatalogoB05 b05;                   // tabla de 30 instrumentos en memoria\n    private final AsignadorTasa asignador;           // 20000036 + 20000041\n    private final Estadisticos estadisticos;\n\n    @Transactional\n    public ResultadoContrato valida(TasaGbnpRecord r) {\n        Optional<ContratoCaptacion> cto;\n        try {\n            cto = b03.findForUpdate(r.contrato());              // B03SXCTO-LOCK\n        } catch (PessimisticLockingFailureException e) {\n            return ResultadoContrato.error(r, 1006);            // deadlock\n        } catch (DataAccessException e) {\n            return ResultadoContrato.error(r, 1011);            // otro error de find\n        }\n        if (cto.isEmpty()) return ResultadoContrato.error(r, 1007);\n        var c = cto.get();\n        if (c.marcaClon() == 2 || c.marcaClon() == 3) {         // B03-MARCA-CLON\n            if (c.marcaClon() == 3) estadisticos.suma(6);\n            return ResultadoContrato.clon(r);                   // FREE: el lock se libera al salir\n        }\n        var instr = b05.instrumento(c.producto(), c.instrumento());   // 20000035-VAL-INSTRUME\n        if (instr.error() > 0) return ResultadoContrato.error(r, instr.error());\n\n        BigDecimal tasa = TasaGbnpParser.convierte(r.tasaTexto());      // 20000015-VALIDA-TASA\n        int error = c.cancelado() ? 1002                               // 20000016-VALIDA-CTO\n                  : c.gbnpServInd() == 0 ? 1010\n                  : instr.noOperable() ? 1008 : 0;\n        var res = asignador.obtieneTasaPaga(c, instr, error);          // solo en secuencia 3\n        return res.ok() ? asignador.cambioProducto(c, instr, tasa, res) : res;\n    }\n}",
+          "racional": "Por cada registro se bloquea el contrato en B03 por su índice. Un contrato inexistente da 1007, un deadlock 1006 y cualquier otro error 1011. Los contratos clonados (marca 2 o 3) se liberan sin aplicar tasa, y la marca 3 suma la estadística 6. Si el instrumento es válido, se copia el contrato a trabajo, se convierte la tasa y se valida el contrato: cancelado 1002, sin servicio GBNP 1010, instrumento no operable 1008. En Java el bloqueo es una consulta <code>PESSIMISTIC_WRITE</code> dentro de <code>@Transactional</code>, y el <code>FREE</code> lo hace el fin de la transacción.",
+          "reglas": [
+            "RN-S500-281",
+            "RN-S500-282"
+          ],
+          "riesgo": "El nivel 88 WS-88-ERR-CODE-NOK cubre 1001 a 1012 (línea 705). Los errores 1013 (B06) y 1014 (B44) no entran en ese rango, así que en la línea 3383 no se ejecuta el FREE de B03 para esos contratos. El IF WS-88-ERR-CODE-OK antes de VALIDA-CTO está comentado (línea 3371)."
+        },
+        {
+          "id": "s7",
+          "titulo": "Tasa a pagar según servicio GBNP y fecha de corte",
+          "linea_ini": 3597,
+          "linea_fin": 3679,
+          "origen_codigo": " 20000036-OBT-TASAPAGA.\n*=======================\n   IF WS03-GBNP-SERV-IND = 1\n      IF WS-88-B05-DIA\n         MOVE WS03-RENDIA-IPAB TO WS-I02-REND-B03\n      ELSE\n      IF WS-FECHA-PROY = B06-FECREAL-CORTE\n         MOVE WS03-INTS-CAPIT  TO WS-I02-REND-B03\n      ELSE\n         MOVE 0                TO WS-I02-REND-B03\n   ELSE\n   IF WS03-GBNP-SERV-IND = 2\n      PERFORM 90000006-B06SXCTO-FIND\n      IF WS-STATUS-BASE > 0\n         MOVE 1013 TO WS-I02-ERR-CODE\n         MOVE DMSTATUS(DMCATEGORY) TO  WS-STATUS-BASE\n         STRING \"ERR FIND B06HISTORICO \", WS-STATUS-BASE\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         MOVE WS-0101-TEXT-MSG     TO  WS-DET-RM-MSG\n         PERFORM 20000038-ESC-REPMENSA\n         PERFORM 70000050-MENSAJE\n      ELSE\n*        MOVE B06-TASA-BRUTA      TO WS06-TASA-BRUTA\n         IF WS-88-B05-DIA\n*           MOVE WS06-TASA-BRUTA    TO WS-I02-RATE-B06\n*           MOVE WS03-USO-FUTURO-08 TO WS-B-TASASEC\n            MOVE WS03-GBNP-TASA-FEC   TO WS-I02-FECH-S\n            MOVE WS03-GBNP-TASA-SEC   TO WS-I02-PASO-S\n            COMPUTE WS-I02-RATE-U = WS03-GBNP-TASA-BRUTA * 1000000\n            MOVE WS03-RENDIA-IPAB     TO WS-I02-REND-B03\n         ELSE\n         IF WS-FECHA-PROY = B06-FECREAL-CORTE\n*           MOVE WS06-TASA-BRUTA    TO WS-I02-RATE-B06\n*           MOVE WS03-USO-FUTURO-08 TO WS-B-TASASEC\n            MOVE WS03-GBNP-TASA-FEC    TO WS-I02-FECH-S\n            MOVE WS03-GBNP-TASA-SEC    TO WS-I02-PASO-S\n            COMPUTE WS-I02-RATE-U = WS03-GBNP-TASA-BRUTA * 1000000\n            MOVE WS03-INTS-CAPIT       TO WS-I02-REND-B03 .",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class AsignadorTasa {\n\n    private static final BigDecimal MILLON = BigDecimal.valueOf(1_000_000);\n    private final HistoricoCorteRepository b06;                 // B06SXCTO\n    @Value(\"#{jobExecutionContext['fechaProyectada']}\") private LocalDate fechaProy;\n    @Value(\"#{jobExecutionContext['secuencia']}\")       private int secuencia;\n    private LocalDate ultimoCorteLeido;                          // área B06 del último FIND (@StepScope)\n\n    /** 20000036-OBT-TASAPAGA: solo se ejecuta en la secuencia 3 (WS-88-PROCE3). */\n    ResultadoContrato obtieneTasaPaga(ContratoCaptacion c, Instrumento i, int error) {\n        var res = ResultadoContrato.de(c, error);\n        if (secuencia != 3) return res;\n        switch (c.gbnpServInd()) {\n            // Servicio 1: el fuente compara contra el B06 que quedó en memoria del último FIND,\n            // no contra el del contrato. Aquí se conserva ese valor hasta que el SME decida.\n            case 1 -> res.rendimiento(i.esDiario() ? c.rendiaIpab()\n                    : fechaProy.equals(ultimoCorteLeido) ? c.intsCapit() : 0L);\n            case 2 -> {\n                var corte = b06.findByContrato(c.numero());\n                if (corte.isEmpty()) return res.conError(1013);          // ERR FIND B06HISTORICO\n                ultimoCorteLeido = corte.get().fecRealCorte();\n                if (i.esDiario() || fechaProy.equals(corte.get().fecRealCorte())) {\n                    res.fechaTasa(c.gbnpTasaFec()).pasoTasa(c.gbnpTasaSec())\n                       .tasaAplicada(c.gbnpTasaBruta().multiply(MILLON).longValueExact())\n                       .rendimiento(i.esDiario() ? c.rendiaIpab() : c.intsCapit());\n                }\n            }\n            default -> { }                                               // otros valores: sin cambio\n        }\n        return res;\n    }\n}",
+          "racional": "En la tercera corrida del día se calcula lo que se informa como pagado. Con servicio GBNP 1 solo se informa rendimiento: el IPAB diario si el instrumento es de pago diario, o los intereses capitalizados si la fecha proyectada coincide con la fecha real de corte. Con servicio 2 se consulta además el histórico B06 y se informa la tasa bruta del contrato multiplicada por un millón, con su fecha y secuencia. La multiplicación por 10^6 de una tasa de seis decimales es exacta, por eso se usa <code>longValueExact()</code>, que falla si la tasa trajera más decimales.",
+          "reglas": [
+            "RN-S500-283"
+          ],
+          "riesgo": "En la rama de servicio 1 (líneas 3603-3617) se compara WS-FECHA-PROY contra B06-FECREAL-CORTE sin haber hecho el FIND de B06 en esa rama; el valor de B06 es el del último contrato que lo buscó."
+        },
+        {
+          "id": "s8",
+          "titulo": "Actualización de B03 dentro de transacción DMSII",
+          "linea_ini": 3425,
+          "linea_fin": 3493,
+          "origen_codigo": " 20000017-ACTUALIZA-B03.\n*========================\n*  STRING WS-TASA-CONV-N ,I03-CTRL-SEC DELIMITED BY SIZE\n*                                      INTO WS-B-TASASEC-A .\n   MOVE 0                TO B03-DIAC-GBNP.\n   MOVE WS-FECHA-PROY    TO B03-GBNP-TASA-FEC .\n   MOVE WS-TASA-CONV     TO B03-GBNP-TASA-BRUTA  .\n   MOVE I03-CTRL-SEC     TO B03-GBNP-TASA-SEC    .\n   PERFORM 90000000-BEGIN-TRANSACTION  .\n   IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 15                                      243700\n         NEXT SENTENCE                                            243750\n      ELSE                                                        243800\n         CALL SYSTEM DMTERMINATE .\n   PERFORM 90000003-B03CONTRATOS-STORE .\n   IF WS-STATUS-BASE = 0\n      MOVE 3 TO WS-SECS-OPCION\n      PERFORM 20000043-SUMA-ESTADISTICOS\n   ELSE\n      MOVE 1011 TO WS-I02-ERR-CODE\n      MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE\n      STRING \"ERR STORE B03CONTRATOS \", WS-STATUS-BASE\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE .\n   PERFORM 90000000-END-TRANSACTION .\n   IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 15                                      243700\n         NEXT SENTENCE                                            243750\n      ELSE                                                        243800\n         CALL SYSTEM DMTERMINATE .",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ActualizadorB03 {\n\n    private final ContratoCaptacionRepository b03;\n    private final Estadisticos estadisticos;\n    @Value(\"#{jobExecutionContext['fechaProyectada']}\") private LocalDate fechaProy;\n    @Value(\"#{jobExecutionContext['secuencia']}\")       private int secuencia;\n\n    /** 20000017-ACTUALIZA-B03: BEGIN-TRANSACTION / STORE / END-TRANSACTION. */\n    @Transactional(propagation = Propagation.MANDATORY)   // usa la transacción de ValidadorContrato\n    ResultadoContrato actualiza(ContratoCaptacion c, BigDecimal tasa, ResultadoContrato res) {\n        c.setDiacGbnp(0);\n        c.setGbnpTasaFec(fechaProy);\n        c.setGbnpTasaBruta(tasa);              // BigDecimal escala 6, ya truncada\n        c.setGbnpTasaSec(secuencia);\n        try {\n            b03.saveAndFlush(c);               // STORE\n            estadisticos.suma(3);\n            return res;\n        } catch (DataAccessException e) {\n            log.error(\"ERR STORE B03CONTRATOS {}\", e.getMessage());\n            return res.conError(1011);         // el fuente sigue con el siguiente registro\n        }\n        // Un error en BEGIN/END-TRANSACTION distinto de 15 hacía CALL SYSTEM DMTERMINATE:\n        // aquí la excepción no capturada aborta el step.\n    }\n}",
+          "racional": "La actualización graba en el contrato la fecha proyectada, la tasa bruta convertida y la secuencia de la corrida, y pone en cero el día de GBNP. Va entre <code>BEGIN-TRANSACTION</code> y <code>END-TRANSACTION</code>; un error de transacción distinto de 15 termina el programa, mientras que un error de <code>STORE</code> solo marca 1011 y continúa. En Java el método participa en la transacción del validador, el error de guardado se convierte en código 1011 y cualquier error de la transacción misma deja que el step falle, que es el equivalente de <code>DMTERMINATE</code>.",
+          "reglas": [
+            "RN-S500-282"
+          ],
+          "riesgo": "El estado 15 en BEGIN y END-TRANSACTION se ignora con NEXT SENTENCE (líneas 3449-3451 y 3487-3489) sin documentar qué significa. El error de STORE solo se informa con 70000050-MENSAJE y no en el reporte de mensajes."
+        },
+        {
+          "id": "s9",
+          "titulo": "Cambio de producto e inversiones prepagadas",
+          "linea_ini": 3723,
+          "linea_fin": 3773,
+          "origen_codigo": " 20000041-CAM-PRODUCTO.\n*=======================\n   IF WS03-PRODUCTO-NVO > 0 AND WS03-INSTRUM-NVO > 0\n                            AND WS-88-B05-MEN\n      IF WS03-88-PIM-PREPAGADA\n         PERFORM 90000044-B44SXCTOSEVOL-FIND\n         IF WS-STATUS-BASE = 0\n            MOVE 1001 TO WS-I02-ERR-CODE\n         ELSE\n         IF WS-DB-NOTFOUND\n            PERFORM 20000017-ACTUALIZA-B03\n         ELSE\n            MOVE 1014 TO WS-I02-ERR-CODE\n            MOVE DMSTATUS(DMCATEGORY) TO  WS-STATUS-BASE\n            STRING \"ERR FIND B44CTOSEVOL \", WS-STATUS-BASE\n                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n            MOVE WS-0101-TEXT-MSG     TO  WS-DET-RM-MSG\n            PERFORM 20000038-ESC-REPMENSA\n            PERFORM 70000050-MENSAJE\n      ELSE\n         MOVE 1001 TO WS-I02-ERR-CODE\n   ELSE\n      PERFORM 20000017-ACTUALIZA-B03.",
+          "java_codigo": "    /** 20000041-CAM-PRODUCTO: un contrato con producto nuevo pendiente solo se actualiza si\n     *  es prepagado y aún no tiene evolución en B44. */\n    ResultadoContrato cambioProducto(ContratoCaptacion c, Instrumento i, BigDecimal tasa,\n                                     ResultadoContrato res) {\n        boolean cambio = c.productoNuevo() > 0 && c.instrumentoNuevo() > 0 && i.esMensual();  // WS-88-B05-MEN\n        if (!cambio) {\n            return actualizador.actualiza(c, tasa, res);\n        }\n        if (!c.esPrepagada()) {\n            return res.conError(1001);\n        }\n        try {\n            return b44.existsByContrato(c.numero())          // B44SXCTOSEVOL\n                    ? res.conError(1001)\n                    : actualizador.actualiza(c, tasa, res);\n        } catch (DataAccessException e) {\n            log.error(\"ERR FIND B44CTOSEVOL {}\", e.getMessage());\n            return res.conError(1014);\n        }\n    }",
+          "racional": "Si el contrato tiene producto e instrumento nuevos pendientes y el instrumento es de periodicidad mensual (<code>WS-88-B05-MEN</code>, es decir <code>WS-B05-TB-DIME = 0</code>), la tasa solo se graba cuando la inversión es prepagada y no existe todavía registro de evolución en B44. Si ya existe, o si no es prepagada, se responde 1001 y el contrato queda sin actualizar. Sin cambio de producto la actualización es directa. La búsqueda en B44 se traduce a <code>existsBy</code> y el error de acceso a 1014.",
+          "reglas": [
+            "RN-S500-284"
+          ],
+          "riesgo": "El mismo código 1001 se usa para dos situaciones distintas (ya existe evolución en B44 y no es prepagada), por lo que GBNP no puede distinguirlas en el archivo de resultados."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Validación de tasa desactivada",
+      "detalle": "Las asignaciones de error 1005 (tasa cero) y 1012 (tasa mayor a 24) están comentadas en 20000015-VALIDA-TASA (líneas 3285-3293). Cualquier tasa que convierta a cero, incluida una que empiece con '-', se graba en B03-GBNP-TASA-BRUTA."
+    },
+    {
+      "titulo": "Truncamiento de la tasa",
+      "detalle": "El COMPUTE de la línea 3277 no tiene ROUNDED y el destino es 9(04)V9(06): se truncan los decimales después del sexto. Además, si la parte decimal tiene más de seis dígitos, el MOVE a WS-TASA-DEC 9(06) pierde los de la izquierda y la división usa el conteo completo."
+    },
+    {
+      "titulo": "Errores 1013 y 1014 fuera del rango NOK",
+      "detalle": "WS-88-ERR-CODE-NOK es 1001 THRU 1012 (línea 705). Con 1013 o 1014 no se ejecuta el FREE de B03 de la línea 3385 ni 20000042-ERR-REPMENSA."
+    },
+    {
+      "titulo": "Valor de B06 de otro contrato",
+      "detalle": "En 20000036-OBT-TASAPAGA, rama de servicio GBNP 1, se usa B06-FECREAL-CORTE sin buscar B06 para el contrato actual (línea 3611)."
+    },
+    {
+      "titulo": "Validación de CSI comentada",
+      "detalle": "La verificación de CSI de la sucursal promotora con S080 (errores 1009 y 1015) está comentada en 20000013-GUA-ARCHRSLT (líneas 3125-3141); se aplican tasas de contratos de cualquier CSI."
+    },
+    {
+      "titulo": "Mensaje de instrumento inexistente sin datos",
+      "detalle": "20000035-VAL-INSTRUME (líneas 3579-3591) arma el mensaje 'NO EXISTE PROD/INTS/MON' con campos de I02-R-ARCHRSLT, que 20000014-INICIALIZA-VARIABLES dejó en LOW-VALUES (línea 3233) y que se llenan después. El reporte no identifica el contrato. El mismo caso reusa el código 1011 de error de base."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Hosts exentos de versión, indicador #ICACC#, el factor 1 000 000 y los códigos de error están compilados; se trasladan a application.yml o a constantes documentadas."
+    }
+  ],
+  "pendientes_revision": [
+    "Los layouts de WS03 (copia de B03), de B06 y B44 y el párrafo 90000003-B03SXCTO-LOCK vienen de copybooks (S500/INC/WOR/25MTP002, S500/INC/PRO/25MTP002) que no están en el fuente; se infirieron los tipos.",
+    "Confirmar la semántica de EXIT PERFORM fuera de un PERFORM en línea en COBOL85 de Unisys (línea 3155).",
+    "RN-S500-283 dice que para servicio GBNP 1 y 2 se toma la tasa bruta por 1 000 000; en el fuente solo el servicio 2 asigna WS-I02-RATE-U; el servicio 1 solo asigna rendimiento.",
+    "Confirmar el significado del estado 15 de BEGIN-TRANSACTION y END-TRANSACTION, que se ignora.",
+    "Confirmar qué hacen 40000002-VALIDA-9AM y 40000000-VERIF-B00, invocados cada 30 segundos desde 40000004-VALIDA-30S, para definir el equivalente en el ChunkListener."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-021",
+    "RN-S151-022",
+    "RN-S151-023",
+    "RN-S151-024",
+    "RN-S151-025",
+    "RN-S151-026",
+    "RN-S151-027",
+    "RN-S151-028",
+    "RN-S151-029",
+    "RN-S151-030",
+    "RN-S151-031",
+    "RN-S151-032",
+    "RN-S151-033",
+    "RN-S151-034",
+    "RN-S151-035",
+    "RN-S151-036",
+    "RN-S151-037",
+    "RN-S151-038",
+    "RN-S151-039",
+    "RN-S151-040",
+    "RN-S151-041",
+    "RN-S151-042",
+    "RN-S151-043",
+    "RN-S151-044",
+    "RN-S151-045",
+    "RN-S151-046",
+    "RN-S151-047",
+    "RN-S151-048",
+    "RN-S151-049",
+    "RN-S151-050",
+    "RN-S151-051",
+    "RN-S151-052",
+    "RN-S151-053",
+    "RN-S151-054",
+    "RN-S151-055",
+    "RN-S151-056",
+    "RN-S151-057",
+    "RN-S151-058",
+    "RN-S151-059",
+    "RN-S151-060",
+    "RN-S151-1171",
+    "RN-S500-279",
+    "RN-S500-280",
+    "RN-S500-281",
+    "RN-S500-282",
+    "RN-S500-283",
+    "RN-S500-284"
+  ]
+}

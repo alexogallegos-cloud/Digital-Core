@@ -1,0 +1,223 @@
+{
+  "slug": "S500_P655",
+  "sistema": "S500",
+  "programa": "P655",
+  "nombre": "Enmascaramiento de Nombres de Titulares para Ambientes de Prueba",
+  "funcion": "Programa batch de S500 que se ejecuta sobre la base S500BD01SCRA para alterar nombres de titulares, representantes legales y domicilios antes de usar la base en ambientes de prueba.",
+  "resumen": "Clasifica el servidor por su nombre de host y, si es productivo, solo registra un mensaje y marca el estatus en -1. Calcula un tamaño de bloque par a partir de la hora de arranque y retoma desde el último contrato guardado en el archivo de control SCRBLING si la corrida anterior quedó a medias. Recorre B03CONTRATOS por bloques: carga los nombres del bloque en una tabla y los reasigna en orden inverso con el sufijo PRUEBA, con un caso especial para el contrato central del último bloque si es impar. Después sustituye en B37GRUPOCPE el representante legal y el domicilio por textos sintéticos con el número de grupo y copia a B39CTASCPE el nombre ya alterado del contrato vinculado o un nombre secuencial de prueba.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.datosprueba.enmascaramiento",
+  "secciones": [
+    {
+      "titulo": "Control de ambiente y tamaño de bloque",
+      "origen": {
+        "archivo": "S500_SOURCE_P655_SCRAMBLING.txt",
+        "contexto": "PROCEDURE DIVISION · 10000000-INICIO"
+      },
+      "java": {
+        "archivo": "AmbienteGuard.java · TamanoBloque.java",
+        "contexto": "JobExecutionListener · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Clasificación por hostname y bloqueo de producción que no detiene",
+          "linea_ini": 575,
+          "linea_fin": 617,
+          "origen_codigo": "     MOVE ATTRIBUTE HOSTNAME  OF MYSELF  TO WKS-NAME-HOST.\n***  MOVE \"MONBETA.            \"  TO  WKS-MY-HOST\n     IF WKS-MY-HOST = \"VDMALFA.            \"\n     OR WKS-MY-HOST = \"MONBETA.            \"\n        MOVE 1  TO W77-ES-PRODUCCION\n     ELSE\n     IF WKS-MY-HOST = \"VDMBETA.            \"\n     OR WKS-MY-HOST = \"ACYPGAMA.           \"\n     OR WKS-MY-HOST = \"ACYPBETA.           \"\n     OR WKS-MY-HOST = \"MONALFA.            \"\n     OR WKS-MY-HOST = \"ACYPOMEGA.          \"\n        MOVE 1 TO W77-ES-PRUEBA\n        IF WKS-MY-HOST = \"ACYPBETA.           \"\n           MOVE 1 TO W77-ES-PBA-INTERNA.\n     IF W77-ES-PRODUCCION = 1\n        STRING \"NO CORRE EN PRODUCCION; HOST: \"\n                WKS-MY-HOST-09, W77-FIN-TXT\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "# application.yml  (antes: siete literales de host en 10000000-INICIO)\np655:\n  ambiente:\n    hosts-produccion: [\"VDMALFA.\", \"MONBETA.\"]\n    hosts-prueba: [\"VDMBETA.\", \"ACYPGAMA.\", \"ACYPBETA.\", \"MONALFA.\", \"ACYPOMEGA.\"]\n    host-prueba-interna: \"ACYPBETA.\"\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass AmbienteGuard implements JobExecutionListener {\n\n    private final AmbienteProperties props;\n    private final HostInfo host;                       // ATTRIBUTE HOSTNAME OF MYSELF\n\n    @Override\n    public void beforeJob(JobExecution je) {\n        String h = host.nombre().trim();\n        if (props.hostsProduccion().contains(h)) {\n            // El fuente solo registra el mensaje y pone STATUS en -1; el proceso continúa.\n            // Aquí se detiene: enmascarar una base productiva es irreversible.\n            throw new EjecucionEnProduccionException(\"NO CORRE EN PRODUCCION; HOST: \" + h);\n        }\n        if (!props.hostsPrueba().contains(h)) {\n            // Host desconocido: el fuente lo trata como prueba sin aviso (falla abierto).\n            throw new AmbienteDesconocidoException(h);\n        }\n        je.getExecutionContext().putString(\"host\", h);\n    }\n}",
+          "racional": "El programa toma el nombre del servidor y lo compara contra dos listas fijas: dos nombres productivos y cinco de prueba, uno de ellos marcado como prueba interna. Si el host es productivo arma el mensaje NO CORRE EN PRODUCCION, lo registra y cambia su estatus a -1, pero no hay <code>STOP RUN</code> ni salto: el párrafo termina y el programa abre la base y enmascara igual. La traducción mueve las listas a <code>application.yml</code> y convierte el aviso en un bloqueo real, además de rechazar hosts no reconocidos. Es una desviación deliberada del comportamiento del fuente que debe aprobar el SME.",
+          "reglas": [
+            "RN-S500-027",
+            "RN-S500-028",
+            "RN-S500-036"
+          ],
+          "riesgo": "El control de producción no detiene la ejecución, y un host que no esté en ninguna de las dos listas pasa como no productivo sin advertencia. La línea 577, comentada, muestra que alguna vez se forzó el host a MONBETA para pruebas."
+        },
+        {
+          "id": "s2",
+          "titulo": "Tamaño de bloque par derivado de la hora de arranque",
+          "linea_ini": 639,
+          "linea_fin": 675,
+          "origen_codigo": "     IF WKS-MY-HOST = \"ACYPBETA.           \"\n        COMPUTE W77-CONTA-01 = 200 - WKS-TIME-HH - WKS-TIME-MM\n                             - WKS-TIME-SS\n     ELSE\n        COMPUTE W77-CONTA-01 = 1800 - WKS-TIME-HH - WKS-TIME-MM\n                             - WKS-TIME-SS.\n     DIVIDE W77-CONTA-01 BY 2 GIVING W77-TOT-DIV\n                           REMAINDER W77-DIV-RESTO.\n     IF W77-DIV-RESTO = 0\n        NEXT SENTENCE\n     ELSE\n        SUBTRACT 1 FROM W77-CONTA-01.\n***  IF W77-ES-PBA-INTERNA = 1\n        STRING \"CTOS POR BLOQUE = \" W77-CONTA-01, W77-FIN-TXT\n            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass TamanoBloque {\n\n    private static final int MAX_BLOQUE = 1800;            // WKS-TB-NOM-PREF OCCURS 1800\n    private final AmbienteProperties props;\n    private final Clock clock;\n\n    /** 1800 (o 200 en prueba interna) menos hora, minuto y segundo; si es impar se resta 1. */\n    int calcula(String host) {\n        LocalTime t = LocalTime.now(clock);\n        int base = host.equals(props.hostPruebaInterna()) ? 200 : MAX_BLOQUE;\n        int bloque = base - t.getHour() - t.getMinute() - t.getSecond();\n        return (bloque % 2 == 0) ? bloque : bloque - 1;   // DIVIDE ... REMAINDER y SUBTRACT 1\n    }\n}",
+          "racional": "El número de contratos por bloque depende de la hora de arranque: 1800 menos hora, minuto y segundo, o 200 menos lo mismo en el host de prueba interna. El resultado se ajusta a par restando uno si el residuo entre dos no es cero, porque el intercambio de nombres empareja posiciones del bloque. El valor queda entre 1658 y 1800 en general, y entre 58 y 200 en prueba interna, por lo que nunca excede la tabla de 1800 posiciones. El mensaje CTOS POR BLOQUE se emite siempre, porque el IF de la línea 669 está comentado.",
+          "reglas": [
+            "RN-S500-029",
+            "RN-S500-030"
+          ],
+          "riesgo": "El tamaño de bloque se publica en la bitácora y se guarda en el encabezado del archivo de control. Con ese dato y el orden de lectura, la reasignación de nombres puede revertirse (ver s5)."
+        }
+      ]
+    },
+    {
+      "titulo": "Punto de reinicio en el archivo de control SCRBLING",
+      "origen": {
+        "archivo": "S500_SOURCE_P655_SCRAMBLING.txt",
+        "contexto": "PROCEDURE DIVISION · 20000500-REINICIO / 20000600-BUSCA-REINICIO"
+      },
+      "java": {
+        "archivo": "EnmascaramientoJobConfig.java · ReinicioTasklet.java",
+        "contexto": "JobRepository · ExecutionContext"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Validación del encabezado y reposicionamiento en el contrato",
+          "linea_ini": 879,
+          "linea_fin": 939,
+          "origen_codigo": " 20000500-REINICIO.\n     IF WKS-I99-HEAD-TPO  = 01\n    AND WKS-I99-HEAD-CSI  = W77-MY-CSI\n    AND WKS-I99-HEAD-FEC  = WKS-FECHA-PROCESO\n    AND WKS-I99-HEAD-CTO  > 0\n        MOVE WKS-I99-HEAD-CTO  TO WS-NUM-CONTRATO WS-MSG-CTO\n        MOVE WKS-I99-HEAD-BLQ  TO W77-CONTA-01\n        PERFORM 20000600-BUSCA-REINICIO\n     ELSE\n        PERFORM 20000300-GEN-ARCH.\n*****************************************************************\n 20000600-BUSCA-REINICIO.\n     PERFORM 90000003-B03SXCTO-FIND.\n     IF WS-STATUS-BASE > 0\n        MOVE 1 TO W77-ERR-REINICIO.\n     IF W77-ERR-REINICIO = 0\n        PERFORM 90000003-BXXSXCTO-LOCK\n        IF WS-STATUS-BASE > 0\n           ADD 1 TO W77-ERR-REINICIO.\n     IF W77-ERR-REINICIO > 0\n        MOVE ZERO TO WKS-I99-HEAD-CTO\n        PERFORM 20000320-ESC-HEADER\n        SET B03SXCTO OF S500B03CONTRATOS   TO BEGINNING\n        SET B03SXCTO OF S500B03CONTRATOSW  TO BEGINNING.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ReinicioTasklet implements Tasklet {\n\n    private final ContratoRepository b03;                  // S500B03CONTRATOS\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ExecutionContext job = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        Control actual = (Control) job.get(\"control\");     // CSI y fecha de B02CONTROL\n        Optional<CheckpointScrambling> previo = Optional.ofNullable((CheckpointScrambling) job.get(\"checkpoint\"));\n\n        CheckpointScrambling cp = previo\n                .filter(p -> p.tipo() == 1 && p.csi() == actual.csi()\n                          && p.fecha().equals(actual.fechaLote()) && p.ultimoContrato() > 0)\n                .filter(p -> b03.existsById(p.ultimoContrato()))   // si no existe: desde el inicio\n                .orElseGet(() -> CheckpointScrambling.nuevo(actual, (int) job.getInt(\"bloque\")));\n\n        job.putInt(\"bloque\", cp.bloque());                  // WKS-I99-HEAD-BLQ sustituye al recién calculado\n        job.put(\"checkpoint\", cp);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Si el archivo de control existe y su encabezado coincide en tipo, CSI y fecha de proceso con la corrida actual y trae un contrato mayor a cero, el programa retoma desde ese contrato y reutiliza el tamaño de bloque de la corrida anterior. Si el contrato ya no se encuentra o no puede bloquearse, pone el contador en cero y regresa ambos cursores al inicio. Si el encabezado no coincide, genera uno nuevo. En Spring Batch el checkpoint vive en el <code>ExecutionContext</code> del <code>JobRepository</code>, que se restaura automáticamente al reiniciar el job.",
+          "reglas": [
+            "RN-S500-031",
+            "RN-S500-032"
+          ],
+          "riesgo": "El encabezado se escribe una vez por bloque (línea 989), pero cada contrato se confirma en su propia transacción. Si la corrida se interrumpe a mitad de un bloque, al reiniciar los contratos ya modificados de ese bloque se vuelven a alterar con otra combinación de nombres."
+        }
+      ]
+    },
+    {
+      "titulo": "Reasignación de nombres en B03CONTRATOS",
+      "origen": {
+        "archivo": "S500_SOURCE_P655_SCRAMBLING.txt",
+        "contexto": "PROCEDURE DIVISION · 50000200 / 50002000 / 50002060 / 53400000"
+      },
+      "java": {
+        "archivo": "BloqueNombresWriter.java · EstrategiaEnmascaramiento.java",
+        "contexto": "Step chunk = bloque · ItemWriter · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Lectura por bloques y tabla de nombres con sufijo PRUEBA",
+          "linea_ini": 971,
+          "linea_fin": 1035,
+          "origen_codigo": " 50000200-ACT-B03.\n     PERFORM 50000100-FIND-B03.\n     IF W77-EOF-B03 = 0\n        PERFORM 50002000-SUBE-TABLA\n        IF W77-LEIDOS = W77-CONTA-01\n           MOVE W77-LEIDOS  TO W77-IND-BXX\n           PERFORM 50002000-MODIF-NOMBRE UNTIL W77-IND-BXX = 0\n           MOVE ZEROS       TO W77-LEIDOS\n           PERFORM 20000320-ESC-HEADER\n        ELSE\n           NEXT SENTENCE\n     ELSE\n        MOVE W77-LEIDOS  TO W77-IND-BXX\n        PERFORM 50002060-VAL-REGS\n        PERFORM 50002000-MODIF-NOMBRE UNTIL W77-IND-BXX = 0\n        MOVE ZEROS TO W77-LEIDOS\n        MOVE 1     TO W77-FIN-B03.\n**********************************************************\n 50002000-SUBE-TABLA.\n     MOVE B03-NOMBRE OF S500B03CONTRATOS\n       TO WKS-TB-NOMBRE(W77-LEIDOS)\n     MOVE \" PRUEBA\"  TO WKS-TB-SUFIJO(W77-LEIDOS).\n     IF W77-TOT-LEIDOS = 1\n        MOVE WKS-TB-NOM-PREF(W77-LEIDOS)\n          TO W77-NOMBRE-PTE.",
+          "java_codigo": "@Bean\nStep enmascaraContratos(JobRepository repo, PlatformTransactionManager tx,\n                        @Value(\"#{jobExecutionContext['bloque']}\") int bloque,\n                        JpaCursorItemReader<Contrato> contratos,        // FIND NEXT S500B03CONTRATOS\n                        BloqueNombresWriter writer) {\n    return new StepBuilder(\"enmascaraContratos\", repo)\n            .<Contrato, Contrato>chunk(bloque, tx)                    // W77-LEIDOS = W77-CONTA-01\n            .reader(contratos)\n            .writer(writer)                                           // el último chunk puede ser impar\n            .build();\n}\n\n/** 50002000-SUBE-TABLA: nombre truncado a 29 posiciones más \" PRUEBA\" (X(29) + X(07)). */\nstatic String nombreConSufijo(String nombreB03) {\n    String base = nombreB03.length() > 29 ? nombreB03.substring(0, 29) : String.format(\"%-29s\", nombreB03);\n    return base + \" PRUEBA\";\n}",
+          "racional": "Cada contrato leído se agrega a una tabla en memoria con su nombre truncado a 29 posiciones y el sufijo PRUEBA. Cuando la tabla alcanza el tamaño de bloque se reasignan los nombres, se guarda el encabezado de control y se vacía la tabla; al llegar al fin del archivo se procesa el último bloque, que puede ser incompleto e impar. En Spring Batch esto es un step con chunk igual al tamaño de bloque y un writer que recibe el bloque completo. El primer nombre leído en la corrida se conserva para el caso del contrato central.",
+          "reglas": [
+            "RN-S500-033"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Reasignación en orden inverso y contrato central del último bloque",
+          "linea_ini": 1115,
+          "linea_fin": 1181,
+          "origen_codigo": " 50002000-MODIF-NOMBRE.\n     PERFORM 50000100-LOCK-BXXCTOS.\n     IF W77-EOF-B03-XX = 0\n        MOVE B03-NUM-CONTRATO OF S500B03CONTRATOSW\n          TO WKS-I99-HEAD-CTO\n        IF W77-REG-MEDIO = 0\n           MOVE WKS-TB-NOM-PREF(W77-IND-BXX)\n             TO B03-NOMBRE OF S500B03CONTRATOSW\n           PERFORM 53400000-GRABO-B03\n        ELSE\n        IF W77-REG-MEDIO = W77-IND-BXX\n           MOVE W77-NOMBRE-PTE\n             TO B03-NOMBRE OF S500B03CONTRATOSW\n           PERFORM 53400000-GRABO-B03\n        ELSE\n           MOVE WKS-TB-NOM-PREF(W77-IND-BXX)\n             TO B03-NOMBRE OF S500B03CONTRATOSW\n           PERFORM 53400000-GRABO-B03.\n     SUBTRACT 1 FROM W77-IND-BXX.\n****************************************************************\n 50002060-VAL-REGS.\n     DIVIDE W77-LEIDOS BY 2 GIVING W77-TOT-DIV\n                         REMAINDER W77-DIV-RESTO.\n     IF W77-DIV-RESTO = 0\n        NEXT SENTENCE\n     ELSE\n        COMPUTE W77-REG-MEDIO = W77-TOT-DIV + 1.",
+          "java_codigo": "/** Comportamiento del fuente, aislado para poder reemplazarlo. */\ninterface EstrategiaEnmascaramiento {\n    List<String> nombresPara(List<String> nombresDelBloque, boolean ultimoBloque, String nombreReserva);\n}\n\n@Component(\"inversionLegada\")\nclass InversionLegada implements EstrategiaEnmascaramiento {\n\n    /** 50002000-MODIF-NOMBRE: el contrato k recibe el nombre de la posición n + 1 - k. */\n    @Override\n    public List<String> nombresPara(List<String> tabla, boolean ultimo, String reserva) {\n        int n = tabla.size();\n        int medio = (ultimo && n % 2 != 0) ? n / 2 + 1 : 0;           // 50002060-VAL-REGS\n        var salida = new ArrayList<String>(n);\n        for (int k = 1; k <= n; k++) {\n            int origen = n + 1 - k;                                   // W77-IND-BXX desciende\n            salida.add(origen == medio ? reserva : tabla.get(origen - 1));  // W77-NOMBRE-PTE\n        }\n        return salida;\n    }\n}",
+          "racional": "Los contratos del bloque se vuelven a recorrer con un segundo cursor de actualización mientras el índice de la tabla baja de n a 1: el primer contrato recibe el nombre del último, el segundo el del penúltimo, y así sucesivamente. Con un número par de contratos nadie conserva su nombre. En el último bloque, si es impar, el contrato central recibiría el suyo, así que se le asigna el primer nombre leído en la corrida. La estrategia se aísla en una interfaz para que la versión Java pueda sustituirla por un enmascaramiento no reversible sin tocar el resto del job.",
+          "reglas": [
+            "RN-S500-033"
+          ],
+          "riesgo": "No es anonimización: los nombres reales de clientes permanecen en la base de prueba, solo reasignados a otro contrato y truncados a 29 caracteres. Como la permutación es una inversión determinista dentro de cada bloque y el tamaño de bloque queda en bitácora y en el archivo de control, quien tenga la base enmascarada puede reconstruir el nombre original de cada contrato. Además P655 no modifica ningún otro campo de B03 aparte del nombre."
+        },
+        {
+          "id": "s6",
+          "titulo": "Una transacción por contrato y fin sin auditoría",
+          "linea_ini": 1299,
+          "linea_fin": 1325,
+          "origen_codigo": " 53400000-GRABO-B03.\n     PERFORM 90000000-BEGIN-TRANSACTION.\n     PERFORM 90000003-BXXCONTRATOS-STORE.\n     IF WS-STATUS-BASE > 0\n        STRING \"ERR STORE B03-XX \" , WS-STATUS-BASE\n               \" CTO=\"  WS-MSG-CTO\n               DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     PERFORM 90000000-END-TRANSACTIONNOAU.\n     ADD 1 TO W77-TOT-MODIF.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass BloqueNombresWriter implements ItemWriter<Contrato> {\n\n    private final ContratoRepository b03;\n    private final EstrategiaEnmascaramiento estrategia;\n    private final CheckpointScrambling checkpoint;\n\n    /** El chunk completo es una transacción: el bloque se aplica entero o no se aplica. */\n    @Override\n    public void write(Chunk<? extends Contrato> bloque) {\n        var nombres = estrategia.nombresPara(bloque.getItems().stream()\n                .map(c -> nombreConSufijo(c.getNombre())).toList(), esUltimo(bloque), checkpoint.reserva());\n        for (int i = 0; i < bloque.size(); i++) {\n            bloque.getItems().get(i).setNombre(nombres.get(i));   // STORE S500B03CONTRATOSW\n        }\n        b03.saveAll(bloque.getItems());\n        checkpoint.avanza(bloque.getItems().getLast().getNumContrato());   // WKS-I99-HEAD-CTO\n    }\n}",
+          "racional": "Cada nombre se guarda en su propia transacción DMSII, que cierra con <code>END-TRANSACTION NO-AUDIT</code>, y un error de STORE termina el programa. En Java la unidad de trabajo pasa a ser el bloque completo: el chunk se confirma junto con el checkpoint, lo que elimina el problema de bloques aplicados a medias al reiniciar.",
+          "reglas": [],
+          "riesgo": "Con NO-AUDIT en el END-TRANSACTION, los cambios no quedan en el audit trail de DMSII; si la corrida se interrumpe no hay recuperación por auditoría y el único punto de reinicio es el archivo SCRBLING."
+        }
+      ]
+    },
+    {
+      "titulo": "Grupos y cuentas CPE",
+      "origen": {
+        "archivo": "S500_SOURCE_P655_SCRAMBLING.txt",
+        "contexto": "PROCEDURE DIVISION · 50001000-ACT-B37 / 50002100-NOMB-B39"
+      },
+      "java": {
+        "archivo": "GrupoCpeProcessor.java · CuentaCpeProcessor.java",
+        "contexto": "ItemProcessor · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Representante legal y domicilio sintéticos por número de grupo",
+          "linea_ini": 1187,
+          "linea_fin": 1221,
+          "origen_codigo": " 50001000-ACT-B37.\n     PERFORM 90000003-S500B37GRUPOCPE-LOCKN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1    TO W77-FIN-B37\n        ELSE\n           STRING \"ERR LOCKN B37 STA=\", WS-STATUS-BASE\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF W77-FIN-B37 = 0\n        ADD  1               TO W77-LEIDOS-B37\n        MOVE B37-GRUPO       TO WS-B37-NGPO WS-B37-DGPO\n        MOVE WS-B37-REPRES   TO B37-REPRES\n        MOVE WS-B37-DOMICI   TO B37-DOMICILIO\n        PERFORM 53400100-GRABO-B37.",
+          "java_codigo": "@Component\nclass GrupoCpeProcessor implements ItemProcessor<GrupoCpe, GrupoCpe> {\n\n    /** WS-B37-REPRES: X(26) + 9(10). WS-B37-DOMICI: X(20) + 9(10). */\n    @Override\n    public GrupoCpe process(GrupoCpe g) {\n        String grupo = \"%010d\".formatted(g.getGrupo());\n        g.setRepresentante(\"REPRESENTANTE LEGAL GRUPO \" + grupo);   // 36 posiciones\n        g.setDomicilio(\"DOMICILIO DEL GRUPO \" + grupo);              // 30 posiciones\n        // B37-NOMBRE (razón social del grupo) no se modifica, igual que en el fuente.\n        return g;\n    }\n}",
+          "racional": "Cada grupo CPE se bloquea en orden y se le sustituyen el representante legal y el domicilio por textos fijos con el número de grupo a diez dígitos, de modo que ambos campos quedan correlacionados. A diferencia de los contratos, aquí sí se reemplaza el dato por un texto sintético. La razón social del grupo no se toca.",
+          "reglas": [
+            "RN-S500-034"
+          ],
+          "riesgo": "B37-NOMBRE conserva la razón social real del grupo en la base de prueba."
+        },
+        {
+          "id": "s8",
+          "titulo": "Nombre de la cuenta CPE desde su contrato o secuencial de prueba",
+          "linea_ini": 1261,
+          "linea_fin": 1293,
+          "origen_codigo": " 50002100-NOMB-B39.\n     MOVE B39-CONTRATO      TO WS-NUM-CONTRATO.\n     MOVE 0                 TO W77-NO-B03.\n     PERFORM 90000003-B03SXCTOW-FIND.\n     IF WS-STATUS-BASE > 0\n        MOVE 1    TO W77-NO-B03.\n     IF W77-NO-B03 = 0\n        MOVE B03-NOMBRE OF S500B03CONTRATOSW TO B39-NOMBRE\n     ELSE\n        MOVE \" \"  TO B39-NOMBRE\n        ADD 12     TO W77-SEQ-NOMB\n        STRING \"NOMBRE DE PRUEBA \" W77-SEQ-NOMB\n               DELIMITED BY SIZE INTO B39-NOMBRE.\n     PERFORM 53400100-GRABO-B39.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass CuentaCpeProcessor implements ItemProcessor<CuentaCpe, CuentaCpe> {\n\n    private final ContratoRepository b03;\n    private int secuencia = 10_000;                                  // W77-SEQ-NOMB VALUE 10000\n\n    @Override\n    public CuentaCpe process(CuentaCpe c) {\n        c.setNombre(b03.findById(c.getContrato())                    // FIND B03SXCTO de B03CONTRATOSW\n                .map(Contrato::getNombre)                              // ya enmascarado en el step anterior\n                .orElseGet(() -> {\n                    secuencia += 12;                                   // ADD 12 TO W77-SEQ-NOMB\n                    return \"NOMBRE DE PRUEBA %06d\".formatted(secuencia);\n                }));\n        return c;\n    }\n}",
+          "racional": "Para cada cuenta CPE se busca su contrato en B03; si existe, la cuenta toma el nombre que el contrato ya recibió, así ambos quedan consistentes. Si no existe, se genera un nombre secuencial de prueba que arranca en 10,012 y avanza de 12 en 12. El orden de los steps importa: B39 debe procesarse después de B03, como en 50000000-PROCESOS.",
+          "reglas": [
+            "RN-S500-035"
+          ],
+          "riesgo": "Cualquier error al buscar el contrato, no solo el no encontrado, se trata como contrato inexistente (línea 1271) y la cuenta recibe un nombre secuencial sin aviso."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "El candado de producción no detiene la ejecución",
+      "detalle": "En 10000000-INICIO (líneas 607-617), si el host es VDMALFA o MONBETA solo se registra el mensaje y se cambia el STATUS a -1; el programa continúa y enmascara la base que tenga abierta."
+    },
+    {
+      "titulo": "Enmascaramiento reversible con nombres reales",
+      "detalle": "50002000-MODIF-NOMBRE invierte el orden de los nombres dentro de cada bloque. Los nombres reales siguen en la base y, conociendo el tamaño de bloque que se publica en bitácora y en SCRBLING, la asignación original puede reconstruirse. Ningún otro campo de B03 se altera y la razón social de B37 tampoco. Es un riesgo de protección de datos personales para el uso de estas bases fuera de producción."
+    },
+    {
+      "titulo": "Lista cerrada de hosts que falla en modo abierto",
+      "detalle": "Cualquier host que no esté en las dos listas de las líneas 581-603 no se clasifica como producción ni como prueba y el proceso corre sin advertencia."
+    },
+    {
+      "titulo": "Reinicio a mitad de bloque",
+      "detalle": "El checkpoint se escribe por bloque y la confirmación es por contrato; un reinicio vuelve a alterar los contratos del bloque interrumpido."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Siete nombres de host, las bases 1800 y 200 del tamaño de bloque, el sufijo PRUEBA, los textos de representante y domicilio y la secuencia 10000 de 12 en 12. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "La traducción convierte el aviso de producción en un bloqueo real y rechaza hosts desconocidos; es un cambio de comportamiento que debe aprobar el dueño del proceso.",
+    "Validar con el área de privacidad si la base enmascarada por P655 cumple con la LFPDPPP para uso en ambientes de prueba, dado que conserva nombres reales permutados.",
+    "W77-ES-PRODUCCION y W77-ES-PRUEBA (líneas 371-373) no tienen VALUE; confirmar que MCP las inicializa en cero.",
+    "Confirmar en DMSII que FIND NEXT S500B03CONTRATOS y LOCK NEXT S500B03CONTRATOSW recorren el mismo orden después de un reposicionamiento por B03SXCTO en el reinicio; la correspondencia entre tabla y contrato depende de ello.",
+    "Confirmar con el DASDL de S500BD01SCRA qué otros datos personales tiene B03CONTRATOS (domicilio, RFC, teléfonos) y si debían enmascararse; P655 solo modifica B03-NOMBRE."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-591",
+    "RN-S151-592",
+    "RN-S151-593",
+    "RN-S151-594",
+    "RN-S151-595",
+    "RN-S151-596",
+    "RN-S151-597",
+    "RN-S151-599",
+    "RN-S151-600",
+    "RN-S500-027",
+    "RN-S500-028",
+    "RN-S500-029",
+    "RN-S500-030",
+    "RN-S500-031",
+    "RN-S500-032",
+    "RN-S500-033",
+    "RN-S500-034",
+    "RN-S500-035",
+    "RN-S500-036"
+  ]
+}

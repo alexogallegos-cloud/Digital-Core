@@ -1,0 +1,173 @@
+{
+  "slug": "S500_L020",
+  "sistema": "S500",
+  "programa": "L020",
+  "nombre": "Fachada de Control de Enlaces hacia S500L019SDOS",
+  "funcion": "Librería ALGOL residente (S500L020SDOS) que exporta 20 procedimientos de consulta de saldos y los reenvía a la librería real S500L019SDOS, con la posibilidad de suspender y restablecer el enlace en caliente por comandos HI del operador.",
+  "resumen": "S500L020SDOS no consulta saldos. Declara los 20 procedimientos de la librería real con sufijo _C sobre una librería LIGACALL cuyo título se resuelve en ejecución con el catálogo de versiones CTLVER (identificador S500L019SDOS), y exporta los mismos 20 nombres sin sufijo. Cada procedimiento exportado reenvía la llamada si el enlace está activo y devuelve 05 si está suspendido. Al levantarse valida su propia versión, resuelve el título de L019 e invoca LEVANTA_C; después se congela con FREEZE(CONTROL) y atiende los HI 1920 (suspender), 1950 (volver a ligar), 1 (estado) y 99 (ayuda) mientras tenga usuarios.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.saldos.fachada",
+  "secciones": [
+    {
+      "titulo": "Fachada estable de 20 puntos de entrada",
+      "origen": {
+        "archivo": "S500_SOURCE_L019_SALDOS.txt",
+        "contexto": "OUTER BLOCK · S500L020CONTRATO · S500L020FECCONT"
+      },
+      "java": {
+        "archivo": "ConsultaSaldos.java · ConsultaSaldosFachada.java",
+        "contexto": "interface · @Primary @Service · AtomicReference"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "EXPORT de los 20 procedimientos y FREEZE controlado",
+          "linea_ini": 547,
+          "linea_fin": 571,
+          "origen_codigo": "  EXPORT S500L020CONTRATO                                               00516000\n        ,S500L020SDOPARNAC                                              00517000\n        ,S500L020EDOCTAAHO                                              00518000\n        ,S500L020COMPEND                                                00519000\n        ,S500L020PAGPEND                                                00520000\n        ,S500L020PAGPEND2                                               00521000\n        ,S500L020TIPO_PROC                                              00534000\n        ,S500L020FECHACLONA                                             00534500\n        ;                                                               00535000\n                                                                        00536000\n   PROC_LEVANTA;                                                        00537000\n%%   FREEZE(TEMPORARY);                                                 00538000\n   FREEZE(CONTROL, PROC_CONTROL);                                       00539000",
+          "java_codigo": "/** Contrato de S500L019SDOS que los clientes de S500 consumen a través de S500L020SDOS. */\npublic interface ConsultaSaldos {\n    int contrato(byte[] entrada, byte[] salida);       // S500L020CONTRATO\n    int sdoParNac(byte[] entrada, byte[] salida);      // S500L020SDOPARNAC\n    int edoCtaAho(byte[] entrada, byte[] salida);      // S500L020EDOCTAAHO\n    int compend(byte[] entrada, byte[] salida);        // S500L020COMPEND\n    int pagpend(byte[] entrada, byte[] salida);        // S500L020PAGPEND\n    int pagpend2(byte[] entrada, byte[] salida);       // S500L020PAGPEND2\n    void fecCont(byte[] entrada);                      // S500L020FECCONT: sin valor de retorno\n    int tipoProc(byte[] entrada);                      // S500L020TIPO_PROC\n    int fechaClona(byte[] entrada);                    // S500L020FECHACLONA\n    // ... 11 más, uno por EXPORT\n}\n\n/** Los clientes inyectan siempre la fachada; la implementación real se puede cambiar en caliente. */\n@Primary\n@Service\nclass ConsultaSaldosFachada implements ConsultaSaldos, SmartLifecycle {\n    // PROC_LEVANTA en start(); FREEZE(CONTROL, PROC_CONTROL) equivale a que el bean\n    // permanezca vivo mientras el contexto exista y atienda operaciones de control.\n}",
+          "racional": "El bloque externo exporta 20 procedimientos con los nombres públicos de la consulta de saldos, ejecuta <code>PROC_LEVANTA</code> y se congela con <code>FREEZE(CONTROL, PROC_CONTROL)</code>; la variante <code>FREEZE(TEMPORARY)</code> está comentada. En Java la superficie es una interfaz única y la fachada es el bean <code>@Primary</code> que reciben todos los clientes, de modo que la implementación real puede reemplazarse sin tocarlos, que es el propósito del patrón original.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Reenvío con resultado 05 cuando el enlace está suspendido",
+          "linea_ini": 192,
+          "linea_fin": 202,
+          "origen_codigo": " INTEGER PROCEDURE S500L020CONTRATO(EA_ENTRADA,EA_SALIDA);              00175000\n EBCDIC ARRAY EA_ENTRADA,EA_SALIDA[*];                                  00176000\n%*******************************************************************    00177000\n BEGIN                                                                  00178000\n                                                                        00179000\n IF B_LLAMAL020 THEN                                                    00180000\n    S500L020CONTRATO := S500L020CONTRATO_C(EA_ENTRADA,EA_SALIDA)        00181000\n ELSE                                                                   00182000\n    S500L020CONTRATO := 05;                                             00183000\n                                                                        00184000\n END OF S500L020CONTRATO;                                               00185000",
+          "java_codigo": "    static final int REINTENTE_MAS_TARDE = 5;              // RESULT 05 del catálogo de L019\n\n    private final AtomicReference<ConsultaSaldos> destino;  // LIGACALL; null = enlace suspendido\n\n    ConsultaSaldosFachada(@Qualifier(\"s500L019\") ConsultaSaldos real) {\n        this.destino = new AtomicReference<>(real);\n    }\n\n    /** S500L020CONTRATO: los 20 procedimientos tienen exactamente esta forma. */\n    @Override\n    public int contrato(byte[] entrada, byte[] salida) {\n        ConsultaSaldos d = destino.get();                     // IF B_LLAMAL020\n        return (d != null) ? d.contrato(entrada, salida)       // S500L020CONTRATO_C(...)\n                           : REINTENTE_MAS_TARDE;\n    }",
+          "racional": "Cada procedimiento exportado revisa la bandera global <code>B_LLAMAL020</code>: si el enlace está activo delega en el procedimiento <code>_C</code> de la librería real y devuelve su resultado; si está suspendido responde 05, que los clientes interpretan como reintentar más tarde. En Java la bandera y la referencia a la librería se combinan en un <code>AtomicReference</code>, de modo que una llamada lee en una sola operación si hay destino y cuál es, sin ventana entre revisar la bandera y usar el enlace.",
+          "reglas": [],
+          "riesgo": "En el original la bandera y el enlace son dos cosas separadas: el HI 1920 pone la bandera en FALSE y luego hace DELINKLIBRARY; una llamada que ya pasó la revisión de la bandera puede encontrarse con el enlace cerrado."
+        },
+        {
+          "id": "s3",
+          "titulo": "FECCONT: sin aviso cuando el enlace está suspendido",
+          "linea_ini": 348,
+          "linea_fin": 358,
+          "origen_codigo": "    PROCEDURE S500L020FECCONT(EA_ENTRADA);                              00331000\n    EBCDIC ARRAY EA_ENTRADA[*];                                         00332000\n%*******************************************************************    00333000\nBEGIN                                                                   00334000\n                                                                        00335000\n IF B_LLAMAL020 THEN                                                    00336000\n     S500L020FECCONT_C(EA_ENTRADA);                                     00337000\n% ELSE                                                                  00338000\n%    S500L020FECCONT := 05;                                             00339000\n                                                                        00340000\n END OF S500L020FECCONT;                                                00341000",
+          "java_codigo": "    /** S500L020FECCONT es PROCEDURE sin tipo: no puede devolver 05. */\n    @Override\n    public void fecCont(byte[] entrada) {\n        ConsultaSaldos d = destino.get();\n        if (d != null) {\n            d.fecCont(entrada);\n            return;\n        }\n        // El original no hace nada (ELSE comentado). Para no ocultarlo se lanza una excepción\n        // que el cliente puede tratar como el 05 de los demás procedimientos.\n        throw new EnlaceSuspendidoException(\"S500L020FECCONT con enlace a L019 suspendido\");\n    }",
+          "racional": "A diferencia de los otros 19, <code>S500L020FECCONT</code> es un procedimiento sin valor de retorno, así que la rama que devolvería 05 está comentada. Con el enlace suspendido la llamada regresa sin hacer nada y el cliente no se entera. La traducción hace explícita esa condición con una excepción.",
+          "reglas": [],
+          "riesgo": "Un cliente que llama S500L020FECCONT durante una suspensión continúa con el área de entrada sin actualizar, sin código de error."
+        }
+      ]
+    },
+    {
+      "titulo": "Resolución dinámica de L019 y ciclo de vida",
+      "origen": {
+        "archivo": "S500_SOURCE_L019_SALDOS.txt",
+        "contexto": "LIBRARY LIGACALL · PROC_DAME_TIT_S500L019 · CHECA_VERSION · PROC_LEVANTA · BAJA"
+      },
+      "java": {
+        "archivo": "ResolutorLibreria.java · VersionPropiaValidator.java",
+        "contexto": "@Component · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "LIGACALL sin título fijo, resuelto por CTLVER",
+          "linea_ini": 35,
+          "linea_fin": 463,
+          "origen_codigo": "  LIBRARY LIGACALL;                                                     00035000\n                                                                        00036000\n    INTEGER PROCEDURE S500L020CONTRATO_C(EA_ENTRADA,EA_SALIDA);         00037000\n    EBCDIC ARRAY EA_ENTRADA, EA_SALIDA[*];                              00038000\n    LIBRARY   LIGACALL;                                                 00039000\n PROCEDURE PROC_DAME_TIT_S500L019;                                      00421000\n%*********************************************************************  00422000\n BEGIN                                                                  00423000\n   EBCDIC  VALUE ARRAY EVA_ID_S500L019(\"S500L019SDOS\");                 00424000\n   EBCDIC  ARRAY  EA_TIT[0:71];                                         00424100\n                                                                        00424200\n   IF DAME_TIT(EVA_ID_S500L019,EA_TIT) < 0 THEN                         00427940\n      DF_DISPLAY(\"ERROR CALL CTLVER S500L019SDOS\")                      00427950\n   ELSE                                                                 00427960\n      REPLACE LIGACALL.TITLE BY EA_TIT FOR 72;                          00427970\n                                                                        00434000\n END OF PROC_DAME_TIT_S500L019;                                         00436000",
+          "java_codigo": "# application.yml\ns500:\n  saldos:\n    implementacion: s500L019        # identificador CTLVER \"S500L019SDOS\"\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass ResolutorLibreria {\n\n    private final ApplicationContext ctx;\n    private final SaldosProperties props;\n\n    /** PROC_DAME_TIT_S500L019: DAME_TIT(\"S500L019SDOS\") y REPLACE LIGACALL.TITLE. */\n    Optional<ConsultaSaldos> resuelve() {\n        try {\n            return Optional.of(ctx.getBean(props.implementacion(), ConsultaSaldos.class));\n        } catch (BeansException e) {\n            log.error(\"ERROR CALL CTLVER S500L019SDOS\", e);   // DF_DISPLAY y sigue\n            return Optional.empty();\n        }\n    }\n}",
+          "racional": "La librería de destino se declara como <code>LIBRARY LIGACALL</code> sin <code>TITLE</code>; antes de ligar se pide al catálogo de versiones el título vigente de <code>S500L019SDOS</code> y se asigna a <code>LIGACALL.TITLE</code>. Así, cambiar de versión de L019 no requiere recompilar a los clientes ni a la fachada. En Java el equivalente es elegir la implementación por nombre de bean desde configuración.",
+          "reglas": [],
+          "riesgo": "Si DAME_TIT falla solo se despliega un mensaje y el título de LIGACALL conserva el valor anterior o ninguno; el enlace se intenta igual con LEVANTA_C."
+        },
+        {
+          "id": "s5",
+          "titulo": "Validación de versión propia omitida en hosts beta",
+          "linea_ini": 163,
+          "linea_fin": 189,
+          "origen_codigo": " PROCEDURE CHECA_VERSION;                                               00154000\n BEGIN                                                                  00156000\n   EBCDIC VALUE ARRAY EVA_ID_S500L022  (\"S500L020SDOS\");                00157000\n    EBCDIC VALUE ARRAY EVA_VER_S500L022 (\"25MTP002\");                   00158000\n   REPLACE EA_MY_HOST BY MYSELF.HOSTNAME;                               00159000\n   IF EA_MY_HOST = \"ACYPBETA\" OR EA_MY_HOST = \"CACYPBET\" OR             00159006\n      EA_MY_HOST = \"VDMBETA\" OR EA_MY_HOST = \"CVDMBET\" THEN             00159008\n   BEGIN                                                                00159010\n      DF_DISPLAY(EA_MY_HOST FOR 10)                                     00159012\n   END;                                                                 00159014\n   IF EA_MY_HOST = \"ACYPBETA\" OR EA_MY_HOST = \"CACYPBET\" THEN           00160000\n      B_HOST_CDL:= TRUE;                                                00161000\n   IF NOT  B_HOST_CDL THEN                                              00162000\n      BEGIN                                                             00163000\n       IF CHECAME(EVA_ID_S500L022,EVA_VER_S500L022) < 0 THEN            00164000\n       BEGIN                                                            00165000\n         DF_DISP_HI                                                     00166000\n          (\"ERROR MI NOMBRE NO CORRESP. AL DE CTLVER\",\"E>050110<\");     00167000\n         MYSELF.STATUS:= -1;                                            00168000\n       END;                                                             00169000\n       DELINKLIBRARY(CTLVER);                                           00170000\n      END;                                                              00171000\n END OF CHECHA_VERSION;                                                 00172000",
+          "java_codigo": "# application.yml\ns500:\n  saldos:\n    version-esperada: 25MTP002\n    hosts-sin-validacion: [ACYPBETA, CACYPBET]    # B_HOST_CDL\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass VersionPropiaValidator {\n\n    private final ControlVersiones ctlver;        // CHECAME de CTLVERS\n    private final SaldosProperties props;\n\n    void valida(String host) {\n        if (props.hostsSinValidacion().contains(host)) {\n            return;                                // ambiente de desarrollo o beta\n        }\n        if (!ctlver.checame(\"S500L020SDOS\", props.versionEsperada())) {\n            // MYSELF.STATUS := -1\n            throw new VersionNoAutorizadaException(\"ERROR MI NOMBRE NO CORRESP. AL DE CTLVER\");\n        }\n    }\n}",
+          "racional": "Al levantarse, la fachada comprueba con <code>CHECAME</code> que su identificador y versión coincidan con el catálogo de versiones; si no, termina la tarea. En los hosts ACYPBETA y CACYPBET la validación se omite. Los nombres de host y la versión esperada están compilados y pasan a <code>application.yml</code>. Las variables que guardan el identificador se llaman <code>EVA_ID_S500L022</code> aunque contienen S500L020SDOS, resto de un copiado de otra librería.",
+          "reglas": [],
+          "riesgo": "VDMBETA y CVDMBET se reconocen como beta para desplegar el host, pero no se excluyen de la validación; la lista de ambientes de prueba es inconsistente."
+        },
+        {
+          "id": "s6",
+          "titulo": "Levantar y bajar: el mismo arranque en ambos casos",
+          "linea_ini": 465,
+          "linea_fin": 483,
+          "origen_codigo": " PROCEDURE PROC_LEVANTA;                                                00438000\n%********************************************************************** 00439000\n BEGIN                                                                  00440000\n CHECA_VERSION;                                                         00441000\n B_LLAMAL020:= TRUE;                                                    00442000\n PROC_DAME_TIT_S500L019;                                                00443000\n LEVANTA_C;                                                             00444000\n                                                                        00445000\n END OF PROC_LEVANTA;                                                   00446000\n%********************************************************************** 00447000\n PROCEDURE BAJA;                                                        00448000\n%********************************************************************** 00449000\n BEGIN                                                                  00450000\n CHECA_VERSION;                                                         00451000\n B_LLAMAL020:= TRUE;                                                    00452000\n PROC_DAME_TIT_S500L019;                                                00453000\n BAJA_C;                                                                00454000\n                                                                        00455000\nEND OF BAJA;                                                            00456000",
+          "java_codigo": "    /** PROC_LEVANTA. */\n    @Override\n    public void start() {\n        validator.valida(host);                       // CHECA_VERSION\n        resolutor.resuelve().ifPresent(real -> {      // PROC_DAME_TIT_S500L019\n            real.levanta();                           // LEVANTA_C\n            destino.set(real);                        // B_LLAMAL020 := TRUE\n        });\n    }\n\n    /** BAJA: en el original repite CHECA_VERSION y pone la bandera en TRUE antes de BAJA_C. */\n    @Override\n    public void stop() {\n        ConsultaSaldos real = destino.getAndSet(null);\n        if (real != null) {\n            real.baja();                              // BAJA_C\n        }\n    }",
+          "racional": "<code>PROC_LEVANTA</code> valida versión, activa la bandera, resuelve el título de L019 y le pide a ésta que se levante. <code>BAJA</code> repite exactamente los mismos pasos, incluida la activación de la bandera, y termina con <code>BAJA_C</code>. En Java el apagado hace lo razonable: suspende el enlace y solo después pide la baja a la implementación.",
+          "reglas": [],
+          "riesgo": "BAJA no se invoca en ninguna parte del fuente (el bloque externo termina en FREEZE). El pseudocódigo indica además que L019 no exporta BAJA_C; si BAJA se llegara a usar fallaría al enlazar. No se pudo verificar porque el fuente de L019 no está en el corpus."
+        }
+      ]
+    },
+    {
+      "titulo": "Suspensión y restablecimiento en caliente por HI",
+      "origen": {
+        "archivo": "S500_SOURCE_L019_SALDOS.txt",
+        "contexto": "PROCEDURE PROC_CONTROL"
+      },
+      "java": {
+        "archivo": "EnlaceSaldosEndpoint.java",
+        "contexto": "Spring Boot Actuator @Endpoint"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "HI 1920 suspende, HI 1950 vuelve a ligar",
+          "linea_ini": 488,
+          "linea_fin": 542,
+          "origen_codigo": "   INTEGER I_EVENTO,                                                    00461000\n           I_NUM_HI,                                                    00462000\n           LIB_USERS;                                                   00463000\n   LIB_USERS:=1;                                                        00464000\n   WHILE I_NUM_HI NEQ 4 AND LIB_USERS NEQ 0 DO                          00465000\n   BEGIN                                                                00466000\n     I_EVENTO := WAITANDRESET((2), MYSELF.EXCEPTIONEVENT);              00467000\n     LIB_USERS:=MYSELF.LIBRARYUSERS;                                    00468000\n     CASE I_EVENTO OF                                                   00469000\n     BEGIN                                                              00470000\n      2: BEGIN                                                          00471000\n           IF MYSELF.TASKVALUE = 1920 THEN                              00471100\n              I_NUM_HI:=20                                              00471200\n           ELSE                                                         00471250\n           IF MYSELF.TASKVALUE = 1950 THEN                              00471300\n              I_NUM_HI:=50                                              00471400\n           ELSE                                                         00471500\n              I_NUM_HI:= MYSELF.TASKVALUE;                              00471600\n           CASE I_NUM_HI OF                                             00473000\n           BEGIN                                                        00474000\n             20: DF_DISP_HI(\"SE SUSPENDE LIGA A L019\",\"E>041001<\");     00475000\n                 B_LLAMAL020:= FALSE;                                   00476000\n                 DELINKLIBRARY(LIGACALL);                               00477000\n             50: PROC_DAME_TIT_S500L019;                                00478000\n                 DF_DISP_HI(\"SE HACE LIGA A L019\",\"E>041001<\");         00479000\n                 B_LLAMAL020:= TRUE;                                    00480000\n                 LEVANTA_C;                                             00481000\n             ELSE:;                                                     00503000\n           END;                                                         00504000\n           RESET(MYSELF.EXCEPTIONEVENT);                                00505000\n         END;                                                           00506000\n         ELSE:;                                                         00507000\n     END;                                                               00508000\n     I_EVENTO:= 0;                                                      00509000\n   END;                                                                 00510000\n   MYSELF.STATUS := VALUE(GOINGAWAY);                                   00511000",
+          "java_codigo": "@Component\n@Endpoint(id = \"enlacel019\")\n@RequiredArgsConstructor\nclass EnlaceSaldosEndpoint {\n\n    private final ConsultaSaldosFachada fachada;\n    private final ResolutorLibreria resolutor;\n\n    @ReadOperation                                   // HI 1\n    public String estado() {\n        return fachada.enlaceActivo() ? \"STATUS ACCESO A L019: CON\" : \"STATUS ACCESO A L019: SIN\";\n    }\n\n    @WriteOperation                                  // HI 1920\n    public String suspende() {\n        ConsultaSaldos anterior = fachada.suspende(); // destino := null; desde aquí se responde 05\n        // DELINKLIBRARY(LIGACALL): la instancia anterior se libera cuando terminen sus llamadas\n        return \"SE SUSPENDE LIGA A L019\";\n    }\n\n    @WriteOperation                                  // HI 1950\n    public String liga() {\n        resolutor.resuelve().ifPresent(real -> {\n            real.levanta();                          // LEVANTA_C\n            fachada.conecta(real);                   // B_LLAMAL020 := TRUE\n        });\n        return \"SE HACE LIGA A L019\";\n    }\n}\n// El ciclo WHILE ... WAITANDRESET((2), EXCEPTIONEVENT) desaparece: Actuator recibe los comandos.",
+          "racional": "Cada 2 segundos, o al recibir un HI, la fachada revisa sus usuarios y el comando. El HI 1920 apaga la bandera y desliga L019: a partir de ese momento todas las consultas responden 05 sin que los clientes se desliguen. El HI 1950 vuelve a resolver el título en CTLVER, enciende la bandera y llama <code>LEVANTA_C</code>, de modo que una nueva versión de L019 entra en servicio sin bajar a los programas de S500. Los valores 1920 y 1950 se traducen internamente a 20 y 50. En Java el mecanismo equivale a cambiar la referencia del <code>AtomicReference</code> desde un endpoint de operación.",
+          "reglas": [],
+          "riesgo": "El ciclo termina con I_NUM_HI = 4 aunque el HI 4 no figura en la ayuda del HI 99: un HI 4 marca la librería GOINGAWAY con usuarios enlazados. En HI 1950 la bandera se activa antes de LEVANTA_C, así que hay un instante en que se reenvían llamadas a una L019 que aún no terminó de levantarse."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Fuente del inventario equivocado",
+      "detalle": "El inventario asigna a S500_L020 el archivo S500_INC_L020.txt (fuente inferida), que es un copybook COBOL con llamadas a S500L010CTRL y no contiene ningún punto de entrada S500L020. El código real de esta fachada está en S500_SOURCE_L019_SALDOS.txt (cabecera en las líneas 12-14: LIBRERIA DE CONTROL S500L020SALDOS, CONTROLA LINKS DE LIBRERIA S500L019SALDOS). Esta demostración cita ese archivo."
+    },
+    {
+      "titulo": "Ventana entre bandera y enlace",
+      "detalle": "B_LLAMAL020 y LIGACALL se manejan por separado en el HI 1920 (líneas 517-519) y en el HI 1950 (líneas 520-523); una llamada concurrente puede ver la bandera activa con el enlace cerrado o con L019 todavía levantándose."
+    },
+    {
+      "titulo": "Llamada silenciosa en FECCONT",
+      "detalle": "S500L020FECCONT no informa nada cuando el enlace está suspendido (rama ELSE comentada en las líneas 355-356)."
+    },
+    {
+      "titulo": "HI 4 no documentado",
+      "detalle": "La condición del ciclo de control (línea 492) termina la librería con un HI 4, que no aparece en la lista de comandos del HI 99."
+    },
+    {
+      "titulo": "Hardcodes de ambiente",
+      "detalle": "Los hosts ACYPBETA, CACYPBET, VDMBETA y CVDMBET, la versión 25MTP002, el MTP 002 de los mensajes y el título de LIBLJ están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Corregir en _inventario.json la fuente de S500_L020 a source/S500/extracted_source/S500_SOURCE_L019_SALDOS.txt; con la fuente actual (S500_INC_L020.txt) el --check no puede verificar estos segmentos.",
+    "El inventario asigna también S500_SOURCE_L019_SALDOS.txt a S500_L019, pero ese archivo es la fachada L020; el fuente real de S500L019SDOS no está en el corpus.",
+    "Confirmar con SME si L019 exporta BAJA_C; el pseudocódigo afirma que no, y no se pudo verificar sin el fuente de L019.",
+    "Confirmar el significado del resultado 05 en los clientes y si todos reintentan ante él.",
+    "El inventario no asigna reglas del brain a L020; el pseudocódigo cita RN-S500-882, que no está en reglas_brain para este componente."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1060",
+    "RN-S151-1061",
+    "RN-S151-1062",
+    "RN-S151-1063",
+    "RN-S151-1064",
+    "RN-S151-1065",
+    "RN-S151-1066",
+    "RN-S151-1067",
+    "RN-S151-1068",
+    "RN-S151-1069",
+    "RN-S500-882"
+  ]
+}

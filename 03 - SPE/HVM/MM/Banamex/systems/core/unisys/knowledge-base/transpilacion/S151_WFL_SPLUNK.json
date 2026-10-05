@@ -1,0 +1,138 @@
+{
+  "slug": "S151_WFL_SPLUNK",
+  "sistema": "S151",
+  "programa": "WFL_SPLUNK",
+  "nombre": "Orquestador de la integración con Splunk (P810 STSTOTALES)",
+  "funcion": "WFL de operación de S151 que inicia, detiene o depura el programa P810, el que alimenta a Splunk con las estadísticas de totales de S151.",
+  "resumen": "Recibe una acción (INICIA, TERMINA o DEPURA) y un paso (P810 o ALL). Para iniciar, envía el comando HI 4 a cualquier P810 en ejecución, espera cinco segundos y lanza una nueva instancia con la cadena de configuración de compañía, usuario, pack y directorio base. Para terminar solo envía HI 4. Para depurar borra los directorios de control, bitácora y CON de STSTOTALES en las familias CMEMP y LOGS mediante la utilería P805 de S288. Un parámetro inválido solo produce un mensaje en consola.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "WFL",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.operacion.splunk",
+  "secciones": [
+    {
+      "titulo": "Parámetros, valores compilados y utilerías",
+      "origen": {
+        "archivo": "WFL_SPLUNK.txt",
+        "contexto": "BEGIN JOB · SUBROUTINE TASKCOMM / REMFILES"
+      },
+      "java": {
+        "archivo": "SplunkJobConfig.java · SplunkProperties.java · ComandoTareaService.java · DepuraArchivosService.java",
+        "contexto": "Spring Batch Job · @ConfigurationProperties · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetros del job y valores compilados",
+          "linea_ini": 1,
+          "linea_fin": 37,
+          "origen_codigo": "BEGIN JOB S151/WFL/SPLUNK/25MTP006(STRING PARAM1,                                 00001000\n                                   STRING PARAM2 OPTIONAL DEFAULT = \"NADA\");      00002000\n FAMILY DISK=CMEMP OTHERWISE DISK;                                                00003000\n STRING                                                                           00004000\n  MYID,MYFAMDIR,MYFAMLOGS,PASO810;                                                00005000\n TASK                                                                             00006000\n  T1;                                                                             00007000\n ON RESTART,GO INICIO;                                                            00032000\n INICIO:                                                                          00033000\n MYID:=\"S151SPLUNK: \";                                                            00034000\n PASO810:=\"S151/OBJECT/P810/STSTOTALES/25MTP006\";                                 00035000\n MYFAMDIR:=\"CMEMP\";                                                               00036000\n MYFAMLOGS:=\"LOGS\";                                                               00037000",
+          "java_codigo": "# application.yml  (antes literales en la WFL)\ns151-splunk:\n  paso-p810: \"S151/OBJECT/P810/STSTOTALES/25MTP006\"\n  familia-dir: CMEMP\n  familia-logs: LOGS\n  task-string: \"COMPANY=BANAMEX;USER=S151;PACK=CMEMP;BASE_DIR=S151_FILE;\"\n  espera-tras-detener: 5s\n\n// ---------------------------------------------------------------------------\npublic enum Accion { INICIA, TERMINA, DEPURA }\npublic enum Paso { P810, ALL, NADA }               // PARAM2 OPTIONAL DEFAULT = \"NADA\"\n\n@ConfigurationProperties(\"s151-splunk\")\npublic record SplunkProperties(String pasoP810, String familiaDir, String familiaLogs,\n                               String taskString, Duration esperaTrasDetener) {}\n\n/** BEGIN JOB S151/WFL/SPLUNK/25MTP006(STRING PARAM1, STRING PARAM2 ...). */\n@Bean\nJob s151Splunk(JobRepository repo, SplunkDecider decider,\n               Step detieneP810, Step iniciaP810, Step depuraArchivos, Step parametroInvalido) {\n    return new JobBuilder(\"S151SPLUNK\", repo)\n            .incrementer(new RunIdIncrementer())      // ON RESTART, GO INICIO: reinicia desde el principio\n            .start(decider)\n                .on(\"INICIA\").to(detieneP810).next(iniciaP810)\n            .from(decider).on(\"TERMINA\").to(detieneP810)\n            .from(decider).on(\"DEPURA\").to(depuraArchivos)\n            .from(decider).on(\"INVALIDO\").to(parametroInvalido)\n            .end().build();\n}",
+          "racional": "La WFL recibe dos parámetros de texto: la acción y, opcionalmente, el paso sobre el que actúa, con valor por omisión <code>NADA</code>. Las rutas del programa P810, las familias de disco y la cadena de configuración que se pasa a P810 están escritas en el job y pasan a <code>application.yml</code>. Los parámetros se tipan como <code>enum</code> para que un valor desconocido se detecte al construir los parámetros del job. <code>ON RESTART, GO INICIO</code> indica que tras un reinicio del sistema la WFL vuelve a empezar desde la etiqueta inicial, lo que en Spring Batch equivale a una nueva ejecución del job.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Subrutinas TASKCOMM y REMFILES a servicios",
+          "linea_ini": 9,
+          "linea_fin": 28,
+          "origen_codigo": " SUBROUTINE TASKCOMM(STRING PROG, STRING CMD);                                    00009000\n  BEGIN                                                                           00010000\n  TASK                                                                            00011000\n   TT;                                                                            00012000\n  STRING                                                                          00013000\n   MIUSER;                                                                        00014000\n  MIUSER:=MYSELF(USERCODE);                                                       00015000\n  RUN (S288)S288/OBJECT/P804/TCMD/01MTP002 ON SPLUNK                              00016000\n      (MIUSER,PROG,CMD)[TT];                                                      00017000\n  WAIT(5);                                                                        00018000\n  END;                                                                            00019000\n  %                                                                               00020000\n SUBROUTINE REMFILES(STRING DIR, STRING FAM);                                     00021000\n  BEGIN                                                                           00022000\n  TASK                                                                            00023000\n   TT;                                                                            00024000\n%   DISPLAY(DIR);DISPLAY (FAM);                                                   00025000\n  RUN (S288)S288/OBJECT/P805/REMF/01MTP002 ON SPLUNK                              00026000\n      (DIR,FAM,0)[TT];                                                            00027000\n  END;                                                                            00028000",
+          "java_codigo": "/** TASKCOMM: (S288)S288/OBJECT/P804/TCMD envía un comando de operador a las tareas que coinciden. */\n@Service\n@RequiredArgsConstructor\npublic class ComandoTareaService {\n\n    private final JobOperator jobOperator;\n    private final JobExplorer explorer;\n\n    /** HI 4 a todas las ejecuciones vivas de P810: se traduce en una petición de paro ordenado. */\n    public void detiene(String nombreJob, Duration espera) throws Exception {\n        for (JobExecution e : explorer.findRunningJobExecutions(nombreJob)) {\n            jobOperator.stop(e.getId());          // P810 debe tratar el stop como trataba HI 4\n        }\n        Thread.sleep(espera.toMillis());          // WAIT(5)\n    }\n}\n\n/** REMFILES: (S288)S288/OBJECT/P805/REMF borra los archivos de un directorio en una familia. */\n@Service\npublic class DepuraArchivosService {\n    public long borra(Path directorio) throws IOException {\n        if (!Files.isDirectory(directorio)) return 0;\n        try (Stream<Path> s = Files.list(directorio)) {\n            return s.filter(Files::isRegularFile).peek(DepuraArchivosService::borraSilencioso).count();\n        }\n    }\n}",
+          "racional": "Las dos subrutinas delegan en utilerías del sistema S288 ejecutadas desde el pack SPLUNK. <code>TASKCOMM</code> manda un comando de operador, aquí siempre <code>HI 4</code>, a las tareas cuyo nombre coincide con un patrón, y luego espera cinco segundos. <code>REMFILES</code> borra los archivos de un directorio en una familia de disco. En Java la primera se resuelve con el <code>JobOperator</code> de Spring Batch, que pide el paro de las ejecuciones vivas de P810, y la segunda con un servicio de borrado sobre el sistema de archivos o el almacenamiento de objetos que sustituya a las familias de disco.",
+          "reglas": [],
+          "riesgo": "El código de P804 y P805 no está en el fuente; no se sabe qué hace P805 con el tercer parámetro (0) ni si borra subdirectorios."
+        }
+      ]
+    },
+    {
+      "titulo": "Ruteo y acciones",
+      "origen": {
+        "archivo": "WFL_SPLUNK.txt",
+        "contexto": "CASE PARAM1 / CASE PARAM2 · INICIA · TERMINA · DEPURA"
+      },
+      "java": {
+        "archivo": "SplunkDecider.java · SplunkStepsConfig.java",
+        "contexto": "JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Ruteo por acción y paso",
+          "linea_ini": 38,
+          "linea_fin": 95,
+          "origen_codigo": " CASE PARAM1 OF                                                                   00038000\n  BEGIN                                                                           00039000\n  (\"INICIA\"):                                                                     00040000\n   CASE PARAM2 OF                                                                 00041000\n    BEGIN                                                                         00042000\n    (\"P810\"):                                                                     00043000\n    (\"ALL\"):                                                                      00052000\n    ELSE:                                                                         00058000\n     BEGIN                                                                        00059000\n     DISPLAY MYID & \"PASO O GRUPO INVALIDO: \" & PARAM2 & \" !\";                    00060000\n     DISPLAY MYID & \"SOLO ACEPTO: P810 U ALL\";                                    00061000\n     END;                                                                         00062000\n    END;                                                                          00063000\n  (\"TERMINA\"):                                                                    00064000\n   (\"DEPURA\"):                                                                    00081000\n  ELSE:                                                                           00088000\n   BEGIN                                                                          00089000\n   DISPLAY MYID & \"OPCION INVALIDA: \" & PARAM1 & \" !\";                            00090000\n   DISPLAY MYID & \"SOLO ACEPTO: INICIA, TERMINA O DEPURA\";                        00091000\n   END;                                                                           00092000\n  END;                                                                            00093000",
+          "java_codigo": "@Component\npublic class SplunkDecider implements JobExecutionDecider {\n\n    /** CASE PARAM1 OF ... CASE PARAM2 OF ... */\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution last) {\n        JobParameters p = job.getJobParameters();\n        Optional<Accion> accion = Enums.parse(Accion.class, p.getString(\"param1\"));\n        Paso paso = Enums.parse(Paso.class, p.getString(\"param2\", \"NADA\")).orElse(Paso.NADA);\n        if (accion.isEmpty()) {\n            return new FlowExecutionStatus(\"INVALIDO\");     // \"SOLO ACEPTO: INICIA, TERMINA O DEPURA\"\n        }\n        return switch (accion.get()) {\n            case INICIA, TERMINA -> (paso == Paso.P810 || paso == Paso.ALL)\n                    ? new FlowExecutionStatus(accion.get().name())\n                    : new FlowExecutionStatus(\"INVALIDO\");  // \"SOLO ACEPTO: P810 U ALL\"\n            case DEPURA -> new FlowExecutionStatus(\"DEPURA\"); // PARAM2 no se usa\n        };\n    }\n}\n\n@Bean\nStep parametroInvalido(JobRepository repo, PlatformTransactionManager tx) {\n    return new StepBuilder(\"parametroInvalido\", repo).tasklet((c, ctx) -> {\n        // La WFL solo hace DISPLAY y termina bien; aquí el job termina en FAILED para que\n        // el planificador detecte la llamada mal formada.\n        throw new ParametroInvalidoException(ctx.getStepContext().getJobParameters());\n    }, tx).build();\n}",
+          "racional": "El cuerpo de la WFL es un <code>CASE</code> sobre la acción con un <code>CASE</code> anidado sobre el paso para las acciones de inicio y término. Solo se aceptan <code>P810</code> y <code>ALL</code>, que hoy hacen lo mismo porque P810 es el único programa del grupo. En Spring Batch el ruteo es un <code>JobExecutionDecider</code>. La diferencia de comportamiento deliberada es el caso inválido: la WFL solo muestra un mensaje en consola y termina con éxito, mientras que la traducción falla el job para que el planificador lo vea.",
+          "reglas": [],
+          "riesgo": "Un parámetro mal escrito (por ejemplo \"INICIO\" en lugar de \"INICIA\") hace que la WFL termine en estado normal sin haber hecho nada; el planificador no lo detecta."
+        },
+        {
+          "id": "s4",
+          "titulo": "Reinicio de P810: detener la instancia anterior y lanzar una nueva",
+          "linea_ini": 43,
+          "linea_fin": 59,
+          "origen_codigo": "    (\"P810\"):                                                                     00043000\n     BEGIN                                                                        00044000\n     ON TASKFAULT,GO REINP810;                                                    00045000\n     TASKCOMM(\"%\"&TAKE(PASO810,(LENGTH(PASO810)-9))&\"%\",\"HI 4\");                  00046000\n     REINP810:                                                                    00047000\n     INITIALIZE(T1);                                                              00048000\n     RUN #PASO810[T1];                                                            00049000\n     TASKSTRING=\"COMPANY=BANAMEX;USER=S151;PACK=CMEMP;BASE_DIR=S151_FILE;\";       00049500\n     WAIT(T1 IS COMPLETED);                                                       00050000\n     END;                                                                         00051000\n    (\"ALL\"):                                                                      00052000\n     BEGIN                                                                        00053000\n     TASKCOMM(\"%\"&TAKE(PASO810,(LENGTH(PASO810)-9))&\"%\",\"HI 4\");                  00054000\n     INITIALIZE(T1);                                                              00055000\n     RUN #PASO810[T1];                                                            00056000\n     TASKSTRING=\"COMPANY=BANAMEX;USER=S151;PACK=CMEMP;BASE_DIR=S151_FILE;\";       00056500\n     END;                                                                         00057000",
+          "java_codigo": "@Bean\nStep iniciaP810(JobRepository repo, PlatformTransactionManager tx, JobLauncher launcher,\n                @Qualifier(\"p810StsTotales\") Job p810, SplunkProperties props) {\n    return new StepBuilder(\"iniciaP810\", repo).tasklet((c, ctx) -> {\n        String paso = (String) ctx.getStepContext().getJobParameters().get(\"param2\");\n        JobParameters params = new JobParametersBuilder()\n                .addString(\"taskString\", props.taskString())     // COMPANY=BANAMEX;USER=S151;...\n                .addLong(\"ts\", System.currentTimeMillis())\n                .toJobParameters();\n        JobExecution e = launcher.run(p810, params);             // RUN #PASO810[T1]\n        if (\"P810\".equals(paso)) {\n            Awaitility.await().until(() -> !e.isRunning());      // WAIT(T1 IS COMPLETED)\n            if (e.getStatus() != BatchStatus.COMPLETED) {\n                throw new PasoFallidoException(\"P810\", e.getExitStatus());\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }, tx).build();\n}\n\n// detieneP810 corre antes: ComandoTareaService.detiene(\"p810StsTotales\", props.esperaTrasDetener()).\n// En la rama P810 un fallo al detener se ignora (ON TASKFAULT, GO REINP810); en ALL no hay manejo.",
+          "racional": "Para iniciar, la WFL primero envía <code>HI 4</code> a cualquier P810 en ejecución, usando como patrón el nombre del programa sin su sufijo de versión de nueve caracteres, y después de cinco segundos lanza una nueva instancia con la cadena de configuración en <code>TASKSTRING</code>. Las ramas P810 y ALL difieren en dos detalles: P810 ignora un fallo del comando de paro con <code>ON TASKFAULT</code> y espera explícitamente a que la tarea termine. En Java la secuencia es un step de paro seguido de uno de lanzamiento, y la espera de la rama P810 se conserva verificando además el estado final de la ejecución.",
+          "reglas": [],
+          "riesgo": "La espera fija de cinco segundos entre el HI 4 y el nuevo RUN no comprueba que la instancia anterior haya terminado: si P810 tarda más en cerrar pueden quedar dos instancias activas."
+        },
+        {
+          "id": "s5",
+          "titulo": "Término de P810",
+          "linea_ini": 66,
+          "linea_fin": 76,
+          "origen_codigo": "  (\"TERMINA\"):                                                                    00064000\n   CASE PARAM2 OF                                                                 00065000\n    BEGIN                                                                         00066000\n    (\"P810\"):                                                                     00067000\n     BEGIN                                                                        00068000\n     TASKCOMM(\"%\"&TAKE(PASO810,(LENGTH(PASO810)-9))&\"%\",\"HI 4\");                  00069000\n     END;                                                                         00070000\n    (\"ALL\"):                                                                      00071000\n     BEGIN                                                                        00072000\n     TASKCOMM(\"%\"&TAKE(PASO810,(LENGTH(PASO810)-9))&\"%\",\"HI 4\");                  00073000\n     END;                                                                         00074000",
+          "java_codigo": "@Bean\nStep detieneP810(JobRepository repo, PlatformTransactionManager tx,\n                 ComandoTareaService comandos, SplunkProperties props) {\n    return new StepBuilder(\"detieneP810\", repo).tasklet((c, ctx) -> {\n        // \"%S151/OBJECT/P810/STSTOTALES%\": TAKE(PASO810, LENGTH(PASO810) - 9) quita \"/25MTP006\"\n        String patron = props.pasoP810().substring(0, props.pasoP810().lastIndexOf('/'));\n        try {\n            comandos.detiene(JobNames.de(patron), props.esperaTrasDetener());\n        } catch (Exception e) {\n            boolean desdeInicia = \"INICIA\".equals(ctx.getStepContext().getJobParameters().get(\"param1\"));\n            if (!desdeInicia) throw e;\n            log.warn(\"No se pudo detener P810 antes de reiniciar: {}\", e.getMessage());  // ON TASKFAULT\n        }\n        return RepeatStatus.FINISHED;\n    }, tx).build();\n}",
+          "racional": "La acción de término solo envía el comando <code>HI 4</code> a las instancias de P810; las ramas P810 y ALL son idénticas. El patrón se arma quitando los últimos nueve caracteres del nombre del programa, que corresponden al sufijo de versión <code>/25MTP006</code>, para alcanzar cualquier versión en ejecución. En Java el patrón se deriva de la propiedad cortando en la última diagonal, lo que no depende de que la versión mida exactamente nueve caracteres.",
+          "reglas": [],
+          "riesgo": "El corte fijo de nueve caracteres (línea 71) deja de funcionar si el sufijo de versión cambia de longitud."
+        },
+        {
+          "id": "s6",
+          "titulo": "Depuración de archivos de STSTOTALES",
+          "linea_ini": 83,
+          "linea_fin": 89,
+          "origen_codigo": "   (\"DEPURA\"):                                                                    00081000\n    BEGIN                                                                         00082000\n    REMFILES(\"(S151)S151/FILE/STSTOTALES/CTL\",MYFAMDIR);                          00083000\n    REMFILES(\"(S151)S151/FILE/STSTOTALES/LOG\",MYFAMDIR);                          00084000\n    REMFILES(\"(S151)S151/FILE/STSTOTALES/LOG\",MYFAMLOGS);                         00085000\n    REMFILES(\"(S151)S151/FILE/STSTOTALES/CON\",MYFAMDIR);                          00086000\n    END;                                                                          00087000",
+          "java_codigo": "# application.yml\ns151-splunk:\n  depuracion:\n    - { familia: CMEMP, ruta: \"(S151)S151/FILE/STSTOTALES/CTL\" }\n    - { familia: CMEMP, ruta: \"(S151)S151/FILE/STSTOTALES/LOG\" }\n    - { familia: LOGS,  ruta: \"(S151)S151/FILE/STSTOTALES/LOG\" }\n    - { familia: CMEMP, ruta: \"(S151)S151/FILE/STSTOTALES/CON\" }\n\n// ---------------------------------------------------------------------------\n@Bean\nStep depuraArchivos(JobRepository repo, PlatformTransactionManager tx,\n                    DepuraArchivosService depura, DepuracionProperties props, FamiliaResolver familias) {\n    return new StepBuilder(\"depuraArchivos\", repo).tasklet((c, ctx) -> {\n        for (var d : props.depuracion()) {                       // REMFILES(DIR, FAM) en el mismo orden\n            long n = depura.borra(familias.resuelve(d.familia(), d.ruta()));\n            c.getStepExecution().getExecutionContext().putLong(d.ruta() + \"@\" + d.familia(), n);\n        }\n        return RepeatStatus.FINISHED;\n    }, tx).build();\n}",
+          "racional": "La depuración borra cuatro directorios de archivos de P810: control, bitácora en las familias CMEMP y LOGS, y el directorio CON. Las rutas y familias son fijas y se trasladan a una lista en <code>application.yml</code>, que se recorre en el mismo orden. Como mejora de operación, la traducción registra cuántos archivos borró cada entrada en el contexto del step, dato que la WFL no deja.",
+          "reglas": [],
+          "riesgo": "DEPURA no detiene P810 antes de borrar: si P810 está activo, se borran sus archivos de control y bitácora mientras escribe."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Parámetros inválidos terminan con éxito",
+      "detalle": "Las ramas ELSE (líneas 60-64, 77-81 y 90-94) solo ejecutan DISPLAY; la WFL termina normalmente y el planificador no distingue una llamada mal formada de una exitosa."
+    },
+    {
+      "titulo": "Posible doble instancia de P810",
+      "detalle": "INICIA espera cinco segundos fijos después del HI 4 (línea 18) y lanza un nuevo P810 sin comprobar que el anterior terminó."
+    },
+    {
+      "titulo": "Depuración con P810 activo",
+      "detalle": "DEPURA (líneas 83-89) borra archivos de control y bitácora de STSTOTALES sin detener P810."
+    },
+    {
+      "titulo": "Dependencia de utilerías externas",
+      "detalle": "P804 y P805 de S288 se ejecutan desde el pack SPLUNK (líneas 16 y 26); su comportamiento no está en el fuente y hay que reemplazarlos por servicios equivalentes en la plataforma destino."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Versión 25MTP006 del programa, familias CMEMP y LOGS, la cadena TASKSTRING y las rutas de depuración están en el job; se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si en esta versión de MCP el RUN de la línea 49 es síncrono; si lo es, el WAIT(T1 IS COMPLETED) de la línea 51 es redundante y la diferencia real entre P810 y ALL se reduce al ON TASKFAULT.",
+    "Confirmar qué hace P810 al recibir HI 4 (cierre ordenado o terminación inmediata) para mapearlo a JobOperator.stop() o a una señal propia.",
+    "Confirmar si ALL debería incluir otros pasos además de P810; hoy las dos opciones ejecutan lo mismo.",
+    "Confirmar qué significa el tercer parámetro (0) de P805 REMF y si la depuración incluye subdirectorios."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1163"
+  ]
+}

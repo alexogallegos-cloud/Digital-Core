@@ -1,0 +1,184 @@
+{
+  "slug": "S151_P170",
+  "sistema": "S151",
+  "programa": "P170",
+  "nombre": "Reimpresor de Backups de Listados",
+  "funcion": "Paso batch de S151 que se ejecuta después de P106, P108, P109 o P158 y convierte su archivo plano preformateado en listados de impresión (backups) independientes.",
+  "resumen": "Recibe por parámetro el número de sistema y el identificador del paso que generó el archivo. Con la fecha de proceso arma el título del archivo de entrada S151/FILE/S151/{paso}/{fecha} y lo lee registro por registro. Cada registro trae 132 columnas de texto más dos campos de control: un registro INICI con BACK cierra el listado en curso y abre uno nuevo cuyo título es el propio texto del registro, PAGE provoca salto de página y un número indica cuántas líneas avanzar. Al terminar crea un archivo vacío en S151/FILE/I01 que sirve como marca de que el proceso corrió.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.listados.reimpresion",
+  "secciones": [
+    {
+      "titulo": "Estructura del registro y nombres de archivo",
+      "origen": {
+        "archivo": "COBOL_P170.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "RegistroImpresion.java · P170Properties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de 150 bytes con línea de 132 y dos campos de control",
+          "linea_ini": 33,
+          "linea_fin": 59,
+          "origen_codigo": " FD  ARCHIVOENT                                                   003100\n     VALUE OF TITLE IS WKS-TIT-LISMOVSXCONT                       003200\n              SECURITYTYPE IS PUBLIC                              003300\n              DEPENDENTSPECS IS TRUE                              003400\n     DATA RECORD IS REG-IMPRESION.                                003500\n 01 REG-IMPRESION.                                                003700\n    02 LINEA-IMPRESION             PIC X(132).                    003800\n    02 FILLER                      PIC X(01).                     003900\n    02 WKS-OPCION1-IMP             PIC X(05).                     004000\n    02 FILLER                      PIC X(01).                     004100\n    02 WKS-OPCION2-IMP             PIC X(04).                     004200\n    02 WKS-OPCION2-IMP-R REDEFINES WKS-OPCION2-IMP.               004300\n       03 WKS-OPCION2-NUM          PIC 9(04).                     004400\n    02 FILLER                      PIC X(07).                     004500\n*                                                                 004600\n FD  MOVIMIENTOS.                                                 004800\n 01  LINEA-REP-MOVTOS              PIC X(132).                    004900\n FD  I01-MOVIMIENTOS                                              005010\n     VALUE OF TITLE IS WKS-TIT-INMOVIMIENTOS                      005020\n              SECURITYTYPE IS PUBLIC                              005030\n              DEPENDENTSPECS IS TRUE                              005040\n     DATA RECORD IS LINEA-REP-INMOVTOS.                           005050\n 01  LINEA-REP-INMOVTOS            PIC X(132).                    005070",
+          "java_codigo": "/** REG-IMPRESION: 132 de texto + FILLER + OPCION1 X(05) + FILLER + OPCION2 X(04) + FILLER X(07). */\npublic sealed interface RegistroImpresion\n        permits RegistroImpresion.InicioBackup, RegistroImpresion.SaltoPagina,\n                RegistroImpresion.Linea {\n\n    String texto();                                   // LINEA-IMPRESION X(132)\n\n    /** OPCION1 = \"INICI\" y OPCION2 = \"BACK\": el texto es el título del nuevo backup. */\n    record InicioBackup(String texto) implements RegistroImpresion {}\n    /** OPCION2 = \"PAGE\": WRITE ... AFTER PAGE. */\n    record SaltoPagina(String texto) implements RegistroImpresion {}\n    /** OPCION2 numérico (REDEFINES 9(04)): WRITE ... AFTER n líneas. */\n    record Linea(String texto, int avance) implements RegistroImpresion {}\n\n    static RegistroImpresion parse(String r) {\n        String texto = r.substring(0, 132);\n        String op1 = r.substring(133, 138);\n        String op2 = r.substring(139, 143);\n        if (op1.equals(\"INICI\") && op2.equals(\"BACK\")) return new InicioBackup(texto);\n        if (op2.equals(\"PAGE\")) return new SaltoPagina(texto);\n        if (!op2.chars().allMatch(Character::isDigit)) {\n            throw new RegistroInvalidoException(\"OPCION2 no numérica: '\" + op2 + \"'\");\n        }\n        return new Linea(texto, Integer.parseInt(op2));\n    }\n}",
+          "racional": "El archivo de entrada es un listado ya formateado por el paso anterior; cada registro trae el texto a imprimir y, al final, las instrucciones de impresión. La vista <code>REDEFINES</code> de OPCION2 como <code>9(04)</code> se interpreta solo cuando no es PAGE ni BACK. En Java los tres casos son <code>record</code> de una <code>sealed interface</code>. Se agregó una validación explícita de que OPCION2 sea numérica: en COBOL un valor con espacios llegaría al <code>AFTER ADVANCING</code> sin aviso.",
+          "reglas": [
+            "RN-S151-895",
+            "RN-S151-896"
+          ],
+          "riesgo": "Un registro con OPCION2 en espacios o con texto distinto de PAGE y BACK se usa como número de líneas a avanzar sin validación."
+        },
+        {
+          "id": "s2",
+          "titulo": "Títulos de entrada y de archivo de residencia",
+          "linea_ini": 252,
+          "linea_fin": 277,
+          "origen_codigo": " 01  WKS-TIT-LISMOVSXCONT.                                        007300\n     02  FILLER                        PIC X(07) VALUE \"(S151)S\". 007400\n     02  WKS-SIS-LM                    PIC 9(03) VALUE ZEROS.     007500\n     02  FILLER                        PIC X(11) VALUE            007600\n                                       \"/FILE/S151/\".             007700\n     02  WKS-ID-PASO                   PIC X(08).                 007800\n     02  FILLER                        PIC X(01) VALUE \"/\".       007900\n     02  WKS-FEC-MOVSXCONTLM           PIC 9(06).                 008000\n     02  FILLER                        PIC X(04) VALUE \" ON \".    008100\n     02  WKS-PACK-ARCH                 PIC X(17).                 008200\n     02  FILLER                        PIC X(01) VALUE \".\".       008300\n*======== NOMBRE DEL ARCHIVO PLANO AL CUAL SE VALIDA     ========*008410\n*====== RESIDENCIA  PARA IMPRIMIR LOS BACKUPS QUE CONTIENE ======*008420\n 01  WKS-TIT-INMOVIMIENTOS.                                       008450\n     02  FILLER                        PIC X(07) VALUE \"(S151)S\". 008460\n     02  WKS-SIS-INMOV                 PIC 9(03) VALUE ZEROS.     008470\n     02  FILLER                        PIC X(15) VALUE            008480\n                                       \"/FILE/I01/S151/\".         008490\n     02  WKS-ID-INMOVPASO              PIC X(08).                 008491\n     02  FILLER                        PIC X(01) VALUE \"/\".       008492\n     02  WKS-FEC-INMOVSXCONTLM         PIC 9(06).                 008493\n     02  FILLER                        PIC X(10) VALUE            008494\n                                       \" ON CMEMP.\".              008500",
+          "java_codigo": "# application.yml\np170:\n  entrada: \"(S151)S{sistema}/FILE/S151/{paso}/{fecha} ON {pack}\"     # WKS-TIT-LISMOVSXCONT\n  residencia: \"(S151)S{sistema}/FILE/I01/S151/{paso}/{fecha} ON CMEMP\" # WKS-TIT-INMOVIMIENTOS\n  formato-fecha: yyMMdd                                               # PIC 9(06)\n\n@ConfigurationProperties(\"p170\")\npublic record P170Properties(String entrada, String residencia, String formatoFecha) {\n\n    public String resuelve(String plantilla, int sistema, String idPaso,\n                           LocalDate fechaProceso, String pack) {\n        return plantilla\n                .replace(\"{sistema}\", \"%03d\".formatted(sistema))     // WKS-SIS-LM 9(03)\n                .replace(\"{paso}\", idPaso)                           // WKS-NOMBRE-IDPASO X(08)\n                .replace(\"{fecha}\", fechaProceso.format(DateTimeFormatter.ofPattern(formatoFecha)))\n                .replace(\"{pack}\", pack.trim());                     // WKS-B01-NOMPACMOV\n    }\n}",
+          "racional": "Los dos títulos se arman en WORKING-STORAGE concatenando literales con el sistema, el identificador del paso y la fecha de seis dígitos. El pack de la entrada se toma de B01 y el del archivo de residencia está fijo en <code>CMEMP</code>. Ambos patrones pasan a <code>application.yml</code> para poder cambiar rutas por ambiente. El identificador de paso es lo que permite que el mismo programa reimprima bitácoras o movimientos por contrato.",
+          "reglas": [
+            "RN-S151-898"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Fecha de proceso: B01 o atributo VALUE de la tarea",
+          "linea_ini": 1048,
+          "linea_fin": 1062,
+          "origen_codigo": "     MOVE WKS-PARAM-SIS            TO WKS-B01-SISTEMA.            023900\n     MOVE 1                        TO WKS-B01-FUNCION.            024100\n     MOVE WKS-NUMCSI               TO WKS-B01-CSI.                024300\n     CALL \"CONSISDIA IN LIB-CONTROL\" USING  WKS-S151B01SISDIA     024420\n                                     GIVING W77-RESULT-LIBCON.    024440\n     IF ATTRIBUTE VALUE OF MYSELF = 0                             024500\n*       MOVE WKS-B01-FECPRO               TO WKS-FECHA-PROCESO    024900\n        MOVE WKS-B01-NOMPACMOV            TO WKS-PACK-ARCH        024950\n     ELSE                                                         025000\n        MOVE WKS-B01-NOMPACMOV            TO WKS-PACK-ARCH        025050\n        MOVE ATTRIBUTE VALUE OF MYSELF    TO WKS-FECHA-PROCESO.   025100",
+          "java_codigo": "/** 01-0110-LIBRERIAS (parte final): sistema del día en B01 y fecha de proceso. */\npublic ContextoP170 contexto(int sistema, int csi, OptionalInt valueTarea) {\n    SistemaDia b01 = libControl.consultaSistemaDia(sistema, 1, csi)      // CONSISDIA IN LIB-CONTROL\n            .orElseThrow(() -> new LibreriaControlException(\"CONSISDIA sin resultado\"));\n\n    LocalDate fechaProceso = valueTarea.isPresent() && valueTarea.getAsInt() != 0\n            ? Fechas.desdeAaaammdd(valueTarea.getAsInt())                // ATTRIBUTE VALUE OF MYSELF\n            : b01.fechaProceso();   // en el fuente esta asignación está comentada (línea 1058)\n    return new ContextoP170(b01.packMovimientos(), fechaProceso);\n}",
+          "racional": "La fecha de proceso puede llegar en el atributo <code>VALUE</code> de la tarea; si llega en cero, el código original tomaría la de B01, pero esa asignación está comentada y la variable queda sin valor inicial. La versión Java toma la fecha de B01 como dice la regla del brain, y además verifica el resultado de CONSISDIA, que el fuente no revisa. Este cambio de comportamiento es deliberado y queda marcado para revisión.",
+          "reglas": [
+            "RN-S151-899"
+          ],
+          "riesgo": "Con VALUE = 0 la fecha de proceso no se asigna en el fuente (MOVE comentado en la línea 1058) y WKS-FECHA-PROCESO, sin cláusula VALUE, se usa para armar el nombre del archivo de entrada."
+        },
+        {
+          "id": "s4",
+          "titulo": "Conversión de fechas para rotular los archivos",
+          "linea_ini": 1064,
+          "linea_fin": 1379,
+          "origen_codigo": " 01-0140-MUEVE-SISFEC.                                            025300\n*======================                                           025400\n     ACCEPT WKS-FECHA-EJECUCION-MDA FROM TODAYS-DATE.             025600\n     MOVE WKS-FECHA-EJE-MM        TO      WKS-FECHA-EJEC-MM.      025700\n     MOVE WKS-FECHA-EJE-DD        TO      WKS-FECHA-EJEC-DD.      025800\n     MOVE WKS-FECHA-EJE-AA        TO      WKS-FECHA-EJEC-AA.      025900\n     MOVE WKS-FECHA-EJECUCION-AMD  TO A2K-FEC-AMD-001.            026100\n     PERFORM A2K-CONV-AMD-TO-CAMD THRU                            026200\n             A2K-CONV-AMD-TO-CAMD-EXIT                            026300\n     MOVE A2K-FEC-CAMD-001         TO WKS-FECHA-CORRIDA.          026400\n     ACCEPT WKS-HORA               FROM TIME.                     026600\n     MOVE ZEROS   TO A2K-FEC-CAMD-001                             026800\n     MOVE WKS-FECHA-PROCESO        TO A2K-FEC-CAMD-001            026900\n     PERFORM A2K-CONV-CAMD-TO-AMD THRU                            027000\n             A2K-CONV-CAMD-TO-AMD-EXIT                            027100\n     MOVE A2K-FEC-AMD-001          TO WKS-FEC-MOVSXCONTLM         027200\n                                      WKS-FEC-INMOVSXCONTLM.      027300\n     MOVE WKS-PARAM-SIS            TO WKS-SIS-LM                  027400\n                                      WKS-SIS-INMOV.              027500\n A2K-OBTAIN-CENTURY.                                              018500\n      IF A2K-FEC-YEAR-AA < A2K-BASE-YEAR                          018600\n          MOVE 20 TO A2K-FEC-YEAR-CC                              018700\n      ELSE                                                        018800\n          MOVE 19 TO A2K-FEC-YEAR-CC.                             018900",
+          "java_codigo": "/** 01-0140-MUEVE-SISFEC. */\nprivate static final DateTimeFormatter AAAAMMDD = DateTimeFormatter.BASIC_ISO_DATE;\n\n/** A2K-CONV-AMD-TO-CAMD: la fecha de ejecución llega con año de dos dígitos. */\nstatic LocalDate fechaCorrida(Clock reloj) {\n    return LocalDate.now(reloj);                  // ACCEPT ... FROM TODAYS-DATE (MMDDAA)\n}\n\n/** A2K-CONV-CAMD-TO-AMD: la fecha de proceso de 8 dígitos se rotula con 6 (AAMMDD). */\nstatic String rotuloArchivo(LocalDate fechaProceso) {\n    return fechaProceso.format(DateTimeFormatter.ofPattern(\"yyMMdd\"));\n}\n\n/** A2K-OBTAIN-CENTURY: AA menor que 50 es 20xx, de lo contrario 19xx (A2K-BASE-YEAR). */\nprivate static final int PIVOTE_Y2K = 50;\n\nstatic LocalDate desdeAammdd(String aammdd) {\n    int aa = Integer.parseInt(aammdd.substring(0, 2));\n    int siglo = (aa < PIVOTE_Y2K) ? 2000 : 1900;\n    return LocalDate.of(siglo + aa, Integer.parseInt(aammdd.substring(2, 4)),\n                        Integer.parseInt(aammdd.substring(4, 6)));\n}",
+          "racional": "La fecha de ejecución se obtiene en formato MMDDAA y se reacomoda a AAMMDD para convertirla con las rutinas del proyecto CRONOS2K (Y2K) a CAAMMDD. La de proceso hace el camino inverso porque el nombre del archivo usa seis dígitos. En Java las fechas se manejan como <code>LocalDate</code> y el formato de seis dígitos solo existe al rotular. El pivote de siglo es <code>A2K-BASE-YEAR</code>, declarado con <code>VALUE 50</code> en la línea 235, y en Java queda como constante explícita.",
+          "reglas": [
+            "RN-S151-899"
+          ],
+          "riesgo": "WKS-FECHA-CORRIDA y WKS-HORA se calculan pero ningún párrafo los usa después; el rótulo de los listados no lleva fecha de corrida."
+        }
+      ]
+    },
+    {
+      "titulo": "Ciclo de reimpresión y rotación de backups",
+      "origen": {
+        "archivo": "COBOL_P170.txt",
+        "contexto": "PROCEDURE DIVISION · 00-0100 / 02-0100 / 02-0150 / 03-0100"
+      },
+      "java": {
+        "archivo": "ReimpresionJobConfig.java · BackupRotatorioWriter.java",
+        "contexto": "Spring Batch Step · ItemStreamWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Rutina principal a Job de un solo step",
+          "linea_ini": 959,
+          "linea_fin": 990,
+          "origen_codigo": " 00-0000-INICIO SECTION.                                          015100\n*=========== INICIO DEL PROGRAMA                                  015300\n 00-0100-CTL-PROCESO.                                             015500\n     MOVE WKS-NOMBRE-IDPASO       TO  WKS-ID-PASO                 015800\n                                      WKS-ID-INMOVPASO.           015850\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      016000\n        \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".          016100\n     MOVE \"S151\"  TO  SISTEMA-LJ                                  016300\n     MOVE \"P170\"  TO  PASO-LJ                                     016400\n     MOVE \"001\"   TO  MTP-LJ                                      016500\n     MOVE \"I\"     TO  TIPO-LJ                                     016600\n     MOVE 020101  TO  CODIGO-LJ.                                  016700\n     PERFORM 01-0000-VERIFICACION.                                017700\n     PERFORM 02-0000-PROC-IMPRIME-LIST.                           017800\n     PERFORM 03-0000-PROC-TERMINA.                                017900\n     STOP RUN.                                                    018100",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P170Properties.class)\npublic class ReimpresionJobConfig {\n\n    /** 00-0100-CTL-PROCESO: verificación, reimpresión y terminación. */\n    @Bean\n    Job reimpresionListados(JobRepository repo, Step contexto, Step reimprime) {\n        return new JobBuilder(\"S151P170\", repo)\n                .start(contexto)        // 01-0000-VERIFICACION: librerías, B01, fechas\n                .next(reimprime)        // 02-0000 + 03-0000\n                .build();\n    }\n\n    @Bean\n    Step reimprime(JobRepository repo, PlatformTransactionManager tx,\n                   FlatFileItemReader<RegistroImpresion> entrada,\n                   BackupRotatorioWriter salida) {\n        return new StepBuilder(\"reimprime\", repo)\n                .<RegistroImpresion, RegistroImpresion>chunk(500, tx)\n                .reader(entrada)        // FixedLength 150, LineMapper -> RegistroImpresion.parse\n                .writer(salida)\n                .build();\n    }\n}\n// Parámetros del job: sistema (WKS-PARAM-SIS 9(03)) e idPaso (WKS-NOMBRE-IDPASO X(08)).",
+          "racional": "La rutina principal registra la identificación del paso para la librería de mensajes (LJ) y ejecuta tres secciones en secuencia. Los avisos a LJ están comentados en todo el programa, por lo que no se traducen. El job queda con un step de contexto y uno de reimpresión; los dos valores de <code>WKS-PARAMETROS</code> pasan a <code>JobParameters</code>.",
+          "reglas": [
+            "RN-S151-898"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Apertura de archivos y lectura anticipada",
+          "linea_ini": 1095,
+          "linea_fin": 1112,
+          "origen_codigo": " 02-0100-PROCESO-BACKUP.                                          028400\n*========================                                         028500\n     MOVE 0               TO       WS-EOF-MOV.                    028700\n     OPEN INPUT ARCHIVOENT.                                       028900\n     OPEN OUTPUT I01-MOVIMIENTOS.                                 029000\n     READ ARCHIVOENT INTO REG-IMPRESION                           029100\n          AT END                                                  029200\n             MOVE 1                TO WS-EOF-MOV.                 029300\n     SET MOVIMIENTOS(USERBACKUPNAME) TO VALUE TRUE.               029600\n     PERFORM 02-0150-IMPRIME-BACKUPS UNTIL WS-EOF-MOV = 1.        029800\n     PERFORM 02-0500-FIN-IMPRESION.                               029900\n     GO TO 02-0900-EXIT.                                          030100",
+          "java_codigo": "@Bean\n@StepScope\nFlatFileItemReader<RegistroImpresion> entrada(P170Properties props,\n        @Value(\"#{jobExecutionContext['contexto']}\") ContextoP170 ctx,\n        @Value(\"#{jobParameters['sistema']}\") Integer sistema,\n        @Value(\"#{jobParameters['idPaso']}\") String idPaso) {\n    String titulo = props.resuelve(props.entrada(), sistema, idPaso,\n                                   ctx.fechaProceso(), ctx.pack());\n    return new FlatFileItemReaderBuilder<RegistroImpresion>()\n            .name(\"archivoEnt\")\n            .resource(recursos.de(titulo))\n            .lineMapper((linea, n) -> RegistroImpresion.parse(linea))\n            .strict(true)          // OPEN INPUT falla si el archivo no existe\n            .build();\n}",
+          "racional": "El párrafo abre la entrada, crea el archivo de residencia y hace una lectura anticipada antes del ciclo <code>PERFORM ... UNTIL WS-EOF-MOV = 1</code>. Ese patrón de lectura adelantada es exactamente lo que resuelve un <code>ItemReader</code> de Spring Batch, que devuelve <code>null</code> al fin de archivo. <code>USERBACKUPNAME</code> en el archivo de impresora significa que cada listado conserva el título que se le asigne; en Java eso es responsabilidad del writer.",
+          "reglas": [
+            "RN-S151-895"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Control de impresión: nuevo backup, salto de página o avance de líneas",
+          "linea_ini": 1115,
+          "linea_fin": 1142,
+          "origen_codigo": " 02-0150-IMPRIME-BACKUPS.                                         030400\n*=========================                                        030500\n     IF WKS-OPCION1-IMP = \"INICI\" AND WKS-OPCION2-IMP = \"BACK\"    030800\n        IF W88-BACK-ABIERTO                                       030900\n           MOVE 0 TO W77-BACK-ABIERTO                             031000\n           CLOSE MOVIMIENTOS WITH SAVE.                           031100\n     IF WKS-OPCION1-IMP = \"INICI\" AND WKS-OPCION2-IMP = \"BACK\" AND031400\n        W77-BACK-ABIERTO = 0                                      031500\n        SET MOVIMIENTOS(USERBACKUPNAME) TO VALUE TRUE             031600\n        CHANGE ATTRIBUTE TITLE OF MOVIMIENTOS TO                  031700\n                                  LINEA-IMPRESION                 031800\n        MOVE 1 TO W77-BACK-ABIERTO                                031900\n        OPEN OUTPUT MOVIMIENTOS                                   032000\n     ELSE                                                         032100\n        IF WKS-OPCION2-IMP = \"PAGE\"                               032200\n           WRITE LINEA-REP-MOVTOS FROM LINEA-IMPRESION AFTER PAGE 032300\n        ELSE                                                      032400\n           WRITE LINEA-REP-MOVTOS FROM LINEA-IMPRESION            032500\n                                  AFTER WKS-OPCION2-NUM.          032600\n     READ ARCHIVOENT INTO REG-IMPRESION                           032900\n          AT END                                                  033000\n             MOVE 1                TO WS-EOF-MOV.                 033100",
+          "java_codigo": "/** 02-0150-IMPRIME-BACKUPS: cada INICI/BACK cierra el listado actual y abre otro. */\n@Component\n@StepScope\npublic class BackupRotatorioWriter implements ItemStreamWriter<RegistroImpresion> {\n\n    private final SpoolImpresion spool;      // reemplaza PRINTER + USERBACKUPNAME\n    private ListadoAbierto actual;           // W77-BACK-ABIERTO\n\n    @Override\n    public void write(Chunk<? extends RegistroImpresion> chunk) {\n        for (RegistroImpresion r : chunk) {\n            switch (r) {\n                case RegistroImpresion.InicioBackup b -> {\n                    if (actual != null) actual.cierraYGuarda();        // CLOSE MOVIMIENTOS WITH SAVE\n                    actual = spool.abre(b.texto().trim());             // CHANGE ATTRIBUTE TITLE\n                }\n                case RegistroImpresion.SaltoPagina p -> listado().saltoDePagina(p.texto());\n                case RegistroImpresion.Linea l       -> listado().avanza(l.avance(), l.texto());\n            }\n        }\n    }\n\n    private ListadoAbierto listado() {\n        if (actual == null) {\n            throw new ListadoNoAbiertoException(\"línea antes del primer INICI/BACK\");\n        }\n        return actual;\n    }\n}",
+          "racional": "Los registros de control vienen dentro del mismo archivo, así que la segmentación y el espaciado los decide el paso que generó el listado y no P170. El primer IF cierra el backup abierto y el segundo, como la bandera ya quedó en cero, abre otro con el texto del registro como título; el registro de control no se imprime. En Java ambos IF se funden en un solo caso del <code>switch</code>. No se usa JasperReports porque el contenido ya viene formateado: el writer solo controla páginas y archivos. Se agregó un error explícito si llega una línea antes del primer INICI, situación que en COBOL sería una escritura sobre un archivo cerrado.",
+          "reglas": [
+            "RN-S151-896",
+            "RN-S151-897"
+          ],
+          "riesgo": "El título de cada backup es el texto libre de la línea de control. Un texto mal formado en el archivo de entrada produce un nombre de archivo inválido o sobrescribe otro listado con el mismo título."
+        },
+        {
+          "id": "s8",
+          "titulo": "Cierre y archivo de residencia vacío",
+          "linea_ini": 1145,
+          "linea_fin": 1162,
+          "origen_codigo": " 02-0500-FIN-IMPRESION.                                           033400\n*=======================                                          033500\n     CLOSE ARCHIVOENT WITH RELEASE.                               033700\n 02-0900-EXIT.                                                    033900\n*=============                                                    034000\n     EXIT.                                                        034100\n 03-0000-PROC-TERMINA SECTION.                                    034400\n 03-0100-PROCESO-TERMINA.                                         034600\n*========================                                         034700\n     CLOSE I01-MOVIMIENTOS WITH SAVE.                             034800\n     IF W88-BACK-ABIERTO                                          034840\n        CLOSE MOVIMIENTOS WITH SAVE.                              034900",
+          "java_codigo": "    @Override\n    public void close() {\n        if (actual != null) actual.cierraYGuarda();     // IF W88-BACK-ABIERTO CLOSE ... WITH SAVE\n    }\n}\n\n/** 03-0100-PROCESO-TERMINA: I01-MOVIMIENTOS se abre y se cierra sin escribir nada. */\n@Component\n@RequiredArgsConstructor\nclass MarcaResidenciaListener implements StepExecutionListener {\n    private final P170Properties props;\n\n    @Override\n    public ExitStatus afterStep(StepExecution step) {\n        if (step.getStatus() == BatchStatus.COMPLETED) {\n            recursos.creaVacio(tituloResidencia(step));   // archivo marca, cero registros\n        }\n        return step.getExitStatus();\n    }\n}",
+          "racional": "Al llegar al fin de archivo se libera la entrada, se guarda el archivo de residencia y, si quedó un backup abierto, se guarda también. <code>I01-MOVIMIENTOS</code> no recibe ningún <code>WRITE</code> en todo el programa: es un archivo vacío cuya existencia indica que la reimpresión corrió, como lo describe el comentario de su título. En Java se modela como un listener que crea la marca solo si el step terminó bien.",
+          "reglas": [
+            "RN-S151-895"
+          ],
+          "riesgo": "En el fuente el archivo de residencia se abre al principio y se guarda aunque la reimpresión haya fallado a medias por un error de impresión, siempre que el programa llegue a la sección de terminación."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Fecha de proceso sin asignar",
+      "detalle": "En 01-0110-LIBRERIAS el MOVE de WKS-B01-FECPRO a WKS-FECHA-PROCESO está comentado (línea 1058). Si la tarea no trae fecha en su atributo VALUE, el título del archivo de entrada se arma con una fecha sin inicializar."
+    },
+    {
+      "titulo": "Resultado de CONSISDIA no verificado",
+      "detalle": "W77-RESULT-LIBCON recibe el resultado de la llamada a la librería de control (línea 1055) y ningún párrafo lo revisa; un error deja vacío el pack del archivo de entrada."
+    },
+    {
+      "titulo": "Archivo I01-MOVIMIENTOS sin contenido",
+      "detalle": "El archivo de disco se abre y se guarda sin escribir registros. La regla RN-S151-895 dice que P170 reproduce el listado hacia ese archivo, lo que no coincide con el fuente."
+    },
+    {
+      "titulo": "Control de impresión sin validar",
+      "detalle": "OPCION2 se usa como número de líneas sin comprobar que sea numérica y una línea que llegue antes del primer INICI/BACK se escribiría sobre un archivo de impresión cerrado."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si la fecha de proceso debe tomarse de B01 cuando VALUE = 0; el fuente tiene esa asignación comentada y la versión Java la restituye.",
+    "RN-S151-895 indica que el listado se reproduce en el archivo de disco I01-MOVIMIENTOS; en el fuente ese archivo queda vacío. Revisar la redacción de la regla en el brain.",
+    "Confirmar quién consume el archivo de residencia S151/FILE/I01/S151/{paso}/{fecha} y si su sola existencia es la señal esperada.",
+    "Las rutinas CRONOS2K incluidas en el fuente usan pivote 50 (A2K-BASE-YEAR); confirmar que no se requiera otro pivote para fechas posteriores a 2049."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-895",
+    "RN-S151-896",
+    "RN-S151-897",
+    "RN-S151-898",
+    "RN-S151-899",
+    "RN-S500-917",
+    "RN-S500-921",
+    "RN-S500-261",
+    "RN-S500-262",
+    "RN-S500-263",
+    "RN-S500-264",
+    "RN-S500-265",
+    "RN-S500-266"
+  ]
+}

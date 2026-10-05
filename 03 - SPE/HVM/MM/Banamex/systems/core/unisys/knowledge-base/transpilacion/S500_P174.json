@@ -1,0 +1,192 @@
+{
+  "slug": "S500_P174",
+  "sistema": "S500",
+  "programa": "P174",
+  "nombre": "Generador de Archivo de Saldos para Tandem",
+  "funcion": "Paso batch de S500 que corre en ambos CSI: en Monterrey extrae los saldos de cuentas de cheques elegibles y los deja para transferencia; en Valle de México extrae los propios, espera el archivo de Monterrey y arma el archivo de saldos positivos con formato BASE24 que se envía a Tandem.",
+  "resumen": "Recorre S500B03CONTRATOS completo y selecciona los contratos de producto 500 instrumento 1 en moneda 1 y los de producto 66 con instrumento menor a 90. Para cada uno calcula saldo actual (incluye saldo protegido o bloqueado), saldo pendiente y saldo disponible, convirtiendo a pesos con el tipo de cambio de línea el producto 66, instrumento 15, moneda 5. En Monterrey escribe un archivo de 33 bytes con header de control que se transfiere por XRAPID; en Valle de México genera el suyo, espera el de Monterrey con confirmación del operador, valida su header y ordena ambos por CSI, sucursal y contrato. La salida de 342 bytes lleva dos headers (FH, BH), un detalle por contrato con saldos en centavos y dos trailers (BT, FT), y se acompaña de un reporte de cifras de control.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration",
+  "paquete_java": "mx.banamex.s500.tandem.saldos",
+  "secciones": [
+    {
+      "titulo": "Selección de contratos y cálculo de saldos",
+      "origen": {
+        "archivo": "S500_SOURCE_P174.txt",
+        "contexto": "00000000-PRINCIPAL · 50003000-VALIDA-DATOS-MTY · 50003100 · 50003200"
+      },
+      "java": {
+        "archivo": "SaldosTandemJobConfig.java · CalculadorSaldos.java",
+        "contexto": "JobExecutionDecider · ItemProcessor · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Un programa, dos papeles según el CSI",
+          "linea_ini": 551,
+          "linea_fin": 559,
+          "origen_codigo": " 00000000-PRINCIPAL.\n   PERFORM                        10000000-INICIO.\n   IF CTT-CSI  = 04\n      PERFORM                     50000000-PROCESOS-MTY\n   ELSE\n      PERFORM                     70001000-PROCESOS-VDM.\n   PERFORM                        90000000-CLOSE-BASE\n   STOP RUN.",
+          "java_codigo": "/** 00000000-PRINCIPAL: el CSI de B02 decide si este nodo produce o consolida. */\n@Bean\nJob saldosTandem(JobRepository repo, Step leeControl, Step extraeSaldosLocales,\n                 Step esperaArchivoMty, Step consolidaYEnviaBase24, Step cifrasControl) {\n    JobExecutionDecider porCsi = (job, step) ->\n            new FlowExecutionStatus(job.getExecutionContext().getInt(\"csi\") == 4 ? \"MTY\" : \"VDM\");\n\n    return new JobBuilder(\"S500P174\", repo)\n            .start(leeControl)                    // 20003000-FECHA-PRO: B02-NUM-CSI y fecha línea\n            .next(extraeSaldosLocales)            // ambos CSI generan su SDOSB24\n            .next(porCsi)\n                .on(\"MTY\").to(cifrasControl)      // MTY termina; XRAPID transfiere fuera del programa\n            .from(porCsi)\n                .on(\"VDM\").to(esperaArchivoMty)   // 70005000-RESIDENCIA-ARCHMTY\n                .next(consolidaYEnviaBase24)      // SORT ... OUTPUT PROCEDURE 70010000\n                .next(cifrasControl)\n            .end()\n            .build();\n}",
+          "racional": "El mismo objeto corre en los dos CSI y el registro de control B02 decide su papel: con CSI 04 (Monterrey) solo genera su archivo y el reporte de cifras; con cualquier otro valor se comporta como Valle de México, que además consolida y genera la salida para Tandem. En Spring Batch esa bifurcación es un <code>JobExecutionDecider</code> sobre el CSI leído en el primer step.",
+          "reglas": [],
+          "riesgo": "Cualquier CSI distinto de 04, incluido uno inválido, ejecuta el flujo de consolidación de Valle de México."
+        },
+        {
+          "id": "s2",
+          "titulo": "Filtro de productos elegibles",
+          "linea_ini": 726,
+          "linea_fin": 752,
+          "origen_codigo": "     IF (B03-NUM-PRODUCTO  =  500         AND\n         B03-NUM-INSTRUM   =    1         AND\n         B03-MONEDA        =    1)                OR\n        (B03-NUM-PRODUCTO  =   66         AND\n*        B03-MONEDA        =    1         AND\n         B03-NUM-INSTRUM   < 90)\n*        MOVE ZEROS               TO WS-SDO-DISPONIBLE\n*        COMPUTE WS-SDO-DISPONIBLE   =   B03-SDO-ACTUAL  -\n*                                        B03-AUT-PENDIENTE\n         MOVE ZEROS               TO WS-REG-SDOB24\n         MOVE SPACES              TO WS-REG-STATUS\n         PERFORM                  50003100-VALIDA-DISP-STATUS\n         PERFORM                  50003200-CONVIERTE-MONEDA\n         MOVE 02                  TO WS-REG-TIPO\n         MOVE B03-NUM-CONTRATO    TO WS-REG-CONTRATO\n         MOVE B03-SUC-PROMOTORA\n                                  TO WS-REG-SUCPROM\n         MOVE CTT-CSI             TO WS-REG-CSI\n         WRITE REG-S01-SDOMTY     FROM WS-REG-SDOB24\n         ADD 1                    TO WS-TOT-GRABADMTY\n         ADD WS-REG-SDOACTUAL     TO WS-TOT-SDOACTMTY\n         ADD WS-REG-SDOPEND       TO WS-TOT-SDOPENDMTY\n         ADD WS-REG-SDODISP       TO WS-TOT-SDODISPMTY.",
+          "java_codigo": "# application.yml  (antes compilado en 50003000 y 70004000)\np174:\n  elegibles:\n    - { producto: 500, instrumento: 1, moneda: 1 }\n    - { producto: 66,  instrumento-menor-a: 90 }      # la condición de moneda 1 está comentada\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass FiltroElegibles implements ItemProcessor<Contrato, SaldoContrato> {\n\n    private final P174Properties props;\n    private final CalculadorSaldos calculador;\n    @Value(\"#{jobExecutionContext['csi']}\") private int csi;\n\n    @Override\n    public SaldoContrato process(Contrato c) {\n        if (!props.esElegible(c.producto(), c.instrumento(), c.moneda())) {\n            return null;                                     // se cuenta como leído, no se graba\n        }\n        Saldos s = calculador.calcula(c);                    // 50003100 + 50003200\n        return new SaldoContrato(2, csi, c.sucursalPromotora(), c.contrato(),\n                s.actual(), s.pendiente(), s.disponible(), estatusBase24(c.status()));\n    }\n\n    /** 50003100: 0 o 5 es cuenta activa (\"1\"); cualquier otro estatus es \"9\". */\n    static char estatusBase24(int status) {\n        return (status == 0 || status == 5) ? '1' : '9';\n    }\n}",
+          "racional": "Se envían a Tandem las cuentas de producto 500 instrumento 1 en pesos y todas las de producto 66 con instrumento menor a 90. El comentario de cabecera del fuente (líneas 15-19) pide además moneda 1 para el producto 66, pero esa condición está comentada en el código, lo que permite pasar el producto 66 en dólares que luego se convierte. Los criterios se trasladan a configuración. El estatus del contrato se reduce a la marca de cuenta activa o inactiva que entiende BASE24.",
+          "reglas": [],
+          "riesgo": "El comentario de cabecera (líneas 13-14) describe la regla de estatus de forma ambigua (0 = ACTIVO ==> 1 OR 5); el código asigna la marca 1 a los estatus 0 y 5 y la marca 9 a cualquier otro."
+        },
+        {
+          "id": "s3",
+          "titulo": "Saldo disponible, conversión de dólares y piso en cero inefectivo",
+          "linea_ini": 754,
+          "linea_fin": 790,
+          "origen_codigo": " 50003100-VALIDA-DISP-STATUS.\n     IF WS-SDO-DISPONIBLE  <  ZEROS\n        MOVE ZEROS                TO WS-SDO-DISPONIBLE.\n     IF (B03-SDO-ACTUAL + B03-SDOPROT-BLOQ) <  ZEROS\n        MOVE ZEROS                TO B03-SDO-ACTUAL.\n     IF B03-STATUS         =  0 OR 5\n        MOVE \"1\"                  TO WS-REG-STATUS\n     ELSE\n        MOVE \"9\"                  TO WS-REG-STATUS.\n 50003200-CONVIERTE-MONEDA.\n     MOVE ZEROS               TO WS-SDO-DISPONIBLE\n     IF  B03-NUM-PRODUCTO  =   66         AND\n         B03-NUM-INSTRUM   =   15         AND\n         B03-MONEDA        =    5\n         COMPUTE WS-REG-SDOACTUAL  =\n          (B03-SDO-ACTUAL + B03-SDOPROT-BLOQ) * B02-TC-LINEA\n         COMPUTE WS-REG-SDOPEND    =   B03-SDO-PENDIENTE *\n                                       B02-TC-LINEA\n         COMPUTE WS-REG-SDODISP    =   (B03-SDO-ACTUAL  *\n                                        B02-TC-LINEA)\n                                                -\n                                        (B03-AUT-PENDIENTE *\n                                         B02-TC-LINEA)\n     ELSE\n         COMPUTE WS-SDO-DISPONIBLE   =   B03-SDO-ACTUAL  -\n                                         B03-AUT-PENDIENTE -\n                                         B03-PCOBP-PENDTE\n         ADD B03-SDO-ACTUAL B03-SDOPROT-BLOQ\n             GIVING WS-REG-SDOACTUAL\n         MOVE    B03-SDO-PENDIENTE   TO WS-REG-SDOPEND\n         MOVE    WS-SDO-DISPONIBLE   TO WS-REG-SDODISP.",
+          "java_codigo": "@Component\nclass CalculadorSaldos {\n\n    /** 50003100-VALIDA-DISP-STATUS + 50003200-CONVIERTE-MONEDA. */\n    Saldos calcula(Contrato c, BigDecimal tcLinea) {\n        BigDecimal actual = c.saldoActual();\n        if (actual.add(c.saldoProtegidoBloqueado()).signum() < 0) {\n            actual = BigDecimal.ZERO.setScale(2);           // MOVE ZEROS TO B03-SDO-ACTUAL\n        }\n        if (c.producto() == 66 && c.instrumento() == 15 && c.moneda() == 5) {\n            // COMPUTE sin ROUNDED: se trunca a 2 decimales\n            return new Saldos(\n                actual.add(c.saldoProtegidoBloqueado()).multiply(tcLinea).setScale(2, RoundingMode.DOWN),\n                c.saldoPendiente().multiply(tcLinea).setScale(2, RoundingMode.DOWN),\n                actual.multiply(tcLinea).subtract(c.autPendiente().multiply(tcLinea))\n                      .setScale(2, RoundingMode.DOWN));\n        }\n        BigDecimal disponible = actual.subtract(c.autPendiente()).subtract(c.pcobPendiente());\n        // El original revisa WS-SDO-DISPONIBLE < 0 ANTES de calcularlo: el piso en cero no opera.\n        if (props.aplicarPisoDisponible()) {\n            disponible = disponible.max(BigDecimal.ZERO.setScale(2));\n        }\n        return new Saldos(actual.add(c.saldoProtegidoBloqueado()), c.saldoPendiente(), disponible);\n    }\n}",
+          "racional": "El saldo actual que se informa incluye el saldo protegido o bloqueado y el disponible resta autorizaciones pendientes y cobros pendientes. Para el producto 66, instrumento 15, moneda 5, los tres saldos se convierten a pesos con <code>B02-TC-LINEA</code>; como los <code>COMPUTE</code> no llevan <code>ROUNDED</code>, el resultado se trunca y en Java se usa <code>RoundingMode.DOWN</code>. En la rama de dólares el disponible no resta el cobro pendiente, a diferencia de la rama en pesos. Ningún importe usa <code>double</code>.",
+          "reglas": [],
+          "riesgo": "50003100 pone en cero WS-SDO-DISPONIBLE si es negativo, pero se ejecuta antes de 50003200, que lo inicializa y lo calcula. El piso nunca aplica y el disponible negativo llega al archivo; al pasar a WS-DET-SEG0-AVAIL-BAL, que no tiene signo, se convierte en un disponible positivo."
+        }
+      ]
+    },
+    {
+      "titulo": "Intercambio de archivos entre Monterrey y Valle de México",
+      "origen": {
+        "archivo": "S500_SOURCE_P174.txt",
+        "contexto": "WS-ETIQ-* · 70005000-RESIDENCIA-ARCHMTY · 70006000-VALIDA-HDR-MTY"
+      },
+      "java": {
+        "archivo": "TandemProperties.java · EsperaArchivoMtyTasklet.java",
+        "contexto": "@ConfigurationProperties · Spring Integration FileReadingMessageSource"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Títulos de archivo por CSI a configuración",
+          "linea_ini": 381,
+          "linea_fin": 409,
+          "origen_codigo": " 01 WS-ETIQ-MTY.\n    02 FILLER                     PIC X(35) VALUE\n                            \"(S500)S500/FILE/S500/04/10/SDOSB24/\".\n    02 WS-ETIQ-MTY-FEC            PIC 9(06) VALUE 0.\n    02 FILLER                     PIC X(14) VALUE\n                                  \" ON CAPTACION \".\n    02 WS-ETIQ-MTYPUNTO           PIC X(01) VALUE \".\".\n 01 WS-ETIQ-VDM.\n    02 FILLER                     PIC X(35) VALUE\n                            \"(S500)S500/FILE/S500/10/10/SDOSB24/\".\n    02 WS-ETIQ-VDM-FEC            PIC 9(06) VALUE 0.\n    02 FILLER                     PIC X(14) VALUE\n                                  \" ON CAPTACION \".\n    02 WS-ETIQ-VDMPUNTO           PIC X(01) VALUE \".\".\n 01 WS-ETIQ-S036.\n    02 FILLER                     PIC X(35) VALUE\n                            \"(S500)S500/FILE/S036/10/10/SDOSB24/\".\n    02 WS-ETIQ-S036-FEC           PIC 9(06) VALUE 0.\n    02 FILLER                     PIC X(14) VALUE\n                                  \" ON CAPTACION \".\n    02 WS-ETIQ-S036PUNTO          PIC X(01) VALUE \".\".",
+          "java_codigo": "# application.yml\np174:\n  fecha-en-nombre: yyMMdd                     # WS-ETIQ-*-FEC PIC 9(6)\n  archivos:\n    mty:  \"(S500)S500/FILE/S500/04/10/SDOSB24/{fecha} ON CAPTACION\"\n    vdm:  \"(S500)S500/FILE/S500/10/10/SDOSB24/{fecha} ON CAPTACION\"\n    s036: \"(S500)S500/FILE/S036/10/10/SDOSB24/{fecha} ON CAPTACION\"   # salida hacia Tandem\n  espera-mty:\n    intervalo: 5m                             # WAIT(300)\n    hora-limite: \"08:30\"                      # WS-HORA-LLEGADA VALUE 0830\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p174\")\npublic record TandemProperties(String fechaEnNombre, Archivos archivos, EsperaMty esperaMty) {\n    public record Archivos(String mty, String vdm, String s036) {}\n    public record EsperaMty(Duration intervalo, LocalTime horaLimite) {}\n}",
+          "racional": "Los tres títulos fijan el usercode, el sistema destino (S500 o S036), los nodos 04 y 10 y la familia de discos <code>CAPTACION</code>. Se trasladan a <code>application.yml</code> junto con el intervalo de espera y la hora límite de llegada del archivo de Monterrey, que hoy también están compilados. El nombre del archivo de salida identifica a S036 como destinatario.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Espera del archivo de Monterrey con confirmación del operador",
+          "linea_ini": 917,
+          "linea_fin": 936,
+          "origen_codigo": " 70005000-RESIDENCIA-ARCHMTY.\n     IF ATTRIBUTE RESIDENT        OF S01-SDOMTY = VALUE TRUE\n        MOVE 1                    TO WS-EOF-MTY\n     ELSE\n        WAIT(300)\n        ACCEPT WS-HORA-HMSC-N     FROM TIME\n        IF WS-HORA-HM  >  WS-HORA-LLEGADA\n           MOVE \"I\" TO W77-TIPO-DISP\n           MOVE SPACES           TO WS-0101-TEXT-MSG\n           STRING \"ESPERANDO ARCHIVO DE MTY\"\n                  \"ÃESPERO OTROS 5 MINUTOS (SI/NO)?\"\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           MOVE \"E\" TO W77-TIPO-DISP\n           ACCEPT WS-SINO\n           IF WS-SINO =\"SI\" OR \"S\" OR \" SI\"\n              NEXT SENTENCE\n           ELSE\n              STOP RUN.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass EsperaArchivoMtyTasklet implements Tasklet {\n\n    private final TandemProperties props;\n    private final Clock clock;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws Exception {\n        Path mty = Path.of(props.resuelve(props.archivos().mty(), fechaProceso(ctx)));\n        while (!Files.exists(mty)) {                                 // ATTRIBUTE RESIDENT\n            Thread.sleep(props.esperaMty().intervalo().toMillis());  // WAIT(300)\n            if (LocalTime.now(clock).isAfter(props.esperaMty().horaLimite())) {\n                // El original pregunta al operador por consola y, si no responde SI, hace\n                // STOP RUN (fin normal). Aquí se falla el step para que el orquestador lo vea.\n                throw new ArchivoNoRecibidoException(\"ESPERANDO ARCHIVO DE MTY\", mty);\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Valle de México revisa cada 5 minutos si el archivo de Monterrey ya está residente. Pasadas las 08:30, por cada ciclo pregunta al operador por consola si sigue esperando y, si la respuesta no es SI, termina con <code>STOP RUN</code>. En un entorno sin consola de operador, la espera se resuelve con un sondeo con límite de tiempo y la falta del archivo se convierte en una falla explícita del step; si se usa Spring Integration, un <code>FileReadingMessageSource</code> con un <code>poller</code> cumple el mismo papel.",
+          "reglas": [],
+          "riesgo": "Si el operador contesta que no, STOP RUN termina el programa sin marcar error: el job aparece como exitoso y Tandem no recibe archivo de saldos ese día."
+        },
+        {
+          "id": "s6",
+          "titulo": "Validación del header de control del archivo de Monterrey",
+          "linea_ini": 938,
+          "linea_fin": 958,
+          "origen_codigo": " 70006000-VALIDA-HDR-MTY.\n     OPEN INPUT                   S01-SDOMTY.\n     READ S01-SDOMTY              INTO WS-HDR-SDOB24.\n     IF WS-HDR-TIPO          = 01               AND\n        WS-HDR-SISTEMA-ORI   = 0500             AND\n        WS-HDR-FECHA-BASE    = WS-FECHA-PRO     AND\n        WS-HDR-CSI           = 04\n           NEXT SENTENCE\n     ELSE\n         MOVE SPACES           TO WS-0101-TEXT-MSG\n         STRING \"ARCHIVO \", WS-ETIQ-MTY\n                \" CON HEADER ERRONEO\"\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     CLOSE S01-SDOMTY               WITH REMOVE.",
+          "java_codigo": "/** WS-HDR-SDOB24: tipo 01, sistema 0500, fecha base del día y CSI 04. */\nrecord HeaderControl(int tipo, int sistemaOrigen, LocalDate fechaBase, int csi) {}\n\nvoid validaHeaderMty(HeaderControl h, LocalDate fechaProceso) {\n    boolean ok = h.tipo() == 1\n              && h.sistemaOrigen() == 500\n              && h.fechaBase().equals(fechaProceso)\n              && h.csi() == 4;\n    if (!ok) {\n        // CHANGE ATTRIBUTE STATUS OF MYSELF TO -1\n        throw new HeaderInvalidoException(\"ARCHIVO %s CON HEADER ERRONEO\".formatted(h));\n    }\n}",
+          "racional": "Antes de consolidar, el programa comprueba que el archivo recibido sea el de Monterrey del mismo día: tipo de registro 01, sistema origen 0500, fecha base igual a la fecha de proceso y CSI 04. Si no cuadra, termina la tarea. En Java la validación lanza una excepción que deja el step en FAILED antes de generar el archivo para Tandem.",
+          "reglas": [],
+          "riesgo": "La validación solo revisa el header: no hay trailer ni conteo de registros en el archivo de 33 bytes, así que un archivo de Monterrey truncado durante la transferencia pasa como válido."
+        }
+      ]
+    },
+    {
+      "titulo": "Archivo de saldos con formato BASE24 para Tandem",
+      "origen": {
+        "archivo": "S500_SOURCE_P174.txt",
+        "contexto": "WS-SDOSB24-DETALLE · 70010000-PROCESA-TANDEM SECTION · 70013000-RUTINA-FINAL"
+      },
+      "java": {
+        "archivo": "RegistroBase24.java · Base24Writer.java",
+        "contexto": "FlatFileItemWriter · FormatterLineAggregator"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Segmento 0 del detalle de 342 bytes",
+          "linea_ini": 258,
+          "linea_fin": 280,
+          "origen_codigo": " 01 WS-SDOSB24-DETALLE.\n    03 WS-DET-SEG0.\n       05 WS-DET-SEG0-LGTH                PIC 9(04) VALUE 300.\n       05 WS-DET-SEG0-CNT                 PIC 9(09).\n       05 WS-DET-SEG0-PRIKEY.\n          07 WS-DET-SEG0-PRIKEY-FIID      PIC X(04) VALUE \"CMAE\".\n          07 WS-DET-SEG0-PRIKEY-NUM       PIC X(19).\n          07 WS-DET-SEG0-PRIKEY-TYP       PIC X(02) VALUE \"01\".\n       05 WS-DET-SEG0-ACCT-STAT           PIC X(01).\n       05 WS-DET-SEG0-REC-TYP             PIC X(01) VALUE \"F\".\n       05 WS-DET-SEG0-AVAIL-BAL           PIC 9(18).\n       05 WS-DET-SEG0-LEDG-BAL            PIC 9(18).\n       05 WS-DET-SEG0-AMT-ON-HLD          PIC 9(18).\n       05 WS-DET-SEG0-OVRDRFT-LMT         PIC 9(10) VALUE 0.\n       05 WS-DET-SEG0-LAST-DEP-DAT        PIC 9(06) VALUE 0.\n       05 WS-DET-SEG0-LAST-DEP-AMT        PIC 9(15) VALUE 0.\n       05 WS-DET-SEG0-LAST-WDL-DAT        PIC 9(06) VALUE 0.\n       05 WS-DET-SEG0-LAST-WDL-AMT        PIC 9(15) VALUE 0.\n       05 WS-DET-SEG0-CRNCY-CDE           PIC 9(03) VALUE 484.\n       05 WS-DET-SEG0-USER-FLDL           PIC X(01) VALUE SPACES.\n       05 WS-DET-SEG0-USER-FLD-ACI        PIC X(50) VALUE SPACES.\n       05 WS-DET-SEG0-USER-FLD-REGN       PIC X(50) VALUE SPACES.\n       05 WS-DET-SEG0-USER-FLD-CUS        PIC X(50) VALUE SPACES.",
+          "java_codigo": "/** WS-SDOSB24-DETALLE, segmento 0. Importes en centavos sin signo, 18 dígitos. */\npublic record DetalleBase24(\n        long secuencia,              // WS-DET-SEG0-CNT 9(09)\n        String fiid,                 // \"CMAE\"\n        String numeroCuenta,         // PRIKEY-NUM X(19): CSI(2) + sucursal(4) + contrato(12) + 1\n        String tipoCuenta,           // \"01\"\n        char estatus,                // '1' activa, '9' inactiva\n        long saldoDisponibleCent,    // AVAIL-BAL 9(18)\n        long saldoContableCent,      // LEDG-BAL  9(18)\n        long montoRetenidoCent,      // AMT-ON-HLD 9(18)\n        int moneda) {                // CRNCY-CDE 484 fijo\n\n    static final int LONGITUD_SEG0 = 300;   // WS-DET-SEG0-LGTH\n\n    /** El fuente no tiene signo: un negativo se escribiría como su valor absoluto. */\n    static long aCentavos(BigDecimal importe, boolean rechazarNegativos) {\n        if (importe.signum() < 0 && rechazarNegativos) {\n            throw new SaldoNegativoException(importe);\n        }\n        return importe.abs().movePointRight(2).longValueExact();   // COMPUTE ... * 100\n    }\n}",
+          "racional": "El detalle sigue el layout de un archivo de saldos positivos de BASE24: identificador de institución <code>CMAE</code>, número de cuenta armado con CSI, sucursal y contrato, estatus y tres saldos en centavos. La moneda va fija en 484 aunque el saldo haya venido de una cuenta en dólares, porque P174 ya lo convirtió a pesos. Los campos de importe son <code>PIC 9(18)</code> sin signo, por lo que la conversión a centavos se hace con <code>BigDecimal</code> y <code>longValueExact</code> para no perder precisión.",
+          "reglas": [],
+          "riesgo": "Los saldos negativos no tienen representación en el layout y se escriben como positivos. En Java se deja una propiedad para rechazar o registrar esos casos en lugar de replicar el valor absoluto."
+        },
+        {
+          "id": "s8",
+          "titulo": "Detalle por contrato desde el SORT consolidado",
+          "linea_ini": 1087,
+          "linea_fin": 1111,
+          "origen_codigo": " 70013000-RUTINA-FINAL.\n     RETURN S31-SORT              AT END MOVE 1 TO WS-EOF-SORT.\n     IF WS-EOF-SORT   =  0\n        IF SD-S31-TIPO = 02\n           MOVE ZEROS                TO WS-DET-SEG0-CNT\n                                        WS-DET-SEG0-AVAIL-BAL\n                                        WS-DET-SEG0-LEDG-BAL\n                                        WS-DET-SEG0-AMT-ON-HLD\n           MOVE SPACES               TO WS-DET-PRIKEY\n                                        WS-DET-SEG0-ACCT-STAT\n           ADD  1                    TO WS-SEQ-MTYVDM\n           MOVE WS-SEQ-MTYVDM        TO WS-DET-SEG0-CNT\n           MOVE SD-S31-CSI           TO WS-DET-CSI\n           MOVE SD-S31-SUCPROM       TO WS-DET-SUCPROM\n           MOVE SD-S31-CONTRATO      TO WS-DET-CONTRATO\n           MOVE SD-S31-STATUS        TO WS-DET-SEG0-ACCT-STAT\n           MOVE WS-DET-PRIKEY        TO WS-DET-SEG0-PRIKEY-NUM\n           COMPUTE WS-DET-SEG0-LEDG-BAL   = SD-S31-SDOACTUAL * 100\n           COMPUTE WS-DET-SEG0-AMT-ON-HLD = SD-S31-SDOPEND   * 100\n           COMPUTE WS-DET-SEG0-AVAIL-BAL  = SD-S31-SDODISP   * 100\n           ADD  WS-DET-SEG0-LEDG-BAL TO WS-TRL1-AMT\n           WRITE REG-S01-SDOMTYVDM   FROM WS-SDOSB24-DETALLE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass Base24Processor implements ItemProcessor<SaldoContrato, DetalleBase24> {\n\n    private final TandemProperties props;\n    private long secuencia = 2;              // WS-SEQ-MTYVDM: los dos headers ocupan 1 y 2\n    private BigDecimal totalContable = BigDecimal.ZERO;   // WS-TRL1-AMT\n\n    @Override\n    public DetalleBase24 process(SaldoContrato s) {\n        if (s.tipo() != 2) return null;      // los headers de control 01 de MTY y VDM se descartan\n        secuencia++;\n        String cuenta = \"%02d%04d%012d \".formatted(s.csi(), s.sucursal(), Long.parseLong(s.contrato()));\n        long contable = DetalleBase24.aCentavos(s.actual(), props.rechazarNegativos());\n        totalContable = totalContable.add(BigDecimal.valueOf(contable));\n        return new DetalleBase24(secuencia, \"CMAE\", cuenta, \"01\", s.estatus(),\n                DetalleBase24.aCentavos(s.disponible(), props.rechazarNegativos()),\n                contable,\n                DetalleBase24.aCentavos(s.pendiente(), props.rechazarNegativos()),\n                484);\n    }\n}",
+          "racional": "La <code>OUTPUT PROCEDURE</code> recibe los registros de ambos CSI ya ordenados por tipo, CSI, sucursal y contrato. Descarta los headers de control (tipo 01) y por cada detalle arma la llave de cuenta, multiplica los tres saldos por 100 para expresarlos en centavos y acumula el saldo contable para el trailer. El orden del <code>SORT</code> se reproduce en el lector con <code>ORDER BY</code> sobre la tabla de trabajo que alimentan ambos nodos.",
+          "reglas": []
+        },
+        {
+          "id": "s9",
+          "titulo": "Headers FH y BH, trailers BT y FT",
+          "linea_ini": 1044,
+          "linea_fin": 1073,
+          "origen_codigo": " 70011000-PROCESA-TANDEM.\n     CHANGE ATTRIBUTE TITLE       OF S01-SDOMTYVDM\n                                  TO WS-ETIQ-S036\n     ACCEPT WS-HORA-HMSC-N3       FROM TIME\n     OPEN OUTPUT                  S01-SDOMTYVDM\n     MOVE WS-FECHA-PRO            TO WS-HD1-TAPE-DAT\n     ACCEPT WS-HORA-HMSC-N        FROM TIME\n     MOVE WS-HORA-HM              TO WS-HD1-TAPE-TIM\n     PERFORM                      70012000-HABIL-ANT.\n     WRITE REG-S01-SDOMTYVDM      FROM WS-SDOB24-HDR1\n     WRITE REG-S01-SDOMTYVDM      FROM WS-SDOB24-HDR2\n     MOVE 2                       TO WS-SEQ-MTYVDM\n     MOVE ZEROS                   TO WS-EOF-SORT\n     RETURN S31-SORT              AT END MOVE 1 TO WS-EOF-SORT.\n     PERFORM                      70013000-RUTINA-FINAL\n                                         UNTIL WS-EOF-SORT = 1.\n     MOVE ZEROS                   TO WS-TRL1-NUM-RECS\n                                     WS-TRL2-NUM-RECS\n     ADD  1                       TO WS-SEQ-MTYVDM\n     MOVE WS-SEQ-MTYVDM           TO WS-TLR1-REC-CNT\n     COMPUTE WS-TRL1-NUM-RECS  =  W77-TOT-REGS-MTY  +\n                                  W77-TOT-REGS-VDM\n     WRITE REG-S01-SDOMTYVDM      FROM WS-SDOSB24-TRL1\n     ADD  1                       TO WS-SEQ-MTYVDM\n     MOVE WS-SEQ-MTYVDM           TO WS-TRL2-REC-CNT\n     COMPUTE WS-TRL2-NUM-RECS  =  W77-TOT-REGS-VDM  +\n                                  W77-TOT-REGS-MTY\n     WRITE REG-S01-SDOMTYVDM      FROM WS-SDODB24-TRL2\n     CLOSE S01-SDOMTYVDM          WITH REMOVE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass Base24Envelope implements FlatFileHeaderCallback, FlatFileFooterCallback {\n\n    private final CalendarioBancario calendario;\n    private final Base24Processor detalle;\n    private final Clock clock;\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n    @Value(\"#{jobExecutionContext['registrosMtyVdm']}\") private long registrosMtyVdm;\n\n    @Override\n    public void writeHeader(Writer w) throws IOException {\n        // 70012000-HABIL-ANT: día hábil anterior como fecha de última extracción ATM y POS\n        String ultimaExtraccion = calendario.habilAnterior(fechaProceso)\n                .map(d -> d.format(DateTimeFormatter.ofPattern(\"yyMMdd\"))).orElse(\"      \");\n        w.write(Base24Layout.hdr1(fechaProceso, LocalTime.now(clock), ultimaExtraccion)); // FH, cnt 1\n        w.write(\"\\n\");\n        w.write(Base24Layout.hdr2());                                                     // BH, cnt 2\n    }\n\n    @Override\n    public void writeFooter(Writer w) throws IOException {\n        long seq = detalle.secuencia();\n        w.write(Base24Layout.trl1(seq + 1, detalle.totalContable(), registrosMtyVdm));   // BT\n        w.write(\"\\n\");\n        w.write(Base24Layout.trl2(seq + 2, registrosMtyVdm));                            // FT\n    }\n}",
+          "racional": "El archivo para Tandem se envuelve con un header de archivo (FH) y uno de lote (BH), y cierra con un trailer de lote (BT), que lleva el total del saldo contable, y uno de archivo (FT). La fecha de última extracción del header es el día hábil anterior obtenido de LOCSUP. En Spring Batch este sobre se escribe con <code>FlatFileHeaderCallback</code> y <code>FlatFileFooterCallback</code> del <code>FlatFileItemWriter</code>.",
+          "reglas": [],
+          "riesgo": "El número de registros de BT y FT sale de ATTRIBUTE LASTRECORD de los archivos de MTY y VDM (líneas 997 y 1009), que cuenta los headers de control y depende de la numeración de LASTRECORD, no de los detalles escritos. Si LOCSUP falla, la fecha de última extracción queda en espacios sin aviso."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Disponible negativo publicado como positivo",
+      "detalle": "El piso en cero de 50003100 (líneas 756-757) se evalúa antes de calcular el disponible en 50003200, así que no opera. El disponible negativo se multiplica por 100 hacia WS-DET-SEG0-AVAIL-BAL, un PIC 9(18) sin signo, y la red de cajeros recibiría un disponible positivo igual al sobregiro. Es el hallazgo de mayor impacto del componente y debe confirmarse con datos reales."
+    },
+    {
+      "titulo": "Fin normal cuando no llega el archivo de Monterrey",
+      "detalle": "Si el operador responde que no seguirá esperando (líneas 932-936), el programa termina con STOP RUN sin marcar error y no se genera el archivo de saldos para Tandem."
+    },
+    {
+      "titulo": "Conversión de dólares truncada y sin cobros pendientes",
+      "detalle": "Los COMPUTE con B02-TC-LINEA no usan ROUNDED y la rama de dólares no resta B03-PCOBP-PENDTE del disponible, a diferencia de la rama en pesos."
+    },
+    {
+      "titulo": "Conteos de trailer derivados de atributos de archivo",
+      "detalle": "WS-TRL1-NUM-RECS y WS-TRL2-NUM-RECS suman LASTRECORD de los archivos de cada CSI en lugar de contar los detalles escritos."
+    },
+    {
+      "titulo": "Documentación interna desalineada",
+      "detalle": "El comentario de cabecera (líneas 9-38) exige moneda 1 para el producto 66, pero en el código esa condición está comentada (líneas 730 y 893)."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Productos e instrumentos elegibles, CSI 04 como Monterrey, hora límite 08:30, títulos de archivo, FIID CMAE y moneda 484 están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con datos de producción si existen contratos con disponible negativo en el archivo SDOSB24 y cómo los interpreta Tandem.",
+    "Confirmar la escala de B02-TC-LINEA; la declaración está en el DASDL de S500BD01CAPTACION, que no viene en el fuente.",
+    "Confirmar si la ausencia de la condición de moneda 1 para el producto 66 es intencional.",
+    "Confirmar la semántica de ATTRIBUTE LASTRECORD (último número de registro o cantidad) para validar los conteos de los trailers BT y FT.",
+    "La transferencia por XRAPID de Monterrey a Valle de México ocurre fuera del programa (comentario en la línea 31); identificar el WFL que la ejecuta."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-516",
+    "RN-S500-517",
+    "RN-S500-518",
+    "RN-S500-519",
+    "RN-S500-520"
+  ]
+}

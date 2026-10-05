@@ -1,0 +1,217 @@
+{
+  "slug": "S500_P186",
+  "sistema": "S500",
+  "programa": "P186",
+  "nombre": "Aplicación de Traspasos a Cuenta Global y Beneficencia",
+  "funcion": "Paso batch de S500 que arma la cola de archivos de traspaso pendientes por sistema origen, los aplica en orden de prioridad y fecha contra la base de Cuenta Global de S500BD04TARJETAS y dispersa los abonos y las reactivaciones hacia el sistema S274.",
+  "resumen": "P186 construye un archivo puente con los archivos de traspaso esperados de S500 (tres copias), S084, S087, S264, S111 y el archivo de reactivaciones, proyectando día hábil a día hábil desde la última fecha aplicada hasta la fecha del batch. Ordena esa cola por prioridad y fecha y solo aplica un archivo si su fecha es la consecutiva esperada para su origen. Cada archivo de 140 bytes se valida por header y trailer y sus registros se clasifican por tipo: 3 traspaso a Cuenta Global, 4 reactivación, 5 beneficencia, 7 cambio de estatus y 9 trailer. Los traspasos aceptados actualizan el histórico S500B05PHISCTAGLB y generan un abono de 240 bytes en E02-DISP-S274 con una clave de transacción que depende del sistema origen; las reactivaciones van a un archivo separado, E02-DISP-REAC-S274. Al final emite cifras de control, rechazos, incidentes, el histórico de ligas y actualiza las fechas de control en S500B01PCONTROL.",
+  "arquetipo": "A6",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.cuentaglobal.traspasos",
+  "secciones": [
+    {
+      "titulo": "Control del job y cola de archivos a aplicar",
+      "origen": {
+        "archivo": "S500_SOURCE_P186.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-CONTROL-PROGRAMA / 40901000 / 50000200"
+      },
+      "java": {
+        "archivo": "TraspasosCuentaGlobalJobConfig.java · ColaArchivosTasklet.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal con dos modos de operación",
+          "linea_ini": 1481,
+          "linea_fin": 1521,
+          "origen_codigo": " 00000000-CONTROL-PROGRAMA.\n     PERFORM 00001000-INICIO-PGM.\n     PERFORM 10000000-TITLE-LIBRERIAS.\n     PERFORM 20000000-ABRE-BASE.\n     PERFORM 20010000-VE-CTRL-BASE.\n     PERFORM 20020000-ABRE-INCIDENTE.\n     IF WKS-TSK-OPCION = 0\n        PERFORM 20050500-ABRE-ARCHIVOS\n        PERFORM 40000000-LIBS-AMEMORIA\n        PERFORM 40005000-CANCEL-LIBS\n        PERFORM 40901000-ARMA-ARCH-PEND\n        PERFORM 50000000-APLICA-ARCHIVOS\n        PERFORM 50002700-REPORTA-ARCH\n        IF W77-PRA-VEZ = 0\n           PERFORM 50002800-PROY-FECHAS.\n     IF WKS-TSK-OPCION = 1\n        PERFORM 40901500-SOLO-FECHA.\n*ECC INI P0120414-Charity Regulatory Requirement III\n*NUEVO BARRIDO DE LA B05 PARA ARCHIVO DE LIGAS\n     IF WKS-TSK-OPCION = 0\n        MOVE 0 TO W77-EOF-B05P.\n        MOVE 1        TO W77-STORE-HLIG.\n        SET  S500B05PHISCTAGLB   TO BEGINNING.\n        PERFORM 99907100-LEE-B05P UNTIL W77-EOF-B05P = 1.\n*ECC FIN P0120414-Charity Regulatory Requirement III\n     PERFORM 50002800-ACT-CONTROL.\n     PERFORM 50003000-CIERRA-BASE.\n     DISALLOW  INTERRUPT.\n     PERFORM 59999990-FIN-PGM.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class TraspasosCuentaGlobalJobConfig {\n\n    /** WKS-TSK-OPCION llega como parámetro del job: 0 aplica archivos, 1 solo plancha fechas. */\n    @Bean\n    JobExecutionDecider modoOperacion() {\n        return (jobExec, stepExec) -> new FlowExecutionStatus(\n                \"1\".equals(jobExec.getJobParameters().getString(\"opcion\")) ? \"SOLO_FECHA\" : \"NORMAL\");\n    }\n\n    @Bean\n    Job traspasosCuentaGlobal(JobRepository repo, Step inicio, Step armaCola,\n                              Step aplicaArchivos, Step reportaArchivos,\n                              Step soloFecha, Step historicoLigas, Step actualizaControl) {\n        return new JobBuilder(\"S500P186\", repo)\n                .start(inicio)                       // 00001000 .. 20020000\n                .next(modoOperacion())\n                    .on(\"NORMAL\").to(armaCola)       // 40901000-ARMA-ARCH-PEND\n                        .next(aplicaArchivos)        // 50000000-APLICA-ARCHIVOS (particionado)\n                        .next(reportaArchivos)\n                        .next(historicoLigas)        // barrido de S500B05PHISCTAGLB\n                        .next(actualizaControl)\n                .from(modoOperacion())\n                    .on(\"SOLO_FECHA\").to(soloFecha)  // 40901500-SOLO-FECHA\n                        .next(actualizaControl)      // decisión explícita: sin barrido de ligas\n                .end()\n                .build();\n    }\n}",
+          "racional": "La rutina principal tiene dos caminos según el TASKVALUE de arranque: aplicar archivos o solo actualizar las fechas de control. En Spring Batch el TASKVALUE es un parámetro del job y la bifurcación un <code>JobExecutionDecider</code>. El barrido de S500B05PHISCTAGLB que genera el histórico de ligas, agregado por el requerimiento regulatorio de beneficencia, se modela como un step propio que solo se encadena en el camino normal, que es la intención evidente del <code>IF WKS-TSK-OPCION = 0</code>.",
+          "reglas": [
+            "RN-S500-728"
+          ],
+          "riesgo": "El punto después de MOVE 0 TO W77-EOF-B05P cierra el IF: las tres sentencias siguientes, incluido el barrido de ligas, se ejecutan también en la opción 1, cuando ARCH-HLIG no se abrió en 20050500-ABRE-ARCHIVOS. La traducción no reproduce ese efecto; hay que confirmar con operación qué pasa hoy en la opción 1."
+        },
+        {
+          "id": "s2",
+          "titulo": "Cola de archivos esperados por sistema origen y proyección de fecha",
+          "linea_ini": 2286,
+          "linea_fin": 2645,
+          "origen_codigo": " 40901004-ARMA-NORMAL.\n     MOVE ZERO TO W77-NO-MAS.\n     IF WKS-FEC-S500C01 > 0\n    AND WKS-FEC-S500C01 NOT > WKS-FEC-BATCH\n        PERFORM 40001100-ARMA-ARCHS500-01 UNTIL W77-NO-MAS = 1.\n     IF WKS-FEC-S111L01 > 0 AND WS-B02-DECOM-S111 = 0\n    AND WKS-FEC-S111L01 NOT > WKS-FEC-BATCH\n        PERFORM 40001500-ARMA-ARCHS111-01 UNTIL W77-NO-MAS = 1.\n 40001100-ARMA-ARCHS500-01.\n     MOVE 1                      TO W77-QUE-PRIORI.\n     MOVE \"(S500)\"               TO WKS-TIT-I01-USER.\n     MOVE \"S500\"                 TO WKS-TIT-I01-SISTOR.\n     MOVE \"TRPBECPY01\"           TO WKS-TIT-I01-NAME.\n     MOVE WKS-FEC-S500C01        TO WKS-TIT-I01-FECH.\n     MOVE WKS-FEC-S500C01        TO WKS-FEC-PTE.\n     PERFORM 40901100-ARMA-ARCH-PTE.\n     PERFORM 40901110-PROY-FECH-PTE.\n     IF WKS-FEC-PTE > WKS-FEC-BATCH\n        MOVE 1 TO W77-NO-MAS\n     ELSE\n        MOVE WKS-FEC-PTE TO WKS-FEC-S500C01.\n 40901100-ARMA-ARCH-PTE.\n     MOVE WKS-FEC-PTE            TO I03-FD-FECHA.\n     MOVE W77-QUE-PRIORI         TO I03-FD-PRIORI.\n     MOVE WKS-TIT-TRP-CGBL       TO I03-FD-ARCHIVO.\n     MOVE WKS-TIT-I01-SISTOR     TO I03-FD-SISTEMA.\n     WRITE I03-FD-ARCH-XAPL.\n     ADD 1 TO W77-CUANTOS-X-APL.\n 40901110-PROY-FECH-PTE.\n     MOVE WKS-FEC-PTE     TO WS-S006-FECHA1.\n     MOVE 1               TO WS-S006-FECHA2.\n     MOVE 12              TO WS-S006-FORMATO.\n     IF (W77-QUE-PRIORI < 7) OR\n        (W77-QUE-PRIORI = 9) OR\n        (W77-QUE-PRIORI = 10)\n        MOVE 13           TO WS-S006-FUNCION\n     ELSE\n        MOVE 8            TO WS-S006-FUNCION.\n     PERFORM 20040300-LLAMA-LOCSUP.\n     MOVE WS-S006-FECHA1 TO  WKS-FEC-PTE.",
+          "java_codigo": "# application.yml  (orígenes, prioridad y nombre de archivo dejan de estar compilados)\np186:\n  origenes:\n    - { prioridad: 1,  sistema: S500, nombre: TRPBECPY01, calendario: HABIL_S500 }\n    - { prioridad: 2,  sistema: S500, nombre: TRPBECPY02, calendario: HABIL_S500 }\n    - { prioridad: 7,  sistema: S111, nombre: TRPBELIN01, calendario: FUNCION_8, apagado-por: decom-s111 }\n    - { prioridad: 10, sistema: S500, nombre: REACTASGLB, calendario: HABIL_S500 }\n\n// ---------------------------------------------------------------------------\npublic record ArchivoPendiente(int prioridad, String sistema, LocalDate fecha, String titulo) {}\n\n@Component\n@RequiredArgsConstructor\npublic class ColaArchivosTasklet implements Tasklet {\n\n    private final P186Properties props;\n    private final CalendarioBancario calendario;      // LOCSUP formato 12, función 13 u 8\n    private final ControlFechasRepository control;    // S500B01PCONTROL: última fecha por origen\n    private final ColaPendientesRepository cola;      // reemplaza I03-ARCH-XAPL\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        LocalDate fechaBatch = control.fechaBatch();\n        for (var o : props.origenes()) {\n            LocalDate f = control.siguienteFecha(o.prioridad());\n            if (f == null || f.isAfter(fechaBatch) || o.apagado()) continue;\n            // Un registro por día pendiente: incluye la fecha batch y se detiene después de ella.\n            while (!f.isAfter(fechaBatch)) {\n                cola.save(new ArchivoPendiente(o.prioridad(), o.sistema(), f, o.titulo(f)));\n                f = calendario.siguiente(f, o.calendario());\n            }\n            control.siguienteFecha(o.prioridad(), f);\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Por cada sistema origen activo, P186 agrega a la cola un archivo por cada día hábil desde la siguiente fecha esperada hasta la fecha del batch, proyectando con LOCSUP. La función de calendario cambia por prioridad (13 para la mayoría, 8 para S111), lo que sugiere calendarios distintos por sistema origen. En Java la lista de orígenes, sus prioridades, el nombre de archivo y el calendario son configuración, y la cola pasa a una tabla en lugar de un archivo puente. S111 se excluye cuando el control de S500B02 lo marca como desmantelado, igual que en el fuente.",
+          "reglas": [
+            "RN-S500-726"
+          ],
+          "riesgo": "La prioridad 9 (S999) recibe función 13 en la proyección pero su armado está comentado; si se reactivara, hereda un calendario que nadie ha validado."
+        },
+        {
+          "id": "s3",
+          "titulo": "Orden de la cola y regla de fechas consecutivas",
+          "linea_ini": 2706,
+          "linea_fin": 3101,
+          "origen_codigo": "     SORT S03-SORT-XAPL  ON ASCENDING KEY S03-SD-PRIORI\n                                          S03-SD-FECHA\n          USING   I03-ARCH-XAPL\n          GIVING  I03-ARCH-XAPL\n 50000200-VE-RESIDENCIA.\n     IF ATTRIBUTE RESIDENT OF I01-TRP-CTAGLB IS = VALUE TRUE\n        MOVE 1    TO I03-FD-RESIDENT\n        MOVE 0    TO W77-EOF-I01\n        PERFORM 50000205-VALIDA-FECHA\n        IF W77-SEQ-FECH = 1\n           PERFORM 50000210-ABRE-ARCHIVO\n        ELSE\n        IF NOT WKS-TIT-NAME = \"REACTASGLB\"\n           MOVE 2    TO I03-FD-RESIDENT\n           MOVE \" ARCH RESIDENTE SALTADO \" TO W77-DAT-ARCH\n           PERFORM 50000182-RECH-ARCHIVO\n     ELSE\n     IF NOT WKS-TIT-NAME = \"REACTASGLB\"\n        MOVE \" ARCHIVO NO RESIDENTE \" TO W77-DAT-ARCH\n        PERFORM 40901150-DIAS-NORESIDENT\n        IF W77-LO-BRINCO = 0 AND\n           NOT WKS-TIT-NAME = \"REACTASGLB\"\n           PERFORM 50000182-RECH-ARCHIVO\n        ELSE\n        IF NOT WKS-TIT-NAME = \"REACTASGLB\"\n           PERFORM 999905000-BRINCA-ARCH.\n 50000205-VALIDA-FECHA.\n     MOVE ZERO TO W77-SEQ-FECH\n     IF I03-FD-PRIORI = 1\n    AND I03-FD-FECHA  = WKS-FEC-S500C01-V\n        MOVE 1 TO W77-SEQ-FECH.\n     IF I03-FD-PRIORI = 10\n    AND I03-FD-FECHA  = WKS-FEC-REACGLB-V\n     MOVE 1 TO W77-SEQ-FECH.",
+          "java_codigo": "/** 50000200-VE-RESIDENCIA: decide qué hacer con cada archivo de la cola, ya ordenada. */\n@Component\n@RequiredArgsConstructor\npublic class ResidenciaDecider {\n\n    public enum Decision { APLICAR, SALTADO, RECHAZAR_NO_RESIDENTE, BRINCAR, IGNORAR }\n\n    private final ArchivoStore store;              // RESIDENT OF I01-TRP-CTAGLB\n    private final ControlFechasRepository control; // WKS-FEC-xxx-V: fecha consecutiva esperada\n    private final DiasNoResidente diasNoResidente;  // 40901150: tolerancia W77-NUM-DIA-BRINCO\n\n    public Decision decide(ArchivoPendiente a) {\n        boolean reactivacion = a.titulo().contains(\"REACTASGLB\");\n        if (store.existe(a.titulo())) {\n            if (a.fecha().equals(control.fechaEsperada(a.prioridad()))) return Decision.APLICAR;\n            return reactivacion ? Decision.IGNORAR : Decision.SALTADO;   // no aplica fechas saltadas\n        }\n        if (reactivacion) return Decision.IGNORAR;    // la reactivación faltante no se reporta\n        return diasNoResidente.excedeTolerancia(a)\n                ? Decision.BRINCAR                     // 999905000-BRINCA-ARCH\n                : Decision.RECHAZAR_NO_RESIDENTE;      // 50000182-RECH-ARCHIVO\n    }\n}\n\n// La cola se lee ordenada: SELECT ... ORDER BY prioridad, fecha (equivale al SORT S03-SORT-XAPL).",
+          "racional": "La cola se ordena por prioridad y fecha, y un archivo presente solo se aplica si su fecha es exactamente la siguiente esperada para su origen; si no, se marca como saltado. Un archivo ausente se rechaza mientras no exceda la tolerancia de días configurada y después se brinca. El archivo de reactivaciones queda fuera de ambos rechazos. En Java la decisión se separa en un componente puro, fácil de probar, y el <code>SORT</code> se sustituye por un <code>ORDER BY</code> sobre la tabla de la cola.",
+          "reglas": [
+            "RN-S500-728"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Lectura del archivo de traspasos y clasificación por tipo de registro",
+      "origen": {
+        "archivo": "S500_SOURCE_P186.txt",
+        "contexto": "WORKING-STORAGE WKS-I01-R03-DATOS · 50000210 / 50000240 / 50000500"
+      },
+      "java": {
+        "archivo": "TraspasoRecord.java · ArchivoTraspasoReader.java · TipoRegistroClassifier.java",
+        "contexto": "record · ItemReader · Classifier · ClassifierCompositeItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Registro de traspaso de 140 posiciones",
+          "linea_ini": 853,
+          "linea_fin": 881,
+          "origen_codigo": " 01  WKS-I01-R03-DATOS.\n     02 WKS-I01-R03-TPOREG          PIC 9(01)      VALUE 3.\n     02 WKS-I01-R03-PROD-X.\n        04 WKS-I01-R03-PROD         PIC 9(04).\n     02 WKS-I01-R03-INST-X.\n        04 WKS-I01-R03-INST         PIC 9(04).\n     02 WKS-I01-R03-MON-X.\n        04 WKS-I01-R03-MON          PIC 9(02).\n     02 WKS-I01-R03-INSTOPE-X.\n        04 WKS-I01-R03-INSTOPE      PIC 9(02).\n     02 WKS-I01-R03-NUMINVE-X.\n        04 WKS-I01-R03-NUMINVE      PIC 9(06).\n     02 WKS-I01-R03-CTO-TARJ-X.\n        04 WKS-I01-R03-CTO-TARJ     PIC 9(18).\n     02 WKS-I01-R03-NUMCTE-X.\n        04 WKS-I01-R03-NUMCTE       PIC 9(12).\n     02 WKS-I01-R03-SUCPROM-X.\n        04 WKS-I01-R03-SUCPROM      PIC 9(04).\n     02 WKS-I01-R03-FECH-TRP-X.\n        04 WKS-I01-R03-FECH-TRP     PIC 9(08).\n     02 WKS-I01-R03-IMP-ORIG-X.\n        04 WKS-I01-R03-IMP-ORIG     PIC 9(14)V99.\n     02 WKS-I01-R03-IMP-MN-X.\n        04 WKS-I01-R03-IMP-MN       PIC 9(14)V99.\n     02 WKS-I01-R03-TPO-CAMB-X.\n        04 WKS-I01-R03-TPO-CAMB     PIC 9(04)V9(04).\n     02 WKS-I01-R03-NOMBRE-X.\n        04 WKS-I01-R03-NOMBRE       PIC X(36).\n     02 FILLER                   PIC X(03).",
+          "java_codigo": "/** WKS-I01-R03-DATOS (tipo 3) y WKS-I01-R04-DATOS (tipo 4) comparten el mismo layout de 140 bytes. */\npublic record TraspasoRecord(\n        int tipoRegistro,          // 9(01): 3 traspaso, 4 reactivación\n        int producto,              // 9(04)\n        int instrumento,           // 9(04)\n        int moneda,                // 9(02): 1 MN, 5 dólares, 26 euros\n        int instOpera,             // 9(02)\n        int numInversion,          // 9(06)\n        String contratoTarjeta,    // 9(18) como String: conserva ceros\n        String numCliente,         // 9(12)\n        int sucursalPromotora,     // 9(04)\n        LocalDate fechaTraspaso,   // 9(08) AAAAMMDD; 0 = sin fecha\n        BigDecimal importeOriginal,// 9(14)V99 escala 2\n        BigDecimal importeMn,      // 9(14)V99 escala 2\n        BigDecimal tipoCambio,     // 9(04)V9(04) escala 4\n        String nombre) {           // X(36)\n\n    static TraspasoRecord parse(String r) {\n        return new TraspasoRecord(Fixed.entero(r, 0, 1), Fixed.entero(r, 1, 4),\n                Fixed.entero(r, 5, 4), Fixed.entero(r, 9, 2), Fixed.entero(r, 11, 2),\n                Fixed.entero(r, 13, 6), r.substring(19, 37), r.substring(37, 49),\n                Fixed.entero(r, 49, 4), Fixed.fechaAmdOpcional(r, 53),\n                Fixed.decimal(r, 61, 16, 2), Fixed.decimal(r, 77, 16, 2),\n                Fixed.decimal(r, 93, 8, 4), r.substring(101, 137));\n    }\n}",
+          "racional": "El registro de traspaso mide 140 posiciones y su primer byte decide la vista. Los tipos 3 y 4 tienen el mismo layout, por eso un solo <code>record</code> sirve a ambos. Los importes <code>9(14)V99</code> pasan a <code>BigDecimal</code> con escala 2 y el tipo de cambio <code>9(04)V9(04)</code> con escala 4. El contrato o tarjeta de 18 dígitos y el número de cliente se conservan como <code>String</code>. La fecha de traspaso admite cero, que el fuente trata como ausencia de referencia.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Apertura por clave relativa, header, trailer e incidentes",
+          "linea_ini": 3105,
+          "linea_fin": 3203,
+          "origen_codigo": " 50000210-ABRE-ARCHIVO.\n     OPEN INPUT I01-TRP-CTAGLB.\n     MOVE ATTRIBUTE LASTRECORD OF I01-TRP-CTAGLB TO W77-LAST-I01.\n     ADD  1                                      TO W77-LAST-I01.\n     MOVE 1 TO W77-KEY-I01.\n     PERFORM 50000220-VALIDA-HEADER.\n     COMPUTE W77-KEY-I01 = W77-LAST-I01.\n     MOVE W77-KEY-I01 TO WKS-ERR-LAST-R(I03-FD-PRIORI).\n     PERFORM 50000230-VALIDA-TRAILER.\n     IF I03-FD-ARCH-OK = 3\n        PERFORM 50000180-APL-ARCHIVO\n        MOVE 1 TO W77-KEY-I01\n        MOVE 0 TO W77-REG-LEIDO\n     ELSE\n     IF I03-FD-ARCH-OK = 2\n   AND WKS-ERR-LAST-R(I03-FD-PRIORI) < 3\n       PERFORM 50000240-ARCH-ERR\n       MOVE \"APL-ARCH C/HEAD ERROR \"  TO W77-DAT-ARCH\n       PERFORM 50000180-APL-ARCHIVO\n     ELSE\n        CLOSE I01-TRP-CTAGLB WITH SAVE\n        WAIT(10)\n        PERFORM 50000240-ARCH-ERR\n        MOVE 1 TO WKS-ERR-ARCH-X(I03-FD-PRIORI).\n 50000220-VALIDA-HEADER.\n     READ I01-TRP-CTAGLB INTO WKS-I01-R01-HEADER\n          INVALID KEY MOVE 1 TO W77-EOF-I01.\n     IF W77-EOF-I01 = 0\n        IF WKS-I01-R01-TPOREG     = 1\n       AND WKS-I01-R01-SIST-ORIG  = WKS-TIT-I01-SISTOR\n       AND WKS-I01-R01-SIST-DEST  = \"S500\"\n       AND WKS-I01-R01-FECH-06    = WKS-TIT-I01-FECH\n           MOVE WKS-I01-R01-FECH-CONT TO W77-FECH-DEFAULT\n           MOVE 1 TO I03-FD-ARCH-OK.\n 50000230-VALIDA-TRAILER.\n     IF W77-EOF-I01 = 0\n        READ I01-TRP-CTAGLB INTO WKS-I01-R09-TRAILER\n             INVALID KEY MOVE 1 TO W77-EOF-I01.\n     IF W77-EOF-I01 = 0\n        IF WKS-I01-R09-TPOREG = 9\n           ADD 2 TO I03-FD-ARCH-OK.\n 50000240-ARCH-ERR.\n     ADD 1 TO W77-NUM-ARCH-ERR.\n     IF I03-FD-ARCH-OK = 0\n        MOVE \"ERR HEADER Y SIN TRAILER\" TO W77-DAT-ARCH\n     ELSE\n     IF I03-FD-ARCH-OK = 2\n        MOVE \"ERR HEADER Y CON TRAILER\" TO W77-DAT-ARCH\n     ELSE\n     IF I03-FD-ARCH-OK = 1\n        MOVE \"ERROR SIN TRAILER       \" TO W77-DAT-ARCH.\n     WRITE FD-I06-INCIDENTE FROM WKS-I06-INCID-DATOS.",
+          "java_codigo": "public enum EstadoArchivo { SIN_HEADER_SIN_TRAILER, SOLO_HEADER, SOLO_TRAILER, COMPLETO }   // ARCH-OK 0..3\n\n@Component\n@RequiredArgsConstructor\npublic class ValidadorArchivoTraspaso {\n\n    private final BitacoraIncidentes incidentes;   // I06-ARCH-INCIDENTE\n\n    /** El header se lee en el registro 1 y el trailer en el último; luego se recorre del 2 en adelante. */\n    public EstadoArchivo valida(RandomAccessRecords f, ArchivoPendiente a) {\n        long ultimo = f.lastRecord() + 1;                  // LASTRECORD + 1: clave relativa del trailer\n        int ok = 0;\n        var h = f.read(1).map(HeaderTraspaso::parse);\n        if (h.isPresent() && h.get().tipo() == 1\n                && h.get().sistemaOrigen().equals(a.sistema())\n                && \"S500\".equals(h.get().sistemaDestino())\n                && h.get().fecha6().equals(Fixed.aammdd(a.fecha()))) {\n            ok += 1;\n        }\n        if (f.read(ultimo).filter(t -> t.charAt(0) == '9').isPresent()) {\n            ok += 2;\n        }\n        var estado = EstadoArchivo.values()[ok];\n        if (estado != EstadoArchivo.COMPLETO) {\n            incidentes.registra(a, switch (estado) {\n                case SIN_HEADER_SIN_TRAILER -> \"ERR HEADER Y SIN TRAILER\";\n                case SOLO_TRAILER           -> \"ERR HEADER Y CON TRAILER\";\n                default                     -> \"ERROR SIN TRAILER\";\n            });\n        }\n        return estado;\n    }\n}",
+          "racional": "El archivo de traspasos se abre en acceso relativo: la clave 1 es el header y <code>LASTRECORD + 1</code> es el trailer. El estado del archivo se arma sumando 1 por header válido y 2 por trailer presente, y en Java ese código numérico se vuelve un <code>enum</code> con nombres que se leen. Todo archivo que no quede completo deja huella en la bitácora de incidentes, que es la trazabilidad de conciliación que pide la regla. La lectura posterior arranca en la clave 2 y el número de registro leído es la clave menos uno, de modo que el conteo excluye el header.",
+          "reglas": [
+            "RN-S500-728",
+            "RN-S500-729"
+          ],
+          "riesgo": "Un archivo con header inválido y trailer presente se aplica igual si WKS-ERR-LAST-R es menor que 3, es decir, si el archivo solo trae header y trailer. Además, la validación de trailer solo revisa el tipo 9; los totales se comparan después, en 50000598-VAL-TRAILER."
+        },
+        {
+          "id": "s6",
+          "titulo": "Clasificación de cada registro por tipo",
+          "linea_ini": 3227,
+          "linea_fin": 3263,
+          "origen_codigo": " 50000500-LEE-ARCH.\n     ADD 1              TO W77-KEY-I01.\n     COMPUTE W77-REG-LEIDO = W77-KEY-I01 - 1.\n     READ I01-TRP-CTAGLB INTO WKS-I01-R03-DATOS\n          INVALID KEY MOVE 1 TO W77-EOF-I01.\n     IF W77-EOF-I01 = 0\n        IF WKS-I01-R03-TPOREG = 3\n           PERFORM 50000550-TRP-A-CTAGLB\n        ELSE\n        IF WKS-I01-R03-TPOREG = 4\n           MOVE WKS-I01-R03-DATOS TO WKS-I01-R04-DATOS\n           PERFORM 50000590-REAC-CTA-GLB\n        ELSE\n        IF WKS-I01-R03-TPOREG = 5\n           MOVE WKS-I01-R03-DATOS TO WKS-I01-R05-DATOS\n           PERFORM 50000570-TRP-A-BENEF\n        ELSE\n        IF WKS-I01-R03-TPOREG = 7\n           MOVE WKS-I01-R03-DATOS TO WKS-I01-R07-DATOS\n           PERFORM 50000580-MODIF-STATUS\n        ELSE\n        IF WKS-I01-R03-TPOREG = 9\n           MOVE WKS-I01-R03-DATOS TO WKS-I01-R09-TRAILER\n           PERFORM 50000598-VAL-TRAILER\n           MOVE 1 TO W77-EOF-I01\n        ELSE\n           MOVE ZERO TO W77-ERR-REG\n           PERFORM 50000590-RECHAZO.",
+          "java_codigo": "@Bean\nClassifierCompositeItemProcessor<RegistroTraspaso, Salida> procesadorPorTipo(\n        TraspasoCuentaGlobalProcessor traspaso,      // 50000550-TRP-A-CTAGLB\n        ReactivacionProcessor reactivacion,          // 50000590-REAC-CTA-GLB\n        BeneficenciaProcessor beneficencia,          // 50000570-TRP-A-BENEF\n        CambioEstatusProcessor cambioEstatus,        // 50000580-MODIF-STATUS\n        TrailerProcessor trailer,                    // 50000598-VAL-TRAILER\n        RechazoProcessor rechazo) {                  // 50000590-RECHAZO\n\n    var p = new ClassifierCompositeItemProcessor<RegistroTraspaso, Salida>();\n    p.setClassifier(reg -> switch (reg.tipo()) {\n        case '3' -> traspaso;\n        case '4' -> reactivacion;\n        case '5' -> beneficencia;\n        case '7' -> cambioEstatus;\n        case '9' -> trailer;          // el reader termina después del trailer (W77-EOF-I01 = 1)\n        default  -> rechazo;          // tipo desconocido: rechazo con W77-ERR-REG = 0\n    });\n    return p;\n}\n\n/** Lector por archivo: arranca en la clave 2 y expone el número de registro = clave - 1. */\npublic record RegistroTraspaso(long numRegistro, char tipo, String raw) {}",
+          "racional": "Cada registro se lee por clave relativa y su primer byte lo envía a uno de cinco tratamientos, con rechazo para cualquier otro tipo. Es el patrón de distribución del arquetipo A6, que en Spring Batch se expresa con un <code>Classifier</code> sobre un <code>ClassifierCompositeItemProcessor</code>. El número de registro, calculado como clave menos uno, viaja con el registro porque es la liga entre la entrada y los mensajes de rechazo y de avance. El trailer corta la lectura aunque existan registros después de él, igual que el fuente.",
+          "reglas": [
+            "RN-S500-726",
+            "RN-S500-729"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Aplicación y dispersión hacia S274",
+      "origen": {
+        "archivo": "S500_SOURCE_P186.txt",
+        "contexto": "PROCEDURE DIVISION · 50000550 / 50002200-REG-S274 / 50000590-REAC-CTA-GLB"
+      },
+      "java": {
+        "archivo": "TraspasoCuentaGlobalProcessor.java · DispersionS274Writer.java · ReactivacionProcessor.java",
+        "contexto": "ItemProcessor @Transactional · JPA · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Traspaso a Cuenta Global: cadena de validaciones y efectos",
+          "linea_ini": 3324,
+          "linea_fin": 3353,
+          "origen_codigo": " 50000550-TRP-A-CTAGLB.\n     MOVE 0    TO W77-Q-ERROR.\n     MOVE 1    TO W77-ERR-REG.\n     PERFORM 50000700-VAL-REG3.\n     IF W77-Q-ERROR = 0\n        PERFORM 50000750-VAL-SUCURSAL\n        IF W77-Q-ERROR = 0\n           PERFORM 50000790-FIND-B05P\n           PERFORM 50000000-REINCIDENCIA\n           IF W77-Q-ERROR = 0\n              PERFORM 50000800-VAL-S016\n              PERFORM 50000900-VE-BASEB04\n              PERFORM 50002110-REG-S016\n              PERFORM 50002200-REG-S274\n              PERFORM 50002400-SUMA-TOTALES\n              PERFORM 50125000-STORE-BASE\n           ELSE\n              PERFORM 50000590-RECHAZO\n        ELSE\n           PERFORM 50000590-RECHAZO\n     ELSE\n        PERFORM 50000590-RECHAZO.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class TraspasoCuentaGlobalProcessor implements ItemProcessor<RegistroTraspaso, Salida> {\n\n    private final ValidadorTraspaso validador;          // 50000700 y 50000750\n    private final HistoricoCuentaGlobalRepository b05p; // S500B05PHISCTAGLB (JPA)\n    private final ClienteS016 s016;                     // 50000800-VAL-S016 (L422)\n    private final AltaCuentaGlobal alta;                // 50000900 / 50000901-CREA-NUEVO\n    private final CifrasControl cifras;                 // 50002400-SUMA-TOTALES\n    private final DispersionS274 dispersion;            // 50002200-REG-S274\n\n    @Override\n    @Transactional                                      // 50125000-STORE-BASE confirma al final\n    public Salida process(RegistroTraspaso reg) {\n        var t = TraspasoRecord.parse(reg.raw());\n        Optional<Rechazo> r = validador.registro(t).or(() -> validador.sucursal(t));\n        if (r.isPresent()) return Salida.rechazo(reg, r.get());\n\n        var hist = b05p.findByOrigen(t);\n        r = Reincidencia.evalua(hist);                  // estatus 6: candidato a reincidencia\n        if (r.isPresent()) return Salida.rechazo(reg, r.get());\n\n        var contratoS016 = s016.valida(t);\n        var cuenta = alta.obtieneOCrea(t, hist, contratoS016);   // producto 66, instr. 90, moneda 1\n        cifras.suma(t);\n        return Salida.de(\n                RegistroS016.de(cuenta),\n                dispersion.abono(t, cuenta));            // E02-DISP-S274\n    }\n}",
+          "racional": "Un traspaso pasa por validación del registro, de la sucursal y de reincidencia; cualquier error lo desvía a rechazo. Si todo es correcto, consulta S016, obtiene o crea la Cuenta Global, genera el estatus para S016 y el abono para S274, suma cifras de control y guarda en la base. En Java la cadena de IF anidados se vuelve una secuencia de validaciones que devuelven un <code>Optional</code> de rechazo, y la escritura en S500B05PHISCTAGLB queda dentro de una transacción por chunk con <code>@Transactional</code>.",
+          "reglas": [
+            "RN-S500-725",
+            "RN-S500-726"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Abono a S274 con clave de transacción por sistema origen",
+          "linea_ini": 4185,
+          "linea_fin": 4265,
+          "origen_codigo": " 50002200-REG-S274.\n     ADD 1                       TO W77-MY-AUTORIZ.\n     MOVE W77-MY-AUTORIZ         TO WKS-E02-R03-AUTORIZ.\n     IF WKS-I01-R03-TPOREG = 3\n        MOVE WKS-I01-R03-IMP-MN  TO WKS-E02-R03-IMPO-MOVTO\n        MOVE 7                   TO WKS-E02-R03-TIPO-CUENTA\n        MOVE B05P-ORI-SUCPRO     TO WKS-E02-R03-NUM-SUC\n        MOVE B05P-NVO-CONTRATO   TO WKS-E02-R03-NUM-CUENTA\n        IF I03-FD-SISTEMA = \"S500\"\n           MOVE 1181             TO WKS-E02-R03-CLAVE-TRANS\n        ELSE\n        IF I03-FD-SISTEMA = \"S084\"\n           MOVE 1186             TO WKS-E02-R03-CLAVE-TRANS\n        ELSE\n        IF I03-FD-SISTEMA = \"S087\"\n           MOVE 1185             TO WKS-E02-R03-CLAVE-TRANS\n        ELSE\n        IF I03-FD-SISTEMA = \"S264\" OR \"S999\"\n           MOVE 1183             TO WKS-E02-R03-CLAVE-TRANS\n        ELSE\n           MOVE 1184             TO WKS-E02-R03-CLAVE-TRANS.\n     IF WKS-I01-R03-TPOREG = 3\n        IF I03-FD-SISTEMA = \"S264\" OR \"S111\" OR \"S999\"\n           MOVE ZERO                 TO WKS-E02-R03-REFNUM\n        ELSE\n        IF WKS-I01-R03-FECH-TRP > 0\n           MOVE WKS-I01-R03-FECH-TRP TO WKS-E02-R03-REFNUM\n        ELSE\n           MOVE ZERO                 TO WKS-E02-R03-REFNUM.\n     IF WKS-I01-R03-TPOREG = 3\n        MOVE WKS-LEY-S274-EDOCTA TO WKS-E02-R03-LEY-EDOCTA\n        PERFORM 50002250-ESC-DET-S274.\n 50002250-ESC-DET-S274.\n     WRITE E02-FD-DISP-S274 FROM WKS-E02-R03-DATOS.\n     ADD 1                      TO WKS-E02-R09-NUMABONOS.\n     ADD WKS-E02-R03-IMPO-MOVTO TO WKS-E02-R09-IMPABONOS.",
+          "java_codigo": "# application.yml\np186:\n  s274:\n    tipo-cuenta: 7\n    clave-por-sistema: { S500: 1181, S084: 1186, S087: 1185, S264: 1183, S999: 1183 }\n    clave-default: 1184               # S111 y cualquier otro origen\n    clave-reactivacion: 1300\n    sin-referencia: [S264, S111, S999]\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class DispersionS274 {\n\n    private final P186Properties.S274 cfg;\n    private final AtomicLong autorizacion = new AtomicLong();   // W77-MY-AUTORIZ\n\n    public AbonoS274 abono(TraspasoRecord t, CuentaGlobal cta, String sistemaOrigen) {\n        long referencia = cfg.sinReferencia().contains(sistemaOrigen) || t.fechaTraspaso() == null\n                ? 0L : Fixed.aaaammdd(t.fechaTraspaso());\n        return new AbonoS274(\n                autorizacion.incrementAndGet(),\n                t.importeMn(),                                   // 9(14)V99, sin conversión\n                cfg.tipoCuenta(),\n                cta.sucursalOrigen(), cta.nuevoContrato(),\n                cfg.clavePorSistema().getOrDefault(sistemaOrigen, cfg.claveDefault()),\n                referencia,\n                LeyendaEstadoCuenta.de(cta));                    // WKS-LEY-S274-EDOCTA\n    }\n}\n\n/** El trailer de E02 acumula número e importe de abonos (WKS-E02-R09-*). */",
+          "racional": "El abono hacia S274 lleva el importe en moneda nacional del traspaso, la sucursal de origen y el nuevo contrato de Cuenta Global, y una clave de transacción que identifica al sistema que originó el dinero: 1181 para S500, 1186 para S084, 1185 para S087, 1183 para S264 y S999, y 1184 para cualquier otro. La referencia es la fecha de traspaso, salvo para S264, S111 y S999, que van en cero. Todas esas tablas fijas se mueven a <code>application.yml</code>. El trailer acumula número e importe de abonos como cifra de control del archivo.",
+          "reglas": [
+            "RN-S500-726"
+          ],
+          "riesgo": "La rama de beneficencia (clave 1182 y chequera fija) está comentada; los registros tipo 5 no generan abono en E02-DISP-S274 aunque sí se suman en las cifras de beneficencia."
+        },
+        {
+          "id": "s9",
+          "titulo": "Reactivación de Cuenta Global",
+          "linea_ini": 3268,
+          "linea_fin": 3320,
+          "origen_codigo": " 50000590-REAC-CTA-GLB.\n   MOVE WKS-I01-R04-PROD     TO WS-NUM-PRODUCTO  WKS-REG-PROD\n                                                 WS-MSG-PRD.\n   MOVE WKS-I01-R04-INST     TO WS-NUM-INSTRUM   WKS-REG-INTR\n                                                 WS-MSG-INST.\n   MOVE WKS-I01-R04-MON      TO WS-MONEDA        WKS-REG-IOPE\n                                                 WS-MSG-PERS.\n   MOVE 0                    TO WKS-REG-IOPE  WS-MSG-PERS.\n   MOVE 4                    TO W77-ERR-REG.\n   PERFORM 90400005-B05PXORIG-LOCK.\n   IF WS-STATUS-BASE > 0\n      IF WS-DB-NOTFOUND\n         MOVE 13 TO W77-Q-ERROR\n         PERFORM 50000590-RECHAZO\n      ELSE\n         CALL SYSTEM DMTERMINATE\n   ELSE\n   IF B05P-STA-BENEF = 3 OR 5\n      MOVE 2             TO B05P-STA-BENEF\n      MOVE ZEROS         TO B05P-FECHTR-BENE\n                            B05P-IMP-TR-BENE\n      MOVE 1             TO W77-STORE-B05P\n   ELSE\n      MOVE 17            TO W77-Q-ERROR\n      PERFORM 50000590-RECHAZO.\n   IF W77-STORE-B05P = 1\n      PERFORM 50125000-STORE-BASE\n      PERFORM 50002200-REG-REAC-S274\n      PERFORM 50002110-REG-REAC-S016\n      PERFORM 50002400-SUMA-TOTALES\n      STRING \"SE REACTIVA CTO EN CUENTA GLOBAL\"\n             DELIMITED BY SIZE INTO WLI-R03-MENSAJE\n      PERFORM 60613000-ESC-MENSAJES.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ReactivacionProcessor implements ItemProcessor<RegistroTraspaso, Salida> {\n\n    private final HistoricoCuentaGlobalRepository b05p;\n    private final DispersionS274 dispersion;\n    private final CifrasControl cifras;\n\n    @Override\n    @Transactional\n    public Salida process(RegistroTraspaso reg) {\n        var t = TraspasoRecord.parse(reg.raw());              // tipo 4, mismo layout que el 3\n        var hist = b05p.findByOrigenForUpdate(t)               // B05PXORIG-LOCK\n                .orElse(null);\n        if (hist == null) return Salida.rechazo(reg, Rechazo.of(13));\n        if (hist.estatusBenef() != 3 && hist.estatusBenef() != 5) {\n            return Salida.rechazo(reg, Rechazo.of(17));        // solo se reactiva liga pendiente o cancelada\n        }\n        hist.reactiva();          // estatus 2, fecha e importe de beneficencia en cero\n        cifras.suma(t, LlaveTotales.de(t.producto(), t.instrumento(), t.moneda(), 0));\n        return Salida.de(\n                RegistroS016.reactivacion(hist),\n                dispersion.reactivacion(t, hist));             // E02-DISP-REAC-S274, clave 1300\n    }\n}",
+          "racional": "Una reactivación busca el histórico por la llave de origen con bloqueo; si no existe se rechaza con código 13 y si su estatus de beneficencia no es 3 o 5 con código 17. Al reactivar, el estatus vuelve a 2 y se limpian fecha e importe de beneficencia, se guarda, y se escriben el abono al archivo de reactivaciones y el estatus para S016. Un error de base distinto de no encontrado termina el programa con <code>DMTERMINATE</code>; en Java eso es una excepción que deja el step en FAILED. La llave de totales se arma con la moneda del propio registro (ver riesgo).",
+          "reglas": [
+            "RN-S500-727"
+          ],
+          "riesgo": "El fuente mueve la moneda a WKS-REG-IOPE y luego la limpia, sin asignar WKS-REG-MONE. La llave de totales de una reactivación conserva la moneda del registro anterior, así que las cifras de control por producto pueden quedar en la moneda equivocada. La versión Java usa la moneda del registro; hay que validarlo con el SME porque cambia el reporte."
+        },
+        {
+          "id": "s10",
+          "titulo": "Archivo separado de reactivaciones a S274",
+          "linea_ini": 2156,
+          "linea_fin": 2187,
+          "origen_codigo": " 20050510-HEADER-REAC-S274.\n    MOVE WKS-FEC-LINEA      TO WKS-E02-RA01-FECH-ABONO.\n    WRITE E02-FD-DISP-REAC-S274 FROM WKS-E02-RA01-HEADER.\n 50002200-REG-REAC-S274.\n     ADD 1                       TO W77-MY-AUTORIZ.\n     MOVE W77-MY-AUTORIZ         TO WKS-E02-RA03-AUTORIZ.\n        MOVE WKS-I01-R03-IMP-MN  TO WKS-E02-RA03-IMPO-MOVTO\n        MOVE 7                   TO WKS-E02-RA03-TIPO-CUENTA\n        MOVE B05P-ORI-SUCPRO     TO WKS-E02-RA03-NUM-SUC\n        MOVE B05P-NVO-CONTRATO   TO WKS-E02-RA03-NUM-CUENTA\n        MOVE 1300                TO WKS-E02-RA03-CLAVE-TRANS.\n        MOVE B05P-FECHTR-GLOB    TO WKS-E02-RA03-REFNUM\n     MOVE WKS-LEY-S274-EDOCTA TO WKS-E02-RA03-LEY-EDOCTA\n     PERFORM 50002250-ESC-REAC-S274.\n 50002250-ESC-REAC-S274.\n     WRITE E02-FD-DISP-REAC-S274 FROM WKS-E02-RA03-DATOS.\n     ADD 1                      TO WKS-E02-RA09-NUMABONOS.\n     ADD WKS-E02-RA03-IMPO-MOVTO TO WKS-E02-RA09-IMPABONOS.",
+          "java_codigo": "@Bean\nClassifierCompositeItemWriter<AbonoS274> escritorS274(\n        FlatFileItemWriter<AbonoS274> dispS274,       // E02-DISP-S274\n        FlatFileItemWriter<AbonoS274> dispReacS274) {  // E02-DISP-REAC-S274\n    var w = new ClassifierCompositeItemWriter<AbonoS274>();\n    w.setClassifier(a -> a.esReactivacion() ? dispReacS274 : dispS274);\n    return w;\n}\n\n// En DispersionS274:\npublic AbonoS274 reactivacion(TraspasoRecord t, HistoricoCuentaGlobal h) {\n    return new AbonoS274(\n            autorizacion.incrementAndGet(),     // mismo consecutivo W77-MY-AUTORIZ que los traspasos\n            t.importeMn(), cfg.tipoCuenta(),\n            h.sucursalOrigen(), h.nuevoContrato(),\n            cfg.claveReactivacion(),            // 1300\n            Fixed.aaaammdd(h.fechaTraspasoGlobal()),   // referencia: fecha del traspaso original\n            LeyendaEstadoCuenta.de(h),\n            true);\n}\n\n// Cada writer lleva su header (fecha de línea) y su trailer con número e importe de abonos.",
+          "racional": "Las reactivaciones comparten el formato de 240 posiciones del abono ordinario pero viajan en un archivo propio, con clave de transacción 1300 y como referencia la fecha del traspaso original a Cuenta Global. Esa separación permite a S274 darles un tratamiento contable distinto. En Spring Batch se resuelve con un <code>ClassifierCompositeItemWriter</code> que manda cada abono al archivo que le corresponde; cada archivo conserva su header y su trailer de control. El consecutivo de autorización es uno solo para ambos archivos, como en el fuente.",
+          "reglas": [
+            "RN-S500-727"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Barrido de ligas fuera del IF por un punto",
+      "detalle": "En 00000000-CONTROL-PROGRAMA (líneas 1508-1512) el punto después de MOVE 0 TO W77-EOF-B05P termina el IF WKS-TSK-OPCION = 0. El barrido de S500B05PHISCTAGLB y la escritura de ARCH-HLIG se ejecutan también en la opción 1, en la que ARCH-HLIG no se abre."
+    },
+    {
+      "titulo": "Moneda heredada en totales de reactivación",
+      "detalle": "50000590-REAC-CTA-GLB (líneas 3274-3279) no asigna WKS-REG-MONE; la llave de totales usa la moneda del registro procesado antes. Afecta el reporte de cifras de control por producto, no el abono."
+    },
+    {
+      "titulo": "Aplicación de archivos con header inválido",
+      "detalle": "50000210-ABRE-ARCHIVO aplica un archivo con estado 2 (header inválido, trailer presente) cuando WKS-ERR-LAST-R es menor que 3. Queda registrado como incidente, pero se aplica."
+    },
+    {
+      "titulo": "Hardcodes regulatorios y de ruteo",
+      "detalle": "Claves S274 1181, 1183 a 1186 y 1300, tipo de cuenta 7, prefijos de contrato 9999 y 9998, producto 66 instrumento 90, la chequera de beneficencia WKS-CHEQUERA-BENEF (línea 424) y los nombres de archivo por origen están compilados. Se trasladan a application.yml."
+    },
+    {
+      "titulo": "Beneficencia sin abono a S274",
+      "detalle": "La rama de 50002200-REG-S274 para tipo 5 (clave 1182) está comentada. Los traspasos a beneficencia no generan abono en E02-DISP-S274."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el comportamiento actual de la opción 1 (solo fechas) ante el barrido de ligas que queda fuera del IF; puede terminar en error de archivo no abierto.",
+    "RN-S500-729 afirma que P186 actualiza S500BD01CAPTACION; el fuente la abre con OPEN INQUIRY (línea 1728) solo para leer fechas. Revisar la redacción de la regla.",
+    "RN-S500-725 menciona aplicación de tarifas, IVA y UDIS; en este fuente las librerías S080IVA y S080L700UDIS se ligan y cargan, pero no se ubicó un cálculo de IVA o UDIS sobre los traspasos. Validar con SME si la regla describe P186 o la librería.",
+    "Confirmar el significado de LOCSUP función 13 frente a función 8 en 40901110-PROY-FECH-PTE (calendario de S500 frente al de S111).",
+    "Confirmar si LASTRECORD en MCP es base cero; la lectura del trailer en LASTRECORD + 1 lo supone."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-725",
+    "RN-S500-726",
+    "RN-S500-727",
+    "RN-S500-728",
+    "RN-S500-729"
+  ]
+}

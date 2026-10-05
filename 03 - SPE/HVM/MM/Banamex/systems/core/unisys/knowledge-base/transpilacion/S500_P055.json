@@ -1,0 +1,222 @@
+{
+  "slug": "S500_P055",
+  "sistema": "S500",
+  "programa": "P055",
+  "nombre": "Ejecutor de Procesos Especiales por Archivo Bandera",
+  "funcion": "Programa residente de S500 enlazado a COMS que despierta cada 30 minutos, busca archivos bandera del día para su CSI y, si la hora programada ya pasó, lanza por WFL el proceso especial indicado o remueve archivos.",
+  "resumen": "P055 se registra en COMS y XATMI y queda en espera de mensajes; cada vez que el minuto del reloj es 00 o 30 revisa los archivos S500/FILE/S500/ARCHBANDERA/{CSI}/{fecha}/{secuencia} del 20 al 00. Por cada archivo residente valida el header (tipo 01, CSI local, fecha, paso P055, sistema S500 y secuencia), lee el registro de datos tipo 03 y, si la hora del host supera la hora programada, confirma la residencia de la pieza y arma un WFL según el tipo de proceso: con parámetros, sin parámetros, lote o remoción de archivos. Marca el registro como procesado o rechazado y renombra el archivo con el prefijo APLICADOP055 para no repetirlo. Termina cuando COMS le envía el evento de fin de paso.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.orquestacion.especiales",
+  "secciones": [
+    {
+      "titulo": "Ciclo residente, despertador de 30 minutos y entorno",
+      "origen": {
+        "archivo": "S500_SOURCE_P055.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-MAIN / 50201000-OBTEN-MSG-DE-COMS / 20000100-DTOS-HOST / 20000120-XATMI"
+      },
+      "java": {
+        "archivo": "ProcesosEspecialesScheduler.java · EntornoEjecucion.java · P055Properties.java",
+        "contexto": "@Scheduled · @ConfigurationProperties · SmartLifecycle"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal residente hasta el evento de fin",
+          "linea_ini": 802,
+          "linea_fin": 811,
+          "origen_codigo": "     PERFORM 20000000-CHANGE-LIBRERIAS.\n     PERFORM 20000100-DTOS-HOST.\n     PERFORM 20000200-OPEN-REPORTE.\n     PERFORM 20000120-XATMI.\n     PERFORM 10000000-VERIFICA-VERSIONES.\n     PERFORM 40000000-PREINICIO-PGM.\n     PERFORM 50000000-PROCESO-PGM UNTIL WKS-EOJ-VA = 1.\n     PERFORM 80000000-FIN-APL-ARCH.\n     STOP RUN.",
+          "java_codigo": "@SpringBootApplication\n@EnableScheduling\n@EnableConfigurationProperties(P055Properties.class)\npublic class ProcesosEspecialesApplication {\n    // 20000000-CHANGE-LIBRERIAS, 20000100-DTOS-HOST y 20000200-OPEN-REPORTE se vuelven beans\n    // inicializados por Spring; 10000000-VERIFICA-VERSIONES pasa a la versión del artefacto.\n    public static void main(String[] args) { SpringApplication.run(ProcesosEspecialesApplication.class, args); }\n}\n\n/** 50000000-PROCESO-PGM UNTIL WKS-EOJ-VA = 1: el servicio vive mientras no reciba la orden de fin. */\n@Component\n@RequiredArgsConstructor\npublic class CicloResidente implements SmartLifecycle {\n    private final RevisionBanderas revision;\n    private volatile boolean activo;\n\n    @Override public void start() { activo = true; }\n    @Override public void stop()  { activo = false; revision.cierraBitacora(); }   // 80000000-FIN-APL-ARCH\n    @Override public boolean isRunning() { return activo; }\n}",
+          "racional": "P055 no es un paso batch que termina, sino un programa residente: inicializa librerías, abre su listado y se identifica ante XATMI, y después repite la espera de mensajes hasta que COMS le indica el fin. En Spring Boot la residencia la da el propio contenedor, las inicializaciones son beans y la terminación ordenada es el <code>stop()</code> de un <code>SmartLifecycle</code>, que cierra la bitácora como lo hace 80000000-FIN-APL-ARCH.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Espera de eventos COMS y despertador en los minutos 00 y 30",
+          "linea_ini": 1152,
+          "linea_fin": 1215,
+          "origen_codigo": "     CALL \"ESPERACOMS OF SOPORTECOMS\"\n           USING    WS-ESPERACOMS-TIEMPO\n           GIVING   WS-ESPERACOMS-TIPO-EVENTO.\n     IF WS-ESPERACOMS-TIPO-EVENTO = 1 OR 5\n        PERFORM 50202000-RECEIVE-MSG\n        PERFORM 50203000-CHECA-STATUS-COMS-IN\n        IF WS-ESPERACOMS-TIPO-EVENTO = 5\n        OR COMS-IN-STATUS-KEY = 91\n     IF WS-ESPERACOMS-TIPO-EVENTO = 2\n        ACCEPT WS-MENSAJE\n        MOVE 0    TO WS-ESPERACOMS-TIPO-EVENTO\n     ELSE\n     IF WS-ESPERACOMS-TIPO-EVENTO = 3\n        ADD  1    TO WKS-CONTADOR-NTRAN\n        MOVE 0    TO WS-ESPERACOMS-TIPO-EVENTO\n     ELSE\n     IF WS-ESPERACOMS-TIPO-EVENTO = 4\n        MOVE 0    TO WS-ESPERACOMS-TIPO-EVENTO\n     ELSE\n     PERFORM 20000000-CALL-GENERALSUPPORT.\n     MOVE WKS-HRA-MAQ-HMSC TO WS-HORA-MAQ-HM-AWAKE.\n     DIVIDE WS-HORA-MM-AWAKE BY 30 GIVING WS-AWAKE-COCIENTE\n            REMAINDER WS-AWAKE-RESIDUO\n     IF WS-AWAKE-RESIDUO = 0\n        IF WS-AWAKE-MM-ANT = WS-HORA-MM-AWAKE\n           NEXT SENTENCE\n        ELSE\n           MOVE WS-HORA-MM-AWAKE  TO WS-AWAKE-MM-ANT\n           PERFORM 50204000-DESPIERTO.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ProcesosEspecialesScheduler {\n\n    private final RevisionBanderas revision;     // 50204000-DESPIERTO\n\n    /**\n     * ESPERACOMS devuelve un evento (mensaje, ACCEPT, HI o timeout) y después de cada uno el programa\n     * revisa el reloj; solo actúa si el minuto es múltiplo de 30 y distinto del último atendido.\n     * Un cron explícito reemplaza ese sondeo y elimina la dependencia del tiempo de espera de COMS.\n     */\n    @Scheduled(cron = \"${p055.cron:0 0/30 * * * *}\", zone = \"America/Mexico_City\")\n    public void despierta() {\n        revision.ejecuta(LocalDateTime.now(ZoneId.of(\"America/Mexico_City\")));\n    }\n}\n\n/** El evento de fin (COMS-IN-STATUS-KEY = 99) se sustituye por un endpoint administrativo. */\n@RestController\n@RequiredArgsConstructor\nclass ControlP055 {\n    private final ConfigurableApplicationContext ctx;\n    @PostMapping(\"/admin/p055/terminar\") void terminar() { ctx.close(); }\n}",
+          "racional": "El programa no tiene un temporizador propio: despierta con cualquier evento que entregue ESPERACOMS y, al volver, divide el minuto entre 30 para decidir si revisa los archivos bandera, recordando el último minuto atendido para no repetir. El efecto es una revisión cada media hora mientras COMS lo despierte con suficiente frecuencia. En Java se expresa directamente con <code>@Scheduled</code> y una expresión cron configurable, con la zona horaria explícita. El mensaje de fin de COMS pasa a un endpoint administrativo protegido.",
+          "reglas": [],
+          "riesgo": "Si COMS no entrega ningún evento durante el minuto 00 o 30 (por ejemplo, un tiempo de espera mayor a un minuto), esa revisión se pierde y la siguiente ocurre media hora después."
+        },
+        {
+          "id": "s3",
+          "titulo": "Ambiente y CSI deducidos del nombre del equipo",
+          "linea_ini": 1024,
+          "linea_fin": 1041,
+          "origen_codigo": "     IF WS-DH-NOM-EQUIPO = \"ACYPBETA. \"\n        MOVE 1 TO W77-Q-AMBIENTE\n     ELSE\n     IF WS-DH-HOSTNAME-SIT\n        MOVE 2 TO W77-Q-AMBIENTE\n     ELSE\n     IF WS-DH-HOSTNAME-UAT\n        MOVE 3 TO W77-Q-AMBIENTE\n     ELSE\n        MOVE 0 TO W77-Q-AMBIENTE.\n     IF WS-DH-HOSTNAME-VDM\n        MOVE 10            TO WKS-CSI-LOCAL\n     ELSE\n     IF WS-DH-HOSTNAME-MTY\n        MOVE 04            TO WKS-CSI-LOCAL\n     ELSE\n        MOVE WS-DH-NUM-CSI TO WKS-CSI-LOCAL.",
+          "java_codigo": "# application.yml  (perfil por ambiente; antes se deducía del hostname en tiempo de ejecución)\np055:\n  ambiente: PROD            # PROD | DESARROLLO | SIT | UAT  (W77-Q-AMBIENTE 0..3)\n  csi-local: 10             # VDM = 10, MTY = 04, otro equipo = CSI que reporta el host\n  ruta-banderas: \"S500/FILE/S500/ARCHBANDERA/{csi}/{fecha}/{seq}\"\n  prefijo-aplicado: \"APLICADOP055/\"\n  secuencia-maxima: 20      # W77-NUM-TOT-ARCH - 1\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p055\")\n@Validated\npublic record P055Properties(@NotNull Ambiente ambiente,\n                             @Min(1) @Max(99) int csiLocal,\n                             @NotBlank String rutaBanderas,\n                             @NotBlank String prefijoAplicado,\n                             @Min(0) @Max(99) int secuenciaMaxima) {\n    public enum Ambiente { PROD, DESARROLLO, SIT, UAT }\n}",
+          "racional": "El programa decide si está en desarrollo, SIT, UAT o producción comparando el nombre del equipo, y fija el CSI en 10 para Valle de México y 04 para Monterrey. Esa decisión controla qué plantilla de WFL usa más adelante. En la versión Java el ambiente y el CSI son propiedades por perfil, de modo que la conducta en cada ambiente queda declarada y auditable en lugar de depender del hostname.",
+          "reglas": [],
+          "riesgo": "Cualquier equipo no reconocido se trata como producción (W77-Q-AMBIENTE = 0), incluido un equipo nuevo de pruebas."
+        },
+        {
+          "id": "s4",
+          "titulo": "Identificación como transacción distribuida en XATMI",
+          "linea_ini": 1044,
+          "linea_fin": 1057,
+          "origen_codigo": " 20000120-XATMI.\n*****     OBTIENE TP_IDENTIFY AT XATMI                    *****\n     PERFORM 0000-CHANGE-XATMI.\n     MOVE \"S500P055\"              TO WS-XATMI-PROG-NAME.\n     PERFORM 0000-CALL-TRANSIT.\n     IF WS-XATMI-RSLT NOT = 0\n        MOVE WS-XATMI-RSLT        TO WS-COMS-RESULT-FMT\n        STRING \"ERROR = \",WS-COMS-RESULT-FMT,\n               \"AL OBTENER EL TP_IDENTIFY IN XATMI\"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        MOVE WS-0101-TEXT-MSG TO WLI-R06-MENSAJE\n        PERFORM 70001000-ESC-MENSAJES\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass IdentificacionTransaccional implements ApplicationRunner {\n\n    private final ObservationRegistry observaciones;\n\n    /**\n     * TP_IDENTIFY IN XATMI registra a \"S500P055\" ante el monitor transaccional; si falla, la tarea\n     * se termina con STATUS -1. En Java el equivalente es identificar el servicio ante la\n     * plataforma (nombre de aplicación, trazas) y fallar el arranque si no es posible.\n     */\n    @Override\n    public void run(ApplicationArguments args) {\n        Observation.createNotStarted(\"s500.p055.arranque\", observaciones)\n                   .lowCardinalityKeyValue(\"programa\", \"S500P055\")\n                   .observe(() -> { /* registro en el catálogo de servicios */ });\n    }\n}",
+          "racional": "El arranque registra el programa ante XATMI con el nombre S500P055 y, si el resultado no es cero, deja mensaje y se termina con <code>STATUS -1</code>. En un servicio Spring Boot la identidad del proceso la dan el nombre de aplicación y la observabilidad; se conserva la regla de no arrancar si el registro falla mediante un <code>ApplicationRunner</code> que lanza excepción.",
+          "reglas": [
+            "RN-S500-756"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Archivo bandera: búsqueda, validación de header y agenda",
+      "origen": {
+        "archivo": "S500_SOURCE_P055.txt",
+        "contexto": "WORKING-STORAGE · 50204510-VAL-MAX-ARCH / 50204610-VAL-HEAD-ARCH / 50204620-VAL-HORA"
+      },
+      "java": {
+        "archivo": "ArchivoBandera.java · RevisionBanderas.java · BanderaDecider.java",
+        "contexto": "record · JobExecutionDecider · Spring Batch Flow"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Header y registro de datos del archivo bandera",
+          "linea_ini": 145,
+          "linea_fin": 178,
+          "origen_codigo": " 01 WS-REG-I01-HEADER.\n    02 WS-REG-HEAD-D.\n       04 WS-REG-00-TPO        PIC 9(02)      VALUE 01.\n       04 WS-REG-00-CSI        PIC 9(02).\n       04 WS-REG-00-FECH       PIC 9(08).\n       04 WS-REG-00-QPASO      PIC X(04)      VALUE \"P055\".\n       04 WS-REG-00-QSIS       PIC X(04)      VALUE \"S500\".\n       04 WS-REG-00-QSEQ       PIC 9(02).\n    02 FILLER               PIC X(098).\n 01 WS-REG-I01-DATOS.\n    02 WS-REG-03-TPOREG     PIC 9(02)      VALUE 03.\n    02 FILLER               PIC X(01).\n    02 WS-REG-03-TPOPROC    PIC 9(02).\n    88 W88-QWFL-SIN-STRING  VALUE 01.\n    88 W88-QWFL-CON-STRING  VALUE 02.\n    88 W88-LOTE-CON-STRING  VALUE 06.\n    88 W88-REMOVER-ARCH     VALUE 90.\n    88 W88-TPO-PRO-OK       VALUE 01, 02, 06, 90.\n    02 FILLER               PIC X(01).\n    02 WS-REG-03-NAMEPROC   PIC X(40).\n    02 FILLER               PIC X(01).\n    02 WS-REG-03-HORAPROC   PIC 9(08).\n    02 FILLER               PIC X(01).\n    02 WS-REG-03-IDPARAM    PIC X(01).\n    88 W88-ES-TVALUE        VALUE \"V\".\n    88 W88-ES-TPARAM        VALUE \"P\".\n    02 FILLER               PIC X(01).\n    02 WS-REG-03-QPARAM     PIC X(50).\n    02 FILLER               PIC X(01).\n    02 WS-REG-03-STATUS     PIC 9(02).\n    88 W88-ES-PENDTE        VALUE 00.\n    88 W88-ES-PROCESADO     VALUE 01.\n    88 W88-ES-RECHAZADO     VALUE 09.",
+          "java_codigo": "/** WS-REG-I01-HEADER: 120 bytes, tipo 01. */\npublic record HeaderBandera(int tipo, int csi, LocalDate fecha,       // 9(02), 9(02), 9(08) AAAAMMDD\n                            String paso, String sistema, int secuencia) {\n    public boolean esValido(int csiLocal, LocalDate fechaLinea, int secuenciaEsperada) {\n        return tipo == 1 && csi == csiLocal && fecha.equals(fechaLinea)\n            && \"P055\".equals(paso) && \"S500\".equals(sistema) && secuencia == secuenciaEsperada;\n    }\n}\n\n/** WS-REG-I01-DATOS: tipo 03 con el proceso a ejecutar. */\npublic record DatosBandera(TipoProceso tipo,\n                           String nombreProceso,          // X(40): WFL, lote o archivo a remover\n                           LocalTime horaProceso,         // 9(08) HHMMSSCC\n                           TipoParametro tipoParametro,   // \"V\" TASKVALUE, \"P\" parámetro\n                           String parametro,              // X(50)\n                           Estado estado) {\n\n    public enum TipoProceso {\n        WFL_SIN_PARAMETRO(1), WFL_CON_PARAMETRO(2), LOTE_CON_PARAMETRO(6), REMOVER_ARCHIVOS(90);\n        final int codigo;\n        TipoProceso(int c) { codigo = c; }\n        static Optional<TipoProceso> de(int c) {             // W88-TPO-PRO-OK\n            return Arrays.stream(values()).filter(t -> t.codigo == c).findFirst();\n        }\n    }\n    public enum TipoParametro { TASKVALUE, PARAMETRO }\n    public enum Estado { PENDIENTE(0), PROCESADO(1), RECHAZADO(9); final int codigo; Estado(int c) { codigo = c; } }\n}",
+          "racional": "El archivo bandera tiene un header que identifica a quién va dirigido y un registro de datos con el proceso, la hora a partir de la cual se puede ejecutar, el parámetro y un estado. Los niveles 88 del fuente son enumeraciones naturales en Java; el tipo de proceso desconocido se representa con un <code>Optional</code> vacío, que es el caso que el fuente rechaza. La hora <code>HHMMSSCC</code> se convierte a <code>LocalTime</code> con centésimas.",
+          "reglas": [
+            "RN-S500-754",
+            "RN-S500-755"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Búsqueda descendente de archivos residentes por secuencia",
+          "linea_ini": 1290,
+          "linea_fin": 1341,
+          "origen_codigo": "     MOVE W77-NUM-TOT-ARCH   TO W77-ULT-ARCH.\n     MOVE W77-NUM-TOT-ARCH   TO W77-NUM-A-BUSCAR.\n     MOVE ZERO               TO W77-ERR-ARCH\n                                W77-ARCH-APL\n                                W77-PZA-LOTE\n                                W77-NO-HAY-MAS.\n     PERFORM 50204500-VALIDA-RESIDENCIA\n              UNTIL W77-NO-HAY-MAS = 1.\n 50204510-VAL-MAX-ARCH.\n     SUBTRACT 1              FROM W77-NUM-A-BUSCAR.\n     MOVE W77-NUM-A-BUSCAR   TO WKS-TIT-SEQ.\n     MOVE WKS-FEC-LINEA      TO WKS-TIT-FECHA.\n     MOVE WKS-CSI-LOCAL      TO WKS-TIT-QCSI.\n     SET I01-ARCH-BANDERA (TITLE) TO WKS-TIT-ARCH-BANDE.\n     IF ATTRIBUTE RESIDENT OF I01-ARCH-BANDERA IS = VALUE TRUE\n        MOVE 1                TO W77-ARCH-RESIDENT\n        MOVE 1                TO W77-HAY-ARCH\n        MOVE W77-NUM-A-BUSCAR TO W77-ULT-ARCH\n        MOVE WKS-TIT-ARCH-BANDE TO WKS-TIT-ORIGINAL\n     ELSE\n     IF W77-NUM-A-BUSCAR = 0\n        MOVE 1            TO W77-HAY-ARCH.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class RevisionBanderas {\n\n    private final P055Properties props;\n    private final AlmacenArchivos archivos;          // ATTRIBUTE RESIDENT OF ...\n    private final ProcesadorBandera procesador;      // 50204600-BUSCA-PROCESO\n\n    /** 50204300-PROCESA-ARCHIVOS: secuencias de la máxima a 00, todas las residentes del día. */\n    public void ejecuta(LocalDateTime ahora) {\n        LocalDate fecha = ahora.toLocalDate();       // WKS-FEC-LINEA = fecha de la máquina\n        for (int seq = props.secuenciaMaxima(); seq >= 0; seq--) {\n            Path bandera = Path.of(props.rutaBanderas()\n                    .replace(\"{csi}\", \"%02d\".formatted(props.csiLocal()))\n                    .replace(\"{fecha}\", fecha.format(DateTimeFormatter.BASIC_ISO_DATE))\n                    .replace(\"{seq}\", \"%02d\".formatted(seq)));\n            if (archivos.existe(bandera)) {\n                procesador.procesa(bandera, seq, fecha, ahora.toLocalTime());\n            }\n        }\n    }\n}",
+          "racional": "Cada revisión prueba los títulos de archivo con secuencia 20, 19 y así hasta 00, y procesa cada uno que esté residente en disco; el orden descendente es el del fuente y se conserva porque define qué proceso especial se lanza primero cuando hay varios en la misma media hora. Como cada archivo procesado se renombra, en la siguiente revisión ya no aparece. El ciclo de dos niveles del fuente con <code>W77-ULT-ARCH</code> se simplifica a un <code>for</code> descendente con el mismo resultado.",
+          "reglas": [],
+          "riesgo": "La fecha del título es la fecha de la máquina (WKS-FEC-LINEA se llena desde GENERALSUPPORT en 30100000-OBTIENE-FECHAS), no la fecha contable; un archivo bandera creado con la fecha contable después de medianoche no se encuentra."
+        },
+        {
+          "id": "s7",
+          "titulo": "Validación del header en seis campos",
+          "linea_ini": 1398,
+          "linea_fin": 1419,
+          "origen_codigo": "     READ I01-ARCH-BANDERA INTO WS-REG-I01-HEADER\n          AT END MOVE 1 TO W77-ERR-ARCH.\n     IF W77-ERR-ARCH = 0\n        IF WS-REG-00-TPO  = 01\n       AND WS-REG-00-CSI  = WKS-CSI-LOCAL\n       AND WS-REG-00-FECH = WKS-FEC-LINEA\n       AND WS-REG-00-QPASO = \"P055\"\n       AND WS-REG-00-QSIS  = \"S500\"\n       AND WS-REG-00-QSEQ  = WKS-TIT-SEQ\n           PERFORM 50204610-LEE-REG-ARCH\n        ELSE\n           STRING \" ERROR HEADER \", WS-REG-HEAD-D\n                  DELIMITED BY SIZE INTO WLI-R06-MENSAJE\n           PERFORM 70001000-ESC-MENSAJES\n           MOVE 2 TO W77-ERR-ARCH\n     ELSE\n        MOVE 2 TO W77-ERR-ARCH\n        STRING \" ERROR EN ARCHIVO \", WKS-TIT-ARCH-BANDE\n               \" VACIO SIN REGS, NO SE APLICA \"\n               DELIMITED BY SIZE INTO WLI-R06-MENSAJE\n        PERFORM 70001000-ESC-MENSAJES.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ProcesadorBandera {\n\n    private final ArchivoBanderaReader lector;\n    private final BanderaDecider decider;\n    private final P055Properties props;\n\n    public void procesa(Path bandera, int seq, LocalDate fecha, LocalTime hora) {\n        Optional<HeaderBandera> header = lector.header(bandera);\n        if (header.isEmpty()) {\n            log.warn(\" ERROR EN ARCHIVO {} VACIO SIN REGS, NO SE APLICA\", bandera);\n            lector.renombraAplicado(bandera);                // W77-ERR-ARCH = 2: se renombra sin marcar\n            return;\n        }\n        if (!header.get().esValido(props.csiLocal(), fecha, seq)) {\n            log.warn(\" ERROR HEADER {}\", header.get());\n            lector.renombraAplicado(bandera);\n            return;\n        }\n        decider.evalua(bandera, lector.datos(bandera), hora);   // 50204610-LEE-REG-ARCH\n    }\n}",
+          "racional": "Un archivo vacío o con un header que no corresponde al CSI, la fecha, el paso P055, el sistema S500 o la secuencia del título se rechaza con mensaje en bitácora y no se ejecuta nada. En el fuente ese rechazo se marca con código 2 y, aunque no se escribe estado en el registro, el archivo sí se renombra con el prefijo APLICADOP055, lo que impide reintentarlo; la versión Java reproduce ese efecto.",
+          "reglas": [
+            "RN-S500-754"
+          ],
+          "riesgo": "Un header inválido renombra el archivo como aplicado aunque no se haya ejecutado nada; la única evidencia queda en el listado de mensajes."
+        },
+        {
+          "id": "s8",
+          "titulo": "Agenda intradía y residencia de la pieza con reintentos",
+          "linea_ini": 1451,
+          "linea_fin": 1497,
+          "origen_codigo": " 50204620-VAL-HORA.\n     PERFORM 20000000-CALL-GENERALSUPPORT.\n     MOVE WKS-HRA-MAQ-HMSC   TO WKS-HRA-HOST-HMSC.\n     MOVE ZERO         TO W77-IN-TIME.\n     MOVE ZERO         TO W77-PIEZA-OK.\n     MOVE ZERO         TO W77-INTENTOS.\n     IF WKS-HRA-HOST-HMSC > WKS-HRA-ARCH\n        MOVE 1              TO W77-IN-TIME\n        IF W88-REMOVER-ARCH\n           MOVE 1 TO W77-PIEZA-OK\n        ELSE\n           PERFORM 20221031-VALIDA-VERSION\n           IF W77-ERR-ARCH = 0\n              PERFORM 50204625-VALIDA-PIEZA UNTIL W77-PIEZA-OK =1\n           ELSE\n              NEXT SENTENCE\n     ELSE\n        STRING \" SON LAS \", WKS-HRA-HOST-HMSC,\n               \" ARCH=\" WKS-TIT-ARCH-BANDE\n               \" SE APLICA HASTA LAS \" WKS-HRA-ARCH\n               DELIMITED BY SIZE INTO WLI-R06-MENSAJE\n        PERFORM 70001000-ESC-MENSAJES.\n     IF W77-IN-TIME = 1\n        IF W77-ERR-ARCH = 0\n           PERFORM 50204630-CORRE-ESPECIAL\n        ELSE\n           STRING \"PIEZA NO RESIDENTE \", WKS-TIT-PIEZA\n                  \" NO EFECTUA PROC-ESPECIAL \"\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           MOVE WS-0101-TEXT-MSG TO WLI-R06-MENSAJE\n           PERFORM 70001000-ESC-MENSAJES\n           PERFORM 70000050-MENSAJE.\n****************************************************\n 50204625-VALIDA-PIEZA.\n     MOVE WS-REG-03-NAMEPROC  TO WKS-TIT-QPZA.\n     SET P01-PIEZA (TITLE)    TO WKS-TIT-PIEZA.\n     IF ATTRIBUTE RESIDENT OF P01-PIEZA IS = VALUE TRUE\n        MOVE 1 TO W77-PIEZA-OK\n     ELSE\n        ADD 1 TO W77-INTENTOS\n        WAIT (20)\n        IF W77-INTENTOS > 6\n           MOVE 1    TO W77-PIEZA-OK\n           MOVE 1    TO W77-ERR-ARCH.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class BanderaDecider {\n\n    private static final int MAX_INTENTOS = 6;            // W77-INTENTOS > 6\n    private static final Duration ESPERA = Duration.ofSeconds(20);   // WAIT (20)\n    private final AlmacenArchivos archivos;\n    private final CatalogoLotes lotes;                    // 98700000-TIT-LOTE (CTLVERS S500JBATCH)\n    private final LanzadorProcesoEspecial lanzador;\n\n    public Decision evalua(Path bandera, DatosBandera d, LocalTime ahora) {\n        if (!ahora.isAfter(d.horaProceso())) {            // WKS-HRA-HOST-HMSC > WKS-HRA-ARCH\n            log.info(\" SON LAS {} ARCH={} SE APLICA HASTA LAS {}\", ahora, bandera, d.horaProceso());\n            return Decision.ESPERAR;                      // se reintenta en la siguiente media hora\n        }\n        if (d.tipo() != TipoProceso.REMOVER_ARCHIVOS) {\n            String pieza = d.tipo() == TipoProceso.LOTE_CON_PARAMETRO\n                    ? lotes.tituloLote().orElse(null) : d.nombreProceso();\n            if (pieza == null || !esperaResidencia(pieza)) {\n                log.warn(\"PIEZA NO RESIDENTE {} NO EFECTUA PROC-ESPECIAL\", pieza);\n                return Decision.RECHAZAR;                 // estado 09\n            }\n        }\n        return lanzador.lanza(d) ? Decision.PROCESADO : Decision.RECHAZAR;\n    }\n\n    private boolean esperaResidencia(String pieza) {\n        for (int i = 0; i <= MAX_INTENTOS; i++) {\n            if (archivos.existe(Path.of(\"(S500)\" + pieza))) return true;\n            sleepUninterruptibly(ESPERA);\n        }\n        return false;\n    }\n}",
+          "racional": "El registro de datos solo se ejecuta cuando la hora del host supera la hora programada; antes de eso el archivo se deja intacto y se vuelve a evaluar en la siguiente revisión, lo que funciona como agenda intradía. Para los tipos distintos de remoción se verifica que la pieza esté residente, reintentando cada 20 segundos hasta siete veces; para los lotes el título se obtiene del catálogo de versiones. Esto se modela como un decisor con tres salidas (esperar, procesar o rechazar), equivalente a un <code>JobExecutionDecider</code> de Spring Batch dentro del flujo de cada bandera.",
+          "reglas": [
+            "RN-S500-755",
+            "RN-S500-756"
+          ],
+          "riesgo": "La espera de residencia bloquea al programa hasta 140 segundos con interrupciones deshabilitadas (DISALLOW INTERRUPT en 50204600-BUSCA-PROCESO); durante ese tiempo no atiende otros archivos ni la orden de fin."
+        }
+      ]
+    },
+    {
+      "titulo": "Ejecución del proceso especial por WFL",
+      "origen": {
+        "archivo": "S500_SOURCE_P055.txt",
+        "contexto": "WORKING-STORAGE · 50204630-CORRE-ESPECIAL"
+      },
+      "java": {
+        "archivo": "LanzadorProcesoEspecial.java · application.yml",
+        "contexto": "JobOperator · lista blanca de procesos"
+      },
+      "segmentos": [
+        {
+          "id": "s9",
+          "titulo": "Plantillas WFL de producción",
+          "linea_ini": 196,
+          "linea_fin": 228,
+          "origen_codigo": " 01 WKS-WFL-REMF-PRO.\n    02 FILLER          PIC X(38) VALUE\n                       \"BEGIN JOB S500/WFL/REMFILES/01MTP001; \".\n    02 FILLER            PIC X(11) VALUE \" WAIT(05); \".\n    02 FILLER            PIC X(08) VALUE \" REMOVE \".\n    02 WKS-QREM-PRO      PIC X(40) VALUE \" \".\n    02 FILLER            PIC X(10) VALUE \"; END JOB \".\n 01 WKS-WFL-CPARAM-PRO.\n    02 FILLER            PIC X(34) VALUE\n                         \"BEGIN JOB S500/WFL/ESPE/01MTP001; \".\n    02 FILLER            PIC X(06) VALUE \"START \".\n    02 WKS-QWFL-PRO      PIC X(40).\n    02 FILLER            PIC X(02) VALUE\n                                \"(\"\"\".\n    02 WKS-QPARAM-PRO    PIC X(50).\n    02 FILLER            PIC X(04)\n                         VALUE \"\"\")\".\n    02 FILLER            PIC X(10) VALUE \"; END JOB \".",
+          "java_codigo": "# application.yml  (lista blanca: solo estos procesos pueden dispararse desde un archivo bandera)\np055:\n  procesos-permitidos:\n    WFL_CON_PARAMETRO:\n      lanzador: \"S500/WFL/ESPE/01MTP001\"\n      nombres: [\"S500/WFL/ESPE/CIERRE01\", \"S500/WFL/ESPE/AJUSTE02\"]   # ejemplo; inventariar con SME\n    WFL_SIN_PARAMETRO:\n      lanzador: \"S500/WFL/ESPE/01MTP001\"\n    LOTE_CON_PARAMETRO:\n      lanzador: \"S500/WFL/LOTE/01MTP001\"\n    REMOVER_ARCHIVOS:\n      lanzador: \"S500/WFL/REMFILES/01MTP001\"\n      espera-previa: 5s                     # WAIT(05)\n      rutas-permitidas: [\"S500/FILE/S500/TEMP/*\"]                     # ejemplo; inventariar con SME\n  # Las credenciales del ambiente de desarrollo NO van aquí: se inyectan desde el gestor de secretos.",
+          "racional": "Cada tipo de proceso tiene una plantilla de WFL que se completa con el nombre y el parámetro tomados del archivo bandera: <code>START</code> de un WFL con o sin parámetro, <code>START</code> de un lote, o <code>REMOVE</code> de un archivo. Las plantillas de producción no llevan credenciales; las de desarrollo sí, y por eso no se reproducen en este extracto. En Java las plantillas se vuelven configuración y, sobre todo, una lista blanca: el archivo bandera solo puede elegir entre procesos y rutas previamente autorizados.",
+          "reglas": [],
+          "riesgo": "En el fuente el nombre del proceso y el archivo a remover salen tal cual del archivo bandera; quien pueda escribir en S500/FILE/S500/ARCHBANDERA puede lanzar cualquier WFL o borrar cualquier archivo al alcance del usercode de P055."
+        },
+        {
+          "id": "s10",
+          "titulo": "Despacho por tipo de proceso y ambiente",
+          "linea_ini": 1512,
+          "linea_fin": 1551,
+          "origen_codigo": "     MOVE 1 TO W77-ARCH-APL.\n     IF W88-QWFL-CON-STRING\n        IF W88-ES-DESARROLLO\n           MOVE WS-REG-03-NAMEPROC   TO WKS-QWFL-PBA\n           MOVE WS-REG-03-QPARAM     TO WKS-QPARAM-PBA\n           CALL  SYSTEM  WFL USING  WKS-WFL-CPARAM-PBA\n        ELSE\n           MOVE WS-REG-03-NAMEPROC   TO WKS-QWFL-PRO\n           MOVE WS-REG-03-QPARAM     TO WKS-QPARAM-PRO\n           CALL  SYSTEM  WFL  USING WKS-WFL-CPARAM-PRO\n     ELSE\n     IF W88-QWFL-SIN-STRING\n        IF W88-ES-DESARROLLO\n           MOVE WS-REG-03-NAMEPROC   TO WKS-QWFL-S-PBA\n           CALL  SYSTEM  WFL  USING  WKS-WFL-SINP-PBA\n        ELSE\n           MOVE WS-REG-03-NAMEPROC   TO WKS-QWFL-S-PRO\n           CALL  SYSTEM  WFL  USING  WKS-WFL-SINP-PRO\n     ELSE\n     IF W88-LOTE-CON-STRING\n           IF W88-ES-DESARROLLO\n              MOVE WSK-NAME-LOTE        TO WKS-WLOTE-PBA\n              MOVE WS-REG-03-QPARAM     TO WKS-LT-PAR-PBA\n              CALL  SYSTEM  WFL  USING  WKS-WFL-LOTE-PBA\n           ELSE\n              MOVE WSK-NAME-LOTE        TO WKS-WLOTE-PRO\n              MOVE WS-REG-03-QPARAM     TO WKS-LT-PAR-PRO\n              CALL  SYSTEM  WFL  USING  WKS-WFL-LOTE-PRO\n     ELSE\n     IF W88-REMOVER-ARCH\n        IF W88-ES-DESARROLLO\n           MOVE WS-REG-03-NAMEPROC  TO WKS-QREM-PBA\n           CALL  SYSTEM  WFL  USING WKS-WFL-REMF-PBA\n        ELSE\n           MOVE WS-REG-03-NAMEPROC  TO WKS-QREM-PRO\n           CALL  SYSTEM  WFL  USING WKS-WFL-REMF-PRO\n     ELSE\n        MOVE 0 TO W77-ARCH-APL\n        MOVE 1 TO W77-ERR-ARCH.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class LanzadorProcesoEspecial {\n\n    private final JobOperator jobOperator;              // reemplaza CALL SYSTEM WFL\n    private final JobRegistry registro;                 // solo jobs registrados = lista blanca\n    private final RemocionArchivos remocion;\n    private final P055Properties props;\n\n    /** 50204630-CORRE-ESPECIAL: devuelve true si se lanzó (W77-ARCH-APL = 1). */\n    public boolean lanza(DatosBandera d) {\n        try {\n            return switch (d.tipo()) {\n                case WFL_CON_PARAMETRO  -> arranca(d.nombreProceso(), d.parametro());\n                case WFL_SIN_PARAMETRO  -> arranca(d.nombreProceso(), null);\n                case LOTE_CON_PARAMETRO -> arranca(d.nombreProceso(), d.parametro());\n                case REMOVER_ARCHIVOS   -> remocion.remueve(d.nombreProceso());   // valida rutas permitidas\n            };\n        } catch (NoSuchJobException | JobParametersInvalidException | JobInstanceAlreadyExistsException e) {\n            log.warn(\" NO EFECTUO PROCESO  ERROR EN PIEZA {}\", d.nombreProceso(), e);\n            return false;                                    // W77-ERR-ARCH = 1, estado 09\n        }\n    }\n\n    private boolean arranca(String job, String parametro) throws NoSuchJobException,\n            JobParametersInvalidException, JobInstanceAlreadyExistsException {\n        registro.getJob(job);                                // lanza NoSuchJobException si no está permitido\n        String params = (parametro == null) ? \"\" : \"parametro=\" + parametro.strip();\n        jobOperator.start(job, params);                      // el ambiente lo da el perfil, no una rama de código\n        return true;\n    }\n}",
+          "racional": "El párrafo elige la plantilla según el tipo de proceso y, dentro de cada tipo, la versión de desarrollo o la de producción. En Java el <code>switch</code> sobre la enumeración es exhaustivo y la distinción de ambiente desaparece del código porque la resuelve el perfil activo. El lanzamiento usa <code>JobOperator</code> sobre jobs registrados, lo que convierte el registro en la lista blanca, y un error de lanzamiento marca el registro como rechazado igual que en el fuente. A diferencia del <code>CALL SYSTEM WFL</code>, que no informa si el WFL terminó bien, aquí queda una ejecución consultable en el <code>JobRepository</code>.",
+          "reglas": [
+            "RN-S500-756"
+          ],
+          "riesgo": "El fuente marca el registro como procesado en cuanto lanza el WFL, sin saber si el proceso especial terminó bien."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Credenciales en el fuente",
+      "detalle": "Las plantillas WFL de desarrollo (líneas 114-115, 186-190, 204-208, 230-234, 252-256 y 684) contienen un ACCESSCODE con contraseña en texto claro (valor ****). No se copiaron a este documento. Deben rotarse y moverse a un gestor de secretos."
+    },
+    {
+      "titulo": "Ejecución arbitraria desde el archivo bandera",
+      "detalle": "El nombre del WFL, del lote o del archivo a remover viene del registro de datos sin lista blanca (líneas 1516-1548). Escribir en la ruta de archivos bandera equivale a poder ejecutar o borrar con el usercode del programa."
+    },
+    {
+      "titulo": "Procesado no significa exitoso",
+      "detalle": "El estado 01 se graba al lanzar el WFL (líneas 1374-1383); no se verifica el resultado del proceso especial."
+    },
+    {
+      "titulo": "Header inválido consume el archivo",
+      "detalle": "Con error de header o archivo vacío el archivo se renombra a APLICADOP055 (líneas 1385-1388) sin ejecución; el proceso especial se pierde sin alerta más allá del listado."
+    },
+    {
+      "titulo": "Bloqueo durante la espera de residencia",
+      "detalle": "50204625-VALIDA-PIEZA espera hasta siete veces 20 segundos con interrupciones deshabilitadas, lo que retrasa la atención de los demás archivos y de la orden de fin."
+    },
+    {
+      "titulo": "Ambiente por hostname",
+      "detalle": "Un equipo no reconocido se considera producción (líneas 1024-1033); el CSI 10 y 04 por nombre de equipo está compilado."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-754 menciona la fecha de línea; en el fuente WKS-FEC-LINEA se llena con la fecha de la máquina (líneas 1017 y 1081), no con la fecha contable de L020. Confirmar cuál es la intención.",
+    "Confirmar qué hace en MCP el WRITE de la línea 1382 sobre un archivo abierto I-O después de leer el registro de datos: si sobrescribe el registro siguiente (trailer) o agrega uno nuevo con el estado.",
+    "Inventariar con SME los WFL, lotes y rutas que hoy se disparan por archivo bandera para construir la lista blanca; los valores del application.yml son ejemplos.",
+    "Confirmar el tiempo de espera de ESPERACOMS (WS-ESPERACOMS-TIEMPO) para saber si el despertador puede saltarse revisiones.",
+    "El copybook S500/INC/PRO/25MTP002 (línea 1663) contiene los párrafos de CTLVERS, GENERALSUPPORT y XATMI; no se revisó."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-980",
+    "RN-S151-981",
+    "RN-S151-982",
+    "RN-S151-983",
+    "RN-S151-984",
+    "RN-S151-985",
+    "RN-S151-986",
+    "RN-S151-987",
+    "RN-S151-988",
+    "RN-S151-989",
+    "RN-S500-754",
+    "RN-S500-755",
+    "RN-S500-756"
+  ]
+}

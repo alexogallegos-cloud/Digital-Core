@@ -1,0 +1,153 @@
+{
+  "slug": "S151_P690",
+  "sistema": "S151",
+  "programa": "P690",
+  "nombre": "Cierre Definitivo de Movimientos del Día (LEE-MOVSNNN)",
+  "funcion": "Paso batch de cierre de S151, invocado desde WFL con el número de sistema como parámetro, que marca como cerrados los movimientos pendientes del archivo MOVS del día y les asigna su número de autorización.",
+  "resumen": "Pide a la librería de control S151L001 la fecha contable, el pack del archivo de movimientos y una tabla de diez días con el número de movimientos de cada archivo; si la llamada falla, termina. Abre en lectura y escritura el archivo S151/FILE/MOVS del sistema recibido y la fecha contable, salta el encabezado y recorre tantos registros como indica el nivel del día. Cada movimiento con función 99 pasa a función 11 y status 1, con el sistema que lo procesó, la fecha contable y una autorización igual a su posición en el archivo menos uno, y se reescribe en sitio.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.cierre.movimientos",
+  "secciones": [
+    {
+      "titulo": "Estructuras — movimiento, control del día y título del archivo",
+      "origen": {
+        "archivo": "COBOL_P690.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "MovimientoS151.java · ControlDiaS151.java · P690Properties.java",
+        "contexto": "clase de dominio · record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Campos del movimiento que P690 modifica",
+          "linea_ini": 53,
+          "linea_fin": 606,
+          "origen_codigo": "    03 A00-R01-FUNCION                 PIC  9(02)      COMP.      001600\n    03 A00-R01-SISTEMA                 PIC  9(04)      COMP.      001800\n    03 A00-R01-AUT-S151                PIC  9(08)      COMP.      014600\n    03 A00-R01-FECCONT                 PIC  9(08)      COMP.      015600\n    03 A00-R01-APUDES                  PIC 9(08)  COMP.           138900\n    03 A00-R01-STATUS                  PIC 9(02)  COMP.           139000",
+          "java_codigo": "/** A00-R01-REGMOV (450 bytes). Solo se modelan los campos que P690 lee o escribe. */\npublic final class MovimientoS151 {\n\n    public static final int FUNCION_PENDIENTE = 99;\n    public static final int FUNCION_CERRADO   = 11;\n\n    private int funcion;            // A00-R01-FUNCION 9(02) COMP\n    private int sistema;            // A00-R01-SISTEMA 9(04) COMP\n    private long autS151;           // A00-R01-AUT-S151 9(08) COMP\n    private LocalDate fecContable;  // A00-R01-FECCONT 9(08) COMP\n    private long apuDes;            // A00-R01-APUDES (no lo toca P690)\n    private int status;             // A00-R01-STATUS 9(02) COMP: 1 = completado\n    private final byte[] raw;       // el resto del registro se reescribe intacto\n\n    /** Transición que aplica 200-REGRABA. */\n    public void cierra(int sistemaProceso, long autorizacion, LocalDate fechaContable) {\n        if (funcion != FUNCION_PENDIENTE) throw new IllegalStateException(\"Solo se cierran movimientos 99\");\n        if (autorizacion > 99_999_999L) throw new ArithmeticException(\"AUT-S151 excede 9(08)\");\n        this.funcion = FUNCION_CERRADO;\n        this.sistema = sistemaProceso;\n        this.autS151 = autorizacion;\n        this.fecContable = fechaContable;\n        this.status = 1;\n    }\n}",
+          "racional": "El registro de movimientos tiene unos 60 campos, pero P690 solo modifica cinco: función, sistema, autorización, fecha contable y status. La clase Java modela esos campos y conserva el resto del registro como bytes para reescribirlo sin cambios, igual que el <code>REWRITE</code> del original. La transición de pendiente (99) a cerrado (11) queda en un método que valida el estado de origen y la capacidad de <code>PIC 9(08)</code> de la autorización.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Datos del día de S151L001: fechas y niveles de archivo por día",
+          "linea_ini": 618,
+          "linea_fin": 642,
+          "origen_codigo": "  01 WKS-S151B01SISDIA WITH LOWER-BOUNDS.                         004300\n     03 WKS-B01-FUNCION             PIC 9(02).                    004400\n     03 WKS-B01-SISTEMA             PIC 9(04).                    004500\n     03 WKS-B01-CSI                 PIC 9(02).                    004600\n     03 WKS-B01-FECPRO              PIC 9(08).                    004700\n     03 WKS-B01-FECCON              PIC 9(08).                    004800\n     03 WKS-B01-NOMARCMOV           PIC X(34).                    005300\n     03 WKS-B01-NOMPACMOV           PIC X(17).                    005400\n     03 WKS-B01-CTL-DIA     OCCURS 10 TIMES.                      006300\n        05 WKS-B01-FECARCMOV        PIC 9(08).                    006400\n        05 WKS-B01-NIVARCMOV        PIC 9(08).                    006500\n        05 WKS-B01-NIVBDMOV         PIC 9(08).                    006600\n        05 WKS-B01-STAARCLOG        PIC 9(02).                    006700",
+          "java_codigo": "/** WKS-S151B01SISDIA: respuesta de CONSISDIA IN S151-L001. */\npublic record ControlDiaS151(int sistema, LocalDate fecContable,\n                             String nombreArchivoMov,   // WKS-B01-NOMARCMOV: P690 no lo usa\n                             String packMov,            // WKS-B01-NOMPACMOV\n                             List<NivelArchivo> dias) { // OCCURS 10\n\n    public record NivelArchivo(LocalDate fecArchivoMov,  // WKS-B01-FECARCMOV\n                               long nivelArchivoMov,     // WKS-B01-NIVARCMOV: registros a cerrar\n                               long nivelBdMov, int statusLog) {}\n\n    /** 100-BUSCA-IND-FECARCMOV: posición del día contable dentro de los 10 días. */\n    public NivelArchivo nivelDelDia() {\n        return dias.stream()\n                .filter(d -> d.fecArchivoMov().equals(fecContable))\n                .findFirst()\n                .orElseThrow(() -> new ControlDiaInconsistenteException(\n                        \"FECCON %s no está en FECARCMOV\".formatted(fecContable)));\n    }\n}",
+          "racional": "La librería de control S151L001 devuelve la fecha contable, el pack donde vive el archivo de movimientos y una tabla de diez días con la fecha de cada archivo y su nivel, es decir, cuántos movimientos tiene. P690 busca en esa tabla el día cuya fecha coincide con la contable para saber cuántos registros debe recorrer. En Java es un <code>record</code> y la búsqueda un método que falla con una excepción explícita si la fecha no aparece, en lugar de dejar correr el índice.",
+          "reglas": [],
+          "riesgo": "El PERFORM VARYING de las líneas 721-723 no tiene tope: si la fecha contable no está entre los 10 días, W77-IND rebasa la tabla OCCURS 10 y el resultado depende de la verificación de subíndices del compilador."
+        },
+        {
+          "id": "s3",
+          "titulo": "Título del archivo de movimientos armado en el programa",
+          "linea_ini": 30,
+          "linea_fin": 687,
+          "origen_codigo": " FD A01-MOVSNNN                                                   002600\n    BLOCK CONTAINS 100 RECORDS                                    002700\n    VALUE OF                                                      002800\n                 SECURITYTYPE IS PUBLIC                           002900\n                 TITLE WKS-ETI-S151-MOVANT.                       003000\n 01  WKS-ETI-S151-MOVANT.                                         010400\n     02 FILLER                     PIC X(20) VALUE                010500\n        \"(S151)S151/FILE/MOVS\".                                   010600\n     02 WKS-SIS-NUM                PIC 9(03).                     010620\n     02 FILLER                     PIC X(01) VALUE \"/\".           010640\n     02 WKS-SIS-FEC                PIC 9(06).                     010700\n     02 FILLER                     PIC X(06) VALUE \" ON \".        010800\n     02 WKS-PACK-MOVS              PIC X(17).                     010900\n     02 FILLER                     PIC X(01) VALUE \".\".           011000",
+          "java_codigo": "# application.yml\np690:\n  # (S151)S151/FILE/MOVS{sistema}/{aammdd} ON {pack}.\n  archivo-movimientos: \"S151/FILE/MOVS{sistema}/{fecha}\"\n  formato-fecha: yyMMdd           # WKS-SIS-FEC es 9(06) y recibe FECCON de 8 dígitos\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p690\")\npublic record P690Properties(String archivoMovimientos, String formatoFecha) {\n\n    /** Igual que WKS-ETI-S151-MOVANT: el pack viene de CONSISDIA, el prefijo está fijo. */\n    public Path resuelve(int sistema, ControlDiaS151 control, AlmacenArchivos almacen) {\n        String nombre = archivoMovimientos\n                .replace(\"{sistema}\", \"%03d\".formatted(sistema))\n                .replace(\"{fecha}\", control.fecContable().format(DateTimeFormatter.ofPattern(formatoFecha)));\n        return almacen.ruta(control.packMov(), nombre);\n    }\n}",
+          "racional": "El archivo se abre con el título que arma <code>WKS-ETI-S151-MOVANT</code>: un prefijo fijo <code>S151/FILE/MOVS</code>, el número de sistema recibido como parámetro, la fecha contable y el pack que devuelve la librería de control. El campo de fecha es de 6 dígitos y recibe una fecha de 8, por lo que conserva AAMMDD. En Java la plantilla pasa a <code>application.yml</code>, con el formato de fecha explícito, y el pack sigue llegando del control del día.",
+          "reglas": [],
+          "riesgo": "CONSISDIA devuelve también el nombre del archivo de movimientos (WKS-B01-NOMARCMOV), pero P690 lo ignora y usa el prefijo MOVS compilado; si el control cambia el nombre, P690 abriría otro archivo."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y cierre de movimientos pendientes",
+      "origen": {
+        "archivo": "COBOL_P690.txt",
+        "contexto": "PROCEDURE DIVISION · 000000 / 020400 / 200 / 500 / 210"
+      },
+      "java": {
+        "archivo": "ControlDiaTasklet.java · CierreMovimientosJobConfig.java · CierreMovimientoProcessor.java",
+        "contexto": "Tasklet · JobExecutionDecider · chunk step · ItemStream"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Obtención del control del día y aborto si la librería falla",
+          "linea_ini": 796,
+          "linea_fin": 824,
+          "origen_codigo": "    MOVE \"S151L001CTL\"                 TO     WKS-CTLVER-LIBID.   020600\n    CALL \"DAME_TIT IN CTRLVERS\"        USING  WKS-CTLVER-LIBID    020700\n                                              WKS-CTLVER-NOMLIB   020800\n                                       GIVING W77-CTLVER-RESULT.  020900\n     IF W77-CTLVER-RESULT = 0                                     021000\n        CHANGE ATTRIBUTE TITLE         OF \"S151-L001\"             021100\n                                       TO WKS-CTLVER-NOMLIB       021200\n     ELSE                                                         021300\n        CHANGE ATTRIBUTE TITLE         OF \"S151-L001\" TO          021400\n               \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP.\".        021500\n                                                                  021600\n     MOVE W77-SISTEMA-PARAMETRO        TO WKS-B01-SISTEMA         021700\n     MOVE 01                           TO WKS-B01-FUNCION.        021800\n     CALL \"CONSISDIA IN S151-L001\"     USING  WKS-S151B01SISDIA   021900\n                                       GIVING W77-RESULT-B01.     022000\n                                                                  022100\n     IF W77-RESULT-B01 > 0                                        022200\n        MOVE W77-RESULT-B01            TO W77-ERROR               022300\n        STRING \"NO PUEDO OBTENER FECHA DE PROCESO \"               022400\n               \" ERROR EN S151-L001 S\" W77-SISTEMA-PARAMETRO      022500\n               \", ERR #\" W77-ERROR                                022550\n        DELIMITED BY SIZE INTO TEXTO-LJ                           022600\n        MOVE \"O\"                       TO TIPO-LJ                 022700\n        MOVE 020901                    TO CODIGO-LJ               022800\n        CALL \"LJ IN LIB-DISP\"          USING CONTADOR-LJ,         022900\n                                             MENSAJE-LJ           023000\n        SET MYSELF(STATUS) TO -1                                  023100\n     ELSE                                                         023200\n        MOVE WKS-B01-NOMPACMOV         TO WKS-PACK-MOVS.          023300",
+          "java_codigo": "/** 020400-LIBRERIAS: resuelve S151L001 por catálogo de versiones y pide los datos del día. */\n@Component\n@RequiredArgsConstructor\npublic class ControlDiaTasklet implements Tasklet {\n\n    private final ControlVersiones ctlvers;     // DAME_TIT IN CTRLVERS\n    private final ControlS151Client control;    // CONSISDIA IN S151-L001\n    private final AvisoOperador avisos;         // LJ IN LIB-DISP\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        int sistema = ((Number) ctx.getStepContext().getJobParameters().get(\"sistema\")).intValue();\n        String destino = ctlvers.titulo(\"S151L001CTL\")\n                .orElse(\"(S151)S151/OBJECT/L001/CONTROL ON CMEMP.\");   // respaldo fijo del original\n        ResultadoControl r = control.consisdia(destino, sistema, 1);  // WKS-B01-FUNCION = 01\n        if (r.codigo() > 0) {\n            avisos.operador(\"020901\", \"NO PUEDO OBTENER FECHA DE PROCESO  ERROR EN S151-L001 S%03d, ERR #%02d\"\n                    .formatted(sistema, r.codigo()));\n            throw new ProcesoAbortadoException(r.codigo());           // SET MYSELF(STATUS) TO -1\n        }\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"controlDia\", r.datos());\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa pide al catálogo de versiones el título de la librería de control y, si no lo obtiene, usa un título fijo de respaldo. Después llama a <code>CONSISDIA</code> con el sistema recibido y la función 01; si el resultado es mayor que cero, avisa al operador y termina su propia tarea con <code>SET MYSELF(STATUS) TO -1</code>. Solo en el caso exitoso toma el pack del archivo de movimientos. En Spring Batch es el primer <code>Tasklet</code> del job: publica los datos del día en el contexto y, ante error, lanza una excepción que deja el job en FAILED.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Rutina principal: un flujo de tres pasos con límite por nivel del día",
+          "linea_ini": 712,
+          "linea_fin": 737,
+          "origen_codigo": " 000000-INIC-PROGRAMA.                                            013400\n*====================                                             013500\n     PERFORM 020400-LIBRERIAS.                                    014100\n     MOVE WKS-B01-FECCON          TO WKS-SIS-FEC.                 014200\n     PERFORM 100-BUSCA-IND-FECARCMOV                              014220\n             VARYING W77-IND FROM 1 BY 1                          014240\n             UNTIL WKS-B01-FECCON = WKS-B01-FECARCMOV (W77-IND).  014260\n     MOVE W77-IND                 TO WKS-DIASEM                   014300\n     MOVE W77-SISTEMA-PARAMETRO   TO WKS-SIS-NUM                  014350\n     OPEN I-O A01-MOVSNNN.                                        014400\n     MOVE ZERO TO WKS-CONTADOR                                    014700\n     PERFORM 500-LEE-A01-MOVSNNN                                  014800\n     PERFORM 200-REGRABA UNTIL                                    014900\n             WKS-CONTADOR > WKS-B01-NIVARCMOV(WKS-DIASEM) OR      015000\n             W77-FIN = 1.                                         015100\n     CLOSE A01-MOVSNNN WITH SAVE.                                 015400\n     STOP RUN.                                                    015500",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P690Properties.class)\npublic class CierreMovimientosJobConfig {\n\n    /** 000000-INIC-PROGRAMA. Parámetro del WFL: sistema (9(03)). */\n    @Bean\n    Job cierreMovimientos(JobRepository repo, Step controlDia, Step cierraPendientes,\n                          NivelDelDiaDecider nivel) {\n        return new JobBuilder(\"S151P690\", repo)\n                .start(controlDia)                         // 020400-LIBRERIAS\n                .next(nivel).on(\"CON_NIVEL\").to(cierraPendientes)\n                .from(nivel).on(\"SIN_NIVEL\").fail()        // FECCON fuera de la tabla de 10 días\n                .end().build();\n    }\n\n    @Bean\n    Step cierraPendientes(JobRepository repo, PlatformTransactionManager tx,\n                          MovimientosS151Reader reader, CierreMovimientoProcessor processor,\n                          MovimientosS151RewriteWriter writer) {\n        return new StepBuilder(\"cierraPendientes\", repo)\n                .<MovimientoS151, MovimientoS151>chunk(100, tx)    // BLOCK CONTAINS 100 RECORDS\n                .reader(reader)          // salta el header y se detiene en NIVARCMOV del día o al EOF\n                .processor(processor)\n                .writer(writer)          // REWRITE en sitio; CLOSE ... WITH SAVE al cerrar el step\n                .build();\n    }\n}",
+          "racional": "La rutina principal obtiene el control del día, busca el nivel del día contable, abre el archivo en modo lectura y escritura, lee el encabezado y repite el cierre hasta que el contador de lecturas rebasa el nivel del día o se acaba el archivo. En Spring Batch son un <code>Tasklet</code>, un <code>JobExecutionDecider</code> que verifica que el día exista en la tabla y un step de chunk que reescribe en sitio. El tamaño de chunk sigue el bloqueo de 100 registros del archivo.",
+          "reglas": []
+        },
+        {
+          "id": "s6",
+          "titulo": "Cierre del movimiento pendiente y autorización secuencial",
+          "linea_ini": 743,
+          "linea_fin": 772,
+          "origen_codigo": " 200-REGRABA.                                                     015700\n*============                                                     015800\n     PERFORM 500-LEE-A01-MOVSNNN                                  015900\n     IF A00-R01-FUNCION = 99 AND W77-FIN = ZERO                   016000\n        MOVE 11                     TO A00-R01-FUNCION            016100\n        MOVE W77-SISTEMA-PARAMETRO  TO A00-R01-SISTEMA            016120\n        COMPUTE  A00-R01-AUT-S151 = WKS-CONTADOR - 1              016140\n        MOVE WKS-B01-FECCON         TO A00-R01-FECCONT            016160\n        MOVE 1                      TO A00-R01-STATUS             016180\n        REWRITE A00-R01-REGMOV  INVALID KEY NEXT SENTENCE.        016200\n 500-LEE-A01-MOVSNNN.                                             017800\n*====================                                             017900\n    ADD 1 TO WKS-CONTADOR                                         018000\n    READ A01-MOVSNNN AT END                                       018100\n         MOVE 1          TO W77-FIN.                              018200",
+          "java_codigo": "/** 500-LEE-A01-MOVSNNN: el contador cuenta todas las lecturas, incluido el header. */\n@Component\n@StepScope\nclass MovimientosS151Reader implements ItemStreamReader<MovimientoS151> {\n    private long contador;                                  // WKS-CONTADOR 9(09)\n    @Value(\"#{jobExecutionContext['nivelDelDia']}\") private long nivel;\n    private final ArchivoMovimientos archivo;               // acceso por posición (ACTUAL KEY)\n\n    public MovimientoS151 read() {\n        if (contador == 0) { archivo.leeEncabezado(); contador = 1; }   // lectura de cebado\n        if (contador > nivel) return null;                              // UNTIL CONTADOR > NIVARCMOV\n        contador++;\n        return archivo.siguiente().map(m -> m.conPosicion(contador)).orElse(null);  // AT END\n    }\n}\n\n/** 200-REGRABA. */\n@Component\n@StepScope\nclass CierreMovimientoProcessor implements ItemProcessor<MovimientoS151, MovimientoS151> {\n    @Value(\"#{jobParameters['sistema']}\")             private int sistema;\n    @Value(\"#{jobExecutionContext['fecContable']}\") private LocalDate fecContable;\n\n    public MovimientoS151 process(MovimientoS151 m) {\n        if (m.funcion() != MovimientoS151.FUNCION_PENDIENTE) return null;   // no se reescribe\n        m.cierra(sistema, m.posicion() - 1, fecContable);                   // AUT-S151 = CONTADOR - 1\n        return m;\n    }\n}\n// El writer reescribe en sitio y, a diferencia de INVALID KEY NEXT SENTENCE, propaga el error.",
+          "racional": "Cada vuelta lee el siguiente registro y, si su función es 99, lo marca como cerrado (11) con status 1, le pone el sistema que lo procesó y la fecha contable del día y le asigna como autorización su posición en el archivo menos uno, de modo que el primer movimiento después del encabezado recibe la autorización 1. Los registros que no están pendientes se dejan como están y no consumen número propio, pero sí avanzan el contador. En Java el reader conserva el contador de posición y el processor aplica la transición; devolver <code>null</code> evita reescribir los no pendientes.",
+          "reglas": [],
+          "riesgo": "El REWRITE usa INVALID KEY NEXT SENTENCE: si la reescritura falla, el movimiento queda pendiente sin ningún aviso y el job termina normal."
+        },
+        {
+          "id": "s7",
+          "titulo": "Variante de cierre desactivada con tope fijo de 2,000,000",
+          "linea_ini": 734,
+          "linea_fin": 766,
+          "origen_codigo": "*    MOVE 38880                   TO WKS-CONTADOR.                015200\n*    PERFORM 210-REGRABA-REG.                                     015300\n 210-REGRABA-REG.                                                 016600\n*================                                                 016700\n   IF A00-R01-FUNCION = 99     AND                                016800\n      WKS-CONTADOR < 2000000   AND                                016900\n      W77-FIN = 0                                                 017000\n      ADD 1                 TO W77-NUMREG                         017100\n      MOVE 11               TO A00-R01-FUNCION                    017200\n      REWRITE A00-R01-REGMOV  INVALID KEY                         017300\n           MOVE A00-R01-AUT-S151     TO W77-AUT                   017400\n           DISPLAY \"ERROR EN REG. \" W77-AUT.                      017500\n     PERFORM 500-LEE-A01-MOVSNNN.                                 017600",
+          "java_codigo": "/*\n * 210-REGRABA-REG no se traduce: su único PERFORM está comentado (líneas 734-735),\n * junto con un arranque fijo del contador en 38880. Era una variante de recuperación que:\n *   - cerraba solo FUNCION 99 con WKS-CONTADOR < 2000000,\n *   - no ponía SISTEMA, AUT-S151, FECCONT ni STATUS,\n *   - mostraba \"ERROR EN REG. \" + AUT-S151 si el REWRITE fallaba.\n * Si operación necesitara reanudar desde una posición, el equivalente es reiniciar el step:\n * Spring Batch guarda la posición del reader en el ExecutionContext (ItemStream.update).\n */\n@Override\npublic void update(ExecutionContext ctx) {\n    ctx.putLong(\"p690.contador\", contador);     // punto de reinicio en lugar de MOVE 38880\n}\n\n@Override\npublic void open(ExecutionContext ctx) {\n    contador = ctx.getLong(\"p690.contador\", 0L);\n    archivo.posiciona(contador);                // equivalente al SEEK comentado en 727-728\n}",
+          "racional": "El párrafo 210-REGRABA-REG es código muerto: su llamada y un arranque del contador en 38880 están comentados. Parece una variante usada alguna vez para reanudar el cierre desde una posición fija; solo cambiaba la función a 11 y mostraba el error de reescritura. No se transpila. En su lugar se documenta el mecanismo de reinicio de Spring Batch, que guarda la posición del reader y permite retomar el step sin editar el código.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Error de reescritura ignorado",
+      "detalle": "REWRITE A00-R01-REGMOV INVALID KEY NEXT SENTENCE (línea 752) descarta el error: un movimiento puede quedar en función 99 sin aviso y el job termina normal."
+    },
+    {
+      "titulo": "Búsqueda del día sin tope",
+      "detalle": "El PERFORM VARYING de las líneas 721-723 no limita W77-IND a las 10 entradas de WKS-B01-CTL-DIA. Si la fecha contable no está en la tabla, el índice rebasa el arreglo."
+    },
+    {
+      "titulo": "Nombre de archivo compilado",
+      "detalle": "El título usa el prefijo fijo S151/FILE/MOVS (líneas 679-687) y no el nombre WKS-B01-NOMARCMOV que entrega la librería de control. Solo el pack es dinámico."
+    },
+    {
+      "titulo": "Autorización ligada a la posición física",
+      "detalle": "AUT-S151 = WKS-CONTADOR - 1 (línea 749) depende del orden físico del archivo. Reordenar, filtrar o insertar registros antes de P690 cambia los números de autorización."
+    },
+    {
+      "titulo": "Fecha truncada en el título",
+      "detalle": "WKS-SIS-FEC es PIC 9(06) y recibe WKS-B01-FECCON de 8 dígitos (línea 720); el nombre del archivo pierde el siglo. No se encontraron credenciales en el fuente."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario clasifica P690 como A5 Orquestador de Flujos, pero el fuente es un actualizador en sitio de un archivo secuencial sin orquestación de otros pasos. Se tradujo como job de Spring Batch con decisor para respetar el arquetipo; valorar reclasificarlo como A2.",
+    "Confirmar que SET MYSELF(STATUS) TO -1 (línea 822) termina la tarea de inmediato; si la ejecución continuara, el programa abriría el archivo con el pack vacío.",
+    "El pseudocódigo cita las reglas RN-S151-625 a RN-S151-632, pero el inventario no asigna reglas del brain a este componente; por eso ningún segmento las referencia.",
+    "Confirmar si el nivel WKS-B01-NIVARCMOV cuenta solo movimientos o incluye el encabezado: con la lógica actual se procesan los registros 2 a NIVARCMOV + 1."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-625",
+    "RN-S151-626",
+    "RN-S151-627",
+    "RN-S151-628",
+    "RN-S151-629",
+    "RN-S151-630",
+    "RN-S151-631",
+    "RN-S151-632"
+  ]
+}

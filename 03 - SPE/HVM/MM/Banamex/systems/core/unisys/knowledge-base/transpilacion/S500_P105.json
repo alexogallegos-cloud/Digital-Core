@@ -1,0 +1,212 @@
+{
+  "slug": "S500_P105",
+  "sistema": "S500",
+  "programa": "P105",
+  "nombre": "Aplicador Contable de Movimientos del Día",
+  "funcion": "Paso batch del cierre diario de Captación S500 (S500P105) que corre en varias copias paralelas y aplica los movimientos del día a Cifras (B09), Histórico (B06) y SBC a 6 días (B27), enviando cada movimiento contable al S151 por la librería S151REGISTRA.",
+  "resumen": "P105 carga primero en memoria el catálogo de claves de movimiento (B17), los sectores por producto (B22) y las cifras acumuladas por producto (B09). Después recorre los movimientos del día y, por cada uno, enciende las banderas de comportamiento de su clave, acumula importes en una tabla de 31 productos según el origen local o foráneo, registra entradas y salidas de SBC a 6 días, cuenta aperturas y cancelaciones y llama a S151REGISTRA con la póliza del movimiento. Como salidas genera los archivos de cancelaciones, punteo, punteo S054 e incidentes, y al final vuelca la tabla de cifras en B09.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JPA",
+  "paquete_java": "mx.banamex.s500.captacion.aplicacion",
+  "secciones": [
+    {
+      "titulo": "Estructuras de datos — tabla de cifras por producto, movimiento en curso y punteo S054",
+      "origen": {
+        "archivo": "S500_SOURCE_P105.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "CifrasProducto.java · MovimientoEnCurso.java · PunteoS054Record.java",
+        "contexto": "record · BigDecimal · clase mutable por step"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "WS-SAVECIFRAS: 31 renglones de acumuladores en memoria",
+          "linea_ini": 1818,
+          "linea_fin": 1886,
+          "origen_codigo": "*****************************************************************\n* VARIABLE UTILIZADAS PARA ALMACENAR CIFRAS EN LA TABLA PARA\n* ALMACENAR LOS MOVIMIENTOS EN MEMORIA.\n*****************************************************************\n 01 WS-SAVECIFRAS WITH LOWER-BOUNDS.\n   02 WS-AUXCIFRAS OCCURS 31 TIMES.\n      04  WS-CIF-BANCO         PIC     9(06)         COMP.\n      04  WS-CIF-PRD-INST      PIC     9(08)         COMP.\n      04  RD-WS-CIF-PRD-INST   REDEFINES WS-CIF-PRD-INST.\n          06  WS-CIF-PRDNUM    PIC     9(04)         COMP.\n          06  WS-CIF-INSTNUM   PIC     9(04)         COMP.\n      04  WS-CIF-MONEDA        PIC     9(03)         COMP.\n      04  WS-CIF-S028L-CARLOC  PIC     9(12)V99      COMP.\n      04  WS-CIF-S028L-ABOLOC  PIC     9(12)V99      COMP.\n      04  WS-CIF-S028L-CARFOR  PIC     9(12)V99      COMP.\n      04  WS-CIF-S028L-ABOFOR  PIC     9(12)V99      COMP.\n      04  WS-CIF-SDO-ACTUAL    PIC   S9(14)V99       COMP.\n      04  WS-CIF-IMP-SDOPEN-L  PIC   9(12)V99        COMP.\n      04  WS-CIF-IMP-SDOPEN-FE PIC   9(12)V99        COMP.\n      04  WS-CIF-IMP-SDOPEN-FR PIC   9(12)V99        COMP.\n      04  WS-CIF-IMP-SDOSBC-L  PIC   9(12)V99        COMP.\n      04  WS-CIF-IMP-SDOSBC-FE PIC   9(12)V99        COMP.\n      04  WS-CIF-IMP-SDOSBC-FR PIC   9(12)V99        COMP.\n      04  WS-CIF-SDO-ANTERIOR  PIC   S9(14)V99       COMP.\n      04  WS-CIF-NUM-APE       PIC   9(06)           COMP.\n      04  WS-CIF-NUM-CANCE     PIC   9(06)           COMP.\n      04  WS-CIF-SBC6D-SDOANT  PIC   9(12)V99       COMP.\n      04  WS-CIF-6D-ENT-L      PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-ENT-FR     PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-ENT-XCP    PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-SAL-L      PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-SAL-FR     PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-SAL-XCP    PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-ACTUAL     PIC   S9(14)V99       COMP.\n      04  WS-CIF-6D-GLOBAL-L   PIC   9(12)V99        COMP.\n      04  WS-CIF-6D-GLOBAL-FR  PIC   9(12)V99        COMP.\n      04  WS-CIF-SBC6D-SAL-GL  PIC   9(12)V99        COMP.\n      04  WS-CIF-SBC6D-SAL-GFR PIC   9(12)V99        COMP.\n      04  WS-CIF-COPIA         PIC   9(02)           COMP.",
+          "java_codigo": "/**\n * Un renglón de WS-SAVECIFRAS (OCCURS 31). Llave = banco + producto/instrumento + moneda.\n * Se acumula durante todo el paso y se vuelca a B09CIFRAS en 70003030-LLENO-CIF.\n */\npublic final class CifrasProducto {\n\n    public record Llave(int banco,            // WS-CIF-BANCO 9(06)\n                        int producto,         // WS-CIF-PRDNUM 9(04), parte alta de WS-CIF-PRD-INST\n                        int instrumento,      // WS-CIF-INSTNUM 9(04), parte baja (REDEFINES)\n                        int moneda) {}        // WS-CIF-MONEDA 9(03)\n\n    private final Llave llave;\n    // S028 local y foráneo (cargos y abonos): 9(12)V99 -> escala 2\n    private BigDecimal s028CarLoc = cero(), s028AboLoc = cero(), s028CarFor = cero(), s028AboFor = cero();\n    private BigDecimal saldoActual = cero();     // S9(14)V99: admite negativo\n    private BigDecimal sbcSaldoL = cero(), sbcSaldoFe = cero(), sbcSaldoFr = cero();\n    private int aperturas, cancelaciones;        // 9(06)\n    private BigDecimal importeAperturas = cero();\n    private BigDecimal aboForSpos = cero(), carForSpos = cero();\n    // SBC a 6 días\n    private BigDecimal sbc6EntL = cero(), sbc6EntFr = cero(), sbc6SalL = cero(), sbc6SalFr = cero();\n    private BigDecimal sbc6Actual = cero();      // S9(14)V99\n\n    private static BigDecimal cero() { return BigDecimal.ZERO.setScale(2); }\n    // ... getters y métodos suma* que validan la capacidad del PIC antes de acumular\n}",
+          "racional": "La tabla es un arreglo de 31 posiciones que vive en memoria todo el paso y se indexa con <code>WS-INDCIF</code>. En Java se modela como un <code>Map&lt;Llave, CifrasProducto&gt;</code> en el contexto del step, con un objeto mutable por producto porque se actualiza con cada movimiento. El <code>REDEFINES</code> de <code>WS-CIF-PRD-INST</code> solo parte un entero de 8 dígitos en producto e instrumento, así que la llave usa los dos campos por separado. Todos los importes <code>9(12)V99</code> y <code>S9(14)V99</code> son <code>BigDecimal</code> de escala 2; los saldos actuales llevan signo y los acumuladores parciales no.",
+          "reglas": [],
+          "riesgo": "La tabla tiene un tope fijo de 31 productos por copia. Si una copia recibiera más combinaciones de producto, instrumento y moneda, el índice se saldría del arreglo; la versión Java debe fallar de forma explícita en ese caso."
+        },
+        {
+          "id": "s2",
+          "titulo": "Movimiento en curso y condición 88 de la clave 3047",
+          "linea_ini": 2046,
+          "linea_fin": 2061,
+          "origen_codigo": " 77 WS-TEM-PRODUCTO             PIC 9(04)       COMP.\n 77 WS-TEM-INSTRUM              PIC 9(04)       COMP.\n 77 WS-TEM-MONEDA               PIC 9(02)       COMP.\n 77 WS-TEM-IMPORTE              PIC 9(12)V99    COMP.\n 77 WS-TEM-INTCANCEL            PIC S9(10)V99   COMP.\n 77 WS-TEM-ORIGEN               PIC 99          COMP.\n 77 WS-TEM-FECMOVTO             PIC 9(08)       COMP.\n 77 WS-TEM-CVEMOV               PIC 9(04)       COMP.\n*-----> i.m      Fabrica de Software Banamex/GCC 06/06/07\n    88 WS88-TEM-CVEMOV-S054-DISP VALUE 3047.\n*-----> f.m      Fabrica de Software Banamex/GCC 06/06/07\n 77 WS-TEM-CVEPAS               PIC 9(04)       COMP.",
+          "java_codigo": "/** Variables WS-TEM-*: el movimiento que se está aplicando. */\npublic record MovimientoEnCurso(\n        int producto, int instrumento, int moneda,   // 9(04), 9(04), 9(02)\n        BigDecimal importe,                          // 9(12)V99 sin signo -> escala 2\n        BigDecimal interesCancelacion,               // S9(10)V99 -> escala 2\n        int origen,                                  // 1 = local; 2 y 3 = foráneo\n        LocalDate fechaMovimiento,                   // 9(08) AAAAMMDD\n        int claveMovimiento,                         // WS-TEM-CVEMOV 9(04)\n        int clavePase,                               // WS-TEM-CVEPAS: clave contable hacia S151\n        boolean desdeB27,                            // WS-BAN-SBC6 = 1: lo pone el lector de B27\n        boolean apertura) {                          // WS-BAN-APE, viene de MOV-IND-APERTURA\n\n    /** 88 WS88-TEM-CVEMOV-S054-DISP VALUE 3047. */\n    public boolean esDisposicionS054(P105Properties p) {\n        return claveMovimiento == p.claveDisposicionS054();   // p105.clave-disposicion-s054: 3047\n    }\n\n    public boolean esLocal() { return origen == 1; }\n}",
+          "racional": "Los niveles 77 <code>WS-TEM-*</code> son la copia de trabajo del movimiento leído; casi toda la lógica de P105 los consulta. En Java se agrupan en un <code>record</code> inmutable que recibe el procesador, junto con dos banderas que en el fuente pone el lector: <code>WS-BAN-SBC6</code> cuando el movimiento sale de B27 y <code>WS-BAN-APE</code> desde el indicador de apertura del movimiento. La condición 88 que identifica la clave 3047 se convierte en un método, y el valor 3047 pasa a <code>application.yml</code> porque es un código de negocio compilado en el programa.",
+          "reglas": [
+            "RN-S500-614"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Archivo de punteo S054 (registro de 65 posiciones)",
+          "linea_ini": 409,
+          "linea_fin": 445,
+          "origen_codigo": "****************************************************************\n* DECLARACION DEL ARCHIVO DE PUNTEO S054.\n****************************************************************\n FD  E01-PNT-S500-CRCHQRA\n     BLOCK CONTAINS         144 RECORDS\n     RECORD CONTAINS        65   CHARACTERS\n     VALUE OF AREAS         1000\n     VALUE OF AREASIZE      864\n     VALUE OF TITLE IS WKS-ETIQ-PUNTEO-S054\n     VALUE OF SECURITYTYPE         IS PUBLIC.\n*\n 01  E01-REG-S500-CRCHQRA-HDR.\n     02  E01-REG-S500-HDR-REG      PIC 9(02).\n     02  E01-REG-S500-HDR-SISORI   PIC 9(04).\n     02  E01-REG-S500-HDR-SISDES   PIC 9(04).\n     02  E01-REG-S500-HDR-FEC      PIC 9(08).\n     02  E01-REG-S500-HDR-CSIORI   PIC 9(02).\n     02  E01-REG-S500-HDR-FECPRO   PIC 9(08).\n     02  E01-REG-S500-HDR-HORPRO   PIC 9(06).\n     02  E01-REG-S500-HDR-NUMPAS   PIC 9(04).\n     02  E01-REG-S500-HDR-NUMCOP   PIC 9(02).\n     02  FILLER                    PIC X(25).\n*\n 01  E01-REG-S500-CRCHQRA-DET.\n     02  E01-REG-S500-DET-REG      PIC 9(02).\n     02  E01-REG-S500-DET-AUS500   PIC 9(12) COMP.\n     02  E01-REG-S500-DET-NUMCTO   PIC 9(12) COMP.\n     02  E01-REG-S500-DET-NUMPRD   PIC 9(04) COMP.\n     02  E01-REG-S500-DET-NUMINS   PIC 9(04) COMP.\n     02  E01-REG-S500-DET-NUMMON   PIC 9(04) COMP.\n     02  E01-REG-S500-DET-CVE      PIC 9(04) COMP.\n     02  E01-REG-S500-DET-IMP      PIC 9(10)V99 COMP.\n     02  E01-REG-S500-DET-NUMREF   PIC 9(12) COMP.\n     02  E01-REG-S500-DET-AUS054   PIC 9(08) COMP.\n     02  E01-REG-S500-DET-FECMAQ   PIC 9(08) COMP.\n     02  E01-REG-S500-DET-HORMAQ   PIC 9(06) COMP.\n     02  E01-REG-S500-DET-TIPMOV   PIC 9(02) COMP.",
+          "java_codigo": "/** E01-PNT-S500-CRCHQRA: header y detalle del punteo para conciliar contra S054. */\npublic sealed interface PunteoS054Record permits PunteoS054Record.Header, PunteoS054Record.Detalle {\n\n    record Header(int tipoReg,                    // 9(02)\n                  int sistemaOrigen, int sistemaDestino,\n                  LocalDate fecha, int csiOrigen,\n                  LocalDate fechaProceso, LocalTime horaProceso,\n                  int numeroPaso, int numeroCopia) implements PunteoS054Record {}\n\n    record Detalle(int tipoReg,                   // 9(02), en el fuente se mueve 1\n                   long autorizacionS500,         // 9(12) COMP\n                   String contrato,               // 9(12) COMP -> String con ceros a la izquierda\n                   int producto, int instrumento, int moneda,\n                   int claveMovimiento,\n                   BigDecimal importe,            // 9(10)V99: dos enteros menos que WS-TEM-IMPORTE\n                   long referencia, long autorizacionS054,\n                   LocalDate fechaMaquina, LocalTime horaMaquina,\n                   int tipoMovimiento) implements PunteoS054Record {\n\n        private static final BigDecimal TOPE_9_10_V99 = new BigDecimal(\"9999999999.99\");\n\n        public Detalle {\n            if (importe.compareTo(TOPE_9_10_V99) > 0) {\n                throw new ImporteFueraDeRangoException(\"PUNTEO/S054\", importe);   // COBOL truncaba en silencio\n            }\n        }\n    }\n}",
+          "racional": "El archivo se declara con un header y un detalle sobre el mismo registro de 65 caracteres, por eso se traduce a una <code>sealed interface</code> con dos <code>record</code>. El contrato se conserva como <code>String</code>. Lo relevante es el importe del detalle: es <code>9(10)V99</code> y recibe <code>WS-TEM-IMPORTE</code>, que es <code>9(12)V99</code>. En COBOL el <code>MOVE</code> perdería los dos dígitos altos sin aviso; en Java el constructor compacto lo rechaza. La ruta del archivo (<code>S500/FILE/S500/{csi}/10/PUNTEOS054/{aammdd}/{copia}.</code>) se lleva a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-614"
+          ],
+          "riesgo": "Importes de 10 mil millones o más se escribirían truncados en el punteo S054 y la conciliación no cuadraría."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y orquestación por movimiento",
+      "origen": {
+        "archivo": "S500_SOURCE_P105.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 51000000 / 51011000"
+      },
+      "java": {
+        "archivo": "AplicacionMovimientosJobConfig.java · AplicadorMovimientoProcessor.java · BanderasClave.java",
+        "contexto": "Spring Batch Job · ItemProcessor · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Rutina principal y código de resultado de la tarea",
+          "linea_ini": 2388,
+          "linea_fin": 2412,
+          "origen_codigo": " 00000000-INICIO SECTION.\n 00000000-PRINCIPAL.\n*INI X-20210200490 HORA DE INICIO PARA CALCULAR EL TIEMPO TRANS-\n*CURRIDO\n     ACCEPT WKS-HORA-INI         FROM TIME.\n*FIN X-20210200490\n     MOVE 2            TO  W77-USO-LIBLJ\n     MOVE \"P105\"       TO  WS-0101-PASO-MSG\n      MOVE \"25MTP005\"   TO  WS-0101-MTP-MSG\n                           W77-S000-MY-VERSION\n     MOVE \"S500P105\"   TO  W77-S000-MY-ID.\n     PERFORM 10000000-LIBRERIAS THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN      THRU 20000000-EXIT.\n     PERFORM 50000000-LEO-MOV   THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO    THRU 70000000-EXIT.\n     SET MYSELF (TASKVALUE)     TO W77-PAR-RESULT.\n     WAIT (02).\n     CLOSE I03-ARCH-INCIDENTE WITH SAVE.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class AplicacionMovimientosJobConfig {\n\n    /** 00000000-PRINCIPAL. Cada copia (WS-COPIAP105) es una partición del mismo job. */\n    @Bean\n    Job aplicacionMovimientos(JobRepository repo,\n                              Step cargaCatalogos,      // 50002000-CARGO-CLAVES, 50000500-CARGO-SEC\n                              Step cargaCifras,         // 50001000-CARGO-CIFRAS, 50001500-LEO-SDOPEND\n                              Step aplicaMovimientos,   // 50005000-APLI-MOVS\n                              Step vuelcaCifras,        // 70000000-CIERRO -> 70003030-LLENO-CIF\n                              ResultadoTareaListener resultado) {\n        return new JobBuilder(\"S500P105\", repo)\n                .listener(resultado)\n                .start(cargaCatalogos)\n                .next(cargaCifras)\n                .next(aplicaMovimientos)\n                .next(vuelcaCifras)\n                .build();\n    }\n}\n\n/** SET MYSELF (TASKVALUE) TO W77-PAR-RESULT: el WFL lee este código. */\n@Component\nclass ResultadoTareaListener implements JobExecutionListener {\n    @Override\n    public void afterJob(JobExecution je) {\n        int codigo = je.getExecutionContext().getInt(\"parResult\", 0);   // 78, 79, 80... por incidente\n        je.setExitStatus(new ExitStatus(codigo == 0 ? \"COMPLETED\" : \"COMPLETED_WITH_INCIDENTS\",\n                                        String.valueOf(codigo)));\n    }\n}",
+          "racional": "La rutina principal ejecuta cuatro bloques en secuencia. Antes del <code>STOP RUN</code> publica <code>W77-PAR-RESULT</code> como valor de la tarea para que el WFL decida, y cierra el archivo de incidentes tras una espera de dos segundos. En Spring Batch los bloques son steps y el código de resultado se expone como <code>ExitStatus</code>, que un <code>JobExecutionDecider</code> del flujo orquestador puede evaluar igual que hoy lo hace el WFL. El <code>WAIT (02)</code> no requiere equivalente porque el writer cierra el archivo de forma síncrona.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Secuencia de aplicación de un movimiento",
+          "linea_ini": 5073,
+          "linea_fin": 5094,
+          "origen_codigo": " 51000000-OPERO-MOV.\n    MOVE ZERO               TO W77-SIN-B17.\n    MOVE 351910             TO W77-NUM-LINEA.\n    PERFORM 51010000-LEO-FUN       THRU 51010000-EXIT\n    IF W77-SIN-B17 = 0\n       PERFORM 51000010-CONT-OPERO-MOV THRU 51000010-EXIT.\n 51000000-EXIT.\n    EXIT.\n 51000010-CONT-OPERO-MOV.\n    PERFORM 51020000-ACUM-B02      THRU 51020000-EXIT\n    IF  (WS-TEM-CVEMOV = 1072) AND (WS-BAN-SBC6 = 1)\n       NEXT SENTENCE\n    ELSE\n       PERFORM 51030000-LEO-TABLA  THRU 51030000-EXIT.\n    PERFORM 51040000-ACT-CIFRAS    THRU 51040000-EXIT\n    IF (WS-TEM-CVEMOV = 1072) AND (WS-BAN-SBC6 = 1)\n       NEXT SENTENCE\n    ELSE\n       PERFORM 51050000-VALIDO-IVA THRU 51050000-EXIT.\n    PERFORM 51060000-CANCEL        THRU 51060000-EXIT.\n 51000010-EXIT.\n    EXIT.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class AplicadorMovimientoProcessor implements ItemProcessor<MovimientoEnCurso, PolizaS151> {\n\n    private final CatalogoClaves catalogo;          // B17 cargado en memoria\n    private final AcumuladorB02 b02;\n    private final TablaCifras cifras;               // WS-SAVECIFRAS\n    private final ReglasCifras reglas;              // 51040000-ACT-CIFRAS\n    private final ValidadorIva iva;\n    private final ArchivoCancelaciones cancelaciones;\n\n    /** 51000000-OPERO-MOV / 51000010-CONT-OPERO-MOV. */\n    @Override\n    public PolizaS151 process(MovimientoEnCurso mov) {\n        Optional<BanderasClave> ban = catalogo.banderas(mov.claveMovimiento());   // 51010000-LEO-FUN\n        if (ban.isEmpty()) {\n            return null;                            // W77-SIN-B17 = 1: incidente 79, el movimiento no se aplica\n        }\n        boolean entradaSbc6 = mov.claveMovimiento() == 1072 && mov.desdeB27();\n\n        b02.acumula(mov, ban.get());                // 51020000-ACUM-B02\n        if (!entradaSbc6) {\n            cifras.ubica(mov);                      // 51030000-LEO-TABLA\n        }\n        PolizaS151 poliza = reglas.aplica(mov, ban.get());   // 51040000-ACT-CIFRAS\n        if (!entradaSbc6) {\n            iva.valida(mov, ban.get());             // 51050000-VALIDO-IVA\n        }\n        cancelaciones.registraSiAplica(mov);        // 51060000-CANCEL\n        return poliza;\n    }\n}",
+          "racional": "Por cada movimiento P105 busca su clave en el catálogo B17 y, si existe, encadena acumulación en B02, ubicación del renglón de cifras, actualización de cifras, validación de IVA y registro de cancelación. La entrada de SBC a 6 días (clave 1072 leída desde B27, donde el lector pone <code>WS-BAN-SBC6</code> en 1) se salta la ubicación en la tabla y el IVA. En Java es un <code>ItemProcessor</code> de un step transaccional; devolver <code>null</code> cuando la clave no está en B17 reproduce que el movimiento no se aplique y quede en el archivo de incidentes.",
+          "reglas": [
+            "RN-S500-613"
+          ],
+          "riesgo": "Cuando la búsqueda en B17 falla con estatus 1, el CALL SYSTEM DMTERMINATE está comentado (línea 5113): el movimiento se omite, se registra como incidente y el paso continúa."
+        },
+        {
+          "id": "s6",
+          "titulo": "Banderas de comportamiento desde el catálogo B17",
+          "linea_ini": 5125,
+          "linea_fin": 5145,
+          "origen_codigo": "******************************************************************\n* PRENDO LAS BANDERAS DE LAS CARACTERISTICAS DEL MOV.\n******************************************************************\n 51011000-PRENDO-BAN.\n       MOVE 0   TO WS-BAN-BLO   WS-BAN-COMMEN  WS-BAN-ABONO\n                   WS-BAN-IVA   WS-BAN-S408    WS-BAN-S028\n                   WS-BAN-AUTO  WS-BAN-RESUL   WS-BAN-DSBC\n                   WS-BAN-S052  WS-BAN-CARGO   WS-BAN-SBC\n                  WS-BAN-ORILOC WS-BAN-ACUM-B02.\n       MOVE B17-MOV-AUTOMAT  TO WS-BAN-AUTO.\n       MOVE B17-ORIGEN-LOCAL TO WS-BAN-ORILOC.\n       MOVE B17-DIAS-SBC     TO WS-BAN-DSBC.\n       IF B17-AFECTA-RESLT > 0\n          MOVE B17-AFECTA-RESLT  TO WS-BAN-RESUL.\n       IF B17-TIPO-MOV = 1\n          MOVE 1             TO  WS-BAN-CARGO.\n       IF B17-TIPO-MOV = 2",
+          "java_codigo": "/** Banderas WS-BAN-* que P105 toma de cada registro de B17 (51011000-PRENDO-BAN). */\npublic record BanderasClave(\n        int automatico,        // B17-MOV-AUTOMAT\n        int origenLocal,       // B17-ORIGEN-LOCAL: > 0 trata como local aunque el origen sea 3\n        int diasSbc,           // B17-DIAS-SBC\n        int afectaResultados,  // B17-AFECTA-RESLT\n        boolean cargo,         // B17-TIPO-MOV = 1\n        boolean abono,         // B17-TIPO-MOV = 2\n        int afectaS052, int afectaS028, int afectaS408) {\n\n    /** Las banderas se reinician en cada movimiento: un record nuevo por clave evita arrastrar valores. */\n    public static BanderasClave de(ClaveB17 b17) {          // @Entity del dataset B17\n        return new BanderasClave(b17.getMovAutomat(), b17.getOrigenLocal(), b17.getDiasSbc(),\n                Math.max(b17.getAfectaReslt(), 0),\n                b17.getTipoMov() == 1, b17.getTipoMov() == 2,\n                b17.getAfectaS052(), b17.getAfectaS028(), b17.getAfectaS408());\n    }\n\n    /** Origen efectivo para contabilizar: local si el origen es 1 o si B17 lo fuerza. */\n    public boolean tratarComoLocal(MovimientoEnCurso m) {\n        return m.esLocal() || origenLocal > 0;\n    }\n}",
+          "racional": "El párrafo pone en cero una docena de banderas y las vuelve a encender con los atributos de la clave en B17. En COBOL esas banderas son variables globales que pueden arrastrar valor de un movimiento a otro si algún párrafo no las limpia; en Java se materializan como un <code>record</code> nuevo por movimiento, lo que elimina ese riesgo. <code>B17-ORIGEN-LOCAL</code> es la bandera que convierte un movimiento foráneo en local para fines contables, y el método <code>tratarComoLocal</code> la concentra en un solo lugar.",
+          "reglas": [
+            "RN-S500-616"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas contables — SBC a 6 días, cancelaciones, origen local y envío al S151",
+      "origen": {
+        "archivo": "S500_SOURCE_P105.txt",
+        "contexto": "PROCEDURE DIVISION · 51040000 / 51045000 / 51043000 / 40000100"
+      },
+      "java": {
+        "archivo": "ReglasCifras.java · PolizaS151Mapper.java · S151RegistraClient.java",
+        "contexto": "@Service · @Transactional · adaptador de librería"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Entrada y salida de SBC a 6 días, aperturas y cancelaciones",
+          "linea_ini": 5369,
+          "linea_fin": 5396,
+          "origen_codigo": " 51040000-ACT-CIFRAS.\n   IF (WS-TEM-CVEMOV = 1072) AND (WS-BAN-MOV07 = 1)\n      PERFORM 51041000-CREOB27 THRU 51041000-EXIT\n      ADD WS-TEM-IMPORTE       TO WS-CIF-6D-ACTUAL(WS-INDCIF)\n      IF WS-TEM-ORIGEN = 1\n         ADD WS-TEM-IMPORTE TO WS-CIF-6D-ENT-L(WS-INDCIF)\n      ELSE\n         ADD WS-TEM-IMPORTE TO WS-CIF-6D-ENT-FR(WS-INDCIF).\n   IF (WS-TEM-CVEMOV = 1072)  AND (WS-BAN-SBC6 = 1)\n      PERFORM 51042000-SBC-B07     THRU 51042000-EXIT.\n   IF WS-TEM-CVEMOV = 3036\n      IF WS-TEM-ORIGEN = 1\n         ADD WS-TEM-IMPORTE      TO WS-CIF-6D-SAL-L(WS-INDCIF)\n         SUBTRACT WS-TEM-IMPORTE FROM WS-CIF-6D-ACTUAL(WS-INDCIF)\n      ELSE\n         ADD WS-TEM-IMPORTE      TO WS-CIF-6D-SAL-FR(WS-INDCIF)\n         SUBTRACT WS-TEM-IMPORTE FROM WS-CIF-6D-ACTUAL(WS-INDCIF).\n   IF WS-BAN-APE = 1\n      ADD 1                     TO WS-CIF-NUM-APE(WS-INDCIF)\n      ADD WS-TEM-IMPORTE        TO WS-CIF-SDO-APE(WS-INDCIF)\n      MOVE 0                    TO WS-BAN-APE.\n   IF WS-TEM-CVEMOV = 2014 OR 2093 OR 2216 OR 2269 OR 2271\n                           OR 2365 OR 2534\n      ADD 1                     TO WS-CIF-NUM-CANCE(WS-INDCIF).",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ReglasCifras {\n\n    private final P105Properties props;          // claves de cancelación y de SBC a 6 días\n    private final MovSbcRepository b27;          // S500 B27MOVSBC (JPA)\n\n    /** 51040000-ACT-CIFRAS, primer bloque. */\n    void aplicaSbcYConteos(MovimientoEnCurso m, CifrasProducto c, boolean movB07) {\n        BigDecimal imp = m.importe();\n\n        if (m.claveMovimiento() == props.sbc6Entrada() && movB07) {          // 1072\n            b27.save(MovSbc.salidaProgramada(m, props.sbc6Salida()));      // 51041000-CREOB27, clave 3036\n            c.sumaSbc6Actual(imp);\n            if (m.esLocal()) c.sumaSbc6EntL(imp); else c.sumaSbc6EntFr(imp);\n        }\n        if (m.claveMovimiento() == props.sbc6Entrada() && m.desdeB27()) {\n            sbcB07(m);                                                     // 51042000-SBC-B07\n        }\n        if (m.claveMovimiento() == props.sbc6Salida()) {                   // 3036\n            if (m.esLocal()) c.sumaSbc6SalL(imp); else c.sumaSbc6SalFr(imp);\n            c.restaSbc6Actual(imp);\n        }\n        if (m.apertura()) {\n            c.sumaApertura(imp);                                           // +1 y +importe\n        }\n        if (props.clavesCancelacion().contains(m.claveMovimiento())) {     // 2014 2093 2216 2269 2271 2365 2534\n            c.sumaCancelacion();\n        }\n    }\n}\n\n# application.yml\np105:\n  sbc6-entrada: 1072\n  sbc6-salida: 3036\n  claves-cancelacion: [2014, 2093, 2216, 2269, 2271, 2365, 2534]",
+          "racional": "El encabezado del párrafo documenta en el propio fuente qué significa cada clave, y la lógica lo respeta: la entrada 1072 suma al saldo actual de 6 días y a la bolsa de entradas local o foránea según el origen, y además crea en B27 la salida programada con clave 3036; la salida 3036 suma a la bolsa de salidas y resta del saldo actual. Las siete claves de cancelación incrementan el contador del día que después se vuelca a B09. Las claves pasan a <code>application.yml</code> porque son valores de catálogo compilados. Las sumas entre importes de escala 2 son exactas y no requieren redondeo.",
+          "reglas": [
+            "RN-S500-612",
+            "RN-S500-613"
+          ],
+          "riesgo": "La discriminación local o foráneo de SBC a 6 días usa solo WS-TEM-ORIGEN = 1; cualquier otro valor, incluido 0, se acumula como foráneo."
+        },
+        {
+          "id": "s8",
+          "titulo": "Excepción de origen local (BAN-ORILOC) y afectación al S052",
+          "linea_ini": 5444,
+          "linea_fin": 5826,
+          "origen_codigo": "   IF (WS-TEM-ORIGEN  = 1) OR (WS-BAN-DIAL = 1) OR\n      (WS-BAN-ORILOC > 0)\n      IF WS-TEM-CVEMOV = 1072\n         IF WS-BAN-SBC6 = 0\n            PERFORM 51044000-VAL028 THRU 51044000-EXIT\n         ELSE\n            NEXT SENTENCE\n      ELSE\n         PERFORM 51044000-VAL028  THRU 51044000-EXIT.\n 51045000-VAL052.\n   IF WS-BAN-S052 > 0\n     IF WS-BAN-S052 = 1\n        IF (WS-TEM-ORIGEN = 1) OR (WS-BAN-AUTO > 0) OR\n           (WS-BAN-ORILOC > 0)\n           PERFORM 51046100-CAR052 THRU 51046100-EXIT\n        ELSE\n           ADD WS-TEM-IMPORTE  TO WS-CIF-POSIL-CARFOR(WS-INDCIF)\n           ADD 1               TO WS-CIF-POSI-NUMCAR(WS-INDCIF)\n           SUBTRACT WS-TEM-IMPORTE  FROM\n           WS-CIF-SDO-ACTUAL(WS-INDCIF)\n     ELSE\n     IF WS-BAN-S052 = 2\n        IF (WS-TEM-ORIGEN = 1) OR (WS-BAN-AUTO > 0) OR\n           (WS-BAN-ORILOC > 0)\n           PERFORM 51046200-ABO052 THRU 51046200-EXIT\n        ELSE\n           ADD WS-TEM-IMPORTE TO WS-CIF-POSIL-ABOFOR(WS-INDCIF)\n           ADD 1              TO WS-CIF-POSI-NUMABO(WS-INDCIF)\n           ADD WS-TEM-IMPORTE TO WS-CIF-SDO-ACTUAL(WS-INDCIF)",
+          "java_codigo": "    /** 51040000-ACT-CIFRAS: decide si el movimiento afecta S028 (51044000-VAL028). */\n    void aplicaS028SiProcede(MovimientoEnCurso m, BanderasClave ban, boolean dialogo, CifrasProducto c) {\n        if (m.esLocal() || dialogo || ban.origenLocal() > 0) {\n            boolean entradaSbc6DeB27 = m.claveMovimiento() == props.sbc6Entrada() && m.desdeB27();\n            if (!entradaSbc6DeB27) {                     // 1072 con WS-BAN-SBC6 = 1: NEXT SENTENCE\n                validaS028(m, ban, dialogo, c);\n            }\n        }\n    }\n\n    /** 51045000-VAL052: cargos y abonos al S052 con la misma excepción de origen. */\n    void validaS052(MovimientoEnCurso m, BanderasClave ban, CifrasProducto c) {\n        boolean local = m.esLocal() || ban.automatico() > 0 || ban.origenLocal() > 0;\n        switch (ban.afectaS052()) {\n            case 0 -> { }\n            case 1 -> { if (local) car052(m, c); else c.cargoForaneoPosicion(m.importe()); }  // resta de SDO-ACTUAL\n            case 2 -> { if (local) abo052(m, c); else c.abonoForaneoPosicion(m.importe()); }  // suma a SDO-ACTUAL\n            default -> incidentes.registra(80, \"ERR PARAM AFECTA-S052 EN B17\", m);       // no aborta\n        }\n    }",
+          "racional": "Aquí se materializa la excepción documentada en el encabezado del párrafo: un movimiento con origen distinto de 1 se trata como local cuando su clave tiene <code>B17-ORIGEN-LOCAL</code> mayor que cero. La misma regla aparece en dos lugares del fuente, al decidir la afectación al S028 y al clasificar cargos y abonos del S052, donde además cuentan los movimientos automáticos. Para la clave 1072 el fuente solo llama a <code>51044000-VAL028</code> cuando <code>WS-BAN-SBC6</code> es 0, es decir, cuando la entrada no viene de B27. En Java la condición de origen se escribe una sola vez y los <code>IF</code> anidados de tres niveles se vuelven un <code>switch</code> sobre la bandera de afectación, con un caso explícito para valores no catalogados.",
+          "reglas": [
+            "RN-S500-616"
+          ]
+        },
+        {
+          "id": "s9",
+          "titulo": "Armado de la póliza hacia S151REGISTRA con valores fijos",
+          "linea_ini": 5535,
+          "linea_fin": 5581,
+          "origen_codigo": " 51043000-CALL-151.\n       ADD  1                      TO WS-CONAUT\n       MOVE 1                      TO WS-S151-0101-FUNCION-I.\n       MOVE WS-FECHA-PASO          TO WS-S151-0101-FECCONT-I\n                                      WS-S151-0101-FECVA-I.\n       MOVE WS-FECHA-MOV           TO WS-S151-0101-FEC-ULTMOV-I.\n       MOVE WS-TEM-IMPORTE         TO WS-S151-0101-IMPORTE-I(1).\n       MOVE WS-TEM-CVEPAS          TO WS-S151-0101-CVETRAN-I(1).\n       MOVE WS-FECHA-DIA           TO WS-S151-0101-FECMOV-I.\n       MOVE 093000                 TO WS-S151-0101-HORAMOV-I.\n       MOVE WS-TEM-SUCPROM         TO WS-S151-0101-SUCPROM-I.\n       MOVE WS-CONAUT              TO WS-S151-0101-AUTAPL-I.\n       IF WS-COPIAP105 = 1\n           MOVE 15                TO WS-S151-0101-TIPO-PROC-I\n       ELSE\n          IF WS-COPIAP105 = 2\n             MOVE 16             TO WS-S151-0101-TIPO-PROC-I\n          ELSE\n             MOVE 17             TO WS-S151-0101-TIPO-PROC-I.\n       IF WS-BAN-DIAL = 0\n          MOVE WS-TEM-ORIGEN       TO WS-S151-0101-ORIGEN-I\n       ELSE\n          MOVE 2                   TO WS-S151-0101-ORIGEN-I.\n       IF WS-DH-HOSTNAME-DAH\n          MOVE WS-TEM-BANORI       TO WS-S151-0101-BCO-ORI-I\n          MOVE WS-TEM-BANDES       TO WS-S151-0101-BCO-DES-I\n       ELSE\n          MOVE 007                 TO WS-S151-0101-BCO-ORI-I\n          MOVE 007                 TO WS-S151-0101-BCO-DES-I.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PolizaS151Mapper {\n\n    private final P105Properties props;\n\n    /** 51043000-CALL-151: arma el área WS-S151-0101-*-I que recibe la librería. */\n    public PolizaS151 desde(MovimientoEnCurso m, Contexto ctx, boolean dialogo, long autorizacion) {\n        return PolizaS151.builder()\n                .funcion(1)                                            // alta de movimiento\n                .fechaContable(ctx.fechaPaso()).fechaValor(ctx.fechaPaso())\n                .fechaUltimoMovimiento(ctx.fechaMovimiento())\n                .importe(m.importe())                                  // BigDecimal escala 2\n                .claveTransaccion(m.clavePase())\n                .fechaMovimiento(ctx.fechaDia())\n                .horaMovimiento(props.horaMovimientoS151())            // 093000 fijo en el fuente\n                .sucursalPromotora(ctx.sucursalPromotora())\n                .autorizacion(autorizacion)                            // WS-CONAUT: consecutivo del paso\n                .tipoProceso(props.tipoProcesoPorCopia().get(ctx.copia())) // copia 1 -> 15, 2 -> 16, otra -> 17\n                .origen(dialogo ? 2 : m.origen())                      // los de diálogo viajan como origen 2\n                .bancoOrigen(ctx.hostDah() ? m.bancoOrigen() : props.bancoDefault())   // 007\n                .bancoDestino(ctx.hostDah() ? m.bancoDestino() : props.bancoDefault())\n                .build();\n    }\n}\n\n# application.yml\np105:\n  hora-movimiento-s151: \"09:30:00\"\n  banco-default: \"007\"\n  tipo-proceso-por-copia: {1: 15, 2: 16, 3: 17}",
+          "racional": "El párrafo llena el área de llamado de S151REGISTRA campo por campo. Se citan las líneas con decisiones o valores fijos: la función 1, la hora 093000 que se graba en todos los movimientos sin importar la hora real, el tipo de proceso que depende del número de copia, el origen 2 para movimientos de diálogo y la clave de banco 007 cuando el host no es el de alta disponibilidad. En Java el área se vuelve un objeto inmutable construido por un mapper, y los valores fijos pasan a <code>application.yml</code>. El tipo de proceso por copia se modela como mapa para que una copia nueva no caiga en silencio en el valor 17.",
+          "reglas": [],
+          "riesgo": "Cualquier copia distinta de 1 y 2 envía tipo de proceso 17; si se agregara una partición nueva, S151 no podría distinguirla."
+        },
+        {
+          "id": "s10",
+          "titulo": "Error de S151REGISTRA: solo el estatus 4 detiene producción",
+          "linea_ini": 3818,
+          "linea_fin": 3859,
+          "origen_codigo": " 40000100-CALL-S151.\n     IF MOV-CLAVE-MOVTO = 1009 AND WS-TEM-CVEPAS=3009 AND\n        MOV-BANDERA = 2\n        PERFORM 23230425-CONSULTA-CTOXMEDIO.\n     MOVE WS-S151-0101-FUNCION-I TO     WS-MSG-N-02.\n     MOVE WS-S151-0101-FECCONT-I TO     WS-MSG-N-08.\n     PERFORM 20000151-CARGAMOV1.\n     IF WS-S151-0101-STATUS > 0\n        MOVE WS-S151-0101-STATUS  TO       WS-MSG-RS\n        STRING \"ERR CALL LIB/S151REG RS=\", WS-MSG-RS\n               \", FUNCION \" WS-MSG-N-02\n               \", FECHA   \" WS-MSG-N-08\n               \", COPY \" WS-COPIAP105\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        MOVE 78 TO W77-PAR-RESULT\n        PERFORM 40000130-ARMA-INCIDENT\n        IF W77-ES-DESARROLLO = 1\n           PERFORM 40000120-FALLA-S151-DES\n        ELSE\n           PERFORM 40000110-FALLA-S151-PROD.\n 40000100-EXIT.\n     EXIT.\n*****************************************************************\n 40000110-FALLA-S151-PROD.\n     PERFORM 70000050-MENSAJE.\n     IF WS-S151-0101-STATUS = 4\n        CALL SYSTEM DMTERMINATE.\n*****************************************************************\n 40000120-FALLA-S151-DES.\n     ADD 1 TO W77-N-FALLA-S151.\n     IF W77-N-FALLA-S151 < 11\n        MOVE \"O\" TO W77-TIPO-DISP.\n     PERFORM 70000050-MENSAJE\n     STRING \" SOLO EN DESARROLLO CONTINUA \"\n            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE\n     MOVE \"E\" TO W77-TIPO-DISP.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class S151RegistraClient {\n\n    private final S151Registra libreria;          // adaptador de la librería S151REGISTRA (CARGAMOV1)\n    private final IncidentesWriter incidentes;    // archivo I03 de incidentes\n    private final P105Properties props;\n    private int fallasDesarrollo;                 // W77-N-FALLA-S151\n\n    /** 40000100-CALL-S151. */\n    public void envia(PolizaS151 p, MovimientoEnCurso m) {\n        int status = libreria.cargaMovimiento(p);\n        if (status == 0) return;\n\n        String texto = \"ERR CALL LIB/S151REG RS=%d, FUNCION %02d, FECHA %s\"\n                .formatted(status, p.funcion(), p.fechaContable());\n        incidentes.registra(78, texto, m);                       // W77-PAR-RESULT = 78\n\n        if (props.esDesarrollo()) {                              // 40000120-FALLA-S151-DES\n            if (++fallasDesarrollo < 11) log.info(texto); else log.error(texto);\n            log.error(\"SOLO EN DESARROLLO CONTINUA\");\n            return;\n        }\n        log.error(texto);                                        // 40000110-FALLA-S151-PROD\n        if (status == 4) {\n            throw new ProcesoAbortadoException(texto);           // CALL SYSTEM DMTERMINATE\n        }\n        // Cualquier otro estatus: el movimiento queda en incidentes y el paso continúa.\n    }\n}",
+          "racional": "La librería responde con un estatus. En producción solo el estatus 4 termina el programa; cualquier otro valor distinto de cero escribe el incidente con código 78 y el paso sigue con el siguiente movimiento. En desarrollo nunca se aborta y los diez primeros errores se muestran como informativos. La traducción conserva exactamente esa política, pero la deja visible en un solo método del cliente de la librería en lugar de repartida en tres párrafos.",
+          "reglas": [],
+          "riesgo": "Un movimiento rechazado por S151 con estatus distinto de 4 no llega a contabilidad y el paso termina normalmente; la única huella es el archivo de incidentes y el código 78 de la tarea."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Truncamiento del importe en el punteo S054",
+      "detalle": "E01-REG-S500-DET-IMP es PIC 9(10)V99 (línea 440) y recibe WS-TEM-IMPORTE, PIC 9(12)V99 (línea 2052), en la línea 6166. Los importes de 10 mil millones o más se graban sin los dígitos altos."
+    },
+    {
+      "titulo": "Rechazos de S151 que no detienen el paso",
+      "detalle": "En 40000110-FALLA-S151-PROD (líneas 3845-3848) solo el estatus 4 ejecuta DMTERMINATE. Otros rechazos quedan únicamente en el archivo de incidentes y en W77-PAR-RESULT = 78, lo que puede dejar movimientos del día sin registrar en contabilidad."
+    },
+    {
+      "titulo": "Aborts desactivados por comentario",
+      "detalle": "Varios DMTERMINATE están comentados: falla de búsqueda en B17 con estatus 1 (línea 5113) y parámetro inválido de afectación S028 (línea 5796). El programa continúa con el movimiento omitido o sin afectar cifras."
+    },
+    {
+      "titulo": "Valores fijos en la póliza contable",
+      "detalle": "Hora 093000, caja 40, banco 007 y el mapeo de copia a tipo de proceso 15, 16 y 17 están compilados en 51043000-CALL-151 (líneas 5557-5581). Se trasladan a application.yml."
+    },
+    {
+      "titulo": "Capacidad fija de la tabla de cifras",
+      "detalle": "WS-SAVECIFRAS admite 31 combinaciones de producto por copia (línea 1823). El reparto de productos entre copias depende de esa capacidad."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-615 (marca B03-MIGR-S111) no se localizó en este fuente: no hay referencias a MIGR-S111 en S500_SOURCE_P105.txt. El comentario de la línea 86 menciona una ruta PTOS111, pero la etiqueta real del archivo es PUNTEOS054. Confirmar si la regla pertenece a otra versión de P105 o a otro programa.",
+    "RN-S500-614 y el comentario de las líneas 84-85 dicen que los datos del punteo provienen de Tarjetas S054; en el fuente el detalle se arma con movimientos S500 de clave 3047 (líneas 6162-6166). Validar con SME la dirección del flujo.",
+    "El comentario de la línea 86 describe la ruta S500/FILE/S500/PTOS111/csi/aammdd/copia, distinta de la etiqueta WKS-ETIQ-PUNTEO-S054 (líneas 2259-2268). Confirmar cuál es la vigente.",
+    "Confirmar cuántas copias de P105 lanza el WFL y qué valores toma WS-COPIAP105 en cada una."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-917",
+    "RN-S500-921",
+    "RN-S500-611",
+    "RN-S500-612",
+    "RN-S500-613",
+    "RN-S500-614",
+    "RN-S500-615",
+    "RN-S500-616"
+  ]
+}

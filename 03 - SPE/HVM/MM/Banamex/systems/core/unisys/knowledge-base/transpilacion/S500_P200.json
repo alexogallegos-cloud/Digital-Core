@@ -1,0 +1,196 @@
+{
+  "slug": "S500_P200",
+  "sistema": "S500",
+  "programa": "P200",
+  "nombre": "Generador de tasas para Tesorería por rangos de saldo",
+  "funcion": "Paso batch nocturno del S500 que entrega a Tesorería, por el buzón 50004S15, el archivo RANGOS con saldos y tasas pagadas agrupados por producto, tipo de persona y rango de saldo.",
+  "resumen": "P200 arma en memoria la tabla de rangos de saldo y tasas de cada instrumento consultando el tarifario S080 (tarifa 50), y calcula la tasa neta restando la retención de ISR a la tasa bruta. Después recorre todo el maestro de contratos de S500BD01CAPTACION en modo consulta, selecciona los que están vigentes o tienen saldo, ubica a cada uno en su rango según el saldo o, en cierre de mes, según el promedio del ciclo, y escribe un archivo puente. El puente ordenado se consolida por producto, persona, rango y tasas pagadas en el archivo RANGOS con header y trailer de control, que se ordena otra vez y se imprime como reporte de validación.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration (entrega de archivo)",
+  "paquete_java": "mx.banamex.s500.tesoreria.rangos",
+  "secciones": [
+    {
+      "titulo": "Estructuras de intercambio y tabla de tasas",
+      "origen": {
+        "archivo": "S500_SOURCE_P200.txt",
+        "contexto": "WORKING-STORAGE · WKS-E01-* · WS-TASAS-XCOMUN · 20030000-CARGA-RANGOS"
+      },
+      "java": {
+        "archivo": "RangoTesoreria.java · RangoTesoreriaFormatter.java · TablaTasas.java",
+        "contexto": "sealed interface · LineAggregator · record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Archivo RANGOS para Tesorería: header, detalle y trailer de 96 bytes",
+          "linea_ini": 342,
+          "linea_fin": 386,
+          "origen_codigo": " 01 WKS-TIT-E01-RGOS.\n    02 FILLER                PIC X(24)\n                                 VALUE \"S500/FILE/INTS/50004S15/\".\n    02 WKS-TIT-E01-CSI       PIC 99.\n    02 FILLER                PIC X VALUE \"/\".\n    02 WKS-TIT-E01-FECH      PIC 9(08).\n    02 FILLER                PIC X(08) VALUE \"/RANGOS.\".\n 01 WKS-E01-HEADER.\n    02 WKS-E01-TPOR-H        PIC 9         VALUE 1.\n    02 WKS-E01-SISOR-H       PIC 9(04)     VALUE 0500.\n    02 WKS-E01-FECCREA-H     PIC 9(08).\n    02 WKS-E01-HORACREA-H    PIC 9(06).\n    02 WKS-E01-FECINI-H      PIC 9(08).\n    02 WKS-E01-FECFIN-H      PIC 9(08).\n    02 FILLER                PIC X(61)     VALUE \" \".\n*****************************************************************\n 01  WKS-E01-DETALLE.\n     02 WKS-E01-FECPROC           PIC 9(08).\n     02 WKS-E01-PRODUCTO          PIC 9(11).\n     02 RD-WKS-E01-PRODUCTO       REDEFINES  WKS-E01-PRODUCTO.\n        04 WKS-E01-PROD           PIC 9(04).\n        04 WKS-E01-INST           PIC 9(04).\n        04 WKS-E01-MONEDA         PIC 9(03).\n     02 WKS-E01-LMTINF            PIC 9(10)V99.\n     02 WKS-E01-LMTSUP            PIC 9(10)V99.\n     02 WKS-E01-SDOACT            PIC 9(12)V99.\n     02 WKS-E01-SDOPROM           PIC 9(12)V99.\n     02 WKS-E01-NUNRGO            PIC 9(02).\n     02 WKS-E01-PERSONA           PIC 9(02).\n     02 WKS-E01-NUMCTAS           PIC 9(08).\n     02 WKS-E01-TASANP            PIC 9(02)V9(03).\n     02 WKS-E01-TASABP            PIC 9(02)V9(03).\n     02 WKS-E01-RESTO             PIC X(03).\n***************************************************************\n 01 WKS-E01-TRAILER.\n    02 WKS-E01-TPOR-T        PIC 9         VALUE 9.\n    02 WKS-E01-TOTREGS-T     PIC 9(13)     VALUE 0.\n    02 WKS-E01-TOTSDOS-T     PIC 9(16)V99  VALUE 0.\n    02 FILLER                PIC X(64)     VALUE \" \".",
+          "java_codigo": "# application.yml\np200:\n  salida-tesoreria: \"S500/FILE/INTS/50004S15/{csi}/{fecha}/RANGOS.\"   # WKS-TIT-E01-RGOS\n  sistema-origen: 500\n\n/** Registros de I01-RANGOS (formato de intercambio con Tesorería, campos DISPLAY). */\npublic sealed interface RangoTesoreria permits RangoTesoreria.Header, RangoTesoreria.Detalle,\n                                                RangoTesoreria.Trailer {\n\n    /** WKS-E01-HEADER: tipo 1, sistema 0500, fechas de creación y de proceso. */\n    record Header(int sistemaOrigen, LocalDate fechaCreacion, LocalTime horaCreacion,\n                  LocalDate fechaIni, LocalDate fechaFin) implements RangoTesoreria {}\n\n    /** WKS-E01-DETALLE: un renglón por producto, persona, rango y par de tasas pagadas. */\n    record Detalle(LocalDate fechaProceso,\n                   int producto, int instrumento, int moneda,   // PIC 9(11) REDEFINES 4 + 4 + 3\n                   BigDecimal limiteInferior, BigDecimal limiteSuperior,   // 9(10)V99\n                   BigDecimal saldoActual, BigDecimal saldoPromedio,       // 9(12)V99\n                   int numRango, int persona, long numCuentas,\n                   BigDecimal tasaNetaPagada, BigDecimal tasaBrutaPagada)  // 9(02)V9(03) -> escala 3\n            implements RangoTesoreria {}\n\n    /** WKS-E01-TRAILER: tipo 9, total de detalles y suma de saldos actuales. */\n    record Trailer(long totalRegistros, BigDecimal totalSaldos)   // 9(13), 9(16)V99\n            implements RangoTesoreria {}\n}\n\n/** Formato posicional idéntico al de MCP: Tesorería no cambia su lector. */\n@Component\nclass RangoTesoreriaFormatter implements LineAggregator<RangoTesoreria> {\n    @Override public String aggregate(RangoTesoreria r) {\n        return switch (r) {\n            case RangoTesoreria.Header h  -> Fixed.header(h);    // \"1\" + \"0500\" + ...\n            case RangoTesoreria.Detalle d -> Fixed.detalle(d);   // decimales implícitos, sin punto\n            case RangoTesoreria.Trailer t -> Fixed.trailer(t);   // \"9\" + 9(13) + 9(16)V99\n        };\n    }\n}",
+          "racional": "El archivo que recibe Tesorería es de registros fijos de 96 bytes con tres formatos: header tipo 1 con el sistema origen 0500, detalles por rango y trailer tipo 9 con el total de registros y de saldos. Como es una interfaz con otro sistema, la traducción conserva el formato posicional exacto y lo encapsula en un <code>LineAggregator</code>; los tipos se modelan como una <code>sealed interface</code>. El producto de 11 dígitos se descompone en producto, instrumento y moneda como hace el <code>REDEFINES</code>. Las tasas pagadas tienen tres decimales y los importes dos, siempre en <code>BigDecimal</code>. La ruta, que incluye el buzón 50004S15, pasa a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-757"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Tabla de tasas por instrumento, persona y rango, con tope truncado",
+          "linea_ini": 401,
+          "linea_fin": 858,
+          "origen_codigo": " 01  WS-TASAS-XCOMUN.\n     02 WS-TASAS-XINSTR           OCCURS 30 TIMES.\n        04 WS-TASAS-XPERS         OCCURS  2 TIMES.\n           08 WS-XRGOSUP          PIC 99           COMP.\n           08 WS-XRANGOS          OCCURS 20 TIMES.\n              10 WS-XLMTEINF      PIC 9(09)V99     COMP.\n              10 WS-XLMTESUP      PIC 9(09)V99     COMP.\n              10 WS-XTASANETA     PIC 9(04)V9(06)  COMP.\n              10 WS-XTASABRTA     PIC 9(04)V9(06)  COMP.\n     IF B05-IND-PAGOREND = 1\n        PERFORM 20030010-TARIFA-50\n     ELSE\n        MOVE 1              TO WS-XRGOSUP  (WKS-I, 1)\n                               WS-XRGOSUP  (WKS-I, 2)\n        MOVE 9999999999.99  TO WS-XLMTESUP (WKS-I, 1, 1)\n                               WS-XLMTESUP (WKS-I, 2, 1).",
+          "java_codigo": "/** WS-TASAS-XCOMUN: 30 instrumentos x 2 tipos de persona x hasta 20 rangos. */\npublic record TablaTasas(Map<ClaveInstrumento, EnumMap<TipoPersona, List<RangoTasa>>> rangos) {\n\n    /** Escalas del fuente: límites 9(09)V99, tasas 9(04)V9(06). */\n    public record RangoTasa(BigDecimal limiteInferior, BigDecimal limiteSuperior,\n                            BigDecimal tasaNeta, BigDecimal tasaBruta) {\n        static final BigDecimal TOPE_9_09_V99 = new BigDecimal(\"999999999.99\");\n\n        /** MOVE a PIC 9(09)V99 conserva los 9 enteros de la derecha; se replica para no cambiar el archivo. */\n        static BigDecimal comoPic9_9V99(BigDecimal v) {\n            BigDecimal truncado = v.setScale(2, RoundingMode.DOWN);\n            return truncado.remainder(new BigDecimal(\"1000000000\"));\n        }\n    }\n\n    /** 20030000-CARGA-RANGOS sin pago de rendimiento: un solo rango abierto por persona. */\n    static List<RangoTasa> rangoUnico() {\n        return List.of(new RangoTasa(BigDecimal.ZERO.setScale(2),\n                RangoTasa.comoPic9_9V99(new BigDecimal(\"9999999999.99\")),   // queda 999999999.99\n                BigDecimal.ZERO.setScale(6), BigDecimal.ZERO.setScale(6)));\n    }\n}",
+          "racional": "La tabla en memoria guarda, por instrumento y tipo de persona, hasta veinte rangos de saldo con sus límites y sus tasas neta y bruta a seis decimales. En Java se representa como un mapa por instrumento con listas de rangos, sin los límites fijos de 30 y 20 posiciones, que se validan aparte. Los instrumentos sin pago de rendimiento reciben un único rango cuyo límite superior se escribe con la literal 9999999999.99, que tiene diez enteros, sobre un campo <code>PIC 9(09)V99</code>: COBOL conserva los nueve de la derecha y el tope real queda en 999999999.99. La traducción replica ese truncamiento de forma explícita para no alterar el archivo de Tesorería.",
+          "reglas": [],
+          "riesgo": "El límite superior de los rangos únicos se trunca a 999999999.99 por el tamaño del campo (líneas 407 y 857). Un saldo mayor sigue cayendo en el rango 1 porque solo hay uno, pero el archivo de Tesorería muestra un tope distinto al que el código pretende."
+        }
+      ]
+    },
+    {
+      "titulo": "Cálculo de tasas desde S080",
+      "origen": {
+        "archivo": "S500_SOURCE_P200.txt",
+        "contexto": "20041000-ANALIZA-TASAS · 20042000-CALCULA-TASAS"
+      },
+      "java": {
+        "archivo": "AnalizadorTasasS080.java · CalculoTasaNeta.java",
+        "contexto": "BigDecimal · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Tasa bruta y límites de rango con la escala decimal que entrega S080",
+          "linea_ini": 937,
+          "linea_fin": 959,
+          "origen_codigo": " 20041000-ANALIZA-TASAS.\n     MOVE WS-S080-0201-PRODTAR-S(WKS-IND-I) TO WKS-PROD-ANT-S.\n     MOVE WS-S080-0201-INSTAR-S (WKS-IND-I) TO WKS-INST-ANT-S.\n     MOVE WS-S080-0201-CVETAR-S (WKS-IND-I) TO WKS-CVE-ANT-S.\n     MOVE WS-S080-0201-MONEDA-S (WKS-IND-I) TO WKS-MON-ANT-S.\n     MOVE WS-S080-0201-PERS-S   (WKS-IND-I) TO WKS-PERS-ANT-S.\n     MOVE WS-S080-0201-LTEINF-S (WKS-IND-I) TO WKS-LTEINF-ANT-S.\n     MOVE WS-S080-0201-PERS-S   (WKS-IND-I) TO WKS-IND-J.\n     MOVE WS-S080-0201-PLAZO-S  (WKS-IND-I) TO WKS-PLAZO-ANT-S.\n     COMPUTE WKS-IMPPTE = WS-S080-0201-TASA-S(WKS-IND-I) /\n                 (10 ** WS-S080-0201-DCTASA-S(WKS-IND-I))\n     MOVE WKS-IMPPTE                        TO WKS-TASABRUTA.\n     COMPUTE WKS-IMPPTE = WS-S080-0201-LTEINF-S(WKS-IND-I) /\n            (10 ** WS-S080-0201-DECINF-S(WKS-IND-I))\n     MOVE WKS-IMPPTE                     TO WKS-LIMINF\n     COMPUTE WKS-IMPPTE = WS-S080-0201-LTESUP-S(WKS-IND-I) /\n            (10 ** WS-S080-0201-DECSUP-S(WKS-IND-I))\n     MOVE WKS-IMPPTE                     TO WKS-LIMSUP\n     PERFORM 20041100-ARMA-TASAS.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass AnalizadorTasasS080 {\n\n    /**\n     * 20041000-ANALIZA-TASAS. S080 entrega enteros con su número de decimales;\n     * el COMPUTE sin ROUNDED trunca a la escala de WKS-IMPPTE (6) y el MOVE a la del destino.\n     */\n    RangoCrudo analiza(RenglonTarifaS080 r) {\n        BigDecimal tasaBruta = BigDecimal.valueOf(r.tasa())\n                .movePointLeft(r.decimalesTasa())\n                .setScale(6, RoundingMode.DOWN);                 // WKS-TASABRUTA 9(04)V9(06)\n        BigDecimal limInf = BigDecimal.valueOf(r.limiteInferior())\n                .movePointLeft(r.decimalesInferior())\n                .setScale(2, RoundingMode.DOWN);                 // WKS-LIMINF 9(12)V99\n        BigDecimal limSup = BigDecimal.valueOf(r.limiteSuperior())\n                .movePointLeft(r.decimalesSuperior())\n                .setScale(2, RoundingMode.DOWN);                 // WKS-LIMSUP\n        return new RangoCrudo(r.persona(), r.plazo(), tasaBruta, limInf, limSup);\n    }\n}\n// movePointLeft es exacto; equivale a dividir entre 10 ** decimales sin pasar por double.",
+          "racional": "La librería S080 devuelve tasas y límites como enteros acompañados de su número de decimales, y P200 los convierte dividiendo entre una potencia de diez. El resultado intermedio tiene seis decimales y se trunca al moverlo a cada destino: seis para la tasa y dos para los límites. En Java la división se hace con <code>movePointLeft</code>, que es exacto, y el truncamiento con <code>RoundingMode.DOWN</code> porque ninguno de los <code>COMPUTE</code> lleva <code>ROUNDED</code>. Así la tasa bruta conserva los seis decimales que describe la regla.",
+          "reglas": [
+            "RN-S500-758"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Tasa neta: tasa bruta menos la tasa de ISR, con la variante 0.85 comentada",
+          "linea_ini": 1012,
+          "linea_fin": 1028,
+          "origen_codigo": " 20042000-CALCULA-TASAS.\n***  IF WKS-IND-J = 2\n        IF WKS-TASABRUTA > WS-ISR-0\n           COMPUTE\n           WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R) =\n           WKS-TASABRUTA - WS-ISR-0\n        ELSE\n           MOVE ZEROS\n             TO WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R).\n***  ELSE\n***  IF WKS-TASABRUTA > 0.85      WS-ISR-0\n***     COMPUTE\n***     WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R) =\n***     WKS-TASABRUTA - 0.85      WS-ISR-0\n***  ELSE\n***     MOVE WKS-TASABRUTA\n***       TO WS-XTASANETA(WKS-I, WKS-IND-J, WKS-R).",
+          "java_codigo": "# application.yml\np200:\n  tasa-isr: 0.000000          # WS-ISR-0 llega por COPY; su valor no viene en este fuente\n\n@Component\n@RequiredArgsConstructor\nclass CalculoTasaNeta {\n    private final P200Properties props;\n\n    /** 20042000-CALCULA-TASAS: la retención de ISR se resta en puntos de tasa, con piso en cero. */\n    BigDecimal tasaNeta(BigDecimal tasaBruta) {\n        BigDecimal isr = props.tasaIsr().setScale(6, RoundingMode.DOWN);\n        return tasaBruta.compareTo(isr) > 0\n                ? tasaBruta.subtract(isr)            // resta exacta a 6 decimales\n                : BigDecimal.ZERO.setScale(6);\n    }\n    // La variante que aplicaba 0.85 * ISR a personas morales está comentada en el fuente\n    // (líneas 1013 y 1021-1028) y no se traduce.\n}",
+          "racional": "La tasa neta se obtiene restando a la tasa bruta la tasa de retención de ISR y se fija en cero si la bruta no la supera. La resta entre valores de seis decimales es exacta y no requiere modo de redondeo. La tasa de ISR se toma de un copybook que no forma parte de este fuente, por eso se expone como propiedad. Una versión anterior distinguía a las personas morales con un factor de 0.85 sobre el ISR; ese bloque está comentado y no se traduce.",
+          "reglas": [
+            "RN-S500-758"
+          ],
+          "riesgo": "El valor de WS-ISR-0 no aparece en el fuente y no se sabe si se actualiza al cambiar la tasa de retención; un valor desactualizado altera todas las tasas netas de la tabla."
+        }
+      ]
+    },
+    {
+      "titulo": "Puente por contrato y archivo de Tesorería",
+      "origen": {
+        "archivo": "S500_SOURCE_P200.txt",
+        "contexto": "50003000 · 50006100 / 50006300 · 60000000 / 60010100 · 60000100 / 60051000"
+      },
+      "java": {
+        "archivo": "SeleccionPuente.java · GeneraPuente.java · GrupoRangoReader.java · RangosWriterConfig.java",
+        "contexto": "JpaCursorItemReader · ItemProcessor · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Selección de contratos de B03 que entran al archivo puente",
+          "linea_ini": 1076,
+          "linea_fin": 1103,
+          "origen_codigo": " 50003000-LEE-BASE-500.\n     PERFORM 50003100-DAME-B03CTO.\n     IF W77-EOF-BD = 0\n        IF (B03-STATUS < 2 OR B03-STATUS = 5) AND\n           B03-MIGR-S111 NOT = 1\n           PERFORM 50003110-SELECT-PTE\n        ELSE\n        IF (B03-SDO-ANTERIOR + B03-SDOPROT-ANT) > 0\n       AND B03-MIGR-S111 NOT = 1\n           PERFORM 50003110-SELECT-PTE.\n 50003110-SELECT-PTE.\n     PERFORM 50004000-DAME-HISTORICO.\n     PERFORM 50003105-MUEVE-B03-WKS.\n     PERFORM 50006000-GENERA-PTE.",
+          "java_codigo": "/** 50003000-LEE-BASE-500: filtro de contratos (lectura completa de S500B03CONTRATOS). */\n@Bean\n@StepScope\nJpaCursorItemReader<Contrato> contratosB03(EntityManagerFactory emf) {\n    return new JpaCursorItemReaderBuilder<Contrato>()\n            .name(\"contratosB03\")\n            .entityManagerFactory(emf)\n            .queryString(\"select c from Contrato c\")          // FINDN secuencial, base en INQUIRY\n            .build();\n}\n\n@Component\nclass SeleccionPuente implements ItemProcessor<Contrato, RegistroPuente> {\n\n    static boolean califica(Contrato c) {\n        if (c.getMigradoS111() == 1) return false;                         // migrados a S111 nunca\n        boolean statusVigente = c.getStatus() < 2 || c.getStatus() == 5;\n        boolean conSaldo = c.getSaldoAnterior().add(c.getSaldoProtegidoAnterior()).signum() > 0;\n        return statusVigente || conSaldo;\n    }\n\n    @Override\n    public RegistroPuente process(Contrato c) {\n        return califica(c) ? generaPuente.desde(c, historicos.de(c.getNumContrato())) : null;\n    }\n}",
+          "racional": "P200 recorre todo el maestro de contratos y toma los que tienen estatus menor a 2 o igual a 5, o cualquier otro estatus si su saldo anterior más el saldo protegido es positivo; en ambos casos excluye los contratos migrados a S111. En Spring Batch el recorrido es un <code>JpaCursorItemReader</code> y el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> para descartar. La condición se reescribe en una función pura con la exclusión de migrados al frente, lo que hace evidente que aplica a las dos ramas del IF original.",
+          "reglas": [
+            "RN-S500-757"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Saldo a calificar, ubicación del rango y tasas del registro puente",
+          "linea_ini": 1175,
+          "linea_fin": 1242,
+          "origen_codigo": " 50006100-UBICA-RANGO.\n     IF WS03-88-TP-GFISICA\n        MOVE 1         TO WKS-P\n     ELSE\n        MOVE 2         TO WKS-P.\n     COMPUTE W77-SALDO-TOTAL = B03-SDO-ANTERIOR + B03-SDOPROT-ANT.\n     IF B03-STATUS = 3\n        MOVE W77-SALDO-TOTAL       TO W77-SALDO-RGO\n                                      W77-PRMCIC\n                                      W77-SDOACT\n     ELSE\n     IF WKS-ES-MENSUAL = 1\n        IF B06-FEC-CICLOANT > 0\n           MOVE B06-PROM-CICLO(12)  TO W77-SALDO-RGO\n                                       W77-PRMCIC\n           MOVE W77-SALDO-TOTAL     TO W77-SDOACT\n        ELSE\n           MOVE W77-SALDO-TOTAL       TO W77-SALDO-RGO\n                                         W77-PRMCIC\n                                         W77-SDOACT\n     ELSE\n        MOVE W77-SALDO-TOTAL       TO W77-SALDO-RGO\n                                      W77-PRMCIC\n                                      W77-SDOACT.\n     MOVE WS-XRGOSUP(WKS-I, WKS-P)\n       TO WKS-IND-SUP.\n     IF W77-SALDO-RGO = 0\n     OR WKS-IND-SUP = 1\n        MOVE  1   TO WKS-R\n     ELSE\n     IF W77-SALDO-RGO NOT <\n        WS-XLMTESUP(WKS-I,WKS-P,WKS-IND-SUP)\n        MOVE WKS-IND-SUP   TO WKS-R\n     ELSE\n        PERFORM 50006200-DAME-RANGO\n         VARYING WKS-R  FROM 1 BY 1\n          UNTIL (WKS-R > WKS-IND-SUP)\n             OR (W77-SALDO-RGO NOT >\n                 WS-XLMTESUP(WKS-I,WKS-P,WKS-R)).\n 50006300-ARMA-PTE.\n     MOVE B03-NUM-PRODUCTO                 TO WKS-I02-PROD.\n     MOVE B03-NUM-INSTRUM                  TO WKS-I02-INST.\n     MOVE B03-MONEDA                       TO WKS-I02-MONEDA.\n     MOVE WKS-P                            TO WKS-I02-PERSONA.\n     MOVE WS-XLMTEINF (WKS-I,WKS-P,WKS-R)  TO WKS-I02-LMTINF.\n     MOVE WS-XLMTESUP (WKS-I,WKS-P,WKS-R)  TO WKS-I02-LMTSUP.\n     MOVE W77-SDOACT                       TO WKS-I02-SDOACT.\n     MOVE W77-PRMCIC                       TO WKS-I02-SDOPROM.\n     MOVE WKS-R                            TO WKS-I02-NUNRGO.\n     IF B03-STATUS = 3\n        MOVE ZEROS                           TO WKS-I02-TASANP\n        MOVE ZEROS                           TO WKS-I02-TASABP\n        MOVE WS-XTASANETA(WKS-I,WKS-P,WKS-R) TO WKS-I02-TASANT\n     ELSE\n        MOVE B03-TASA-ANTERIOR               TO WKS-I02-TASANP\n        MOVE B06-TASA-BRUTA                  TO WKS-I02-TASABP\n        MOVE WS-XTASANETA(WKS-I,WKS-P,WKS-R) TO WKS-I02-TASANT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass GeneraPuente {\n    private final TablaTasas tabla;\n    private final ProcesoContext ctx;        // esMensual: cambio de mes entre fecha línea y fecha batch\n\n    RegistroPuente desde(Contrato c, Historico h) {\n        TipoPersona p = c.esPersonaFisicaGrupo() ? TipoPersona.FISICA : TipoPersona.MORAL;  // WS03-88-TP-GFISICA\n        BigDecimal total = c.getSaldoAnterior().add(c.getSaldoProtegidoAnterior());\n\n        // Cierre de mes con ciclo anterior: califica por el promedio del ciclo (B06-PROM-CICLO(12)).\n        boolean usaPromedio = c.getStatus() != 3 && ctx.esMensual() && h.getFecCicloAnt() > 0;\n        BigDecimal saldoRango = usaPromedio ? h.getPromCiclo(12) : total;\n        BigDecimal saldoProm  = saldoRango;\n        BigDecimal saldoAct   = total;\n\n        List<RangoTasa> rangos = tabla.de(c.instrumento(), p);\n        int r = ubicaRango(saldoRango, rangos);\n        RangoTasa rt = rangos.get(r - 1);\n\n        boolean status3 = c.getStatus() == 3;\n        return new RegistroPuente(c.instrumento(), p, r, rt.limiteInferior(), rt.limiteSuperior(),\n                saldoAct, saldoProm,\n                status3 ? BigDecimal.ZERO : c.getTasaAnterior(),     // TASANP: tasa neta pagada (B03)\n                status3 ? BigDecimal.ZERO : h.getTasaBruta(),        // TASABP: tasa bruta pagada (B06)\n                rt.tasaNeta().setScale(3, RoundingMode.DOWN));       // TASANT 9(03)V9(03): trunca a 3\n    }\n\n    /** Primer rango cuyo límite superior es mayor o igual al saldo; saldo cero o un rango, el 1. */\n    static int ubicaRango(BigDecimal saldo, List<RangoTasa> rangos) {\n        int sup = rangos.size();\n        if (saldo.signum() == 0 || sup == 1) return 1;\n        if (saldo.compareTo(rangos.get(sup - 1).limiteSuperior()) >= 0) return sup;\n        for (int r = 1; r <= sup; r++) {\n            if (saldo.compareTo(rangos.get(r - 1).limiteSuperior()) <= 0) return r;\n        }\n        return sup;   // inalcanzable por la condición anterior\n    }\n}",
+          "racional": "Cada contrato se califica por su saldo anterior más el protegido, salvo en el proceso mensual, donde se usa el promedio del ciclo anterior si existe; los contratos con estatus 3 siempre usan el saldo total. El rango es el primero cuyo límite superior alcanza el saldo, con dos atajos: saldo cero o instrumento de un solo rango van al rango 1, y un saldo igual o mayor al último tope va al último. Las tasas que viajan a Tesorería son las pagadas al contrato (tasa anterior de B03 y tasa bruta de B06), en cero para estatus 3; la tasa neta de la tabla se guarda en el puente truncada a tres decimales.",
+          "reglas": [
+            "RN-S500-757",
+            "RN-S500-758"
+          ],
+          "riesgo": "El campo TASANT del puente (línea 1238 y 1242) no se vuelve a leer: el archivo de Tesorería no lleva la tasa neta calculada a seis decimales, sino las tasas pagadas de B03 y B06 a tres decimales."
+        },
+        {
+          "id": "s7",
+          "titulo": "Consolidación del puente ordenado y archivo puente que no se purga",
+          "linea_ini": 1272,
+          "linea_fin": 1368,
+          "origen_codigo": " 60000000-GENERA-ARCHIVO.\n     OPEN INPUT I02-RGOSPTE.\n     PERFORM 60000100-HEADER-DOMMY.\n     PERFORM 60010000-PASA-PTE UNTIL W77-EOF-PTE = 1.\n**   CLOSE I02-RGOSPTE WITH PURGE.\n     CLOSE I02-RGOSPTE WITH SAVE.\n     CLOSE I01-RANGOS  WITH SAVE.\n 60010000-PASA-PTE.\n     READ I02-RGOSPTE  AT END\n          MOVE 1   TO W77-EOF-PTE.\n     IF W77-EOF-PTE = 0\n        PERFORM 60010100-COMPARA-ANTERIOR\n     ELSE\n        PERFORM 60015000-ESCRIBE-ARCHIVO.\n 60010100-COMPARA-ANTERIOR.\n     IF WKS-LLAVE01-ANT = 0\n        MOVE FD-I02-LLAVE-01   TO WKS-LLAVE01-ANT\n        MOVE FD-I02-NUNRGO     TO WKS-NUNRGO-ANT\n        MOVE FD-I02-TASANP     TO WKS-TASANP-ANT\n        MOVE FD-I02-TASABP     TO WKS-TASABP-ANT\n        PERFORM 60010120-INICIA-REGS.\n     IF FD-I02-LLAVE-01 = WKS-LLAVE01-ANT\n    AND FD-I02-NUNRGO   = WKS-NUNRGO-ANT\n    AND FD-I02-TASANP   = WKS-TASANP-ANT\n    AND FD-I02-TASABP   = WKS-TASABP-ANT\n        PERFORM 60012000-SUMA-IGUAL\n      ELSE\n        PERFORM 60015000-ESCRIBE-ARCHIVO\n        PERFORM 60010120-INICIA-REGS\n        PERFORM 60012000-SUMA-IGUAL\n        MOVE FD-I02-LLAVE-01   TO WKS-LLAVE01-ANT\n        MOVE FD-I02-NUNRGO     TO WKS-NUNRGO-ANT\n        MOVE FD-I02-TASANP     TO WKS-TASANP-ANT\n        MOVE FD-I02-TASABP     TO WKS-TASABP-ANT.\n 60012000-SUMA-IGUAL.\n     ADD FD-I02-SDOACT        TO WKS-E01-SDOACT.\n     ADD FD-I02-SDOPROM       TO WKS-E01-SDOPROM.\n     ADD 1                    TO WKS-E01-NUMCTAS.\n 60015000-ESCRIBE-ARCHIVO.\n     WRITE I01-REG-RANGOS FROM WKS-E01-DETALLE\n     ADD 1    TO WKS-REGS-GEN.\n     ADD 1                TO WKS-E01-TOTREGS-T.\n     ADD WKS-E01-SDOACT   TO WKS-E01-TOTSDOS-T.",
+          "java_codigo": "@Bean\nStep generaArchivoTesoreria(JobRepository repo, PlatformTransactionManager tx,\n                            FlatFileItemReader<RegistroPuente> puenteOrdenado,     // tras 50007000-SORT-PTE\n                            FlatFileItemWriter<RangoTesoreria> rangosWriter) {\n    return new StepBuilder(\"generaArchivoTesoreria\", repo)\n            .<RegistroPuente, RangoTesoreria>chunk(540, tx)                       // BLOCK 540\n            .reader(new GrupoRangoReader(puenteOrdenado))                           // corte de control\n            .writer(rangosWriter)\n            .listener(new TrailerAcumuladoListener())                              // TOTREGS-T, TOTSDOS-T\n            .build();\n}\n\n/** 60010100-COMPARA-ANTERIOR: agrupa por (llave, rango, tasa neta pagada, tasa bruta pagada). */\nclass GrupoRangoReader implements ItemReader<RangoTesoreria.Detalle> {\n    private final PeekableItemReader<RegistroPuente> in;\n\n    @Override\n    public RangoTesoreria.Detalle read() throws Exception {\n        RegistroPuente primero = in.read();\n        if (primero == null) return null;\n        var g = Grupo.inicia(primero);                                // 60010120-INICIA-REGS\n        for (RegistroPuente sig; (sig = in.peek()) != null && g.mismaLlave(sig); ) {\n            g.suma(in.read());                                        // 60012000-SUMA-IGUAL\n        }\n        return g.comoDetalle();                                       // 60015000-ESCRIBE-ARCHIVO\n    }\n}\n\n# application.yml\np200:\n  puente:\n    conservar: true      # comportamiento actual: CLOSE WITH SAVE; RN-S500-759 espera PURGE",
+          "racional": "El puente, ya ordenado por producto, instrumento, moneda, persona, rango y las dos tasas pagadas, se recorre con corte de control: los registros consecutivos con la misma combinación se suman en un solo detalle que cuenta las cuentas y acumula saldo actual y promedio. En Spring Batch el corte se implementa con un lector agrupador sobre un <code>PeekableItemReader</code>. El comentario de cabecera y la regla RN-S500-759 dicen que el puente se borra al final, pero la línea con <code>CLOSE WITH PURGE</code> está comentada y la activa es <code>CLOSE WITH SAVE</code>; la traducción conserva el archivo y deja la decisión en una propiedad.",
+          "reglas": [
+            "RN-S500-757",
+            "RN-S500-759"
+          ],
+          "riesgo": "El archivo puente RGOSPTE persiste después de la corrida (línea 1280), al contrario de lo que documenta el programa. Si la siguiente ejecución del mismo día lo encuentra, puede confundirse con la salida."
+        },
+        {
+          "id": "s8",
+          "titulo": "Header y trailer provisionales que el SORT acomoda y luego se sobrescriben",
+          "linea_ini": 1285,
+          "linea_fin": 1420,
+          "origen_codigo": " 60000100-HEADER-DOMMY.\n     MOVE ALL \"0\"     TO I01-REG-RANGOS.\n     WRITE I01-REG-RANGOS\n     MOVE ALL \"9\"     TO I01-REG-RANGOS.\n     WRITE I01-REG-RANGOS\n 60050000-GENERA-REPORTE.\n     OPEN I-O   I01-RANGOS.\n     PERFORM 60051000-LEE-ARCHIVO UNTIL W77-EOF-I01 = 1.\n*****************************************************\n 60051000-LEE-ARCHIVO.\n     READ I01-RANGOS INTO WKS-E01-DETALLE AT END\n          MOVE 1     TO W77-EOF-I01.\n     IF W77-EOF-I01 = 0\n        IF FD-I01-REG-DOMMY = \"000000000000\"\n           PERFORM 60051010-GRABA-HEADER\n        ELSE\n        IF FD-I01-REG-DOMMY = \"999999999999\"\n           PERFORM 60051020-GRABA-TRAILER\n        ELSE\n           PERFORM 60052000-ARMA-REPORTE\n 60051010-GRABA-HEADER.\n     WRITE I01-REG-RANGOS FROM WKS-E01-HEADER\n 60051020-GRABA-TRAILER.\n     WRITE I01-REG-RANGOS FROM WKS-E01-TRAILER",
+          "java_codigo": "/**\n * En MCP se escriben un registro de ceros y uno de nueves para que el SORT por producto\n * los deje al principio y al final, y en la lectura posterior se reemplazan por el header\n * y el trailer reales. En Java no hace falta: el writer conoce los totales al cerrar.\n */\n@Bean\n@StepScope\nFlatFileItemWriter<RangoTesoreria> rangosWriter(P200Properties props, ProcesoContext ctx,\n                                                TrailerAcumuladoListener totales) {\n    return new FlatFileItemWriterBuilder<RangoTesoreria>()\n            .name(\"rangosTesoreria\")\n            .resource(new FileSystemResource(props.salidaTesoreria(ctx)))\n            .lineAggregator(new RangoTesoreriaFormatter())\n            .headerCallback(w -> w.write(Fixed.header(RangoTesoreria.Header.de(ctx))))\n            .footerCallback(w -> w.write(Fixed.trailer(new RangoTesoreria.Trailer(\n                    totales.registros(), totales.saldoActual()))))\n            .build();\n}\n// El orden final (producto, persona, rango, tasas) se obtiene ordenando antes de escribir,\n// con un step de ordenamiento externo o con la consulta que alimenta el puente.",
+          "racional": "El programa no sabe los totales del trailer al abrir el archivo, así que escribe dos registros provisionales, uno de ceros y otro de nueves, confía en que el ordenamiento por producto los coloque al inicio y al final, y en la lectura del reporte los reemplaza por el header y el trailer reales. En Spring Batch este truco desaparece: <code>FlatFileItemWriter</code> ofrece <code>headerCallback</code> y <code>footerCallback</code>, y el pie se escribe al cerrar el step con los totales ya acumulados.",
+          "reglas": [
+            "RN-S500-757"
+          ],
+          "riesgo": "El reemplazo se hace con WRITE y no con REWRITE sobre un archivo abierto en I-O justo después del READ (líneas 1392, 1412 y 1420). Depende de que MCP posicione la escritura sobre el registro recién leído; si no fuera así, se sobrescribiría el registro siguiente."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "El archivo puente no se purga",
+      "detalle": "La cabecera (línea 28) y RN-S500-759 dicen que RGOSPTE se borra con CLOSE WITH PURGE, pero esa línea está comentada (1279) y la activa es CLOSE WITH SAVE (1280)."
+    },
+    {
+      "titulo": "La tasa neta calculada no llega a Tesorería",
+      "detalle": "WS-XTASANETA solo se copia al campo TASANT del puente (líneas 1238 y 1242), que ningún párrafo lee después; el archivo RANGOS lleva las tasas pagadas de B03 y B06 con tres decimales."
+    },
+    {
+      "titulo": "Tope de rango truncado",
+      "detalle": "La literal 9999999999.99 se mueve a WS-XLMTESUP, PIC 9(09)V99 (líneas 407, 857 y 930); el valor almacenado es 999999999.99."
+    },
+    {
+      "titulo": "Reemplazo de header y trailer con WRITE",
+      "detalle": "60051010 y 60051020 usan WRITE sobre I01-RANGOS abierto en I-O tras un READ; el resultado depende de la semántica de posicionamiento de MCP y no de un REWRITE explícito."
+    },
+    {
+      "titulo": "Errores que no abortan",
+      "detalle": "Si S080 no tiene tasas para un instrumento, el programa asigna un rango único en cero y continúa (el DMTERMINATE de la línea 934 está comentado); los errores de WRITE solo cambian el STATUS a -1."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Tarifa 50, 10 registros por llamada a S080, 30 instrumentos y 20 rangos, buzón 50004S15, sistema 0500, sucursales 3084 y 3667 por nodo y factores de memoria del SORT. Se trasladan a configuración."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-759 describe la purga del puente como comportamiento vigente; el código hace lo contrario. Confirmar con el SME cuál es el esperado y corregir la regla o el programa.",
+    "RN-S500-758 afirma que la precisión de seis decimales reduce el error antes de reportar a Tesorería; en el fuente esa tasa no llega al archivo de salida. Validar la redacción de la regla.",
+    "Obtener el copybook que define WS-ISR-0 para conocer la tasa de ISR vigente y su mantenimiento.",
+    "Confirmar con un especialista MCP el efecto de WRITE (y no REWRITE) sobre un archivo secuencial abierto en I-O en 60051010 y 60051020.",
+    "Los dos SORT y el reporte de validación R01-RGOSDO no se incluyeron en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-912",
+    "RN-S500-926",
+    "RN-S500-757",
+    "RN-S500-758",
+    "RN-S500-759"
+  ]
+}

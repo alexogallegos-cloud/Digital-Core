@@ -1,0 +1,719 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BanCoppel · CAN · Flujos Interbancarios paso a paso</title>
+<style>
+:root{--blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;--ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;--glass:rgba(255,255,255,.055);--panel:#111c47;--line:#26317c;--red:#ef4444;--orange:#f97316;--green:#22c55e;--purple:#a855f7;--teal:#14b8a6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(27,63,208,.55),transparent 70%);border-radius:50%;filter:blur(90px);animation:f1 24s ease-in-out infinite}
+.aurora::after{content:"";position:absolute;width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(13,33,133,.6),transparent 70%);border-radius:50%;filter:blur(90px);animation:f2 28s ease-in-out infinite}
+.blob{position:absolute;width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(240,210,36,.18),transparent 70%);border-radius:50%;filter:blur(90px);animation:f3 32s ease-in-out infinite}
+@keyframes f1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes f2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes f3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+.grain{position:fixed;inset:0;z-index:-1;opacity:.04;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;padding:12px 28px;backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);background:rgba(6,10,26,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+nav .sep{width:1px;height:18px;background:rgba(255,255,255,.15)}
+nav .nt{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+nav .sp{flex:1}
+nav .can-badge{font-size:10px;font-weight:800;letter-spacing:.12em;color:#060a1a;background:var(--yellow);padding:3px 9px;border-radius:20px}
+nav .date-lbl{font-size:10px;color:var(--muted2)}
+nav a{color:var(--muted2);font-size:10px;text-decoration:none;padding:3px 8px;border:1px solid rgba(255,255,255,.1);border-radius:5px;transition:.15s}
+nav a:hover{color:var(--yellow);border-color:rgba(240,210,36,.4)}
+
+/* HERO */
+.hero{padding:90px 32px 24px;max-width:1400px;margin:0 auto}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:30px;font-size:11px;font-weight:600;letter-spacing:.03em;color:#dfe6ff;margin-bottom:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px var(--yellow);animation:pulse 2.4s infinite;flex-shrink:0}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(26px,3.6vw,48px);font-weight:800;line-height:1.06;letter-spacing:-.03em;background:linear-gradient(176deg,#fff 34%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px}
+.hero .sub{font-size:13px;color:var(--muted);max-width:90ch;line-height:1.6;margin-bottom:28px}
+.hero .sub b{color:#e4eaff;font-weight:600}
+.hero .sub .hi{color:var(--yellow);font-weight:700}
+
+/* TABS */
+.tabs{display:flex;gap:0;max-width:1400px;margin:0 auto 0;padding:0 32px}
+.tab-btn{padding:10px 22px;font-size:12px;font-weight:700;letter-spacing:.03em;cursor:pointer;border:1px solid rgba(255,255,255,.1);border-bottom:none;border-radius:8px 8px 0 0;color:var(--muted);background:rgba(255,255,255,.03);transition:.15s;position:relative;top:1px}
+.tab-btn:first-child{margin-right:4px}
+.tab-btn.active{background:rgba(18,47,177,.35);color:#e4eaff;border-color:rgba(61,95,205,.5)}
+.tab-btn.active.caso2{background:rgba(240,210,36,.12);color:#fde68a;border-color:rgba(240,210,36,.4)}
+
+/* CONTENT */
+.tab-content{display:none;max-width:1400px;margin:0 auto;padding:0 32px 40px;border-top:1px solid rgba(61,95,205,.5)}
+.tab-content.active{display:block}
+.tab-content.caso2{border-top-color:rgba(240,210,36,.4)}
+
+/* CASO HEADER */
+.caso-hdr{padding:24px 0 20px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start}
+.caso-hdr h2{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#e4eaff;margin-bottom:6px}
+.caso-hdr p{font-size:12px;color:var(--muted);line-height:1.5;max-width:70ch}
+.rol-chips{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.rol-chip{font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:4px 12px;border-radius:20px;white-space:nowrap}
+.chip-acreedora{background:rgba(61,95,205,.25);border:1px solid var(--blue);color:#93c5fd}
+.chip-ordenante{background:rgba(240,210,36,.15);border:1px solid rgba(240,210,36,.5);color:#fde68a}
+
+/* FLOW */
+.flow{display:flex;flex-direction:column;gap:6px;margin-bottom:28px}
+.step{display:grid;grid-template-columns:36px 1fr;gap:0;align-items:stretch}
+.step-num{display:flex;flex-direction:column;align-items:center}
+.step-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;position:relative;z-index:1}
+.step-line{width:2px;background:rgba(255,255,255,.07);flex:1;margin:0 auto}
+.step-body{padding:0 0 18px 18px}
+.step-tag{display:inline-block;font-size:8px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;padding:2px 8px;border-radius:3px;margin-bottom:6px}
+.step-title{font-size:14px;font-weight:700;color:#e4eaff;margin-bottom:4px;line-height:1.3}
+.step-desc{font-size:11.5px;color:var(--muted);line-height:1.55}
+.step-desc b{color:#e4eaff;font-weight:600}
+.step-desc code{font-family:'Cascadia Code','Consolas',monospace;font-size:10px;background:rgba(255,255,255,.08);border-radius:3px;padding:1px 4px;color:#c9d6e8}
+
+/* Step color variants */
+.c1 .step-circle{background:rgba(61,95,205,.3);border:2px solid var(--blue);color:#93c5fd}
+.c2 .step-circle{background:rgba(34,197,94,.2);border:2px solid var(--green);color:#86efac}
+.c3 .step-circle{background:rgba(239,68,68,.2);border:2px solid var(--red);color:#fca5a5}
+.c4 .step-circle{background:rgba(249,115,22,.2);border:2px solid var(--orange);color:#fdba74}
+.c5 .step-circle{background:rgba(168,85,247,.2);border:2px solid var(--purple);color:#d8b4fe}
+.c6 .step-circle{background:rgba(20,184,166,.2);border:2px solid var(--teal);color:#5eead4}
+.c7 .step-circle{background:rgba(240,210,36,.2);border:2px solid var(--yellow);color:#fde68a}
+
+.tag-bancoppel{background:rgba(61,95,205,.25);color:#93c5fd;border:1px solid rgba(61,95,205,.4)}
+.tag-cecoban{background:rgba(168,85,247,.2);color:#d8b4fe;border:1px solid rgba(168,85,247,.4)}
+.tag-otrobanco{background:rgba(100,116,139,.2);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
+.tag-sla{background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+.tag-ok{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
+.tag-batch{background:rgba(249,115,22,.2);color:#fdba74;border:1px solid rgba(249,115,22,.3)}
+.tag-db{background:rgba(20,184,166,.15);color:#5eead4;border:1px solid rgba(20,184,166,.3)}
+
+/* CODE PILL */
+.ccode{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:4px;font-size:9.5px;font-weight:800;font-family:'Cascadia Code','Consolas',monospace;background:rgba(13,33,133,.5);border:1px solid var(--line);color:#93c5fd;margin-left:6px;white-space:nowrap}
+.ccode.critico{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5);color:#fca5a5}
+
+/* SLA BOX */
+.sla-box{display:inline-flex;align-items:center;gap:6px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;color:#fca5a5;margin-top:6px}
+.sla-dot{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:pulse 1.5s infinite}
+
+/* INFORMIX IMPACT */
+.impact-section{margin-bottom:32px}
+.impact-title{font-size:13px;font-weight:800;color:#e4eaff;letter-spacing:-.01em;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px}
+.impact-title .icon{font-size:16px}
+.impact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.impact-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;transition:.15s}
+.impact-card:hover{background:rgba(61,95,205,.09);border-color:rgba(61,95,205,.3)}
+.impact-card.critico{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.05)}
+.impact-card.nuevo{border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.05)}
+.impact-card.modificar{border-color:rgba(61,95,205,.3);background:rgba(61,95,205,.06)}
+.ic-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ic-sev{font-size:8px;font-weight:800;letter-spacing:.07em;padding:2px 7px;border-radius:3px}
+.ic-sev.critico{background:rgba(239,68,68,.25);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+.ic-sev.nuevo{background:rgba(168,85,247,.25);color:#d8b4fe;border:1px solid rgba(168,85,247,.4)}
+.ic-sev.modificar{background:rgba(61,95,205,.25);color:#93c5fd;border:1px solid rgba(61,95,205,.4)}
+.ic-name{font-family:'Cascadia Code','Consolas',monospace;font-size:10px;color:#c9d6e8;font-weight:600}
+.ic-desc{font-size:10.5px;color:var(--muted);line-height:1.5}
+.ic-desc b{color:#e4eaff;font-weight:600}
+
+/* DIVIDER */
+.divider{height:1px;background:rgba(255,255,255,.06);margin:24px 0}
+
+/* CALLOUT */
+.callout{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-left:3px solid #ef4444;border-radius:8px;padding:12px 16px;margin-bottom:20px}
+.callout.info{background:rgba(61,95,205,.08);border-color:rgba(61,95,205,.3);border-left-color:#3D5FCD}
+.callout.warn{background:rgba(249,115,22,.07);border-color:rgba(249,115,22,.3);border-left-color:#f97316}
+.callout p{font-size:11.5px;color:var(--muted);line-height:1.55}
+.callout p b{color:#e4eaff}
+.callout-title{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;color:#fca5a5}
+.callout.info .callout-title{color:#93c5fd}
+.callout.warn .callout-title{color:#fdba74}
+
+/* ACTOR ROW */
+.actor-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.actor{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);min-width:130px}
+.actor-icon{font-size:22px;line-height:1}
+.actor-name{font-size:10px;font-weight:700;color:#e4eaff;text-align:center}
+.actor-role{font-size:8.5px;color:var(--muted);text-align:center;line-height:1.3}
+.actor.primary{border-color:rgba(61,95,205,.5);background:rgba(61,95,205,.1)}
+.actor.secondary{border-color:rgba(240,210,36,.4);background:rgba(240,210,36,.07)}
+.actor.neutral{border-color:rgba(168,85,247,.4);background:rgba(168,85,247,.07)}
+
+footer{font-size:9px;color:var(--muted2);padding:16px 32px;border-top:1px solid rgba(255,255,255,.06);line-height:1.6;text-align:center;margin-top:8px}
+</style></head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div class="grain"></div>
+
+<nav>
+  <img src="/03%20-%20SPE/HVM/AM/BanCoppel/design-studio/logos/BanCoppel_logo.png" height="28" alt="BanCoppel" style="display:block;object-fit:contain">
+  <span class="sep"></span>
+  <span class="nt">CAN · Flujos Interbancarios · Art. 63 Bis 3</span>
+  <span class="sp"></span>
+  <span class="can-badge">CAN</span>
+  <span class="date-lbl">2026-09-17</span>
+  <a href="/03%20-%20SPE/HVM/AM/BanCoppel/projects/can/portal/impacto-can-spl.html">← Inventario SPL</a>
+</nav>
+
+<section class="hero">
+  <div class="eyebrow"><span class="dot"></span>Mecanismo Art. 63 Bis 3 · Cecoban · DE CAN v4.2 · Circular 3/2012 mod. 6/2025</div>
+  <h1>Flujos CAN Interbancarios<br>paso a paso</h1>
+  <div class="sub">
+    Los dos escenarios donde BanCoppel participa en el mecanismo CAN de Cecoban.
+    <b>Caso 1</b>: BanCoppel otorga un CAN a un nominado cuya nómina está en otro banco.
+    <b>Caso 2</b>: BanCoppel tiene la nómina del nominado y otro banco le otorga un CAN.
+    En ambos casos, toda la comunicación interbancaria pasa <span class="hi">exclusivamente por Cecoban</span> — los bancos nunca se comunican directamente entre sí.
+  </div>
+</section>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('caso1',this)">Caso 1 — BanCoppel otorga el CAN</button>
+  <button class="tab-btn caso2" onclick="showTab('caso2',this)">Caso 2 — BanCoppel tiene la nómina</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ CASO 1 -->
+<div class="tab-content active" id="caso1">
+
+  <div class="caso-hdr">
+    <div>
+      <h2>Caso 1: BanCoppel otorga el CAN</h2>
+      <p>El nominado tiene su cuenta de nómina en otro banco. BanCoppel quiere otorgarle un Crédito Asociado a Nómina. Para validar la disponibilidad del nominado, BanCoppel debe consultar al banco donde está la nómina, a través de Cecoban.</p>
+    </div>
+    <div class="rol-chips">
+      <span class="rol-chip chip-acreedora">BanCoppel = Banco Otorgante (Acreedora)</span>
+      <span class="rol-chip chip-ordenante">Otro banco = Banco Ordenante (Depositaria)</span>
+    </div>
+  </div>
+
+  <!-- Actores -->
+  <div class="actor-row">
+    <div class="actor primary">
+      <span class="actor-icon">🏦</span>
+      <span class="actor-name">BanCoppel</span>
+      <span class="actor-role">Banco Otorgante<br>Acreedora · Código 40137</span>
+    </div>
+    <div class="actor neutral">
+      <span class="actor-icon">⚙️</span>
+      <span class="actor-name">Cecoban</span>
+      <span class="actor-role">Intermediario único<br>Art. 63 Bis 3 · UUID</span>
+    </div>
+    <div class="actor secondary">
+      <span class="actor-icon">🏛️</span>
+      <span class="actor-name">Otro banco</span>
+      <span class="actor-role">Banco Ordenante<br>Depositaria de la nómina</span>
+    </div>
+    <div class="actor">
+      <span class="actor-icon">👤</span>
+      <span class="actor-name">Nominado</span>
+      <span class="actor-role">Acreditado · CURP + RFC<br>Nómina en otro banco</span>
+    </div>
+  </div>
+
+  <!-- FLUJO -->
+  <div class="flow">
+
+    <div class="step c1">
+      <div class="step-num">
+        <div class="step-circle">1</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-bancoppel">BanCoppel · Canal</span>
+        <div class="step-title">Cliente solicita el CAN</div>
+        <div class="step-desc">
+          El nominado acude a BanCoppel (sucursal o canal digital) e indica que quiere un CAN.
+          BanCoppel verifica su identidad: carátula de contrato, estado de cuenta del trimestre anterior, o tarjeta de débito con nombre (OBL-004).
+          <br><br>
+          Se obtiene el <b>mandato expreso</b> del cliente: autorización para consultar información de nómina, gestionar domiciliación y comunicarse con otras instituciones (OBL-005).
+        </div>
+      </div>
+    </div>
+
+    <div class="step c2">
+      <div class="step-num">
+        <div class="step-circle">2</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-bancoppel">BanCoppel → Cecoban</span><span class="ccode">C-50</span>
+        <div class="step-title">BanCoppel solicita información del nominado</div>
+        <div class="step-desc">
+          El sistema de originación de crédito de BanCoppel envía el <b>C-50</b> a Cecoban vía el <b>adaptador-cecoban-can</b> (microservicio nuevo, TLS 1.3):
+          <br><br>
+          • CURP del nominado<br>
+          • RFC del nominado<br>
+          • CLABE de la cuenta de nómina (en el otro banco)<br>
+          • Código del banco ordenante<br>
+          • Folio de BanCoppel · UUID vacío (Cecoban lo asignará)
+        </div>
+      </div>
+    </div>
+
+    <div class="step c5">
+      <div class="step-num">
+        <div class="step-circle">3</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-cecoban">Cecoban</span>
+        <div class="step-title">Cecoban asigna UUID y retransmite el C-50</div>
+        <div class="step-desc">
+          Cecoban recibe el C-50, valida el formato y asigna un <b>UUID único</b> al ciclo de vida de este CAN.
+          Ese UUID debe preservarse sin cambios en todos los mensajes subsecuentes del mismo trámite.
+          Cecoban retransmite el C-50 (con UUID ya incluido) al banco donde el nominado tiene su nómina.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c4">
+      <div class="step-num">
+        <div class="step-circle">4</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-otrobanco">Otro banco → Cecoban</span><span class="ccode critico">C-51 · 30 seg máx</span>
+        <div class="step-title">El otro banco responde con los datos del nominado</div>
+        <div class="step-desc">
+          El banco ordenante tiene <b>30 segundos</b> para responder con el <b>C-51</b>:
+          <br><br>
+          • Nombre completo, CURP, RFC del nominado<br>
+          • RFC del patrón (emisora)<br>
+          • <b>6 meses de historial de abonos</b>: fecha, monto y concepto de cada depósito<br>
+          • CANs activos existentes del nominado<br>
+          • Créditos Mis to Mis vigentes<br>
+          • Periodicidad y frecuencia de la dispersión de nómina<br>
+          • Información del nominado (catálogo Cecoban: disponibilidad, bloqueos, etc.)
+          <div class="sla-box"><span class="sla-dot"></span>SLA crítico: 30 segundos — si excede, Cecoban rechaza con causa 36</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step c5">
+      <div class="step-num">
+        <div class="step-circle">5</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-cecoban">Cecoban → BanCoppel</span>
+        <div class="step-title">Cecoban retransmite el C-51 a BanCoppel</div>
+        <div class="step-desc">
+          Cecoban retransmite el C-51 al sistema de BanCoppel (mismo UUID). BanCoppel recibe la información completa del nominado y el historial de nómina.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c7">
+      <div class="step-num">
+        <div class="step-circle">6</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-bancoppel">BanCoppel · Análisis</span>
+        <div class="step-title">BanCoppel analiza y decide — ventana de 48 horas</div>
+        <div class="step-desc">
+          El motor de crédito de BanCoppel analiza la información del C-51:
+          verifica capacidad de pago, prelación de CANs existentes, historial de ingresos.
+          Compara las condiciones del CAN con un crédito similar no-CAN y presenta la comparativa al cliente (OBL-007).
+          <br><br>
+          <b>Si decide otorgar →</b> envía C-52 (paso 7).<br>
+          <b>Si decide no otorgar →</b> no envía nada; la solicitud caduca a las 48h automáticamente.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c2">
+      <div class="step-num">
+        <div class="step-circle">7</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-bancoppel">BanCoppel → Cecoban</span><span class="ccode">C-52</span>
+        <div class="step-title">BanCoppel notifica el otorgamiento del CAN</div>
+        <div class="step-desc">
+          BanCoppel envía el <b>C-52</b> a Cecoban dentro de las 48h:
+          <br><br>
+          • Mismo UUID del ciclo de vida<br>
+          • Número de crédito BanCoppel<br>
+          • Monto del CAN, tasa, plazo<br>
+          • Periodicidad de pago<br>
+          • <b>Clave Básica Estandarizada</b> (Circular 14/2017) — identifica el crédito en SPEI (OBL-006/OBL-009)<br>
+          • CLABE del crédito a liquidar (si el CAN refinancia otro crédito)
+        </div>
+      </div>
+    </div>
+
+    <div class="step c5">
+      <div class="step-num">
+        <div class="step-circle">8</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-cecoban">Cecoban → Otro banco</span><span class="ccode">C-53</span>
+        <div class="step-title">Cecoban envía la prelación actualizada al banco ordenante</div>
+        <div class="step-desc">
+          Cecoban calcula la nueva prelación del nominado (BanCoppel entra en el orden por fecha de designación) y envía el <b>C-53</b> al banco donde está la nómina.
+          El banco ordenante actualiza el orden de descuento: primero créditos no-CAN previos → luego CANs por fecha de designación → luego domiciliaciones.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c6">
+      <div class="step-num">
+        <div class="step-circle">9</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-ok">Operación activa</span>
+        <div class="step-title">CAN activo — descuentos periódicos desde la nómina del otro banco</div>
+        <div class="step-desc">
+          Cada vez que llega la nómina del nominado al otro banco, ese banco descuenta el importe del CAN de BanCoppel en el orden de prelación correspondiente y transfiere el monto vía SPEI a BanCoppel.
+          <br><br>
+          Si BanCoppel necesita modificar el CAN (baja, cambio de condiciones) → envía <b>C-55</b>.<br>
+          Si el nominado cancela la domiciliación → el otro banco envía <b>C-54</b> estatus 04 a Cecoban.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+  <div class="divider"></div>
+
+  <!-- INFORMIX IMPACT CASO 1 -->
+  <div class="impact-section">
+    <div class="impact-title"><span class="icon">🗄️</span>Impacto en bdiadminnomina (Informix) — Caso 1</div>
+    <div class="callout info">
+      <div class="callout-title">Contexto</div>
+      <p>En el Caso 1, la nómina del nominado está en <b>otro banco</b>, no en BanCoppel. El impacto en Informix es en los sistemas de <b>originación de crédito</b> y en el <b>adaptador Cecoban</b>. bdiadminnomina tiene impacto indirecto: debe registrar el CAN otorgado en Cecoban vía C-58 si BanCoppel también es la depositaria del mismo nominado (caso mixto); y los CANs propios de BanCoppel deben migrar a Cecoban.</p>
+    </div>
+    <div class="impact-grid">
+      <div class="impact-card nuevo">
+        <div class="ic-header">
+          <span class="ic-sev nuevo">NUEVO</span>
+          <span class="ic-name">adaptador-cecoban-can</span>
+        </div>
+        <div class="ic-desc"><b>Microservicio nuevo.</b> Envía C-50 (solicitud) y C-52 (otorgamiento) a Cecoban. Autentica con TLS 1.3 y certificado Cecoban. Gestiona el UUID del ciclo de vida. 5 ambientes: DEV, QA, UAT, PROD, DRP.</div>
+      </div>
+      <div class="impact-card nuevo">
+        <div class="ic-header">
+          <span class="ic-sev nuevo">NUEVO BATCH</span>
+          <span class="ic-name">job_ctm_c58_registro_can_propio</span>
+        </div>
+        <div class="ic-desc"><b>Job ControlM nuevo.</b> Registra en Cecoban vía C-58 los CANs propios existentes (BanCoppel = Acreedora y Depositaria a la vez). Requiere migración inicial de toda la cartera CAN propia existente.</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_generar_arch_mov_spei</span>
+        </div>
+        <div class="ic-desc"><b>Liquidación por SPEI.</b> Si el CAN refinancia otro crédito (OBL-006), la transferencia de recursos al banco del crédito a liquidar se realiza vía SPEI con la Clave Básica Estandarizada. Este SP genera el archivo de movimientos.</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_sn_register_account</span>
+        </div>
+        <div class="ic-desc"><b>Mandato CAN.</b> Al otorgar el CAN, debe quedar registrado el mandato del cliente en bdiadminnomina (OBL-005/OBL-018). El SP debe guardar el flag <code>mandato_can</code> y el <code>es_cuenta_ordenante</code>.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /caso1 -->
+
+<!-- ═══════════════════════════════════════════════════════════ CASO 2 -->
+<div class="tab-content caso2" id="caso2">
+
+  <div class="caso-hdr">
+    <div>
+      <h2>Caso 2: BanCoppel tiene la nómina del nominado</h2>
+      <p>El nominado tiene su cuenta de nómina en BanCoppel. Otro banco (ej. Santander, BBVA) quiere otorgarle un CAN y consulta a BanCoppel vía Cecoban. <b>Este es el caso de mayor riesgo técnico</b>: BanCoppel debe responder el C-51 con 6 meses de historial de abonos en ≤ 30 segundos.</p>
+    </div>
+    <div class="rol-chips">
+      <span class="rol-chip chip-ordenante">BanCoppel = Banco Ordenante (Depositaria)</span>
+      <span class="rol-chip chip-acreedora">Otro banco = Banco Otorgante (Acreedora)</span>
+    </div>
+  </div>
+
+  <!-- Actores -->
+  <div class="actor-row">
+    <div class="actor secondary">
+      <span class="actor-icon">🏛️</span>
+      <span class="actor-name">Otro banco</span>
+      <span class="actor-role">Banco Otorgante<br>Acreedora del CAN</span>
+    </div>
+    <div class="actor neutral">
+      <span class="actor-icon">⚙️</span>
+      <span class="actor-name">Cecoban</span>
+      <span class="actor-role">Intermediario único<br>Art. 63 Bis 3 · UUID</span>
+    </div>
+    <div class="actor primary">
+      <span class="actor-icon">🏦</span>
+      <span class="actor-name">BanCoppel</span>
+      <span class="actor-role">Banco Ordenante<br>Depositaria · Código 40137</span>
+    </div>
+    <div class="actor">
+      <span class="actor-icon">👤</span>
+      <span class="actor-name">Nominado</span>
+      <span class="actor-role">Acreditado · CURP + RFC<br>Nómina en BanCoppel</span>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-title">Riesgo técnico principal del proyecto</div>
+    <p>El paso 4 de este flujo — responder el <b>C-51 en ≤ 30 segundos</b> con 6 meses de historial de abonos desde <b>bdiadminnomina</b> — es el mayor riesgo técnico del proyecto CAN. Ningún SP existente en bdiadminnomina expone esta información hoy. Se requiere crear <b>sp_sn_get_income_history_curp</b> (nuevo) con índice CURP y una tabla de historial rolling de 6 meses.</p>
+  </div>
+
+  <!-- FLUJO -->
+  <div class="flow">
+
+    <div class="step c4">
+      <div class="step-num">
+        <div class="step-circle">1</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-otrobanco">Otro banco · Canal</span>
+        <div class="step-title">El nominado solicita un CAN en otro banco</div>
+        <div class="step-desc">
+          El nominado acude a Santander (u otro banco) a solicitar un CAN. Indica que tiene su nómina en BanCoppel y proporciona su CLABE de cuenta en BanCoppel.
+          El banco otorgante verifica la identidad y obtiene el mandato del cliente.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c4">
+      <div class="step-num">
+        <div class="step-circle">2</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-otrobanco">Otro banco → Cecoban</span><span class="ccode">C-50</span>
+        <div class="step-title">El otro banco solicita información del nominado a Cecoban</div>
+        <div class="step-desc">
+          El banco otorgante envía el <b>C-50</b> a Cecoban con:
+          <br><br>
+          • CURP y RFC del nominado<br>
+          • CLABE de la cuenta de nómina en <b>BanCoppel</b><br>
+          • Código banco ordenante: <b>40137</b> (BanCoppel)<br>
+          • Folio del banco otorgante · UUID vacío
+        </div>
+      </div>
+    </div>
+
+    <div class="step c5">
+      <div class="step-num">
+        <div class="step-circle">3</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-cecoban">Cecoban → BanCoppel</span>
+        <div class="step-title">Cecoban asigna UUID y retransmite el C-50 a BanCoppel</div>
+        <div class="step-desc">
+          Cecoban valida y asigna el UUID. Retransmite el C-50 a BanCoppel (código 40137).
+          El <b>adaptador-cecoban-can</b> de BanCoppel recibe el mensaje y activa el proceso de construcción del C-51.
+          El reloj de <b>30 segundos</b> comienza en este momento.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c3">
+      <div class="step-num">
+        <div class="step-circle">4</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-sla">BanCoppel · bdiadminnomina</span><span class="ccode critico">C-51 · 30 seg máx</span>
+        <div class="step-title">BanCoppel consulta bdiadminnomina y construye el C-51</div>
+        <div class="step-desc">
+          El adaptador orquesta las consultas en paralelo contra bdiadminnomina:
+          <br><br>
+          • <code>sp_sn_retrieve_client_status</code> → CURP, RFC, nombre, periodicidad, CANs activos <span style="color:var(--orange);font-size:9.5px;font-weight:700">[MODIFICAR]</span><br>
+          • <code>sp_sn_get_income_history_curp</code> → 6 meses de abonos por fecha/monto/concepto <span style="color:#fca5a5;font-size:9.5px;font-weight:700">[NUEVO CRÍTICO]</span><br>
+          • <code>sp_consulta_parametros_cuenta_nomina</code> → periodicidad y frecuencia en catálogo Cecoban <span style="color:var(--orange);font-size:9.5px;font-weight:700">[MODIFICAR]</span><br>
+          • <code>sp_sn_retrieve_account_benefit</code> → RFC del patrón/emisora <span style="color:var(--orange);font-size:9.5px;font-weight:700">[MODIFICAR]</span>
+          <br><br>
+          El adaptador construye el C-51 con los 26 campos del esquema Cecoban y lo envía.
+          <div class="sla-box"><span class="sla-dot"></span>Todo esto debe ocurrir en ≤ 30 segundos — si se excede, Cecoban rechaza con causa 36</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step c5">
+      <div class="step-num">
+        <div class="step-circle">5</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-cecoban">Cecoban → Otro banco</span>
+        <div class="step-title">Cecoban retransmite el C-51 al banco otorgante</div>
+        <div class="step-desc">
+          Cecoban retransmite el C-51 a Santander (con el mismo UUID). El banco otorgante recibe el historial completo del nominado y analiza si procede el CAN.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c7">
+      <div class="step-num">
+        <div class="step-circle">6</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-otrobanco">Otro banco · Análisis</span>
+        <div class="step-title">El otro banco analiza y decide en 48 horas</div>
+        <div class="step-desc">
+          El banco otorgante (Santander) analiza la información: historial de ingresos, CANs ya existentes, prelación disponible. Tiene 48h para enviar el C-52 o dejar caducar la solicitud.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c4">
+      <div class="step-num">
+        <div class="step-circle">7</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-otrobanco">Otro banco → Cecoban</span><span class="ccode">C-52</span>
+        <div class="step-title">El otro banco notifica el otorgamiento</div>
+        <div class="step-desc">
+          Si procede, el banco otorgante envía el <b>C-52</b> a Cecoban con los términos del CAN: número de crédito, monto, tasa, plazo, Clave Básica Estandarizada.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c1">
+      <div class="step-num">
+        <div class="step-circle">8</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-cecoban">Cecoban → BanCoppel</span><span class="ccode">C-53</span>
+        <div class="step-title">Cecoban envía la prelación actualizada a BanCoppel</div>
+        <div class="step-desc">
+          Cecoban recalcula la prelación del nominado (Santander entra en el orden) y envía el <b>C-53</b> a BanCoppel.
+          El <b>adaptador-cecoban-can</b> de BanCoppel recibe el C-53 y llama al nuevo SP para persistir la prelación:
+          <br><br>
+          • <code>sp_sn_get_prelacion_can</code> → persiste el nuevo orden de prelación en bdiadminnomina <span style="color:#fca5a5;font-size:9.5px;font-weight:700">[NUEVO CRÍTICO]</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step c6">
+      <div class="step-num">
+        <div class="step-circle">9</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-ok">Operación activa</span>
+        <div class="step-title">BanCoppel descuenta la nómina según la prelación</div>
+        <div class="step-desc">
+          Cada vez que llega la nómina del nominado a BanCoppel, el motor de cargos consulta la prelación registrada y descuenta en el orden correcto: primero créditos no-CAN previos → luego CANs por fecha de designación (Santander en su posición) → luego domiciliaciones.
+          <br><br>
+          Antes de 17:00 DHB: transfiere el remanente al nominado vía SPEI (OBL-023).<br>
+          Si hay cargos CAN pendientes: se aplican primero y se transfiere el remanente.
+        </div>
+      </div>
+    </div>
+
+    <div class="step c3">
+      <div class="step-num">
+        <div class="step-circle">10</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <span class="step-tag tag-batch">BanCoppel · ControlM</span><span class="ccode">C-54</span>
+        <div class="step-title">Eventos de cuenta → BanCoppel notifica a Cecoban</div>
+        <div class="step-desc">
+          Si ocurre algún evento en la cuenta del nominado, BanCoppel debe notificar a Cecoban en ≤ 1 DHB vía el job de ControlM:
+          <br><br>
+          • Cuenta bloqueada → <b>C-54 estatus 08</b><br>
+          • Cuenta cerrada → <b>C-54 estatus 07</b><br>
+          • Sin depósitos ≥ 2 meses → <b>C-54 estatus 05</b><br>
+          • Cliente cancela domiciliación → <b>C-54 estatus 04</b><br>
+          • <code>job_ctm_c54_bloqueo_cuenta</code> detecta el evento y dispara el C-54 <span style="color:#fca5a5;font-size:9.5px;font-weight:700">[NUEVO BATCH]</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /flow -->
+
+  <div class="divider"></div>
+
+  <!-- INFORMIX IMPACT CASO 2 -->
+  <div class="impact-section">
+    <div class="impact-title"><span class="icon">🗄️</span>Impacto en bdiadminnomina (Informix) — Caso 2</div>
+    <div class="callout warn">
+      <div class="callout-title">Mayor impacto técnico del proyecto</div>
+      <p>El Caso 2 concentra la mayor carga de trabajo en bdiadminnomina: <b>2 SPs nuevos críticos</b>, <b>3 SPs existentes a modificar</b>, <b>1 batch nuevo</b> y <b>extensión del proceso de carga histórica</b>. El SLA de 30 segundos es el riesgo principal: todos los SPs del C-51 deben responder en paralelo en ese tiempo.</p>
+    </div>
+    <div class="impact-grid">
+      <div class="impact-card critico">
+        <div class="ic-header">
+          <span class="ic-sev critico">NUEVO CRÍTICO</span>
+          <span class="ic-name">sp_sn_get_income_history_curp</span>
+        </div>
+        <div class="ic-desc"><b>El SP más crítico del proyecto.</b> Retorna 6 meses de abonos de nómina por CURP: por cada mes → total mensual + detalle de cada abono (fecha, monto, concepto). Requiere nueva tabla <code>sn_hist_abonos_nomina</code> e índice CURP. Sin este SP, el C-51 es rechazado (causa 36).</div>
+      </div>
+      <div class="impact-card critico">
+        <div class="ic-header">
+          <span class="ic-sev critico">NUEVO CRÍTICO</span>
+          <span class="ic-name">sp_sn_get_prelacion_can</span>
+        </div>
+        <div class="ic-desc"><b>Gestión de prelación.</b> Persiste el C-53 de Cecoban (orden de descuento) y lo expone al motor de cargos diarios. Sin prelación persistida, BanCoppel no puede respetar el orden de descuento de la nómina (OBL-016).</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_sn_retrieve_client_status</span>
+        </div>
+        <div class="ic-desc"><b>Ampliar resultset.</b> Agregar CURP, RFC, nombre separado (nombre/apellido1/apellido2), créditos Mis to Mis con CLABEs, CANs activos con CLABEs. Estos campos son mandatorios en los campos 06-17 del C-51. Sin CURP en la BD, el C-51 es imposible.</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_consulta_parametros_cuenta_nomina</span>
+        </div>
+        <div class="ic-desc"><b>Periodicidad estructurada.</b> Exponer periodicidad (01-05) y frecuencia de pago en catálogo Cecoban. Actualmente retorna CHAR(255) texto libre — un valor fuera del catálogo causa rechazo 32 o 24 de Cecoban.</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_sn_retrieve_account_benefit</span>
+        </div>
+        <div class="ic-desc"><b>RFC del patrón.</b> Agregar RFC de la emisora (empresa que dispersa la nómina). Campo 18 del C-51, requerido también para OBL-023 (transferencia prestaciones laborales, timing 17:00 DHB).</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_cargar_info_procesada_cta_nom</span>
+        </div>
+        <div class="ic-desc"><b>Historial rolling 6 meses.</b> Por cada abono procesado, insertar en <code>sn_hist_abonos_nomina</code> (CURP, fecha, monto, concepto, mes). Ventana deslizante de 6 meses. Esta tabla alimenta al nuevo SP crítico de historial.</div>
+      </div>
+      <div class="impact-card nuevo">
+        <div class="ic-header">
+          <span class="ic-sev nuevo">NUEVO BATCH</span>
+          <span class="ic-name">job_ctm_c54_bloqueo_cuenta</span>
+        </div>
+        <div class="ic-desc"><b>Notificación de eventos de cuenta.</b> Job ControlM que detecta eventos (bloqueo, cierre, sin nómina ≥ 2 meses) y envía C-54 a Cecoban en ≤ 1 DHB. Sin este job, el banco otorgante sigue cargando sobre cuentas inactivas.</div>
+      </div>
+      <div class="impact-card modificar">
+        <div class="ic-header">
+          <span class="ic-sev modificar">MODIFICAR</span>
+          <span class="ic-name">sp_generar_arch_mov_spei</span>
+        </div>
+        <div class="ic-desc"><b>Ventana 17:00 DHB + prelación CAN.</b> Respetar el timing OBL-023 (transferir antes de 17:00 o el DHB siguiente). Aplicar cargos CAN en orden de prelación antes de transferir el remanente al nominado.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /caso2 -->
+
+<footer>
+  BanCoppel · Application Modernization SPE-AM-001 · Proyecto CAN · Circular 3/2012 mod. 15/2018, 7/2019 y 6/2025 · DE CAN v4.2 (GT CAN-ABM · Cecoban · 25/08/2026)<br>
+  Generado 2026-09-17 · dt-de-can · Accenture México — Digital Core S&PE HVM
+</footer>
+
+<script>
+function showTab(id, btn){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body></html>

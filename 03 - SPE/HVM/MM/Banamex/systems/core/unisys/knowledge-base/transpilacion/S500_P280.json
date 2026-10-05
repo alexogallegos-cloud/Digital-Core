@@ -1,0 +1,222 @@
+{
+  "slug": "S500_P280",
+  "sistema": "S500",
+  "programa": "P280",
+  "nombre": "Actualizador de CSI de Control de Depósitos y Reporte de Errores",
+  "funcion": "Programa batch de S500 (25MTP004) que, según el TASKVALUE de arranque, recorre el control de depósitos B52 actualizando CSI, tipo de persona y ubicación desde el servicio de clientes S016, y al terminar consolida en un listado los errores del módulo asíncrono L050 y los propios.",
+  "resumen": "Con el parámetro 1 recorre el índice B52SXCSIFECH desde los registros con CSI cero y con el parámetro 2 el dataset S500B52CTRLDEPRET completo. Por cada registro consulta al cliente en S016 y, si el CSI alterno, el tipo de persona o la ubicación difieren, actualiza el B52 dentro de una transacción con hasta dos intentos ante deadlock; se detiene si cambia la fecha de máquina o el operador envía HI 4. Al cierre graba el trailer del monitor, lo copia con un WFL compilado y lo envía por ADMONXFERS. Por último reúne los archivos de error de L050 de los últimos días y el del propio P280, los ordena y emite el reporte 001ERRORES por plaza.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JasperReports",
+  "paquete_java": "mx.banamex.s500.control.depositos.errores",
+  "secciones": [
+    {
+      "titulo": "Estructuras y hardcodes — registro consolidado, título del reporte y WFL de copia",
+      "origen": {
+        "archivo": "S500_SOURCE_P280.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE · 40006000"
+      },
+      "java": {
+        "archivo": "ErrorConsolidado.java · CopiaMonitor.java · PublicaMonitorTasklet.java",
+        "contexto": "record · sealed interface · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro consolidado de errores con tres vistas REDEFINES",
+          "linea_ini": 83,
+          "linea_fin": 108,
+          "origen_codigo": " 01 F01-REG-ARCH.\n    03 F01-PRINC.\n       05 F01-NUM-PIEZA          PIC 9(02).\n       05 F01-FECHA-ARCH         PIC 9(08).\n       05 F01-NUM-C              PIC 9(02).\n       05 F01-TR                 PIC 9(02).\n       05 F01-ID                 PIC 9(02).\n       05 F01-FECHA              PIC 9(08).\n       05 F01-HORA               PIC 9(08).\n       05 F01-HORA-R REDEFINES  F01-HORA.\n          06 F01-HORA-R-H        PIC 9(02).\n          06 F01-HORA-R-M        PIC 9(02).\n          06 F01-HORA-R-S        PIC 9(02).\n          06 FILLER              PIC X(02).\n    03 F01-TEXTO                 PIC X(288).\n    03 F01-TEXT-L050 REDEFINES F01-TEXTO.\n       05 F01-L050-TE-DETALLE1   PIC X(91).\n       05 F01-L050-TE-DETALLE2   PIC X(97).\n       05 F01-L050-TE-DETALLE3   PIC X(100).\n    03 F01-P280-T-DETS016 REDEFINES F01-TEXTO.\n       05 F01-P280S016-DET1      PIC X(110).\n       05 F01-P280S016-DET2      PIC X(102).\n       05 FILLER                 PIC X(76).\n    03 F01-P280-T-DET REDEFINES F01-TEXTO.\n       05 F01-P280-DET1          PIC X(100).\n       05 FILLER                 PIC X(188).",
+          "java_codigo": "/** F01-REG-ARCH (320 bytes): llave de 32 posiciones y texto con tres interpretaciones. */\npublic record ErrorConsolidado(int pieza,              // F01-NUM-PIEZA: 1 = L050, 2 = P280\n                               LocalDate fechaArchivo,  // F01-FECHA-ARCH 9(08)\n                               int copia,               // F01-NUM-C\n                               int tipoRenglon,         // F01-TR: 1 acciones, 2 errores de BD\n                               int id,                  // F01-ID\n                               LocalDate fecha, LocalTime hora,   // F01-HORA HHMMSS + 2 de relleno\n                               Texto texto) implements Comparable<ErrorConsolidado> {\n\n    public sealed interface Texto permits TextoL050, TextoS016, TextoP280 {}\n    public record TextoL050(String det1, String det2, String det3) implements Texto {}  // 91 / 97 / 100\n    public record TextoS016(String det1, String det2) implements Texto {}               // 110 / 102\n    public record TextoP280(String det1) implements Texto {}                            // 100\n\n    /** SD-ARCERR: siete llaves ascendentes. */\n    static final Comparator<ErrorConsolidado> ORDEN = Comparator\n            .comparingInt(ErrorConsolidado::pieza)\n            .thenComparing(ErrorConsolidado::fechaArchivo)\n            .thenComparingInt(ErrorConsolidado::copia)\n            .thenComparingInt(ErrorConsolidado::tipoRenglon)\n            .thenComparingInt(ErrorConsolidado::id)\n            .thenComparing(ErrorConsolidado::fecha)\n            .thenComparing(ErrorConsolidado::hora);\n\n    @Override public int compareTo(ErrorConsolidado o) { return ORDEN.compare(this, o); }\n}",
+          "racional": "El archivo temporal de consolidación mezcla errores de dos orígenes, el módulo asíncrono L050 y el propio P280, en un mismo registro de 320 bytes. Las primeras 32 posiciones son la llave de ordenamiento y el texto de 288 se interpreta de tres maneras con <code>REDEFINES</code>, según la pieza y el identificador del error. En Java la llave son campos tipados de un <code>record</code> y el texto una <code>sealed interface</code> con tres variantes. El <code>Comparator</code> reproduce las siete llaves ascendentes del <code>SORT</code>.",
+          "reglas": [
+            "RN-S500-229"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Título del reporte y tarjeta WFL de copia compilados en WORKING-STORAGE",
+          "linea_ini": 360,
+          "linea_fin": 388,
+          "origen_codigo": " 01 WS-TIT-REPORTE1.\n     03 FILLER                     PIC X(21)\n                                       VA \"(S500)S500/LIST/P280/\".\n     03 WS-TIT-R1-CSI              PIC 9(02).\n     03 FILLER                     PIC X(08) VALUE \"00/R000/\".\n     03 WS-TIT-R1-FECHA            PIC 9(06).\n     03 FILLER                     PIC X(1)  VALUE \"/\".\n     03 WS-TIT-R1-MIX              PIC 9(07).\n     03 FILLER                     PIC X(12)\n                                         VALUE \"/001ERRORES.\".\n 01 WS-WFL-COPY USAGE DISPLAY.\n    03 FILLER       PIC X(11) VALUE \"BEGIN JOB; \".\n    03 FILLER       PIC X(26) VALUE \"JOBSUMMARY=UNCONDITIONAL; \".\n    03 FILLER       PIC X(11) VALUE \"COPY (S500)\".\n    03 WS-WFL-ORI   PIC X(55).\n    03 FILLER       PIC X(10) VALUE \" AS (S500)\".\n    03 WS-WFL-DES   PIC X(55).\n    03 WS-WFL-FROM  PIC X(22) VALUE \" FROM CAPTACION(PACK) \".\n    03 WS-WFL-TO    PIC X(20) VALUE \"TO CAPTACION(PACK); \".\n    03 FILLER       PIC X(08) VALUE \"END JOB.\".",
+          "java_codigo": "# application.yml\np280:\n  reporte:\n    # (S500)S500/LIST/P280/{csi}00/R000/{aammdd}/{mix}/001ERRORES.  RN-S500-232\n    titulo: \"S500/LIST/P280/{csi}00/R000/{fecha:yyMMdd}/{instancia}/001ERRORES\"\n  copia-monitor:\n    familia-origen: CAPTACION       # FROM CAPTACION(PACK)\n    familia-destino: CAPTACION      # TO CAPTACION(PACK)\n\n// ---------------------------------------------------------------------------\n/** Sustituye CALL SYSTEM WFL USING WS-WFL-COPY: copia de archivo, no un job generado en texto. */\n@Component\n@RequiredArgsConstructor\nclass CopiaMonitor {\n    private final AlmacenArchivos almacen;      // adaptador del repositorio de archivos destino\n    private final P280Properties props;\n\n    void copia(String origen, String destino) {\n        almacen.copia(props.copiaMonitor().familiaOrigen(), origen,\n                      props.copiaMonitor().familiaDestino(), destino);   // COPY (S500)ori AS (S500)des\n    }\n}\n\n/** El MIX (STACKNO) identificaba la instancia; aquí es el id de ejecución del job. */\nstatic String tituloReporte(String plantilla, int csi, LocalDate fecha, long jobExecutionId) {\n    return plantilla.replace(\"{csi}\", \"%02d\".formatted(csi))\n                    .replace(\"{fecha:yyMMdd}\", fecha.format(DateTimeFormatter.ofPattern(\"yyMMdd\")))\n                    .replace(\"{instancia}\", \"%07d\".formatted(jobExecutionId));\n}",
+          "racional": "El título del reporte codifica el CSI, la fecha AAMMDD y el número de pila de la tarea (<code>STACKNO</code>), de modo que cada ejecución deja un listado identificable. Más abajo, el programa guarda una tarjeta WFL completa (<code>BEGIN JOB; ... COPY ... END JOB.</code>) con el pack CAPTACION fijo y solo sustituye origen y destino en ejecución. En Java el título es una plantilla en <code>application.yml</code> con el identificador de ejecución del job en lugar del número de pila, y la copia deja de ser un job generado como texto para ser una llamada al adaptador de almacenamiento.",
+          "reglas": [
+            "RN-S500-232",
+            "RN-S500-233"
+          ],
+          "riesgo": "Cambiar el pack o la nomenclatura de los archivos exige recompilar, porque la tarjeta WFL está en DATA DIVISION."
+        },
+        {
+          "id": "s3",
+          "titulo": "Copia del archivo de problemas y envío por ADMONXFERS",
+          "linea_ini": 1224,
+          "linea_fin": 1250,
+          "origen_codigo": " 40006000-INTELAR-PROB.\n*----------------------\n     MOVE ZEROS   TO WS77-INTELAR-RESULT\n     MOVE SPACES  TO WS-INTELAR-FILE\n     STRING WS-TITLE-PROB-INTS DELIMITED BY \".\"\n                           INTO WS-INTELAR-FILE.\n     CALL \"INTELARSND IN ADMONXFERS\"\n          USING  WS-INTELAR-FILE\n          GIVING WS77-INTELAR-RESULT.\n     IF WS77-INTELAR-RESULT NOT = 0\n        MOVE WS77-INTELAR-RESULT TO WS77-INTELAR-RESULT-2\n        MOVE SPACES TO WS-0101-TEXT-MSG\n        STRING \"ERROR INTELARSND \" WS77-INTELAR-RESULT-2\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n 40006000-COPIA-PROB.\n*--------------------\n     MOVE SPACES           TO WS-WFL-ORI\n     STRING WS-TITLE-PROB-INTS DELIMITED BY \".\" INTO WS-WFL-ORI.\n     MOVE SPACES           TO WS-WFL-DES\n     STRING WS-TITLE-PROB   DELIMITED BY \".\" INTO WS-WFL-DES.\n     WAIT(03).\n     CALL SYSTEM WFL USING WS-WFL-COPY.\n     PERFORM 40006000-INTELAR-PROB.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PublicaMonitorTasklet implements Tasklet {\n\n    private final CopiaMonitor copia;\n    private final TransferenciaArchivos admonXfers;   // reemplaza INTELARSND IN ADMONXFERS\n    private final AvisoOperador avisos;\n    private final TitulosMonitor titulos;\n\n    /** 40006000-COPIA-PROB + 40006000-INTELAR-PROB. */\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        String ints = titulos.problemasInts();    // WS-TITLE-PROB-INTS sin el punto final\n        String local = titulos.problemas();       // WS-TITLE-PROB\n        copia.copia(ints, local);                 // WAIT(03) previo: ya no es necesario, la llamada es síncrona\n        int resultado = admonXfers.envia(ints);\n        if (resultado != 0) {\n            avisos.mensaje(\"ERROR INTELARSND %011d\".formatted(resultado));   // sin aborto, como el original\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al cerrar el monitor, el programa arma origen y destino a partir de los títulos (cortando en el primer punto), espera tres segundos, lanza el WFL de copia y después envía el archivo con <code>INTELARSND</code>. Un error de envío solo produce un mensaje. En Spring Batch es un <code>Tasklet</code> que copia y transmite; la espera fija desaparece porque la copia es síncrona. Se conserva que un fallo de transmisión no detenga el job.",
+          "reglas": [
+            "RN-S500-233"
+          ],
+          "riesgo": "El resultado de CALL SYSTEM WFL no se revisa: si la copia falla, el programa envía igual el archivo y no hay registro del error."
+        }
+      ]
+    },
+    {
+      "titulo": "Barrido y actualización de S500B52CTRLDEPRET",
+      "origen": {
+        "archivo": "S500_SOURCE_P280.txt",
+        "contexto": "DECLARATIVES · MAIN-PGM · 200000 / 200200 / 200230"
+      },
+      "java": {
+        "archivo": "P280JobConfig.java · ActualizaB52Processor.java · ClienteS016.java · ActualizadorB52.java",
+        "contexto": "Job · ItemProcessor · @Retryable · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Interrupciones del operador y rutina principal a Job con listener",
+          "linea_ini": 627,
+          "linea_fin": 659,
+          "origen_codigo": " PGM-INTERRUPT-BY-HI SECTION.\n     USE AS INTERRUPT PROCEDURE.\n INTERRUPT-BY-HI.\n     DISALLOW INTERRUPT.\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 04\n         MOVE \"TERMINO PROCESO POR HI 4\"  TO WS-MONI-ERROR\n         MOVE 4 TO WS-HI\n     ELSE IF ATTRIBUTE TASKVALUE OF MYSELF = 02\n         PERFORM 300000-CIERRA-MON\n     ELSE IF ATTRIBUTE TASKVALUE OF MYSELF = 01\n         PERFORM 300000-MUESTRA-DISP.\n     CHANGE ATTRIBUTE TASKVALUE OF MYSELF TO 0.\n     ALLOW INTERRUPT.\n     END DECLARATIVES.\n 000000-MAIN-PARAGRAPH.\n*========================\n   PERFORM 100000-INICIO-PGM\n ATTACH PGM-INTERRUPT-BY-HI TO ATTRIBUTE EXCEPTIONEVENT OF MYSELF.\n ALLOW INTERRUPT.\n   PERFORM 200000-PROCESO-PGM UNTIL WS-EOJ\n DISALLOW INTERRUPT.\n   IF WS-PARAM-OK\n      PERFORM 300100-CIERRA-BD\n      PERFORM 300200-CIERRA-ARCH\n      PERFORM 40006000-COPIA-PROB\n      PERFORM 50001000-PROC-ARCL050P280.\n   PERFORM 300000-FIN-PGM.",
+          "java_codigo": "/** PGM-INTERRUPT-BY-HI: el operador enviaba HI 1, 2 o 4 a la tarea. */\n@RestController\n@RequestMapping(\"/admin/p280\")\n@PreAuthorize(\"hasRole('OPERADOR_S500')\")\n@RequiredArgsConstructor\nclass P280OperadorController {\n    private final ControlEjecucion control;\n\n    @PostMapping(\"/hi/{valor}\")\n    void hi(@PathVariable int valor) {\n        switch (valor) {\n            case 4 -> control.solicitaFin(\"TERMINO PROCESO POR HI 4\");   // WS-HI = 4\n            case 2 -> control.rotaMonitor();                             // 300000-CIERRA-MON\n            case 1 -> control.publicaContadores();                       // 300000-MUESTRA-DISP\n            default -> { }\n        }\n    }\n}\n\n@Bean\nJob p280(JobRepository repo, Step validaVersionYParametro, Step barridoB52,\n         Step cierraMonitor, Step publicaMonitor, Step consolidaErrores, Step reporteErrores,\n         ParametroValidoDecider parametro) {\n    return new JobBuilder(\"S500P280\", repo)\n            .start(validaVersionYParametro)           // 100000-INICIO-PGM, TASKVALUE 1 o 2\n            .next(barridoB52)                         // PERFORM 200000-PROCESO-PGM UNTIL WS-EOJ\n            .next(parametro).on(\"VALIDO\").to(cierraMonitor)\n                .next(publicaMonitor).next(consolidaErrores).next(reporteErrores)\n            .from(parametro).on(\"*\").end()\n            .end().build();\n}",
+          "racional": "La sección <code>DECLARATIVES</code> atiende interrupciones del operador: con 4 marca el fin ordenado, con 2 cierra y reabre el monitor y con 1 muestra contadores. La rutina principal inicializa, habilita esa interrupción, repite el barrido hasta fin de trabajo y, solo si el parámetro de arranque fue 1 o 2, cierra la base y el monitor, copia y envía el archivo de problemas y genera el reporte. En Java las interrupciones son un endpoint de administración con rol y una bandera que el step de barrido revisa entre registros; el resto es un <code>Job</code> con un decisor sobre el parámetro.",
+          "reglas": [
+            "RN-S500-228"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Iteración por registro B52 y fin por cambio de fecha de máquina",
+          "linea_ini": 917,
+          "linea_fin": 950,
+          "origen_codigo": " 200200-PROC-CSI.\n*========================\n   ADD 1                   TO WKS-CONTADOR-LEI.\n   PERFORM 200210-CALL-S016\n   IF WS-EXISTE-CLIENTE = 1\n      PERFORM 200220-VALIDA-DATOS\n      IF WKS-ACTUALIZA = 1\n         PERFORM 200230-ACTUALIZA-BD52.\n   IF WS-PARAM-01\n      PERFORM 200240-FN-B52-1\n   ELSE\n      IF WS-PARAM-02\n         PERFORM 200250-FN-B52-2.\n   PERFORM 200800-VALIDA-FEC.\n   IF WS-HI = 4 OR WS-FIN-DIA = 1 OR WS-NOT-FOUND\n      OR WS-DB-NOTFOUND\n      MOVE 1                      TO WS-EOJ-VA.\n*========================\n 200800-VALIDA-FEC.\n*========================\n   PERFORM 90000000-DAME-FEC-MAQUINA.\n   IF WKS-FEC-MAQ-08 = WKS-FECHA-MAQ-INI\n      NEXT SENTENCE\n   ELSE\n      MOVE \"ERROR TIEMPO DE EJEUCION EXCEDIDO\"\n           TO WS-0101-TEXT-MSG WS-MONI-ERROR\n      MOVE 1 TO WS-MONI-D-ID\n      PERFORM 400000-GRABA-DET-MON\n      PERFORM 70000050-MENSAJE-LJ\n      MOVE 1                 TO WS-FIN-DIA.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ActualizaB52Processor implements ItemProcessor<ControlDepRet, ControlDepRet> {\n\n    private final ClienteS016 s016;\n    private final ControlEjecucion control;\n    private final Clock reloj;\n    private final Contadores contadores;              // WKS-CONTADOR-LEI / ACT / NO-ACT / ERR\n    @Value(\"#{stepExecution.startTime.toLocalDate()}\") private LocalDate fechaMaquinaInicio;\n\n    /** 200200-PROC-CSI. */\n    @Override\n    public ControlDepRet process(ControlDepRet b52) {\n        contadores.leido();\n        ControlDepRet resultado = s016.consulta(b52.numCliente())\n                .flatMap(cte -> difiere(cte, b52) ? Optional.of(b52.conDatosDe(cte)) : Optional.empty())\n                .orElse(null);                         // null: no se escribe\n\n        // 200800-VALIDA-FEC: si cambió el día, se detiene el barrido después de este registro.\n        if (!LocalDate.now(reloj).equals(fechaMaquinaInicio)) {\n            control.registraMonitor(\"ERROR TIEMPO DE EJEUCION EXCEDIDO\");  // texto original, con su errata\n            control.solicitaFin(\"FIN DE DIA\");\n        }\n        return resultado;\n    }\n}\n// El reader revisa control.finSolicitado() antes de cada read() y devuelve null (fin de step).",
+          "racional": "Por cada registro del barrido se cuenta la lectura, se consulta al cliente en S016 y, si existe y sus datos difieren, se actualiza. Después se avanza el cursor y se compara la fecha de máquina con la del inicio: si cambió, se registra el evento en el monitor y se termina, para no procesar con la fecha del día siguiente. También terminan el HI 4, el fin del índice y el primer registro con CSI distinto de cero. En Java el registro es un <code>ItemProcessor</code> y las condiciones de fin se concentran en un componente que el reader consulta. El reloj se inyecta para poder probar el cambio de día.",
+          "reglas": [
+            "RN-S500-228",
+            "RN-S500-230"
+          ],
+          "riesgo": "El mensaje que se registra al cambiar el día dice tiempo de ejecución excedido, lo que puede confundir el diagnóstico en el monitor."
+        },
+        {
+          "id": "s6",
+          "titulo": "Consulta de cliente en S016 y comparación de CSI, tipo de persona y ubicación",
+          "linea_ini": 953,
+          "linea_fin": 1066,
+          "origen_codigo": " 200210-CALL-S016.\n*========================\n   MOVE  0                 TO  WS-EXISTE-CLIENTE\n   MOVE  LOW-VALUES        TO  E422-84-CTR-ENTRADA\n                               S422-84-CTR-SALIDA.\n   MOVE  B52-NUM-CLIENTE   TO  E422-84-CTE-NUM\n   MOVE  ZEROS             TO  E422-84-CTA-NUMPREF\n   MOVE  ZEROS             TO  E422-84-CTA-NUM\n   MOVE  ZEROS             TO  E422-84-CTA-NUMPROD\n   MOVE  ZEROS             TO  E422-84-CTA-CVEINST\n   MOVE  01                TO  E422-84-OPCION\n   CALL \"S016_L422_B01SXCTE IN S016L422\"\n         USING  E422-84-CTR-ENTRADA\n                S422-84-CTR-SALIDA\n         GIVING R422-84-CTR-ERROR.\n   IF R422-84-CTR-ERROR = 0 AND S422-84-CTE-NUM = B52-NUM-CLIENTE\n      MOVE 1 TO WS-EXISTE-CLIENTE\n   ELSE\n      ADD 1 TO   WKS-CONTADOR-ERR\n      PERFORM 200211-GRABA-ERR-S016.\n 200220-VALIDA-DATOS.\n*========================\n   MOVE 1                          TO WKS-ACTUALIZA.\n   IF S422-84-OFI-NUMCSIALT = B52-CSI AND\n      S422-84-CTE-CVEPERS   = B52-TIP-PER AND\n      S422-84-CTE-CVEEDO    = B52-UBI-GEO\n         MOVE 0                      TO WKS-ACTUALIZA\n         ADD  1                      TO WKS-CONTADOR-NO-ACT.",
+          "java_codigo": "/** S016_L422_B01SXCTE IN S016L422, opción 01. */\n@Component\n@RequiredArgsConstructor\nclass ClienteS016 {\n    private final ClientesApi s016;          // servicio que reemplaza a la librería S016L422\n    private final MonitorP280 monitor;\n    private final Contadores contadores;\n\n    Optional<DatosCliente> consulta(String numCliente) {\n        RespuestaCliente r = s016.buscaPorNumero(numCliente, 1);\n        if (r.error() == 0 && numCliente.equals(r.numCliente())) {\n            return Optional.of(r.datos());\n        }\n        contadores.error();\n        monitor.errorS016(r, numCliente);    // 200211-GRABA-ERR-S016, id 4\n        return Optional.empty();\n    }\n}\n\n/** 200220-VALIDA-DATOS: se actualiza si cualquiera de los tres datos difiere. */\nboolean difiere(DatosCliente cte, ControlDepRet b52) {\n    boolean igual = cte.csiAlterno() == b52.csi()\n                 && cte.tipoPersona() == b52.tipoPersona()\n                 && cte.ubicacionGeo() == b52.ubicacionGeo();\n    if (igual) contadores.noActualizado();\n    return !igual;\n}",
+          "racional": "El programa pide al servicio de clientes S016 los datos del cliente del registro B52, y solo lo da por encontrado si no hay error y el número devuelto es el mismo que se pidió. Si no, cuenta un error y graba en el monitor la solicitud y la respuesta. Con el cliente encontrado, compara CSI alterno, tipo de persona y ubicación geográfica; si los tres coinciden no actualiza. En Java la librería se reemplaza por un cliente del servicio y la decisión queda en un método puro, fácil de probar.",
+          "reglas": [
+            "RN-S500-231"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Actualización de B52 con dos intentos ante deadlock y transacción",
+          "linea_ini": 1069,
+          "linea_fin": 1187,
+          "origen_codigo": " 200230-ACTUALIZA-BD52.\n*========================\n   MOVE 0     TO WS-STATUS-BASE WKS-INT-LOOK WKS-LOOK-OK-VA.\n   IF WS-PARAM-01\n      PERFORM 300232-LOCK-BD52 UNTIL WKS-LOOK-OK\n                                  OR WKS-INT-LOOK = 2\n   ELSE\n      PERFORM 300234-LOCK-BD52-2 UNTIL WKS-LOOK-OK\n                                    OR WKS-INT-LOOK = 2.\n   IF WKS-LOOK-OK\n      PERFORM 300231-BEGIN-TRANSACTION\n      PERFORM 300233-MUEVE-DATOS-BD52.\n 300233-MUEVE-DATOS-BD52.\n*========================\n   PERFORM 300234-MUEVE-DATOS.\n   MOVE 0              TO WS-STATUS-BASE.\n   STORE S500B52CTRLDEPRET\n         ON EXCEPTION\n             MOVE \"ERROR EN STORE B52SXCSIFECH\" TO WS-MONI-ERROR\n             PERFORM 300234-ABORT-TRANSACTION\n             PERFORM 200210-ERROR-BASE.\n   IF WS-STATUS-BASE = 0\n      PERFORM 300200-END-TRANSACTION\n      ADD 1               TO WKS-CONTADOR-ACT.\n  300232-LOCK-BD52.\n*========================\n   MOVE 1 TO WKS-LOOK-OK-VA\n   LOCK B52SXCSIFECH\n        ON EXCEPTION\n           MOVE DMSTATUS(DMCATEGORY)   TO WS-STATUS-BASE\n           MOVE 0 TO WKS-LOOK-OK-VA.\n   IF WKS-LOOK-OK\n      NEXT SENTENCE\n   ELSE\n     IF WS-DB-DEADLOCK\n        ADD 1 TO  WKS-INT-LOOK\n        WAIT (2)\n     ELSE\n        MOVE \"ERROR EN LOCK B52SXCSIFECH\" TO WS-MONI-ERROR\n        PERFORM 200210-ERROR-BASE.\n   IF WKS-INT-LOOK = 2 AND NOT WKS-LOOK-OK\n      ADD 1 TO   WKS-CONTADOR-ERR\n      MOVE \"ERROR EN LOCK B52SXCSIFECH\" TO WS-MONI-ERROR\n      MOVE 20 TO WS-MONI-D-ID\n      PERFORM 300232-DEADLOCK-BASE.\n 300234-MUEVE-DATOS.\n*========================\n   MOVE WKS-FEC-PROC           TO B52-FEC-UPDATE\n   MOVE S422-84-OFI-NUMCSIALT  TO B52-CSI\n   MOVE S422-84-CTE-CVEPERS    TO B52-TIP-PER\n   MOVE S422-84-CTE-CVEEDO   TO B52-UBI-GEO.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ActualizadorB52 {\n\n    private final ControlDepRetRepository repo;   // S500B52CTRLDEPRET\n    private final Contadores contadores;\n    private final MonitorP280 monitor;\n\n    /** 200230-ACTUALIZA-BD52 + 300233-MUEVE-DATOS-BD52. */\n    @Retryable(retryFor = PessimisticLockingFailureException.class,\n               maxAttempts = 2, backoff = @Backoff(delay = 2_000))     // WKS-INT-LOOK = 2, WAIT (2)\n    @Transactional\n    public void actualiza(ControlDepRet b52, DatosCliente cte, LocalDate fechaProceso) {\n        ControlDepRet bloqueado = repo.findWithLockById(b52.id()).orElseThrow();  // LOCK\n        bloqueado.setFecUpdate(fechaProceso);                // B52-FEC-UPDATE\n        bloqueado.setCsi(cte.csiAlterno());                  // B52-CSI\n        bloqueado.setTipoPersona(cte.tipoPersona());         // B52-TIP-PER\n        bloqueado.setUbicacionGeo(cte.ubicacionGeo());       // B52-UBI-GEO\n        contadores.actualizado();                            // STORE + END-TRANSACTION\n    }\n\n    /** Dos deadlocks seguidos: se registra y se sigue con el siguiente registro. */\n    @Recover\n    public void deadlockPersistente(PessimisticLockingFailureException e, ControlDepRet b52,\n                                    DatosCliente cte, LocalDate fecha) {\n        contadores.error();\n        monitor.deadlock(b52.numCliente());                  // 300232-DEADLOCK-BASE, id 20\n    }\n}",
+          "racional": "La actualización intenta bloquear el registro hasta dos veces; ante deadlock espera dos segundos y reintenta, y cualquier otro error de base termina el programa con <code>DMTERMINATE</code>. Con el bloqueo, abre transacción, copia fecha de proceso, CSI, tipo de persona y ubicación, y hace <code>STORE</code>; si falla, aborta la transacción. En Java es <code>@Retryable</code> con dos intentos y espera de dos segundos sobre un método <code>@Transactional</code> con bloqueo pesimista; el <code>@Recover</code> reproduce que un deadlock persistente solo se registre y no detenga el barrido.",
+          "reglas": [
+            "RN-S500-231"
+          ],
+          "riesgo": "En el modo PARAM=01 el barrido recorre el índice B52SXCSIFECH con B52-CSI = 0 y la actualización cambia justamente B52-CSI; el efecto sobre la posición del FIND NEXT depende de DMSII y debe validarse."
+        }
+      ]
+    },
+    {
+      "titulo": "Consolidación y reporte de errores L050 y P280",
+      "origen": {
+        "archivo": "S500_SOURCE_P280.txt",
+        "contexto": "50001000 / 50001200 / 50001700 / 50001805"
+      },
+      "java": {
+        "archivo": "ReporteErroresConfig.java · p280-errores.jrxml",
+        "contexto": "MultiResourceItemReader · JasperReports"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Consolidación, ordenamiento y emisión del reporte de errores",
+          "linea_ini": 1256,
+          "linea_fin": 1297,
+          "origen_codigo": " 50001000-PROC-ARCL050P280.\n*======================\n   MOVE WKS-FECHA-MAQ-INI        TO WS-S006-FECHA1 WS-TEMP-FEC\n   MOVE WS-CSI                   TO WS-L050-INTS-CSI WS-TEMP-CSI\n   MOVE 6                           TO WS-S006-FECHA2.\n   MOVE 10                          TO WS-S006-FUNCION.\n   PERFORM 50001100-PROYECTA-FECMAQ.\n   MOVE 0                           TO WS-VA-ARCH-L050.\n   MOVE WS-S006-FECHA1              TO WS-FECHA-INI-L050.\n   CHANGE ATTRIBUTE TITLE   OF F01-ERR-TEMP TO WKS-TIT-ARCH-TEMP\n   OPEN OUTPUT F01-ERR-TEMP.\n   MOVE 0                          TO WS-TOT-REG WS-EN3-NUM-HOJA\n                                      WS-NUM-LINEAS.\n   PERFORM 50001200-PROC-ARCL050 UNTIL WS-FIN-L050.\n   PERFORM 50001300-PROC-ARCP280.\n   CLOSE F01-ERR-TEMP WITH SAVE.\n   PERFORM 50001800-PREPARA-ENC-TIT.\n   IF WS-TOT-REG > 0\n      PERFORM 50004000-TAMDISK\n      SORT SD-ARCERR\n           ON ASCENDING KEY KEY-NUM-PIEZA\n                            KEY-FECHA-ARCH\n                            KEY-NUM-C\n                            KEY-TR\n                            KEY-ID\n                            KEY-FECHA\n                            KEY-HORA\n           USING F01-ERR-TEMP RELEASE\n           GIVING F01-ERR-TEMP\n           MEMORY SIZE IS W77-MEMORY-SIZE WORDS\n           DISK   SIZE IS W77-DISK-SIZE   WORDS\n      OPEN INPUT F01-ERR-TEMP\n      PERFORM 50001500-READ-TEMP\n      PERFORM 50001801-GRABA-ENC\n      PERFORM 50001700-GENERA-LIST UNTIL WS-FIN-TEMP\n      CLOSE F01-ERR-TEMP\n   ELSE\n      OPEN INPUT F01-ERR-TEMP\n      CLOSE F01-ERR-TEMP WITH PURGE\n      PERFORM 50001600-IMP-VACIO.\n   CLOSE V00-REPORTE1 WITH SAVE.",
+          "java_codigo": "@Configuration\nclass ReporteErroresConfig {\n\n    /** 50001000-PROC-ARCL050P280: dos lecturas, un SORT y el listado. */\n    @Bean\n    Step consolidaErrores(JobRepository repo, PlatformTransactionManager tx,\n                          ItemReader<ErrorConsolidado> erroresL050Y280,     // L050 de 6 días hábiles + P280\n                          ListItemWriter<ErrorConsolidado> temporal) {\n        return new StepBuilder(\"consolidaErrores\", repo)\n                .<ErrorConsolidado, ErrorConsolidado>chunk(32, tx)          // BLOCK 32 del temporal\n                .reader(erroresL050Y280)\n                .writer(temporal)\n                .build();\n    }\n\n    @Bean\n    Tasklet reporteErrores(ListItemWriter<ErrorConsolidado> temporal, ReporteJasper jasper,\n                           P280Properties props, ContextoCsi csi) {\n        return (contribution, ctx) -> {\n            List<ErrorConsolidado> errores = new ArrayList<>(temporal.getWrittenItems());\n            Collections.sort(errores);                                      // SORT SD-ARCERR\n            Map<String, Object> p = Map.of(\"csi\", csi.numero(), \"fechaInicio\", csi.fechaInicioL050());\n            byte[] pdf = errores.isEmpty()\n                    ? jasper.render(\"p280-sin-informacion.jrxml\", p, List.of())   // 50001600-IMP-VACIO\n                    : jasper.render(\"p280-errores.jrxml\", p, errores);\n            jasper.publica(tituloReporte(props.reporte().titulo(), csi.numero(),\n                    csi.fechaMaquinaInicio(), ctx.getStepContext().getJobInstanceId()), pdf);\n            return RepeatStatus.FINISHED;\n        };\n    }\n}",
+          "racional": "La consolidación proyecta con LOCSUP (función 10, desplazamiento 6) la fecha desde la que se buscan archivos, lee los archivos de error de L050 y el del propio P280 hacia un temporal, lo ordena por las siete llaves y genera el listado; si no hubo registros imprime una hoja que dice que no hubo información. Es el patrón del arquetipo A3: un step que reúne los datos y un paso de emisión con JasperReports. El cálculo de espacio de disco para el <code>SORT</code> (<code>MEMORY SIZE</code>, <code>DISK SIZE</code>) no tiene equivalente y se elimina; el orden lo da el <code>Comparator</code> del registro.",
+          "reglas": [
+            "RN-S500-229",
+            "RN-S500-232"
+          ],
+          "riesgo": "Si LOCSUP falla al proyectar la fecha, el programa termina con DMTERMINATE después de haber actualizado ya los registros B52 y enviado el monitor; queda sin reporte del día."
+        },
+        {
+          "id": "s9",
+          "titulo": "Barrido de archivos L050 por copia y secuencia a lector de recursos",
+          "linea_ini": 1312,
+          "linea_fin": 1375,
+          "origen_codigo": " 50001200-PROC-ARCL050.\n*======================\n   MOVE 1 TO WS-L050-INTS-COP WS-L050-SEC.\n   PERFORM 50001201-ARCL050-COP VARYING WS-L050-INTS-COP FROM\n           1 BY 1 UNTIL WS-L050-INTS-COP > 14.\n 50001201-ARCL050-COP.\n*======================\n   MOVE 1 TO WS-L050-SEC.\n   PERFORM 50001202-ARCL050-SEC VARYING WS-L050-SEC FROM\n           1 BY 1 UNTIL WS-L050-SEC > 9999.\n*======================\n 50001202-ARCL050-SEC.\n*======================\n   MOVE WS-L050-SEC TO WS-L050-INTS-SEC.\n   CHANGE ATTRIBUTE NEWFILE   OF R-PROB-L050 TO VALUE FALSE.\n   CHANGE ATTRIBUTE EXCLUSIVE OF R-PROB-L050 TO VALUE FALSE.\n   CHANGE ATTRIBUTE TITLE    OF R-PROB-L050 TO WKS-TIT-ARCH-L050\n   IF ATTRIBUTE AVAILABLE OF R-PROB-L050 = VALUE TRUE\n      PERFORM 50001204-READ-ARCL050\n      PERFORM 50001203-LEE-ARCL050 UNTIL WS-EOF-ARCH\n      CLOSE R-PROB-L050 WITH RELEASE\n   ELSE\n      MOVE 10000 TO WS-L050-SEC.\n 50001205-MUV-DATL050.\n*======================\n   MOVE LOW-VALUES              TO F01-REG-ARCH.\n   MOVE 1                       TO F01-NUM-PIEZA.\n   MOVE WS-L050-INTS-FEC        TO F01-FECHA-ARCH.\n   MOVE WS-L050-FECHA           TO F01-FECHA.\n   MOVE WS-L050-HORA            TO F01-HORA.\n   MOVE WS-L050-INTS-COP        TO F01-NUM-C.\n   IF WS-MON-L050-ID < 11\n      MOVE 1                    TO F01-TR\n   ELSE\n      MOVE 2                    TO F01-TR.\n   MOVE WS-MON-L050-ID          TO F01-ID.\n   MOVE WS-MON-L050-TEXTO       TO F01-TEXTO.\n   WRITE F01-REG-ARCH.",
+          "java_codigo": "/** 50001200/1201/1202: hasta 14 copias por día y hasta 9999 secuencias por copia. */\n@Bean\n@StepScope\nMultiResourceItemReader<ErrorConsolidado> erroresL050(AlmacenArchivos almacen, ContextoCsi csi,\n                                                      CalendarioBancario cal, L050LineMapper mapper) {\n    List<Resource> archivos = new ArrayList<>();\n    for (LocalDate f = csi.fechaInicioL050(); !f.isAfter(csi.fechaMaquinaInicio()); f = cal.siguiente(f)) {\n        for (int cop = 1; cop <= 14; cop++) {\n            for (int sec = 1; sec <= 9999; sec++) {\n                // S500/FILE/INTS/50004S01/{csi}/{fecha}/PROBL050ASINC/{cop}/{sec}\n                Optional<Resource> r = almacen.busca(TitulosMonitor.l050(csi.numero(), f, cop, sec));\n                if (r.isEmpty()) break;              // MOVE 10000 TO WS-L050-SEC: la primera ausente corta\n                archivos.add(r.get());\n            }\n        }\n    }\n    var lector = new MultiResourceItemReader<ErrorConsolidado>();\n    lector.setResources(archivos.toArray(Resource[]::new));\n    lector.setComparator((a, b) -> 0);               // conservar el orden de descubrimiento\n    lector.setDelegate(new FlatFileItemReaderBuilder<ErrorConsolidado>()\n            .name(\"probL050\").lineMapper(mapper).build());\n    return lector;\n}\n\n/** 50001205-MUV-DATL050: ids 0 y 40 se ignoran; id < 11 es acción, el resto error de BD. */\nclass L050LineMapper implements LineMapper<ErrorConsolidado> { /* ... devuelve null para id 0 y 40 ... */ }",
+          "racional": "Para cada día desde la fecha de inicio, el programa prueba los títulos de copia 1 a 14 y, dentro de cada copia, las secuencias desde 1 hasta encontrar la primera que no existe. Cada archivo disponible se lee completo; los registros con identificador 0 o 40 se descartan, los menores a 11 se clasifican como acciones y los demás como errores de base de datos. En Java la búsqueda arma la lista de recursos para un <code>MultiResourceItemReader</code>, con el mismo corte en la primera secuencia ausente y sin reordenar.",
+          "reglas": [
+            "RN-S500-229"
+          ],
+          "riesgo": "Un hueco en la numeración de secuencias (por ejemplo, un archivo borrado) oculta todos los archivos posteriores de esa copia."
+        },
+        {
+          "id": "s10",
+          "titulo": "Cortes de control y salto de página a grupos de JasperReports",
+          "linea_ini": 1475,
+          "linea_fin": 1601,
+          "origen_codigo": " 50001701-VALIDA-CORTES.\n*======================\n   IF F01-NUM-PIEZA-ANT = F01-NUM-PIEZA\n      IF F01-FECHA-ANT = F01-FECHA-ARCH\n         IF F01-NUM-C-ANT = F01-NUM-C\n            IF F01-TR-ANT = F01-TR\n               IF F01-NUM-PIEZA = 2\n                  IF F01-HORA = F01-HORA-ANT\n                     NEXT SENTENCE\n                  ELSE\n                     PERFORM 50001802-GRABA-TIT\n               ELSE\n                  NEXT SENTENCE\n            ELSE\n               PERFORM 50001806-CORTEXTR\n         ELSE\n            PERFORM 50001802-GRABA-TIT\n      ELSE\n         PERFORM 50001802-GRABA-TIT\n   ELSE\n      PERFORM 50001802-GRABA-TIT.\n   IF WS-CSI = 04\n      MOVE \"MONTEREY\" TO WS-L050-TIT1-CSI WS-P280-TIT1-CSI\n   ELSE\n      MOVE \"VALLE DE MEXICO\" TO WS-L050-TIT1-CSI\n                                WS-P280-TIT1-CSI.\n   IF F01-TR = 1\n      MOVE \"ACCIONES\" TO WS-L050-TIT2\n   ELSE\n      MOVE \"ERRORES BASE DE DATOS\" TO WS-L050-TIT2.\n 50001805-SALTO-HOJA.\n*======================\n   IF WS-NUM-LINEAS > 55\n      PERFORM 50001801-GRABA-ENC\n      PERFORM 50001802-GRABA-TIT\n      MOVE 0 TO WS-NUM-LINEAS.",
+          "java_codigo": "<!-- p280-errores.jrxml: los cortes del COBOL son grupos del reporte -->\n<group name=\"pieza\">        <groupExpression><![CDATA[$F{pieza} + \"|\" + $F{fechaArchivo} + \"|\" + $F{copia}]]></groupExpression>\n    <groupHeader><band height=\"44\"><!-- WS-TIT1-L050 / WS-TIT1-P280 con plaza, copia y fecha --></band></groupHeader>\n</group>\n<group name=\"tipoRenglon\">  <groupExpression><![CDATA[$F{tipoRenglon}]]></groupExpression>\n    <groupHeader><band height=\"30\"><!-- ACCIONES | ERRORES BASE DE DATOS --></band></groupHeader>\n</group>\n<group name=\"horaP280\">     <groupExpression><![CDATA[$F{pieza} == 2 ? $F{hora} : null]]></groupExpression>\n    <groupHeader><band height=\"30\"><!-- WS-TIT1-P280 con HH:MM:SS --></band></groupHeader>\n</group>\n\n// ---------------------------------------------------------------------------\n/** Parámetros del encabezado de grupo: la plaza sale del CSI configurado. */\nstatic String plaza(int csi, P280Properties props) {\n    return props.plazas().getOrDefault(csi, \"VALLE DE MEXICO\");   // p280.plazas: {4: \"MONTERREY\", 10: \"VALLE DE MEXICO\"}\n}\nstatic String tituloTipo(int tipoRenglon) {\n    return tipoRenglon == 1 ? \"ACCIONES\" : \"ERRORES BASE DE DATOS\";\n}\n// Salto de página: pageHeader repetido y isReprintHeaderOnEachPage=\"true\" en los grupos (> 55 líneas).",
+          "racional": "El listado tiene cortes por pieza, fecha de archivo y copia, por tipo de renglón dentro de la copia y, para errores de P280, por hora. Cada corte imprime sus títulos, y al pasar de 55 líneas se repiten el encabezado de página y el título del grupo. En JasperReports cada corte es un <code>group</code> con su expresión y su encabezado, y la repetición tras salto de página se declara con <code>isReprintHeaderOnEachPage</code>, en vez de contar líneas a mano. El nombre de la plaza, que el COBOL decide comparando el CSI con 04, pasa a configuración.",
+          "reglas": [
+            "RN-S500-232"
+          ],
+          "riesgo": "El literal de plaza dice MONTEREY (errata en el fuente) y cualquier CSI distinto de 04 se rotula como Valle de México."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Actualización de la llave del índice que se recorre",
+      "detalle": "En modo 1 el barrido usa B52SXCSIFECH desde B52-CSI = 0 (línea 999) y 300234-MUEVE-DATOS cambia B52-CSI (línea 1185). Según cómo reposicione DMSII el cursor, podrían saltarse o repetirse registros."
+    },
+    {
+      "titulo": "Deadlock persistente sin reintento posterior",
+      "detalle": "Tras dos deadlocks (líneas 1113-1117) el registro se reporta en el monitor y el barrido continúa; ese cliente queda sin actualizar hasta otra corrida."
+    },
+    {
+      "titulo": "Copia WFL sin verificación",
+      "detalle": "CALL SYSTEM WFL USING WS-WFL-COPY (línea 1249) no revisa el resultado, y el pack CAPTACION está fijo en la tarjeta WFL de DATA DIVISION (líneas 379-388)."
+    },
+    {
+      "titulo": "Huecos en la secuencia de archivos L050",
+      "detalle": "La búsqueda de archivos L050 se detiene en la primera secuencia que no existe (línea 1343); los archivos posteriores de esa copia no entran al reporte."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Versión 25MTP004, prefijo 50004S01, CSI 04 y 10 con sus nombres de plaza, 14 copias, 9999 secuencias, 6 días de retroceso y 55 líneas por página están compilados. Se trasladan a configuración. No se encontraron credenciales en el fuente."
+    }
+  ],
+  "pendientes_revision": [
+    "La descripción del inventario (Teller Batch Error Reporter) y la del pseudocódigo (servidor COMS terciario) no coinciden del todo con lo que muestra el fuente: el barrido B52 actualiza datos de cliente del control de depósitos y el reporte consolida errores. Se tituló el componente según el fuente; validar el nombre con el SME.",
+    "Confirmar el efecto en DMSII de modificar B52-CSI mientras se recorre B52SXCSIFECH con FIND NEXT en el modo 1.",
+    "300234-ABORT-TRANSACTION registra el texto ERROR END-TRANSACTION (línea 1169) cuando falla el abort; parece copia de otro párrafo.",
+    "En 50001805-SALTO-HOJA el contador de líneas se pone en cero después de escribir encabezado y título (línea 1601), así que esas líneas no cuentan para el siguiente salto; la hoja puede exceder 55 renglones. Confirmar si es aceptable para el formato impreso.",
+    "La semántica de LOCSUP función 10 con desplazamiento 6 y formato 13 (días hábiles o naturales) no está en el fuente; el copybook S500/INC/PRO/25MTP002 no viene incluido."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-228",
+    "RN-S500-229",
+    "RN-S500-230",
+    "RN-S500-231",
+    "RN-S500-232",
+    "RN-S500-233"
+  ]
+}

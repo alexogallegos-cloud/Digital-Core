@@ -1,0 +1,154 @@
+{
+  "slug": "S500_P179",
+  "sistema": "S500",
+  "programa": "P179",
+  "nombre": "Consolidación de Movimientos Aplicados MTY y VDM para S111",
+  "funcion": "Paso batch de S500 que recibe la fecha de proceso en el TASKVALUE y concentra los archivos DEPINICIAL de movimientos aplicados de Monterrey (nodo 04) y Valle de México (nodo 10) en un solo archivo de 40 bytes para el sistema S111, salvo que S111 esté marcado como decomisionado.",
+  "resumen": "Lee la bandera de decomiso de S111 en S500B02CONTROL; si vale 0, abre (S500)S500/FILE/S111/04/DEPINICIAL/aammdd y (S500)S500/FILE/S111/10/DEPINICIAL/aammdd y crea (S500)S500/FILE/S111/DEPINICIAL/aammdd. Escribe un header propio con la fecha, S500 como origen, S111 como destino y CSI 10, y copia los detalles del archivo de Monterrey y luego los del de Valle. En cada archivo de entrada valida que el header traiga la fecha del parámetro y el CSI esperado (04 o 10), y que el trailer cuadre con los detalles leídos; cualquier diferencia o la falta de trailer termina el paso con estado -1. Al final escribe un trailer con el total de detalles de ambos archivos.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.s111.depinicial",
+  "secciones": [
+    {
+      "titulo": "Registro de 40 bytes, rutas y parámetro de fecha",
+      "origen": {
+        "archivo": "S500_SOURCE_P179.txt",
+        "contexto": "WORKING-STORAGE · 20002000-CHECA-DECOMISO-S111 · 10010600-ABRO-ARCH-S111"
+      },
+      "java": {
+        "archivo": "RegistroS111.java · P179Properties.java · DecomisoS111Decider.java",
+        "contexto": "sealed interface · @ConfigurationProperties · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro con header, detalle y trailer en REDEFINES",
+          "linea_ini": 129,
+          "linea_fin": 144,
+          "origen_codigo": " 01  WKS-REG-S111-ENVIO.\n     02 WKS-S111-TIP-REG          PIC  9(002).\n     02 WKS-S111-HEADER.\n        03 WKS-S111-HDR-FECHA     PIC  9(008).\n        03 WKS-S111-HDR-SIS-ORI   PIC  X(004).\n        03 WKS-S111-HDR-SIS-DES   PIC  X(004).\n        03 WKS-S111-HDR-CSI-ORI   PIC  9(002).\n        03 FILLER                 PIC  X(020).\n     02 WKS-S111-DETALLE REDEFINES WKS-S111-HEADER.\n        03 WKS-S111-DET-TARJETA   PIC  9(016).\n        03 WKS-S111-DET-CONTRATO  PIC  9(012).\n        03 WKS-S111-DET-SUC-PROM  PIC  9(004).\n        03 FILLER                 PIC  X(006).\n     02 WKS-S111-TRAILER REDEFINES WKS-S111-HEADER.\n        03 WKS-S111-TRL-NUM-REG   PIC  9(008).\n        03 FILLER                 PIC  X(030).",
+          "java_codigo": "/** WKS-REG-S111-ENVIO: 40 bytes; el tipo 9(02) distingue 00 header, 99 trailer y cualquier otro detalle. */\npublic sealed interface RegistroS111 permits RegistroS111.Header, RegistroS111.Detalle,\n                                            RegistroS111.Trailer {\n    String raw();\n\n    record Header(LocalDate fecha,          // 9(08) AAAAMMDD\n                  String sistemaOrigen,     // X(04)\n                  String sistemaDestino,    // X(04)\n                  int csiOrigen,            // 9(02): 04 MTY, 10 VDM\n                  String raw) implements RegistroS111 {}\n\n    record Detalle(String tarjeta,          // 9(16): texto, conserva ceros\n                   String contrato,         // 9(12)\n                   int sucursalPromotora,   // 9(04)\n                   String raw) implements RegistroS111 {}\n\n    record Trailer(long numRegistros, String raw) implements RegistroS111 {}   // 9(08)\n\n    static RegistroS111 parse(String r) {\n        return switch (r.substring(0, 2)) {\n            case \"00\" -> new Header(LocalDate.parse(r.substring(2, 10), BASIC_ISO_DATE),\n                    r.substring(10, 14), r.substring(14, 18), Integer.parseInt(r.substring(18, 20)), r);\n            case \"99\" -> new Trailer(Long.parseLong(r.substring(2, 10)), r);\n            default   -> new Detalle(r.substring(2, 18), r.substring(18, 30),\n                    Integer.parseInt(r.substring(30, 34)), r);   // P179 copia el detalle sin interpretarlo\n        };\n    }\n}",
+          "racional": "El mismo buffer de 40 bytes se interpreta como header, detalle o trailer según el tipo de registro. En Java cada vista es un <code>record</code> dentro de una <code>sealed interface</code> y el <code>switch</code> sobre el tipo reproduce la regla del fuente: 00 es header, 99 es trailer y cualquier otro valor se trata como detalle. Tarjeta y contrato se modelan como <code>String</code> para conservar los ceros a la izquierda; P179 no los usa, solo copia el registro tal cual, por eso se guarda el texto original.",
+          "reglas": [],
+          "riesgo": "Cualquier tipo de registro distinto de 00 y 99, incluidos valores basura, se cuenta y se copia como detalle."
+        },
+        {
+          "id": "s2",
+          "titulo": "Rutas DEPINICIAL por nodo y fecha AAAAMMDD truncada a AAMMDD",
+          "linea_ini": 101,
+          "linea_fin": 177,
+          "origen_codigo": " 01  WKS-ETIQ-S111-APLICADO-VDM.\n     02 FILLER                    PIC  X(035)     VALUE\n        \"(S500)S500/FILE/S111/10/DEPINICIAL/\".\n     02 WKS-ETIQ-S111-FEC-VDM     PIC  9(006).\n     02 FILLER                    PIC  X(001)     VALUE \".\".\n 01  WKS-ETIQ-S111-APLICADO-MTY.\n     02 FILLER                    PIC  X(035)     VALUE\n        \"(S500)S500/FILE/S111/04/DEPINICIAL/\".\n     02 WKS-ETIQ-S111-FEC-MTY     PIC  9(006).\n     02 FILLER                    PIC  X(001)     VALUE \".\".\n 01  WKS-ETIQ-S500-ENVIO-S111.\n     02 FILLER                    PIC  X(032)     VALUE\n        \"(S500)S500/FILE/S111/DEPINICIAL/\".\n     02 WKS-ETIQ-S111-FECHA       PIC  9(006).\n     02 FILLER                    PIC  X(001)     VALUE \".\".\n 01  WKS-PARAMETROS.\n     02 WKS-PARAM-FECHA-CAMD      PIC  9(008).\n     02 WKS-PARAM-FECHA-CAMD-R    REDEFINES\n        WKS-PARAM-FECHA-CAMD.\n        03 WKS-PARAM-FECHA-CA     PIC  9(004).\n        03 WKS-PARAM-FECHA-MM     PIC  9(002).\n        03 WKS-PARAM-FECHA-DD     PIC  9(002).\n     02 WKS-PARAM-FECHA-CAMD-RR   REDEFINES\n        WKS-PARAM-FECHA-CAMD.\n        03 WKS-PARAM-FECHA-CC     PIC  9(002).\n        03 WKS-PARAM-FECHA-AMD    PIC  9(006).",
+          "java_codigo": "# application.yml\np179:\n  fecha-en-nombre: yyMMdd          # WKS-ETIQ-*-FEC es 9(6): el MOVE desde 9(8) descarta el siglo\n  entradas:                        # orden significativo: primero MTY, luego VDM\n    - { nodo: 4,  csi: 4,  ruta: \"(S500)S500/FILE/S111/04/DEPINICIAL/{fecha}.\" }\n    - { nodo: 10, csi: 10, ruta: \"(S500)S500/FILE/S111/10/DEPINICIAL/{fecha}.\" }\n  salida: \"(S500)S500/FILE/S111/DEPINICIAL/{fecha}.\"\n  header:\n    sistema-origen: \"S500\"\n    sistema-destino: \"S111\"\n    csi-origen: 10\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p179\")\npublic record P179Properties(String fechaEnNombre, List<Entrada> entradas,\n                             String salida, HeaderProps header) {\n    public record Entrada(int nodo, int csi, String ruta) {}\n    public record HeaderProps(String sistemaOrigen, String sistemaDestino, int csiOrigen) {}\n\n    /** TASKVALUE trae AAAAMMDD (WKS-PARAM-FECHA-CAMD); el nombre usa AAMMDD. */\n    String resuelve(String plantilla, LocalDate fecha) {\n        return plantilla.replace(\"{fecha}\", fecha.format(DateTimeFormatter.ofPattern(fechaEnNombre)));\n    }\n}",
+          "racional": "Las tres etiquetas fijan en el código el usuario <code>(S500)</code>, los nodos 04 y 10 y el nombre DEPINICIAL; pasan a <code>application.yml</code> con el orden de lectura explícito. La fecha llega en el <code>TASKVALUE</code> como AAAAMMDD de 8 dígitos y se mueve a campos de 6, lo que conserva AAMMDD y descarta el siglo; el patrón <code>yyMMdd</code> lo deja visible. Dentro del archivo, en cambio, la fecha del header se compara completa con 8 dígitos, así que en Java se trabaja siempre con <code>LocalDate</code> y el formato corto solo se usa para nombrar archivos.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Bandera de decomiso de S111 en un campo de uso futuro",
+          "linea_ini": 217,
+          "linea_fin": 272,
+          "origen_codigo": " 20002000-CHECA-DECOMISO-S111.\n     PERFORM  20001000-ABRO-BASE.\n     SET S500B02CONTROL           TO  BEGINNING\n     PERFORM 90000002-B02CONTROL-FIND\n     IF WS-DB-ERROR\n        IF WS-DB-NOTFOUND\n           MOVE \"NO EXISTE B02CONTROL EN S500BD01CAPTACION\"\n                                  TO  WS-0101-TEXT-MSG\n        ELSE\n           MOVE \"ERROR FIND A B02 DE S500BD01CAPTACION\"\n                                  TO  WS-0101-TEXT-MSG.\n     IF WS-DB-ERROR\n        PERFORM 70000050-MENSAJE\n     ELSE\n        MOVE B02-USO-FUTURO-05    TO  WS-B02-DECOM-S111.\n     PERFORM  20003000-CIERRO-BASE.\n 10010600-ABRO-ARCH-S111.\n*------------------------\n     IF WS-B02-DECOM-S111 = 0\n        MOVE WKS-PARAM-FECHA-CAMD    TO  WKS-ETIQ-S111-FECHA\n                                         WKS-ETIQ-S111-FEC-VDM\n                                         WKS-ETIQ-S111-FEC-MTY\n        OPEN INPUT   I01-S111-APLICADO-VDM\n                     I01-S111-APLICADO-MTY\n        OPEN OUTPUT  E01-S500-ENVIO-S111                         .",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class DecomisoS111Decider implements JobExecutionDecider {\n\n    private final ControlCaptacionRepository b02;   // S500B02CONTROL, OPEN INQUIRY\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        var control = b02.findFirst()\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"NO EXISTE B02CONTROL EN S500BD01CAPTACION\"));   // el COBOL solo avisa y sigue\n        int decomiso = control.usoFuturo05();          // B02-USO-FUTURO-05\n        return (decomiso == 0)\n                ? new FlowExecutionStatus(\"GENERA\")\n                : new FlowExecutionStatus(\"S111_DECOMISIONADO\");      // termina sin abrir archivos\n    }\n}",
+          "racional": "Antes de abrir archivos, P179 lee S500B02CONTROL y toma la bandera de decomiso de S111 de <code>B02-USO-FUTURO-05</code>; con un valor distinto de cero no abre archivos ni genera salida. En Spring Batch esto es un <code>JobExecutionDecider</code> al inicio del job. Se decidió fallar si no existe el registro de control, porque el fuente en ese caso deja la bandera en cero y genera el archivo para S111 sin haber podido consultar si el sistema sigue activo.",
+          "reglas": [],
+          "riesgo": "Si el FIND de B02 falla, el programa solo escribe el mensaje (líneas 230-231) y sigue con WS-B02-DECOM-S111 en su valor inicial 0, es decir, como si S111 estuviera activo. La bandera vive en un campo llamado de uso futuro, sin nombre de negocio en la base."
+        }
+      ]
+    },
+    {
+      "titulo": "Concentración de MTY y VDM con validación de header y trailer",
+      "origen": {
+        "archivo": "S500_SOURCE_P179.txt",
+        "contexto": "00000000-PRINCIPAL · 20100000 / 20101000 / 20101010 / 20101020 / 20101030"
+      },
+      "java": {
+        "archivo": "DepInicialJobConfig.java · ValidadorArchivoS111.java · DepInicialWriter.java",
+        "contexto": "Spring Batch Step · MultiResourceItemReader · ItemProcessor · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Dos archivos en orden fijo hacia una sola salida",
+          "linea_ini": 188,
+          "linea_fin": 311,
+          "origen_codigo": " 00000000-PRINCIPAL.\n*-------------------\n     PERFORM                      10000000-INICIO\n     PERFORM                      20000000-PROCESO\n     PERFORM                      60000000-FIN\n     STOP RUN                                                    .\n 20100000-PROCESO-ARCHIVOS.\n*--------------------------\n     PERFORM                      20101000-GENERA-HEADER\n     ADD  1                       TO  WKS-E01-NUM-ARCHIVO\n     PERFORM                      20101000-PROCESA-DETALLE\n                          UNTIL       W88-E01-FIN\n     MOVE ZEROS                   TO  WKS-E01-FIN-VA\n                                      WKS-E01-REG-DETALLE\n                                      WKS-E01-FILE-ERROR-VA\n     ADD  1                       TO  WKS-E01-NUM-ARCHIVO\n     PERFORM                      20101000-PROCESA-DETALLE\n                          UNTIL       W88-E01-FIN\n     MOVE SPACES                  TO  WKS-REG-S111-ENVIO\n     MOVE 99                      TO  WKS-S111-TIP-REG\n     MOVE WKS-I01-NUM-REG         TO  WKS-S111-TRL-NUM-REG\n     WRITE E01-REG-S500-ENVIO-S111 FROM WKS-REG-S111-ENVIO       .",
+          "java_codigo": "@Bean\nStep concentraDepInicial(JobRepository repo, PlatformTransactionManager tx,\n                         P179Properties props, ResourceLoader rl,\n                         @Value(\"#{jobParameters['fechaProceso']}\") LocalDate fecha,\n                         ValidadorArchivoS111 validador, DepInicialWriter salida) {\n\n    Resource[] entradas = props.entradas().stream()\n            .map(e -> rl.getResource(props.resuelve(e.ruta(), fecha)))\n            .toArray(Resource[]::new);\n\n    var lector = new MultiResourceItemReaderBuilder<RegistroS111>()\n            .name(\"depInicialMtyVdm\")\n            .resources(entradas)\n            .comparator((a, b) -> 0)          // no reordenar: MTY (archivo 1) antes que VDM (archivo 2)\n            .delegate(lineaS111Reader())      // FlatFileItemReader de 40 bytes -> RegistroS111.parse\n            .build();\n\n    return new StepBuilder(\"concentraDepInicial\", repo)\n            .<RegistroS111, RegistroS111>chunk(360, tx)   // BLOCK CONTAINS 360 RECORDS\n            .reader(lector)\n            .processor(validador)             // valida header/trailer y deja pasar solo detalles\n            .writer(salida)                   // header propio al abrir, trailer total al cerrar\n            .build();\n}",
+          "racional": "El proceso escribe un header, copia los detalles del archivo 1 (Monterrey) hasta su trailer, reinicia los contadores del archivo y hace lo mismo con el archivo 2 (Valle de México), y cierra con un trailer que suma los detalles de ambos. Es el patrón A1: un <code>MultiResourceItemReader</code> con los dos recursos en orden fijo y un solo writer. Hay que anular el ordenamiento por nombre del lector porque la validación del CSI del header depende de cuál archivo se lee primero.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Header propio de la salida con CSI 10 fijo",
+          "linea_ini": 316,
+          "linea_fin": 324,
+          "origen_codigo": " 20101000-GENERA-HEADER.\n*-----------------------\n     MOVE SPACES                  TO  WKS-REG-S111-ENVIO\n     MOVE ZEROS                   TO  WKS-S111-TIP-REG\n     MOVE WKS-PARAM-FECHA-CAMD    TO  WKS-S111-HDR-FECHA\n     MOVE \"S500\"                  TO  WKS-S111-HDR-SIS-ORI\n     MOVE \"S111\"                  TO  WKS-S111-HDR-SIS-DES\n     MOVE \"10\"                    TO  WKS-S111-HDR-CSI-ORI\n     WRITE E01-REG-S500-ENVIO-S111 FROM WKS-REG-S111-ENVIO       .",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class DepInicialWriter extends FlatFileItemWriter<RegistroS111> {\n\n    private final P179Properties props;\n    @Value(\"#{jobParameters['fechaProceso']}\") private LocalDate fecha;\n    private long detalles;                                   // WKS-I01-NUM-REG\n\n    @PostConstruct\n    void configura() {\n        setLineAggregator(RegistroS111::raw);\n        setHeaderCallback(w -> w.write(Fixed.headerS111(     // 20101000-GENERA-HEADER, tipo 00\n                fecha, props.header().sistemaOrigen(),\n                props.header().sistemaDestino(), props.header().csiOrigen())));\n        setFooterCallback(w -> w.write(Fixed.trailerS111(detalles)));   // tipo 99 con el total\n    }\n\n    @Override\n    public void write(Chunk<? extends RegistroS111> chunk) throws Exception {\n        detalles += chunk.size();\n        super.write(chunk);\n    }\n}",
+          "racional": "La salida lleva un header armado por P179, no copiado de las entradas: fecha del parámetro, S500 como origen, S111 como destino y CSI 10. En Spring Batch el header y el trailer se escriben con los callbacks del <code>FlatFileItemWriter</code>, y los literales pasan a propiedades. El trailer se calcula con los detalles efectivamente escritos, igual que <code>WKS-I01-NUM-REG</code>.",
+          "reglas": [],
+          "riesgo": "El CSI de origen del header de salida es siempre 10 aunque la mitad de los movimientos venga de Monterrey; S111 no puede distinguir por header qué plaza originó cada detalle."
+        },
+        {
+          "id": "s6",
+          "titulo": "Validación del header de cada entrada por fecha y CSI",
+          "linea_ini": 329,
+          "linea_fin": 379,
+          "origen_codigo": " 20101000-PROCESA-DETALLE.\n*-------------------------\n     MOVE SPACES                  TO  WKS-REG-S111-ENVIO\n     IF WKS-E01-NUM-ARCHIVO       =   1\n        PERFORM                   70000200-LLAMA-ARCHIVO-MTY\n     ELSE\n        PERFORM                   70000300-LLAMA-ARCHIVO-VDM     .\n     IF W88-E01-FILE-ERROR\n        STRING \"ERROR ARCHIVO SIN TRAILER: \" WKS-E01-NUM-ARCHIVO\n        DELIMITED BY SIZE INTO    WS-0101-TEXT-MSG\n        PERFORM                   70000050-MENSAJE\n        PERFORM                   99000010-LLAMA-STATUS-MYSELF   .\n     IF WKS-S111-TIP-REG = ZEROS\n        PERFORM                   20101010-VALIDA-HEADER\n     ELSE\n        IF WKS-S111-TIP-REG = 99\n           PERFORM                20101020-VALIDA-TRAILER\n        ELSE\n           PERFORM                20101030-MUEVE-DETALLE         .\n 20101010-VALIDA-HEADER.\n*-----------------------\n     MOVE ZEROS                   TO  WKS-E01-FILE-ERROR-VA\n     IF WKS-S111-HDR-FECHA NOT = WKS-PARAM-FECHA-CAMD\n        MOVE 1                    TO  WKS-E01-FILE-ERROR-VA\n     ELSE\n        IF WKS-E01-NUM-ARCHIVO = 1\n           IF WKS-S111-HDR-CSI-ORI = 04\n              NEXT SENTENCE\n           ELSE\n              MOVE 1              TO  WKS-E01-FILE-ERROR-VA\n        ELSE\n           IF WKS-E01-NUM-ARCHIVO = 2\n              IF WKS-S111-HDR-CSI-ORI = 10\n                 NEXT SENTENCE\n              ELSE\n                 MOVE 1           TO  WKS-E01-FILE-ERROR-VA      .\n     IF W88-E01-FILE-ERROR\n        STRING \"ERROR EN HEADER DEL ARCHIVO: \" WKS-E01-NUM-ARCHIVO\n               \" TIPO: \"              WKS-S111-TIP-REG\n               \" FECHA: \"             WKS-S111-HDR-FECHA\n               \" CSI: \"               WKS-S111-HDR-CSI-ORI\n        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG\n        PERFORM                   70000050-MENSAJE\n        PERFORM                   99000010-LLAMA-STATUS-MYSELF   .",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ValidadorArchivoS111 implements ItemProcessor<RegistroS111, RegistroS111> {\n\n    private final P179Properties props;\n    @Value(\"#{jobParameters['fechaProceso']}\") private LocalDate fecha;\n    private int archivo = 1;                 // WKS-E01-NUM-ARCHIVO\n    private long detallesArchivo;            // WKS-E01-REG-DETALLE\n    private boolean trailerVisto;\n\n    @Override\n    public RegistroS111 process(RegistroS111 r) {\n        return switch (r) {\n            case RegistroS111.Header h  -> { validaHeader(h); yield null; }   // no se copia\n            case RegistroS111.Trailer t -> { validaTrailer(t); yield null; }\n            case RegistroS111.Detalle d -> { detallesArchivo++; yield d; }    // 20101030-MUEVE-DETALLE\n        };\n    }\n\n    private void validaHeader(RegistroS111.Header h) {\n        int csiEsperado = props.entradas().get(archivo - 1).csi();   // 04 para MTY, 10 para VDM\n        if (!h.fecha().equals(fecha) || h.csiOrigen() != csiEsperado) {\n            throw new ArchivoS111InvalidoException(\"ERROR EN HEADER DEL ARCHIVO: %d FECHA: %s CSI: %d\"\n                    .formatted(archivo, h.fecha(), h.csiOrigen()));   // STATUS OF MYSELF := -1\n        }\n    }\n}",
+          "racional": "Cada registro leído se clasifica por tipo. El header de cada entrada no pasa a la salida, pero debe traer la fecha del parámetro y el CSI que corresponde a su posición: 04 para el primer archivo y 10 para el segundo. Una falla termina el paso con estado -1, que en Java es una excepción que deja el step en FAILED. El fin de archivo sin trailer también aborta; en Spring Batch esa condición se revisa al cambiar de recurso o al cerrar el step.",
+          "reglas": [],
+          "riesgo": "La validación del header solo ocurre si llega un registro tipo 00. Un archivo que empieza directamente con detalles no se valida por fecha ni por CSI y sus movimientos se copian a S111."
+        },
+        {
+          "id": "s7",
+          "titulo": "Trailer de cada entrada contra detalles leídos",
+          "linea_ini": 384,
+          "linea_fin": 411,
+          "origen_codigo": " 20101020-VALIDA-TRAILER.\n*------------------------\n     MOVE ZEROS                   TO  WKS-E01-FILE-ERROR-VA\n     MOVE 1                       TO  WKS-E01-FIN-VA\n     IF WKS-S111-TRL-NUM-REG      =   WKS-E01-REG-DETALLE\n        STRING \"TERMINO <SIN ERROR> ARCHIVO: \" WKS-E01-NUM-ARCHIVO\n               \" TIPO: \"              WKS-S111-TIP-REG\n               \" REGISTROS: \"         WKS-S111-TRL-NUM-REG\n        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG\n        PERFORM                   70000050-MENSAJE\n     ELSE\n        MOVE 1                    TO  WKS-E01-FILE-ERROR-VA\n        STRING \"TERMINO <CON ERROR> ARCHIVO: \" WKS-E01-NUM-ARCHIVO\n               \" TIPO: \"              WKS-S111-TIP-REG\n               \" REGISTROS EN TRL: \"  WKS-S111-TRL-NUM-REG\n               \" REGISTROS LEIDOS: \"  WKS-E01-REG-DETALLE\n        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG\n        PERFORM                   70000050-MENSAJE\n        PERFORM                   99000010-LLAMA-STATUS-MYSELF   .\n 20101030-MUEVE-DETALLE.\n*-----------------------\n     ADD  1                       TO  WKS-E01-REG-DETALLE\n                                      WKS-I01-NUM-REG\n     WRITE E01-REG-S500-ENVIO-S111 FROM WKS-REG-S111-ENVIO       .",
+          "java_codigo": "    /** 20101020-VALIDA-TRAILER: cierra el archivo actual y exige que el conteo cuadre. */\n    private void validaTrailer(RegistroS111.Trailer t) {\n        if (t.numRegistros() != detallesArchivo) {\n            throw new ArchivoS111InvalidoException(\n                    \"TERMINO <CON ERROR> ARCHIVO: %d REGISTROS EN TRL: %d REGISTROS LEIDOS: %d\"\n                            .formatted(archivo, t.numRegistros(), detallesArchivo));\n        }\n        log.info(\"TERMINO <SIN ERROR> ARCHIVO: {} REGISTROS: {}\", archivo, t.numRegistros());\n        archivo++;                    // MOVE ZEROS TO WKS-E01-REG-DETALLE y siguiente archivo\n        detallesArchivo = 0;\n        trailerVisto = true;\n    }\n\n    @AfterStep\n    ExitStatus verificaTrailers(StepExecution se) {\n        if (archivo != 3) {           // los dos archivos deben haber cerrado con trailer\n            throw new ArchivoS111InvalidoException(\"ERROR ARCHIVO SIN TRAILER: \" + archivo);\n        }\n        return se.getExitStatus();\n    }\n}",
+          "racional": "Al llegar al trailer de cada entrada se compara el número de registros declarado con los detalles copiados de ese archivo; si no cuadra, el paso aborta. A diferencia de otros concentradores de S500, aquí la validación sí está activa. En Java el contador por archivo y el cambio de archivo viven en el procesador con <code>@StepScope</code>, y un <code>@AfterStep</code> verifica que ambos archivos hayan cerrado con trailer, lo que cubre el caso de fin de archivo sin trailer.",
+          "reglas": [],
+          "riesgo": "Los detalles se escriben en la salida antes de leer el trailer. Si el trailer no cuadra el programa aborta con el archivo de salida abierto; como nunca se cierra con SAVE no queda catalogado, pero un relanzamiento debe partir de cero."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Generación sin poder consultar el decomiso",
+      "detalle": "Si falla el FIND de S500B02CONTROL (líneas 221-231) el programa avisa y continúa con la bandera en 0, generando el archivo para S111 aunque el sistema pudiera estar decomisionado."
+    },
+    {
+      "titulo": "Header de entrada opcional",
+      "detalle": "20101000-PROCESA-DETALLE (líneas 343-349) valida el header solo si aparece un registro tipo 00; un archivo sin header se copia sin validar fecha ni plaza."
+    },
+    {
+      "titulo": "Tipos de registro no reconocidos",
+      "detalle": "Todo registro con tipo distinto de 00 y 99 se trata como detalle y se copia a la salida."
+    },
+    {
+      "titulo": "CSI fijo en el header de salida",
+      "detalle": "El header que recibe S111 lleva siempre CSI 10 (línea 323), aunque el archivo combine movimientos de Monterrey y Valle de México."
+    },
+    {
+      "titulo": "Código sin uso",
+      "detalle": "70000100-LLAMA-FECHAS (líneas 441-457) y WKS-AUX-FECH-PROYECTADA (línea 157) no se invocan ni se leen en este fuente; LOCSUP se enlaza en 10000010-LIBRERIAS pero no se llama (el copybook S500/INC/PRO/25MTP005 no viene en el fuente)."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Usuario (S500), nodos 04 y 10, nombre DEPINICIAL, literales S500, S111 y CSI 10 están compilados; se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME el significado y los valores posibles de B02-USO-FUTURO-05 como bandera de decomiso de S111.",
+    "Confirmar si S111 necesita saber la plaza de origen de cada movimiento, dado que el header de salida siempre dice CSI 10.",
+    "Validar si un archivo de entrada sin header debe rechazarse; el fuente lo acepta.",
+    "Confirmar el formato del TASKVALUE con que el WFL invoca P179: el programa lo trata como fecha AAAAMMDD de 8 dígitos."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-524",
+    "RN-S500-525",
+    "RN-S500-526"
+  ]
+}

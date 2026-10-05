@@ -1,0 +1,207 @@
+{
+  "slug": "S500_P320",
+  "sistema": "S500",
+  "programa": "P320",
+  "nombre": "Reporte Bimestral de Devoluciones y Comisiones Pendientes",
+  "funcion": "Paso batch de S500 que recorre S500B20DEVMENSUAL para listar, por nodo de impresión y sucursal promotora, los contratos con más de dos cheques devueltos en el bimestre, y recorre S500B12COMPEN para listar las comisiones pendientes sin IVA.",
+  "resumen": "Por cada registro de B20 suma las devoluciones de los dos meses guardados y, si el total es mayor a 2, toma los datos del contrato en B03 y los promedios de saldo en B06 para escribir un archivo intermedio de 90 bytes con nodo, sucursal, contrato, medio de acceso, devoluciones y promedios mensual y anual. Ordena ese archivo por nodo, sucursal, contrato y medio, e imprime el listado 001DEVOLBIM con cortes por sucursal y por nodo, generando un listado vacío para los nodos del CSI que no tuvieron casos. Después recorre B12 y, para cada contrato con comisiones acumuladas, imprime en 002COMIPEND las comisiones de manejo de cuenta, renta, cheques girados, cheques devueltos, otras y el total.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JasperReports",
+  "paquete_java": "mx.banamex.s500.captacion.devoluciones",
+  "secciones": [
+    {
+      "titulo": "Selección de contratos con devoluciones",
+      "origen": {
+        "archivo": "S500_SOURCE_P320.txt",
+        "contexto": "SD S02-SORTDEVMES · 50003100-DAME-B20DEV · 50003250-ESCRIBE-ARCHIVO"
+      },
+      "java": {
+        "archivo": "ContratoDevoluciones.java · DevolucionesProcessor.java · P320Properties.java",
+        "contexto": "record · ItemProcessor · JpaCursorItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro intermedio de 90 bytes a record",
+          "linea_ini": 58,
+          "linea_fin": 76,
+          "origen_codigo": " 01  WKS-S02-R01-DETALLE.\n     02 WKS-S02-R01-NODO              PIC 9(02)       COMP.\n     02 WKS-S02-R01-SUC-PROM          PIC 9(04)       COMP.\n     02 WKS-S02-R01-CONTRATO          PIC 9(12)       COMP.\n     02 WKS-S02-R01-MEDIOACC          PIC 9(12)       COMP.\n     02 WKS-S02-R01-DEVMES-ACT        PIC 9(04)       COMP.\n     02 WKS-S02-R01-DEVMES-ANT        PIC 9(04)       COMP.\n     02 WKS-S02-R01-DEVMES-TOT        PIC 9(04)       COMP.\n     02 WKS-S02-R01-PROM-MES          PIC 9(12)V99    COMP.\n     02 WKS-S02-R01-PROM-ANH          PIC 9(12)V99    COMP.\n     02 WKS-S02-R01-PRDINSTMON        PIC 9(12)       COMP.\n     02 RD-WKS-S02-R01-PRDINSTMON\n        REDEFINES  WKS-S02-R01-PRDINSTMON.\n        04 WKS-S02-R01-PRODUCTO       PIC 9(04)       COMP.\n        04 WKS-S02-R01-INSTRUMENTO    PIC 9(04)       COMP.\n        04 WKS-S02-R01-MONEDA         PIC 9(04)       COMP.\n     02 WKS-S02-R01-INDPRD            PIC 9(02)       COMP.\n     02 WKS-S02-R01-NOMBRE            PIC X(36).\n     02 FILLER                        PIC X(12).",
+          "java_codigo": "/** WKS-S02-R01-DETALLE: un renglón del listado 001DEVOLBIM antes de ordenar. */\npublic record ContratoDevoluciones(\n        int nodo,                    // 9(02) COMP: nodo de impresión calculado con S080\n        int sucursalPromotora,       // 9(04) COMP\n        String contrato,             // 9(12) COMP: String para conservar ceros\n        String medioAcceso,          // 9(12) COMP\n        int devMesActual,            // B20-DEV-MES-ANT\n        int devMesAnterior,          // B20-DEV-MESANTANT\n        int devTotal,                // suma de ambos\n        BigDecimal promedioMes,      // 9(12)V99 COMP -> escala 2\n        BigDecimal promedioAnual,    // 9(12)V99 COMP\n        int producto, int instrumento, int moneda,   // REDEFINES de PRDINSTMON\n        int indProducto,             // siempre 00 en P320\n        String nombre) {}            // X(36), sin \"/\" ni \",\"",
+          "racional": "La SD del ordenamiento define el renglón intermedio con campos <code>COMP</code> (decimal empacado) y un <code>REDEFINES</code> que parte un número de 12 dígitos en producto, instrumento y moneda. En Java es un <code>record</code> con campos tipados: los promedios <code>PIC 9(12)V99</code> son <code>BigDecimal</code> de escala 2 y contrato y medio se conservan como <code>String</code>. El indicador de producto forma parte de la llave de ordenamiento pero P320 siempre lo deja en cero.",
+          "reglas": [
+            "RN-S500-428"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Umbral de más de 2 devoluciones en la ventana de dos meses",
+          "linea_ini": 905,
+          "linea_fin": 936,
+          "origen_codigo": " 50003100-DAME-B20DEV.\n     PERFORM 90000020-B20SXCTOMA-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-DB-NOTFOUND\n           MOVE 1                     TO W77-EOF-BASE\n                                         W77-SW-NOHAY\n        ELSE\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF W77-EOF-BASE = 0\n        ADD 1  TO W77-NUM-LEIDOS\n        COMPUTE WKS-I01-R01-DEVMES-TOT = B20-DEV-MES-ANT\n                                       + B20-DEV-MESANTANT\n        IF WKS-I01-R01-DEVMES-TOT > 2\n           MOVE ZERO   TO W77-SW-NOHAY\n           IF B20-NUM-CONTRATO = 0\n              MOVE 1   TO W77-SW-NOHAY\n           ELSE\n           IF B20-NUM-CONTRATO = B03-NUM-CONTRATO\n              NEXT SENTENCE\n           ELSE\n              MOVE B20-NUM-CONTRATO TO WS-NUM-CONTRATO\n              PERFORM 550003150-DAME-B03CTO\n              IF W77-SW-NOHAY = 0\n                 PERFORM 50003180-DAME-HISTORICO\n              ELSE\n                 NEXT SENTENCE\n        ELSE\n           MOVE 1   TO W77-SW-NOHAY.",
+          "java_codigo": "# application.yml\np320:\n  umbral-devoluciones: 2          # se reporta con más de 2\n\n// ---------------------------------------------------------------------------\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass DevolucionesProcessor implements ItemProcessor<B20DevMensual, ContratoDevoluciones> {\n\n    private final P320Properties props;\n    private final ContratoRepository b03;        // S500B03CONTRATOS\n    private final HistoricoRepository b06;       // S500B06HISTORICO\n    private Contrato ultimo;                     // B03 se reutiliza si el contrato se repite\n    private Historico ultimoHist;\n\n    @Override\n    public ContratoDevoluciones process(B20DevMensual b20) {\n        int total = b20.devMesAnt() + b20.devMesAntAnt();          // COMPUTE ... DEVMES-TOT\n        if (total <= props.umbralDevoluciones() || b20.contrato().equals(\"000000000000\")) {\n            return null;                                           // W77-SW-NOHAY = 1\n        }\n        if (ultimo == null || !ultimo.numero().equals(b20.contrato())) {\n            Optional<Contrato> c = b03.findById(b20.contrato());\n            if (c.isEmpty()) return null;                          // contrato inexistente: se omite\n            ultimo = c.get();\n            ultimoHist = b06.findById(b20.contrato())\n                    .orElseThrow(() -> new ProcesoAbortadoException(\n                            \"ERR FIND B06SXCTO \" + b20.contrato()));   // CALL SYSTEM DMTERMINATE\n        }\n        return armaRenglon(b20, ultimo, ultimoHist, total);\n    }\n}",
+          "racional": "El total del bimestre es la suma de los dos contadores de devoluciones guardados en B20, y el contrato se reporta solo si ese total es mayor a 2. Un contrato con varios medios de acceso aparece varias veces seguidas en B20; el programa reutiliza los datos de B03 y B06 ya leídos cuando el contrato se repite, lo que en Java se conserva como caché del procesador con <code>@StepScope</code>. Un contrato inexistente en B03 se omite en silencio, pero la falta de histórico en B06 aborta el proceso; esa asimetría se mantiene.",
+          "reglas": [
+            "RN-S500-426",
+            "RN-S500-427"
+          ],
+          "riesgo": "La ventana suma B20-DEV-MES-ANT y B20-DEV-MESANTANT, es decir el mes anterior y el previo a ese, no el mes en curso; el programa los rotula como mes actual y anterior al escribirlos (líneas 972-973)."
+        },
+        {
+          "id": "s3",
+          "titulo": "Promedios de saldo mensual y anual desde B06",
+          "linea_ini": 960,
+          "linea_fin": 1020,
+          "origen_codigo": " 50003250-ESCRIBE-ARCHIVO.\n     MOVE B03-SUC-PROMOTORA      TO WKS-I01-R01-SUC-PROM.\n     MOVE B03-NUM-CONTRATO       TO WKS-I01-R01-CONTRATO.\n     MOVE B03-NUM-PRODUCTO       TO WKS-I01-R01-PRODUCTO.\n     MOVE B03-NUM-INSTRUM        TO WKS-I01-R01-INSTRUMENTO.\n     MOVE B03-MONEDA             TO WKS-I01-R01-MONEDA.\n     MOVE B03-NOMBRE             TO WKS-I01-R01-NOMBRE.\n     INSPECT WKS-I01-R01-NOMBRE REPLACING ALL \"/\" BY \" \".\n     INSPECT WKS-I01-R01-NOMBRE REPLACING ALL \",\" BY \" \".\n     MOVE B20-MEDIO-ACCESO       TO WKS-I01-R01-MEDIOACC.\n     MOVE B20-DEV-MES-ANT        TO WKS-I01-R01-DEVMES-ACT.\n     MOVE B20-DEV-MESANTANT      TO WKS-I01-R01-DEVMES-ANT.\n     MOVE B06-PROM-CICLO(12)     TO WKS-I01-R01-PROM-MES.\n     MOVE ZERO                   TO W77-IND-MES\n                                    WKS-ACUM-PROM\n                                    WKS-NUM-MES.\n     PERFORM 50003260-SUMA-PROM-ANUAL 12 TIMES.\n     IF WKS-NUM-MES > 0\n        COMPUTE WKS-I01-R01-PROM-ANH = WKS-ACUM-PROM\n                                     / WKS-NUM-MES\n     ELSE\n        MOVE ZERO  TO WKS-I01-R01-PROM-ANH.\n 50003260-SUMA-PROM-ANUAL.\n     ADD 1 TO W77-IND-MES.\n     IF B06-PROM-CICLO(W77-IND-MES) > 0\n        ADD B06-PROM-CICLO(W77-IND-MES)  TO WKS-ACUM-PROM\n        ADD 1                            TO WKS-NUM-MES.",
+          "java_codigo": "/** 50003250-ESCRIBE-ARCHIVO y 50003260-SUMA-PROM-ANUAL. */\nprivate ContratoDevoluciones armaRenglon(B20DevMensual b20, Contrato c, Historico h, int total) {\n    BigDecimal promedioMes = h.promedioCiclo(12);                 // B06-PROM-CICLO(12)\n\n    // Promedio anual: solo cuentan los meses con promedio mayor a cero.\n    List<BigDecimal> conSaldo = IntStream.rangeClosed(1, 12)\n            .mapToObj(h::promedioCiclo)\n            .filter(p -> p.signum() > 0)\n            .toList();\n    BigDecimal promedioAnual = conSaldo.isEmpty()\n            ? BigDecimal.ZERO.setScale(2)\n            : conSaldo.stream().reduce(BigDecimal.ZERO, BigDecimal::add)\n                      .divide(BigDecimal.valueOf(conSaldo.size()), 2, RoundingMode.DOWN);  // COMPUTE sin ROUNDED\n\n    String nombre = c.nombre().replace('/', ' ').replace(',', ' ');\n    return new ContratoDevoluciones(0, c.sucursalPromotora(), c.numero(), b20.medioAcceso(),\n            b20.devMesAnt(), b20.devMesAntAnt(), total, promedioMes, promedioAnual,\n            c.producto(), c.instrumento(), c.moneda(), 0, nombre);   // el nodo se calcula después\n}",
+          "racional": "El promedio mensual es la posición 12 de la tabla de promedios por ciclo de B06, y el anual es el promedio de las doce posiciones excluyendo los meses con promedio cero. La división no usa <code>ROUNDED</code>, así que COBOL trunca a dos decimales; en Java se usa <code>RoundingMode.DOWN</code> con escala 2. El nombre se limpia de diagonales y comas, probablemente para no romper el formato del listado.",
+          "reglas": [],
+          "riesgo": "Excluir los meses en cero sobreestima el promedio anual de cuentas con meses sin saldo; se debe confirmar si es el criterio de negocio."
+        },
+        {
+          "id": "s4",
+          "titulo": "Nodo de impresión por CSI y escritura del intermedio",
+          "linea_ini": 988,
+          "linea_fin": 1013,
+          "origen_codigo": "     IF WKS-I01-R01-SUC-PROM  NOT  = WKS-S080-NUMSUC\n        MOVE WKS-I01-R01-SUC-PROM TO WKS-S080-NUMSUC\n        PERFORM 42000080-DATOS-S080.\n     MOVE WKS-S080-NODO-IMP            TO WKS-I01-R01-NODO.\n     IF W77-MY-CSI = 4\n        IF WKS-I01-R01-NODO = 01 OR 04 OR 06 OR 07 OR 61\n           NEXT SENTENCE\n        ELSE\n           MOVE 04                 TO WKS-I01-R01-NODO\n     ELSE\n     IF WKS-I01-R01-NODO = 09 OR 10\n        NEXT SENTENCE\n     ELSE\n        MOVE 10                 TO WKS-I01-R01-NODO.\n     MOVE 00 TO WKS-I01-R01-INDPRD.\n     WRITE I01-R00-DEVMENSUAL  FROM WKS-I01-R01-DETALLE\n           INVALID KEY\n           MOVE \"ERR WRITE DEVMENSUAL\" TO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     ADD 1 TO W77-TOT-ESCRITOS.",
+          "java_codigo": "# application.yml\np320:\n  nodos:\n    \"4\":  { validos: [1, 4, 6, 7, 61], omision: 4 }\n    \"10\": { validos: [9, 10],          omision: 10 }\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass NodoImpresionProcessor implements ItemProcessor<ContratoDevoluciones, ContratoDevoluciones> {\n    private final SucursalesClient s080;                 // 42000080-DATOS-S080\n    private final P320Properties props;\n    @Value(\"#{jobParameters['csi']}\") private int csi;\n\n    @Override\n    public ContratoDevoluciones process(ContratoDevoluciones r) {\n        int nodo = s080.nodoImpresion(r.sucursalPromotora());\n        var cfg = props.nodos().get(csi);\n        return r.conNodo(cfg.validos().contains(nodo) ? nodo : cfg.omision());\n    }\n}\n// Writer: JdbcBatchItemWriter a la tabla de trabajo p320_devoluciones (reemplaza S500/FILE/DEVOLBIM).",
+          "racional": "El nodo de impresión sale de S080 a partir de la sucursal promotora y, si no pertenece al CSI que corre, se reasigna al nodo principal (04 en Monterrey, 10 en Valle de México). A diferencia de P195, aquí no se cambia la sucursal, solo el nodo. Las listas de nodos están compiladas y pasan a configuración. El archivo intermedio se sustituye por una tabla de trabajo que después se lee ordenada.",
+          "reglas": [
+            "RN-S500-428"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Ordenamiento y listado 001DEVOLBIM por nodo y sucursal",
+      "origen": {
+        "archivo": "S500_SOURCE_P320.txt",
+        "contexto": "50004000-SORT-DEVMES · 50005100-ARMA-REPORTE · 50009000-ABRE-REP-01 · 70006000-ARMA-REPVACIOS"
+      },
+      "java": {
+        "archivo": "ListadoDevolucionesStep.java · devolbim.jrxml · ReporteNodoWriter.java",
+        "contexto": "JdbcCursorItemReader ORDER BY · JasperReports grupos · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "SORT por nodo, sucursal, contrato y medio",
+          "linea_ini": 1023,
+          "linea_fin": 1036,
+          "origen_codigo": " 50004000-SORT-DEVMES.\n     MOVE 2                 TO W77-STATUS-PASO.\n     ADD                    10  TO W77-TOT-ESCRITOS.\n     COMPUTE W77-TOT-DSKSIZE = W77-TOT-ESCRITOS  * 15 * 2.5.\n     COMPUTE W77-TOT-MEMSIZE = (18 * 2000) + 1500.\n     SORT S02-SORTDEVMES ON ASCENDING KEY WKS-S02-R01-NODO\n                                          WKS-S02-R01-SUC-PROM\n                                          WKS-S02-R01-INDPRD\n                                          WKS-S02-R01-CONTRATO\n                                          WKS-S02-R01-MEDIOACC\n          USING  I01-DEVMENSUAL\n          GIVING I01-DEVMENSUAL\n          MEMORY SIZE W77-TOT-MEMSIZE WORDS\n          DISK   SIZE W77-TOT-DSKSIZE WORDS.",
+          "java_codigo": "/** 50004000-SORT-DEVMES: el SORT se vuelve un ORDER BY sobre la tabla de trabajo. */\n@Bean\nJdbcCursorItemReader<ContratoDevoluciones> devolucionesOrdenadas(DataSource ds) {\n    return new JdbcCursorItemReaderBuilder<ContratoDevoluciones>()\n            .name(\"devolucionesOrdenadas\")\n            .dataSource(ds)\n            .sql(\"\"\"\n                 SELECT * FROM p320_devoluciones\n                  ORDER BY nodo, sucursal_promotora, ind_producto, contrato, medio_acceso\n                 \"\"\")                       // misma llave que la SD; DISK y MEMORY SIZE ya no aplican\n            .rowMapper(new DataClassRowMapper<>(ContratoDevoluciones.class))\n            .build();\n}",
+          "racional": "El programa ordena el intermedio por nodo, sucursal promotora, indicador de producto, contrato y medio de acceso, dimensionando el disco con los registros escritos más 10 por 15 y por 2.5, y la memoria con un valor fijo. Con la tabla de trabajo, el ordenamiento es un <code>ORDER BY</code> con la misma llave y el dimensionamiento lo resuelve la base de datos. El listado solo se genera si hubo al menos un contrato escrito; si no, el intermedio se purga.",
+          "reglas": [
+            "RN-S500-428"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Cortes por nodo y sucursal con totales de contratos y devoluciones",
+          "linea_ini": 1051,
+          "linea_fin": 1092,
+          "origen_codigo": " 50005100-ARMA-REPORTE.\n     IF W77-NODO-ANT = 0\n        MOVE WKS-I01-R01-NODO      TO W77-NODO-ANT\n        MOVE WKS-I01-R01-SUC-PROM  TO W77-SUC-ANT\n        PERFORM 50008500-NOMBRE-SUC\n        PERFORM 50009000-ABRE-REP-01.\n     IF WKS-I01-R01-NODO NOT = W77-NODO-ANT\n        PERFORM 50008300-CORTE-SUC THRU 50008400-CORTE-NODO\n        PERFORM 50009300-CIERRA-REP-01\n        MOVE WKS-I01-R01-NODO      TO W77-NODO-ANT\n        MOVE WKS-I01-R01-SUC-PROM  TO W77-SUC-ANT\n        PERFORM 50008500-NOMBRE-SUC\n        PERFORM 50009000-ABRE-REP-01.\n     IF WKS-I01-R01-SUC-PROM  NOT = W77-SUC-ANT\n        PERFORM 50008300-CORTE-SUC\n        MOVE WKS-I01-R01-SUC-PROM   TO W77-SUC-ANT\n        PERFORM 50008500-NOMBRE-SUC.\n     MOVE WKS-I01-R01-CONTRATO       TO WLI-R01-L08-CONTRATO\n     MOVE WKS-I01-R01-MDASUC         TO WLI-R01-L08-MDASUC.\n     MOVE \"/\"                        TO WLI-R01-L08-MDAFIL.\n     MOVE WKS-I01-R01-MDACTA         TO WLI-R01-L08-MDACTA.\n     MOVE WKS-I01-R01-NOMBRE         TO WLI-R01-L08-NOMBRE.\n     MOVE WKS-I01-R01-DEVMES-TOT     TO WLI-R01-L08-NUMDEV.\n     MOVE WKS-I01-R01-PROM-MES       TO WLI-R01-L08-PROM-MES.\n     MOVE WKS-I01-R01-PROM-ANH       TO WLI-R01-L08-PROM-ANH.\n     MOVE WKS-I01-R01-PRODUCTO      TO WLI-STR-PROD.\n     MOVE WKS-I01-R01-INSTRUMENTO   TO WLI-STR-INST.\n     MOVE WKS-I01-R01-MONEDA        TO WLI-STR-MONE.\n     MOVE WLI-STRING-PROD           TO WLI-R01-L08-PRODUCTO.\n     ADD 1                      TO WKS-TOTS-NUM-CTOS\n                                   WKS-TOTC-NUM-CTOS.\n     ADD WKS-I01-R01-DEVMES-TOT TO WKS-TOTS-NUM-DEV\n                                   WKS-TOTC-NUM-DEV.\n     PERFORM 60005000-ESC-REP-01.",
+          "java_codigo": "<!-- devolbim.jrxml: un archivo por nodo; grupos por sucursal promotora -->\n<group name=\"sucursal\">\n  <groupExpression><![CDATA[$F{sucursalPromotora}]]></groupExpression>\n  <groupHeader>  <!-- 60005100-ENCA-REP-01: sucursal y nombre corto de S080 --> </groupHeader>\n  <groupFooter>  <!-- 50008300-CORTE-SUC: \"CLIENTES CON DEVOLUCIONES\" -->\n    <textField><textFieldExpression><![CDATA[$V{contratosSuc}]]></textFieldExpression></textField>\n    <textField><textFieldExpression><![CDATA[$V{devolucionesSuc}]]></textFieldExpression></textField>\n  </groupFooter>\n</group>\n<variable name=\"contratosSuc\"    class=\"java.lang.Integer\" resetType=\"Group\" resetGroup=\"sucursal\" calculation=\"Count\">\n  <variableExpression><![CDATA[$F{contrato}]]></variableExpression></variable>\n<variable name=\"devolucionesSuc\" class=\"java.lang.Integer\" resetType=\"Group\" resetGroup=\"sucursal\" calculation=\"Sum\">\n  <variableExpression><![CDATA[$F{devTotal}]]></variableExpression></variable>\n<!-- Totales de nodo (WKS-TOTC-*) en el summary, con sucursal 9999 y \"TOTAL NODO nn\" -->\n\n// ---------------------------------------------------------------------------\n@Bean\nClassifierCompositeItemWriter<ContratoDevoluciones> listadoPorNodo(ReporteNodoFactory f) {\n    var w = new ClassifierCompositeItemWriter<ContratoDevoluciones>();\n    w.setClassifier(r -> f.writerPara(r.nodo()));   // un 001DEVOLBIM por nodo (50009000-ABRE-REP-01)\n    return w;\n}",
+          "racional": "Al cambiar de nodo se cierra el listado del nodo anterior con sus totales y se abre uno nuevo; al cambiar de sucursal se imprime el total de contratos y devoluciones de la sucursal. Cada renglón muestra contrato, sucursal y cuenta del medio, nombre, devoluciones del bimestre y promedios. En Java el listado es un <code>jrxml</code> con un grupo por sucursal y un archivo por nodo, que se reparte con un <code>ClassifierCompositeItemWriter</code>. El conteo de contratos cuenta renglones, igual que el fuente, por lo que un contrato con dos medios suma dos.",
+          "reglas": [
+            "RN-S500-428"
+          ],
+          "riesgo": "WKS-TOTS-NUM-CTOS suma un renglón por medio de acceso, no por contrato: el total de clientes con devoluciones se sobrestima cuando un contrato tiene varios medios."
+        },
+        {
+          "id": "s7",
+          "titulo": "Nombre de respaldo del reporte y listados vacíos por nodo",
+          "linea_ini": 1136,
+          "linea_fin": 1323,
+          "origen_codigo": " 50009000-ABRE-REP-01.\n     SET R01-DEVOLBIM   (USERBACKUPNAME) TO VALUE TRUE.\n     MOVE W77-NODO-ANT                   TO WKS-TIT-R00-NODO.\n     MOVE \"001DEVOLBIM\"                  TO WKS-TIT-R00-NOM-REP.\n     SET R01-DEVOLBIM     (TITLE)        TO WKS-NAME-REPORTE.\n     OPEN OUTPUT R01-DEVOLBIM.\n     IF W77-NODO-ANT = W77-MY-CSI\n        MOVE 1         TO WKS-GEN-REP1(1)\n     ELSE\n     IF W77-NODO-ANT = 07 OR 09\n        MOVE 1         TO WKS-GEN-REP1(2)\n     ELSE\n     IF W77-NODO-ANT = 06\n        MOVE 1         TO WKS-GEN-REP1(3)\n     ELSE\n     IF W77-NODO-ANT = 61\n        MOVE 1         TO WKS-GEN-REP1(4)\n     ELSE\n     IF W77-NODO-ANT = 01\n        MOVE 1         TO WKS-GEN-REP1(5).\n 70006000-ARMA-REPVACIOS.\n     ADD 1    TO W77-IND-REP.\n     IF W77-MY-CSI = 10\n        MOVE WKS-QNODO-VDM(W77-IND-REP)  TO W77-NODO-ANT\n     ELSE\n        MOVE WKS-QNODO-MTY(W77-IND-REP)  TO W77-NODO-ANT.\n     IF WKS-GEN-REP1(W77-IND-REP) = 0\n        PERFORM 50009000-ABRE-REP-01\n        PERFORM 50008400-CORTE-NODO\n        PERFORM 50009300-CIERRA-REP-01.",
+          "java_codigo": "# application.yml\np320:\n  reportes:\n    devoluciones: \"001DEVOLBIM\"\n    comisiones:   \"002COMIPEND\"\n  nodos-reporte:                       # orden de WKS-GEN-REP1 (1..5)\n    \"4\":  [4, 7, 6, 61, 1]             # WKS-NODOS-MTY \"0407066101\"\n    \"10\": [10, 9]                      # WKS-NODOS-VDM \"1009000000\": el fuente agrega tres 00\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass ReporteNodoFactory {\n    private final ReportStorage almacen;                 // reemplaza USERBACKUPNAME / TITLE\n    private final Set<Integer> generados = new HashSet<>();\n\n    ItemWriter<ContratoDevoluciones> writerPara(int nodo) {\n        generados.add(nodo);\n        return almacen.writer(nombre(nodo));\n    }\n\n    /** 70000000-FIN-PROGRAMA: cada nodo del CSI sin casos recibe un listado vacío con su cierre. */\n    void generaVacios(int csi) {\n        props.nodosReporte().get(csi).stream()\n             .filter(n -> !generados.contains(n))\n             .forEach(n -> almacen.vacio(nombre(n), \"TOTAL NODO \" + n));\n    }\n\n    private String nombre(int nodo) {\n        return \"%02d/%s\".formatted(nodo, props.reportes().devoluciones());   // WKS-TIT-R00-NODO + NOM-REP\n    }\n}",
+          "racional": "Cada listado se abre como respaldo de impresión con nombre de usuario (<code>USERBACKUPNAME</code>) cuyo título combina el nodo y el identificador 001DEVOLBIM, y se registra qué nodos del CSI ya tuvieron listado. Al final, los nodos sin casos reciben un listado vacío con su línea de cierre, para que cada nodo siempre tenga su reporte. En Java el respaldo con nombre se vuelve un almacén de reportes (sistema de archivos u objeto) con la misma convención de nombre, configurable.",
+          "reglas": [
+            "RN-S500-430"
+          ],
+          "riesgo": "En Valle de México la tabla de nodos es \"1009000000\" (línea 286): las posiciones 3 a 5 valen 00 y nunca se marcan como generadas, por lo que ARMA-REPVACIOS abre tres listados vacíos para un nodo 00 inexistente. La versión Java solo genera vacíos para los nodos configurados."
+        }
+      ]
+    },
+    {
+      "titulo": "Comisiones pendientes sin IVA — 002COMIPEND",
+      "origen": {
+        "archivo": "S500_SOURCE_P320.txt",
+        "contexto": "60010000-GENERA-COMIPEND · 60011030-BUSCA-COMIPEN · 60012020-ARMA-REP-02"
+      },
+      "java": {
+        "archivo": "ComisionesPendientesStep.java · ComisionesContrato.java · comipend.jrxml",
+        "contexto": "JpaCursorItemReader · ItemProcessor · JasperReports"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Clasificación de las 99 comisiones acumuladas de B12",
+          "linea_ini": 1209,
+          "linea_fin": 1243,
+          "origen_codigo": " 60011000-LEE-B12COM.\n     PERFORM 90000012-B12COMPEN-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1 TO W77-EOF-B12\n        ELSE\n          STRING \"ERR FINDN B12COMPEN STA=\", WS-STATUS-BASE\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n     IF W77-EOF-B12 = 0\n        PERFORM 60011010-VAL-COMIPEN\n        IF W77-TOTCOM-CTO > 0\n           PERFORM 60012000-GEN-REPCOMI.\n 60011010-VAL-COMIPEN.\n     MOVE ZERO TO W77-IND-C W77-SW-NOHAY.\n     MOVE ZERO TO W77-TOTCOM-CTO.\n     MOVE ZERO TO W77-OTRCOM-CTO.\n     MOVE ZERO TO W77-CHQDEV-CTO.\n     PERFORM 60011030-BUSCA-COMIPEN  99 TIMES.\n 60011030-BUSCA-COMIPEN.\n     ADD 1 TO W77-IND-C.\n     IF B12-IMP-ACUMULADO(W77-IND-C) > 0\n        ADD B12-IMP-ACUMULADO(W77-IND-C) TO W77-TOTCOM-CTO\n        IF NOT W88-IND-COM-ID\n           ADD B12-IMP-ACUMULADO(W77-IND-C) TO W77-OTRCOM-CTO\n        ELSE\n        IF W88-IND-CHQDEV\n           ADD B12-IMP-ACUMULADO(W77-IND-C) TO W77-CHQDEV-CTO.",
+          "java_codigo": "# application.yml\np320:\n  comisiones:\n    identificadas: [2, 5, 16, 22, 50]       # W88-IND-COM-ID\n    cheque-devuelto: [16, 22]              # W88-IND-CHQDEV\n    manejo-cuenta: 5\n    renta: 50\n    cheques-girados: 2\n\n// ---------------------------------------------------------------------------\n/** 60011010-VAL-COMIPEN: B12 trae 99 importes acumulados por tipo de comisión. */\nstatic ComisionesContrato clasifica(B12Compen b12, P320Properties.Comisiones cfg) {\n    BigDecimal total = ZERO2, otras = ZERO2, chqDev = ZERO2;\n    for (int i = 1; i <= 99; i++) {\n        BigDecimal imp = b12.acumulado(i);\n        if (imp.signum() <= 0) continue;\n        total = total.add(imp);\n        if (!cfg.identificadas().contains(i))      otras  = otras.add(imp);\n        else if (cfg.chequeDevuelto().contains(i)) chqDev = chqDev.add(imp);\n    }\n    return new ComisionesContrato(b12.contrato(),\n            b12.acumulado(cfg.manejoCuenta()), b12.acumulado(cfg.renta()),\n            b12.acumulado(cfg.chequesGirados()), chqDev, otras, total);\n}",
+          "racional": "Para cada registro de B12 se recorren las 99 posiciones de comisión acumulada sumando solo importes positivos: todo va al total, las posiciones fuera de la lista identificada (2, 5, 16, 22 y 50) van a otras comisiones, y la 16 y la 22 se suman como comisión por cheque devuelto. Las posiciones 5, 50 y 2 se imprimen directamente como manejo de cuenta, renta y cheques girados. Las posiciones están definidas como niveles 88 y pasan a configuración. Un estatus de base distinto de fin de datos aborta con <code>DMTERMINATE</code>.",
+          "reglas": [
+            "RN-S500-429"
+          ],
+          "riesgo": "W77-TOTCOM-CTO es PIC 9(08)V99 y suma hasta 99 importes sin ON SIZE ERROR; un total de comisiones mayor a 99,999,999.99 perdería los dígitos altos en silencio."
+        },
+        {
+          "id": "s9",
+          "titulo": "Renglón del listado con datos de B03 y encabezado fijo",
+          "linea_ini": 1246,
+          "linea_fin": 1289,
+          "origen_codigo": " 60012000-GEN-REPCOMI.\n     MOVE B12-NUM-CONTRATO TO WS-NUM-CONTRATO.\n     PERFORM 550003150-DAME-B03CTO.\n     IF W77-SW-NOHAY = 0\n        PERFORM 60012020-ARMA-REP-02.\n 60012020-ARMA-REP-02.\n     MOVE B03-SUC-PROMOTORA             TO WLI-R02-L08-NSUC.\n     MOVE B03-NUM-PRODUCTO              TO WLI-R02-L08-PROD.\n     MOVE B03-NUM-INSTRUM               TO WLI-R02-L08-INST.\n     MOVE B03-MONEDA                    TO WLI-R02-L08-MONE.\n     MOVE B03-NUM-CLIENTE               TO WLI-R02-L08-CLTE.\n     MOVE B03-NUM-CONTRATO              TO WLI-R02-L08-CTO.\n     MOVE B12-IMP-ACUMULADO(05)         TO WLI-R02-L08-MANCTA.\n     MOVE B12-IMP-ACUMULADO(50)         TO WLI-R02-L08-RENTA.\n     MOVE B12-IMP-ACUMULADO(02)         TO WLI-R02-L08-CHQGIR.\n     MOVE W77-CHQDEV-CTO                TO WLI-R02-L08-CHQDEV.\n     MOVE W77-OTRCOM-CTO                TO WLI-R02-L08-OTRCOM.\n     MOVE W77-TOTCOM-CTO                TO WLI-R02-L08-TOTCOM.\n     MOVE B03-MESES-SINMOV              TO WLI-R02-L08-MESSM.\n     PERFORM 60012100-ESC-REP-02.\n 60012120-ENCA-REP-02.\n     ADD  1                        TO W77-PAG-R02.\n     MOVE W77-PAG-R02              TO WLI-R00-L03-NPAG.\n     MOVE \"002COMIPEND\"            TO WLI-R00-L01-NAME.\n     MOVE WKS-TITULO-R02           TO WLI-R00-L02-TITULO.\n     MOVE WKS-SUBTIT-R02           TO WLI-R00-L03-SBTIT.\n     MOVE 3006                     TO WLI-R00-L04-SUC.\n     MOVE \"PRODUCTOS DE CAPTACION\" TO WLI-R00-L05-NBSUC.",
+          "java_codigo": "@Bean\nStep comisionesPendientes(JobRepository repo, PlatformTransactionManager tx,\n                          JpaCursorItemReader<B12Compen> b12, ContratoRepository b03,\n                          JasperItemWriter<RenglonComipend> comipend, P320Properties props) {\n    return new StepBuilder(\"comisionesPendientes\", repo)\n            .<B12Compen, RenglonComipend>chunk(500, tx)\n            .reader(b12)                                               // SET S500B12COMPEN TO BEGINNING\n            .processor(r -> {\n                ComisionesContrato c = clasifica(r, props.comisiones());\n                if (c.total().signum() <= 0) return null;              // W77-TOTCOM-CTO > 0\n                return b03.findById(r.contrato())                      // sin B03: se omite\n                          .map(ct -> RenglonComipend.de(ct, c))        // incluye B03-MESES-SINMOV\n                          .orElse(null);\n            })\n            .writer(comipend)          // título \"COMISIONES PENDIENTES SIN IVA\", sucursal 3006 fija\n            .build();\n}",
+          "racional": "Cada contrato con total de comisiones mayor a cero se completa con sucursal, producto, instrumento, moneda, cliente y meses sin movimiento de B03; si el contrato no existe en B03 se omite. El encabezado del listado siempre muestra la sucursal 3006 y el texto PRODUCTOS DE CAPTACION, y el título declara que los importes son sin IVA: el programa reporta la base de la comisión y no calcula impuesto. En Java es un step de chunk con lector JPA, procesador y salida a JasperReports; la sucursal del encabezado pasa a configuración.",
+          "reglas": [
+            "RN-S500-429",
+            "RN-S500-430"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Ventana de meses rotulada como actual",
+      "detalle": "El total del bimestre suma B20-DEV-MES-ANT y B20-DEV-MESANTANT (líneas 919-920) y los escribe como mes actual y anterior. RN-S500-427 habla de mes actual y anterior; la semántica depende de cuándo se ejecuta el paso respecto al cierre de mes."
+    },
+    {
+      "titulo": "Conteo de clientes por renglón",
+      "detalle": "WKS-TOTS-NUM-CTOS suma uno por renglón (contrato y medio de acceso), así que los totales de clientes con devoluciones se sobrestiman si un contrato tiene varios medios."
+    },
+    {
+      "titulo": "Promedio anual sin meses en cero y truncado",
+      "detalle": "El promedio anual excluye los meses con promedio cero y se trunca a dos decimales porque el COMPUTE no usa ROUNDED (líneas 983-984)."
+    },
+    {
+      "titulo": "Listados vacíos para un nodo 00",
+      "detalle": "En el CSI 10 la tabla WKS-NODOS-VDM tiene tres posiciones en 00 (línea 286) y 70006000-ARMA-REPVACIOS abre para ellas listados 001DEVOLBIM vacíos de un nodo que no existe."
+    },
+    {
+      "titulo": "Desbordamiento del total de comisiones",
+      "detalle": "W77-TOTCOM-CTO es PIC 9(08)V99 sin ON SIZE ERROR; la suma de 99 posiciones puede truncar los dígitos altos."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Umbral de 2 devoluciones, listas de nodos por CSI, posiciones de comisión 2, 5, 16, 22 y 50, sucursal 3006 del encabezado y nombres 001DEVOLBIM y 002COMIPEND. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME qué meses representan B20-DEV-MES-ANT y B20-DEV-MESANTANT en el momento en que corre P320 y ajustar la redacción de RN-S500-427 si corresponde.",
+    "Confirmar que la posición 12 de B06-PROM-CICLO es el mes más reciente.",
+    "RN-S500-429 menciona que el IVA se calcula después; el fuente carga la librería S080IVA (línea 666) pero no se encontró su uso en el listado. Validar dónde se aplica el impuesto.",
+    "Confirmar si el total de clientes con devoluciones debe contar contratos y no renglones por medio de acceso."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-426",
+    "RN-S500-427",
+    "RN-S500-428",
+    "RN-S500-429",
+    "RN-S500-430"
+  ]
+}

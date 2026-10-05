@@ -1,0 +1,234 @@
+{
+  "slug": "S500_P199",
+  "sistema": "S500",
+  "programa": "P199",
+  "nombre": "Carga de Saldos de Otras Inversiones",
+  "funcion": "Paso de S500 que corre durante la línea, antes del batch diario, y precarga en el histórico S500B06HISTORICO los saldos de otras inversiones (librería S050/L301) y los contadores de consultas de estado de cuenta (S050/L190) de los contratos que cortan, para que P130 no tenga que llamar a S050.",
+  "resumen": "Lee el catálogo de instrumentos S500B05INSTRUMEN a una tabla en memoria de hasta 30 productos y marca cuáles cobran comisión por consulta según la tarifa y la clave de comisión de los occurs 06, 24 y 25. Recorre S500B03CONTRATOS, descarta clones, contratos dados de baja, migrados a S111 y cuentas de ahorro, y calcula si el contrato corta entre la fecha de batch y la siguiente. Para los que cortan y tienen saldos integrados o comisión por consulta, bloquea su registro B06, llama a S050 para traer saldos de fondos, banca de inversión, plazo y mesa de dinero o los contadores de consultas, marca B06-ID-S050 y graba el histórico. Al terminar enciende B02-STA-OTRINV para que una nueva corrida en el mismo día no repita la carga.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.captacion.otrasinversiones",
+  "secciones": [
+    {
+      "titulo": "Productos, catálogo de instrumentos y perfiles de ejecución",
+      "origen": {
+        "archivo": "S500_SOURCE_P199.txt",
+        "contexto": "Comentario de cabecera · WORKING-STORAGE · 20002100-CARGA-INSTR"
+      },
+      "java": {
+        "archivo": "ProductoCaptacion.java · CatalogoInstrumentos.java · P199Properties.java",
+        "contexto": "enum · @Component · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Ternas producto-instrumento-moneda fijas en niveles 88",
+          "linea_ini": 26,
+          "linea_fin": 419,
+          "origen_codigo": "** CARGA SALDOS DE OTRAS INVERSIONES A LA BASE DEL S500 (B06) **\n** ESTE PROCESO DEBE CORRER ANTES DEL BATCH DIARIO            **\n**      DURANTE LA LINEA,                                     **\n**      PARA AGILIZAR EL PROCESO DEL PASO S500/P130           **\n** UTILIZANDO LA LIBRERIA DEL S050.                           **\n** PARA LOS PRODUCTOS: CON FECHA DE CORTE DEL DIA             **\n**      CUENTA MAESTRA TRADICIONAL    0066-0006-001           **\n**      CUENTA MAESTRA OPCION         0066-0007-001           **\n**      CUENTA PERFIL                 0066-0008-001           **\n**      CUENTA PERFIL  UNIVERSITARIO  0066-0009-001           **\n**      CUENTA CHEQUES M.N.           0001-0001-001 (FISICAS) **\n**      CUENTA PRODUCTIVA             0001-0003-001           **\n**                                                            **\n** ADEMAS LA CARGA DE CONSULTAS DE ESTADO DE CUENTA           **\n** UTILIZANDO LA LIBRERIA S050/L190                           **\n** PARA LOS PRODUCTOS QUE COBRAN LA COMISION                  **\n** CON LA CALIFICACION DE TARIFA Y CLAVE DE COMISION          **\n** EN  LOS OCCURS DE LOS CAMPOS                               **\n** B05-CLAVE-TARIF EN LOS OCCURS 06,24,25                     **\n** B05-CLAVE-COMIS EN LOS OCCURS 06,24,25                     **\n 01  VARIABLES-B03-AUX.\n     02 WS03-PIM.\n        04 WS03-NUM-PRODUCTO            PIC 9(04).\n        04 WS03-NUM-INSTRUM             PIC 9(04).\n        04 WS03-MONEDA                  PIC 9(03).\n     02 RD-WS03-PIM                     REDEFINES WS03-PIM.\n        04 WS03-PIM-PROD                PIC 9(11).\n        88 WS03-88-ES-AHORROS           VALUE  05000006001.\n        88 WS03-88-ES-CTAMAE            VALUE  00660006001.\n        88 WS03-88-ES-CTAMAEOP          VALUE  00660007001.\n        88 WS03-88-ES-CTACCESO          VALUE  00660008001.\n        88 WS03-88-ES-PERFUNIV          VALUE  00660009001.\n        88 WS03-88-ES-PROD-A-SOR        VALUE  00660011001.\n        88 WS03-88-ES-PROD-B-SOR        VALUE  00660012001.\n        88 WS03-88-ES-CTA-BAS-BNX       VALUE  00660014001.\n        88 WS03-88-ES-CTAMAEDL          VALUE  00660005005.\n        88 WS03-88-ES-CHQ-MN            VALUE  00010001001.\n        88 WS03-88-ES-DLS-FRONT         VALUE  00010001005.\n        88 WS03-88-ES-CTA-PROD          VALUE  00010003001.\n        88 WS03-88-ES-DLS-SINREND       VALUE  00010004005.\n        88 WS03-88-ES-DLS-CONREND       VALUE  00010005005.",
+          "java_codigo": "/** WS03-PIM: producto 9(4) + instrumento 9(4) + moneda 9(3) leído como una sola clave de 11 dígitos. */\npublic record Pim(int producto, int instrumento, int moneda) {\n    public String clave() { return \"%04d%04d%03d\".formatted(producto, instrumento, moneda); }\n}\n\n# application.yml  (antes niveles 88 compilados)\np199:\n  productos:\n    ahorros:            \"05000006001\"   # se excluye del proceso\n    cuenta-maestra:     \"00660006001\"\n    cuenta-maestra-op:  \"00660007001\"\n    cuenta-acceso:      \"00660008001\"\n    perfil-univ:        \"00660009001\"\n    sor-a:              \"00660011001\"\n    sor-b:              \"00660012001\"\n    cuenta-basica:      \"00660014001\"\n    cuenta-maestra-dl:  \"00660005005\"\n    cheques-mn:         \"00010001001\"\n    dolares-frontera:   \"00010001005\"\n    cuenta-productiva:  \"00010003001\"\n    dolares-sin-rend:   \"00010004005\"\n    dolares-con-rend:   \"00010005005\"\n\n@ConfigurationProperties(\"p199\")\npublic record P199Properties(Map<String, String> productos) {\n    boolean esAhorros(Pim p) { return productos.get(\"ahorros\").equals(p.clave()); }\n}",
+          "racional": "El comentario de cabecera documenta los productos que P199 atiende y el <code>REDEFINES</code> de <code>WS03-PIM</code> los identifica comparando la terna producto, instrumento y moneda como un número de 11 dígitos contra niveles 88. En Java la terna es un <code>record</code> y la clave se arma como texto con ceros a la izquierda; los valores pasan a <code>application.yml</code>. En la lógica que se revisó, el único nivel 88 que decide algo es el de ahorros, que excluye el contrato; el resto de los productos entra o no según el catálogo B05.",
+          "reglas": [
+            "RN-S500-406"
+          ],
+          "riesgo": "El comentario lista seis productos, pero los niveles 88 incluyen catorce ternas (SOR, cuenta básica, dólares). Lo que de verdad se procesa lo decide la tabla B05, no la lista del comentario."
+        },
+        {
+          "id": "s2",
+          "titulo": "Catálogo B05 en memoria y marca de librería de tarifas L190",
+          "linea_ini": 704,
+          "linea_fin": 731,
+          "origen_codigo": " 20002100-CARGA-INSTR.\n     ADD  1                    TO W77-IND-INST.\n     IF W77-IND-INST > 30\n        MOVE \"MAS DE 30 INST. EN LA BASE\" TO WS-0101-TEXT-MSG\n        MOVE WS-0101-TEXT-MSG  TO WLI-R01-MENSAJE\n        PERFORM 60001000-ESC-MENSAJE\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     MOVE B05-NUM-PRODUCTO TO WKS-TB-B05-PROD   (W77-IND-INST).\n     MOVE B05-NUM-INSTRUM  TO WKS-TB-B05-INST   (W77-IND-INST).\n     MOVE B05-MONEDA       TO WKS-TB-B05-MONEDA (W77-IND-INST).\n     MOVE B05-COMISIONES   TO WKS-TB-B05-COMISION(W77-IND-INST).\n     MOVE B05-SDOSINTEGRA(01)\n       TO WKS-TB-B05-SDOSINTEG (W77-IND-INST,01).\n     MOVE B05-SDOSINTEGRA(02)\n       TO WKS-TB-B05-SDOSINTEG (W77-IND-INST,02).\n     IF (B05-CLAVE-TARIF(06) > 0 AND\n         B05-CLAVE-COMIS(06) > 0)\n     OR (B05-CLAVE-TARIF(24) > 0 AND\n         B05-CLAVE-COMIS(24) > 0)\n     OR (B05-CLAVE-TARIF(25) > 0 AND\n         B05-CLAVE-COMIS(25) > 0)\n        MOVE 1              TO WKS-TB-B05-S050L190(W77-IND-INST)\n     ELSE\n        MOVE 0              TO WKS-TB-B05-S050L190(W77-IND-INST).",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CatalogoInstrumentos {\n\n    private static final int MAX_INSTRUMENTOS = 30;   // WKS-TB-B05INSTRUMEN OCCURS 30\n    private static final List<Integer> OCCURS_COMISION_CONSULTA = List.of(6, 24, 25);\n    private final InstrumentoRepository b05;\n\n    private Map<Pim, Instrumento> porClave;\n\n    @PostConstruct\n    void carga() {\n        var todos = b05.findAll();\n        if (todos.size() > MAX_INSTRUMENTOS) {\n            throw new ProcesoAbortadoException(\"MAS DE 30 INST. EN LA BASE\");   // DMTERMINATE\n        }\n        porClave = todos.stream().collect(toMap(Instrumento::pim, identity()));\n    }\n\n    /** WKS-TB-B05-S050L190: el producto cobra consulta si algún occurs 06, 24 o 25 trae tarifa y comisión. */\n    static boolean usaTarifasL190(Instrumento i) {\n        return OCCURS_COMISION_CONSULTA.stream()\n                .anyMatch(n -> i.claveTarifa(n) > 0 && i.claveComision(n) > 0);\n    }\n\n    Optional<Instrumento> busca(Pim pim) { return Optional.ofNullable(porClave.get(pim)); }\n}",
+          "racional": "Al iniciar, el programa copia el catálogo de instrumentos a una tabla de 30 posiciones y por cada producto decide si debe llamar a la librería de tarifas S050/L190: basta con que uno de los occurs 06, 24 o 25 tenga clave de tarifa y clave de comisión. En Java el catálogo se carga a un <code>Map</code> indexado por la terna, que sustituye la búsqueda secuencial de <code>50003120-DAME-INST</code>. Se conserva el tope de 30 como validación explícita porque el original aborta si se excede.",
+          "reglas": [
+            "RN-S500-407",
+            "RN-S500-408"
+          ],
+          "riesgo": "El límite de 30 instrumentos está fijado por el tamaño de la tabla: dar de alta el instrumento 31 en B05 detiene el paso con DMTERMINATE."
+        },
+        {
+          "id": "s3",
+          "titulo": "TASKVALUE de pruebas que apaga librerías a perfil de Spring",
+          "linea_ini": 209,
+          "linea_fin": 643,
+          "origen_codigo": "   01  WKS-VAR-TASKVALUE.\n       02 WKS-TASKVALUE-PBA    PIC 9(02) VALUE 0.\n       02 RD-WKS-TASKVALUE-PBA REDEFINES WKS-TASKVALUE-PBA.\n          04 WKS-SIN-LBS050    PIC 9(02).\n          88 W88-SIN-LB301     VALUE 01, 03.\n          88 W88-SIN-LB190     VALUE 02, 03.\n     IF W77-ES-PRUEBA = 0\n        IF WKS-TASKVALUE-PBA > 0\n           STRING  \"EN PRODUCCION NO CORRE CON VALUE > 0 \",\n                   \" VALUE= \", WKS-TASKVALUE-PBA\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "# application-pruebas.yml   (sustituye TASKVALUE 01, 02 y 03)\np199:\n  librerias:\n    saldos-l301: false      # TASKVALUE 01 o 03\n    consultas-l190: true    # TASKVALUE 02 o 03 lo apagan\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p199.librerias\")\npublic record LibreriasProperties(boolean saldosL301, boolean consultasL190) {}\n\n@Component\n@RequiredArgsConstructor\nclass ValidaPerfilProduccion implements ApplicationListener<ApplicationReadyEvent> {\n    private final Environment env;\n    private final LibreriasProperties libs;\n\n    @Override\n    public void onApplicationEvent(ApplicationReadyEvent e) {\n        boolean prod = env.acceptsProfiles(Profiles.of(\"prod\"));\n        if (prod && !(libs.saldosL301() && libs.consultasL190())) {\n            throw new IllegalStateException(\"EN PRODUCCION NO CORRE SIN LIBRERIAS S050\");\n        }\n    }\n}",
+          "racional": "El TASKVALUE con que se arranca el programa permite, en pruebas, saltarse la librería de saldos, la de consultas o ambas. En producción cualquier valor mayor a cero termina el programa con estado -1. En Spring el mismo efecto se logra con un perfil de configuración y una verificación al arrancar que impide desactivar las librerías en el perfil productivo. Así el modo de pruebas deja de depender de un número escrito a mano en el WFL.",
+          "reglas": [],
+          "riesgo": "Con librerías apagadas, 50004000-CARGA-SDOS-OTRINV pone los indicadores en cero y aun así marca B06-ID-S050 = 1 (líneas 1251-1255): P130 dejaría de llamar a S050 para esos contratos con saldos vacíos. Hoy lo impide solo la condición W77-ES-PRUEBA = 0."
+        }
+      ]
+    },
+    {
+      "titulo": "Control de reinicio y selección de contratos que cortan",
+      "origen": {
+        "archivo": "S500_SOURCE_P199.txt",
+        "contexto": "00000000-CONTROL-PROGRAMA · 20002000-VALIDA-CONTROL · 50003100 / 50003110 / 50003160"
+      },
+      "java": {
+        "archivo": "CargaOtrasInversionesJobConfig.java · ContratoCorteFilter.java · FechaCorte.java",
+        "contexto": "Spring Batch Job · ItemProcessor (filtro) · LocalDate"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Indicador B02-STA-OTRINV como guardia de una sola corrida por día",
+          "linea_ini": 551,
+          "linea_fin": 788,
+          "origen_codigo": "     IF W77-REINICIO = 9\n        MOVE 1 TO W77-ID-NUMREG-PROC\n     ELSE\n        MOVE 3  TO W77-ID-NUMDSET-MAPLI\n        MOVE 1  TO W77-ID-NUMBASE-MAPLI\n        PERFORM 70000600-REGS-EN-BASE\n        IF WS-S038L035-RESULT > 0 AND W77-ERR-L035-MAPLI = 0\n           MOVE \"REGS EN B03 \" TO    W77-ERR-L035-DATO\n           PERFORM 70099999-ERROR-MAPLI.\n     MOVE 02                        TO W77-ID-ACTXX-MAPLI\n                                       W77-ID-ACT02-MAPLI.\n     MOVE \"CARGA SALDOS \"           TO W77-ID-NOMB-LIB.\n     MOVE \"ACTUALIZA X CONTRATO \"   TO W77-ID-TXTA-LIB.\n     PERFORM 70099998-INIACT-MAPLI.\n******************************************************\n     IF W77-REINICIO = 9\n        MOVE W77-ID-ACT02-MAPLI    TO W77-ID-ACTXX-MAPLI\n        MOVE \" \"                   TO W77-ID-TXTA-LIB\n        MOVE \" YA CORRIO P199   \"  TO W77-ID-TXTA-LIB\n        PERFORM 70099998-ACT-REGPROC\n     ELSE\n        PERFORM 50000000-PROCESO-PRINCIPAL.\n     IF W77-REINICIO = 9\n        NEXT SENTENCE\n     ELSE\n        PERFORM 59000000-ACTUALIZA-CONTROL.\n**** VALIDA QUE NO HAYA CORRIDO COMPLETO ESTE PASO ***********\n     IF B02-STA-OTRINV = 1\n***     MOVE \"YA CORRIO EL PASO P199\" TO WS-0101-TEXT-MSG\n***     PERFORM 70000050-MENSAJE\n        MOVE 9  TO W77-REINICIO\n     ELSE\n     IF B02-STA-OTRINV = 2\n        MOVE 1  TO W77-REINICIO.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class YaCorrioDecider implements JobExecutionDecider {\n\n    private final ControlCaptacionRepository b02;\n\n    /** B02-STA-OTRINV: 1 proceso completo, 2 incompleto por fin forzado. */\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        int estatus = b02.findEstatusOtrasInversiones()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERR FIND B02CONTROL\"));\n        return (estatus == 1)\n                ? new FlowExecutionStatus(\"YA_CORRIO\")      // W77-REINICIO = 9: solo informa\n                : new FlowExecutionStatus(\"PROCESAR\");      // 0 o 2: recorre B03 completo\n    }\n}\n\n@Bean\nJob cargaOtrasInversiones(JobRepository repo, YaCorrioDecider decider,\n                          Step cargaSaldos, Step marcaControl, Step informaYaCorrio) {\n    return new JobBuilder(\"S500P199\", repo)\n            .start(decider)\n            .on(\"YA_CORRIO\").to(informaYaCorrio)\n            .from(decider).on(\"PROCESAR\").to(cargaSaldos).next(marcaControl)   // 59000000\n            .end().build();\n}",
+          "racional": "Como P199 corre durante la línea, puede relanzarse en el mismo día. Al iniciar consulta S500B02CONTROL: si <code>B02-STA-OTRINV</code> vale 1 el programa solo deja constancia en MAPLI de que ya corrió, y al terminar lo enciende. En Spring Batch esto es un <code>JobExecutionDecider</code> al inicio del job y un step final que actualiza el indicador. El valor 2, de fin forzado por el operador, vuelve a procesar todos los contratos porque el recorrido no guarda punto de reanudación.",
+          "reglas": [
+            "RN-S500-405"
+          ],
+          "riesgo": "Después de un fin forzado (estatus 2) la siguiente corrida reprocesa desde el primer contrato y vuelve a llamar a S050 para los ya cargados."
+        },
+        {
+          "id": "s5",
+          "titulo": "Filtro de contratos vigentes y que cortan",
+          "linea_ini": 1121,
+          "linea_fin": 1151,
+          "origen_codigo": "     IF W77-EOF-BASE = 0\n        IF B03-MARCA-CLON = 3\n           ADD  1                   TO W77-NUM-LEIDOS\n           ADD  1                   TO W77-TOT-EXTENDED\n        ELSE\n        IF (B03-STATUS < 2 OR B03-STATUS = 5) AND\n            B03-MIGR-S111 NOT = 1\n           ADD  1                   TO W77-NUM-LEIDOS\n           MOVE B03-NUM-PRODUCTO    TO WS03-NUM-PRODUCTO\n           MOVE B03-NUM-INSTRUM     TO WS03-NUM-INSTRUM\n           MOVE B03-MONEDA          TO WS03-MONEDA\n           MOVE B03-TIPO-PERSONA    TO WS03-TIPO-PERSONA\n           IF NOT WS03-88-ES-AHORROS\n              PERFORM 50003110-VERIFICA-CORTE.\n 50003110-VERIFICA-CORTE.\n     IF WS03-88-TP-GFISICA\n        MOVE 1 TO  W77-IND-PERS\n     ELSE\n        MOVE 2 TO  W77-IND-PERS.\n     PERFORM 50003160-VALIDA-CORTE.\n     IF W77-SI-CORTA = 1\n        ADD  1  TO W77-TOT-CORTES\n        MOVE 0  TO W77-NOHAY-B05\n        PERFORM 50003120-DAME-INST\n        IF W77-NOHAY-B05 = 0\n           PERFORM 50003170-VALIDA-PROCESO\n           IF W77-SI-PROCESO = 1\n              PERFORM 50003200-DAME-HISTORICO.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ContratoCorteFilter implements ItemProcessor<Contrato, ContratoACargar> {\n\n    private final CatalogoInstrumentos catalogo;\n    private final P199Properties props;\n    private final FechaCorte fechaCorte;\n\n    @Override\n    public ContratoACargar process(Contrato c) {\n        if (c.marcaClon() == 3) return null;                               // extended: solo se cuenta\n        boolean vigente = (c.status() < 2 || c.status() == 5) && c.migradoS111() != 1;\n        if (!vigente || props.esAhorros(c.pim())) return null;\n\n        int persona = c.tipoPersona().esFisica() ? 1 : 2;                 // W77-IND-PERS\n        if (!fechaCorte.cortaEnVentana(c)) return null;                   // 50003160-VALIDA-CORTE\n\n        var inst = catalogo.busca(c.pim()).orElse(null);\n        if (inst == null) {\n            log.warn(\"NO EXISTE EN B05 {} {}\", c.pim(), c.numContrato());\n            return null;\n        }\n        boolean saldos = inst.saldosIntegrados(persona);                  // WKS-TB-B05-SI-SDOSINTEG\n        boolean consultas = CatalogoInstrumentos.usaTarifasL190(inst);\n        return (saldos || consultas)\n                ? new ContratoACargar(c, inst, persona, saldos, consultas) : null;\n    }\n}",
+          "racional": "El recorrido de contratos descarta los clones, los que no están vigentes (status distinto de 0, 1 y 5), los migrados a S111 y las cuentas de ahorro. Del resto, solo pasan los que cortan en la ventana del batch y cuyo instrumento tiene saldos integrados para el tipo de persona o cobra comisión por consulta. En Spring Batch el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> para descartar, y el resultado lleva ya las dos banderas que antes vivían en <code>W77-SI-SALDOS</code> y <code>W77-SI-CONSULTAS</code>. El número de contrato se maneja como texto.",
+          "reglas": [
+            "RN-S500-406"
+          ],
+          "riesgo": "Un contrato cuyo producto no existe en B05 solo se reporta en el listado y se omite: sus saldos no se precargan y P130 tendrá que obtenerlos."
+        },
+        {
+          "id": "s6",
+          "titulo": "Fecha de corte con día 30 como fin de mes",
+          "linea_ini": 1186,
+          "linea_fin": 1221,
+          "origen_codigo": " 50003160-VALIDA-CORTE.\n     IF B03-DIA-CORTE-ANT  > 0\n        MOVE B03-DIA-CORTE-ANT TO W77-DIA-CORTE\n        PERFORM 50003160-ARMA-FEC-CORTE\n        MOVE WKS-FECHA-PTE   TO WKS-FECORTE-DANT\n     ELSE\n        MOVE 99999999        TO WKS-FECORTE-DANT.\n     MOVE B03-DIA-CORTE      TO W77-DIA-CORTE.\n     PERFORM 50003160-ARMA-FEC-CORTE.\n     MOVE WKS-FECHA-PTE      TO WKS-FECORTE-DNVO.\n     IF WKS-FECORTE-DANT < WKS-FECORTE-DNVO\n        MOVE WKS-FECORTE-DANT TO WKS-FECHA-PTE.\n     IF WKS-FECHA-PTE = WKS-FECHA-BATCH\n        MOVE 1  TO W77-SI-CORTA\n     ELSE\n     IF WKS-FECHA-PTE > WKS-FECHA-BATCH AND < WKS-FEC-PROX\n        MOVE 1  TO W77-SI-CORTA.\n*****************************************************************\n 50003160-ARMA-FEC-CORTE.\n     MOVE WKS-AA-BATCH         TO WKS-AA-PTE.\n     MOVE WKS-MM-BATCH         TO WKS-MM-PTE.\n     IF W77-DIA-CORTE = 30\n        MOVE WKS-TAB-DIAS-MES(WKS-MM-BATCH) TO WKS-DD-PTE\n     ELSE\n        MOVE W77-DIA-CORTE   TO WKS-DD-PTE.\n     IF WKS-DD-PTE < WKS-DD-BATCH\n        ADD 1               TO WKS-MM-PTE\n        IF WKS-MM-PTE > 12\n           MOVE 1           TO WKS-MM-PTE\n           ADD  1           TO WKS-AA-PTE.",
+          "java_codigo": "@Component\n@StepScope\npublic class FechaCorte {\n\n    @Value(\"#{jobExecutionContext['fechaBatch']}\")     private LocalDate fechaBatch;\n    @Value(\"#{jobExecutionContext['fechaSiguiente']}\") private LocalDate fechaSiguiente;   // WKS-FEC-PROX\n\n    /** Corta si la fecha de corte es la del batch o cae después y antes del siguiente día de proceso. */\n    boolean cortaEnVentana(Contrato c) {\n        LocalDate nuevo = proyecta(c.diaCorte());\n        LocalDate efectiva = (c.diaCorteAnterior() > 0)\n                ? min(proyecta(c.diaCorteAnterior()), nuevo)                // cambio de día de corte\n                : nuevo;\n        return efectiva.equals(fechaBatch)\n                || (efectiva.isAfter(fechaBatch) && efectiva.isBefore(fechaSiguiente));\n    }\n\n    /** 50003160-ARMA-FEC-CORTE: día 30 significa último día del mes; si ya pasó, mes siguiente. */\n    LocalDate proyecta(int diaCorte) {\n        YearMonth mes = YearMonth.from(fechaBatch);\n        int dia = (diaCorte == 30) ? mes.lengthOfMonth() : diaCorte;\n        if (dia < fechaBatch.getDayOfMonth()) {\n            mes = mes.plusMonths(1);\n        }\n        return mes.atDay(Math.min(dia, mes.lengthOfMonth()));   // ver riesgo: el COBOL no acota\n    }\n}",
+          "racional": "La fecha de corte se arma con el año y mes de la fecha de batch y el día de corte del contrato; el día 30 significa el último día del mes, tomado de una tabla con febrero ajustado a 29 cuando el año es divisible entre 4. Si el día ya pasó en el mes del batch, se toma el mes siguiente. Si el contrato cambió de día de corte se usa la fecha más próxima de las dos. En Java <code>YearMonth.lengthOfMonth()</code> resuelve meses y años bisiestos sin tabla.",
+          "reglas": [],
+          "riesgo": "Cuando la fecha pasa al mes siguiente, el COBOL suma uno al mes sin revisar que el día exista en él: con día de corte 29 y fecha de batch 30 de enero de un año no bisiesto resulta 29 de febrero. Las comparaciones son numéricas sobre AAAAMMDD y siguen funcionando, pero la fecha no existe; la versión Java la acota al último día real del mes."
+        }
+      ]
+    },
+    {
+      "titulo": "Carga de saldos y consultas en el histórico B06",
+      "origen": {
+        "archivo": "S500_SOURCE_P199.txt",
+        "contexto": "50004050-CONT-SDOSOTRINV · 50005100-PIDE-CONSULTAS · 50005200 · 50008000-STORE-B06"
+      },
+      "java": {
+        "archivo": "CargaOtrasInversionesProcessor.java · ConsultasEdoCtaClient.java · HistoricoWriter.java",
+        "contexto": "ItemProcessor · RetryTemplate · JpaItemWriter @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Saldos de otras inversiones y bandera para que P130 no llame a S050",
+          "linea_ini": 1276,
+          "linea_fin": 1398,
+          "origen_codigo": " 50004050-CONT-SDOSOTRINV.\n*=========================\n****************************************************************\n***  ACTIVA INDICADOR EN B06 POR CADA CONTRATO        **********\n***  PARA QUE EL PASO P130 NO LLAME LA LIB/S050/SDOS  **********\n****************************************************************\n     MOVE  1                     TO B06-ID-S050.\n     MOVE  1                     TO W77-SI-B06.\n****************************************************************\n** ACTUALIZA SALDOS DE INVERSION INTEGRAL (FONDOS)            **\n****************************************************************\n     IF WKS-TB-B05-USO-INVINTEGR (W77-IND-INST,W77-IND-PERS) > 0\n        IF WS-S016-0401-RESFON  = 1\n           MOVE WS-S016-0401-FONDOS   TO B06-SDOFONDOS\n           ADD  WS-S016-0401-FONDOS   TO W77-IMP-FONDOS\n           ADD  1                     TO W77-NUM-FONDOS\n           MOVE ZERO                  TO W77-NO-HAY-S050\n     IF W77-NO-HAY-S050 = 1\n        ADD 1  TO W77-NUM-NO-S050\n     ELSE\n        ADD 1  TO W77-NUM-SI-S050.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CargaOtrasInversionesProcessor\n        implements ItemProcessor<ContratoACargar, Historico> {\n\n    private final SaldosOtrasInversionesClient s050;   // S050/L301 vía 20000050-SALDOS\n    private final HistoricoRepository b06;\n    private final MeterRegistry metricas;\n\n    @Override\n    public Historico process(ContratoACargar c) {\n        Historico h = b06.findByContratoForUpdate(c.numContrato())       // 50003200: LOCK B06\n                .orElseThrow(() -> new ProcesoAbortadoException(\"FALTA HISTORICO \" + c.numContrato()));\n        if (h.idS050() != 0) {\n            return null;                                                 // ya cargado en corrida previa\n        }\n        if (c.saldos()) {\n            var r = s050.saldos(c.pim(), c.numContrato());\n            h.marcaCargadoS050();                                        // B06-ID-S050 = 1\n            boolean alguno = false;\n            if (c.instrumento().usaInversionIntegral(c.persona()) && r.fondos().ok()) {\n                h.setSaldoFondos(r.fondos().importe());                  // BigDecimal, escala del PIC destino\n                alguno = true;\n            }\n            // ... banca de inversión, plazo y mesa de dinero con el mismo patrón\n            r.fondos().errorFatal().ifPresent(e -> { throw new S050NoDisponibleException(e); });\n            metricas.counter(alguno ? \"p199.si.s050\" : \"p199.no.s050\").increment();\n        }\n        return h;\n    }\n}",
+          "racional": "Por cada contrato que corta, P199 pide a S050 los saldos de fondos, banca de inversión, plazo y mesa de dinero, y solo copia al histórico los que el instrumento usa y que S050 devolvió con resultado 1. Siempre enciende <code>B06-ID-S050</code>, que es la señal para que P130 no vuelva a llamar a la librería. Un resultado 9 en cualquiera de los cuatro saldos se trata como error fatal al final del contrato. Los importes se copian a <code>BigDecimal</code>; la suma a los totales del reporte es exacta y no necesita redondeo.",
+          "reglas": [
+            "RN-S500-405"
+          ],
+          "riesgo": "B06-ID-S050 se enciende aunque S050 no haya devuelto ningún saldo (W77-NO-HAY-S050 = 1). P130 confía en la bandera y no reintenta, así que un contrato sin respuesta queda con saldos de otras inversiones en cero para el estado de cuenta."
+        },
+        {
+          "id": "s8",
+          "titulo": "Consultas de estado de cuenta con espera ante S050 no disponible",
+          "linea_ini": 1433,
+          "linea_fin": 1476,
+          "origen_codigo": "  50005100-PIDE-CONSULTAS.\n     MOVE ALL @00@            TO WS-S050-L190-PARAM-SALIDA.\n     MOVE B03-NUM-PRODUCTO    TO WS-S050-L190-01-PROD.\n     MOVE B03-NUM-INSTRUM     TO WS-S050-L190-01-INST.\n     MOVE B03-NUM-CONTRATO    TO WS-S050-L190-01-CONTRATO.\n     MOVE 1                   TO WS-S050-L190-01-PROCESO.\n     PERFORM 20000050-L190-COBCOM.\n     ADD   1   TO W77-NUM-CALL-L190.\n     IF W88-S050-L190-RS-NO-DISP\n        ADD  1                            TO W77-NUM-STOP\n        MOVE WS-S050-L190-01-RESULT       TO WS-MSG-N-02\n        IF W77-NUM-STOP < 5\n           STRING \"BASE S050 NO DISPONIBLE RS=\" WS-MSG-N-02\n                  DELIMITED BY SIZE INTO WLI-R01-MENSAJE\n           PERFORM 60001000-ESC-MENSAJE\n           WAIT(60)\n        ELSE\n           STRING \"BASE S050 NO DISPONIBLE RS=\" WS-MSG-N-02\n                  \" OK PARA CONTINUAR, \",\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           MOVE WS-0101-TEXT-MSG  TO WLI-R01-MENSAJE\n           PERFORM 60001000-ESC-MENSAJE\n           PERFORM 70000055-STOP-PGM\n           MOVE ZERO                    TO W77-NUM-STOP\n           MOVE \" CONTINUO EL PROCESO \" TO WLI-R01-MENSAJE\n           PERFORM 60001000-ESC-MENSAJE\n     ELSE\n       MOVE 1   TO W77-SW-S050L190.\n 50005200-ACTUALIZA-CONSULTA.\n     IF B06-ID-S050 = 0\n        MOVE 1       TO  W77-SI-B06\n        MOVE 1       TO  B06-ID-S050.\n     IF W88-S050-L190-RS-OK\n        MOVE 1                            TO W77-SI-B06\n        MOVE WS-S050-L190-01-CONTADOR(01) TO B06-CONT-COMIS(12)\n        MOVE WS-S050-L190-01-CONTADOR(02) TO B06-CONT-COMIS(13)\n        MOVE WS-S050-L190-01-CONTADOR(06) TO B06-CONT-COMIS(06)\n        ADD  1                            TO W77-HAY-CONSULTA",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ConsultasEdoCtaClient {\n\n    private final TarifasL190Gateway l190;            // S050/L190 COBCOM, proceso 1\n    private final RetryTemplate s050NoDisponible;     // 4 intentos con 60 s; luego intervención\n    private final OperadorService operador;           // 70000055-STOP-PGM\n\n    /** 50005100-PIDE-CONSULTAS + 50005200-ACTUALIZA-CONSULTA. */\n    void cargaContadores(Historico h, Pim pim, String contrato) {\n        var r = s050NoDisponible.execute(\n                ctx -> l190.consultas(pim, contrato),\n                ctx -> { operador.esperaConfirmacion(\"BASE S050 NO DISPONIBLE\"); return l190.consultas(pim, contrato); });\n        h.marcaCargadoS050();\n        switch (r.resultado()) {\n            case OK -> {\n                h.setContadorComision(12, r.contador(1));\n                h.setContadorComision(13, r.contador(2));\n                h.setContadorComision(6,  r.contador(6));\n            }\n            case SIN_INFORMACION -> { }                                       // nada que cargar\n            default -> log.warn(\"ERR CALL S050/L190 RS={} {} {}\", r.codigo(), pim, contrato);\n        }\n    }\n}",
+          "racional": "Para los productos que cobran consulta, P199 pide a S050/L190 los contadores de consultas de estado de cuenta del contrato y los guarda en los occurs 12, 13 y 6 de <code>B06-CONT-COMIS</code>, que después usa el cálculo de comisión. Si la base de S050 no está disponible espera 60 segundos y reintenta; al quinto intento detiene el programa hasta que el operador confirma y vuelve a empezar la cuenta. En Java es un <code>RetryTemplate</code> con espera fija y un manejador de recuperación que solicita la confirmación por el canal de operación que se defina.",
+          "reglas": [
+            "RN-S500-407",
+            "RN-S500-408"
+          ],
+          "riesgo": "Un resultado distinto de OK, sin información o no disponible solo se escribe en el listado; el contrato queda marcado como cargado con contadores en cero y la comisión por consulta no se cobra ese corte."
+        },
+        {
+          "id": "s9",
+          "titulo": "Grabado del histórico por contrato en su propia transacción",
+          "linea_ini": 1492,
+          "linea_fin": 1507,
+          "origen_codigo": " 50008000-STORE-B06.\n*===================\n     PERFORM 90000000-BEGIN-TRANSACTION.\n     PERFORM 90000006-B06HISTORICO-STORE.\n     IF WS-STATUS-BASE > 0\n        MOVE WS-NUM-CONTRATO   TO WS-MSG-CTO\n        STRING \"ERROR STORE B06HISTORICO \", WS-STATUS-BASE,\n               \" CTO \", WS-MSG-CTO\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        MOVE WS-0101-TEXT-MSG  TO WLI-R01-MENSAJE\n        PERFORM 60001000-ESC-MENSAJE\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     PERFORM 90000000-END-TRANSACTIONNOAU.",
+          "java_codigo": "@Bean\nStep cargaSaldos(JobRepository repo, PlatformTransactionManager tx,\n                 RepositoryItemReader<Contrato> contratos,       // S500B03CONTRATOS en orden físico\n                 CompositeItemProcessor<Contrato, Historico> procesador,\n                 JpaItemWriter<Historico> historico) {\n    return new StepBuilder(\"cargaSaldos\", repo)\n            .<Contrato, Historico>chunk(1, tx)      // BEGIN/END TRANSACTION por contrato\n            .reader(contratos)\n            .processor(procesador)                  // filtro + saldos + consultas\n            .writer(historico)                      // 90000006-B06HISTORICO-STORE\n            .build();\n    // Un error de STORE lanza excepción y el step queda FAILED (antes CALL SYSTEM DMTERMINATE).\n}",
+          "racional": "Cada contrato modificado se graba en S500B06HISTORICO dentro de una transacción propia y un error de grabado detiene el programa. En Spring Batch esto corresponde a un chunk de tamaño 1, que es lo más fiel al original; se puede subir el tamaño una vez validado que P130 tolera lotes. El orden de lectura de B03 y el bloqueo previo del registro B06 se conservan en el lector y en el procesador.",
+          "reglas": [
+            "RN-S500-405"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Bandera de carga sin dato",
+      "detalle": "B06-ID-S050 se enciende en 50004050 (línea 1282) y en 50005200 (líneas 1467-1469) aunque S050 no devuelva saldos ni contadores. P130 deja de consultar S050 para esos contratos."
+    },
+    {
+      "titulo": "Fechas de corte inexistentes",
+      "detalle": "50003160-ARMA-FEC-CORTE (líneas 1208-1221) pasa al mes siguiente sin ajustar el día: con día de corte 29 y batch a fin de enero de un año no bisiesto genera 29 de febrero. El año bisiesto se calcula solo con divisibilidad entre 4 (líneas 884-888)."
+    },
+    {
+      "titulo": "Tope de 30 instrumentos",
+      "detalle": "La tabla WKS-TB-B05INSTRUMEN tiene 30 posiciones (línea 164); el instrumento 31 aborta el paso (líneas 706-711)."
+    },
+    {
+      "titulo": "Modo de pruebas en el mismo ejecutable",
+      "detalle": "Los TASKVALUE 01 a 03 apagan las librerías S050 (líneas 209-214); la única protección en producción es la validación de las líneas 637-643."
+    },
+    {
+      "titulo": "Espera e intervención manual",
+      "detalle": "Con S050 no disponible el programa espera 60 segundos por intento y al quinto se detiene esperando al operador (líneas 1444-1461); el fin forzado también se pide por consola con ACCEPT (líneas 1054-1069)."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-409 indica que P199 aplica IVA con S080IVA; en este fuente S080IVA solo aparece en la directiva $SET de la línea 11 y no hay llamada visible. Confirmar si el cálculo vive en un copybook o en otro paso; por eso ningún segmento cita esa regla.",
+    "Confirmar con el SME si P130 debe reintentar S050 cuando B06-ID-S050 = 1 pero no hubo saldos.",
+    "Validar cuáles de las catorce ternas de los niveles 88 siguen vigentes; la lista del comentario de cabecera es más corta.",
+    "Los PIC de los saldos de S050 (WS-S016-0401-*) y de B06 vienen de la base y de copybooks que no están en el fuente; la escala del BigDecimal debe tomarse del DASDL."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-421",
+    "RN-S151-422",
+    "RN-S151-423",
+    "RN-S151-424",
+    "RN-S151-425",
+    "RN-S151-426",
+    "RN-S151-427",
+    "RN-S151-428",
+    "RN-S151-429",
+    "RN-S151-430",
+    "RN-S151-431",
+    "RN-S151-432",
+    "RN-S151-433",
+    "RN-S151-434",
+    "RN-S151-435",
+    "RN-S151-436",
+    "RN-S151-437",
+    "RN-S151-438",
+    "RN-S151-439",
+    "RN-S151-440",
+    "RN-S151-441",
+    "RN-S151-442",
+    "RN-S151-443",
+    "RN-S151-444",
+    "RN-S151-445",
+    "RN-S151-446",
+    "RN-S151-447",
+    "RN-S151-448",
+    "RN-S151-449",
+    "RN-S151-450",
+    "RN-S500-405",
+    "RN-S500-406",
+    "RN-S500-407",
+    "RN-S500-408",
+    "RN-S500-409"
+  ]
+}

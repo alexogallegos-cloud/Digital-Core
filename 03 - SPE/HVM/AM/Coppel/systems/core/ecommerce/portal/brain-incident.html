@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brain Search — Incidente P1 · Coppel Digital Brain</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #003087;
+    --navy-d: #001f5b;
+    --yellow: #FFD600;
+    --yellow-h: #e6c100;
+    --text:   #222222;
+    --bg:     #F5F5F5;
+    --white:  #ffffff;
+    --gray:   #e8e8e8;
+    --gray-d: #6b7280;
+    --red:    #C62828;
+    --green:  #2E7D32;
+    --mono:   'Courier New', Courier, monospace;
+    --sans:   -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --radius: 10px;
+    --shadow: 0 4px 20px rgba(0,0,0,.10);
+  }
+
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.65; }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .section    { padding: 80px 0; }
+
+  .fade-up { opacity: 0; transform: translateY(30px); transition: opacity .55s ease, transform .55s ease; }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── HERO ── */
+  @keyframes gradshift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+  @keyframes floatY   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-28px)} }
+  @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes pulse-r  { 0%,100%{box-shadow:0 0 0 0 rgba(198,40,40,.55)} 50%{box-shadow:0 0 0 10px rgba(198,40,40,0)} }
+
+  #hero {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(-45deg, #001030, #003087, #001f5b, #0045c0);
+    background-size: 400% 400%;
+    animation: gradshift 16s ease infinite;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--white);
+  }
+  #hero::before {
+    content:''; position:absolute; width:800px; height:800px; border-radius:50%;
+    background:radial-gradient(circle,rgba(255,214,0,.07) 0%,transparent 65%);
+    top:-250px; right:-150px; pointer-events:none; animation:floatY 12s ease-in-out infinite;
+  }
+  #hero::after {
+    content:''; position:absolute; width:600px; height:600px; border-radius:50%;
+    background:radial-gradient(circle,rgba(80,140,255,.08) 0%,transparent 65%);
+    bottom:-180px; left:-100px; pointer-events:none; animation:floatY 18s ease-in-out infinite reverse;
+  }
+  #hero-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+
+  /* topbar */
+  .hero-topbar {
+    display:flex; align-items:center; gap:16px;
+    padding:28px 60px; position:relative; z-index:2;
+  }
+  .hero-topbar img { height:20px; width:auto; filter:brightness(0) invert(1); }
+  .hero-topbar img:first-child { transform:translateY(3px); }
+  .hero-topbar-sep { width:1px; height:24px; background:rgba(255,255,255,.28); }
+  .back-link {
+    margin-left:auto; color:rgba(255,255,255,.6); font-size:13px;
+    font-weight:600; display:flex; align-items:center; gap:6px;
+    transition:color .2s;
+  }
+  .back-link:hover { color:var(--yellow); }
+
+  /* hero body */
+  .hero-body {
+    flex:1; display:grid; grid-template-columns:52% 48%;
+    align-items:center; gap:40px; padding:20px 60px 60px;
+    position:relative; z-index:2;
+  }
+
+  .inc-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(198,40,40,.85); color:#fff;
+    font-size:.75rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    padding:6px 16px; border-radius:20px; margin-bottom:22px;
+    animation:pulse-r 2s ease-in-out infinite;
+  }
+
+  .hero-h1 {
+    font-size:clamp(2.4rem,5vw,3.8rem);
+    font-weight:900; line-height:1.08; letter-spacing:-.03em; margin-bottom:20px;
+  }
+  .hero-h1 em { font-style:normal; color:var(--yellow); }
+
+  .hero-desc {
+    font-size:1.05rem; color:rgba(255,255,255,.7);
+    line-height:1.72; max-width:480px; margin-bottom:36px; font-weight:300;
+  }
+
+  .hero-stats {
+    display:flex; gap:36px; flex-wrap:wrap;
+  }
+  .hero-stat-val {
+    font-size:clamp(1.8rem,3vw,2.6rem); font-weight:900; line-height:1;
+    color:var(--yellow); margin-bottom:4px;
+  }
+  .hero-stat-val.red-stat { color:#EF9A9A; }
+  .hero-stat-val.green-stat { color:#A5D6A7; }
+  .hero-stat-lbl { font-size:.78rem; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.06em; }
+
+  /* terminal */
+  .hero-terminal {
+    background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.1);
+    border-radius:12px; overflow:hidden; backdrop-filter:blur(8px);
+    font-family:var(--mono); font-size:.82rem; line-height:1.7;
+  }
+  .term-titlebar {
+    display:flex; align-items:center; gap:7px;
+    background:rgba(255,255,255,.06); padding:10px 16px;
+    border-bottom:1px solid rgba(255,255,255,.07);
+  }
+  .term-dot { width:12px; height:12px; border-radius:50%; }
+  .term-dot.r{background:#ff5f57} .term-dot.y{background:#febc2e} .term-dot.g{background:#28c840}
+  .term-label { font-size:.75rem; color:rgba(255,255,255,.35); margin-left:8px; }
+  .term-body { padding:18px 20px; }
+  .t-prompt { color:#FFD600; }
+  .t-cmd    { color:#90CAF9; }
+  .t-dim    { color:rgba(255,255,255,.2); font-size:.75rem; }
+  .t-key    { color:rgba(255,255,255,.45); display:inline-block; min-width:120px; }
+  .t-val    { color:#E3F2FD; }
+  .t-ok     { color:#66BB6A; }
+  .t-warn   { color:#FFA726; }
+  .t-err    { color:#EF9A9A; }
+  .t-cursor { display:inline-block; width:8px; height:14px; background:var(--yellow); animation:blink 1s step-end infinite; vertical-align:middle; }
+
+  /* ── SECTION: DIAGNÓSTICO ── */
+  .section-label {
+    display:inline-block; font-size:.75rem; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--navy);
+    background:rgba(0,48,135,.09); padding:4px 12px; border-radius:20px; margin-bottom:14px;
+  }
+  .section-title {
+    font-size:clamp(1.6rem,3vw,2.2rem); font-weight:800; color:var(--navy);
+    line-height:1.25; margin-bottom:14px;
+  }
+  .section-sub { font-size:1.05rem; color:var(--gray-d); max-width:640px; margin-bottom:48px; }
+
+  .diag-grid { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:start; }
+
+  /* timeline */
+  .timeline { position:relative; display:flex; flex-direction:column; gap:0; }
+  .timeline::before {
+    content:''; position:absolute; left:19px; top:28px; bottom:28px;
+    width:2px; background:var(--gray); border-radius:2px;
+  }
+
+  .t-item { display:flex; gap:18px; padding-bottom:32px; }
+  .t-dot-wrap { position:relative; z-index:1; flex-shrink:0; }
+  .t-dot {
+    width:36px; height:36px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.72rem; font-weight:800; letter-spacing:.01em;
+    color:var(--white); background:var(--gray-d); flex-shrink:0;
+  }
+  .t-dot.t-red   { background:var(--red); }
+  .t-dot.t-yel   { background:var(--yellow); color:var(--navy-d); }
+  .t-dot.t-navy  { background:var(--navy); }
+  .t-dot.t-green { background:var(--green); }
+  .t-body { flex:1; padding-top:6px; }
+  .t-time  { font-size:.75rem; color:var(--gray-d); font-family:var(--mono); margin-bottom:4px; }
+  .t-title { font-size:1rem; font-weight:800; color:var(--navy); margin-bottom:4px; }
+  .t-title.red   { color:var(--red); }
+  .t-title.green { color:var(--green); }
+  .t-desc  { font-size:.9rem; color:var(--gray-d); line-height:1.55; }
+
+  .brain-box {
+    margin-top:12px; background:rgba(0,48,135,.06);
+    border:1px solid rgba(0,48,135,.15); border-left:3px solid var(--navy);
+    border-radius:8px; padding:14px 16px;
+  }
+  .brain-box-label {
+    font-size:.7rem; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--navy); margin-bottom:10px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .brain-hit-icon {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--navy); flex-shrink:0; margin-top:6px; opacity:.5;
+  }
+  .brain-hit {
+    display:flex; align-items:flex-start; gap:10px;
+    padding:7px 0; border-bottom:1px solid rgba(0,48,135,.08);
+    font-size:.88rem; color:var(--text);
+  }
+  .brain-hit:last-child { border-bottom:none; }
+  .brain-hit-icon { font-size:15px; flex-shrink:0; margin-top:1px; }
+  .brain-hit strong { color:var(--navy); }
+  .brain-hit span   { color:var(--gray-d); font-size:.82rem; }
+
+  /* guide cards */
+  .guide-cards { display:flex; flex-direction:column; gap:16px; }
+
+  .guide-card {
+    background:var(--white); border:1px solid var(--gray);
+    border-radius:var(--radius); padding:20px 22px;
+    box-shadow:var(--shadow); transition:transform .2s, box-shadow .2s;
+  }
+  .guide-card:hover { transform:translateY(-3px); box-shadow:0 8px 32px rgba(0,0,0,.12); }
+
+  .guide-card-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .guide-icon {
+    width:38px; height:38px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; flex-shrink:0;
+  }
+  .gi-red    { background:rgba(198,40,40,.1); }
+  .gi-yellow { background:rgba(255,214,0,.15); }
+  .gi-blue   { background:rgba(0,48,135,.1); }
+  .gi-green  { background:rgba(46,125,50,.1); }
+
+  .guide-title { font-size:.95rem; font-weight:800; color:var(--navy); }
+  .guide-sub   { font-size:.75rem; color:var(--gray-d); margin-top:2px; }
+  .guide-body  { font-size:.9rem; color:var(--gray-d); line-height:1.6; }
+  .guide-body strong { color:var(--text); }
+
+  .step-list { list-style:none; display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .step-list li { display:flex; gap:10px; align-items:flex-start; font-size:.88rem; color:var(--gray-d); line-height:1.5; }
+  .step-num {
+    width:20px; height:20px; border-radius:50%;
+    background:var(--navy); color:var(--yellow);
+    display:flex; align-items:center; justify-content:center;
+    font-size:.65rem; font-weight:800; flex-shrink:0; margin-top:2px;
+  }
+  .step-list li strong { color:var(--text); }
+
+  /* kpi strip */
+  .kpi-strip {
+    display:flex; gap:0; background:var(--white);
+    border:1px solid var(--gray); border-radius:var(--radius);
+    box-shadow:var(--shadow); overflow:hidden; margin-bottom:48px;
+  }
+  .kpi-cell {
+    flex:1; text-align:center; padding:20px 16px;
+    border-right:1px solid var(--gray);
+  }
+  .kpi-cell:last-child { border-right:none; }
+  .kpi-val { font-size:1.6rem; font-weight:900; color:var(--navy); margin-bottom:4px; }
+  .kpi-val.kred   { color:var(--red); }
+  .kpi-val.kgreen { color:var(--green); }
+  .kpi-lbl { font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:var(--gray-d); }
+
+  /* ── SPEC ANIMATION ── */
+  @keyframes scanBar    { 0%{width:0} 100%{width:100%} }
+  @keyframes tabUnlock  { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 70%{transform:scale(.95)} 100%{transform:scale(1)} }
+  @keyframes codeCurtain{ 0%{transform:translateY(0%)} 100%{transform:translateY(102%)} }
+  @keyframes acAppear   { 0%{opacity:0;transform:translateX(-8px)} 100%{opacity:1;transform:translateX(0)} }
+  @keyframes spin       { to{transform:rotate(360deg)} }
+  @keyframes scanFadeFiles { 0%{opacity:0;transform:translateY(4px)} 100%{opacity:1;transform:translateY(0)} }
+
+  .spec-scan-overlay {
+    background:var(--white); border:1px solid var(--gray); border-radius:var(--radius);
+    padding:32px 24px; text-align:center; font-family:var(--mono);
+    box-shadow:var(--shadow);
+  }
+  .scan-spinner {
+    width:52px; height:52px; margin:0 auto 16px;
+    border-radius:50%; position:relative;
+    border:3px solid var(--gray);
+    border-top-color:var(--navy);
+    border-right-color:var(--yellow);
+    animation:spin .9s linear infinite;
+  }
+  .scan-spinner::after {
+    content:''; position:absolute; inset:5px; border-radius:50%;
+    border:2px solid transparent;
+    border-bottom-color:rgba(0,48,135,.3);
+    animation:spin .6s linear infinite reverse;
+  }
+  .scan-main-text   { font-size:.85rem; color:var(--navy); font-weight:700; margin-bottom:18px; letter-spacing:.04em; }
+  .scan-track       { height:3px; background:var(--gray); border-radius:2px; margin-bottom:20px; overflow:hidden; }
+  .scan-fill        { height:100%; background:linear-gradient(90deg,var(--navy),var(--yellow)); border-radius:2px;
+                      animation:scanBar 1.8s ease-out forwards; }
+  .scan-files       { display:flex; flex-direction:column; gap:6px; text-align:left; }
+  .scan-file-line   { font-size:.74rem; color:var(--gray-d); opacity:0; animation:scanFadeFiles .3s ease forwards; }
+  .scan-file-line .sf-ok   { color:var(--green); }
+  .scan-file-line .sf-warn { color:var(--red); }
+
+  .spec-tab.locked {
+    opacity:.28; pointer-events:none; filter:grayscale(1);
+    transition:opacity .3s, filter .3s;
+  }
+  .spec-tab.unlocking { animation:tabUnlock .45s ease both; }
+
+  pre.spec-code { position:relative; overflow:hidden; }
+  .code-curtain {
+    position:absolute; inset:0; background:#0d1117; pointer-events:none;
+    animation:codeCurtain .7s cubic-bezier(.4,0,.2,1) forwards;
+  }
+
+  .ac-item { opacity:0; }
+  .ac-item.revealed { animation:acAppear .35s ease both; opacity:1; }
+  .ac-check.scanning { background:rgba(0,48,135,.1) !important; color:var(--navy) !important; }
+  .ac-check.scanning::after {
+    content:''; display:inline-block; width:10px; height:10px;
+    border:2px solid var(--navy); border-top-color:transparent;
+    border-radius:50%; animation:spin .6s linear infinite;
+  }
+
+  /* ── SPEC VIEWER ── */
+  .spec-viewer {
+    background:var(--white); border:1px solid var(--gray);
+    border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;
+  }
+  .spec-tabs {
+    display:flex; border-bottom:2px solid var(--gray);
+    background:#fafafa; overflow-x:auto; gap:0;
+  }
+  .spec-tab {
+    padding:10px 16px; font-size:.78rem; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+    color:var(--gray-d); border-bottom:2px solid transparent;
+    white-space:nowrap; transition:color .15s, border-color .15s;
+    user-select:none; margin-bottom:-2px;
+  }
+  .spec-tab:hover { color:var(--navy); }
+  .spec-tab.active { color:var(--navy); border-bottom-color:var(--navy); background:var(--white); }
+  .spec-tab.red { }
+  .spec-tab.red.active { color:var(--red); border-bottom-color:var(--red); }
+
+  .spec-pane { display:none; padding:20px 22px; }
+  .spec-pane.active { display:block; }
+
+  .spec-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:.7rem; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; padding:3px 10px; border-radius:12px; margin-bottom:12px;
+  }
+  .badge-us      { background:rgba(0,48,135,.1);  color:var(--navy); }
+  .badge-bdd     { background:rgba(198,40,40,.1); color:var(--red);  }
+  .badge-gql     { background:rgba(225,144,0,.12); color:#b45309;   }
+  .badge-err     { background:rgba(198,40,40,.08); color:var(--red); }
+  .badge-ac      { background:rgba(46,125,50,.1); color:var(--green);}
+
+  .spec-title { font-size:1rem; font-weight:800; color:var(--navy); margin-bottom:6px; }
+  .spec-desc  { font-size:.88rem; color:var(--gray-d); line-height:1.6; margin-bottom:14px; }
+
+  .ac-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .ac-item { display:flex; gap:10px; font-size:.86rem; line-height:1.5; }
+  .ac-check {
+    width:20px; height:20px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:800; margin-top:2px;
+  }
+  .ac-pass { background:rgba(46,125,50,.15); color:var(--green); }
+  .ac-fail { background:rgba(198,40,40,.15); color:var(--red); }
+  .ac-item strong { color:var(--text); }
+
+  pre.spec-code {
+    font-family:var(--mono); font-size:.78rem; line-height:1.65;
+    background:#0d1117; color:#e6edf3; border-radius:8px;
+    padding:16px; overflow-x:auto; margin:10px 0; tab-size:2;
+  }
+  .code-kw   { color:#ff7b72; }
+  .code-type { color:#79c0ff; }
+  .code-str  { color:#a5d6ff; }
+  .code-cmt  { color:#8b949e; font-style:italic; }
+  .code-fn   { color:#d2a8ff; }
+  .code-num  { color:#f0883e; }
+  .code-err  { color:#ff7b72; background:rgba(255,123,114,.12); border-radius:3px; padding:0 3px; }
+  .code-ok   { color:#56d364; }
+
+  .gherkin-kw   { color:#d2a8ff; font-weight:700; }
+  .gherkin-str  { color:#a5d6ff; }
+  .gherkin-cmt  { color:#8b949e; font-style:italic; }
+
+  .err-card {
+    border:1px solid rgba(198,40,40,.3); border-left:4px solid var(--red);
+    border-radius:8px; padding:14px 16px; margin-bottom:12px;
+    background:rgba(198,40,40,.04);
+  }
+  .err-code  { font-family:var(--mono); font-size:.82rem; font-weight:700; color:var(--red); margin-bottom:6px; }
+  .err-field { font-size:.83rem; color:var(--gray-d); line-height:1.6; }
+  .err-field strong { color:var(--text); }
+
+  .spec-divider { border:none; border-top:1px solid var(--gray); margin:14px 0; }
+
+  /* ── FOOTER ── */
+  footer {
+    background:var(--navy-d); color:rgba(255,255,255,.5);
+    text-align:center; padding:24px; font-size:.8rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <canvas id="hero-canvas"></canvas>
+
+  <div class="hero-topbar">
+    <img src="Logo_Coppel.avif" alt="Coppel"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'"/>
+    <span style="display:none;font-size:1.1rem;font-weight:900;color:#FFD600">Coppel</span>
+    <div class="hero-topbar-sep"></div>
+    <img src="Accenture_logo_white.png" alt="Accenture" style="height:20px;width:auto;filter:brightness(0) invert(1)"/>
+    <a class="back-link" href="index.html">← Volver al Brain</a>
+  </div>
+
+  <div class="hero-body">
+
+    <div>
+      <div class="inc-badge fade-up">⚠ P1 Activo · INC-2026-09-16-001</div>
+      <h1 class="hero-h1 fade-up" style="transition-delay:.08s">
+        El Brain encontró<br>el <em>contexto</em><br>en segundos.
+      </h1>
+      <p class="hero-desc fade-up" style="transition-delay:.16s">
+        En plena venta nocturna el carrito dejó de responder. El equipo N3 no
+        buscó en documentación dispersa: el Brain reconoció el patrón —
+        3 ocurrencias previas en 90 días — y tenía el playbook listo.
+      </p>
+      <div class="hero-stats fade-up" style="transition-delay:.24s">
+        <div>
+          <div class="hero-stat-val red-stat">7 min</div>
+          <div class="hero-stat-lbl">MTTR del incidente</div>
+        </div>
+        <div>
+          <div class="hero-stat-val">$1.26M</div>
+          <div class="hero-stat-lbl">MXN impacto detenido</div>
+        </div>
+        <div>
+          <div class="hero-stat-val green-stat">Resuelto</div>
+          <div class="hero-stat-lbl">vs. SLA 5 días hábiles</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-terminal fade-up" style="transition-delay:.2s">
+      <div class="term-titlebar">
+        <span class="term-dot r"></span>
+        <span class="term-dot y"></span>
+        <span class="term-dot g"></span>
+        <span class="term-label">CoppelRetailBrain — N3 Console</span>
+      </div>
+      <div class="term-body">
+        <div><span class="t-prompt">$</span> <span class="t-cmd" id="termQuery"></span><span class="t-cursor" id="termCursor" style="display:none"></span></div>
+        <div class="t-dim" id="termSep" style="display:none">──────────────────────────────────────────</div>
+        <div id="termResults" style="display:none">
+          <div><span class="t-ok">✓</span> <span class="t-key">incidente   </span><span class="t-val">checkout_timeout · P1 · activo</span></div>
+          <div><span class="t-warn">⚠</span> <span class="t-key">causa       </span><span class="t-val">límite de conexiones al servicio</span></div>
+          <div><span class="t-ok">✓</span> <span class="t-key">historial   </span><span class="t-val">3 ocurrencias · patrón: venta nocturna</span></div>
+          <div><span class="t-ok">✓</span> <span class="t-key">playbook    </span><span class="t-val">runbook N3 disponible</span></div>
+          <div><span class="t-ok">✓</span> <span class="t-key">escalación  </span><span class="t-val">equipo responsable identificado</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-ok">✓</span> <span class="t-key">MTTR actual </span><span class="t-err">20.4 días hábiles (incumbente)</span></div>
+          <div><span class="t-ok">✓</span> <span class="t-key">MTTR N3     </span><span class="t-ok">7 minutos ↓ 75% de mejora</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-prompt">$</span> <span class="t-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── DIAGNÓSTICO ── -->
+<section class="section">
+  <div class="container">
+    <span class="section-label fade-up">Diagnóstico N3</span>
+    <h2 class="section-title fade-up">Lo que pasó y cómo se resolvió</h2>
+    <p class="section-sub fade-up">El Digital Brain acompañó cada momento del incidente con contexto preciso, sin que el ingeniero N3 perdiera tiempo buscando.</p>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip fade-up">
+      <div class="kpi-cell"><div class="kpi-val kred">98%</div><div class="kpi-lbl">Error rate ATC</div></div>
+      <div class="kpi-cell"><div class="kpi-val">7 min</div><div class="kpi-lbl">MTTR del incidente</div></div>
+      <div class="kpi-cell"><div class="kpi-val kred">$1.26M MXN</div><div class="kpi-lbl">Impacto detenido</div></div>
+      <div class="kpi-cell"><div class="kpi-val kgreen">Resuelto</div><div class="kpi-lbl">Estado final</div></div>
+    </div>
+
+    <div class="diag-grid">
+
+      <!-- TIMELINE -->
+      <div>
+        <p style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gray-d);margin-bottom:24px;">Línea de tiempo</p>
+        <div class="timeline">
+
+          <div class="t-item fade-up">
+            <div class="t-dot-wrap"><div class="t-dot t-red">01</div></div>
+            <div class="t-body">
+              <div class="t-time">22:34 UTC · Venta Nocturna</div>
+              <div class="t-title red">Incidente detectado</div>
+              <div class="t-desc">Durante la venta nocturna, el servicio de carrito deja de responder. Los usuarios ven un error al agregar productos. El pico de tráfico superó el límite del pool SFCC. El resto del sitio sigue operando.</div>
+            </div>
+          </div>
+
+          <div class="t-item fade-up">
+            <div class="t-dot-wrap"><div class="t-dot t-yel">02</div></div>
+            <div class="t-body">
+              <div class="t-time">22:34 UTC — automático</div>
+              <div class="t-title">Observabilidad activa</div>
+              <div class="t-desc">Datadog detecta la anomalía en menos de 2 minutos y dispara la alerta al canal del equipo N3 en Slack.</div>
+            </div>
+          </div>
+
+          <div class="t-item fade-up">
+            <div class="t-dot-wrap"><div class="t-dot t-navy">03</div></div>
+            <div class="t-body">
+              <div class="t-time">22:36 UTC — Digital Brain</div>
+              <div class="t-title" style="color:var(--navy)">Brain identifica el contexto</div>
+              <div class="t-desc">El Brain recupera historial, dependencias afectadas y playbook en segundos.</div>
+              <div class="brain-box">
+                <div class="brain-box-label">brain.search("checkout caído") — 4 resultados</div>
+                <div class="brain-hit"><div class="brain-hit-icon"></div><div><strong>Patrón N3 detectado</strong><br><span>3 ocurrencias · venta nocturna · pool SFCC saturado</span></div></div>
+                <div class="brain-hit"><div class="brain-hit-icon"></div><div><strong>Playbook disponible</strong><br><span>Runbook N3 · pasos de resolución activos</span></div></div>
+                <div class="brain-hit"><div class="brain-hit-icon"></div><div><strong>Contacto de escalación</strong><br><span>Equipo responsable identificado</span></div></div>
+                <div class="brain-hit"><div class="brain-hit-icon"></div><div><strong>Causa raíz probable</strong><br><span>Pool SFCC saturado por pico de tráfico nocturno</span></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="t-item fade-up">
+            <div class="t-dot-wrap"><div class="t-dot t-green">04</div></div>
+            <div class="t-body">
+              <div class="t-time">22:41 UTC</div>
+              <div class="t-title green">Resuelto en 7 minutos</div>
+              <div class="t-desc">El equipo N3 siguió el playbook. Servicio restaurado. RCA documentado en el Brain para el siguiente incidente.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SDD SPEC VIEWER -->
+      <div class="fade-up">
+        <p style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gray-d);margin-bottom:16px;">Spec detallado — SDD · v0.2.0-DRAFT</p>
+        <div class="spec-viewer">
+
+          <!-- Tabs -->
+          <div class="spec-tabs">
+            <div class="spec-tab active" onclick="showTab('us')">User Story</div>
+            <div class="spec-tab red" onclick="showTab('bdd')">BDD Escenario 0</div>
+            <div class="spec-tab" onclick="showTab('gql')">GraphQL</div>
+            <div class="spec-tab" onclick="showTab('err')">Catálogo errores</div>
+            <div class="spec-tab" onclick="showTab('ac')">Criterios</div>
+          </div>
+
+          <!-- US-003 -->
+          <div id="pane-us" class="spec-pane active">
+            <span class="spec-badge badge-us">US-003</span>
+            <div class="spec-title">Agregar producto al carrito</div>
+            <div class="spec-desc">
+              <strong>Como</strong> comprador en el eCommerce de Coppel,<br>
+              <strong>quiero</strong> agregar un producto a mi carrito con un solo tap,<br>
+              <strong>para que</strong> pueda continuar comprando sin interrupciones y completar mi pedido.
+            </div>
+            <hr class="spec-divider">
+            <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-d);margin-bottom:10px;">Subgraph responsable</div>
+            <pre class="spec-code"><span class="code-cmt"># Apollo Federation — subgraph: carrito</span>
+<span class="code-cmt"># Integración: SFCC Basket API → GraphQL mutation</span>
+<span class="code-cmt"># SLA contrato: p99 &lt; 800ms · timeout: 3 000ms</span>
+
+subgraph  <span class="code-type">carrito</span>
+upstream  <span class="code-str">SFCC Basket API  (HTTP, pool=50 conn)</span>
+error_map <span class="code-err">503 → BASKET_POOL_EXHAUSTED</span>  <span class="code-cmt"># ← falla activa</span></pre>
+            <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-d);margin:12px 0 8px;">Modelo TypeScript</div>
+            <pre class="spec-code"><span class="code-kw">interface</span> <span class="code-type">AddToCartResult</span> {
+  success:   <span class="code-type">boolean</span>;
+  cart:      <span class="code-type">Cart</span> | <span class="code-type">null</span>;
+  userError: <span class="code-type">UserError</span> | <span class="code-type">null</span>;
+}
+<span class="code-kw">interface</span> <span class="code-type">UserError</span> {
+  code:    <span class="code-str">"BASKET_POOL_EXHAUSTED"</span> | <span class="code-str">"OUT_OF_STOCK"</span> | <span class="code-str">"..."</span>;
+  message: <span class="code-type">string</span>;  <span class="code-cmt">// i18n key</span>
+  retryable: <span class="code-type">boolean</span>;
+}</pre>
+          </div>
+
+          <!-- BDD Escenario 0 -->
+          <div id="pane-bdd" class="spec-pane">
+            <span class="spec-badge badge-bdd">Escenario 0 · INC-2026-09-16-001</span>
+            <div class="spec-title" style="color:var(--red)">Ocurre incidente — BASKET_POOL_EXHAUSTED</div>
+            <div class="spec-desc">Escenario de degradación del servicio de carrito. Cubre la experiencia del usuario, la observabilidad y la resolución.</div>
+            <pre class="spec-code"><span class="gherkin-kw">Dado</span>  que el pool de conexiones de SFCC Basket API
+       alcanza su límite de <span class="gherkin-str">50 conexiones simultáneas</span>
+<span class="gherkin-kw">Y</span>     el subgraph <span class="gherkin-str">carrito</span> recibe la mutación addToCart
+
+<span class="gherkin-kw">Cuando</span> el usuario hace tap en <span class="gherkin-str">"Agregar al carrito"</span>
+
+<span class="gherkin-kw">Entonces</span> el UI aplica <span class="gherkin-str">optimistic update</span> (contador +1)
+<span class="gherkin-kw">Y</span>       SFCC Basket API responde <span class="code-err">HTTP 503</span> en 2 003 ms
+<span class="gherkin-kw">Y</span>       el subgraph emite error code <span class="code-err">BASKET_POOL_EXHAUSTED</span>
+<span class="gherkin-kw">Y</span>       el carrito se <span class="gherkin-str">revierte</span> (contador −1, rollback)
+<span class="gherkin-kw">Y</span>       el usuario ve toast de error en rojo
+<span class="gherkin-kw">Y</span>       Datadog RUM registra <span class="gherkin-str">checkout.add_to_cart.error</span>
+
+<span class="gherkin-cmt"># SLO de resolución</span>
+<span class="gherkin-kw">Y</span>       si el error se sostiene &gt; 2 min → alerta P1 a N3
+<span class="gherkin-kw">Y</span>       resolución esperada &lt; <span class="code-ok">10 min</span> (MTTR N3)</pre>
+            <div class="err-card" style="margin-top:12px">
+              <div class="err-code">⚠ Diferencia spec vs. producción</div>
+              <div class="err-field">El spec define <strong>timeout: 3 000 ms</strong> con rollback automático y toast de error. En producción, el pool de SFCC se agotó sin que el circuit breaker activara el fallback — el spec indica que debe haber un <strong>retry con backoff</strong> antes de emitir el error al usuario.</div>
+            </div>
+          </div>
+
+          <!-- GraphQL -->
+          <div id="pane-gql" class="spec-pane">
+            <span class="spec-badge badge-gql">GraphQL Contract</span>
+            <div class="spec-title">Mutation — addToCart</div>
+            <pre class="spec-code"><span class="code-kw">mutation</span> <span class="code-fn">AddToCart</span>(<span class="code-type">$input</span>: <span class="code-type">AddToCartInput</span>!) {
+  addToCart(input: <span class="code-type">$input</span>) {
+    success
+    cart {
+      id
+      lineItems { productId  qty  unitPrice }
+      totals    { subtotal   tax  shipping  }
+    }
+    userError {
+      code       <span class="code-cmt"># ← BASKET_POOL_EXHAUSTED aquí</span>
+      message
+      retryable
+    }
+  }
+}</pre>
+            <hr class="spec-divider">
+            <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-d);margin-bottom:8px;">Respuesta de error — spec esperada</div>
+            <pre class="spec-code">{
+  <span class="code-str">"data"</span>: {
+    <span class="code-str">"addToCart"</span>: {
+      <span class="code-str">"success"</span>: <span class="code-num">false</span>,
+      <span class="code-str">"cart"</span>: <span class="code-num">null</span>,
+      <span class="code-str">"userError"</span>: {
+        <span class="code-str">"code"</span>: <span class="code-err">"BASKET_POOL_EXHAUSTED"</span>,
+        <span class="code-str">"message"</span>: <span class="code-str">"error.cart.pool_exhausted"</span>,
+        <span class="code-str">"retryable"</span>: <span class="code-num">true</span>
+      }
+    }
+  },
+  <span class="code-str">"extensions"</span>: {
+    <span class="code-str">"upstream"</span>: <span class="code-str">"SFCC"</span>,
+    <span class="code-str">"httpStatus"</span>: <span class="code-num">503</span>,
+    <span class="code-str">"latencyMs"</span>: <span class="code-num">2003</span>
+  }
+}</pre>
+          </div>
+
+          <!-- Error catalog -->
+          <div id="pane-err" class="spec-pane">
+            <span class="spec-badge badge-err">Catálogo de errores — carrito subgraph</span>
+            <div class="spec-title">Errores definidos en el spec</div>
+            <div class="err-card">
+              <div class="err-code">BASKET_POOL_EXHAUSTED · HTTP 503 · retryable: true</div>
+              <div class="err-field">
+                <strong>Causa:</strong> El pool de conexiones de SFCC Basket API (límite=50) está saturado.<br>
+                <strong>Trigger:</strong> Pico de tráfico &gt; 50 addToCart/seg simultáneos.<br>
+                <strong>UI esperado:</strong> Rollback optimistic, toast rojo, retry sugerido.<br>
+                <strong>Acción N3:</strong> Ampliar pool SFCC o activar queue de requests.<br>
+                <strong>Impacto:</strong> $180,000 MXN/min · alerta en &lt;2 min.
+              </div>
+            </div>
+            <div class="err-card" style="border-left-color:var(--gray-d);background:rgba(0,0,0,.02)">
+              <div class="err-code" style="color:var(--gray-d)">OUT_OF_STOCK · HTTP 409 · retryable: false</div>
+              <div class="err-field">Producto sin inventario disponible. No afecta el pool de carrito.</div>
+            </div>
+            <div class="err-card" style="border-left-color:var(--gray-d);background:rgba(0,0,0,.02)">
+              <div class="err-code" style="color:var(--gray-d)">CART_MAX_ITEMS · HTTP 400 · retryable: false</div>
+              <div class="err-field">El carrito ya alcanzó el límite de 50 ítems por sesión.</div>
+            </div>
+          </div>
+
+          <!-- Criterios de aceptación -->
+          <div id="pane-ac" class="spec-pane">
+            <span class="spec-badge badge-ac">Criterios de aceptación — US-003</span>
+            <div class="spec-title">Estado actual vs. spec</div>
+            <ul class="ac-list">
+              <li class="ac-item"><div class="ac-check ac-pass">✓</div><div><strong>AC-1:</strong> El botón aplica optimistic update (contador +1) antes de la respuesta del API.</div></li>
+              <li class="ac-item"><div class="ac-check ac-pass">✓</div><div><strong>AC-2:</strong> Si el API responde éxito, el carrito persiste y el contador se mantiene.</div></li>
+              <li class="ac-item"><div class="ac-check ac-pass">✓</div><div><strong>AC-3:</strong> Si el API falla, el carrito se revierte y el contador regresa al valor anterior.</div></li>
+              <li class="ac-item"><div class="ac-check ac-pass">✓</div><div><strong>AC-4:</strong> El usuario ve un toast de error en rojo con mensaje claro.</div></li>
+              <li class="ac-item"><div class="ac-check ac-fail">✗</div><div><strong>AC-5:</strong> <strong>FALLANDO — </strong>El subgraph debe ejecutar 1 retry con backoff de 500 ms antes de escalar el error al cliente. En producción se salta el retry y devuelve 503 directamente.</div></li>
+              <li class="ac-item"><div class="ac-check ac-fail">✗</div><div><strong>AC-6:</strong> <strong>FALLANDO — </strong>El circuit breaker debe abrirse tras 5 errores consecutivos y activar el fallback de cola. El circuit breaker no está configurado en el ambiente productivo.</div></li>
+              <li class="ac-item"><div class="ac-check ac-pass">✓</div><div><strong>AC-7:</strong> Datadog RUM registra el evento <code>checkout.add_to_cart.error</code> con el código de error y la latencia.</div></li>
+              <li class="ac-item"><div class="ac-check ac-pass">✓</div><div><strong>AC-8:</strong> La alerta P1 se dispara si la tasa de error supera el 20% durante 2 minutos consecutivos.</div></li>
+            </ul>
+          </div>
+
+        </div><!-- /.spec-viewer -->
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<footer>
+  Coppel × Accenture · Managed Services N3 · Digital Brain v1.0 · Propuesta confidencial
+</footer>
+
+<script>
+  /* Particle canvas — igual que la landing */
+  (function() {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const section = canvas.parentElement;
+    let W, H, particles, raf;
+
+    function resize() {
+      const rect = section.getBoundingClientRect();
+      W = canvas.width  = rect.width  || window.innerWidth;
+      H = canvas.height = rect.height || window.innerHeight;
+    }
+
+    function mkParticle() {
+      return {
+        x: Math.random() * W, y: Math.random() * H,
+        r: Math.random() * 1.4 + .3,
+        vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
+        a: Math.random()
+      };
+    }
+
+    function init() {
+      resize();
+      const n = Math.floor(W * H / 14000);
+      particles = Array.from({ length: n }, mkParticle);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        p.a += .004;
+        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${(.15 + .12 * Math.sin(p.a)).toFixed(2)})`;
+        ctx.fill();
+      });
+      raf = requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('load', function() { init(); draw(); });
+    window.addEventListener('resize', function() { cancelAnimationFrame(raf); init(); draw(); });
+  })();
+
+  /* fade-up observer */
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: .12 });
+  document.querySelectorAll('.fade-up').forEach(el => obs.observe(el));
+
+  /* ── SPEC ANIMATION ── */
+  var TAB_IDS   = ['us','bdd','gql','err','ac'];
+  var specDone  = false;
+  var tabsUnlocked = [true, false, false, false, false]; // first unlocked by default
+
+  function showTab(id) {
+    var idx = TAB_IDS.indexOf(id);
+    if (!tabsUnlocked[idx]) return; // locked
+    document.querySelectorAll('.spec-tab').forEach(function(t, i) {
+      t.classList.toggle('active', TAB_IDS[i] === id);
+    });
+    document.querySelectorAll('.spec-pane').forEach(function(p) {
+      p.classList.toggle('active', p.id === 'pane-' + id);
+    });
+    // Re-animate pane content when switching
+    animatePane(document.getElementById('pane-' + id), false);
+  }
+
+  function animatePane(pane, withCurtain) {
+    if (!pane) return;
+    if (withCurtain === undefined) withCurtain = true;
+
+    // Fade-in text elements
+    var texts = pane.querySelectorAll('.spec-badge, .spec-title, .spec-desc, .err-card, .spec-divider, [style*="font-size:.78rem"]');
+    texts.forEach(function(el, i) {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(8px)';
+      el.style.transition = 'none';
+      setTimeout(function() {
+        el.style.transition = 'opacity .35s ease, transform .35s ease';
+        el.style.opacity    = '1';
+        el.style.transform  = 'translateY(0)';
+      }, 80 + i * 90);
+    });
+
+    // Curtain-reveal code blocks
+    if (withCurtain) {
+      pane.querySelectorAll('pre.spec-code').forEach(function(pre, i) {
+        // remove stale curtain if any
+        var old = pre.querySelector('.code-curtain');
+        if (old) old.remove();
+        var curtain = document.createElement('div');
+        curtain.className = 'code-curtain';
+        curtain.style.animationDelay = (300 + i * 600) + 'ms';
+        pre.appendChild(curtain);
+        setTimeout(function() { if (curtain.parentNode) curtain.remove(); }, 300 + i * 600 + 900);
+      });
+    }
+
+    // Animate AC items sequentially (only on Criterios pane)
+    if (pane.id === 'pane-ac') {
+      animateAC(pane);
+    }
+  }
+
+  function animateAC(pane) {
+    var items = pane.querySelectorAll('.ac-item');
+    items.forEach(function(item) { item.classList.remove('revealed'); item.style.opacity = '0'; });
+    items.forEach(function(item, i) {
+      var check = item.querySelector('.ac-check');
+      // Reset check state
+      check.classList.add('scanning');
+      check.textContent = '';
+
+      setTimeout(function() {
+        item.classList.add('revealed');
+        setTimeout(function() {
+          check.classList.remove('scanning');
+          check.textContent = item.querySelector('.ac-check').classList.contains('ac-pass') ? '✓' : '✗';
+          // Re-read original class to set correct icon
+          var isPass = item.querySelector('[class*="ac-pass"]') !== null;
+          check.textContent = isPass ? '✓' : '✗';
+        }, 420);
+      }, 200 + i * 320);
+    });
+  }
+
+  function buildScanOverlay() {
+    var files = [
+      { txt:'spec-coppel-ecommerce-storefront.md · v0.2.0-DRAFT', cls:'sf-ok',   icon:'✓' },
+      { txt:'GraphQL contracts · subgraph carrito',                cls:'sf-ok',   icon:'✓' },
+      { txt:'BDD Escenario 0 · BASKET_POOL_EXHAUSTED',            cls:'sf-warn',  icon:'⚠' },
+      { txt:'Error catalog · 3 errores indexados',                 cls:'sf-ok',   icon:'✓' },
+      { txt:'Criterios de aceptación · 8 AC detectados',          cls:'sf-ok',   icon:'✓' }
+    ];
+    var el = document.createElement('div');
+    el.className = 'spec-scan-overlay';
+    el.innerHTML = '<div class="scan-spinner"></div>'
+      + '<div class="scan-main-text">Analizando spec SDD · v0.2.0-DRAFT...</div>'
+      + '<div class="scan-track"><div class="scan-fill"></div></div>'
+      + '<div class="scan-files">'
+      + files.map(function(f){ return '<div class="scan-file-line"><span class="' + f.cls + '">' + f.icon + ' </span>' + f.txt + '</div>'; }).join('')
+      + '</div>';
+    return el;
+  }
+
+  function runSpecAnimation() {
+    if (specDone) return;
+    specDone = true;
+
+    var viewer  = document.querySelector('.spec-viewer');
+    var wrapper = viewer.parentElement;
+
+    // Build overlay — insert before viewer
+    var overlay = buildScanOverlay();
+    wrapper.insertBefore(overlay, viewer);
+    viewer.style.display = 'none';
+
+    // Animate file lines one by one
+    var lines = overlay.querySelectorAll('.scan-file-line');
+    lines.forEach(function(line, i) {
+      line.style.animationDelay = (300 + i * 280) + 'ms';
+    });
+
+    // After scan completes → show viewer
+    var totalScan = 300 + lines.length * 280 + 400;
+    setTimeout(function() {
+      overlay.style.transition = 'opacity .4s ease';
+      overlay.style.opacity    = '0';
+      viewer.style.display     = '';
+      viewer.style.opacity     = '0';
+      viewer.style.transition  = 'opacity .4s ease';
+      setTimeout(function() {
+        overlay.remove();
+        viewer.style.opacity = '1';
+
+        // Animate first pane
+        animatePane(document.getElementById('pane-us'), true);
+
+        // Unlock tabs sequentially
+        var delays = [0, 1800, 2600, 3400, 4200];
+        TAB_IDS.forEach(function(id, i) {
+          if (i === 0) return;
+          var tab = document.querySelectorAll('.spec-tab')[i];
+          tab.classList.add('locked');
+          setTimeout(function() {
+            tabsUnlocked[i] = true;
+            tab.classList.remove('locked');
+            tab.classList.add('unlocking');
+            setTimeout(function() { tab.classList.remove('unlocking'); }, 500);
+          }, delays[i]);
+        });
+
+      }, 420);
+    }, totalScan);
+  }
+
+  // Trigger when spec section enters viewport
+  var specObs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) { if (e.isIntersecting) { runSpecAnimation(); specObs.disconnect(); } });
+  }, { threshold: 0.15 });
+  var specSection = document.querySelector('.spec-viewer');
+  if (specSection) specObs.observe(specSection.parentElement);
+
+  /* Terminal typing */
+  const fullQuery = 'brain.search("checkout caído")';
+  const qEl = document.getElementById('termQuery');
+  const cursor = document.getElementById('termCursor');
+  const sep = document.getElementById('termSep');
+  const results = document.getElementById('termResults');
+  let qi = 0;
+
+  cursor.style.display = 'inline-block';
+  function type() {
+    if (qi <= fullQuery.length) {
+      qEl.textContent = fullQuery.slice(0, qi++);
+      setTimeout(type, 48);
+    } else {
+      setTimeout(() => {
+        cursor.style.display = 'none';
+        sep.style.display = 'block';
+        setTimeout(() => { results.style.display = 'block'; }, 200);
+      }, 300);
+    }
+  }
+  setTimeout(type, 600);
+</script>
+</body>
+</html>

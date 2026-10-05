@@ -221,6 +221,45 @@ class ExodusBrain:
                 "WHEN 'medium' THEN 3 ELSE 4 END, id"
         return [dict(r) for r in self.con.execute(sql + f" ORDER BY {order}", params)]
 
+    def support_proposal(self, app_id: str | None = None) -> list[dict]:
+        """Propuesta de equipo AMS/IMS para soporte de Ola 1 Exodus.
+
+        Derivado del barrido de brains de Informix y AppMovil más análisis técnico
+        de las 8 aplicaciones candidatas del Reporte Ejecutivo Exodus 02Sep2026.
+        Incluye coverage AMS/IMS actual, roles propuestos y riesgos por app.
+        """
+        sql = "SELECT * FROM ams_support_proposal"
+        params: list = []
+        if app_id:
+            sql += " WHERE exodus_app_id = ? OR id = ?"
+            params = [app_id, app_id]
+        sql += " ORDER BY ola1_priority"
+        out = []
+        for r in self.con.execute(sql, params):
+            d = dict(r)
+            d["proposed_roles"] = _jl(d.get("proposed_roles"))
+            d["key_risks"] = _jl(d.get("key_risks"))
+            out.append(d)
+        return out
+
+    def ey_rfp_structure(self) -> list[dict]:
+        """Estructura de los 5 RFPs formales del proceso licitatorio Exodus (fuente EY)."""
+        return [dict(r) for r in self.con.execute(
+            "SELECT * FROM ey_rfp_structure ORDER BY rfp_id")]
+
+    def ey_app_inventory(self, rfp_id: str | None = None) -> list[dict]:
+        """Inventario técnico de los 8 aplicativos de Ola 1 (fuente EY).
+
+        rfp_id: filtrar por RFP (ej. 'RFP-1', 'RFP-5')
+        """
+        sql = "SELECT * FROM ey_app_inventory"
+        params: list = []
+        if rfp_id:
+            sql += " WHERE rfp_id = ?"
+            params.append(rfp_id.upper())
+        sql += " ORDER BY rfp_id, app_id_ey"
+        return [dict(r) for r in self.con.execute(sql, params)]
+
     def close(self) -> None:
         self.con.close()
 
@@ -250,6 +289,11 @@ def _main() -> None:
     p_c.add_argument("--apo")
     p_s = sub.add_parser("search")
     p_s.add_argument("query")
+    p_sp = sub.add_parser("support")
+    p_sp.add_argument("--app", default=None, help="Filtrar por exodus_app_id")
+    sub.add_parser("ey-rfps")
+    p_ey = sub.add_parser("ey-apps")
+    p_ey.add_argument("--rfp", default=None, help="Filtrar por RFP (ej. RFP-1)")
 
     a = ap.parse_args()
     with ExodusBrain() as b:
@@ -280,6 +324,25 @@ def _main() -> None:
         elif a.cmd == "search":
             for r in b.search(a.query):
                 print(f"{r['wave_id']} {r['app_id']:7} {r['name']}")
+        elif a.cmd == "support":
+            total_fte = 0.0
+            proposals = b.support_proposal(app_id=a.app)
+            for p in proposals:
+                fte = p["team_size_fte"] or 0
+                total_fte += fte
+                print(f"\n[{p['id']}] P{p['ola1_priority']} · {p['app_name']}")
+                print(f"  wave_original={p['exodus_wave']}  "
+                      f"SPL_pptx={p['spl_count_pptx']}  "
+                      f"coverage={p['ams_coverage_level']}  "
+                      f"FTE={fte:.1f}  {p['effort_months']}m")
+                print(f"  approach: {p['migration_approach']}")
+                for role in p["proposed_roles"]:
+                    print(f"    {role['level']:18}  {role['role']:38}  "
+                          f"x{role.get('fte',1)}  [{role['stream']}]")
+                for risk in p["key_risks"]:
+                    print(f"  ⚠  {risk}")
+            print(f"\n{'─'*60}")
+            print(f"Total apps propuestas: {len(proposals)}  |  FTE total: {total_fte:.1f}")
         elif a.cmd == "risks":
             SEV = {"critical": "CRIT", "high": "HIGH", "medium": "MED ", "low": "LOW "}
             risks = b.risks(severity=a.severity, category=a.category)
@@ -289,6 +352,25 @@ def _main() -> None:
                 print(f"         related={r['related']}  status={r['status']}")
                 print(f"         {r['description'][:120]}...")
                 print()
+        elif a.cmd == "ey-rfps":
+            for r in b.ey_rfp_structure():
+                print(f"\n[{r['rfp_id']}] {r['label']}")
+                print(f"  Criticidad : {r['criticality']}")
+                print(f"  Cierre     : {r['close_date']}  Tipo: {r['rfp_type']}")
+                print(f"  Apps       : {r['apps']}")
+                if r["notes"]:
+                    print(f"  Notas      : {r['notes']}")
+        elif a.cmd == "ey-apps":
+            for app in b.ey_app_inventory(rfp_id=a.rfp):
+                print(f"\n[{app['rfp_id']}] #{app['app_id_ey']}  {app['name']} ({app['short_name']})")
+                print(f"  Backend  : {app['lang_backend']}  |  AppServer: {app['app_server']}")
+                print(f"  OS/Host  : {app['os']} / {app['hosting']}")
+                print(f"  DBMS     : {app['dbms']}")
+                print(f"  SPLs     : {app['sp_count_raw']} (int={app['sp_count_int']})")
+                print(f"  Batch    : {app['batch_jobs']}  |  Monitor: {app['monitoring']}")
+                print(f"  Criticidad: {app['criticality']}")
+                if app["notes"]:
+                    print(f"  Notas    : {app['notes']}")
 
 
 if __name__ == "__main__":

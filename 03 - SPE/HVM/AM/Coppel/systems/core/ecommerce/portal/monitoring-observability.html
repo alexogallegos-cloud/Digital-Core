@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Monitoreo y Observabilidad · Coppel Digital Brain</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy:#003087; --navy-d:#001f5b; --yellow:#FFD600;
+    --text:#222; --bg:#F5F5F5; --white:#fff;
+    --gray:#e8e8e8; --gray-d:#6b7280;
+    --red:#C62828; --green:#2E7D32; --purple:#6600CC;
+    --dd:#632CA6;   /* Datadog purple */
+    --gw:#A100FF;   /* Accenture purple */
+    --mono:'Courier New',Courier,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --radius:10px; --shadow:0 4px 20px rgba(0,0,0,.08);
+  }
+  html { scroll-behavior:smooth; }
+  body { font-family:var(--sans); background:var(--bg); color:var(--text); font-size:15px; line-height:1.65; }
+  a { color:inherit; text-decoration:none; }
+  img { display:block; max-width:100%; }
+  .container { max-width:1100px; margin:0 auto; padding:0 28px; }
+  .section { padding:64px 0; }
+  .fade-up { opacity:0; transform:translateY(24px); transition:opacity .5s,transform .5s; }
+  .fade-up.visible { opacity:1; transform:translateY(0); }
+
+  /* HERO */
+  @keyframes gradshift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+  @keyframes floatY   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-22px)} }
+  @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes pulse    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.95)} }
+
+  #hero {
+    position:relative; min-height:88vh;
+    background:linear-gradient(-45deg,#001030,#003087,#001f5b,#0045c0);
+    background-size:400% 400%; animation:gradshift 16s ease infinite;
+    display:flex; flex-direction:column; overflow:hidden; color:#fff;
+  }
+  #hero::before {
+    content:''; position:absolute; width:700px; height:700px; border-radius:50%;
+    background:radial-gradient(circle,rgba(255,214,0,.07) 0%,transparent 65%);
+    top:-180px; right:-80px; pointer-events:none; animation:floatY 14s ease-in-out infinite;
+  }
+  #hero-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .hero-topbar {
+    display:flex; align-items:center; gap:16px;
+    padding:24px 56px; position:relative; z-index:2;
+  }
+  .hero-topbar img { height:20px; filter:brightness(0) invert(1); }
+  .hero-topbar img:first-child { transform:translateY(3px); }
+  .hero-topbar-sep { width:1px; height:22px; background:rgba(255,255,255,.28); }
+  .back-link { margin-left:auto; color:rgba(255,255,255,.6); font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; transition:color .2s; }
+  .back-link:hover { color:var(--yellow); }
+
+  .hero-body {
+    flex:1; display:grid; grid-template-columns:52% 48%;
+    align-items:center; gap:40px; padding:20px 56px 56px;
+    position:relative; z-index:2;
+  }
+  .step-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(0,48,135,.6); border:1px solid rgba(255,255,255,.15);
+    color:rgba(255,255,255,.85); font-size:.72rem; font-weight:700;
+    letter-spacing:.08em; text-transform:uppercase; padding:5px 14px;
+    border-radius:20px; margin-bottom:20px;
+  }
+  .step-badge-dot { width:6px; height:6px; border-radius:50%; background:var(--yellow); animation:pulse 2s ease-in-out infinite; }
+  .hero-h1 { font-size:clamp(2.2rem,4.5vw,3.2rem); font-weight:900; line-height:1.1; letter-spacing:-.03em; margin-bottom:18px; }
+  .hero-h1 em { font-style:normal; color:var(--yellow); }
+  .hero-desc { font-size:1rem; color:rgba(255,255,255,.7); line-height:1.72; max-width:470px; margin-bottom:32px; font-weight:300; }
+
+  .tool-pills { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
+  .tool-pill {
+    display:flex; align-items:center; gap:8px;
+    padding:7px 14px; border-radius:8px; font-size:.8rem; font-weight:700;
+    border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(6px);
+  }
+  .tp-dd { background:rgba(99,44,166,.35); color:#c084fc; border-color:rgba(99,44,166,.4); }
+  .tp-gw { background:rgba(161,0,255,.25); color:#e879f9; border-color:rgba(161,0,255,.3); }
+  .tp-existing { font-size:.65rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; opacity:.5; }
+
+  /* Hero terminal */
+  .hero-meta {
+    background:rgba(0,0,0,.42); border:1px solid rgba(255,255,255,.1);
+    border-radius:14px; overflow:hidden; backdrop-filter:blur(8px);
+    font-family:var(--mono); font-size:.78rem; line-height:1.75;
+  }
+  .hm-bar { display:flex; align-items:center; gap:7px; background:rgba(255,255,255,.06); padding:10px 16px; border-bottom:1px solid rgba(255,255,255,.07); }
+  .hdot { width:11px; height:11px; border-radius:50%; }
+  .hdot.r{background:#ff5f57} .hdot.y{background:#febc2e} .hdot.g{background:#28c840}
+  .hm-lbl { font-size:.72rem; color:rgba(255,255,255,.35); margin-left:6px; }
+  .hm-body { padding:16px 20px; }
+  .tp { color:#FFD600; } .tc { color:#90CAF9; } .tok { color:#66BB6A; }
+  .terr { color:#EF9A9A; } .tkey { color:rgba(255,255,255,.4); display:inline-block; min-width:150px; }
+  .tval { color:#E3F2FD; } .tpurp { color:#c084fc; }
+  .tcur { display:inline-block; width:7px; height:13px; background:var(--yellow); animation:blink 1s step-end infinite; vertical-align:middle; }
+  .tline { border-top:1px solid rgba(255,255,255,.07); margin:6px 0; }
+
+  /* SECTION COMMONS */
+  .sec-lbl { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--navy); background:rgba(0,48,135,.09); padding:3px 10px; border-radius:20px; margin-bottom:12px; }
+  .sec-title { font-size:clamp(1.4rem,2.5vw,1.9rem); font-weight:800; color:var(--navy); line-height:1.25; margin-bottom:10px; }
+  .sec-sub { font-size:.95rem; color:var(--gray-d); max-width:640px; margin-bottom:40px; }
+
+  /* TOOL CARDS — 2 cols */
+  .tool-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:48px; }
+  .tool-card {
+    background:var(--white); border:1px solid var(--gray); border-radius:14px;
+    padding:28px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .tool-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  }
+  .tc-dd::before { background:var(--dd); }
+  .tc-gw::before { background:var(--gw); }
+  .tool-card-header { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .tool-logo {
+    width:42px; height:42px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.75rem; font-weight:900; color:#fff; flex-shrink:0;
+  }
+  .tl-dd { background:var(--dd); }
+  .tl-gw { background:var(--gw); }
+  .tool-name { font-size:1.15rem; font-weight:900; color:var(--navy); }
+  .tool-vendor { font-size:.74rem; color:var(--gray-d); margin-top:2px; }
+  .tool-role { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; padding:2px 9px; border-radius:10px; margin-bottom:14px; }
+  .tr-existing { background:rgba(46,125,50,.1); color:var(--green); }
+  .tr-new      { background:rgba(161,0,255,.1); color:var(--gw); }
+  .tool-caps { list-style:none; }
+  .tool-caps li { display:flex; gap:10px; align-items:flex-start; font-size:.87rem; color:var(--gray-d); line-height:1.5; padding:6px 0; border-bottom:1px solid var(--gray); }
+  .tool-caps li:last-child { border-bottom:none; }
+  .cap-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:7px; }
+  .cd-dd { background:var(--dd); }
+  .cd-gw { background:var(--gw); }
+  .cap-label { color:var(--navy); font-weight:700; min-width:130px; }
+
+  /* INTEGRATION FLOW */
+  .int-flow {
+    background:var(--navy-d); border-radius:14px; padding:32px 36px;
+    margin-bottom:48px; color:#fff;
+  }
+  .int-title { font-size:1.1rem; font-weight:800; color:var(--yellow); margin-bottom:6px; }
+  .int-sub   { font-size:.87rem; color:rgba(255,255,255,.6); margin-bottom:28px; }
+  .flow-diagram {
+    display:grid; grid-template-columns:1fr 28px 1fr 28px 1fr;
+    align-items:center; gap:0;
+  }
+  .flow-node {
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:10px; padding:16px; text-align:center;
+  }
+  .flow-node-label { font-size:.65rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; opacity:.5; }
+  .flow-node-name  { font-size:.92rem; font-weight:800; margin-bottom:4px; }
+  .flow-node-desc  { font-size:.75rem; color:rgba(255,255,255,.55); line-height:1.45; }
+  .flow-arrow { text-align:center; color:rgba(255,255,255,.3); font-size:1.4rem; }
+  .fn-dd { border-color:rgba(99,44,166,.5); }
+  .fn-gw { border-color:rgba(161,0,255,.4); }
+  .fn-n3 { border-color:rgba(255,214,0,.3); }
+
+  /* METRICS SECTION */
+  .metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-bottom:48px; }
+  .metric-card {
+    background:var(--white); border:1px solid var(--gray); border-radius:var(--radius);
+    padding:20px; box-shadow:var(--shadow);
+  }
+  .metric-cat { font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--gray-d); margin-bottom:10px; }
+  .metric-name { font-size:.9rem; font-weight:800; color:var(--navy); margin-bottom:6px; }
+  .metric-val  { font-size:1.5rem; font-weight:900; color:var(--navy); line-height:1; margin-bottom:4px; }
+  .metric-val.red { color:var(--red); }
+  .metric-val.green { color:var(--green); }
+  .metric-src  { font-size:.72rem; color:var(--gray-d); display:flex; align-items:center; gap:5px; }
+  .src-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+  .sd-dd { background:var(--dd); }
+  .sd-gw { background:var(--gw); }
+
+  /* ALERT RULES */
+  .alert-table { width:100%; border-collapse:collapse; font-size:.86rem; margin-bottom:48px; }
+  .alert-table th { background:rgba(0,48,135,.06); color:var(--navy); font-weight:700; font-size:.75rem; letter-spacing:.07em; text-transform:uppercase; padding:10px 14px; text-align:left; border-bottom:2px solid var(--gray); }
+  .alert-table td { padding:11px 14px; border-bottom:1px solid var(--gray); color:var(--gray-d); vertical-align:top; }
+  .alert-table tr:last-child td { border-bottom:none; }
+  .sev { display:inline-block; font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; padding:2px 8px; border-radius:10px; }
+  .sev-p1 { background:rgba(198,40,40,.1); color:var(--red); }
+  .sev-p2 { background:rgba(0,48,135,.1); color:var(--navy); }
+  .sev-w  { background:rgba(255,152,0,.12); color:#e65100; }
+  .src-chip { display:inline-block; font-size:.68rem; font-weight:700; padding:1px 7px; border-radius:4px; vertical-align:middle; }
+  .sc-dd { background:rgba(99,44,166,.1); color:var(--dd); }
+  .sc-gw { background:rgba(161,0,255,.1); color:var(--gw); }
+
+  /* N3 WORKFLOW */
+  .wf-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:48px; }
+  .wf-step {
+    background:var(--white); border:1px solid var(--gray); border-radius:var(--radius);
+    padding:18px; box-shadow:var(--shadow); position:relative;
+  }
+  .wf-step:not(:last-child)::after {
+    content:'→'; position:absolute; right:-12px; top:50%; transform:translateY(-50%);
+    color:var(--gray-d); font-size:1.1rem; z-index:1;
+  }
+  .wf-num { font-size:.68rem; font-weight:800; font-family:var(--mono); letter-spacing:.06em; color:var(--navy); opacity:.4; margin-bottom:10px; }
+  .wf-title { font-size:.88rem; font-weight:800; color:var(--navy); margin-bottom:6px; }
+  .wf-desc  { font-size:.8rem; color:var(--gray-d); line-height:1.5; }
+  .wf-tool  { font-size:.7rem; font-weight:700; padding:1px 7px; border-radius:4px; margin-top:8px; display:inline-block; }
+
+  footer { background:var(--navy-d); color:rgba(255,255,255,.5); text-align:center; padding:22px; font-size:.78rem; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-topbar">
+    <img src="Logo_Coppel.avif" alt="Coppel" onerror="this.style.display='none'"/>
+    <div class="hero-topbar-sep"></div>
+    <img src="Accenture_logo_white.png" alt="Accenture"/>
+    <a class="back-link" href="index.html">← Volver al Brain</a>
+  </div>
+
+  <div class="hero-body">
+    <div>
+      <div class="step-badge fade-up"><span class="step-badge-dot"></span> Paso 3 del flujo N3</div>
+      <h1 class="hero-h1 fade-up" style="transition-delay:.08s">
+        Monitoreo<br>y <em>Observabilidad</em>
+      </h1>
+      <p class="hero-desc fade-up" style="transition-delay:.16s">
+        Datadog ya está en el stack de Coppel. GenWizard de Accenture se instala como capa AIOps sobre los datos existentes y detecta patrones recurrentes como el de venta nocturna — sin reemplazar herramientas ni duplicar inversión.
+      </p>
+      <div class="tool-pills fade-up" style="transition-delay:.22s">
+        <div class="tool-pill tp-dd">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/></svg>
+          Datadog
+          <span class="tp-existing">Existente</span>
+        </div>
+        <div class="tool-pill tp-gw">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          GenWizard
+          <span class="tp-existing">Accenture AMS</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-meta fade-up" style="transition-delay:.2s">
+      <div class="hm-bar">
+        <span class="hdot r"></span><span class="hdot y"></span><span class="hdot g"></span>
+        <span class="hm-lbl">genwizard.observe("coppel-ecommerce")</span>
+      </div>
+      <div class="hm-body">
+        <div><span class="tp">$</span> <span class="tc" id="tq"></span><span class="tcur" id="tc"></span></div>
+        <div id="tres" style="display:none">
+          <div class="tline"></div>
+          <div><span class="tok">✓</span> <span class="tkey">fuente datadog    </span><span class="tval">APM · RUM · infra · logs</span></div>
+          <div><span class="tok">✓</span> <span class="tkey">eventos activos   </span><span class="tval" style="color:#EF9A9A">1 alerta P1 · 3 warnings</span></div>
+          <div><span class="tok">✓</span> <span class="tkey">error rate ATC    </span><span class="tval" style="color:#EF9A9A">98.2%  ↑ desde 0.8%</span></div>
+          <div><span class="tok">✓</span> <span class="tkey">pool utilization  </span><span class="tval" style="color:#EF9A9A">100% (50/50 conn)</span></div>
+          <div class="tline"></div>
+          <div><span class="tpurp">✦</span> <span class="tkey">genwizard.ai      </span><span class="tval">correlando eventos · 3 señales</span></div>
+          <div><span class="tpurp">✦</span> <span class="tkey">causa probable    </span><span class="tval" style="color:#c084fc">BASKET_POOL_EXHAUSTED · conf 94%</span></div>
+          <div><span class="tpurp">✦</span> <span class="tkey">acción sugerida   </span><span class="tval" style="color:#c084fc">ampliar pool SFCC → 120 conn</span></div>
+          <div class="tline"></div>
+          <div><span class="tp">$</span> <span class="tcur"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HERRAMIENTAS -->
+<section class="section" style="background:var(--white); border-bottom:1px solid var(--gray);">
+  <div class="container">
+    <span class="sec-lbl fade-up">Stack de observabilidad</span>
+    <h2 class="sec-title fade-up">Dos herramientas, un modelo integrado</h2>
+    <p class="sec-sub fade-up">Coppel ya invierte en Datadog (nivel 4). Accenture aporta GenWizard como capa AIOps que consume los datos existentes y genera inteligencia accionable para el equipo N3.</p>
+
+    <div class="tool-grid">
+      <!-- Datadog -->
+      <div class="tool-card tc-dd fade-up">
+        <div class="tool-card-header">
+          <div class="tool-logo tl-dd">DD</div>
+          <div>
+            <div class="tool-name">Datadog</div>
+            <div class="tool-vendor">Datadog Inc. · ya en producción en Coppel</div>
+          </div>
+        </div>
+        <div class="tool-role tr-existing">Inversión existente — nivel 4 (read-only N3)</div>
+        <ul class="tool-caps">
+          <li><span class="cap-dot cd-dd"></span><div><span class="cap-label">APM Traces</span> Trazas distribuidas de las 6 APIs de Apollo Federation y los subgraphs de carrito, catálogo y pagos.</div></li>
+          <li><span class="cap-dot cd-dd"></span><div><span class="cap-label">RUM (Real User)</span> Error rate, latencia de sesión y abandono de checkout en tiempo real desde el browser del comprador.</div></li>
+          <li><span class="cap-dot cd-dd"></span><div><span class="cap-label">Infrastructure</span> Métricas de GKE pods, CPU, memoria y conexiones activas por servicio. Incluye pool SFCC.</div></li>
+          <li><span class="cap-dot cd-dd"></span><div><span class="cap-label">Custom Metrics</span> <code>checkout.add_to_cart.error</code>, <code>sfcc.pool.utilization</code>, <code>graphql.resolver.latency_p95</code>.</div></li>
+          <li><span class="cap-dot cd-dd"></span><div><span class="cap-label">Alertas P1/P2</span> Monitor configurado: error rate &gt; 20% durante 60s → alerta P1 automática al canal N3 de Slack.</div></li>
+        </ul>
+      </div>
+
+      <!-- GenWizard -->
+      <div class="tool-card tc-gw fade-up">
+        <div class="tool-card-header">
+          <div class="tool-logo tl-gw">GW</div>
+          <div>
+            <div class="tool-name">GenWizard</div>
+            <div class="tool-vendor">Accenture AMS Reinvention · capa AIOps sobre Datadog</div>
+          </div>
+        </div>
+        <div class="tool-role tr-new">Nuevo — incluido en el modelo N3 de Accenture</div>
+        <ul class="tool-caps">
+          <li><span class="cap-dot cd-gw"></span><div><span class="cap-label">Event Correlation</span> Consume eventos de Datadog y los cruza con el Digital Brain para reducir ruido y agrupar señales relacionadas.</div></li>
+          <li><span class="cap-dot cd-gw"></span><div><span class="cap-label">AI Root Cause</span> Sugiere causa raíz probable con nivel de confianza (&gt;90% en incidentes conocidos) antes de que el N3 empiece a investigar.</div></li>
+          <li><span class="cap-dot cd-gw"></span><div><span class="cap-label">Runbook Automation</span> Ejecuta pasos del runbook N3 de forma automatizada: verifica métricas, valida hipótesis y escala si supera su umbral de confianza.</div></li>
+          <li><span class="cap-dot cd-gw"></span><div><span class="cap-label">Ticket Intelligence</span> Enriquece el ticket InvGate con contexto técnico: traza afectada, componentes involucrados y acción sugerida.</div></li>
+          <li><span class="cap-dot cd-gw"></span><div><span class="cap-label">Knowledge Feedback</span> Al cerrar el incidente, actualiza automáticamente el Digital Brain con el nuevo patrón de resolución.</div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INTEGRATION FLOW -->
+<section class="section">
+  <div class="container">
+    <span class="sec-lbl fade-up">Arquitectura de integración</span>
+    <h2 class="sec-title fade-up">Cómo fluye la información durante un incidente</h2>
+    <p class="sec-sub fade-up">Desde la señal hasta la acción, sin cambiar la infraestructura de Coppel.</p>
+
+    <div class="int-flow fade-up">
+      <div class="int-title">Flujo de datos — incidente P1 en tiempo real</div>
+      <div class="int-sub">INC-2026-09-16-001 · BASKET_POOL_EXHAUSTED · 22:34 UTC · Venta Nocturna · 3er incidente del patrón N3</div>
+      <div class="flow-diagram">
+        <div class="flow-node fn-dd">
+          <div class="flow-node-label">Capa de datos</div>
+          <div class="flow-node-name" style="color:#c084fc">Datadog</div>
+          <div class="flow-node-desc">APM detecta latencia P95 &gt; 2 000ms en subgraph carrito. RUM registra 98% error rate. Métrica sfcc.pool.utilization = 1.0.</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node fn-gw">
+          <div class="flow-node-label">Capa AIOps</div>
+          <div class="flow-node-name" style="color:#e879f9">GenWizard</div>
+          <div class="flow-node-desc">Correlaciona 3 señales, cruza con Digital Brain, genera hipótesis BASKET_POOL_EXHAUSTED (94% conf), activa runbook N3 automático.</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node fn-n3">
+          <div class="flow-node-label">Equipo N3</div>
+          <div class="flow-node-name" style="color:var(--yellow)">Accenture N3</div>
+          <div class="flow-node-desc">Recibe ticket InvGate pre-enriquecido, valida hipótesis de GenWizard, escala a SFCC con contexto completo. MTTR: 7 min.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workflow steps -->
+    <h3 class="sec-title fade-up" style="font-size:1.2rem;margin-bottom:28px;">Flujo de trabajo del ingeniero N3</h3>
+    <div class="wf-steps">
+      <div class="wf-step fade-up">
+        <div class="wf-num">PASO 01</div>
+        <div class="wf-title">Alerta automática</div>
+        <div class="wf-desc">Datadog dispara P1 al canal N3 de Slack. GenWizard ya inició correlación de eventos en background.</div>
+        <span class="wf-tool sc-dd">Datadog</span>
+      </div>
+      <div class="wf-step fade-up">
+        <div class="wf-num">PASO 02</div>
+        <div class="wf-title">Ticket enriquecido</div>
+        <div class="wf-desc">El N3 abre InvGate y encuentra el ticket ya poblado con causa probable, componentes afectados y acción sugerida por GenWizard.</div>
+        <span class="wf-tool sc-gw">GenWizard</span>
+      </div>
+      <div class="wf-step fade-up">
+        <div class="wf-num">PASO 03</div>
+        <div class="wf-title">Validación en Brain</div>
+        <div class="wf-desc">El N3 confirma el contexto en el Digital Brain: historial de incidentes similares, runbook N3 activo y equipo de escalación.</div>
+        <span class="wf-tool sc-dd">Digital Brain</span>
+      </div>
+      <div class="wf-step fade-up">
+        <div class="wf-num">PASO 04</div>
+        <div class="wf-title">Resolución y cierre</div>
+        <div class="wf-desc">N3 ejecuta el playbook, confirma recuperación en Datadog. GenWizard registra el patrón de resolución en el Brain.</div>
+        <span class="wf-tool sc-gw">GenWizard</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MÉTRICAS MONITOREADAS -->
+<section class="section" style="background:var(--white); border-top:1px solid var(--gray); border-bottom:1px solid var(--gray);">
+  <div class="container">
+    <span class="sec-lbl fade-up">Métricas clave</span>
+    <h2 class="sec-title fade-up">Lo que el equipo N3 monitorea en Datadog</h2>
+    <p class="sec-sub fade-up">Todas las métricas están disponibles hoy en el stack de Coppel. GenWizard las correlaciona y añade umbral de alerta preventiva.</p>
+
+    <div class="metrics-grid">
+      <div class="metric-card fade-up">
+        <div class="metric-cat">Carrito · ATC error rate</div>
+        <div class="metric-name">checkout.add_to_cart.error</div>
+        <div class="metric-val red">98.2%</div>
+        <div class="metric-src"><span class="src-dot sd-dd"></span>Datadog RUM · umbral P1: &gt;20% por 60s</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-cat">SFCC · conexiones activas</div>
+        <div class="metric-name">sfcc.basket.pool.utilization</div>
+        <div class="metric-val red">100%</div>
+        <div class="metric-src"><span class="src-dot sd-dd"></span>Datadog Infra · umbral GW: &gt;75%</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-cat">Apollo Federation · carrito</div>
+        <div class="metric-name">graphql.resolver.latency_p95</div>
+        <div class="metric-val red">2 003 ms</div>
+        <div class="metric-src"><span class="src-dot sd-dd"></span>Datadog APM · SLO: &lt;200ms</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-cat">N3 · tiempo de respuesta</div>
+        <div class="metric-name">incident.acknowledge_time</div>
+        <div class="metric-val green">1 min 52 s</div>
+        <div class="metric-src"><span class="src-dot sd-gw"></span>GenWizard · SLA N3: &lt;30 min</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-cat">N3 · resolución</div>
+        <div class="metric-name">incident.mttr</div>
+        <div class="metric-val green">7 min</div>
+        <div class="metric-src"><span class="src-dot sd-gw"></span>GenWizard · SLA P1: &lt;5 días hábiles</div>
+      </div>
+      <div class="metric-card fade-up">
+        <div class="metric-cat">GenWizard · precisión</div>
+        <div class="metric-name">ai.root_cause.confidence</div>
+        <div class="metric-val green">94%</div>
+        <div class="metric-src"><span class="src-dot sd-gw"></span>GenWizard AI · incidentes conocidos</div>
+      </div>
+    </div>
+
+    <!-- Alert rules table -->
+    <h3 class="sec-title fade-up" style="font-size:1.2rem;margin-bottom:20px;">Reglas de alerta configuradas</h3>
+    <table class="alert-table fade-up">
+      <thead>
+        <tr>
+          <th>Monitor</th>
+          <th>Condición</th>
+          <th>Severidad</th>
+          <th>Fuente</th>
+          <th>Acción automática</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>ATC Error Rate</strong></td>
+          <td>checkout.add_to_cart.error &gt; 20% por 60s</td>
+          <td><span class="sev sev-p1">P1</span></td>
+          <td><span class="src-chip sc-dd">Datadog</span></td>
+          <td>Ticket InvGate automático + Slack N3</td>
+        </tr>
+        <tr>
+          <td><strong>SFCC Pool Saturation</strong> <em style="font-size:.75em;color:var(--green)">nuevo</em></td>
+          <td>sfcc.basket.pool.utilization &gt; 75% por 120s</td>
+          <td><span class="sev sev-w">Warning</span></td>
+          <td><span class="src-chip sc-gw">GenWizard</span></td>
+          <td>Alerta preventiva al N3 antes del impacto</td>
+        </tr>
+        <tr>
+          <td><strong>GraphQL Latency P95</strong></td>
+          <td>graphql.resolver.latency_p95 &gt; 500ms por 90s</td>
+          <td><span class="sev sev-p2">P2</span></td>
+          <td><span class="src-chip sc-dd">Datadog</span></td>
+          <td>Alerta N3 + correlación GenWizard</td>
+        </tr>
+        <tr>
+          <td><strong>Circuit Breaker Open</strong> <em style="font-size:.75em;color:var(--green)">nuevo</em></td>
+          <td>circuit_breaker.open = true (carrito)</td>
+          <td><span class="sev sev-p1">P1</span></td>
+          <td><span class="src-chip sc-gw">GenWizard</span></td>
+          <td>Ticket automático + runbook activado</td>
+        </tr>
+        <tr>
+          <td><strong>RUM Session Error</strong></td>
+          <td>rum.session.error_rate &gt; 15% por 45s</td>
+          <td><span class="sev sev-p2">P2</span></td>
+          <td><span class="src-chip sc-dd">Datadog</span></td>
+          <td>Alerta N3 + contexto RUM al ticket</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  Coppel × Accenture · Managed Services N3 · Monitoreo y Observabilidad · Confidencial
+</footer>
+
+<script>
+  /* Particles */
+  (function(){
+    var c=document.getElementById('hero-canvas'); if(!c) return;
+    var ctx=c.getContext('2d'), s=c.parentElement, W,H,P,raf;
+    function resize(){ var r=s.getBoundingClientRect(); W=c.width=r.width||innerWidth; H=c.height=r.height||innerHeight; }
+    function mkP(){ return{x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.4+.3,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,a:Math.random()}; }
+    function init(){ resize(); P=Array.from({length:Math.floor(W*H/14000)},mkP); }
+    function draw(){ ctx.clearRect(0,0,W,H); P.forEach(function(p){ p.x+=p.vx; p.y+=p.vy; p.a+=.004; if(p.x<0)p.x=W; if(p.x>W)p.x=0; if(p.y<0)p.y=H; if(p.y>H)p.y=0; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,'+(.15+.12*Math.sin(p.a)).toFixed(2)+')'; ctx.fill(); }); raf=requestAnimationFrame(draw); }
+    window.addEventListener('load',function(){ init(); draw(); });
+    window.addEventListener('resize',function(){ cancelAnimationFrame(raf); init(); draw(); });
+  })();
+
+  /* fade-up */
+  var obs=new IntersectionObserver(function(e){ e.forEach(function(x){ if(x.isIntersecting){ x.target.classList.add('visible'); obs.unobserve(x.target); } }); },{threshold:.08});
+  document.querySelectorAll('.fade-up').forEach(function(el){ obs.observe(el); });
+
+  /* Terminal */
+  var q='genwizard.observe("coppel-ecommerce")', qEl=document.getElementById('tq'), cur=document.getElementById('tc'), res=document.getElementById('tres'), qi=0;
+  function type(){ if(qi<=q.length){ qEl.textContent=q.slice(0,qi++); setTimeout(type,40); } else { setTimeout(function(){ cur.style.display='none'; setTimeout(function(){ res.style.display='block'; },180); },300); } }
+  setTimeout(type,600);
+</script>
+</body>
+</html>

@@ -1,0 +1,1001 @@
+﻿"""
+build-index.py — Genera portal/index.html (hero dark style)
+AXA México P&C Commercial Lines · Digital Brain Portal
+"""
+import pathlib, shutil
+
+ROOT   = pathlib.Path(__file__).parent.parent
+OUT    = ROOT / "portal" / "index.html"
+LOGO_SRC = ROOT.parent / "design-studio" / "logos" / "Axa_logo.png"
+LOGO_DST = ROOT / "portal" / "logos" / "Axa_logo.png"
+
+# Copy logo into portal so http.server can serve it
+if LOGO_SRC.exists():
+    LOGO_DST.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(LOGO_SRC, LOGO_DST)
+
+HTML = """<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AXA Digital Brain — Portal</title>
+<script src="three.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --axa-blue:#00008F;
+  --axa-red:#FF1721;
+  --bg:#04040F;
+  --bg2:#080820;
+  --text:#fff;
+  --muted:rgba(255,255,255,.45);
+  --card-bg:rgba(255,255,255,.04);
+  --card-border:rgba(255,255,255,.08);
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
+nav{display:flex;align-items:center;justify-content:space-between;
+    padding:0 40px;height:64px;border-bottom:1px solid rgba(255,255,255,.06);
+    background:rgba(4,4,15,.95);backdrop-filter:blur(8px);
+    position:sticky;top:0;z-index:100}
+.nav-logo{display:flex;align-items:center;gap:16px}
+.nav-logo .red-bar{width:4px;height:40px;background:var(--axa-red);border-radius:2px}
+.nav-logo img{height:32px;object-fit:contain}
+.nav-tagline{display:flex;flex-direction:column;gap:1px;border-left:1px solid rgba(255,255,255,.12);padding-left:16px;margin-left:4px}
+.nav-tagline-eyebrow{font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.nav-tagline-text{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);letter-spacing:-.01em;white-space:nowrap}
+.nav-links{display:flex;gap:28px}
+.nav-links a{font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--muted);
+             text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:#fff}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.hero{position:relative;padding:90px 40px 80px;overflow:hidden;min-height:480px;
+      background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(0,0,143,.18) 0%,transparent 70%)}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230000ff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events:none;opacity:.4}
+.hero-eyebrow{font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--axa-red);
+              text-transform:uppercase;margin-bottom:20px}
+.hero-title{font-size:clamp(36px,5vw,68px);font-weight:900;line-height:1.05;letter-spacing:-.02em;
+            max-width:800px;margin-bottom:24px;
+            background:linear-gradient(135deg,#fff 55%,rgba(255,255,255,.4));
+            -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:16px;color:var(--muted);max-width:560px;line-height:1.65;margin-bottom:48px}
+.hero-cta{display:inline-flex;align-items:center;gap:10px;
+          background:var(--axa-red);color:#fff;font-size:13px;font-weight:700;
+          letter-spacing:.04em;padding:13px 28px;border-radius:6px;
+          text-decoration:none;transition:opacity .2s}
+.hero-cta:hover{opacity:.88}
+.hero-cta-ghost{display:inline-flex;align-items:center;gap:10px;margin-left:16px;
+                color:var(--muted);font-size:13px;font-weight:600;text-decoration:none;
+                border:1px solid rgba(255,255,255,.12);padding:12px 24px;border-radius:6px;
+                transition:color .2s,border-color .2s}
+.hero-cta-ghost:hover{color:#fff;border-color:rgba(255,255,255,.3)}
+
+/* ── Stats strip ─────────────────────────────────────────────────────────── */
+.stats{display:flex;align-items:stretch;border-top:1px solid rgba(255,255,255,.07);
+       border-bottom:1px solid rgba(255,255,255,.07);background:var(--bg2)}
+.stat{flex:1;padding:28px 32px;text-align:center;border-right:1px solid rgba(255,255,255,.07)}
+.stat:last-child{border-right:none}
+.stat-n{font-size:40px;font-weight:900;line-height:1}
+.stat-l{font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--muted);margin-top:6px;text-transform:uppercase}
+.stat:nth-child(1) .stat-n{color:#ff7755}
+.stat:nth-child(2) .stat-n{color:#55aaff}
+.stat:nth-child(3) .stat-n{color:rgba(255,255,255,.7)}
+.stat:nth-child(4) .stat-n{color:#44dd88}
+.stat:nth-child(5) .stat-n{color:rgba(255,255,255,.5)}
+
+/* ── Section headings ────────────────────────────────────────────────────── */
+.section{padding:64px 40px}
+.section-eyebrow{font-size:10px;font-weight:700;letter-spacing:.18em;color:var(--axa-red);
+                 text-transform:uppercase;margin-bottom:10px}
+.section-title{font-size:28px;font-weight:800;margin-bottom:8px;letter-spacing:-.01em}
+.section-sub{font-size:14px;color:var(--muted);max-width:520px;line-height:1.6;margin-bottom:40px}
+
+/* ── Portal cards grid ───────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;
+      padding:24px;text-decoration:none;color:inherit;
+      transition:background .2s,border-color .2s,transform .2s;display:block}
+.card:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.18);transform:translateY(-2px)}
+.card-tag{display:inline-block;font-size:8.5px;font-weight:700;letter-spacing:.14em;
+          text-transform:uppercase;padding:3px 8px;border-radius:20px;margin-bottom:14px}
+.tag-brain{background:rgba(68,170,255,.15);color:#55aaff;border:1px solid rgba(68,170,255,.25)}
+.tag-change{background:rgba(255,85,51,.12);color:#ff7755;border:1px solid rgba(255,85,51,.22)}
+.tag-run{background:rgba(68,210,130,.1);color:#44dd88;border:1px solid rgba(68,210,130,.2)}
+.tag-analysis{background:rgba(180,130,255,.1);color:#bb88ff;border:1px solid rgba(180,130,255,.2)}
+.card-title{font-size:17px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
+.card-desc{font-size:13px;color:var(--muted);line-height:1.6}
+.card-arrow{display:inline-block;margin-top:18px;font-size:11px;font-weight:700;
+            letter-spacing:.06em;color:rgba(255,255,255,.3);transition:color .2s}
+.card:hover .card-arrow{color:rgba(255,255,255,.7)}
+/* ── Capa 1 · Lenguaje — BanCoppel-style vcard grid ──────────────────────── */
+.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(22px) saturate(155%);-webkit-backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid rgba(255,255,255,.09);border-radius:22px;box-shadow:0 12px 44px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.08)}
+.capa-group{margin-top:0}
+.capa-ghead{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
+.capa-ghead h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.capa-ghead span{font-size:13px;color:var(--muted)}
+.capa-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:700px){.capa-grid{grid-template-columns:1fr}}
+.vcard{display:flex;gap:17px;padding:23px;color:inherit;text-decoration:none;
+  transition:transform .34s cubic-bezier(.16,1,.3,1),border-color .34s,box-shadow .34s}
+.vcard:hover{transform:translateY(-5px);border-color:rgba(0,0,143,.45);box-shadow:0 22px 56px rgba(0,0,0,.5)}
+.vcard .ico{font-size:25px;width:54px;height:54px;display:flex;align-items:center;justify-content:center;
+  border-radius:16px;flex-shrink:0;background:linear-gradient(150deg,rgba(255,255,255,.11),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.10);transition:transform .34s}
+.vcard:hover .ico{transform:scale(1.09) rotate(-4deg)}
+.vcard .vtag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  padding:2px 7px;border-radius:10px;background:rgba(0,0,143,.14);border:1px solid rgba(0,0,143,.35);color:#6699ff;margin-bottom:8px}
+.vcard .vt{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.vcard .vd{font-size:13px;color:var(--muted);margin:6px 0 13px;line-height:1.55}
+.vcard .go{font-size:12px;font-weight:700;color:#FF1721;display:inline-flex;align-items:center;gap:7px}
+.vcard .arr{transition:transform .3s}.vcard:hover .arr{transform:translateX(5px)}
+/* ── Gemelo Cognitivo — metodología timeline + cards ──────────────────────── */
+.gem-tlwrap{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:start}
+@media(max-width:860px){.gem-tlwrap{grid-template-columns:1fr;gap:30px}}
+.gem-tl{position:relative;padding-left:38px}
+.gem-tl::before{content:"";position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,#00008F,#4444cc 60%,transparent)}
+.gem-node{position:relative;padding-bottom:22px}
+.gem-node:last-child{padding-bottom:0}
+.gem-node::before{content:"";position:absolute;left:-38px;top:2px;width:13px;height:13px;border-radius:50%;background:#00008F;border:3px solid var(--bg1);box-shadow:0 0 0 2px rgba(0,0,143,.55),0 0 14px rgba(0,0,143,.5)}
+.gem-node h4{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px}
+.gem-node span{font-size:12.5px;color:var(--muted);line-height:1.55}
+.gem-mgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.gem-mgrid{grid-template-columns:1fr}}
+.gem-mcard{padding:22px 24px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px}
+.gem-mcard h4{font-size:11px;color:var(--axa-red);text-transform:uppercase;letter-spacing:.1em;margin:0 0 9px;font-weight:700}
+.gem-mcard p{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+.gem-mcard b{color:#fff;font-weight:600}
+.gem-ref{margin-top:22px;font-size:11px;color:rgba(255,255,255,.32);text-align:center;line-height:1.6}
+
+/* ── RUN / CHANGE two-column ─────────────────────────────────────────────── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.col-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.col-dot{width:10px;height:10px;border-radius:50%}
+.ch-dot{background:#ff5533}
+.rn-dot{background:#44aaff}
+.col-title{font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.ch-col .col-title{color:#ff7755}
+.rn-col .col-title{color:#55aaff}
+.sys-list{display:flex;flex-direction:column;gap:8px}
+.sys-item{background:var(--card-bg);border:1px solid var(--card-border);border-radius:8px;
+          padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+.sys-name{font-size:12px;font-weight:700;color:#fff}
+.sys-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.sys-status{font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 7px;
+            border-radius:20px;white-space:nowrap}
+.status-run{background:rgba(68,210,130,.1);color:#44dd88;border:1px solid rgba(68,210,130,.2)}
+.status-change{background:rgba(255,200,80,.1);color:#ffcc44;border:1px solid rgba(255,200,80,.2)}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+footer{border-top:1px solid rgba(255,255,255,.06);padding:28px 40px;
+       display:flex;justify-content:space-between;align-items:center;
+       font-size:11px;color:rgba(255,255,255,.22)}
+
+/* ── Brain context (embedded) ─────────────────────────────────────────────── */
+.brain-lead{display:grid;grid-template-columns:1.1fr 1fr;gap:44px;align-items:start;margin-top:30px}
+.lead-copy{font-size:14px;color:var(--muted);line-height:1.75}
+.lead-copy strong{color:#fff;font-weight:700}
+.brain-points{display:flex;flex-direction:column;gap:16px}
+.brain-point{display:flex;gap:13px;align-items:flex-start}
+.bp-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.bp-run{background:#ff7755;box-shadow:0 0 8px rgba(255,100,55,.7)}
+.bp-change{background:#55aaff;box-shadow:0 0 8px rgba(68,170,255,.7)}
+.bp-onto{background:#d0a94e;box-shadow:0 0 8px rgba(208,169,78,.7)}
+.bp-title{font-size:13px;font-weight:700;color:#fff}
+.bp-desc{font-size:12px;color:var(--muted);line-height:1.55;margin-top:3px}
+.brain-frame-wrap{margin-top:40px;border-radius:16px;overflow:hidden;
+  border:1px solid rgba(68,170,255,.14);background:#020215;
+  box-shadow:0 0 60px rgba(0,40,120,.22)}
+#brainStage{position:relative;width:100%;height:740px;background:#020215;overflow:hidden}
+#brainStage canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+#brainC{z-index:1}#brainOv{z-index:2;pointer-events:none}
+#brainLoading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:13px;letter-spacing:.08em;color:rgba(100,180,255,.8);z-index:3;text-align:center}
+@media(max-width:880px){.brain-lead{grid-template-columns:1fr;gap:28px}#brainStage{height:560px}}
+
+/* ── Value chain ─────────────────────────────────────────────────────────── */
+.vc-tier{margin-bottom:26px}
+.vc-tier-label{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.vc-tier-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+.vc-flow{display:flex;overflow:visible;height:90px}
+.vc-step{flex:1;min-width:0;height:100%;position:relative;overflow:visible;transition:filter .15s;
+  padding:14px 42px 12px 38px;display:flex;flex-direction:column;justify-content:space-between;
+  background:var(--blk-bg,#0a0a45);
+  border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1)}
+.vc-step:first-child{padding-left:20px;border-left:1px solid rgba(255,255,255,.1);border-radius:9px 0 0 9px}
+.vc-step:last-child{border-right:1px solid rgba(255,255,255,.1);border-radius:0 9px 9px 0}
+.vc-step::before{content:'';position:absolute;top:-1px;right:-32px;width:0;height:0;
+  border-top:46px solid transparent;border-bottom:46px solid transparent;
+  border-left:32px solid rgba(255,255,255,.1);z-index:1;pointer-events:none}
+.vc-step::after{content:'';position:absolute;top:0;right:-29px;width:0;height:0;
+  border-top:45px solid transparent;border-bottom:45px solid transparent;
+  border-left:29px solid var(--blk-bg,#0a0a45);z-index:2;pointer-events:none}
+.vc-step:last-child::before,.vc-step:last-child::after{display:none}
+.vc-step:nth-child(1){z-index:6}.vc-step:nth-child(2){z-index:5}.vc-step:nth-child(3){z-index:4}
+.vc-step:nth-child(4){z-index:3}.vc-step:nth-child(5){z-index:2}.vc-step:nth-child(6){z-index:1}
+.vc-step:hover{z-index:9;filter:brightness(1.18)}
+.vc-num{font-size:10px;font-weight:900;letter-spacing:.08em;color:#ff5566}
+.vc-name{font-size:14px;font-weight:800;line-height:1.2;color:#fff;letter-spacing:-.01em}
+.vc-meta{font-size:9.5px;font-weight:600;color:var(--muted)}
+@media(max-width:760px){.vc-flow{flex-direction:column;height:auto}
+  .vc-step{height:auto;padding:12px 16px!important;border-radius:8px!important;
+    border:1px solid rgba(255,255,255,.1);margin-bottom:6px}
+  .vc-step::before,.vc-step::after{display:none}}
+.vc-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.vc-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px;padding:15px 18px}
+.vc-card-name{font-size:13px;font-weight:700;color:#fff}
+.vc-card-meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.vc-tag{display:inline-block;font-size:8.5px;font-weight:700;letter-spacing:.08em;
+  padding:3px 8px;border-radius:20px;background:rgba(68,170,255,.12);color:#66b3ff;
+  border:1px solid rgba(68,170,255,.2);margin-top:9px}
+
+/* ── Capability map (ETB, BanCoppel-style rows) ───────────────────────────── */
+.capmap-legend{display:flex;flex-wrap:wrap;gap:16px;margin:22px 0 14px;font-size:10px;color:var(--muted)}
+.capmap-legend .lg{display:flex;align-items:center;gap:6px}
+.capmap-legend .sw{width:12px;height:12px;border-radius:3px}
+.capmap{border:1px solid var(--card-border);border-radius:12px;overflow:hidden;background:rgba(3,3,24,.4)}
+.cap-area{display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.06)}
+.cap-area:last-child{border-bottom:none}
+.cap-atitle{min-width:190px;max-width:190px;padding-left:11px;border-left:3px solid rgba(255,255,255,.2)}
+.cap-atitle .at-n{font-size:12.5px;font-weight:800;color:#fff;line-height:1.25}
+.cap-atitle .at-c{font-size:9px;font-weight:700;color:var(--muted);margin-top:3px}
+.cap-agroups{flex:1;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.cap-chip{border-radius:7px;padding:7px 11px;min-width:118px;
+  display:flex;flex-direction:column;gap:2px}
+.cap-chip .ccn{font-size:10.5px;font-weight:700;line-height:1.2}
+.cap-chip .ccc{font-size:8px;font-weight:700;opacity:.65;letter-spacing:.04em}
+.t-engage .cap-atitle{border-left-color:#44aaff}
+.t-engage .cap-chip{background:rgba(68,170,255,.13);border:1px solid rgba(68,170,255,.28);color:#c3e2ff}
+.t-core .cap-atitle{border-left-color:#ff5a3c}
+.t-core .cap-chip{background:rgba(255,80,50,.15);border:1px solid rgba(255,90,60,.4);color:#ffd2c4}
+.t-ent .cap-atitle{border-left-color:#ffa726}
+.t-ent .cap-chip{background:rgba(255,167,38,.12);border:1px solid rgba(255,167,38,.32);color:#ffe2b8}
+.t-found .cap-atitle{border-left-color:#4dd0e1}
+.t-found .cap-chip{background:rgba(77,208,225,.11);border:1px solid rgba(77,208,225,.3);color:#c2f0f6}
+@media(max-width:760px){.cap-area{flex-direction:column;gap:8px}.cap-atitle{max-width:none;min-width:0}}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">
+    <div class="red-bar"></div>
+    <img src="logos/Axa_logo.png" alt="AXA" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;font-size:22px;font-weight:900;color:#fff;letter-spacing:-.02em">AXA</span>
+    <div class="nav-tagline">
+      <div class="nav-tagline-eyebrow">Seguros</div>
+      <div class="nav-tagline-text">Know You Can</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a href="#brain">Digital Brain</a>
+    <a href="#cadena">Cadena de Valor</a>
+    <a href="#capacidades">Capacidades</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-eyebrow">AXA Seguros &mdash; P&amp;C Commercial Lines</div>
+  <h1 class="hero-title">El Cerebro Digital<br>de AXA M&eacute;xico</h1>
+  <p class="hero-sub">Ecosistema de conocimiento vivo del landscape tecnol&oacute;gico que soporta el negocio de Seguros de Da&ntilde;os en L&iacute;neas Comerciales &mdash; sistemas, procesos y transformaci&oacute;n.</p>
+</section>
+
+<!-- Stats strip -->
+<div class="stats">
+  <div class="stat">
+    <div class="stat-n">541</div>
+    <div class="stat-l">Pasos documentados</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n">8</div>
+    <div class="stat-l">Sistemas RUN</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n">7</div>
+    <div class="stat-l">Digital Twins</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n">33</div>
+    <div class="stat-l">Pain points</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n">3</div>
+    <div class="stat-l">Olas de transformaci&oacute;n</div>
+  </div>
+</div>
+
+<!-- Brain context -->
+<section class="section brain-context" id="brain">
+  <div class="section-eyebrow">El concepto</div>
+  <div class="section-title">&iquest;Qu&eacute; es el Digital Brain?</div>
+  <p class="section-sub">Antes de las vistas, el modelo mental: una base de conocimiento sem&aacute;ntica del negocio asegurador.</p>
+  <div class="brain-lead">
+    <div class="lead-copy">
+      El <strong>Digital Brain de AXA</strong> no es un sistema m&aacute;s: es la <strong>memoria y el razonamiento</strong> del landscape tecnol&oacute;gico de Seguros de Da&ntilde;os P&amp;C. Captura el estado actual verificado &mdash; lo que opera hoy &mdash; y razona sobre la transformaci&oacute;n &mdash; lo que debe cambiar &mdash; todo bajo un vocabulario com&uacute;n.
+      <br><br>
+      La gr&aacute;fica muestra sus <strong>14 componentes de conocimiento</strong> repartidos en dos hemisferios, atravesados por dos ontolog&iacute;as. El brillo de cada nodo indica su madurez: poblado, parcial o pendiente.
+    </div>
+    <div class="brain-points">
+      <div class="brain-point"><div class="bp-dot bp-run"></div>
+        <div><div class="bp-title">RUN &mdash; Memoria del presente (AS-IS)</div>
+        <div class="bp-desc">Sistemas, procesos, capacidades, vocabulario y reglas que describen c&oacute;mo opera AXA hoy.</div></div></div>
+      <div class="brain-point"><div class="bp-dot bp-change"></div>
+        <div><div class="bp-title">CHANGE &mdash; Razonamiento de transformaci&oacute;n (TO-BE)</div>
+        <div class="bp-desc">Pain points, gaps, oportunidades, quick wins e inteligencia de mercado que guían la transformaci&oacute;n.</div></div></div>
+      <div class="brain-point"><div class="bp-dot bp-onto"></div>
+        <div><div class="bp-title">Dos ontolog&iacute;as transversales</div>
+        <div class="bp-desc">El ETB de Seguros (el QU&Eacute; del negocio) y el ITOM (el C&Oacute;MO tecnol&oacute;gico) aplican a ambos hemisferios.</div></div></div>
+    </div>
+  </div>
+  <div class="brain-frame-wrap">
+    <div id="brainStage">
+      <div id="brainLoading">Cargando cerebro digital&hellip;</div>
+      <canvas id="brainC"></canvas>
+      <canvas id="brainOv"></canvas>
+    </div>
+  </div>
+</section>
+<script>
+(function(){
+var stage=document.getElementById('brainStage');
+if(!stage||!window.THREE)return;
+var oc=document.getElementById('brainOv').getContext('2d');
+var ov=document.getElementById('brainOv');
+var loadingEl=document.getElementById('brainLoading');
+function SW(){return stage.clientWidth||1;}
+function SH(){return stage.clientHeight||1;}
+
+var VERT=`precision highp float;
+varying vec3 vWP;varying vec3 vN;
+void main(){vec4 wp=modelMatrix*vec4(position,1.0);vWP=wp.xyz;
+  vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`;
+var FRAG=`precision highp float;
+uniform float uTime;uniform vec3 uCam;uniform float uScale;
+varying vec3 vWP;varying vec3 vN;
+float h3(vec3 p){p=fract(p*vec3(443.9,397.3,491.2));p+=dot(p.zxy,p.yxz+19.19);return fract(p.x*p.y*p.z);}
+float vn(vec3 p){vec3 i=floor(p),f=fract(p),u=f*f*(3.0-2.0*f);
+  float a=h3(i),b=h3(i+vec3(1,0,0)),c=h3(i+vec3(0,1,0)),d=h3(i+vec3(1,1,0));
+  float e=h3(i+vec3(0,0,1)),ff=h3(i+vec3(1,0,1)),g=h3(i+vec3(0,1,1)),hh=h3(i+vec3(1,1,1));
+  return mix(mix(mix(a,b,u.x),mix(c,d,u.x),u.y),mix(mix(e,ff,u.x),mix(g,hh,u.x),u.y),u.z);}
+float fbm(vec3 p){float v=0.0,a=0.55;
+  for(int i=0;i<4;i++){v+=a*(vn(p)-0.5);p=p*2.1+vec3(17.3,8.1,12.4);a*=0.48;}return v;}
+float cl(float n,float fr,float pw){return pow(abs(cos(n*3.14159*fr)),pw);}
+void main(){vec3 N=normalize(vN);vec3 V=normalize(uCam-vWP);
+  float chg=step(0.0,vWP.x);
+  vec3 cRUN=vec3(1.00,0.28,0.06);vec3 cCHG=vec3(0.04,0.52,1.00);vec3 col=mix(cCHG,cRUN,chg);
+  vec3 sp=vWP*uScale;
+  float n1=fbm(sp*2.5);float t1=cl(n1,7.0,14.0);
+  float n2=fbm(sp*5.5+vec3(11.0,5.0,8.3));float t2=cl(n2,14.0,20.0)*0.55;
+  float n3=fbm(sp*11.0+vec3(33.0,22.0,17.5));float t3=cl(n3,24.0,28.0)*0.28;
+  float tr=clamp(t1+t2+t3,0.0,1.0);
+  float fr=pow(1.0-max(dot(N,V),0.0),2.5);
+  float hot=0.0;vec3 wn=normalize(vWP);
+  hot+=smoothstep(0.14,0.0,distance(wn,normalize(vec3(0.6,0.4,0.7))))*(0.5+0.5*sin(uTime*2.1));
+  hot+=smoothstep(0.12,0.0,distance(wn,normalize(vec3(-0.5,0.2,0.8))))*(0.5+0.5*sin(uTime*1.7+1.3));
+  hot+=smoothstep(0.10,0.0,distance(wn,normalize(vec3(0.3,-0.3,0.9))))*(0.5+0.5*sin(uTime*2.6+2.5));
+  vec3 out_col=col*0.05+col*tr*1.8+col*fr*0.55+vec3(0.85,0.95,1.0)*hot*3.0;
+  gl_FragColor=vec4(out_col,1.0);}`;
+
+var renderer=new THREE.WebGLRenderer({canvas:document.getElementById('brainC'),antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(SW(),SH());renderer.setClearColor(0x000000,0);
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(42,SW()/SH(),.1,500);
+camera.position.set(0,1.5,9.5);camera.lookAt(0,0,0);
+var neonMat=new THREE.ShaderMaterial({vertexShader:VERT,fragmentShader:FRAG,side:THREE.DoubleSide,
+  uniforms:{uCam:{value:camera.position},uTime:{value:0},uScale:{value:1.0}}});
+function glowMat(hex,op){return new THREE.MeshBasicMaterial({color:new THREE.Color(hex),side:THREE.BackSide,
+  transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false});}
+var GLOWS=[{m:glowMat(0x0044dd,.06),s:1.04},{m:glowMat(0x0022aa,.04),s:1.09},{m:glowMat(0x001177,.02),s:1.16}];
+var brainRoot=null;
+function u32(dv,off){return dv.getUint32(off,true);}
+function accToArray(gltf,buf,bs,ai){var acc=gltf.accessors[ai],bv=gltf.bufferViews[acc.bufferView];
+  var dims={SCALAR:1,VEC2:2,VEC3:3,VEC4:4}[acc.type]||1;var off2=bs+(bv.byteOffset||0)+(acc.byteOffset||0);
+  var bEl=acc.componentType===5126?4:acc.componentType===5125?4:2;var sl=buf.slice(off2,off2+acc.count*dims*bEl);
+  if(acc.componentType===5126)return new Float32Array(sl);if(acc.componentType===5125)return new Uint32Array(sl);
+  return new Uint16Array(sl);}
+function loadGLB(url,ok,err){fetch(url).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();}).then(function(buf){
+  try{var dv=new DataView(buf);if(u32(dv,0)!==0x46546C67)throw new Error('No es GLB');
+    var jl=u32(dv,12);var gltf=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,20,jl)));var bs=20+jl+8;
+    var meshes=[];(gltf.meshes||[]).forEach(function(m){(m.primitives||[]).forEach(function(p){
+      var g=new THREE.BufferGeometry();
+      if(p.attributes.POSITION!=null)g.setAttribute('position',new THREE.BufferAttribute(accToArray(gltf,buf,bs,p.attributes.POSITION),3));
+      if(p.attributes.NORMAL!=null)g.setAttribute('normal',new THREE.BufferAttribute(accToArray(gltf,buf,bs,p.attributes.NORMAL),3));
+      if(p.indices!=null)g.setIndex(new THREE.BufferAttribute(accToArray(gltf,buf,bs,p.indices),1));
+      if(!g.attributes.normal)g.computeVertexNormals();meshes.push(g);});});
+    if(!meshes.length)throw new Error('Sin geometria');ok(meshes);}catch(e){err(e);}}).catch(err);}
+loadGLB('brain.glb',function(geos){loadingEl.style.display='none';
+  var group=new THREE.Group();
+  geos.forEach(function(geo){var m=new THREE.Mesh(geo,neonMat);
+    GLOWS.forEach(function(g){var sh=new THREE.Mesh(geo,g.m);sh.scale.setScalar(g.s);m.add(sh);});group.add(m);});
+  var box=new THREE.Box3().setFromObject(group);var sz=new THREE.Vector3();box.getSize(sz);
+  var maxD=Math.max(sz.x,sz.y,sz.z,.001);var sf=2.5/maxD;group.scale.setScalar(sf);
+  box.setFromObject(group);var ctr=new THREE.Vector3();box.getCenter(ctr);group.position.sub(ctr);
+  neonMat.uniforms.uScale.value=1.0/(maxD*sf*.5);
+  group.rotation.x=0;group.rotation.y=0;group.rotation.z=-Math.PI/2;brainRoot=group;scene.add(group);
+},function(e){loadingEl.textContent='Error: '+(e&&e.message?e.message:String(e));loadingEl.style.animation='none';});
+function animateBrain(){requestAnimationFrame(animateBrain);var t=Date.now()*.001;
+  neonMat.uniforms.uTime.value=t;if(brainRoot)brainRoot.position.y=Math.sin(t*.5)*.06;renderer.render(scene,camera);}
+animateBrain();
+
+ov.width=SW();ov.height=SH();
+window.addEventListener('resize',function(){camera.aspect=SW()/SH();camera.updateProjectionMatrix();
+  renderer.setSize(SW(),SH());ov.width=SW();ov.height=SH();});
+
+var RC=[255,100,55],CC=[68,170,255];
+var RUN=[{name:'Landscape de Sistemas',sub:'16 sistemas',mat:'full'},
+  {name:'Procesos AS-IS',sub:'541 pasos',mat:'full'},
+  {name:'Capacidades ETB',sub:'104 mapeadas',mat:'full'},
+  {name:'Vocabulario Empresarial',sub:'36 términos',mat:'full'},
+  {name:'Digital Twins de Proceso',sub:'7 gemelos',mat:'partial'},
+  {name:'Reglas de Negocio',sub:'AS-IS',mat:'partial'},
+  {name:'Dependencias Cross-Sistema',sub:'pendiente',mat:'scaffold'}];
+var CHG=[{name:'Pain Points',sub:'33 dolores',mat:'full'},
+  {name:'Gaps de Capacidad ETB',sub:'9 gaps · 3 críticos',mat:'full'},
+  {name:'Oportunidades',sub:'7 OPPs',mat:'full'},
+  {name:'Quick Wins',sub:'5 acciones',mat:'full'},
+  {name:'Inteligencia de Mercado',sub:'23 señales',mat:'full'},
+  {name:'Roadmap de Transformación',sub:'3 olas',mat:'scaffold'},
+  {name:'Visión TO-BE',sub:'arquitectura',mat:'scaffold'}];
+function buildNodes(items,sem,arc){var n=items.length;
+  return items.map(function(it,i){var frac=(i+0.5)/n;
+    var a0=arc==='left'?108*Math.PI/180:-50*Math.PI/180;
+    var a1=arc==='left'?230*Math.PI/180:50*Math.PI/180;
+    var ang=a0+frac*(a1-a0);
+    return {name:it.name,sub:it.sub,mat:it.mat,sem:sem,arc:arc,ang:ang};});}
+var allNodes=buildNodes(CHG,'change','left').concat(buildNodes(RUN,'run','right'));
+var pkts=allNodes.reduce(function(arr,nd){
+  arr.push({nd:nd,t:Math.random(),spd:.004+Math.random()*.003});
+  arr.push({nd:nd,t:Math.random()+.5,spd:.003+Math.random()*.003});return arr;},[]);
+function rGlow(x,y,r,col,a){var g=oc.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+col+','+a+')');g.addColorStop(1,'rgba('+col+',0)');
+  oc.fillStyle=g;oc.beginPath();oc.arc(x,y,r,0,Math.PI*2);oc.fill();}
+function roundRect(x,y,w,h,r){oc.beginPath();oc.moveTo(x+r,y);
+  oc.arcTo(x+w,y,x+w,y+h,r);oc.arcTo(x+w,y+h,x,y+h,r);
+  oc.arcTo(x,y+h,x,y,r);oc.arcTo(x,y,x+w,y,r);oc.closePath();}
+function drawOntoBar(x,y,w,h,title,sub,fs){
+  oc.fillStyle='rgba(10,14,34,.55)';roundRect(x,y,w,h,h/2);oc.fill();
+  var g=oc.createLinearGradient(x,0,x+w,0);
+  g.addColorStop(0,'rgba('+CC+',.6)');g.addColorStop(.5,'rgba(255,255,255,.22)');g.addColorStop(1,'rgba('+RC+',.6)');
+  oc.strokeStyle=g;oc.lineWidth=1.3;roundRect(x,y,w,h,h/2);oc.stroke();
+  oc.textAlign='center';oc.textBaseline='middle';
+  oc.font='bold '+fs+'px Segoe UI';oc.fillStyle='rgba(255,255,255,.92)';oc.fillText(title,x+w/2,y+h/2-7);
+  oc.font=(fs*.72)+'px Segoe UI';oc.fillStyle='rgba(255,255,255,.5)';oc.fillText(sub,x+w/2,y+h/2+8);}
+var t2=null;
+function draw2d(ts){requestAnimationFrame(draw2d);if(!t2)t2=ts;var t=(ts-t2)*.001;
+  var W=ov.width,H=ov.height,cx=W/2,cy=H/2;var R=Math.min(cx,cy)*.58;
+  oc.clearRect(0,0,W,H);
+  for(var i=0;i<80;i++){var sx=(Math.sin(i*5.3)*.5+.5)*W,sy=(Math.sin(i*2.7)*.5+.5)*H;
+    oc.globalAlpha=.06+Math.abs(Math.sin(t*.4+i))*.08;oc.fillStyle='#aadeff';oc.fillRect(sx,sy,1,1);}
+  oc.globalAlpha=1;
+  oc.lineWidth=1;
+  oc.beginPath();oc.arc(cx,cy,R,108*Math.PI/180,252*Math.PI/180);oc.strokeStyle='rgba(68,170,255,.15)';oc.stroke();
+  oc.beginPath();oc.arc(cx,cy,R,-72*Math.PI/180,72*Math.PI/180);oc.strokeStyle='rgba(255,100,55,.15)';oc.stroke();
+  allNodes.forEach(function(nd){var nx=cx+Math.cos(nd.ang)*R,ny=cy+Math.sin(nd.ang)*R;
+    var col=nd.sem==='run'?RC:CC;var g=oc.createLinearGradient(cx,cy,nx,ny);
+    g.addColorStop(0,'rgba('+col+',.45)');g.addColorStop(1,'rgba('+col+',0)');
+    oc.beginPath();oc.moveTo(cx,cy);oc.lineTo(nx,ny);oc.strokeStyle=g;oc.lineWidth=.8;oc.stroke();});
+  pkts.forEach(function(p){p.t=(p.t+p.spd)%1;
+    var nx=cx+Math.cos(p.nd.ang)*R,ny=cy+Math.sin(p.nd.ang)*R;
+    // RUN dots: center→node (outward); CHANGE dots: node→center (inward, intelligence flowing in)
+    var ft=p.nd.sem==='change'?1-p.t:p.t;
+    var fx=cx+(nx-cx)*ft,fy=cy+(ny-cy)*ft;var col=p.nd.sem==='run'?RC:CC;
+    var a=Math.sin(p.t*Math.PI)*.85;oc.beginPath();oc.arc(fx,fy,2.5,0,Math.PI*2);
+    oc.fillStyle='rgba('+col+','+a+')';oc.fill();});
+  allNodes.forEach(function(nd){var nx=cx+Math.cos(nd.ang)*R,ny=cy+Math.sin(nd.ang)*R;
+    var col=nd.sem==='run'?RC:CC;var onLeft=nd.arc==='left';
+    if(nd.mat==='full'){rGlow(nx,ny,24,col,.5);
+      oc.beginPath();oc.arc(nx,ny,6.5,0,Math.PI*2);oc.fillStyle='rgb('+col+')';oc.fill();
+      oc.strokeStyle='rgba('+col+',.3)';oc.lineWidth=9;oc.beginPath();oc.arc(nx,ny,10,0,Math.PI*2);oc.stroke();
+    }else if(nd.mat==='partial'){rGlow(nx,ny,18,col,.32);
+      oc.beginPath();oc.arc(nx,ny,5.5,0,Math.PI*2);oc.fillStyle='rgb('+col+')';oc.fill();
+      oc.setLineDash([3,3]);oc.strokeStyle='rgba('+col+',.55)';oc.lineWidth=1.5;
+      oc.beginPath();oc.arc(nx,ny,11,0,Math.PI*2);oc.stroke();oc.setLineDash([]);
+    }else{rGlow(nx,ny,11,col,.16);oc.beginPath();oc.arc(nx,ny,5,0,Math.PI*2);
+      oc.strokeStyle='rgba('+col+',.6)';oc.lineWidth=1.5;oc.stroke();}
+    oc.textAlign=onLeft?'right':'left';var lx=nx+(onLeft?-19:19);
+    oc.textBaseline='alphabetic';oc.font='bold 12.5px Segoe UI';
+    oc.shadowColor='rgba('+col+',.55)';oc.shadowBlur=6;
+    oc.fillStyle=nd.mat==='scaffold'?'rgba(255,255,255,.55)':'rgba(255,255,255,.94)';
+    oc.fillText(nd.name,lx,ny-1);oc.shadowBlur=0;
+    oc.font='10px Segoe UI';oc.textBaseline='top';oc.fillStyle='rgba('+col+',.72)';
+    oc.fillText(nd.sub,lx,ny+5);});
+  // ── Cycle Arrows ─────────────────────────────────────────────────────────────
+  // bezier through-bottom (CHANGE→RUN) and through-top (RUN→CHANGE)
+  var arR=R*0.68;
+  function arrowBez(x0,y0,cpx,cpy,x1,y1,col0,col1,lbl,lblY,lblBase){
+    var g=oc.createLinearGradient(x0,y0,x1,y1);
+    g.addColorStop(0,'rgba('+col0+',.6)');g.addColorStop(1,'rgba('+col1+',.6)');
+    oc.beginPath();oc.moveTo(x0,y0);oc.quadraticCurveTo(cpx,cpy,x1,y1);
+    oc.strokeStyle=g;oc.lineWidth=2;oc.setLineDash([]);oc.stroke();
+    var tx=x1-cpx,ty=y1-cpy,tl=Math.sqrt(tx*tx+ty*ty);tx/=tl;ty/=tl;
+    var px=-ty,py=tx,sz=8;
+    oc.fillStyle='rgba('+col1+',.75)';oc.beginPath();
+    oc.moveTo(x1+tx*sz,y1+ty*sz);
+    oc.lineTo(x1-tx*sz*.4+px*sz*.45,y1-ty*sz*.4+py*sz*.45);
+    oc.lineTo(x1-tx*sz*.4-px*sz*.45,y1-ty*sz*.4-py*sz*.45);
+    oc.closePath();oc.fill();
+    oc.font='8.5px Segoe UI';oc.textAlign='center';oc.textBaseline=lblBase;
+    oc.fillStyle='rgba(255,255,255,.38)';oc.fillText(lbl,cx,lblY);}
+  // Bottom: CHANGE → RUN — label floats above the arc (between brain and arc)
+  arrowBez(cx-R*.30,cy+R*.55,cx,cy+R*.78,cx+R*.30,cy+R*.55,CC,RC,'Transforma',cy+R*.82,'top');
+  // Top: RUN → CHANGE — label floats above the arc peak (outside arc, toward top nodes)
+  arrowBez(cx+R*.30,cy-R*.55,cx,cy-R*.78,cx-R*.30,cy-R*.55,RC,CC,'Aprende',cy-R*.82,'bottom');
+  // ── DT Robot Agents — franja horizontal bajo headers CHANGE / RUN ────────────
+  var BOTS_L=[
+    {name:'DT Extracción Procesos'},
+    {name:'DT Gaps ETB'},
+    {name:'DT Intel. Competitiva'},
+    {name:'DT Roadmap TO-BE'}
+  ];
+  var BOTS_R=[
+    {name:'DT Underwriting'},
+    {name:'DT Siniestros'},
+    {name:'DT Reaseguro'},
+    {name:'DT Reportería CNSF'}
+  ];
+  function drawBot(bx,by,col,label,idx){
+    var pulse=0.6+0.4*Math.sin(t*1.4+idx*0.9);
+    rGlow(bx,by,24,col,.35*pulse);
+    oc.strokeStyle='rgba('+col+','+(0.75*pulse)+')';oc.lineWidth=1.5;
+    oc.beginPath();oc.moveTo(bx,by-8);oc.lineTo(bx,by-17);oc.stroke();
+    oc.fillStyle='rgba('+col+','+(0.95*pulse)+')';
+    oc.beginPath();oc.arc(bx,by-19,2.8,0,Math.PI*2);oc.fill();
+    var hw=18,hh=14;
+    oc.fillStyle='rgba(5,9,26,.92)';roundRect(bx-hw/2,by-hh/2,hw,hh,3);oc.fill();
+    oc.strokeStyle='rgba('+col+','+(0.88*pulse)+')';oc.lineWidth=1.6;
+    roundRect(bx-hw/2,by-hh/2,hw,hh,3);oc.stroke();
+    oc.fillStyle='rgba('+col+','+(0.98*pulse)+')';
+    oc.beginPath();oc.arc(bx-4.5,by-1,2.8,0,Math.PI*2);oc.fill();
+    oc.beginPath();oc.arc(bx+4.5,by-1,2.8,0,Math.PI*2);oc.fill();
+    oc.fillStyle='rgba('+col+',.48)';roundRect(bx-5.5,by+4.5,11,2.2,1);oc.fill();
+    // label pill — truncate to fit within pill max width so adjacent pills don't collide
+    oc.font='8px Segoe UI';
+    var maxPw=88,disp=label;
+    while(oc.measureText(disp).width+10>maxPw&&disp.length>4)disp=disp.slice(0,-1);
+    if(disp!==label)disp=disp.trimEnd()+'…';
+    var tw=oc.measureText(disp).width,pw=tw+10,ph=12,lbx=bx-pw/2,lby=by+11;
+    oc.fillStyle='rgba(5,9,26,.88)';roundRect(lbx,lby,pw,ph,ph/2);oc.fill();
+    oc.strokeStyle='rgba('+col+',.45)';oc.lineWidth=0.9;roundRect(lbx,lby,pw,ph,ph/2);oc.stroke();
+    oc.fillStyle='rgba(255,255,255,.85)';oc.textAlign='center';oc.textBaseline='middle';
+    oc.fillText(disp,bx,lby+ph/2);}
+  // y row: more gap below CHANGE/RUN sub-text so headers don't crowd robots
+  var botY=Math.max(28,SH()*.04)+58;
+  // Each group occupies the outer ~28% of its half, away from the center headers
+  var lStart=W*.08,lEnd=W*.38,rStart=W*.62,rEnd=W*.92;
+  var lStep=(lEnd-lStart)/3,rStep=(rEnd-rStart)/3;
+  BOTS_L.forEach(function(b,i){
+    drawBot(lStart+i*lStep,botY,CC,b.name,i);});
+  BOTS_R.forEach(function(b,i){
+    drawBot(rStart+i*rStep,botY,RC,b.name,i+10);});
+  var hy=Math.max(28,SH()*.04), hox=30, hf=Math.min(cx,cy)*.048;
+  oc.textBaseline='alphabetic';oc.textAlign='right';
+  oc.font='900 '+hf+'px Segoe UI';oc.shadowColor='rgba('+CC+',.65)';oc.shadowBlur=16;
+  oc.fillStyle='rgb('+CC+')';oc.fillText('CHANGE THE INSURER',cx-hox,hy);oc.shadowBlur=0;
+  oc.font='600 10px Segoe UI';oc.fillStyle='rgba(255,255,255,.5)';oc.fillText('Transformación · TO-BE',cx-hox,hy+18);
+  oc.textAlign='left';oc.font='900 '+hf+'px Segoe UI';oc.shadowColor='rgba('+RC+',.65)';oc.shadowBlur=16;
+  oc.fillStyle='rgb('+RC+')';oc.fillText('RUN THE INSURER',cx+hox,hy);oc.shadowBlur=0;
+  oc.font='600 10px Segoe UI';oc.fillStyle='rgba(255,255,255,.5)';oc.fillText('Memoria del presente · AS-IS',cx+hox,hy+18);
+  var obFs=Math.min(13,W*.011);var obW=Math.max(360,Math.min(W*.55,680)), obH=40;
+  var obX=cx-obW/2, ob2Y=H-108;
+  // ETB bar: between robot row (botY) and brain orbital top
+  var ob1Y=botY+42;
+  drawOntoBar(obX,ob1Y,obW,obH,'Ontología del Negocio a través del ETB de Seguros','El QUÉ — capacidades del negocio asegurador P&C',obFs);
+  drawOntoBar(obX,ob2Y,obW,obH,'IT Operating Model (ITOM)','El CÓMO — capacidades tecnológicas de la operación',obFs);
+  var mly=H-134;oc.textBaseline='middle';oc.font='9px Segoe UI';
+  var mitems=[['Poblado','full'],['Parcial','partial'],['Pendiente','scaffold']];
+  var dotGap=13,gap=22,totalW=0;
+  mitems.forEach(function(it){totalW+=dotGap+oc.measureText(it[0]).width+gap;});
+  var sxx=cx-totalW/2;
+  mitems.forEach(function(it){var mx=sxx+5;
+    if(it[1]==='full'){oc.fillStyle='rgba(200,205,225,.75)';oc.beginPath();oc.arc(mx,mly,4,0,Math.PI*2);oc.fill();}
+    else if(it[1]==='partial'){oc.fillStyle='rgba(200,205,225,.55)';oc.beginPath();oc.arc(mx,mly,3,0,Math.PI*2);oc.fill();
+      oc.setLineDash([2,2]);oc.strokeStyle='rgba(200,205,225,.55)';oc.lineWidth=1;oc.beginPath();oc.arc(mx,mly,6.5,0,Math.PI*2);oc.stroke();oc.setLineDash([]);}
+    else{oc.strokeStyle='rgba(200,205,225,.55)';oc.lineWidth=1.3;oc.beginPath();oc.arc(mx,mly,4,0,Math.PI*2);oc.stroke();}
+    oc.fillStyle='rgba(255,255,255,.5)';oc.textAlign='left';oc.fillText(it[0],mx+dotGap,mly);
+    sxx+=dotGap+oc.measureText(it[0]).width+gap;});}
+requestAnimationFrame(draw2d);
+})();
+</script>
+
+<!-- Value chain -->
+<section class="section" id="cadena" style="padding-top:24px">
+  <div class="section-eyebrow">Arquitectura de procesos</div>
+  <div class="section-title">Cadena de Valor end-to-end</div>
+  <p class="section-sub">Los macroprocesos sustantivos que crean valor para el asegurado, habilitados por procesos secundarios y de soporte.</p>
+
+  <div class="vc-tier">
+    <div class="vc-tier-label">Macroprocesos sustantivos &mdash; flujo de valor al asegurado</div>
+    <div class="vc-flow">
+      <div class="vc-step" style="--blk-bg:#0a0a42"><div class="vc-num">01</div><div class="vc-name">Dise&ntilde;o de Producto</div><div class="vc-meta">ETB D6.2 &middot; Nota T&eacute;cnica</div></div>
+      <div class="vc-step" style="--blk-bg:#0c0c52"><div class="vc-num">02</div><div class="vc-name">Distribuci&oacute;n</div><div class="vc-meta">ETB D1&ndash;D4 &middot; SINCO</div></div>
+      <div class="vc-step" style="--blk-bg:#2a0714"><div class="vc-num" style="color:#ff5566">03</div><div class="vc-name">Suscripci&oacute;n</div><div class="vc-meta">ETB D6.3 &middot; Vector</div></div>
+      <div class="vc-step" style="--blk-bg:#0a0a48"><div class="vc-num">04</div><div class="vc-name">Emisi&oacute;n de P&oacute;liza</div><div class="vc-meta">ETB D6.4 &middot; General Da&ntilde;os</div></div>
+      <div class="vc-step" style="--blk-bg:#161612"><div class="vc-num" style="color:#ffa726">05</div><div class="vc-name">Siniestros</div><div class="vc-meta">ETB D6.5 &middot; punto ciego</div></div>
+      <div class="vc-step" style="--blk-bg:#161612"><div class="vc-num" style="color:#ffa726">06</div><div class="vc-name">Cobranza</div><div class="vc-meta">ETB Billing &middot; punto ciego</div></div>
+    </div>
+  </div>
+
+  <div class="vc-tier">
+    <div class="vc-tier-label">Procesos secundarios &mdash; habilitadores de negocio</div>
+    <div class="vc-row">
+      <div class="vc-card"><div class="vc-card-name">Reaseguro</div><div class="vc-card-meta">Cesi&oacute;n facultativa y tratados de cartera</div><span class="vc-tag">D6.1 &middot; SAFAC</span></div>
+      <div class="vc-card"><div class="vc-card-name">Actuar&iacute;a y Reservas</div><div class="vc-card-meta">Pricing t&eacute;cnico, reservas IBNR y modelaci&oacute;n catastr&oacute;fica</div><span class="vc-tag">D6.3 &middot; ERN</span></div>
+      <div class="vc-card"><div class="vc-card-name">Inteligencia y Analytics</div><div class="vc-card-meta">Siniestralidad hist&oacute;rica y reporting gerencial</div><span class="vc-tag">D8 &middot; Power BI</span></div>
+    </div>
+  </div>
+
+  <div class="vc-tier">
+    <div class="vc-tier-label">Marco regulatorio &mdash; organismos supervisores</div>
+    <div class="vc-row">
+      <div class="vc-card"><div class="vc-card-name">CNSF</div><div class="vc-card-meta">Circular &Uacute;nica de Seguros &middot; Solvencia C &middot; IFRS 17 &middot; notas t&eacute;cnicas</div><span class="vc-tag">D7 &middot; Monitor</span></div>
+      <div class="vc-card"><div class="vc-card-name">CONDUSEF</div><div class="vc-card-meta">Defensa del usuario &middot; quejas, reclamaciones y transparencia</div><span class="vc-tag">D5 &middot; Quejas</span></div>
+      <div class="vc-card"><div class="vc-card-name">SAT</div><div class="vc-card-meta">Fiscalidad &middot; ISR, IVA sobre primas, CFDI y deducibilidad</div><span class="vc-tag">D7.1 &middot; Fiscal</span></div>
+      <div class="vc-card"><div class="vc-card-name">Banxico</div><div class="vc-card-meta">Inversi&oacute;n de reservas t&eacute;cnicas &middot; pol&iacute;tica monetaria y cambiaria</div><span class="vc-tag">D7.2 &middot; Reservas</span></div>
+    </div>
+  </div>
+  <div class="vc-tier">
+    <div class="vc-tier-label">Procesos de soporte &mdash; transversales organizacionales</div>
+    <div class="vc-row">
+      <div class="vc-card"><div class="vc-card-name">Finanzas</div><div class="vc-card-meta">Resultado t&eacute;cnico y consolidaci&oacute;n al Grupo AXA</div><span class="vc-tag">D7.1</span></div>
+      <div class="vc-card"><div class="vc-card-name">Tecnolog&iacute;a e Integraci&oacute;n</div><div class="vc-card-meta">API gateway, event bus y arquitectura de integraci&oacute;n</div><span class="vc-tag">D10&ndash;D11</span></div>
+    </div>
+  </div>
+
+  <a class="hero-cta-ghost" href="cadena-de-valor.html" style="margin-left:0;margin-top:6px">Ver cadena de valor completa &rarr;</a>
+</section>
+
+<!-- Capability model -->
+<section class="section" id="capacidades" style="padding-top:24px">
+  <div class="section-eyebrow">Modelo de capacidades</div>
+  <div class="section-title">Capacidades de Negocio &mdash; ETB Insurance P&amp;C</div>
+  <p class="section-sub">104 capacidades en 11 dominios que describen QU&Eacute; hace el negocio asegurador, independiente de los sistemas que las implementan.</p>
+
+  <div class="capmap-legend">
+    <span class="lg"><span class="sw" style="background:#44aaff"></span>Engagement &middot; Front Office</span>
+    <span class="lg"><span class="sw" style="background:#ff5a3c"></span>Core Insurance &middot; Product &amp; Operations</span>
+    <span class="lg"><span class="sw" style="background:#ffa726"></span>Enterprise Functions</span>
+    <span class="lg"><span class="sw" style="background:#4dd0e1"></span>Data, Integraci&oacute;n &amp; IA &middot; Foundation</span>
+  </div>
+
+  <div class="capmap">
+    <div class="cap-area t-engage"><div class="cap-atitle"><div class="at-n">1 &middot; Channel Mgmt.</div><div class="at-c">6 caps &middot; Engagement</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Digital Channels</span><span class="ccc">3 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Agent / Broker</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Omnichannel</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-engage"><div class="cap-atitle"><div class="at-n">2 &middot; Distribution Mgmt.</div><div class="at-c">7 caps &middot; Engagement</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Agent Mgmt.</span><span class="ccc">3 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Broker Mgmt.</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Bancassurance</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Embedded / Affinity</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-engage"><div class="cap-atitle"><div class="at-n">3 &middot; Marketing Mgmt.</div><div class="at-c">2 caps &middot; Engagement</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Campaign Mgmt.</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Loyalty &amp; Retention</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-engage"><div class="cap-atitle"><div class="at-n">4 &middot; Sales Mgmt.</div><div class="at-c">4 caps &middot; Engagement</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Lead Mgmt.</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Quote &amp; Bind</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Retention Mgmt.</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-engage"><div class="cap-atitle"><div class="at-n">5 &middot; Service Mgmt.</div><div class="at-c">4 caps &middot; Engagement</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Self-Service</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Contact Center</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Complaint (CONDUSEF)</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-core"><div class="cap-atitle"><div class="at-n">6 &middot; Product &amp; Operations</div><div class="at-c">48 caps &middot; Core Insurance</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Product Mgmt.</span><span class="ccc">9 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Underwriting &amp; Pricing</span><span class="ccc">14 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Policy Admin &amp; Serving</span><span class="ccc">7 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Claims</span><span class="ccc">7 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Cross Capability</span><span class="ccc">11 caps</span></div>
+      </div></div>
+    <div class="cap-area t-ent"><div class="cap-atitle"><div class="at-n">7 &middot; Enterprise Functions</div><div class="at-c">9 caps &middot; Regulatorio</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Finance &amp; Accounting</span><span class="ccc">IFRS 17 &middot; 3</span></div>
+        <div class="cap-chip"><span class="ccn">Regulatory Reporting</span><span class="ccc">CNSF &middot; 3</span></div>
+        <div class="cap-chip"><span class="ccn">Capital Management</span><span class="ccc">Solvencia C &middot; 2</span></div>
+        <div class="cap-chip"><span class="ccn">Investment Management</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-found"><div class="cap-atitle"><div class="at-n">8 &middot; Business Integration</div><div class="at-c">5 caps &middot; Foundation</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">API Mgmt.</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Event-Driven</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">BPM / Workflow</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-found"><div class="cap-atitle"><div class="at-n">9 &middot; Information Foundation</div><div class="at-c">5 caps &middot; Foundation</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Data Warehouse &amp; Lake</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Master Data Mgmt.</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Data Quality &amp; Gov.</span><span class="ccc">2 caps</span></div>
+      </div></div>
+    <div class="cap-area t-found"><div class="cap-atitle"><div class="at-n">10 &middot; Insights &amp; Analytics</div><div class="at-c">6 caps &middot; Foundation</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Actuarial Analytics</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Underwriting Analytics</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Claims Analytics</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Financial Reporting</span><span class="ccc">1 cap</span></div>
+      </div></div>
+    <div class="cap-area t-found"><div class="cap-atitle"><div class="at-n">11 &middot; Artificial Intelligence</div><div class="at-c">8 caps &middot; Foundation</div></div>
+      <div class="cap-agroups">
+        <div class="cap-chip"><span class="ccn">Machine Learning</span><span class="ccc">3 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Deep Learning</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">NLP</span><span class="ccc">2 caps</span></div>
+        <div class="cap-chip"><span class="ccn">Computer Vision</span><span class="ccc">1 cap</span></div>
+        <div class="cap-chip"><span class="ccn">Explainable AI</span><span class="ccc">1 cap</span></div>
+      </div></div>
+  </div>
+
+  <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap">
+    <a class="hero-cta" href="capacidades.html">Ver las 104 capacidades L3 &rarr;</a>
+    <a class="hero-cta-ghost" href="cadena-de-valor.html" style="margin-left:0">Cobertura por proceso</a>
+  </div>
+</section>
+
+<!-- Gemelo Cognitivo methodology -->
+<section class="section" id="metodologia" style="background:var(--bg2);padding-top:48px;padding-bottom:48px">
+  <div class="section-eyebrow">Metodolog&iacute;a Accenture</div>
+  <div class="section-title">Gemelo Cognitivo del Sistema</div>
+  <p class="section-sub">Un modelo vivo del conocimiento del negocio asegurador en <b>8 capas</b> &mdash; las 4 primeras <b>entienden</b> el sistema tal como es, las 4 siguientes <b>engendran el futuro</b>. No es arqueolog&iacute;a de c&oacute;digo &mdash; es inteligencia operacional que permite comprender el HOY y dise&ntilde;ar el MA&Ntilde;ANA con evidencia. Validado en BanCoppel (<b>SPE-AM-001</b>) sobre 11,391 stored procedures Informix.</p>
+  <div class="gem-tlwrap" style="margin-top:32px">
+    <div class="gem-tl">
+      <div class="gem-node"><h4>1 &middot; Lenguaje</h4><span>El vocabulario del negocio asegurador fosilizado en los sistemas: primas, siniestros, p&oacute;lizas, vigencias y condiciones t&eacute;cnicas &mdash; aprender a hablar el sistema antes de entenderlo.</span></div>
+      <div class="gem-node"><h4>2 &middot; Almas</h4><span>Los m&oacute;dulos funcionales con identidad propia: Vector, SAFAC, General Da&ntilde;os, ERN y sus dialectos operativos. Qui&eacute;n domina el conocimiento y cu&aacute;l es el bus factor real.</span></div>
+      <div class="gem-node"><h4>3 &middot; Biograf&iacute;a</h4><span>C&oacute;mo evolucion&oacute; la arquitectura: de Progress/COBOL monolit&iacute;co en Vida a la capa SaaS multicapa de Autos y Salud, y los hitos regulatorios CNSF que definieron cada etapa.</span></div>
+      <div class="gem-node"><h4>4 &middot; Intenci&oacute;n</h4><span>El prop&oacute;sito reconstruido: journeys de suscripci&oacute;n, reglas de tarificaci&oacute;n actuarial y capacidades del ETB Insurance P&amp;C cubiertas por cada sistema.</span></div>
+      <div class="gem-node"><h4>5 &middot; Fronteras</h4><span>Los bounded contexts del sistema objetivo y la decisi&oacute;n 7R por capability: qu&eacute; reemplaza Guidewire, qu&eacute; moderniza Mulesoft, qu&eacute; permanece como SoR cr&iacute;tico.</span></div>
+      <div class="gem-node"><h4>6 &middot; Siembra</h4><span>El gemelo se convierte en la especificaci&oacute;n que siembra la construcci&oacute;n AI-assisted del target y valida las equivalencias actuariales y regulatorias.</span></div>
+      <div class="gem-node"><h4>7 &middot; Equivalencia</h4><span>Golden-master y parallel-run: probar que el sistema modernizado produce las mismas p&oacute;lizas, primas, reservas IBNR y liquidaciones que el legacy.</span></div>
+      <div class="gem-node"><h4>8 &middot; Continuidad</h4><span>El gemelo persiste como documentaci&oacute;n viva y gu&iacute;a el decommission del legacy capability por capability, cumpliendo con los requisitos de reporte CNSF.</span></div>
+    </div>
+    <div class="gem-mgrid">
+      <div class="gem-mcard"><h4>Enfoque</h4><p>Reverse-engineering asistido: cada proceso se descompone en vocabulario para inferir su objetivo, confirmado contra c&oacute;digo, notas t&eacute;cnicas CNSF y documentaci&oacute;n operativa. <b>Estructura real + sem&aacute;ntica inferida.</b></p></div>
+      <div class="gem-mcard"><h4>Confiabilidad honesta</h4><p>Cada t&eacute;rmino y regla declara su nivel de evidencia (sistema confirmado &middot; por confirmar &middot; pendiente SME). Lo verificado se distingue de lo que <b>requiere validaci&oacute;n del experto</b>.</p></div>
+      <div class="gem-mcard"><h4>Contexto regulatorio</h4><p>CNSF, CONDUSEF, SAT y Banxico son marcos de referencia, no solo compliance. El brain destila qu&eacute; capacidades tienen <b>ra&iacute;z regulatoria</b> y qu&eacute; riesgo implica su modernizaci&oacute;n.</p></div>
+      <div class="gem-mcard"><h4>Objetivo</h4><p>Insumo para la decisi&oacute;n <b>7R por capability</b> y la <b>equivalencia funcional</b> hacia el target &mdash; con foco en los riesgos actuariales, de continuidad operativa y regulatorios.</p></div>
+    </div>
+  </div>
+  <p class="gem-ref">Instancia de referencia: BanCoppel SPE-AM-001 &middot; Informix IDS 14.10 &middot; IBM POWER-AIX &middot; 60 TB &middot; 11,391 stored procedures &middot; 2,128 reglas de negocio extra&iacute;das</p>
+</section>
+
+<!-- Portal cards -->
+<section class="section">
+  <div class="section-eyebrow">Portal de conocimiento</div>
+  <div class="section-title">Vistas del ecosistema</div>
+  <p class="section-sub">Cada vista materializa una dimensi&oacute;n del conocimiento del Digital Brain de AXA.</p>
+  <div class="cards">
+    <a class="card" href="cadena-de-valor.html">
+      <div class="card-tag tag-analysis">An&aacute;lisis</div>
+      <div class="card-title">Cadena de Valor</div>
+      <div class="card-desc">Mapa de capacidades ETB Insurance P&amp;C: cobertura de sistemas, gaps cr&iacute;ticos y oportunidades de modernizaci&oacute;n.</div>
+      <div class="card-arrow">Abrir &rarr;</div>
+    </a>
+  </div>
+
+  <div class="capa-group" style="margin-top:32px">
+    <div class="capa-ghead">
+      <h3>Capa 1 &middot; Lenguaje</h3>
+      <span>El idioma del negocio asegurador, destilado del c&oacute;digo fuente de un core legacy &mdash; datos anonimizados.</span>
+    </div>
+    <div class="capa-grid">
+      <a class="vcard glass" href="showcase-lenguaje.html">
+        <div class="ico">&#9881;</div>
+        <div>
+          <div class="vtag">DEMO</div>
+          <div class="vt">Reglas de Negocio</div>
+          <div class="vd">Cat&aacute;logo de reglas extra&iacute;das de stored procedures de un core legacy: l&oacute;gica de c&aacute;lculo, validaciones y umbrales, inferidos del c&oacute;digo y hechos legibles.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+      <a class="vcard glass" href="showcase-vocabulario.html">
+        <div class="ico">&#128218;</div>
+        <div>
+          <div class="vtag">DEMO</div>
+          <div class="vt">Vocabulario del Negocio</div>
+          <div class="vd">T&eacute;rminos destilados de stored procedures de un core legacy: el idioma que gobierna cada c&aacute;lculo, entidad y acci&oacute;n del negocio, extra&iacute;dos del c&oacute;digo y hechos legibles.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="capa-group" style="margin-top:32px">
+    <div class="capa-ghead">
+      <h3>Capa 2 &middot; Almas</h3>
+      <span>Las voces que construyeron el sistema: generaciones de desarrolladores, vocabulario heredado y deuda acumulada era tras era &mdash; datos anonimizados.</span>
+    </div>
+    <div class="capa-grid">
+      <a class="vcard glass" href="showcase-almas.html">
+        <div class="ico">&#128101;</div>
+        <div>
+          <div class="vtag">DEMO</div>
+          <div class="vt">Relevo Generacional y Deuda</div>
+          <div class="vd">5 eras de desarrollo &middot; &iacute;ndice de deuda compuesto &middot; vocabulario heredado vs. inventado &middot; complejidad y ambig&uuml;edad por generaci&oacute;n. Ejemplo real de un core legacy modernizado.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="capa-group" style="margin-top:32px">
+    <div class="capa-ghead">
+      <h3>Capa 3 &middot; Biograf&iacute;a</h3>
+      <span>C&oacute;mo creci&oacute; el sistema a&ntilde;o por a&ntilde;o: las vetas del &aacute;rbol &mdash; datos anonimizados.</span>
+    </div>
+    <div class="capa-grid">
+      <a class="vcard glass" href="showcase-biografia.html">
+        <div class="ico">&#127795;</div>
+        <div>
+          <div class="vtag">DEMO</div>
+          <div class="vt">Evoluci&oacute;n del Sistema</div>
+          <div class="vd">Streamgraph de crecimiento a&ntilde;o por a&ntilde;o por dominio funcional &mdash; las vetas del &aacute;rbol &mdash; con hitos de negocio, regulaci&oacute;n y tecnolog&iacute;a (2007&ndash;2025). Hover por capa e hito.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="capa-group" style="margin-top:32px">
+    <div class="capa-ghead">
+      <h3>Capa 4 &middot; Intenci&oacute;n</h3>
+      <span>El proceso AS-IS de suscripci&oacute;n: etapas, sistemas involucrados y gaps cr&iacute;ticos &mdash; datos reales AXA.</span>
+    </div>
+    <div class="capa-grid">
+      <a class="vcard glass" href="showcase-intencion.html">
+        <div class="ico">&#127919;</div>
+        <div>
+          <div class="vtag" style="background:rgba(255,23,33,.14);border-color:rgba(255,23,33,.35);color:#ff6677">DATOS REALES</div>
+          <div class="vt">Suscripci&oacute;n Daños · Swimlane AS-IS</div>
+          <div class="vd">Journey completo de suscripci&oacute;n en AXA M&eacute;xico (Property Commercial Lines): 5 fases, 57 pasos, sistemas Vector / HSD / ERN / SAFAC / General Da&ntilde;os, y 34 gaps cr&iacute;ticos documentados.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+      <a class="vcard glass" href="showcase-reglas.html">
+        <div class="ico">&#9878;</div>
+        <div>
+          <div class="vtag">DEMO</div>
+          <div class="vt">Reglas de Negocio</div>
+          <div class="vd">Reglas SBVR extra&iacute;das del c&oacute;digo fuente del core: validaciones, f&oacute;rmulas financieras y controles regulatorios, distribuidas en dominios funcionales. Filtros por dominio, categor&iacute;a y riesgo de equivalencia.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+      <a class="vcard glass" href="showcase-integraciones.html">
+        <div class="ico">&#128279;</div>
+        <div>
+          <div class="vtag">DEMO · D3 CHORD</div>
+          <div class="vt">Integraciones del Core</div>
+          <div class="vd">Diagrama chord bipartito de las integraciones del core: dominios funcionales versus sistemas externos, con intensidad de conexi&oacute;n. Visualiza qu&eacute; dominio se apoya en qu&eacute; sistema y con qu&eacute; volumen.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+      <a class="vcard glass" href="showcase-dependencias.html">
+        <div class="ico">&#128375;</div>
+        <div>
+          <div class="vtag">DEMO · D3 FORCE</div>
+          <div class="vt">Grafo de Dependencias</div>
+          <div class="vd">Dominios del core como nodos; relaciones cross-dominio como aristas ponderadas por volumen de llamadas. Color = costo de desacoplamiento. Filtro por nivel y b&uacute;squeda por dominio.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+      <a class="vcard glass" href="showcase-arquitectura.html">
+        <div class="ico">&#127759;</div>
+        <div>
+          <div class="vtag" style="background:rgba(255,23,33,.14);border-color:rgba(255,23,33,.35);color:#ff6677">DATOS REALES</div>
+          <div class="vt">Mapa de Arquitectura Tecnol&oacute;gica</div>
+          <div class="vd">Landscape completo multi-l&iacute;nea: Vida (Progress/COBOL), Salud (Visual Time), Da&ntilde;os (Vector + ERN + SAFAC), Autos (Guidewire + Audatex + Shift). Integraci&oacute;n, datos, enterprise y capa ag&eacute;ntica en piloto.</div>
+          <div class="go">Abrir la vista <span class="arr">&rarr;</span></div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- RUN / CHANGE landscape -->
+<section class="section" style="background:var(--bg2);padding-top:56px;padding-bottom:56px">
+  <div class="section-eyebrow">Landscape tecnol&oacute;gico</div>
+  <div class="section-title">Run &amp; Change</div>
+  <p class="section-sub">Los sistemas que operan hoy (Run) y las iniciativas que transforman el negocio (Change).</p>
+  <div class="two-col">
+    <!-- CHANGE -->
+    <div class="ch-col">
+      <div class="col-header">
+        <div class="col-dot ch-dot"></div>
+        <div class="col-title">Change &mdash; Transformaci&oacute;n</div>
+      </div>
+      <div class="sys-list">
+        <div class="sys-item">
+          <div><div class="sys-name">Digital Core</div><div class="sys-sub">Modernizaci&oacute;n del core de negocio</div></div>
+          <div class="sys-status status-change">En curso</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">Portal Agentes</div><div class="sys-sub">Canal digital de distribuci&oacute;n</div></div>
+          <div class="sys-status status-change">En dise&ntilde;o</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">IFRS 17</div><div class="sys-sub">Reporting financiero regulatorio</div></div>
+          <div class="sys-status status-change">En curso</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">Open Insurance</div><div class="sys-sub">Arquitectura API First</div></div>
+          <div class="sys-status status-change">Planeaci&oacute;n</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">Data Intelligence</div><div class="sys-sub">Datos avanzados e IA</div></div>
+          <div class="sys-status status-change">En curso</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">Solvency C</div><div class="sys-sub">Capital regulatorio CNSF</div></div>
+          <div class="sys-status status-change">Planeaci&oacute;n</div>
+        </div>
+      </div>
+    </div>
+    <!-- RUN -->
+    <div class="rn-col">
+      <div class="col-header">
+        <div class="col-dot rn-dot"></div>
+        <div class="col-title">Run &mdash; Operaci&oacute;n</div>
+      </div>
+      <div class="sys-list">
+        <div class="sys-item">
+          <div><div class="sys-name">Vector</div><div class="sys-sub">Workflow de suscripci&oacute;n</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">General Da&ntilde;os</div><div class="sys-sub">Gesti&oacute;n de p&oacute;lizas</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">SAFAC</div><div class="sys-sub">Reaseguro facultativo</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">SINCO</div><div class="sys-sub">CRM de clientes</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">ERN</div><div class="sys-sub">Modelaci&oacute;n actuarial</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">Power BI</div><div class="sys-sub">Analytics y reportes</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+        <div class="sys-item">
+          <div><div class="sys-name">Monitor</div><div class="sys-sub">Reporting CNSF</div></div>
+          <div class="sys-status status-run">Activo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <span>AXA Seguros S.A. de C.V. &mdash; P&amp;C Commercial Lines &mdash; Digital Brain v1.0.0</span>
+  <span>ETB Insurance P&amp;C v3.0 &middot; Sep 2026</span>
+</footer>
+
+</body>
+</html>"""
+
+OUT.parent.mkdir(parents=True, exist_ok=True)
+OUT.write_text(HTML, encoding="utf-8")
+print(f"Written: {OUT}  ({OUT.stat().st_size:,} bytes)")
+if LOGO_SRC.exists():
+    print(f"Logo copied: {LOGO_DST}")
+else:
+    print(f"WARNING: logo not found at {LOGO_SRC}")

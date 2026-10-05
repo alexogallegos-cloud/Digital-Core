@@ -1,0 +1,741 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>S500 · P320 → Java · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #C1272D;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · S500 P320</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Reporteador</div>
+  <h1><span class="cw">S500 · P320</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">Por cada registro de B20 suma las devoluciones de los dos meses guardados y, si el total es mayor a 2, toma los datos del contrato en B03 y los promedios de saldo en B06 para escribir un archivo intermedio de 90 bytes con nodo, sucursal, contrato, medio de acceso, devoluciones y promedios mensual y anual. Ordena ese archivo por nodo, sucursal, contrato y medio, e imprime el listado 001DEVOLBIM con cortes por sucursal y por nodo, generando un listado vacío para los nodos del CSI que no tuvieron casos. Después recorre B12 y, para cada contrato con comisiones acumuladas, imprime en 002COMIPEND las comisiones de manejo de cuenta, renta, cheques girados, cheques devueltos, otras y el total.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="S500_P315.html">← S500 · P315</a><a href="../cobol-java.html">Inventario</a><a href="S500_P330.html">S500 · P330 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">S500 · P320 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">1,330 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Paso batch de S500 que recorre S500B20DEVMENSUAL para listar, por nodo de impresión y sucursal promotora, los contratos con más de dos cheques devueltos en el bimestre, y recorre S500B12COMPEN para listar las comisiones pendientes sin IVA.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#bd93f9">Reporteador</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">5 de 5 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch · JasperReports</div></div>
+  </div>
+  <div class="sec-hdr">1 · Selección de contratos con devoluciones</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P320.txt</span><span class="fname">SD S02-SORTDEVMES · 50003100-DAME-B20DEV · 50003250-ESCRIBE-ARCHIVO</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Registro intermedio de 90 bytes a record · L58–76"> <span class="num">01</span>  <span class="var">WKS-S02-R01-DETALLE</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-NODO</span>              <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-SUC-PROM</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-CONTRATO</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-MEDIOACC</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-DEVMES-ACT</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-DEVMES-ANT</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-DEVMES-TOT</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-PROM-MES</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)<span class="var">V99</span>    <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-PROM-ANH</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)<span class="var">V99</span>    <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-PRDINSTMON</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">RD-WKS-S02-R01-PRDINSTMON</span>
+        <span class="kw">REDEFINES</span>  <span class="var">WKS-S02-R01-PRDINSTMON</span>.
+        <span class="num">04</span> <span class="var">WKS-S02-R01-PRODUCTO</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+        <span class="num">04</span> <span class="var">WKS-S02-R01-INSTRUMENTO</span>    <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+        <span class="num">04</span> <span class="var">WKS-S02-R01-MONEDA</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-INDPRD</span>            <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>)       <span class="kw">COMP</span>.
+     <span class="num">02</span> <span class="var">WKS-S02-R01-NOMBRE</span>            <span class="kw">PIC</span> X(<span class="num">36</span>).
+     <span class="num">02</span> <span class="kw">FILLER</span>                        <span class="kw">PIC</span> X(<span class="num">12</span>).</span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Umbral de más de 2 devoluciones en la ventana de dos meses · L905–936"> <span class="num">50003100</span>-<span class="var">DAME-B20DEV</span>.
+     <span class="kw">PERFORM</span> <span class="num">90000020</span>-<span class="var">B20SXCTOMA-FINDN</span>.
+     <span class="kw">IF</span> <span class="var">WS-STATUS-BASE</span> &gt; <span class="num">0</span>
+        <span class="kw">IF</span> <span class="var">WS-DB-NOTFOUND</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>                     <span class="kw">TO</span> <span class="var">W77-EOF-BASE</span>
+                                         <span class="var">W77-SW-NOHAY</span>
+        <span class="kw">ELSE</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+           <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+           <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>.
+     <span class="kw">IF</span> <span class="var">W77-EOF-BASE</span> = <span class="num">0</span>
+        <span class="kw">ADD</span> <span class="num">1</span>  <span class="kw">TO</span> <span class="var">W77-NUM-LEIDOS</span>
+        <span class="kw">COMPUTE</span> <span class="var">WKS-I01-R01-DEVMES-TOT</span> = <span class="var">B20-DEV-MES-ANT</span>
+                                       + <span class="var">B20-DEV-MESANTANT</span>
+        <span class="kw">IF</span> <span class="var">WKS-I01-R01-DEVMES-TOT</span> &gt; <span class="num">2</span>
+           <span class="kw">MOVE</span> <span class="kw">ZERO</span>   <span class="kw">TO</span> <span class="var">W77-SW-NOHAY</span>
+           <span class="kw">IF</span> <span class="var">B20-NUM-CONTRATO</span> = <span class="num">0</span>
+              <span class="kw">MOVE</span> <span class="num">1</span>   <span class="kw">TO</span> <span class="var">W77-SW-NOHAY</span>
+           <span class="kw">ELSE</span>
+           <span class="kw">IF</span> <span class="var">B20-NUM-CONTRATO</span> = <span class="var">B03-NUM-CONTRATO</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+           <span class="kw">ELSE</span>
+              <span class="kw">MOVE</span> <span class="var">B20-NUM-CONTRATO</span> <span class="kw">TO</span> <span class="var">WS-NUM-CONTRATO</span>
+              <span class="kw">PERFORM</span> <span class="num">550003150</span>-<span class="var">DAME-B03CTO</span>
+              <span class="kw">IF</span> <span class="var">W77-SW-NOHAY</span> = <span class="num">0</span>
+                 <span class="kw">PERFORM</span> <span class="num">50003180</span>-<span class="var">DAME-HISTORICO</span>
+              <span class="kw">ELSE</span>
+                 <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>   <span class="kw">TO</span> <span class="var">W77-SW-NOHAY</span>.</span>
+<span class="seg" data-cid="s3" data-jid="j3" title="Promedios de saldo mensual y anual desde B06 · L960–1020"> <span class="num">50003250</span>-<span class="var">ESCRIBE-ARCHIVO</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-SUC-PROMOTORA</span>      <span class="kw">TO</span> <span class="var">WKS-I01-R01-SUC-PROM</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-CONTRATO</span>       <span class="kw">TO</span> <span class="var">WKS-I01-R01-CONTRATO</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-PRODUCTO</span>       <span class="kw">TO</span> <span class="var">WKS-I01-R01-PRODUCTO</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-INSTRUM</span>        <span class="kw">TO</span> <span class="var">WKS-I01-R01-INSTRUMENTO</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-MONEDA</span>             <span class="kw">TO</span> <span class="var">WKS-I01-R01-MONEDA</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NOMBRE</span>             <span class="kw">TO</span> <span class="var">WKS-I01-R01-NOMBRE</span>.
+     <span class="var">INSPECT</span> <span class="var">WKS-I01-R01-NOMBRE</span> <span class="kw">REPLACING</span> <span class="kw">ALL</span> <span class="str">&quot;/&quot;</span> <span class="kw">BY</span> <span class="str">&quot; &quot;</span>.
+     <span class="var">INSPECT</span> <span class="var">WKS-I01-R01-NOMBRE</span> <span class="kw">REPLACING</span> <span class="kw">ALL</span> <span class="str">&quot;,&quot;</span> <span class="kw">BY</span> <span class="str">&quot; &quot;</span>.
+     <span class="kw">MOVE</span> <span class="var">B20-MEDIO-ACCESO</span>       <span class="kw">TO</span> <span class="var">WKS-I01-R01-MEDIOACC</span>.
+     <span class="kw">MOVE</span> <span class="var">B20-DEV-MES-ANT</span>        <span class="kw">TO</span> <span class="var">WKS-I01-R01-DEVMES-ACT</span>.
+     <span class="kw">MOVE</span> <span class="var">B20-DEV-MESANTANT</span>      <span class="kw">TO</span> <span class="var">WKS-I01-R01-DEVMES-ANT</span>.
+     <span class="kw">MOVE</span> <span class="var">B06-PROM-CICLO</span>(<span class="num">12</span>)     <span class="kw">TO</span> <span class="var">WKS-I01-R01-PROM-MES</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                   <span class="kw">TO</span> <span class="var">W77-IND-MES</span>
+                                    <span class="var">WKS-ACUM-PROM</span>
+                                    <span class="var">WKS-NUM-MES</span>.
+     <span class="kw">PERFORM</span> <span class="num">50003260</span>-<span class="var">SUMA-PROM-ANUAL</span> <span class="num">12</span> <span class="kw">TIMES</span>.
+     <span class="kw">IF</span> <span class="var">WKS-NUM-MES</span> &gt; <span class="num">0</span>
+        <span class="kw">COMPUTE</span> <span class="var">WKS-I01-R01-PROM-ANH</span> = <span class="var">WKS-ACUM-PROM</span>
+                                     / <span class="var">WKS-NUM-MES</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span>  <span class="kw">TO</span> <span class="var">WKS-I01-R01-PROM-ANH</span>.
+<span class="cmt">      *&gt; ⋯ 22 líneas omitidas</span>
+ <span class="num">50003260</span>-<span class="var">SUMA-PROM-ANUAL</span>.
+     <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-IND-MES</span>.
+     <span class="kw">IF</span> <span class="var">B06-PROM-CICLO</span>(<span class="var">W77-IND-MES</span>) &gt; <span class="num">0</span>
+        <span class="kw">ADD</span> <span class="var">B06-PROM-CICLO</span>(<span class="var">W77-IND-MES</span>)  <span class="kw">TO</span> <span class="var">WKS-ACUM-PROM</span>
+        <span class="kw">ADD</span> <span class="num">1</span>                            <span class="kw">TO</span> <span class="var">WKS-NUM-MES</span>.</span>
+<span class="seg" data-cid="s4" data-jid="j4" title="Nodo de impresión por CSI y escritura del intermedio · L988–1013">     <span class="kw">IF</span> <span class="var">WKS-I01-R01-SUC-PROM</span>  <span class="kw">NOT</span>  = <span class="var">WKS-S080-NUMSUC</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-SUC-PROM</span> <span class="kw">TO</span> <span class="var">WKS-S080-NUMSUC</span>
+        <span class="kw">PERFORM</span> <span class="num">42000080</span>-<span class="var">DATOS-S080</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-S080-NODO-IMP</span>            <span class="kw">TO</span> <span class="var">WKS-I01-R01-NODO</span>.
+     <span class="kw">IF</span> <span class="var">W77-MY-CSI</span> = <span class="num">4</span>
+        <span class="kw">IF</span> <span class="var">WKS-I01-R01-NODO</span> = <span class="num">01</span> <span class="kw">OR</span> <span class="num">04</span> <span class="kw">OR</span> <span class="num">06</span> <span class="kw">OR</span> <span class="num">07</span> <span class="kw">OR</span> <span class="num">61</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">MOVE</span> <span class="num">04</span>                 <span class="kw">TO</span> <span class="var">WKS-I01-R01-NODO</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WKS-I01-R01-NODO</span> = <span class="num">09</span> <span class="kw">OR</span> <span class="num">10</span>
+        <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">10</span>                 <span class="kw">TO</span> <span class="var">WKS-I01-R01-NODO</span>.
+     <span class="kw">MOVE</span> <span class="num">00</span> <span class="kw">TO</span> <span class="var">WKS-I01-R01-INDPRD</span>.
+     <span class="kw">WRITE</span> <span class="var">I01-R00-DEVMENSUAL</span>  <span class="kw">FROM</span> <span class="var">WKS-I01-R01-DETALLE</span>
+           <span class="kw">INVALID</span> <span class="kw">KEY</span>
+           <span class="kw">MOVE</span> <span class="str">&quot;ERR WRITE DEVMENSUAL&quot;</span> <span class="kw">TO</span> <span class="var">WS-0101-TEXT-MSG</span>
+           <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+           <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>.
+     <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-TOT-ESCRITOS</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ContratoDevoluciones.java · DevolucionesProcessor.java · P320Properties.java</span><span class="fname">record · ItemProcessor · JpaCursorItemReader</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** WKS-S02-R01-DETALLE: un renglón del listado 001DEVOLBIM antes de ordenar. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">ContratoDevoluciones</span>(
+        <span class="kw">int</span> nodo,                    <span class="cmt">// 9(02) COMP: nodo de impresión calculado con S080</span>
+        <span class="kw">int</span> sucursalPromotora,       <span class="cmt">// 9(04) COMP</span>
+        <span class="type">String</span> contrato,             <span class="cmt">// 9(12) COMP: String para conservar ceros</span>
+        <span class="type">String</span> medioAcceso,          <span class="cmt">// 9(12) COMP</span>
+        <span class="kw">int</span> devMesActual,            <span class="cmt">// B20-DEV-MES-ANT</span>
+        <span class="kw">int</span> devMesAnterior,          <span class="cmt">// B20-DEV-MESANTANT</span>
+        <span class="kw">int</span> devTotal,                <span class="cmt">// suma de ambos</span>
+        <span class="type">BigDecimal</span> promedioMes,      <span class="cmt">// 9(12)V99 COMP -&gt; escala 2</span>
+        <span class="type">BigDecimal</span> promedioAnual,    <span class="cmt">// 9(12)V99 COMP</span>
+        <span class="kw">int</span> producto, <span class="kw">int</span> instrumento, <span class="kw">int</span> moneda,   <span class="cmt">// REDEFINES de PRDINSTMON</span>
+        <span class="kw">int</span> indProducto,             <span class="cmt">// siempre 00 en P320</span>
+        <span class="type">String</span> nombre) {}            <span class="cmt">// X(36), sin &quot;/&quot; ni &quot;,&quot;</span></span>
+<span class="seg java-seg" data-jid="j2"># application.yml
+p320:
+  umbral-devoluciones: <span class="num">2</span>          # se reporta con más de <span class="num">2</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>
+<span class="ann">@StepScope</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">DevolucionesProcessor</span> <span class="kw">implements</span> <span class="type">ItemProcessor</span>&lt;<span class="type">B20DevMensual</span>, <span class="type">ContratoDevoluciones</span>&gt; {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P320Properties</span> props;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ContratoRepository</span> b03;        <span class="cmt">// S500B03CONTRATOS</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">HistoricoRepository</span> b06;       <span class="cmt">// S500B06HISTORICO</span>
+    <span class="kw">private</span> <span class="type">Contrato</span> ultimo;                     <span class="cmt">// B03 se reutiliza si el contrato se repite</span>
+    <span class="kw">private</span> <span class="type">Historico</span> ultimoHist;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">ContratoDevoluciones</span> process(<span class="type">B20DevMensual</span> b20) {
+        <span class="kw">int</span> total = b20.devMesAnt() + b20.devMesAntAnt();          <span class="cmt">// COMPUTE ... DEVMES-TOT</span>
+        <span class="kw">if</span> (total &lt;= props.umbralDevoluciones() || b20.contrato().equals(<span class="str">&quot;000000000000&quot;</span>)) {
+            <span class="kw">return</span> <span class="kw">null</span>;                                           <span class="cmt">// W77-SW-NOHAY = 1</span>
+        }
+        <span class="kw">if</span> (ultimo == <span class="kw">null</span> || !ultimo.numero().equals(b20.contrato())) {
+            <span class="type">Optional</span>&lt;<span class="type">Contrato</span>&gt; c = b03.findById(b20.contrato());
+            <span class="kw">if</span> (c.isEmpty()) <span class="kw">return</span> <span class="kw">null</span>;                          <span class="cmt">// contrato inexistente: se omite</span>
+            ultimo = c.get();
+            ultimoHist = b06.findById(b20.contrato())
+                    .orElseThrow(() -&gt; <span class="kw">new</span> <span class="type">ProcesoAbortadoException</span>(
+                            <span class="str">&quot;ERR FIND B06SXCTO &quot;</span> + b20.contrato()));   <span class="cmt">// CALL SYSTEM DMTERMINATE</span>
+        }
+        <span class="kw">return</span> armaRenglon(b20, ultimo, ultimoHist, total);
+    }
+}</span>
+<span class="seg java-seg" data-jid="j3"><span class="cmt">/** 50003250-ESCRIBE-ARCHIVO y 50003260-SUMA-PROM-ANUAL. */</span>
+<span class="kw">private</span> <span class="type">ContratoDevoluciones</span> armaRenglon(<span class="type">B20DevMensual</span> b20, <span class="type">Contrato</span> c, <span class="type">Historico</span> h, <span class="kw">int</span> total) {
+    <span class="type">BigDecimal</span> promedioMes = h.promedioCiclo(<span class="num">12</span>);                 <span class="cmt">// B06-PROM-CICLO(12)</span>
+
+    <span class="cmt">// Promedio anual: solo cuentan los meses con promedio mayor a cero.</span>
+    <span class="type">List</span>&lt;<span class="type">BigDecimal</span>&gt; conSaldo = <span class="type">IntStream</span>.rangeClosed(<span class="num">1</span>, <span class="num">12</span>)
+            .mapToObj(h::promedioCiclo)
+            .filter(p -&gt; p.signum() &gt; <span class="num">0</span>)
+            .toList();
+    <span class="type">BigDecimal</span> promedioAnual = conSaldo.isEmpty()
+            ? <span class="type">BigDecimal</span>.ZERO.setScale(<span class="num">2</span>)
+            : conSaldo.stream().reduce(<span class="type">BigDecimal</span>.ZERO, <span class="type">BigDecimal</span>::add)
+                      .divide(<span class="type">BigDecimal</span>.valueOf(conSaldo.size()), <span class="num">2</span>, <span class="type">RoundingMode</span>.DOWN);  <span class="cmt">// COMPUTE sin ROUNDED</span>
+
+    <span class="type">String</span> nombre = c.nombre().replace(<span class="str">&#x27;/&#x27;</span>, <span class="str">&#x27; &#x27;</span>).replace(<span class="str">&#x27;,&#x27;</span>, <span class="str">&#x27; &#x27;</span>);
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">ContratoDevoluciones</span>(<span class="num">0</span>, c.sucursalPromotora(), c.numero(), b20.medioAcceso(),
+            b20.devMesAnt(), b20.devMesAntAnt(), total, promedioMes, promedioAnual,
+            c.producto(), c.instrumento(), c.moneda(), <span class="num">0</span>, nombre);   <span class="cmt">// el nodo se calcula después</span>
+}</span>
+<span class="seg java-seg" data-jid="j4"># application.yml
+p320:
+  nodos:
+    <span class="str">&quot;4&quot;</span>:  { validos: [<span class="num">1</span>, <span class="num">4</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">61</span>], omision: <span class="num">4</span> }
+    <span class="str">&quot;10&quot;</span>: { validos: [<span class="num">9</span>, <span class="num">10</span>],          omision: <span class="num">10</span> }
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">NodoImpresionProcessor</span> <span class="kw">implements</span> <span class="type">ItemProcessor</span>&lt;<span class="type">ContratoDevoluciones</span>, <span class="type">ContratoDevoluciones</span>&gt; {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SucursalesClient</span> s080;                 <span class="cmt">// 42000080-DATOS-S080</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P320Properties</span> props;
+    <span class="ann">@Value</span>(<span class="str">&quot;#{jobParameters[&#x27;csi&#x27;]}&quot;</span>) <span class="kw">private</span> <span class="kw">int</span> csi;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">ContratoDevoluciones</span> process(<span class="type">ContratoDevoluciones</span> r) {
+        <span class="kw">int</span> nodo = s080.nodoImpresion(r.sucursalPromotora());
+        <span class="kw">var</span> cfg = props.nodos().get(csi);
+        <span class="kw">return</span> r.conNodo(cfg.validos().contains(nodo) ? nodo : cfg.omision());
+    }
+}
+<span class="cmt">// Writer: JdbcBatchItemWriter a la tabla de trabajo p320_devoluciones (reemplaza S500/FILE/DEVOLBIM).</span></span></pre></div>
+</div>
+<div class="sec-hdr">2 · Ordenamiento y listado 001DEVOLBIM por nodo y sucursal</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P320.txt</span><span class="fname">50004000-SORT-DEVMES · 50005100-ARMA-REPORTE · 50009000-ABRE-REP-01 · 70006000-ARMA-REPVACIOS</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s5" data-jid="j5" title="SORT por nodo, sucursal, contrato y medio · L1023–1036"> <span class="num">50004000</span>-<span class="var">SORT-DEVMES</span>.
+     <span class="kw">MOVE</span> <span class="num">2</span>                 <span class="kw">TO</span> <span class="var">W77-STATUS-PASO</span>.
+     <span class="kw">ADD</span>                    <span class="num">10</span>  <span class="kw">TO</span> <span class="var">W77-TOT-ESCRITOS</span>.
+     <span class="kw">COMPUTE</span> <span class="var">W77-TOT-DSKSIZE</span> = <span class="var">W77-TOT-ESCRITOS</span>  * <span class="num">15</span> * <span class="num">2.5</span>.
+     <span class="kw">COMPUTE</span> <span class="var">W77-TOT-MEMSIZE</span> = (<span class="num">18</span> * <span class="num">2000</span>) + <span class="num">1500</span>.
+     <span class="kw">SORT</span> <span class="var">S02-SORTDEVMES</span> <span class="kw">ON</span> <span class="kw">ASCENDING</span> <span class="kw">KEY</span> <span class="var">WKS-S02-R01-NODO</span>
+                                          <span class="var">WKS-S02-R01-SUC-PROM</span>
+                                          <span class="var">WKS-S02-R01-INDPRD</span>
+                                          <span class="var">WKS-S02-R01-CONTRATO</span>
+                                          <span class="var">WKS-S02-R01-MEDIOACC</span>
+          <span class="kw">USING</span>  <span class="var">I01-DEVMENSUAL</span>
+          <span class="kw">GIVING</span> <span class="var">I01-DEVMENSUAL</span>
+          <span class="var">MEMORY</span> <span class="kw">SIZE</span> <span class="var">W77-TOT-MEMSIZE</span> <span class="var">WORDS</span>
+          <span class="var">DISK</span>   <span class="kw">SIZE</span> <span class="var">W77-TOT-DSKSIZE</span> <span class="var">WORDS</span>.</span>
+<span class="seg" data-cid="s6" data-jid="j6" title="Cortes por nodo y sucursal con totales de contratos y devoluciones · L1051–1092"> <span class="num">50005100</span>-<span class="var">ARMA-REPORTE</span>.
+     <span class="kw">IF</span> <span class="var">W77-NODO-ANT</span> = <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-NODO</span>      <span class="kw">TO</span> <span class="var">W77-NODO-ANT</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-SUC-PROM</span>  <span class="kw">TO</span> <span class="var">W77-SUC-ANT</span>
+        <span class="kw">PERFORM</span> <span class="num">50008500</span>-<span class="var">NOMBRE-SUC</span>
+        <span class="kw">PERFORM</span> <span class="num">50009000</span>-<span class="var">ABRE-REP-01</span>.
+     <span class="kw">IF</span> <span class="var">WKS-I01-R01-NODO</span> <span class="kw">NOT</span> = <span class="var">W77-NODO-ANT</span>
+        <span class="kw">PERFORM</span> <span class="num">50008300</span>-<span class="var">CORTE-SUC</span> <span class="kw">THRU</span> <span class="num">50008400</span>-<span class="var">CORTE-NODO</span>
+        <span class="kw">PERFORM</span> <span class="num">50009300</span>-<span class="var">CIERRA-REP-01</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-NODO</span>      <span class="kw">TO</span> <span class="var">W77-NODO-ANT</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-SUC-PROM</span>  <span class="kw">TO</span> <span class="var">W77-SUC-ANT</span>
+        <span class="kw">PERFORM</span> <span class="num">50008500</span>-<span class="var">NOMBRE-SUC</span>
+        <span class="kw">PERFORM</span> <span class="num">50009000</span>-<span class="var">ABRE-REP-01</span>.
+     <span class="kw">IF</span> <span class="var">WKS-I01-R01-SUC-PROM</span>  <span class="kw">NOT</span> = <span class="var">W77-SUC-ANT</span>
+        <span class="kw">PERFORM</span> <span class="num">50008300</span>-<span class="var">CORTE-SUC</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-SUC-PROM</span>   <span class="kw">TO</span> <span class="var">W77-SUC-ANT</span>
+        <span class="kw">PERFORM</span> <span class="num">50008500</span>-<span class="var">NOMBRE-SUC</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-CONTRATO</span>       <span class="kw">TO</span> <span class="var">WLI-R01-L08-CONTRATO</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-MDASUC</span>         <span class="kw">TO</span> <span class="var">WLI-R01-L08-MDASUC</span>.
+     <span class="kw">MOVE</span> <span class="str">&quot;/&quot;</span>                        <span class="kw">TO</span> <span class="var">WLI-R01-L08-MDAFIL</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-MDACTA</span>         <span class="kw">TO</span> <span class="var">WLI-R01-L08-MDACTA</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-NOMBRE</span>         <span class="kw">TO</span> <span class="var">WLI-R01-L08-NOMBRE</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-DEVMES-TOT</span>     <span class="kw">TO</span> <span class="var">WLI-R01-L08-NUMDEV</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-PROM-MES</span>       <span class="kw">TO</span> <span class="var">WLI-R01-L08-PROM-MES</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-PROM-ANH</span>       <span class="kw">TO</span> <span class="var">WLI-R01-L08-PROM-ANH</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-PRODUCTO</span>      <span class="kw">TO</span> <span class="var">WLI-STR-PROD</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-INSTRUMENTO</span>   <span class="kw">TO</span> <span class="var">WLI-STR-INST</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-I01-R01-MONEDA</span>        <span class="kw">TO</span> <span class="var">WLI-STR-MONE</span>.
+     <span class="kw">MOVE</span> <span class="var">WLI-STRING-PROD</span>           <span class="kw">TO</span> <span class="var">WLI-R01-L08-PRODUCTO</span>.
+     <span class="kw">ADD</span> <span class="num">1</span>                      <span class="kw">TO</span> <span class="var">WKS-TOTS-NUM-CTOS</span>
+                                   <span class="var">WKS-TOTC-NUM-CTOS</span>.
+     <span class="kw">ADD</span> <span class="var">WKS-I01-R01-DEVMES-TOT</span> <span class="kw">TO</span> <span class="var">WKS-TOTS-NUM-DEV</span>
+                                   <span class="var">WKS-TOTC-NUM-DEV</span>.
+     <span class="kw">PERFORM</span> <span class="num">60005000</span>-<span class="var">ESC-REP-01</span>.</span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Nombre de respaldo del reporte y listados vacíos por nodo · L1136–1323"> <span class="num">50009000</span>-<span class="var">ABRE-REP-01</span>.
+     <span class="kw">SET</span> <span class="var">R01-DEVOLBIM</span>   (<span class="var">USERBACKUPNAME</span>) <span class="kw">TO</span> <span class="kw">VALUE</span> <span class="kw">TRUE</span>.
+     <span class="kw">MOVE</span> <span class="var">W77-NODO-ANT</span>                   <span class="kw">TO</span> <span class="var">WKS-TIT-R00-NODO</span>.
+     <span class="kw">MOVE</span> <span class="str">&quot;001DEVOLBIM&quot;</span>                  <span class="kw">TO</span> <span class="var">WKS-TIT-R00-NOM-REP</span>.
+     <span class="kw">SET</span> <span class="var">R01-DEVOLBIM</span>     (<span class="var">TITLE</span>)        <span class="kw">TO</span> <span class="var">WKS-NAME-REPORTE</span>.
+     <span class="kw">OPEN</span> <span class="kw">OUTPUT</span> <span class="var">R01-DEVOLBIM</span>.
+     <span class="kw">IF</span> <span class="var">W77-NODO-ANT</span> = <span class="var">W77-MY-CSI</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>         <span class="kw">TO</span> <span class="var">WKS-GEN-REP1</span>(<span class="num">1</span>)
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">W77-NODO-ANT</span> = <span class="num">07</span> <span class="kw">OR</span> <span class="num">09</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>         <span class="kw">TO</span> <span class="var">WKS-GEN-REP1</span>(<span class="num">2</span>)
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">W77-NODO-ANT</span> = <span class="num">06</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>         <span class="kw">TO</span> <span class="var">WKS-GEN-REP1</span>(<span class="num">3</span>)
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">W77-NODO-ANT</span> = <span class="num">61</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>         <span class="kw">TO</span> <span class="var">WKS-GEN-REP1</span>(<span class="num">4</span>)
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">W77-NODO-ANT</span> = <span class="num">01</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>         <span class="kw">TO</span> <span class="var">WKS-GEN-REP1</span>(<span class="num">5</span>).
+<span class="cmt">      *&gt; ⋯ 132 líneas omitidas</span>
+ <span class="num">70006000</span>-<span class="var">ARMA-REPVACIOS</span>.
+     <span class="kw">ADD</span> <span class="num">1</span>    <span class="kw">TO</span> <span class="var">W77-IND-REP</span>.
+     <span class="kw">IF</span> <span class="var">W77-MY-CSI</span> = <span class="num">10</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-QNODO-VDM</span>(<span class="var">W77-IND-REP</span>)  <span class="kw">TO</span> <span class="var">W77-NODO-ANT</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-QNODO-MTY</span>(<span class="var">W77-IND-REP</span>)  <span class="kw">TO</span> <span class="var">W77-NODO-ANT</span>.
+     <span class="kw">IF</span> <span class="var">WKS-GEN-REP1</span>(<span class="var">W77-IND-REP</span>) = <span class="num">0</span>
+        <span class="kw">PERFORM</span> <span class="num">50009000</span>-<span class="var">ABRE-REP-01</span>
+        <span class="kw">PERFORM</span> <span class="num">50008400</span>-<span class="var">CORTE-NODO</span>
+        <span class="kw">PERFORM</span> <span class="num">50009300</span>-<span class="var">CIERRA-REP-01</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ListadoDevolucionesStep.java · devolbim.jrxml · ReporteNodoWriter.java</span><span class="fname">JdbcCursorItemReader ORDER BY · JasperReports grupos · ClassifierCompositeItemWriter</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j5"><span class="cmt">/** 50004000-SORT-DEVMES: el SORT se vuelve un ORDER BY sobre la tabla de trabajo. */</span>
+<span class="ann">@Bean</span>
+<span class="type">JdbcCursorItemReader</span>&lt;<span class="type">ContratoDevoluciones</span>&gt; devolucionesOrdenadas(<span class="type">DataSource</span> ds) {
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">JdbcCursorItemReaderBuilder</span>&lt;<span class="type">ContratoDevoluciones</span>&gt;()
+            .name(<span class="str">&quot;devolucionesOrdenadas&quot;</span>)
+            .dataSource(ds)
+            .sql(<span class="str">&quot;&quot;</span><span class="str">&quot;</span>
+                 SELECT * FROM p320_devoluciones
+                  ORDER BY nodo, sucursal_promotora, ind_producto, contrato, medio_acceso
+                 <span class="str">&quot;&quot;</span><span class="str">&quot;</span>)                       // misma llave que la SD; DISK y MEMORY SIZE ya no aplican
+            .rowMapper(<span class="kw">new</span> <span class="type">DataClassRowMapper</span>&lt;&gt;(<span class="type">ContratoDevoluciones</span>.<span class="kw">class</span>))
+            .build();
+}</span>
+<span class="seg java-seg" data-jid="j6">&lt;!-- devolbim.jrxml: un archivo por nodo; grupos por sucursal promotora --&gt;
+&lt;group name=<span class="str">&quot;sucursal&quot;</span>&gt;
+  &lt;groupExpression&gt;&lt;![CDATA[$F{sucursalPromotora}]]&gt;&lt;/groupExpression&gt;
+  &lt;groupHeader&gt;  &lt;!-- <span class="num">60005100</span>-ENCA-REP-01: sucursal y nombre corto de S080 --&gt; &lt;/groupHeader&gt;
+  &lt;groupFooter&gt;  &lt;!-- <span class="num">50008300</span>-CORTE-SUC: <span class="str">&quot;CLIENTES CON DEVOLUCIONES&quot;</span> --&gt;
+    &lt;textField&gt;&lt;textFieldExpression&gt;&lt;![CDATA[$V{contratosSuc}]]&gt;&lt;/textFieldExpression&gt;&lt;/textField&gt;
+    &lt;textField&gt;&lt;textFieldExpression&gt;&lt;![CDATA[$V{devolucionesSuc}]]&gt;&lt;/textFieldExpression&gt;&lt;/textField&gt;
+  &lt;/groupFooter&gt;
+&lt;/group&gt;
+&lt;variable name=<span class="str">&quot;contratosSuc&quot;</span>    <span class="kw">class</span>=<span class="str">&quot;java.lang.Integer&quot;</span> resetType=<span class="str">&quot;Group&quot;</span> resetGroup=<span class="str">&quot;sucursal&quot;</span> calculation=<span class="str">&quot;Count&quot;</span>&gt;
+  &lt;variableExpression&gt;&lt;![CDATA[$F{contrato}]]&gt;&lt;/variableExpression&gt;&lt;/variable&gt;
+&lt;variable name=<span class="str">&quot;devolucionesSuc&quot;</span> <span class="kw">class</span>=<span class="str">&quot;java.lang.Integer&quot;</span> resetType=<span class="str">&quot;Group&quot;</span> resetGroup=<span class="str">&quot;sucursal&quot;</span> calculation=<span class="str">&quot;Sum&quot;</span>&gt;
+  &lt;variableExpression&gt;&lt;![CDATA[$F{devTotal}]]&gt;&lt;/variableExpression&gt;&lt;/variable&gt;
+&lt;!-- <span class="type">Totales</span> de nodo (WKS-TOTC-*) en el summary, con sucursal <span class="num">9999</span> y <span class="str">&quot;TOTAL NODO nn&quot;</span> --&gt;
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Bean</span>
+<span class="type">ClassifierCompositeItemWriter</span>&lt;<span class="type">ContratoDevoluciones</span>&gt; listadoPorNodo(<span class="type">ReporteNodoFactory</span> f) {
+    <span class="kw">var</span> w = <span class="kw">new</span> <span class="type">ClassifierCompositeItemWriter</span>&lt;<span class="type">ContratoDevoluciones</span>&gt;();
+    w.setClassifier(r -&gt; f.writerPara(r.nodo()));   <span class="cmt">// un 001DEVOLBIM por nodo (50009000-ABRE-REP-01)</span>
+    <span class="kw">return</span> w;
+}</span>
+<span class="seg java-seg" data-jid="j7"># application.yml
+p320:
+  reportes:
+    devoluciones: <span class="str">&quot;001DEVOLBIM&quot;</span>
+    comisiones:   <span class="str">&quot;002COMIPEND&quot;</span>
+  nodos-reporte:                       # orden de WKS-GEN-REP1 (<span class="num">1</span>..<span class="num">5</span>)
+    <span class="str">&quot;4&quot;</span>:  [<span class="num">4</span>, <span class="num">7</span>, <span class="num">6</span>, <span class="num">61</span>, <span class="num">1</span>]             # WKS-NODOS-MTY <span class="str">&quot;0407066101&quot;</span>
+    <span class="str">&quot;10&quot;</span>: [<span class="num">10</span>, <span class="num">9</span>]                      # WKS-NODOS-VDM <span class="str">&quot;1009000000&quot;</span>: el fuente agrega tres <span class="num">00</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">ReporteNodoFactory</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ReportStorage</span> almacen;                 <span class="cmt">// reemplaza USERBACKUPNAME / TITLE</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Set</span>&lt;<span class="type">Integer</span>&gt; generados = <span class="kw">new</span> <span class="type">HashSet</span>&lt;&gt;();
+
+    <span class="type">ItemWriter</span>&lt;<span class="type">ContratoDevoluciones</span>&gt; writerPara(<span class="kw">int</span> nodo) {
+        generados.add(nodo);
+        <span class="kw">return</span> almacen.writer(nombre(nodo));
+    }
+
+<span class="cmt">    /** 70000000-FIN-PROGRAMA: cada nodo del CSI sin casos recibe un listado vacío con su cierre. */</span>
+    <span class="kw">void</span> generaVacios(<span class="kw">int</span> csi) {
+        props.nodosReporte().get(csi).stream()
+             .filter(n -&gt; !generados.contains(n))
+             .forEach(n -&gt; almacen.vacio(nombre(n), <span class="str">&quot;TOTAL NODO &quot;</span> + n));
+    }
+
+    <span class="kw">private</span> <span class="type">String</span> nombre(<span class="kw">int</span> nodo) {
+        <span class="kw">return</span> <span class="str">&quot;%02d/%s&quot;</span>.formatted(nodo, props.reportes().devoluciones());   <span class="cmt">// WKS-TIT-R00-NODO + NOM-REP</span>
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Comisiones pendientes sin IVA — 002COMIPEND</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P320.txt</span><span class="fname">60010000-GENERA-COMIPEND · 60011030-BUSCA-COMIPEN · 60012020-ARMA-REP-02</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s8" data-jid="j8" title="Clasificación de las 99 comisiones acumuladas de B12 · L1209–1243"> <span class="num">60011000</span>-<span class="var">LEE-B12COM</span>.
+     <span class="kw">PERFORM</span> <span class="num">90000012</span>-<span class="var">B12COMPEN-FINDN</span>.
+     <span class="kw">IF</span> <span class="var">WS-STATUS-BASE</span> &gt; <span class="num">0</span>
+        <span class="kw">IF</span> <span class="var">WS-STATUS-BASE</span> = <span class="num">1</span>
+           <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-EOF-B12</span>
+        <span class="kw">ELSE</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+          <span class="kw">STRING</span> <span class="str">&quot;ERR FINDN B12COMPEN STA=&quot;</span>, <span class="var">WS-STATUS-BASE</span>
+                  <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">WS-0101-TEXT-MSG</span>
+          <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+          <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>.
+     <span class="kw">IF</span> <span class="var">W77-EOF-B12</span> = <span class="num">0</span>
+        <span class="kw">PERFORM</span> <span class="num">60011010</span>-<span class="var">VAL-COMIPEN</span>
+        <span class="kw">IF</span> <span class="var">W77-TOTCOM-CTO</span> &gt; <span class="num">0</span>
+           <span class="kw">PERFORM</span> <span class="num">60012000</span>-<span class="var">GEN-REPCOMI</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">60011010</span>-<span class="var">VAL-COMIPEN</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-IND-C</span> <span class="var">W77-SW-NOHAY</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-TOTCOM-CTO</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-OTRCOM-CTO</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-CHQDEV-CTO</span>.
+     <span class="kw">PERFORM</span> <span class="num">60011030</span>-<span class="var">BUSCA-COMIPEN</span>  <span class="num">99</span> <span class="kw">TIMES</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">60011030</span>-<span class="var">BUSCA-COMIPEN</span>.
+     <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-IND-C</span>.
+     <span class="kw">IF</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="var">W77-IND-C</span>) &gt; <span class="num">0</span>
+        <span class="kw">ADD</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="var">W77-IND-C</span>) <span class="kw">TO</span> <span class="var">W77-TOTCOM-CTO</span>
+        <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">W88-IND-COM-ID</span>
+           <span class="kw">ADD</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="var">W77-IND-C</span>) <span class="kw">TO</span> <span class="var">W77-OTRCOM-CTO</span>
+        <span class="kw">ELSE</span>
+        <span class="kw">IF</span> <span class="var">W88-IND-CHQDEV</span>
+           <span class="kw">ADD</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="var">W77-IND-C</span>) <span class="kw">TO</span> <span class="var">W77-CHQDEV-CTO</span>.</span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Renglón del listado con datos de B03 y encabezado fijo · L1246–1289"> <span class="num">60012000</span>-<span class="var">GEN-REPCOMI</span>.
+     <span class="kw">MOVE</span> <span class="var">B12-NUM-CONTRATO</span> <span class="kw">TO</span> <span class="var">WS-NUM-CONTRATO</span>.
+     <span class="kw">PERFORM</span> <span class="num">550003150</span>-<span class="var">DAME-B03CTO</span>.
+     <span class="kw">IF</span> <span class="var">W77-SW-NOHAY</span> = <span class="num">0</span>
+        <span class="kw">PERFORM</span> <span class="num">60012020</span>-<span class="var">ARMA-REP-02</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">60012020</span>-<span class="var">ARMA-REP-02</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-SUC-PROMOTORA</span>             <span class="kw">TO</span> <span class="var">WLI-R02-L08-NSUC</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-PRODUCTO</span>              <span class="kw">TO</span> <span class="var">WLI-R02-L08-PROD</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-INSTRUM</span>               <span class="kw">TO</span> <span class="var">WLI-R02-L08-INST</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-MONEDA</span>                    <span class="kw">TO</span> <span class="var">WLI-R02-L08-MONE</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-CLIENTE</span>               <span class="kw">TO</span> <span class="var">WLI-R02-L08-CLTE</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-NUM-CONTRATO</span>              <span class="kw">TO</span> <span class="var">WLI-R02-L08-CTO</span>.
+     <span class="kw">MOVE</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="num">05</span>)         <span class="kw">TO</span> <span class="var">WLI-R02-L08-MANCTA</span>.
+     <span class="kw">MOVE</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="num">50</span>)         <span class="kw">TO</span> <span class="var">WLI-R02-L08-RENTA</span>.
+     <span class="kw">MOVE</span> <span class="var">B12-IMP-ACUMULADO</span>(<span class="num">02</span>)         <span class="kw">TO</span> <span class="var">WLI-R02-L08-CHQGIR</span>.
+     <span class="kw">MOVE</span> <span class="var">W77-CHQDEV-CTO</span>                <span class="kw">TO</span> <span class="var">WLI-R02-L08-CHQDEV</span>.
+     <span class="kw">MOVE</span> <span class="var">W77-OTRCOM-CTO</span>                <span class="kw">TO</span> <span class="var">WLI-R02-L08-OTRCOM</span>.
+     <span class="kw">MOVE</span> <span class="var">W77-TOTCOM-CTO</span>                <span class="kw">TO</span> <span class="var">WLI-R02-L08-TOTCOM</span>.
+     <span class="kw">MOVE</span> <span class="var">B03-MESES-SINMOV</span>              <span class="kw">TO</span> <span class="var">WLI-R02-L08-MESSM</span>.
+     <span class="kw">PERFORM</span> <span class="num">60012100</span>-<span class="var">ESC-REP-02</span>.
+<span class="cmt">      *&gt; ⋯ 8 líneas omitidas</span>
+ <span class="num">60012120</span>-<span class="var">ENCA-REP-02</span>.
+     <span class="kw">ADD</span>  <span class="num">1</span>                        <span class="kw">TO</span> <span class="var">W77-PAG-R02</span>.
+     <span class="kw">MOVE</span> <span class="var">W77-PAG-R02</span>              <span class="kw">TO</span> <span class="var">WLI-R00-L03-NPAG</span>.
+     <span class="kw">MOVE</span> <span class="str">&quot;002COMIPEND&quot;</span>            <span class="kw">TO</span> <span class="var">WLI-R00-L01-NAME</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-TITULO-R02</span>           <span class="kw">TO</span> <span class="var">WLI-R00-L02-TITULO</span>.
+     <span class="kw">MOVE</span> <span class="var">WKS-SUBTIT-R02</span>           <span class="kw">TO</span> <span class="var">WLI-R00-L03-SBTIT</span>.
+     <span class="kw">MOVE</span> <span class="num">3006</span>                     <span class="kw">TO</span> <span class="var">WLI-R00-L04-SUC</span>.
+     <span class="kw">MOVE</span> <span class="str">&quot;PRODUCTOS DE CAPTACION&quot;</span> <span class="kw">TO</span> <span class="var">WLI-R00-L05-NBSUC</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ComisionesPendientesStep.java · ComisionesContrato.java · comipend.jrxml</span><span class="fname">JpaCursorItemReader · ItemProcessor · JasperReports</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j8"># application.yml
+p320:
+  comisiones:
+    identificadas: [<span class="num">2</span>, <span class="num">5</span>, <span class="num">16</span>, <span class="num">22</span>, <span class="num">50</span>]       # W88-IND-COM-ID
+    cheque-devuelto: [<span class="num">16</span>, <span class="num">22</span>]              # W88-IND-CHQDEV
+    manejo-cuenta: <span class="num">5</span>
+    renta: <span class="num">50</span>
+    cheques-girados: <span class="num">2</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="cmt">/** 60011010-VAL-COMIPEN: B12 trae 99 importes acumulados por tipo de comisión. */</span>
+<span class="kw">static</span> <span class="type">ComisionesContrato</span> clasifica(<span class="type">B12Compen</span> b12, <span class="type">P320Properties</span>.<span class="type">Comisiones</span> cfg) {
+    <span class="type">BigDecimal</span> total = ZERO2, otras = ZERO2, chqDev = ZERO2;
+    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= <span class="num">99</span>; i++) {
+        <span class="type">BigDecimal</span> imp = b12.acumulado(i);
+        <span class="kw">if</span> (imp.signum() &lt;= <span class="num">0</span>) <span class="kw">continue</span>;
+        total = total.add(imp);
+        <span class="kw">if</span> (!cfg.identificadas().contains(i))      otras  = otras.add(imp);
+        <span class="kw">else</span> <span class="kw">if</span> (cfg.chequeDevuelto().contains(i)) chqDev = chqDev.add(imp);
+    }
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">ComisionesContrato</span>(b12.contrato(),
+            b12.acumulado(cfg.manejoCuenta()), b12.acumulado(cfg.renta()),
+            b12.acumulado(cfg.chequesGirados()), chqDev, otras, total);
+}</span>
+<span class="seg java-seg" data-jid="j9"><span class="ann">@Bean</span>
+<span class="type">Step</span> comisionesPendientes(<span class="type">JobRepository</span> repo, <span class="type">PlatformTransactionManager</span> tx,
+                          <span class="type">JpaCursorItemReader</span>&lt;<span class="type">B12Compen</span>&gt; b12, <span class="type">ContratoRepository</span> b03,
+                          <span class="type">JasperItemWriter</span>&lt;<span class="type">RenglonComipend</span>&gt; comipend, <span class="type">P320Properties</span> props) {
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">StepBuilder</span>(<span class="str">&quot;comisionesPendientes&quot;</span>, repo)
+            .&lt;<span class="type">B12Compen</span>, <span class="type">RenglonComipend</span>&gt;chunk(<span class="num">500</span>, tx)
+            .reader(b12)                                               <span class="cmt">// SET S500B12COMPEN TO BEGINNING</span>
+            .processor(r -&gt; {
+                <span class="type">ComisionesContrato</span> c = clasifica(r, props.comisiones());
+                <span class="kw">if</span> (c.total().signum() &lt;= <span class="num">0</span>) <span class="kw">return</span> <span class="kw">null</span>;              <span class="cmt">// W77-TOTCOM-CTO &gt; 0</span>
+                <span class="kw">return</span> b03.findById(r.contrato())                      <span class="cmt">// sin B03: se omite</span>
+                          .map(ct -&gt; <span class="type">RenglonComipend</span>.de(ct, c))        <span class="cmt">// incluye B03-MESES-SINMOV</span>
+                          .orElse(<span class="kw">null</span>);
+            })
+            .writer(comipend)          <span class="cmt">// título &quot;COMISIONES PENDIENTES SIN IVA&quot;, sucursal 3006 fija</span>
+            .build();
+}</span></pre></div>
+</div>
+  <div class="sec-hdr">Reglas de negocio trazadas</div><table class="rules-table"><thead><tr><th>ID regla</th><th>Descripción (brain)</th><th>Segmento</th></tr></thead><tbody><tr><td>RN-S500-426</td><td>P320 identifica a los clientes que acumulan más de 2 devoluciones de cheque en el bimestre. Superar este umbral es la condición para reportar al cliente en el listado bimestral de devoluciones, insumo del tratamiento por manejo inadecuado de cuenta de cheques (cancelación de chequera, reporte a buró).</td><td>Umbral de más de 2 devoluciones en la ventana de dos meses</td></tr><tr><td>RN-S500-427</td><td>El total de devoluciones del bimestre se obtiene sumando las devoluciones del mes actual y las del mes anterior almacenadas en la estructura B20. Esta ventana móvil de dos meses es la que define el conteo contra el umbral de 2 devoluciones.</td><td>Umbral de más de 2 devoluciones en la ventana de dos meses</td></tr><tr><td>RN-S500-428</td><td>El reporte de clientes con más de 2 devoluciones se genera segmentado por sucursal promotora y por nodo de impresión, ordenando la entrada (SORTDEVMES) por nodo, sucursal y contrato. Así cada sucursal/nodo recibe su corte con totales propios.</td><td>Registro intermedio de 90 bytes a record · Nodo de impresión por CSI y escritura del intermedio · SORT por nodo, sucursal, contrato y medio · Cortes por nodo y sucursal con totales de contratos y devoluciones</td></tr><tr><td>RN-S500-429</td><td>Además del listado de devoluciones, P320 genera el reporte de comisiones pendientes expresadas sin IVA (COMIPEND), acumulando el importe de comisión por devolución de cheque desde la estructura B12. El reporte separa explícitamente la base de comisión del impuesto, dejando el IVA para su cálculo posterior.</td><td>Clasificación de las 99 comisiones acumuladas de B12 · Renglón del listado con datos de B03 y encabezado fijo</td></tr><tr><td>RN-S500-430</td><td>Los reportes de P320 se materializan como backups nombrados por usuario (USERBACKUPNAME) con título estándar, permitiendo su archivado y recuperación por nombre en el entorno ClearPath MCP. El reporte de devoluciones se identifica como 001DEVOLBIM y el de comisiones pendientes como 002COMIPEND.</td><td>Nombre de respaldo del reporte y listados vacíos por nodo · Renglón del listado con datos de B03 y encabezado fijo</td></tr></tbody></table>
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Ventana de meses rotulada como actual</b><p>El total del bimestre suma B20-DEV-MES-ANT y B20-DEV-MESANTANT (líneas 919-920) y los escribe como mes actual y anterior. RN-S500-427 habla de mes actual y anterior; la semántica depende de cuándo se ejecuta el paso respecto al cierre de mes.</p></div><div class="risk"><b>Conteo de clientes por renglón</b><p>WKS-TOTS-NUM-CTOS suma uno por renglón (contrato y medio de acceso), así que los totales de clientes con devoluciones se sobrestiman si un contrato tiene varios medios.</p></div><div class="risk"><b>Promedio anual sin meses en cero y truncado</b><p>El promedio anual excluye los meses con promedio cero y se trunca a dos decimales porque el COMPUTE no usa ROUNDED (líneas 983-984).</p></div><div class="risk"><b>Listados vacíos para un nodo 00</b><p>En el CSI 10 la tabla WKS-NODOS-VDM tiene tres posiciones en 00 (línea 286) y 70006000-ARMA-REPVACIOS abre para ellas listados 001DEVOLBIM vacíos de un nodo que no existe.</p></div><div class="risk"><b>Desbordamiento del total de comisiones</b><p>W77-TOTCOM-CTO es PIC 9(08)V99 sin ON SIZE ERROR; la suma de 99 posiciones puede truncar los dígitos altos.</p></div><div class="risk"><b>Hardcodes</b><p>Umbral de 2 devoluciones, listas de nodos por CSI, posiciones de comisión 2, 5, 16, 22 y 50, sucursal 3006 del encabezado y nombres 001DEVOLBIM y 002COMIPEND. Se trasladan a application.yml.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Confirmar con SME qué meses representan B20-DEV-MES-ANT y B20-DEV-MESANTANT en el momento en que corre P320 y ajustar la redacción de RN-S500-427 si corresponde.</li><li>Confirmar que la posición 12 de B06-PROM-CICLO es el mes más reciente.</li><li>RN-S500-429 menciona que el IVA se calcula después; el fuente carga la librería S080IVA (línea 666) pero no se encontró su uso en el listado. Validar dónde se aplica el impuesto.</li><li>Confirmar si el total de clientes con devoluciones debe contar contratos y no renglones por medio de acceso.</li></ul>
+  <div class="pn"><a href="S500_P315.html">← S500 · P315</a><a href="../cobol-java.html">Inventario</a><a href="S500_P330.html">S500 · P330 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · Banamex · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Registro intermedio de 90 bytes a record", "cobol": " 01  WKS-S02-R01-DETALLE.\n     02 WKS-S02-R01-NODO              PIC 9(02)       COMP.\n     02 WKS-S02-R01-SUC-PROM          PIC 9(04)       COMP.\n     02 WKS-S02-R01-CONTRATO          PIC 9(12)       COMP.\n     02 WKS-S02-R01-MEDIOACC          PIC 9(12)       COMP.\n     02 WKS-S02-R01-DEVMES-ACT        PIC 9(04)       COMP.\n     02 WKS-S02-R01-DEVMES-ANT        PIC 9(04)       COMP.\n     02 WKS-S02-R01-DEVMES-TOT        PIC 9(04)       COMP.\n     02 WKS-S02-R01-PROM-MES          PIC 9(12)V99    COMP.\n     02 WKS-S02-R01-PROM-ANH          PIC 9(12)V99    COMP.\n     02 WKS-S02-R01-PRDINSTMON        PIC 9(12)       COMP.\n     02 RD-WKS-S02-R01-PRDINSTMON\n        REDEFINES  WKS-S02-R01-PRDINSTMON.\n        04 WKS-S02-R01-PRODUCTO       PIC 9(04)       COMP.\n        04 WKS-S02-R01-INSTRUMENTO    PIC 9(04)       COMP.\n        04 WKS-S02-R01-MONEDA         PIC 9(04)       COMP.\n     02 WKS-S02-R01-INDPRD            PIC 9(02)       COMP.\n     02 WKS-S02-R01-NOMBRE            PIC X(36).\n     02 FILLER                        PIC X(12).", "java": "/** WKS-S02-R01-DETALLE: un renglón del listado 001DEVOLBIM antes de ordenar. */\npublic record ContratoDevoluciones(\n        int nodo,                    // 9(02) COMP: nodo de impresión calculado con S080\n        int sucursalPromotora,       // 9(04) COMP\n        String contrato,             // 9(12) COMP: String para conservar ceros\n        String medioAcceso,          // 9(12) COMP\n        int devMesActual,            // B20-DEV-MES-ANT\n        int devMesAnterior,          // B20-DEV-MESANTANT\n        int devTotal,                // suma de ambos\n        BigDecimal promedioMes,      // 9(12)V99 COMP -> escala 2\n        BigDecimal promedioAnual,    // 9(12)V99 COMP\n        int producto, int instrumento, int moneda,   // REDEFINES de PRDINSTMON\n        int indProducto,             // siempre 00 en P320\n        String nombre) {}            // X(36), sin \"/\" ni \",\"", "rationale": "La SD del ordenamiento define el renglón intermedio con campos <code>COMP</code> (decimal empacado) y un <code>REDEFINES</code> que parte un número de 12 dígitos en producto, instrumento y moneda. En Java es un <code>record</code> con campos tipados: los promedios <code>PIC 9(12)V99</code> son <code>BigDecimal</code> de escala 2 y contrato y medio se conservan como <code>String</code>. El indicador de producto forma parte de la llave de ordenamiento pero P320 siempre lo deja en cero.", "risk": "", "rules": ["RN-S500-428"], "lines": "L58–76", "verified": true, "score": 100}, "s2": {"title": "Umbral de más de 2 devoluciones en la ventana de dos meses", "cobol": " 50003100-DAME-B20DEV.\n     PERFORM 90000020-B20SXCTOMA-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-DB-NOTFOUND\n           MOVE 1                     TO W77-EOF-BASE\n                                         W77-SW-NOHAY\n        ELSE\n      *> ⋯ 2 líneas omitidas\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF W77-EOF-BASE = 0\n        ADD 1  TO W77-NUM-LEIDOS\n        COMPUTE WKS-I01-R01-DEVMES-TOT = B20-DEV-MES-ANT\n                                       + B20-DEV-MESANTANT\n        IF WKS-I01-R01-DEVMES-TOT > 2\n           MOVE ZERO   TO W77-SW-NOHAY\n           IF B20-NUM-CONTRATO = 0\n              MOVE 1   TO W77-SW-NOHAY\n           ELSE\n           IF B20-NUM-CONTRATO = B03-NUM-CONTRATO\n              NEXT SENTENCE\n           ELSE\n              MOVE B20-NUM-CONTRATO TO WS-NUM-CONTRATO\n              PERFORM 550003150-DAME-B03CTO\n              IF W77-SW-NOHAY = 0\n                 PERFORM 50003180-DAME-HISTORICO\n              ELSE\n                 NEXT SENTENCE\n        ELSE\n           MOVE 1   TO W77-SW-NOHAY.", "java": "# application.yml\np320:\n  umbral-devoluciones: 2          # se reporta con más de 2\n\n// ---------------------------------------------------------------------------\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass DevolucionesProcessor implements ItemProcessor<B20DevMensual, ContratoDevoluciones> {\n\n    private final P320Properties props;\n    private final ContratoRepository b03;        // S500B03CONTRATOS\n    private final HistoricoRepository b06;       // S500B06HISTORICO\n    private Contrato ultimo;                     // B03 se reutiliza si el contrato se repite\n    private Historico ultimoHist;\n\n    @Override\n    public ContratoDevoluciones process(B20DevMensual b20) {\n        int total = b20.devMesAnt() + b20.devMesAntAnt();          // COMPUTE ... DEVMES-TOT\n        if (total <= props.umbralDevoluciones() || b20.contrato().equals(\"000000000000\")) {\n            return null;                                           // W77-SW-NOHAY = 1\n        }\n        if (ultimo == null || !ultimo.numero().equals(b20.contrato())) {\n            Optional<Contrato> c = b03.findById(b20.contrato());\n            if (c.isEmpty()) return null;                          // contrato inexistente: se omite\n            ultimo = c.get();\n            ultimoHist = b06.findById(b20.contrato())\n                    .orElseThrow(() -> new ProcesoAbortadoException(\n                            \"ERR FIND B06SXCTO \" + b20.contrato()));   // CALL SYSTEM DMTERMINATE\n        }\n        return armaRenglon(b20, ultimo, ultimoHist, total);\n    }\n}", "rationale": "El total del bimestre es la suma de los dos contadores de devoluciones guardados en B20, y el contrato se reporta solo si ese total es mayor a 2. Un contrato con varios medios de acceso aparece varias veces seguidas en B20; el programa reutiliza los datos de B03 y B06 ya leídos cuando el contrato se repite, lo que en Java se conserva como caché del procesador con <code>@StepScope</code>. Un contrato inexistente en B03 se omite en silencio, pero la falta de histórico en B06 aborta el proceso; esa asimetría se mantiene.", "risk": "La ventana suma B20-DEV-MES-ANT y B20-DEV-MESANTANT, es decir el mes anterior y el previo a ese, no el mes en curso; el programa los rotula como mes actual y anterior al escribirlos (líneas 972-973).", "rules": ["RN-S500-426", "RN-S500-427"], "lines": "L905–936", "verified": true, "score": 100}, "s3": {"title": "Promedios de saldo mensual y anual desde B06", "cobol": " 50003250-ESCRIBE-ARCHIVO.\n     MOVE B03-SUC-PROMOTORA      TO WKS-I01-R01-SUC-PROM.\n     MOVE B03-NUM-CONTRATO       TO WKS-I01-R01-CONTRATO.\n     MOVE B03-NUM-PRODUCTO       TO WKS-I01-R01-PRODUCTO.\n     MOVE B03-NUM-INSTRUM        TO WKS-I01-R01-INSTRUMENTO.\n     MOVE B03-MONEDA             TO WKS-I01-R01-MONEDA.\n     MOVE B03-NOMBRE             TO WKS-I01-R01-NOMBRE.\n     INSPECT WKS-I01-R01-NOMBRE REPLACING ALL \"/\" BY \" \".\n     INSPECT WKS-I01-R01-NOMBRE REPLACING ALL \",\" BY \" \".\n     MOVE B20-MEDIO-ACCESO       TO WKS-I01-R01-MEDIOACC.\n     MOVE B20-DEV-MES-ANT        TO WKS-I01-R01-DEVMES-ACT.\n     MOVE B20-DEV-MESANTANT      TO WKS-I01-R01-DEVMES-ANT.\n     MOVE B06-PROM-CICLO(12)     TO WKS-I01-R01-PROM-MES.\n     MOVE ZERO                   TO W77-IND-MES\n                                    WKS-ACUM-PROM\n                                    WKS-NUM-MES.\n     PERFORM 50003260-SUMA-PROM-ANUAL 12 TIMES.\n     IF WKS-NUM-MES > 0\n        COMPUTE WKS-I01-R01-PROM-ANH = WKS-ACUM-PROM\n                                     / WKS-NUM-MES\n     ELSE\n        MOVE ZERO  TO WKS-I01-R01-PROM-ANH.\n      *> ⋯ 22 líneas omitidas\n 50003260-SUMA-PROM-ANUAL.\n     ADD 1 TO W77-IND-MES.\n     IF B06-PROM-CICLO(W77-IND-MES) > 0\n        ADD B06-PROM-CICLO(W77-IND-MES)  TO WKS-ACUM-PROM\n        ADD 1                            TO WKS-NUM-MES.", "java": "/** 50003250-ESCRIBE-ARCHIVO y 50003260-SUMA-PROM-ANUAL. */\nprivate ContratoDevoluciones armaRenglon(B20DevMensual b20, Contrato c, Historico h, int total) {\n    BigDecimal promedioMes = h.promedioCiclo(12);                 // B06-PROM-CICLO(12)\n\n    // Promedio anual: solo cuentan los meses con promedio mayor a cero.\n    List<BigDecimal> conSaldo = IntStream.rangeClosed(1, 12)\n            .mapToObj(h::promedioCiclo)\n            .filter(p -> p.signum() > 0)\n            .toList();\n    BigDecimal promedioAnual = conSaldo.isEmpty()\n            ? BigDecimal.ZERO.setScale(2)\n            : conSaldo.stream().reduce(BigDecimal.ZERO, BigDecimal::add)\n                      .divide(BigDecimal.valueOf(conSaldo.size()), 2, RoundingMode.DOWN);  // COMPUTE sin ROUNDED\n\n    String nombre = c.nombre().replace('/', ' ').replace(',', ' ');\n    return new ContratoDevoluciones(0, c.sucursalPromotora(), c.numero(), b20.medioAcceso(),\n            b20.devMesAnt(), b20.devMesAntAnt(), total, promedioMes, promedioAnual,\n            c.producto(), c.instrumento(), c.moneda(), 0, nombre);   // el nodo se calcula después\n}", "rationale": "El promedio mensual es la posición 12 de la tabla de promedios por ciclo de B06, y el anual es el promedio de las doce posiciones excluyendo los meses con promedio cero. La división no usa <code>ROUNDED</code>, así que COBOL trunca a dos decimales; en Java se usa <code>RoundingMode.DOWN</code> con escala 2. El nombre se limpia de diagonales y comas, probablemente para no romper el formato del listado.", "risk": "Excluir los meses en cero sobreestima el promedio anual de cuentas con meses sin saldo; se debe confirmar si es el criterio de negocio.", "rules": [], "lines": "L960–1020", "verified": true, "score": 100}, "s4": {"title": "Nodo de impresión por CSI y escritura del intermedio", "cobol": "     IF WKS-I01-R01-SUC-PROM  NOT  = WKS-S080-NUMSUC\n        MOVE WKS-I01-R01-SUC-PROM TO WKS-S080-NUMSUC\n        PERFORM 42000080-DATOS-S080.\n     MOVE WKS-S080-NODO-IMP            TO WKS-I01-R01-NODO.\n     IF W77-MY-CSI = 4\n        IF WKS-I01-R01-NODO = 01 OR 04 OR 06 OR 07 OR 61\n           NEXT SENTENCE\n        ELSE\n           MOVE 04                 TO WKS-I01-R01-NODO\n     ELSE\n     IF WKS-I01-R01-NODO = 09 OR 10\n        NEXT SENTENCE\n     ELSE\n        MOVE 10                 TO WKS-I01-R01-NODO.\n     MOVE 00 TO WKS-I01-R01-INDPRD.\n     WRITE I01-R00-DEVMENSUAL  FROM WKS-I01-R01-DETALLE\n           INVALID KEY\n           MOVE \"ERR WRITE DEVMENSUAL\" TO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     ADD 1 TO W77-TOT-ESCRITOS.", "java": "# application.yml\np320:\n  nodos:\n    \"4\":  { validos: [1, 4, 6, 7, 61], omision: 4 }\n    \"10\": { validos: [9, 10],          omision: 10 }\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass NodoImpresionProcessor implements ItemProcessor<ContratoDevoluciones, ContratoDevoluciones> {\n    private final SucursalesClient s080;                 // 42000080-DATOS-S080\n    private final P320Properties props;\n    @Value(\"#{jobParameters['csi']}\") private int csi;\n\n    @Override\n    public ContratoDevoluciones process(ContratoDevoluciones r) {\n        int nodo = s080.nodoImpresion(r.sucursalPromotora());\n        var cfg = props.nodos().get(csi);\n        return r.conNodo(cfg.validos().contains(nodo) ? nodo : cfg.omision());\n    }\n}\n// Writer: JdbcBatchItemWriter a la tabla de trabajo p320_devoluciones (reemplaza S500/FILE/DEVOLBIM).", "rationale": "El nodo de impresión sale de S080 a partir de la sucursal promotora y, si no pertenece al CSI que corre, se reasigna al nodo principal (04 en Monterrey, 10 en Valle de México). A diferencia de P195, aquí no se cambia la sucursal, solo el nodo. Las listas de nodos están compiladas y pasan a configuración. El archivo intermedio se sustituye por una tabla de trabajo que después se lee ordenada.", "risk": "", "rules": ["RN-S500-428"], "lines": "L988–1013", "verified": true, "score": 100}, "s5": {"title": "SORT por nodo, sucursal, contrato y medio", "cobol": " 50004000-SORT-DEVMES.\n     MOVE 2                 TO W77-STATUS-PASO.\n     ADD                    10  TO W77-TOT-ESCRITOS.\n     COMPUTE W77-TOT-DSKSIZE = W77-TOT-ESCRITOS  * 15 * 2.5.\n     COMPUTE W77-TOT-MEMSIZE = (18 * 2000) + 1500.\n     SORT S02-SORTDEVMES ON ASCENDING KEY WKS-S02-R01-NODO\n                                          WKS-S02-R01-SUC-PROM\n                                          WKS-S02-R01-INDPRD\n                                          WKS-S02-R01-CONTRATO\n                                          WKS-S02-R01-MEDIOACC\n          USING  I01-DEVMENSUAL\n          GIVING I01-DEVMENSUAL\n          MEMORY SIZE W77-TOT-MEMSIZE WORDS\n          DISK   SIZE W77-TOT-DSKSIZE WORDS.", "java": "/** 50004000-SORT-DEVMES: el SORT se vuelve un ORDER BY sobre la tabla de trabajo. */\n@Bean\nJdbcCursorItemReader<ContratoDevoluciones> devolucionesOrdenadas(DataSource ds) {\n    return new JdbcCursorItemReaderBuilder<ContratoDevoluciones>()\n            .name(\"devolucionesOrdenadas\")\n            .dataSource(ds)\n            .sql(\"\"\"\n                 SELECT * FROM p320_devoluciones\n                  ORDER BY nodo, sucursal_promotora, ind_producto, contrato, medio_acceso\n                 \"\"\")                       // misma llave que la SD; DISK y MEMORY SIZE ya no aplican\n            .rowMapper(new DataClassRowMapper<>(ContratoDevoluciones.class))\n            .build();\n}", "rationale": "El programa ordena el intermedio por nodo, sucursal promotora, indicador de producto, contrato y medio de acceso, dimensionando el disco con los registros escritos más 10 por 15 y por 2.5, y la memoria con un valor fijo. Con la tabla de trabajo, el ordenamiento es un <code>ORDER BY</code> con la misma llave y el dimensionamiento lo resuelve la base de datos. El listado solo se genera si hubo al menos un contrato escrito; si no, el intermedio se purga.", "risk": "", "rules": ["RN-S500-428"], "lines": "L1023–1036", "verified": true, "score": 100}, "s6": {"title": "Cortes por nodo y sucursal con totales de contratos y devoluciones", "cobol": " 50005100-ARMA-REPORTE.\n     IF W77-NODO-ANT = 0\n        MOVE WKS-I01-R01-NODO      TO W77-NODO-ANT\n        MOVE WKS-I01-R01-SUC-PROM  TO W77-SUC-ANT\n        PERFORM 50008500-NOMBRE-SUC\n        PERFORM 50009000-ABRE-REP-01.\n     IF WKS-I01-R01-NODO NOT = W77-NODO-ANT\n        PERFORM 50008300-CORTE-SUC THRU 50008400-CORTE-NODO\n        PERFORM 50009300-CIERRA-REP-01\n        MOVE WKS-I01-R01-NODO      TO W77-NODO-ANT\n        MOVE WKS-I01-R01-SUC-PROM  TO W77-SUC-ANT\n        PERFORM 50008500-NOMBRE-SUC\n        PERFORM 50009000-ABRE-REP-01.\n     IF WKS-I01-R01-SUC-PROM  NOT = W77-SUC-ANT\n        PERFORM 50008300-CORTE-SUC\n        MOVE WKS-I01-R01-SUC-PROM   TO W77-SUC-ANT\n        PERFORM 50008500-NOMBRE-SUC.\n     MOVE WKS-I01-R01-CONTRATO       TO WLI-R01-L08-CONTRATO\n     MOVE WKS-I01-R01-MDASUC         TO WLI-R01-L08-MDASUC.\n     MOVE \"/\"                        TO WLI-R01-L08-MDAFIL.\n     MOVE WKS-I01-R01-MDACTA         TO WLI-R01-L08-MDACTA.\n     MOVE WKS-I01-R01-NOMBRE         TO WLI-R01-L08-NOMBRE.\n     MOVE WKS-I01-R01-DEVMES-TOT     TO WLI-R01-L08-NUMDEV.\n     MOVE WKS-I01-R01-PROM-MES       TO WLI-R01-L08-PROM-MES.\n     MOVE WKS-I01-R01-PROM-ANH       TO WLI-R01-L08-PROM-ANH.\n     MOVE WKS-I01-R01-PRODUCTO      TO WLI-STR-PROD.\n     MOVE WKS-I01-R01-INSTRUMENTO   TO WLI-STR-INST.\n     MOVE WKS-I01-R01-MONEDA        TO WLI-STR-MONE.\n     MOVE WLI-STRING-PROD           TO WLI-R01-L08-PRODUCTO.\n     ADD 1                      TO WKS-TOTS-NUM-CTOS\n                                   WKS-TOTC-NUM-CTOS.\n     ADD WKS-I01-R01-DEVMES-TOT TO WKS-TOTS-NUM-DEV\n                                   WKS-TOTC-NUM-DEV.\n     PERFORM 60005000-ESC-REP-01.", "java": "<!-- devolbim.jrxml: un archivo por nodo; grupos por sucursal promotora -->\n<group name=\"sucursal\">\n  <groupExpression><![CDATA[$F{sucursalPromotora}]]></groupExpression>\n  <groupHeader>  <!-- 60005100-ENCA-REP-01: sucursal y nombre corto de S080 --> </groupHeader>\n  <groupFooter>  <!-- 50008300-CORTE-SUC: \"CLIENTES CON DEVOLUCIONES\" -->\n    <textField><textFieldExpression><![CDATA[$V{contratosSuc}]]></textFieldExpression></textField>\n    <textField><textFieldExpression><![CDATA[$V{devolucionesSuc}]]></textFieldExpression></textField>\n  </groupFooter>\n</group>\n<variable name=\"contratosSuc\"    class=\"java.lang.Integer\" resetType=\"Group\" resetGroup=\"sucursal\" calculation=\"Count\">\n  <variableExpression><![CDATA[$F{contrato}]]></variableExpression></variable>\n<variable name=\"devolucionesSuc\" class=\"java.lang.Integer\" resetType=\"Group\" resetGroup=\"sucursal\" calculation=\"Sum\">\n  <variableExpression><![CDATA[$F{devTotal}]]></variableExpression></variable>\n<!-- Totales de nodo (WKS-TOTC-*) en el summary, con sucursal 9999 y \"TOTAL NODO nn\" -->\n\n// ---------------------------------------------------------------------------\n@Bean\nClassifierCompositeItemWriter<ContratoDevoluciones> listadoPorNodo(ReporteNodoFactory f) {\n    var w = new ClassifierCompositeItemWriter<ContratoDevoluciones>();\n    w.setClassifier(r -> f.writerPara(r.nodo()));   // un 001DEVOLBIM por nodo (50009000-ABRE-REP-01)\n    return w;\n}", "rationale": "Al cambiar de nodo se cierra el listado del nodo anterior con sus totales y se abre uno nuevo; al cambiar de sucursal se imprime el total de contratos y devoluciones de la sucursal. Cada renglón muestra contrato, sucursal y cuenta del medio, nombre, devoluciones del bimestre y promedios. En Java el listado es un <code>jrxml</code> con un grupo por sucursal y un archivo por nodo, que se reparte con un <code>ClassifierCompositeItemWriter</code>. El conteo de contratos cuenta renglones, igual que el fuente, por lo que un contrato con dos medios suma dos.", "risk": "WKS-TOTS-NUM-CTOS suma un renglón por medio de acceso, no por contrato: el total de clientes con devoluciones se sobrestima cuando un contrato tiene varios medios.", "rules": ["RN-S500-428"], "lines": "L1051–1092", "verified": true, "score": 100}, "s7": {"title": "Nombre de respaldo del reporte y listados vacíos por nodo", "cobol": " 50009000-ABRE-REP-01.\n     SET R01-DEVOLBIM   (USERBACKUPNAME) TO VALUE TRUE.\n     MOVE W77-NODO-ANT                   TO WKS-TIT-R00-NODO.\n     MOVE \"001DEVOLBIM\"                  TO WKS-TIT-R00-NOM-REP.\n     SET R01-DEVOLBIM     (TITLE)        TO WKS-NAME-REPORTE.\n     OPEN OUTPUT R01-DEVOLBIM.\n     IF W77-NODO-ANT = W77-MY-CSI\n        MOVE 1         TO WKS-GEN-REP1(1)\n     ELSE\n     IF W77-NODO-ANT = 07 OR 09\n        MOVE 1         TO WKS-GEN-REP1(2)\n     ELSE\n     IF W77-NODO-ANT = 06\n        MOVE 1         TO WKS-GEN-REP1(3)\n     ELSE\n     IF W77-NODO-ANT = 61\n        MOVE 1         TO WKS-GEN-REP1(4)\n     ELSE\n     IF W77-NODO-ANT = 01\n        MOVE 1         TO WKS-GEN-REP1(5).\n      *> ⋯ 132 líneas omitidas\n 70006000-ARMA-REPVACIOS.\n     ADD 1    TO W77-IND-REP.\n     IF W77-MY-CSI = 10\n        MOVE WKS-QNODO-VDM(W77-IND-REP)  TO W77-NODO-ANT\n     ELSE\n        MOVE WKS-QNODO-MTY(W77-IND-REP)  TO W77-NODO-ANT.\n     IF WKS-GEN-REP1(W77-IND-REP) = 0\n        PERFORM 50009000-ABRE-REP-01\n        PERFORM 50008400-CORTE-NODO\n        PERFORM 50009300-CIERRA-REP-01.", "java": "# application.yml\np320:\n  reportes:\n    devoluciones: \"001DEVOLBIM\"\n    comisiones:   \"002COMIPEND\"\n  nodos-reporte:                       # orden de WKS-GEN-REP1 (1..5)\n    \"4\":  [4, 7, 6, 61, 1]             # WKS-NODOS-MTY \"0407066101\"\n    \"10\": [10, 9]                      # WKS-NODOS-VDM \"1009000000\": el fuente agrega tres 00\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass ReporteNodoFactory {\n    private final ReportStorage almacen;                 // reemplaza USERBACKUPNAME / TITLE\n    private final Set<Integer> generados = new HashSet<>();\n\n    ItemWriter<ContratoDevoluciones> writerPara(int nodo) {\n        generados.add(nodo);\n        return almacen.writer(nombre(nodo));\n    }\n\n    /** 70000000-FIN-PROGRAMA: cada nodo del CSI sin casos recibe un listado vacío con su cierre. */\n    void generaVacios(int csi) {\n        props.nodosReporte().get(csi).stream()\n             .filter(n -> !generados.contains(n))\n             .forEach(n -> almacen.vacio(nombre(n), \"TOTAL NODO \" + n));\n    }\n\n    private String nombre(int nodo) {\n        return \"%02d/%s\".formatted(nodo, props.reportes().devoluciones());   // WKS-TIT-R00-NODO + NOM-REP\n    }\n}", "rationale": "Cada listado se abre como respaldo de impresión con nombre de usuario (<code>USERBACKUPNAME</code>) cuyo título combina el nodo y el identificador 001DEVOLBIM, y se registra qué nodos del CSI ya tuvieron listado. Al final, los nodos sin casos reciben un listado vacío con su línea de cierre, para que cada nodo siempre tenga su reporte. En Java el respaldo con nombre se vuelve un almacén de reportes (sistema de archivos u objeto) con la misma convención de nombre, configurable.", "risk": "En Valle de México la tabla de nodos es \"1009000000\" (línea 286): las posiciones 3 a 5 valen 00 y nunca se marcan como generadas, por lo que ARMA-REPVACIOS abre tres listados vacíos para un nodo 00 inexistente. La versión Java solo genera vacíos para los nodos configurados.", "rules": ["RN-S500-430"], "lines": "L1136–1323", "verified": true, "score": 100}, "s8": {"title": "Clasificación de las 99 comisiones acumuladas de B12", "cobol": " 60011000-LEE-B12COM.\n     PERFORM 90000012-B12COMPEN-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1 TO W77-EOF-B12\n        ELSE\n      *> ⋯ 1 línea omitida\n          STRING \"ERR FINDN B12COMPEN STA=\", WS-STATUS-BASE\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n     IF W77-EOF-B12 = 0\n        PERFORM 60011010-VAL-COMIPEN\n        IF W77-TOTCOM-CTO > 0\n           PERFORM 60012000-GEN-REPCOMI.\n      *> ⋯ 1 línea omitida\n 60011010-VAL-COMIPEN.\n     MOVE ZERO TO W77-IND-C W77-SW-NOHAY.\n     MOVE ZERO TO W77-TOTCOM-CTO.\n     MOVE ZERO TO W77-OTRCOM-CTO.\n     MOVE ZERO TO W77-CHQDEV-CTO.\n     PERFORM 60011030-BUSCA-COMIPEN  99 TIMES.\n      *> ⋯ 1 línea omitida\n 60011030-BUSCA-COMIPEN.\n     ADD 1 TO W77-IND-C.\n     IF B12-IMP-ACUMULADO(W77-IND-C) > 0\n        ADD B12-IMP-ACUMULADO(W77-IND-C) TO W77-TOTCOM-CTO\n        IF NOT W88-IND-COM-ID\n           ADD B12-IMP-ACUMULADO(W77-IND-C) TO W77-OTRCOM-CTO\n        ELSE\n        IF W88-IND-CHQDEV\n           ADD B12-IMP-ACUMULADO(W77-IND-C) TO W77-CHQDEV-CTO.", "java": "# application.yml\np320:\n  comisiones:\n    identificadas: [2, 5, 16, 22, 50]       # W88-IND-COM-ID\n    cheque-devuelto: [16, 22]              # W88-IND-CHQDEV\n    manejo-cuenta: 5\n    renta: 50\n    cheques-girados: 2\n\n// ---------------------------------------------------------------------------\n/** 60011010-VAL-COMIPEN: B12 trae 99 importes acumulados por tipo de comisión. */\nstatic ComisionesContrato clasifica(B12Compen b12, P320Properties.Comisiones cfg) {\n    BigDecimal total = ZERO2, otras = ZERO2, chqDev = ZERO2;\n    for (int i = 1; i <= 99; i++) {\n        BigDecimal imp = b12.acumulado(i);\n        if (imp.signum() <= 0) continue;\n        total = total.add(imp);\n        if (!cfg.identificadas().contains(i))      otras  = otras.add(imp);\n        else if (cfg.chequeDevuelto().contains(i)) chqDev = chqDev.add(imp);\n    }\n    return new ComisionesContrato(b12.contrato(),\n            b12.acumulado(cfg.manejoCuenta()), b12.acumulado(cfg.renta()),\n            b12.acumulado(cfg.chequesGirados()), chqDev, otras, total);\n}", "rationale": "Para cada registro de B12 se recorren las 99 posiciones de comisión acumulada sumando solo importes positivos: todo va al total, las posiciones fuera de la lista identificada (2, 5, 16, 22 y 50) van a otras comisiones, y la 16 y la 22 se suman como comisión por cheque devuelto. Las posiciones 5, 50 y 2 se imprimen directamente como manejo de cuenta, renta y cheques girados. Las posiciones están definidas como niveles 88 y pasan a configuración. Un estatus de base distinto de fin de datos aborta con <code>DMTERMINATE</code>.", "risk": "W77-TOTCOM-CTO es PIC 9(08)V99 y suma hasta 99 importes sin ON SIZE ERROR; un total de comisiones mayor a 99,999,999.99 perdería los dígitos altos en silencio.", "rules": ["RN-S500-429"], "lines": "L1209–1243", "verified": true, "score": 100}, "s9": {"title": "Renglón del listado con datos de B03 y encabezado fijo", "cobol": " 60012000-GEN-REPCOMI.\n     MOVE B12-NUM-CONTRATO TO WS-NUM-CONTRATO.\n     PERFORM 550003150-DAME-B03CTO.\n     IF W77-SW-NOHAY = 0\n        PERFORM 60012020-ARMA-REP-02.\n      *> ⋯ 1 línea omitida\n 60012020-ARMA-REP-02.\n     MOVE B03-SUC-PROMOTORA             TO WLI-R02-L08-NSUC.\n     MOVE B03-NUM-PRODUCTO              TO WLI-R02-L08-PROD.\n     MOVE B03-NUM-INSTRUM               TO WLI-R02-L08-INST.\n     MOVE B03-MONEDA                    TO WLI-R02-L08-MONE.\n     MOVE B03-NUM-CLIENTE               TO WLI-R02-L08-CLTE.\n     MOVE B03-NUM-CONTRATO              TO WLI-R02-L08-CTO.\n     MOVE B12-IMP-ACUMULADO(05)         TO WLI-R02-L08-MANCTA.\n     MOVE B12-IMP-ACUMULADO(50)         TO WLI-R02-L08-RENTA.\n     MOVE B12-IMP-ACUMULADO(02)         TO WLI-R02-L08-CHQGIR.\n     MOVE W77-CHQDEV-CTO                TO WLI-R02-L08-CHQDEV.\n     MOVE W77-OTRCOM-CTO                TO WLI-R02-L08-OTRCOM.\n     MOVE W77-TOTCOM-CTO                TO WLI-R02-L08-TOTCOM.\n     MOVE B03-MESES-SINMOV              TO WLI-R02-L08-MESSM.\n     PERFORM 60012100-ESC-REP-02.\n      *> ⋯ 8 líneas omitidas\n 60012120-ENCA-REP-02.\n     ADD  1                        TO W77-PAG-R02.\n     MOVE W77-PAG-R02              TO WLI-R00-L03-NPAG.\n     MOVE \"002COMIPEND\"            TO WLI-R00-L01-NAME.\n     MOVE WKS-TITULO-R02           TO WLI-R00-L02-TITULO.\n     MOVE WKS-SUBTIT-R02           TO WLI-R00-L03-SBTIT.\n     MOVE 3006                     TO WLI-R00-L04-SUC.\n     MOVE \"PRODUCTOS DE CAPTACION\" TO WLI-R00-L05-NBSUC.", "java": "@Bean\nStep comisionesPendientes(JobRepository repo, PlatformTransactionManager tx,\n                          JpaCursorItemReader<B12Compen> b12, ContratoRepository b03,\n                          JasperItemWriter<RenglonComipend> comipend, P320Properties props) {\n    return new StepBuilder(\"comisionesPendientes\", repo)\n            .<B12Compen, RenglonComipend>chunk(500, tx)\n            .reader(b12)                                               // SET S500B12COMPEN TO BEGINNING\n            .processor(r -> {\n                ComisionesContrato c = clasifica(r, props.comisiones());\n                if (c.total().signum() <= 0) return null;              // W77-TOTCOM-CTO > 0\n                return b03.findById(r.contrato())                      // sin B03: se omite\n                          .map(ct -> RenglonComipend.de(ct, c))        // incluye B03-MESES-SINMOV\n                          .orElse(null);\n            })\n            .writer(comipend)          // título \"COMISIONES PENDIENTES SIN IVA\", sucursal 3006 fija\n            .build();\n}", "rationale": "Cada contrato con total de comisiones mayor a cero se completa con sucursal, producto, instrumento, moneda, cliente y meses sin movimiento de B03; si el contrato no existe en B03 se omite. El encabezado del listado siempre muestra la sucursal 3006 y el texto PRODUCTOS DE CAPTACION, y el título declara que los importes son sin IVA: el programa reporta la base de la comisión y no calcula impuesto. En Java es un step de chunk con lector JPA, procesador y salida a JasperReports; la sucursal del encabezado pasa a configuración.", "risk": "", "rules": ["RN-S500-429", "RN-S500-430"], "lines": "L1246–1289", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

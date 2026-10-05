@@ -1,0 +1,135 @@
+{
+  "slug": "S500_L045",
+  "sistema": "S500",
+  "programa": "L045",
+  "nombre": "Candado de Autorizaciones Concurrentes de la Línea Teletón",
+  "funcion": "Librería ALGOL residente y compartida de S500 que usan los programas de la línea Teletón para evitar que una misma autorización se procese en dos copias a la vez y para saber si un archivo de bitácora de P045 está en uso.",
+  "resumen": "Mantiene en memoria compartida cuatro ranuras de autorización, una por copia del proceso, protegidas por un evento usado como semáforo. VALIDAAUT registra una autorización en la ranura del llamador solo si no está ya en ninguna de las cuatro; LIBERAAUT pone la ranura en cero. FILEINUSE envía a la consola el comando PD sobre la bitácora S500/FILE/LOG/P045 y responde si el archivo aparece en uso. No accede a bases de datos ni persiste nada.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.teleton.candado",
+  "secciones": [
+    {
+      "titulo": "Estado compartido y superficie exportada",
+      "origen": {
+        "archivo": "S500_SOURCE_L045_TELETON.txt",
+        "contexto": "Declaraciones globales · LIBRARY OUTER BLOCK"
+      },
+      "java": {
+        "archivo": "RanurasAutorizacion.java · CandadoTeleton.java",
+        "contexto": "@Component · interfaz de servicio"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Estado compartido: cuatro ranuras de autorización y un evento",
+          "linea_ini": 4,
+          "linea_fin": 9,
+          "origen_codigo": "$ SET SHARING = SHAREDBYALL                                             00004000\n BEGIN                                                                  00006000\n   EBCDIC ARRAY EA_INUSE2[0:40];                                        00007000\n   DOUBLE ARRAY AUTORIZACION[0:4];                                      00008000\n   EVENT E_USO_AUT;                                                     00009000",
+          "java_codigo": "/**\n * Estado de L045. SHARING = SHAREDBYALL: una sola instancia para todos los programas\n * de la línea Teletón, por eso el estado es un singleton con acceso sincronizado.\n */\n@Component\nclass RanurasAutorizacion {\n\n    static final int RANURAS = 4;                         // AUTORIZACION[0:4], se usan 1..4\n\n    private final long[] autorizacion = new long[RANURAS + 1];   // DOUBLE -> long: valores enteros\n    private final ReentrantLock usoAut = new ReentrantLock(true);  // EVENT E_USO_AUT (PROCURE/LIBERATE)\n\n    ReentrantLock candado()             { return usoAut; }\n    long valor(int ranura)              { return autorizacion[ranura]; }\n    void asigna(int ranura, long valor) { autorizacion[ranura] = valor; }\n}",
+          "racional": "La librería se compila con <code>SHARING = SHAREDBYALL</code>, así que todos los procesos que la invocan comparten una misma copia del arreglo de autorizaciones y del evento. El arreglo se declara de 0 a 4, pero solo se usan las posiciones 1 a 4. En Java es un componente singleton con un <code>ReentrantLock</code> justo en lugar del <code>EVENT</code> usado como semáforo. Las autorizaciones se guardan como <code>long</code> porque son números enteros; se conserva la posición 0 sin uso para que los índices coincidan con los del original.",
+          "reglas": [],
+          "riesgo": "Si hubiera más de una instancia de la aplicación destino, el arreglo en memoria dejaría de ser compartido; el candado tendría que pasar a un almacén común (base de datos o Redis)."
+        },
+        {
+          "id": "s2",
+          "titulo": "Bloque externo: EXPORT y FREEZE(TEMPORARY)",
+          "linea_ini": 65,
+          "linea_fin": 71,
+          "origen_codigo": "   EXPORT FILEINUSE,                                                    00066000\n          VALIDAAUT,                                                    00067000\n          LIBERAAUT                                                     00068000\n         ;                                                              00069000\n%% REPLACE EA_INUSE2 BY \"19971201/01\";                                  00070000\n%% FILEINUSE(EA_INUSE2);                                                00071000\n   FREEZE(TEMPORARY);                                                   00072000",
+          "java_codigo": "/** Misma interfaz que exportaba L045: FILEINUSE, VALIDAAUT y LIBERAAUT. */\npublic interface CandadoTeleton {\n    int fileInUse(String archivo);                  // 1 en uso, 0 libre\n    int validaAut(int copia, long autorizacion);    // 0 registrada, 1 duplicada, 2 copia inválida\n    int liberaAut(int copia);                       // 0 liberada, 2 copia inválida\n}\n\n/*\n * FREEZE(TEMPORARY): la librería se descarga cuando se desliga el último usuario y las\n * ranuras se pierden. En Spring el bean vive lo que vive el contexto; si se quiere el\n * comportamiento original hay que limpiar las ranuras cuando no quedan sesiones activas.\n */\n@Service\n@RequiredArgsConstructor\nclass CandadoTeletonService implements CandadoTeleton { /* ver s3 a s6 */ }",
+          "racional": "El bloque externo solo exporta los tres procedimientos y congela la librería con <code>FREEZE(TEMPORARY)</code>, que la mantiene cargada mientras tenga usuarios y la descarga cuando se desliga el último, perdiendo el contenido de las ranuras. Las dos líneas comentadas son una prueba manual de <code>FILEINUSE</code>. En Java la interfaz se conserva tal cual, con los mismos códigos de retorno, para que los programas que la consumen no cambien; la diferencia de ciclo de vida se documenta porque un bean de Spring no se descarga solo.",
+          "reglas": [],
+          "riesgo": "Con FREEZE(TEMPORARY), si en algún momento no hay programas ligados, las autorizaciones registradas desaparecen y una autorización repetida dejaría de detectarse."
+        }
+      ]
+    },
+    {
+      "titulo": "Primitivas FILEINUSE, VALIDAAUT y LIBERAAUT",
+      "origen": {
+        "archivo": "S500_SOURCE_L045_TELETON.txt",
+        "contexto": "INTEGER PROCEDURE FILEINUSE · VALIDAAUT · LIBERAAUT"
+      },
+      "java": {
+        "archivo": "CandadoTeletonService.java · BitacorasP045.java",
+        "contexto": "@Service · ReentrantLock · adaptador de archivos"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "FILEINUSE: comando PD de consola y lectura de la respuesta en posición fija",
+          "linea_ini": 10,
+          "linea_fin": 24,
+          "origen_codigo": "   INTEGER PROCEDURE FILEINUSE(EA_INUSE);                               00010000\n   EBCDIC ARRAY EA_INUSE[0];                                            00011000\n%*********************************************************************  00012000\n   BEGIN                                                                00013000\n     ARRAY SCR1,SCR2[0:200];                                            00014000\n                                                                        00015000\n     REPLACE POINTER(SCR1) BY 48\"00\" FOR (SIZE(SCR1)*6);                00016000\n     REPLACE POINTER(SCR1) BY \"PD (S500)S500/FILE/LOG/P045/\"            00017000\n                             ,EA_INUSE FOR 25;                          00019000\n     DCKEYIN(POINTER(SCR1),SCR2);                                       00020000\n     IF POINTER(SCR2) + 55  = \"IN USE\" THEN                             00021000\n        FILEINUSE:= 1                                                   00022000\n     ELSE                                                               00023000\n        FILEINUSE:= 0;                                                  00024000\n   END;                                                                 00025000",
+          "java_codigo": "@Override\npublic int fileInUse(String archivo) {\n    // REPLACE ... \"PD (S500)S500/FILE/LOG/P045/\", EA_INUSE FOR 25; DCKEYIN(...)\n    String nombre = props.prefijoBitacora() + Strings.padEnd(archivo, 25, ' ').substring(0, 25).trim();\n    return bitacoras.estaEnUso(nombre) ? 1 : 0;\n}\n\n/** Adaptador: en lugar de parsear texto de consola en la columna 55, se consulta el estado real. */\n@Component\n@RequiredArgsConstructor\nclass BitacorasP045 {\n    private final AlmacenArchivos almacen;      // l045.prefijo-bitacora: \"S500/FILE/LOG/P045/\"\n\n    boolean estaEnUso(String nombre) {\n        return almacen.tieneEscritorActivo(nombre);   // p. ej. FileChannel.tryLock() o lease en el almacén\n    }\n}",
+          "racional": "La función arma un comando de consola <code>PD</code> sobre la bitácora de P045 con los primeros 25 caracteres del nombre recibido, lo ejecuta con <code>DCKEYIN</code> y busca el texto <code>IN USE</code> exactamente en la posición 55 de la respuesta. Depende del formato textual de la consola del MCP. En Java se conserva la firma y el resultado 1 o 0, pero la detección se delega a un adaptador que pregunta al almacén de archivos si hay un escritor activo, y la ruta pasa a configuración.",
+          "reglas": [],
+          "riesgo": "Si cambia el formato de la respuesta de PD, la función devuelve 0 (libre) aunque el archivo esté en uso, sin ningún error."
+        },
+        {
+          "id": "s4",
+          "titulo": "Firma de VALIDAAUT y EPILOG que libera el evento al salir",
+          "linea_ini": 26,
+          "linea_fin": 33,
+          "origen_codigo": " INTEGER PROCEDURE VALIDAAUT(COPIA, AUTORIZ);                           00027000\n INTEGER COPIA;                                                         00028000\n DOUBLE AUTORIZ;                                                        00028100\nBEGIN                                                                  00029000\n   INTEGER CONTADOR, ERROR;                                             00030000\n   EPILOG PROCEDURE LIBERA;                                             00033000\n          LIBERATE(E_USO_AUT);                                          00034000",
+          "java_codigo": "@Override\npublic int validaAut(int copia, long autorizacion) {\n    int error = 0;                                        // ALGOL inicializa INTEGER en 0\n    if (copia <= 0 || copia >= 5) {\n        return 2;                                         // sin tomar el candado (ver riesgo)\n    }\n    ReentrantLock candado = ranuras.candado();\n    candado.lock();                                       // PROCURE(E_USO_AUT)\n    try {\n        error = registraSiNoDuplicada(copia, autorizacion);   // s5\n    } finally {\n        candado.unlock();                                 // EPILOG LIBERA: una sola liberación\n    }\n    return error;                                         // VALIDAAUT := ERROR\n}",
+          "racional": "VALIDAAUT recibe la ranura y la autorización y declara un <code>EPILOG</code> que ejecuta <code>LIBERATE(E_USO_AUT)</code> siempre que se sale del procedimiento, con o sin error. Esa liberación se suma a la explícita dentro del bloque, y también ocurre cuando la ranura es inválida y nunca se tomó el evento. En Java el par <code>lock</code> y <code>unlock</code> en un <code>try/finally</code> garantiza una sola liberación y solo si se adquirió; la ranura inválida responde 2 sin tocar el candado.",
+          "reglas": [],
+          "riesgo": "En el original cada llamada libera el evento dos veces y una llamada con ranura inválida lo libera sin haberlo tomado, lo que puede abrir la sección crítica que tenía otro proceso."
+        },
+        {
+          "id": "s5",
+          "titulo": "Sección crítica: rechazo de autorización duplicada en cualquier ranura",
+          "linea_ini": 34,
+          "linea_fin": 48,
+          "origen_codigo": "   IF COPIA > 0 AND COPIA < 5 THEN                                      00035000\n      BEGIN                                                             00036000\n        PROCURE(E_USO_AUT);                                             00037000\n        FOR CONTADOR:=1 STEP 1 UNTIL 4 DO                               00038000\n            IF AUTORIZACION[CONTADOR] = AUTORIZ THEN                    00039000\n               CONTADOR:=10;                                            00040000\n        IF CONTADOR = 11 THEN                                           00041000\n           ERROR:=1                                                     00042000\n        ELSE                                                            00043000\n           AUTORIZACION[COPIA]:= AUTORIZ;                               00044000\n        LIBERATE(E_USO_AUT);                                            00045000\n      END                                                               00046000\n   ELSE                                                                 00047000\n      ERROR:=2;                                                         00048000\n   VALIDAAUT:= ERROR;                                                   00049000",
+          "java_codigo": "/** Busca la autorización en las 4 ranuras; si no está, la registra en la ranura del llamador. */\nprivate int registraSiNoDuplicada(int copia, long autorizacion) {\n    for (int i = 1; i <= RanurasAutorizacion.RANURAS; i++) {\n        if (ranuras.valor(i) == autorizacion) {\n            return 1;                      // CONTADOR := 10 -> sale con 11 -> ERROR := 1\n        }\n    }\n    ranuras.asigna(copia, autorizacion);   // AUTORIZACION[COPIA] := AUTORIZ\n    return 0;\n}",
+          "racional": "Con la ranura en rango, el procedimiento toma el evento y recorre las cuatro ranuras buscando la misma autorización. Para salir del ciclo pone el contador en 10, que el paso convierte en 11, y luego interpreta ese 11 como autorización duplicada. Si no la encuentra, la escribe en la ranura del llamador. En Java la salida anticipada es un <code>return</code> y no depende del valor centinela. La búsqueda es sobre todas las ranuras, incluida la del propio llamador, igual que en el fuente.",
+          "reglas": [],
+          "riesgo": "El ciclo compara también contra la ranura del llamador: si un proceso registra dos veces la misma autorización en su ranura, la segunda vez recibe 1 (duplicada)."
+        },
+        {
+          "id": "s6",
+          "titulo": "LIBERAAUT sin sección crítica",
+          "linea_ini": 51,
+          "linea_fin": 60,
+          "origen_codigo": " INTEGER PROCEDURE LIBERAAUT(COPIA);                                    00052000\n INTEGER COPIA;                                                         00053000\n BEGIN                                                                  00054000\n   INTEGER ERROR;                                                       00055000\n   IF COPIA > 0 AND COPIA < 5 THEN                                      00056000\n      AUTORIZACION[COPIA]:= 0                                           00057000\n   ELSE                                                                 00058000\n      ERROR:=2;                                                         00059000\n   LIBERAAUT:=ERROR;                                                    00060000\n END;                                                                   00061000",
+          "java_codigo": "@Override\npublic int liberaAut(int copia) {\n    if (copia <= 0 || copia >= 5) {\n        return 2;\n    }\n    ReentrantLock candado = ranuras.candado();\n    candado.lock();                 // el original escribe sin PROCURE; aquí se protege igual que VALIDAAUT\n    try {\n        ranuras.asigna(copia, 0L);  // AUTORIZACION[COPIA] := 0\n        return 0;\n    } finally {\n        candado.unlock();\n    }\n}",
+          "racional": "LIBERAAUT pone en cero la ranura indicada si está entre 1 y 4 y devuelve 2 en otro caso. No toma el evento antes de escribir, de modo que puede ejecutarse a la mitad de la búsqueda de VALIDAAUT de otro proceso. La traducción usa el mismo candado para eliminar esa carrera; es una desviación deliberada que no cambia los códigos de retorno. La librería no valida que quien libera una ranura sea quien la ocupó.",
+          "reglas": [],
+          "riesgo": "Cualquier programa puede liberar la ranura de otro: la correspondencia entre ranura y proceso la lleva el consumidor."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Doble liberación del semáforo",
+      "detalle": "El EPILOG LIBERA (líneas 32-33) libera E_USO_AUT al salir de VALIDAAUT además del LIBERATE de la línea 44, y lo hace también cuando la ranura es inválida y no hubo PROCURE. Puede dejar sin protección la sección crítica de otro proceso."
+    },
+    {
+      "titulo": "Escritura sin candado en LIBERAAUT",
+      "detalle": "LIBERAAUT (líneas 51-60) escribe en el arreglo compartido sin tomar el evento, en carrera con VALIDAAUT."
+    },
+    {
+      "titulo": "Detección de archivo en uso por texto de consola",
+      "detalle": "FILEINUSE depende de que la respuesta de PD traiga IN USE exactamente en la posición 55 (línea 20). Un cambio de formato da falsos libres sin error."
+    },
+    {
+      "titulo": "Estado volátil",
+      "detalle": "Con FREEZE(TEMPORARY) las ranuras se pierden si la librería se descarga por quedarse sin usuarios. Ruta de bitácora y número de ranuras están compilados; no hay credenciales en el fuente."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME qué programas consumen L045 además de P045 y cómo asignan la ranura (COPIA) a cada copia del proceso.",
+    "Confirmar si DCKEYIN requiere privilegios de consola para el usercode que ejecuta la línea Teletón; la versión Java elimina esa dependencia.",
+    "Confirmar si la aplicación destino correrá en una sola instancia; si no, el candado en memoria debe moverse a un almacén compartido.",
+    "El inventario no asigna reglas del brain a este componente; el pseudocódigo cita RN-S500-881, que no se usa aquí."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-881"
+  ]
+}

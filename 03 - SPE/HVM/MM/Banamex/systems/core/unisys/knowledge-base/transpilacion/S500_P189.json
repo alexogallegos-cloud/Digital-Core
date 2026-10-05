@@ -1,0 +1,203 @@
+{
+  "slug": "S500_P189",
+  "sistema": "S500",
+  "programa": "P189",
+  "nombre": "Sincronización Activo-Activo VDM/MTY y Estatus Art. 61 LIC",
+  "funcion": "Paso batch de S500 que corre en cada plaza, une el archivo de movimientos local con el de la plaza contraria y consolida por cliente la estructura B09PMOTOR, la marca de beneficencia del Artículo 61 y el histórico B06.",
+  "resumen": "P189 identifica por HOSTNAME si corre en Valle de México (nodo 10, integra S084) o en Monterrey (nodo 04, integra S087). Une por SORT el archivo S500 local con el S084 o S087, descarta los detalles con cliente 0 o 999999999999 y deja un archivo intermedio que P197 transfiere a la otra plaza. Recorre ese archivo y el que llega de la plaza foránea para crear o actualizar cada cliente en B09PMOTOR con su último movimiento y estatus, y marca la beneficencia cuando el último movimiento es anterior a la fecha de corte del Artículo 61. Después reinicia a cero el estatus de los clientes no tocados en el día, escribe en Monterrey el archivo MOTOR y actualiza en B06 la fecha de último movimiento y el estatus por contrato.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JPA",
+  "paquete_java": "mx.banamex.s500.captacion.sincronizacion",
+  "secciones": [
+    {
+      "titulo": "Estructuras de datos y plaza de ejecución",
+      "origen": {
+        "archivo": "S500_SOURCE_P189.txt",
+        "contexto": "WORKING-STORAGE (WKS-REG-ARCH) · 40000000-IDENTIFICA-HOST"
+      },
+      "java": {
+        "archivo": "RegistroIntercambio.java · Plaza.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Layout común de S500, S084 y S087 con cliente erróneo como condición 88",
+          "linea_ini": 517,
+          "linea_fin": 551,
+          "origen_codigo": "*LAYOUT DE LOS ARCHIVOS S500,S084 Y S087\n  01 WKS-REG-ARCH.\n     03 WKS-HEADER.\n       05 WKS-HED-TREG        PIC 9(02).\n       05 WKS-HED-FEC         PIC 9(08).\n       05 WKS-HED-SISORIG     PIC X(04).\n       05 WKS-HED-SISDEST     PIC X(04).\n       05 WKS-HED-TARCH       PIC 9(02).\n       05 WKS-HED-TFIX        PIC 9(08).\n       05 WKS-HED-TUDI        PIC 9(08).\n       05 WKS-HED-FECART61    PIC 9(08).\n       05 FILLER              PIC X(52).\n     03 WKS-DETALLE  REDEFINES WKS-HEADER.\n       05 WKS-DET-TREG        PIC 9(02).\n       05 WKS-DET-SIST        PIC 9(04).\n       05 WKS-DET-CTE         PIC 9(12).\n       88 WKS-CTE-ERROR      VALUE 0 , 999999999999.\n       05 WKS-DET-CTO         PIC 9(12).\n       05 WKS-DET-PROD        PIC 9(04).\n       05 WKS-DET-INST        PIC 9(04).\n       05 WKS-DET-MONE        PIC 9(02).\n       05 WKS-DET-INSTOPER    PIC 9(02).\n       05 WKS-DET-NUMINVER    PIC 9(06).\n       05 WKS-DET-FECULTMOV   PIC 9(08).\n       05 WKS-DET-TMOVTO      PIC 9(02).\n       05 WKS-DET-SDOANT      PIC S9(14)V99.\n       05 WKS-DET-SDOACT      PIC S9(14)V99.\n       05 WKS-DET-STACTO      PIC 9(02).\n       05 WKS-DET-STALOC      PIC 9(01).\n       05 WKS-DET-STAFOR      PIC 9(01).\n       05 FILLER              PIC 9(02).\n     03 WKS-TRAILER  REDEFINES WKS-HEADER.\n       05 WKS-TRA-TREG        PIC 9(02).\n       05 WKS-TRA-TOTREG      PIC 9(08).\n       05 FILLER              PIC X(86).",
+          "java_codigo": "/** WKS-REG-ARCH: 96 bytes, tres vistas por tipo de registro (1 header, 3 detalle, 9 trailer). */\npublic sealed interface RegistroIntercambio\n        permits RegistroIntercambio.Header, RegistroIntercambio.Detalle, RegistroIntercambio.Trailer {\n\n    record Header(LocalDate fecha, String sisOrigen, String sisDestino, int tipoArchivo,\n                  BigDecimal tasaFix,        // 9(08): escala no declarada en el PIC\n                  BigDecimal tasaUdi,        // 9(08): escala no declarada en el PIC\n                  Optional<LocalDate> fechaArt61) implements RegistroIntercambio {}\n\n    record Detalle(int sistema,\n                   String cliente,           // 9(12) como String: conserva ceros\n                   String contrato,          // 9(12)\n                   int producto, int instrumento, int moneda, int instOper, int numInversion,\n                   LocalDate fecUltMov,      // 9(08) AAAAMMDD\n                   int tipoMovto,\n                   BigDecimal saldoAnterior, // S9(14)V99: ya no se usa (\"Se elimina el manejo de saldos\")\n                   BigDecimal saldoActual,   // S9(14)V99\n                   int estatusContrato,\n                   boolean aplicadoLocal, boolean aplicadoForaneo) implements RegistroIntercambio {\n\n        /** 88 WKS-CTE-ERROR VALUE 0, 999999999999. */\n        public boolean clienteErroneo() {\n            return cliente.chars().allMatch(c -> c == '0') || \"999999999999\".equals(cliente);\n        }\n    }\n\n    record Trailer(long totalRegistros) implements RegistroIntercambio {}\n}",
+          "racional": "Los tres archivos de intercambio comparten un registro de 96 bytes con vistas de header, detalle y trailer que se distinguen por los dos primeros dígitos. El header trae además las tasas FIX y UDI y la fecha de corte del Artículo 61. En Java cada vista es un <code>record</code> de una <code>sealed interface</code>. Los importes <code>S9(14)V99</code> pasan a <code>BigDecimal</code> con escala 2, y cliente y contrato a <code>String</code>. La condición 88 que define al cliente erróneo se vuelve un método del detalle, lo que deja la regla en un solo lugar. Los indicadores de aplicado local y foráneo son el mecanismo de reinicio: se reescriben en el archivo conforme se procesa.",
+          "reglas": [
+            "RN-S500-371"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Nodo local, foráneo y sistema externo según HOSTNAME",
+          "linea_ini": 772,
+          "linea_fin": 785,
+          "origen_codigo": " 40000000-IDENTIFICA-HOST.\n     PERFORM 00000000-CHANGE-SOPCOMS.\n     PERFORM 0000-CALL-HOSTNAME.\n     IF WS-DH-HOSTNAME-VDM\n        MOVE 10          TO WKS-NOD-LOC WKS-TIT-R-NODO\n        MOVE 04          TO WKS-NOD-FOR\n        MOVE 084         TO WKS-SIS-EXT\n     ELSE\n        MOVE 04          TO WKS-NOD-LOC WKS-TIT-R-NODO\n        MOVE 10          TO WKS-NOD-FOR\n        MOVE 087         TO WKS-SIS-EXT.",
+          "java_codigo": "/** 40000000-IDENTIFICA-HOST: la plaza deja de deducirse del nombre de la máquina. */\n@ConfigurationProperties(\"p189.plaza\")\npublic record Plaza(int nodoLocal, int nodoForaneo, int sistemaExterno) {\n\n    public boolean esMonterrey() { return nodoLocal == 4; }\n}\n\n# application-vdm.yml\np189:\n  plaza: { nodo-local: 10, nodo-foraneo: 4,  sistema-externo: 84 }\n\n# application-mty.yml\np189:\n  plaza: { nodo-local: 4,  nodo-foraneo: 10, sistema-externo: 87 }",
+          "racional": "El programa pregunta el HOSTNAME a SOPORTECOMS y, si corresponde a Valle de México, toma nodo local 10, foráneo 04 y sistema externo S084; en cualquier otro caso asume Monterrey con nodo 04, foráneo 10 y S087. En la plataforma destino esa decisión la da el perfil de Spring de cada despliegue, con un archivo de propiedades por plaza. Se elimina así la suposición de que todo host que no es VDM es Monterrey.",
+          "reglas": [
+            "RN-S500-367"
+          ],
+          "riesgo": "Cualquier host que no se reconozca como VDM se procesa como Monterrey, incluidos hosts de prueba mal configurados. El comentario de cabecera (líneas 34-35) dice VDM con S087 y MTY con S084, al revés de lo que hace el código."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso, integración y filtro de clientes",
+      "origen": {
+        "archivo": "S500_SOURCE_P189.txt",
+        "contexto": "PROCEDURE DIVISION · 50000000-PROCESO / VERIF-S500-ACTIVO / ORDENA-INFO / 80000000"
+      },
+      "java": {
+        "archivo": "SincronizacionJobConfig.java · IntegraArchivosStep.java",
+        "contexto": "Job · Step · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Cuatro fases del proceso y fecha de proceso desde B02",
+          "linea_ini": 1226,
+          "linea_fin": 1293,
+          "origen_codigo": " 50000000-PROCESO.\n*=================\n  MOVE 1 TO WKS-PROC-ACTUAL\n  PERFORM 50000000-REALIZA-CARGA-LOCAL.\n  MOVE 2 TO WKS-PROC-ACTUAL\n  PERFORM 50000000-REALIZA-CARGA-FORANEA.\n  MOVE 3 TO WKS-PROC-ACTUAL\n  PERFORM 50000000-INI-STA-CTE.\n  IF WKS-PROC-LOCAL > 0 OR WKS-PROC-FORANEO > 0\n     MOVE 4 TO WKS-PROC-ACTUAL\n     PERFORM 60000000-ACT-DB01.\n 50000000-VERIF-S500-ACTIVO.\n*===========================\n   PERFORM 90000002-B02CONTROL-FIND.\n   IF WS-STATUS-BASE = 0\n*     PROYECTA UN DIA ATRAS A LA FECHA OBTENIDA DE LA BD\n*     PARA OBTENER LA FECHA DE PROCESO\n      MOVE 15                    TO WS-S006-FUNCION\n      MOVE B02-FECHA-LINEA       TO WS-S006-FECHA1\n      MOVE 1                     TO WS-S006-FECHA2\n      MOVE 12                    TO WS-S006-FORMATO\n      PERFORM 20000006-LOCSUP\n      MOVE WS-S006-FECHA1        TO WS-TIT-FPRC WKS-DEF-FEC\n*     VALIDA SI ES OBLIGATORIO QUE SE TRABAJE CON LOS ARCHIVOS\n*     DEL S500 Y LOS DEL S084/S087 (0 = ARCHIVOS OBLIGATORIOS)\n      IF B02-ULT-ARCH-APLI(17) > 20131231 OR\n         B02-ULT-ARCH-APLI(17) = WKS-DEF-FEC\n         NEXT SENTENCE\n      ELSE\n         MOVE 1 TO WKS-PROC-SIN-S500",
+          "java_codigo": "@Configuration\npublic class SincronizacionJobConfig {\n\n    /** 50000000-PROCESO: WKS-PROC-ACTUAL 1..4, visible con HI 5. */\n    @Bean\n    Job sincronizacionActivoActivo(JobRepository repo, Step fechaProceso,\n                                   Step cargaLocal, Step cargaForanea,\n                                   Step reiniciaEstatus, Step actualizaB06,\n                                   JobExecutionDecider huboCarga) {\n        return new JobBuilder(\"S500P189\", repo)\n                .start(fechaProceso)          // B02-FECHA-LINEA menos un día (LOCSUP 15/12)\n                .next(cargaLocal)             // fase 1\n                .next(cargaForanea)           // fase 2\n                .next(reiniciaEstatus)        // fase 3: 50000000-INI-STA-CTE\n                .next(huboCarga).on(\"SI\").to(actualizaB06)   // fase 4 solo si hubo carga\n                .from(huboCarga).on(\"*\").end()\n                .end().build();\n    }\n}",
+          "racional": "El proceso tiene cuatro fases fijas: carga del archivo local, carga del foráneo, reinicio de estatus y, solo si alguna carga procesó registros, la actualización de B06. Cada fase es un <code>Step</code> y la condición final es un <code>JobExecutionDecider</code>. La fecha de proceso sale de <code>B02-FECHA-LINEA</code> retrocedida un día con LOCSUP, igual que en otros pasos de S500. El indicador <code>WKS-PROC-SIN-S500</code> que permitiría correr sin archivos solo se enciende si la fecha del arreglo 17 es anterior a 2014, lo que en la práctica ya no ocurre.",
+          "reglas": [],
+          "riesgo": "La condición de las líneas 1289-1293 compara B02-ULT-ARCH-APLI(17) contra 20131231: desde 2014 los archivos son siempre obligatorios y la rama de proceso sin S500 quedó inalcanzable por fecha."
+        },
+        {
+          "id": "s4",
+          "titulo": "SORT de integración con descarte de clientes erróneos",
+          "linea_ini": 1447,
+          "linea_fin": 2212,
+          "origen_codigo": "*INTEGRA LA INFORMACION DEL ARCHIVO DEL S500 LOCAL CON LA DEL\n*S084 O S087 ORDENANDOLA POR CLIENTE, CONTRATO Y SISTEMA\n   MOVE 1 TO W77-PROC-SORT\n   SORT S01-SORT\n        ON ASCENDING KEY S01-DET-TREG,  S01-DET-CTE,\n                         S01-DET-FECULTMOV\n   INPUT PROCEDURE 80000000-INPUT-PROC\n   GIVING  A02-S500FOR  SAVE\n   MEMORY  SIZE W77-TOT-MEMSIZE  WORDS\n   DISK    SIZE W77-TOT-DISKSIZE WORDS.\n 80000000-VALGRABA-REG.\n*======================\n    IF WKS-DET-TREG = 3 AND WKS-CTE-ERROR\n       ADD 1 TO W77-CONT-REGERR\n    ELSE\n        RELEASE S01-DETALLE FROM WKS-REG-ARCH.",
+          "java_codigo": "@Bean\nStep integraArchivos(JobRepository repo, PlatformTransactionManager tx,\n                     MultiResourceItemReader<RegistroIntercambio> s500YExterno,\n                     ItemWriter<RegistroIntercambio> archivoIntegrado) {\n    return new StepBuilder(\"integraArchivos\", repo)\n            .<RegistroIntercambio, RegistroIntercambio>chunk(5000, tx)\n            .reader(s500YExterno)                       // A01-S500 y A03-S084S087\n            .processor(FiltroClienteErroneo::process)  // 80000000-VALGRABA-REG\n            .writer(archivoIntegrado)\n            .listener(new ContadorErrores(\"NUM REG CON ERROR: \"))\n            .build();\n    // El orden SORT ON ASCENDING KEY tipo, cliente, fecha de último movimiento\n    // se garantiza con un paso de ordenamiento externo o un ORDER BY si el intercambio\n    // se carga primero a una tabla de staging.\n}\n\nfinal class FiltroClienteErroneo {\n    static RegistroIntercambio process(RegistroIntercambio r) {\n        return (r instanceof RegistroIntercambio.Detalle d && d.clienteErroneo()) ? null : r;\n    }\n}\n\n/** Clave de orden del SORT: el último registro de cada cliente es su movimiento más reciente. */\nstatic final Comparator<RegistroIntercambio> ORDEN_SORT =\n        Comparator.comparingInt(RegistroIntercambio::tipo)\n                  .thenComparing(RegistroIntercambio::clienteOVacio)\n                  .thenComparing(RegistroIntercambio::fechaOMinima);",
+          "racional": "El archivo S500 local y el S084 o S087 se integran con un <code>SORT</code> por tipo de registro, cliente y fecha de último movimiento, y la <code>INPUT PROCEDURE</code> descarta los detalles con cliente erróneo contando cuántos hubo. El resultado se guarda como archivo intermedio, se renombra y lo transfiere P197 a la otra plaza. En Spring Batch el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> y el contador es un listener. El orden de la clave es significativo: hace que el último detalle de cada cliente sea el más reciente, lo que la consolidación aprovecha.",
+          "reglas": [
+            "RN-S500-371"
+          ],
+          "riesgo": "El comentario de la línea 1448 dice que se ordena por cliente, contrato y sistema, pero la clave real es tipo, cliente y fecha de último movimiento: dos contratos del mismo cliente con la misma fecha quedan en orden indeterminado."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de consolidación — B09PMOTOR, Artículo 61 y B06",
+      "origen": {
+        "archivo": "S500_SOURCE_P189.txt",
+        "contexto": "PROCEDURE DIVISION · 50000000-CARGA-B09P / ACT-B09P / MARCA-STABENF / INI-STA-CTE / 60000000"
+      },
+      "java": {
+        "archivo": "ConsolidaClienteProcessor.java · Articulo61Policy.java · ReinicioEstatusTasklet.java · HistoricoB06Writer.java",
+        "contexto": "ItemProcessor · JPA · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Acumulación por cliente del movimiento más reciente",
+          "linea_ini": 1615,
+          "linea_fin": 1658,
+          "origen_codigo": " 50000000-CARGA-B09P.\n   MOVE WKS-DET-CTE          TO WS-B09P-NUM-CLIENTE\n   MOVE WKS-DEF-FEC          TO WS-B09P-FECH-CREA.\n   IF WKS-DET-FECULTMOV NOT < WS-B09P-FECH-ULTMOV\n      MOVE WKS-DET-FECULTMOV TO WS-B09P-FECH-ULTMOV\n      MOVE WKS-DET-SIST      TO WS-B09P-SIST-ULTM\n      MOVE WKS-DET-CTE       TO WS-B09P-NUM-CLIENTE\n      MOVE WKS-DET-CTO       TO WS-B09P-CTO-ULTM\n      MOVE WKS-DET-PROD      TO WS-B09P-PRD-ULTM\n      MOVE WKS-DET-INST      TO WS-B09P-INS-ULTM\n      MOVE WKS-DET-MONE      TO WS-B09P-MON-ULTM\n      MOVE WKS-DET-INSTOPER  TO WS-B09P-INSOP-ULTM\n      MOVE WKS-DET-NUMINVER  TO WS-B09P-NINV-ULTM.\n   IF WS-B09P-STA-CTE = 0\n      MOVE WKS-DET-STACTO        TO WS-B09P-STA-CTE.\n   MOVE 1                     TO WKS-EN-PROC\n   IF WKS-CARGA-LOCAL = 1\n      MOVE 1                  TO WKS-DET-STALOC\n      ADD  1                  TO WKS-PROC-LOCAL\n      MOVE WKS-DEF-FEC        TO WS-B09P-ULTACT-LOC\n   ELSE\n      MOVE 1                  TO WKS-DET-STAFOR\n      ADD  1                  TO WKS-PROC-FORANEO\n      MOVE WKS-DEF-FEC        TO WS-B09P-ULTACT-FOR.\n   MOVE WS-B09P-NUM-CLIENTE TO WKS-TEMP-CTE\n*ACTUALIZA EL ESTATUS DEL REGISTRO PARA INDICAR QUE YA SE PROCESO\n   MOVE WKS-REG-ARCH          TO REG-A02-S500\n   REWRITE REG-A02-S500.",
+          "java_codigo": "/** WS-S500B09PMOTOR en memoria: se arma mientras llegan detalles del mismo cliente. */\npublic final class ClienteEnCurso {\n    String cliente;\n    LocalDate fechaCreacion;\n    LocalDate fecUltMov = LocalDate.MIN;\n    UltimoMovimiento ultimo;\n    int estatus;                       // WS-B09P-STA-CTE\n    LocalDate ultActLocal, ultActForaneo;\n\n    /** 50000000-CARGA-B09P. */\n    void acumula(RegistroIntercambio.Detalle d, LocalDate fechaProceso, boolean cargaLocal) {\n        cliente = d.cliente();\n        fechaCreacion = fechaProceso;\n        if (!d.fecUltMov().isBefore(fecUltMov)) {          // NOT <: en empate gana el último leído\n            fecUltMov = d.fecUltMov();\n            ultimo = UltimoMovimiento.de(d);              // sistema, contrato, producto, instr., moneda...\n        }\n        if (estatus == 0) estatus = d.estatusContrato();   // el primer bloqueo del día se conserva\n        if (cargaLocal) ultActLocal = fechaProceso; else ultActForaneo = fechaProceso;\n    }\n}\n// Tras acumular, el detalle se marca aplicado (STALOC/STAFOR = 1) y se reescribe en el archivo\n// (REWRITE REG-A02-S500): en Java, un ItemWriter que actualiza la tabla de staging.",
+          "racional": "Mientras llegan detalles del mismo cliente, el programa guarda en memoria el movimiento con la fecha más reciente y el primer estatus distinto de cero, y marca la fecha de actualización local o foránea con la de proceso. Al cambiar de cliente graba el acumulado. Cada detalle procesado se marca como aplicado y se reescribe en el archivo, lo que permite reiniciar sin aplicar dos veces. En Java el acumulado es un objeto de estado del procesador y la marca de aplicado se persiste en una tabla de staging; con eso el reinicio de Spring Batch reproduce el del mainframe.",
+          "reglas": [
+            "RN-S500-367"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Actualización del cliente en B09PMOTOR solo con información más reciente",
+          "linea_ini": 1660,
+          "linea_fin": 1699,
+          "origen_codigo": " 50000000-ACT-B09P.\n   MOVE WS-B09P-NUM-CLIENTE TO B09P-NUM-CLIENTE\n   IF WS-B09P-FECH-ULTMOV >  B09P-FECH-ULTMOV\n      MOVE WS-B09P-FECH-ULTMOV TO B09P-FECH-ULTMOV\n      MOVE WS-B09P-SIST-ULTM   TO B09P-SIST-ULTM\n      MOVE WS-B09P-NUM-CLIENTE TO B09P-NUM-CLIENTE\n      MOVE WS-B09P-CTO-ULTM    TO B09P-CTO-ULTM\n      MOVE WS-B09P-PRD-ULTM    TO B09P-PRD-ULTM\n      MOVE WS-B09P-INS-ULTM    TO B09P-INS-ULTM\n      MOVE WS-B09P-MON-ULTM    TO B09P-MON-ULTM\n      MOVE WS-B09P-INSOP-ULTM  TO B09P-INSOP-ULTM\n      MOVE WS-B09P-NINV-ULTM   TO B09P-NINV-ULTM.\n   IF B09P-STA-CTE = 0\n      MOVE WS-B09P-STA-CTE      TO B09P-STA-CTE.\n   PERFORM 50000000-MARCA-STABENF.\n      IF WKS-CARGA-LOCAL = 1\n         MOVE WS-B09P-ULTACT-LOC TO B09P-ULTACT-LOC\n      ELSE\n         MOVE WS-B09P-ULTACT-FOR TO B09P-ULTACT-FOR.\n      IF WKS-CARGA-LOCAL = 1 OR B09P-ULTACT-FOR < WKS-DEF-FEC\n         MOVE 0 TO B09P-STA-CTE.\n      MOVE WS-B09P-STA-CTE      TO B09P-STA-CTE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ConsolidaClienteProcessor {\n\n    private final ClienteMotorRepository motor;     // S500B09PMOTOR (S500BD04TARJETAS)\n    private final Articulo61Policy art61;\n\n    /** 50000000-GRABA-B09P + 50000000-ACT-B09P en una transacción por cliente. */\n    @Transactional\n    public void graba(ClienteEnCurso c, boolean cargaLocal) {\n        ClienteMotor m = motor.findByNumCliente(c.cliente)\n                .orElseGet(() -> ClienteMotor.nuevo(c));            // B09PMOTOR-CREATE\n        if (c.fecUltMov.isAfter(m.getFecUltMov())) {                  // nunca retrocede\n            m.setUltimoMovimiento(c.fecUltMov, c.ultimo);\n        }\n        if (m.getStaCte() == 0) m.setStaCte(c.estatus);\n        art61.marca(m);                                              // 50000000-MARCA-STABENF\n        if (cargaLocal) m.setUltActLoc(c.ultActLocal); else m.setUltActFor(c.ultActForaneo);\n        // Líneas 1696-1699: el IF que pone el estatus en cero queda anulado por la\n        // asignación incondicional siguiente. Se reproduce el efecto real:\n        m.setStaCte(c.estatus);\n    }\n}",
+          "racional": "Si el cliente ya existe, la fecha y los datos del último movimiento solo se reemplazan cuando lo que llega es más reciente, de modo que la plaza que procese después no puede retroceder la información. El estatus se toma del acumulado y luego se evalúa la marca de beneficencia. Al final del párrafo hay un IF que pondría el estatus en cero y, en la línea siguiente, una asignación incondicional que lo sobrescribe: la traducción reproduce el efecto real y lo deja comentado para que el SME decida. La transacción por cliente reemplaza el <code>BEGIN-TRANSACTION</code> y <code>END-TRANSACTION</code> de DMSII.",
+          "reglas": [
+            "RN-S500-370"
+          ],
+          "riesgo": "La marca de beneficencia se calcula (línea 1689) antes de la asignación final del estatus (línea 1699), así que puede quedar evaluada con un estatus que después cambia. El IF de las líneas 1696-1697 no tiene efecto."
+        },
+        {
+          "id": "s7",
+          "titulo": "Marca de beneficencia del Artículo 61 LIC",
+          "linea_ini": 1704,
+          "linea_fin": 1718,
+          "origen_codigo": " 50000000-MARCA-STABENF.\n    IF B09P-STA-BENF = 0\n       IF B09P-STA-CTE =0\n          IF B09P-FECH-ULTMOV < WKS-FEC-ART61\n              MOVE 1 TO B09P-STA-BENF\n          ELSE\n              NEXT SENTENCE\n       ELSE\n          NEXT SENTENCE\n    ELSE\n       IF(B09P-FECH-ULTMOV > WKS-FEC-ART61 AND WKS-FEC-ART61 > 0)\n          OR B09P-STA-CTE = 1\n          MOVE 0 TO B09P-STA-BENF.",
+          "java_codigo": "/** 50000000-MARCA-STABENF: Artículo 61 de la Ley de Instituciones de Crédito. */\n@Component\npublic class Articulo61Policy {\n\n    private LocalDate fechaCorte;   // WKS-FEC-ART61: viene del header S500 vía el cliente dummy 999999999999\n\n    public void marca(ClienteMotor m) {\n        boolean sinCorte = fechaCorte == null;                       // equivale a WKS-FEC-ART61 = 0\n        if (m.getStaBenf() == 0) {\n            if (m.getStaCte() == 0 && !sinCorte && m.getFecUltMov().isBefore(fechaCorte)) {\n                m.setStaBenf(1);          // sin movimiento desde antes del corte y desbloqueado\n            }\n        } else if ((!sinCorte && m.getFecUltMov().isAfter(fechaCorte)) || m.getStaCte() == 1) {\n            m.setStaBenf(0);              // volvió a moverse o quedó bloqueado\n        }\n    }\n}",
+          "racional": "Un cliente desbloqueado cuyo último movimiento es anterior a la fecha de corte del Artículo 61 se marca para beneficencia; la marca se apaga si el último movimiento pasa a ser posterior al corte o si el cliente queda con estatus 1. Se traduce como una política separada porque es la regla regulatoria del componente y debe poder probarse aislada. En COBOL una fecha de corte en cero hace que ninguna fecha sea menor y la marca nunca se encienda; en Java se representa con <code>null</code> y se evalúa de forma explícita.",
+          "reglas": [
+            "RN-S500-369"
+          ],
+          "riesgo": "La marca se apaga solo con STA-CTE = 1; un estatus de bloqueo distinto (2 o mayor) deja la marca de beneficencia encendida. Un último movimiento exactamente igual a la fecha de corte no enciende ni apaga la marca."
+        },
+        {
+          "id": "s8",
+          "titulo": "Reinicio del estatus de clientes no tocados en el día",
+          "linea_ini": 1753,
+          "linea_fin": 1801,
+          "origen_codigo": " 50000000-INI-STA-CTE.\n*** BARRE LA B09P PARA INICIALIZAR EL ESTATUS DEL CLIENTE DE\n** ESTA MANERA SE CONTROLAN LOS DESBLOQUEOS DE LOS CONTRATOS\n*YA QUE EN LOS ARCHIVOS S500, S084/S087 SOLO VIAJAN BLOQUEOS\n  OPEN OUTPUT R01-B09PMOTOR\n  PERFORM 50000000-ESCRIBE-ENCABEZADOS\n  SET S500B09PMOTOR TO BEGINNING\n  MOVE 0 TO W77-B09P-FIN   WKS-NUM-TRANS WKS-BEGIN\n  PERFORM 50000000-INICIALIZA-STATUS UNTIL W77-B09P-FIN > 0\n 50000000-INICIALIZA-STATUS.\n  PERFORM 90400009-B09PMOTOR-LOCKN\n  IF WS-STATUS-BASE = 0\n     ADD 1 TO W77-CONT-B09P\n  ELSE\n  IF WS-STATUS-BASE = 1\n     MOVE 1 TO W77-B09P-FIN\n  IF WS-STATUS-BASE = 0  AND W77-B09P-FIN = 0\n     IF B09P-ULTACT-LOC  = WKS-DEF-FEC OR\n        B09P-ULTACT-FOR  = WKS-DEF-FEC\n        NEXT SENTENCE\n     ELSE\n        IF B09P-STA-CTE > 0\n        MOVE 0 TO B09P-STA-CTE\n        PERFORM 50000000-MARCA-STABENF\n        PERFORM 90400009-B09PMOTOR-STORE\n        IF WS-STATUS-BASE > 0\n           MOVE 16  TO W77-NUMERR-BD\n           PERFORM 70000000-ERROR-BD.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ReinicioEstatusTasklet implements Tasklet {\n\n    private final ClienteMotorRepository motor;\n    private final Articulo61Policy art61;\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n\n    /**\n     * 50000000-INI-STA-CTE. Los archivos solo transportan bloqueos; un cliente que no llegó\n     * hoy por ninguna plaza se considera desbloqueado. Se confirma cada 5000 registros\n     * (WKS-MAX-TRANS), igual que el END-TRANSACTION del fuente.\n     */\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        try (Stream<ClienteMotor> todos = motor.streamAll()) {\n            Lotes.de(todos, 5000).forEach(lote -> desbloquea(lote));\n        }\n        return RepeatStatus.FINISHED;\n    }\n\n    @Transactional\n    void desbloquea(List<ClienteMotor> lote) {\n        for (var m : lote) {\n            boolean tocadoHoy = fechaProceso.equals(m.getUltActLoc())\n                    || fechaProceso.equals(m.getUltActFor());\n            if (!tocadoHoy && m.getStaCte() > 0) {\n                m.setStaCte(0);\n                art61.marca(m);\n            }\n        }\n    }\n}",
+          "racional": "Como los archivos de intercambio solo traen bloqueos, el programa recorre toda la estructura B09PMOTOR y pone en cero el estatus de los clientes que no se actualizaron en el día por ninguna de las dos plazas, recalculando la marca de beneficencia. Se confirma cada 5000 registros. En Java se recorre la tabla en <code>Stream</code> y se confirma por lotes del mismo tamaño. Esta fase corre después de las dos cargas, no antes, y por eso puede distinguir a los clientes tocados en el día por su fecha de actualización.",
+          "reglas": [
+            "RN-S500-368"
+          ],
+          "riesgo": "El recorrido también alcanza al cliente dummy 999999999999 que guarda la fecha del Artículo 61 y las tasas; no se encontró una exclusión explícita."
+        },
+        {
+          "id": "s9",
+          "titulo": "Sincronización de B06 por contrato: fecha que no retrocede y estatus que difiere",
+          "linea_ini": 1863,
+          "linea_fin": 1958,
+          "origen_codigo": "   IF WKS-FIN-B03 = 0\n      ADD 1 TO WKS-NUM-TRANS\n      MOVE B03-NUM-CLIENTE TO WS-NUM-CLIENTE\n      PERFORM 90400009-B09PSXCLIENTE-F\n      IF WS-STATUS-BASE = 0\n         ADD 1 TO W77-CONT-B06\n         MOVE B03-NUM-CONTRATO  TO WS-NUM-CONTRATO\n         PERFORM 90000006-B06SXCTO-LOCK\n         IF WS-STATUS-BASE = 0\n            PERFORM 60000000-VAL-ACT-B06\n            IF W77-STORE-B06 = 1\n               PERFORM 90000006-B06HISTORICO-STORE\n 60000000-VAL-ACT-B06.\n*=====================\n  MOVE 0 TO W77-STORE-B06\n  IF B09P-FECH-ULTMOV > B06-FECH-XCTE\n     MOVE B09P-FECH-ULTMOV TO B06-FECH-XCTE\n     MOVE 1                TO W77-STORE-B06.\n  IF B09P-STA-CTE  NOT = B06-STA-XCTE\n     MOVE B09P-STA-CTE     TO B06-STA-XCTE\n     MOVE 1                TO W77-STORE-B06.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class HistoricoB06Writer {\n\n    private final ClienteMotorRepository motor;\n    private final HistoricoContratoRepository b06;     // S500B06HISTORICO (S500BD01CAPTACION)\n\n    /** 60000000-BARRE-B03 + 60000000-VAL-ACT-B06. WKS-MAX-TRANS-BD01 = 1: commit por contrato. */\n    @Transactional\n    public void sincroniza(Contrato b03) {\n        motor.findByNumCliente(b03.getNumCliente()).ifPresent(m ->\n            b06.findForUpdateByContrato(b03.getNumContrato()).ifPresent(h -> {\n                boolean cambia = false;\n                if (m.getFecUltMov().isAfter(h.getFechXcte())) {\n                    h.setFechXcte(m.getFecUltMov());\n                    cambia = true;\n                }\n                if (m.getStaCte() != h.getStaXcte()) {\n                    h.setStaXcte(m.getStaCte());\n                    cambia = true;\n                }\n                if (!cambia) b06.liberaBloqueo(h);              // FREE S500B06HISTORICO\n            }));\n    }\n}",
+          "racional": "La última fase recorre todos los contratos de B03 y, para los clientes presentes en B09PMOTOR, actualiza su histórico B06: la fecha de último movimiento solo avanza y el estatus se copia si difiere. Solo se guarda el registro cuando algo cambió; si no, se libera el bloqueo. El fuente confirma la transacción con cada contrato (<code>WKS-MAX-TRANS-BD01</code> vale 1), lo que en Java es una transacción por contrato; para volumen convendría agrupar, pero eso cambia el punto de reinicio y se deja a decisión del SME.",
+          "reglas": [
+            "RN-S500-370"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Tasas FIX y UDI cruzadas",
+      "detalle": "40000000-UPDATE-DUMMY guarda la tasa FIX en B09P-ULTACT-LOC y la UDI en B09P-ULTACT-FOR (líneas 1156-1163), pero luego mueve ULTACT-FOR a WKS-TASA-FIX y ULTACT-LOC a WKS-TASA-UDI (líneas 1165-1166). En cambio 50000000-CONSULTA-DUMMY (líneas 1268-1269), que se usa en los reinicios, las lee de forma consistente con lo guardado. Si las tasas se usan en otro punto, quedan intercambiadas según el camino de ejecución."
+    },
+    {
+      "titulo": "Estatus final que anula un IF",
+      "detalle": "En 50000000-ACT-B09P el IF de las líneas 1696-1697 queda sobrescrito por la asignación incondicional de la línea 1699, y la marca de beneficencia se evalúa antes de esa asignación."
+    },
+    {
+      "titulo": "Tope de memoria del SORT con un dígito de menos",
+      "detalle": "En la línea 1428 se compara contra 258435000 y en la 1429 se asigna 25843500. Si la memoria calculada supera el primer valor, se reduce a una décima parte."
+    },
+    {
+      "titulo": "Parámetros regulatorios en un cliente ficticio",
+      "detalle": "La fecha de corte del Artículo 61 y las tasas viven en el registro B09PMOTOR del cliente 999999999999. En la plataforma destino deben pasar a una tabla de parámetros con vigencia y auditoría."
+    },
+    {
+      "titulo": "Plaza deducida del nombre de host",
+      "detalle": "Todo host no reconocido como VDM se procesa como Monterrey y, en Monterrey, se genera además el archivo MOTOR que P197 envía con la opción 66."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-368 indica que el barrido de B09PMOTOR ocurre antes de aplicar los movimientos; en el fuente 50000000-INI-STA-CTE corre después de las dos cargas (líneas 1228-1233) y solo reinicia clientes no actualizados en el día. Revisar la redacción de la regla.",
+    "Confirmar la escala de WKS-HED-TFIX y WKS-HED-TUDI (PIC 9(08) sin V) y si las tasas se usan todavía, dado que los comentarios dicen que se eliminó el manejo de saldos.",
+    "Confirmar si el cliente dummy 999999999999 debe excluirse de 50000000-INI-STA-CTE y de la marca de beneficencia.",
+    "Confirmar qué valores de estatus de cliente existen además de 0 y 1, para validar la condición de apagado de la marca de beneficencia.",
+    "Confirmar el comportamiento de CLOSE ... WITH REMOVE usado para renombrar el archivo integrado (líneas 1466-1467) y la espera fija de 5 segundos antes y después."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-367",
+    "RN-S500-368",
+    "RN-S500-369",
+    "RN-S500-370",
+    "RN-S500-371"
+  ]
+}

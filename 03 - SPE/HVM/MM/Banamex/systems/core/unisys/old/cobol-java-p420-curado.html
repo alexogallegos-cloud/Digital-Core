@@ -1,0 +1,591 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>COBOL → Java SpringBoot · P420 · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 28px;
+  backdrop-filter:blur(18px);background:rgba(7,28,35,.8);border-bottom:1px solid rgba(255,255,255,.07)}
+.ntitle{font-size:13px;font-weight:700}.nsub{font-size:11px;color:var(--muted);margin-top:1px}
+nav a.back{margin-left:auto;font-size:12px;color:var(--gold);text-decoration:none;border:1px solid rgba(108,197,216,.35);border-radius:20px;padding:5px 14px;transition:.2s;flex-shrink:0}
+nav a.back:hover{background:rgba(108,197,216,.1)}
+.brief-badge{display:flex;align-items:center;gap:7px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.4);border-radius:20px;padding:5px 13px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+.brief-dot{width:6px;height:6px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px #C1272D}50%{box-shadow:0 0 16px #C1272D}}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #C1272D;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<div id="scrim" onclick="closePopup()"></div>
+
+<!-- ── POPUP ── -->
+<div id="popup">
+  <div id="popup-hdr">
+    <span class="from-badge">COBOL 1997</span>
+    <span class="arrow">→</span>
+    <span class="to-badge">Java 21</span>
+    <span id="popup-title"></span>
+    <button id="popup-close" onclick="closePopup()">×</button>
+  </div>
+  <div id="popup-body">
+    <div class="pp-section">
+      <div class="pp-label">Código COBOL original</div>
+      <div class="pp-code pc" id="pp-cobol"></div>
+    </div>
+    <div class="pp-section">
+      <div class="pp-label">Equivalente Java 21 · SpringBoot 3</div>
+      <div class="pp-code pj" id="pp-java"></div>
+    </div>
+    <div class="pp-section">
+      <div class="pp-label">Racional de equivalencia</div>
+      <div class="pp-rationale" id="pp-rat"></div>
+    </div>
+    <div class="pp-section">
+      <div class="pp-label">Reglas de negocio trazadas</div>
+      <div class="pp-rules" id="pp-rules"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav class="dbnav">
+  <a class="nlogo" href="index.html"><img src="assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · P420</span><span class="sp"></span>
+  <a class="jump" href="index.html">Inicio</a><a class="jump" href="modelo-capacidades.html">Capacidades</a><a class="jump" href="cap-relationships.html">Relaciones</a><a class="jump" href="arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+  <div class="brief-badge"><span class="bdot"></span>BRIEFING · Francisco Leyva · CTO · Banamex · Sep 2026</div>
+</nav>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · Demostración de Transpilación</div>
+  <h1>De <span class="cw">COBOL Unisys 1997</span> a <span class="jw">Java 21 SpringBoot</span></h1>
+  <p class="sub">El Enterprise Digital Brain extrajo la lógica de negocio real de P420 y la estructuró como pseudocódigo auditable y reglas trazables. Ese conocimiento alimenta la transpilación asistida por IA — no generamos Java a ciegas, generamos Java que cumple exactamente lo que el banco hace hoy.</p>
+  <div class="hint">Haz clic en cualquier bloque de COBOL para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+
+<div class="wrap">
+
+  <!-- CTX -->
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">S500 · P420 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">985 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Concentrador de Saldos Tarjeta · Batch nocturno</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas extraídas</div><div class="cv">RN-S500-420-001 … 005</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Data JPA</div></div>
+  </div>
+
+  <!-- ── BLOCK 1: DATA STRUCTURE ── -->
+  <div class="sec-hdr">1 · Estructura de datos — WS-REGTB (90 chars)</div>
+  <div class="split">
+    <!-- COBOL -->
+    <div class="pane">
+      <div class="pane-hdr ch">
+        <div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+        <span>P420.cbl</span><span class="fname">Working-Storage</span>
+        <span class="lang-label ll-c">COBOL 85</span>
+      </div>
+      <pre><span class="cmt">* Registro de 90 chars — 3 vistas REDEFINES</span>
+<span class="cmt">* WS-TB-TIPO-REG: 0=header 1=detalle 9=trailer</span>
+
+<span class="seg" data-cid="s1" data-jid="j1">       <span class="kw">01</span>  <span class="var">WS-REGTB</span>             <span class="kw">PIC X(90)</span>.
+
+       <span class="kw">01</span>  <span class="var">WS-REGTB-DETALLE</span>
+               <span class="kw">REDEFINES</span> <span class="var">WS-REGTB</span>.</span>
+
+<span class="seg" data-cid="s2" data-jid="j2">         <span class="kw">05</span>  <span class="var">WS-TBDE-NUMCTO</span>    <span class="kw">PIC 9(12)</span>.
+         <span class="kw">05</span>  <span class="var">WS-TBDE-NUMPRD</span>    <span class="kw">PIC 9(4)</span>.
+         <span class="kw">05</span>  <span class="var">WS-TBDE-NUMINS</span>    <span class="kw">PIC 9(4)</span>.</span>
+
+<span class="seg" data-cid="s3" data-jid="j3">         <span class="kw">05</span>  <span class="var">WS-TBDE-NUMMON</span>    <span class="kw">PIC 9(3)</span>.
+<span class="rule-ann">         ⚠ 1=MXN; otro=Dólares  (BR: RN-S500-420-004)</span></span>
+
+<span class="seg" data-cid="s4" data-jid="j4">         <span class="kw">05</span>  <span class="var">WS-TBDE-SDOMN</span>     <span class="kw">PIC 9(12)V99 COMP-3</span>.
+         <span class="kw">05</span>  <span class="var">WS-TBDE-SDODL</span>     <span class="kw">PIC 9(12)V99 COMP-3</span>.
+         <span class="kw">05</span>  <span class="var">WS-TBDE-AUTPENMN</span>  <span class="kw">PIC 9(8)V99 COMP-3</span>.
+         <span class="kw">05</span>  <span class="var">WS-TBDE-AUTPENDL</span>  <span class="kw">PIC 9(8)V99 COMP-3</span>.
+<span class="rule-ann">         ⚠ COMP-3 packed decimal → riesgo rounding COBOL vs Java</span></span>
+
+<span class="seg" data-cid="s5" data-jid="j5">         <span class="kw">05</span>  <span class="var">WS-TBDE-CSI</span>       <span class="kw">PIC 9(2)</span>.
+<span class="rule-ann">         ⚠ CSI 04=Monterrey  CSI 10=Valle de México</span>
+         <span class="kw">05</span>  <span class="var">WS-TBDE-STATUS</span>    <span class="kw">PIC X(1)</span>.</span></pre>
+    </div>
+    <!-- JAVA -->
+    <div class="pane">
+      <div class="pane-hdr jh">
+        <div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+        <span>CardBalanceRecord.java</span><span class="fname">Spring Data JPA</span>
+        <span class="lang-label ll-j">Java 21</span>
+      </div>
+      <pre><span class="cmt">// Discriminador → sealed interface</span>
+<span class="cmt">// Equivale al REDEFINES de COBOL</span>
+
+<span class="seg java-seg" data-jid="j1"><span class="ann">@JsonTypeInfo</span>(use = <span class="type">JsonTypeInfo.Id</span>.NAME)
+<span class="kw">public sealed interface</span> <span class="type">CardBalanceRecord</span>
+    <span class="kw">permits</span> <span class="type">HeaderRecord</span>, <span class="type">DetailRecord</span>, <span class="type">TrailerRecord</span> {}
+</span>
+<span class="cmt">// Detalle — mapea WS-REGTB-DETALLE</span>
+<span class="kw">public record</span> <span class="type">DetailRecord</span>(</span>
+
+<span class="seg java-seg" data-jid="j2">    <span class="type">String</span>     <span class="var">accountNumber</span>,    <span class="cmt">// WS-TBDE-NUMCTO</span>
+    <span class="type">Integer</span>    <span class="var">productNumber</span>,    <span class="cmt">// WS-TBDE-NUMPRD</span>
+    <span class="type">Integer</span>    <span class="var">instrumentNumber</span>, <span class="cmt">// WS-TBDE-NUMINS</span></span>
+
+<span class="seg java-seg" data-jid="j3">    <span class="type">Currency</span>   <span class="var">currency</span>,         <span class="cmt">// WS-TBDE-NUMMON</span>
+    <span class="cmt">// RN-S500-420-004: 1→MXN, otro→USD</span></span>
+
+<span class="seg java-seg" data-jid="j4">    <span class="type">BigDecimal</span> <span class="var">balanceMxn</span>,       <span class="cmt">// WS-TBDE-SDOMN COMP-3</span>
+    <span class="type">BigDecimal</span> <span class="var">balanceUsd</span>,       <span class="cmt">// WS-TBDE-SDODL COMP-3</span>
+    <span class="type">BigDecimal</span> <span class="var">pendingAuthMxn</span>,   <span class="cmt">// WS-TBDE-AUTPENMN</span>
+    <span class="type">BigDecimal</span> <span class="var">pendingAuthUsd</span>,   <span class="cmt">// WS-TBDE-AUTPENDL</span>
+    <span class="cmt">// ⚠ escala=2, RoundingMode.HALF_EVEN → equiv. COMP-3</span></span>
+
+<span class="seg java-seg" data-jid="j5">    <span class="type">Integer</span>    <span class="var">csiCode</span>,          <span class="cmt">// WS-TBDE-CSI</span>
+    <span class="type">Character</span>  <span class="var">accountStatus</span>     <span class="cmt">// WS-TBDE-STATUS</span></span>
+) <span class="kw">implements</span> <span class="type">CardBalanceRecord</span> {}</pre>
+    </div>
+  </div>
+
+  <!-- ── BLOCK 2: MAIN PROCEDURE ── -->
+  <div class="sec-hdr" style="margin-top:28px">2 · Procedimiento principal — Consolidación de saldos</div>
+  <div class="split">
+    <!-- COBOL -->
+    <div class="pane">
+      <div class="pane-hdr ch">
+        <div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+        <span>P420.cbl</span><span class="fname">50000000-PROCESOS · 50008020-GRABO-DETALLE</span>
+        <span class="lang-label ll-c">COBOL 85</span>
+      </div>
+      <pre><span class="proc">PROCEDIMIENTO Procesos_Principales()</span>:
+
+<span class="seg" data-cid="s6" data-jid="j6">  <span class="cmt">* ── Fecha de proceso = fecha línea − 1 día ──</span>
+  <span class="kw">EJECUTAR</span> <span class="proc">Obtener_Fecha_Proceso</span>()
+  <span class="cmt">* LOCSUP fnc=15 resta 1 día a B02-FECHA-LINEA</span>
+<span class="rule-ann">  (BR: RN-S500-420-001) La base ya avanzó; proceso = ayer</span></span>
+
+<span class="seg" data-cid="s7" data-jid="j7">  <span class="cmt">* ── Leer 4 archivos secuenciales con flag EOF ──</span>
+  <span class="kw">EJECUTAR</span> <span class="proc">Leer_CM_Monterrey</span>()
+    <span class="kw">HASTA QUE</span> <span class="var">WS-1VEZ</span> = <span class="num">1</span>
+  <span class="kw">EJECUTAR</span> <span class="proc">Leer_CM_ValleM</span>()
+    <span class="kw">HASTA QUE</span> <span class="var">WS-2VEZ</span> = <span class="num">1</span></span>
+
+<span class="seg" data-cid="s8" data-jid="j8">  <span class="cmt">* Evaluar tipo de registro</span>
+  <span class="kw">EVALUAR</span> <span class="var">WS-TB-TIPO-REG</span>
+    <span class="kw">CUANDO</span> <span class="num">0</span> → <span class="kw">EJECUTAR</span> <span class="proc">Header_CintaCM</span>()
+<span class="rule-ann">               (BR: RN-S500-420-002) Validar fecha header</span>
+    <span class="kw">CUANDO</span> <span class="num">1</span> → <span class="kw">EJECUTAR</span> <span class="proc">Grabar_Detalle</span>()
+    <span class="kw">CUANDO</span> <span class="num">9</span> → <span class="kw">EJECUTAR</span> <span class="proc">Trailer_Monterrey</span>()</span>
+
+<span class="cmt">─────────────────────────────────────────</span>
+<span class="proc">PROCEDIMIENTO Grabar_Detalle_CM</span>():
+
+<span class="seg" data-cid="s9" data-jid="j9">  <span class="kw">SUMAR</span> <span class="num">1</span> A <span class="var">WS-TOTCTES-REG</span>
+  <span class="kw">SI</span> <span class="var">WS-TBDE-NUMMON</span> = <span class="num">1</span>   <span class="cmt">// Moneda Nacional</span>
+    <span class="kw">SUMAR</span> <span class="var">WS-TBDE-SDOMN</span>
+          A <span class="var">WS-IMPCTESMN-REG</span>
+            <span class="var">WS-TOT-SDOSMN</span>
+  <span class="kw">SINO</span>                      <span class="cmt">// Dólares</span>
+    <span class="kw">SUMAR</span> <span class="var">WS-TBDE-SDODL</span>
+          A <span class="var">WS-IMPCTESDL-REG</span>
+            <span class="var">WS-TOT-SDOSDL</span>
+  <span class="kw">FIN-SI</span></span>
+
+<span class="seg" data-cid="s10" data-jid="j10">  <span class="kw">ESCRIBIR</span> <span class="var">WS-REGTB</span> A <span class="var">CINTACM</span>
+<span class="rule-ann">  ⚠ RN-S500-420-005 Cuadre trailer DESACTIVADO en COBOL</span></span></pre>
+    </div>
+    <!-- JAVA -->
+    <div class="pane">
+      <div class="pane-hdr jh">
+        <div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+        <span>CardBalanceConsolidationService.java</span><span class="fname">@Service · Spring Batch</span>
+        <span class="lang-label ll-j">Java 21</span>
+      </div>
+      <pre><span class="ann">@Service</span> <span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public class</span> <span class="type">CardBalanceConsolidationService</span> {
+
+  <span class="kw">private final</span> <span class="type">SaldosTbReader</span>     <span class="var">reader</span>;
+  <span class="kw">private final</span> <span class="type">ConsolidatedWriter</span>  <span class="var">writer</span>;
+  <span class="kw">private final</span> <span class="type">FechaProcesoService</span> <span class="var">fechaService</span>;
+
+  <span class="ann">@Transactional</span>
+  <span class="kw">public</span> <span class="type">ConsolidationResult</span> <span class="proc">consolidate</span>() {</span>
+
+<span class="seg java-seg" data-jid="j6">    <span class="cmt">// RN-S500-420-001: fechaProceso = fechaLinea − 1 día</span>
+    <span class="type">LocalDate</span> <span class="var">processingDate</span> =
+      <span class="var">fechaService</span>.<span class="proc">getLineDate</span>().<span class="proc">minusDays</span>(<span class="num">1</span>);
+</span>
+<span class="seg java-seg" data-jid="j7">    <span class="type">var</span> <span class="var">totals</span> = <span class="kw">new</span> <span class="type">ConsolidationTotals</span>();
+    <span class="kw">for</span> (<span class="type">CsiRegion</span> <span class="var">r</span> : <span class="type">List</span>.of(<span class="type">CSI_04_MTY</span>, <span class="type">CSI_10_VMX</span>)) {
+      <span class="type">var</span> <span class="var">records</span> = <span class="var">reader</span>.<span class="proc">readSaldosTb</span>(
+          <span class="var">processingDate</span>, <span class="var">r</span>, <span class="type">ProductType</span>.<span class="var">CUENTA_MAESTRA</span>);
+      <span class="proc">processRecords</span>(<span class="var">records</span>, <span class="var">totals</span>, <span class="type">OutputTape</span>.<span class="var">CINTACM</span>);
+    }</span>
+
+<span class="seg java-seg" data-jid="j8">    <span class="cmt">// Pattern matching → sealed interface</span>
+    <span class="cmt">// Reemplaza EVALUAR WS-TB-TIPO-REG</span>
+    <span class="kw">switch</span> (<span class="var">record</span>) {
+      <span class="kw">case</span> <span class="type">HeaderRecord</span> <span class="var">h</span>  → <span class="proc">validateHeader</span>(<span class="var">h</span>, <span class="var">processingDate</span>);
+      <span class="kw">case</span> <span class="type">DetailRecord</span> <span class="var">d</span>  → <span class="proc">processDetail</span>(<span class="var">d</span>, <span class="var">totals</span>);
+      <span class="kw">case</span> <span class="type">TrailerRecord</span> <span class="var">t</span> → <span class="proc">buildSyntheticTrailer</span>(<span class="var">t</span>, <span class="var">totals</span>);
+    }</span>
+
+<span class="seg java-seg" data-jid="j9">  <span class="kw">private void</span> <span class="proc">processDetail</span>(
+      <span class="type">DetailRecord</span> <span class="var">rec</span>, <span class="type">ConsolidationTotals</span> <span class="var">t</span>) {
+    <span class="cmt">// RN-S500-420-004: 1=MXN, otro=USD</span>
+    <span class="kw">if</span> (<span class="var">rec</span>.<span class="proc">currency</span>() == <span class="type">Currency</span>.<span class="var">MXN</span>) {
+      <span class="var">t</span>.<span class="proc">addMxn</span>(<span class="var">rec</span>.<span class="proc">balanceMxn</span>()); <span class="cmt">// HALF_EVEN</span>
+    } <span class="kw">else</span> {
+      <span class="var">t</span>.<span class="proc">addUsd</span>(<span class="var">rec</span>.<span class="proc">balanceUsd</span>());
+    }
+    <span class="var">t</span>.<span class="proc">incrementCustomerCount</span>();</span>
+
+<span class="seg java-seg" data-jid="j10">    <span class="var">writer</span>.<span class="proc">write</span>(<span class="var">rec</span>);
+    <span class="cmt">// RN-S500-420-005: cuadre ahora configurable</span>
+    <span class="cmt">// batch.validate-trailer=warn (no aborta)</span>
+  }</span>
+}</pre>
+    </div>
+  </div>
+
+  <!-- RULES TABLE -->
+  <div class="sec-hdr">3 · Reglas de negocio trazadas · P420</div>
+  <table class="rules-table">
+    <thead><tr><th>ID Regla</th><th>Descripción</th><th>Implementación Java</th></tr></thead>
+    <tbody>
+      <tr><td>RN-S500-420-001</td><td>La fecha de proceso = fecha de línea − 1 día. La base DMSII ya avanzó al día siguiente antes de que corra P420.</td><td>fechaService.getLineDate().minusDays(1)</td></tr>
+      <tr><td>RN-S500-420-002</td><td>El header de cada archivo se valida contra la fecha de proceso. Discrepancia → log, no aborto.</td><td>HeaderValidator.validate(h, processingDate)</td></tr>
+      <tr><td>RN-S500-420-003</td><td>Path de archivos Cheques usa prefijo S001 (no S500) — hardcode en COBOL. Debe externalizarse.</td><td>cheques.source-prefix=S001 en config</td></tr>
+      <tr><td>RN-S500-420-004</td><td>NUMMON=1 → Moneda Nacional (MXN). Cualquier otro valor → Dólares (USD).</td><td>Currency.fromCode(rec.numMoneda())</td></tr>
+      <tr><td>RN-S500-420-005</td><td>La validación del trailer (conteo + importes) está comentada en COBOL. Discrepancias no abortan el proceso — riesgo operativo latente.</td><td>batch.validate-trailer=warn|off|strict</td></tr>
+    </tbody>
+  </table>
+
+</div>
+
+<footer>
+  Enterprise Digital Brain · Banamex · SPE-MM-001 (S500) · P420 Concentrador de Saldos de Tarjeta<br>
+  Transpilación asistida por IA · Accenture México · High Velocity Modernization · Sep 2026
+</footer>
+
+<script>
+// ── MAPPING DATA ──────────────────────────────────────────────────────────────
+const MAPPINGS = {
+  s1: {
+    title: "Estructura de registro (REDEFINES → Sealed Interface)",
+    cobol: "01  WS-REGTB             PIC X(90).\n01  WS-REGTB-DETALLE\n        REDEFINES WS-REGTB.",
+    java:  "@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)\npublic sealed interface CardBalanceRecord\n    permits HeaderRecord, DetailRecord, TrailerRecord {}",
+    rationale: `COBOL interpreta los mismos <b>90 bytes</b> como header, detalle o trailer según el valor del byte discriminador <b>WS-TB-TIPO-REG</b> usando la cláusula <b>REDEFINES</b>. No hay verificación de tipos en tiempo de compilación.<br><br>Java utiliza un <b>sealed interface</b> con tres implementaciones explícitas. El compilador verifica exhaustividad en cada <code>switch</code>: si alguien añade un nuevo tipo de registro, el compilador fuerza su manejo. Es imposible olvidarlo.`,
+    rules: []
+  },
+  s2: {
+    title: "Campos de identificación de cuenta",
+    cobol: "05  WS-TBDE-NUMCTO    PIC 9(12).\n05  WS-TBDE-NUMPRD    PIC 9(4).\n05  WS-TBDE-NUMINS    PIC 9(4).",
+    java:  "String  accountNumber,    // WS-TBDE-NUMCTO\nInteger productNumber,    // WS-TBDE-NUMPRD\nInteger instrumentNumber, // WS-TBDE-NUMINS",
+    rationale: `Los campos numéricos de identificación (<b>PIC 9(n)</b>) se traducen a tipos Java estándar. <b>NUMCTO</b> va a <code>String</code> porque los números de cuenta bancaria deben preservar ceros iniciales y nunca se usan aritméticamente. <b>NUMPRD</b> e <b>NUMINS</b> son códigos de catálogo y van a <code>Integer</code>.<br><br>En Java el record es inmutable por definición — equivale al comportamiento COBOL donde estos campos solo se leen, nunca se modifican durante el procesamiento del detalle.`,
+    rules: []
+  },
+  s3: {
+    title: "Campo de moneda — NUMMON (hardcode numérico → Enum)",
+    cobol: "05  WS-TBDE-NUMMON    PIC 9(3).\n* ⚠ 1=MXN; otro=Dólares  (BR: RN-S500-420-004)",
+    java:  "Currency currency,  // WS-TBDE-NUMMON\n// RN-S500-420-004: 1→MXN, otro→USD\n\npublic enum Currency {\n    MXN(1), USD(0);\n    public static Currency fromCode(int code){\n        return code == 1 ? MXN : USD;\n    }\n}",
+    rationale: `En COBOL el campo <b>NUMMON</b> es un <code>PIC 9(3)</code> cuyo significado vive <i>solo en un comentario</i>: "1=MXN, otro=USD". Un programador que no conozca esta regla puede equivocarse silenciosamente — el compilador COBOL no lo impide.<br><br>Java modela esto con un <b>enum <code>Currency</code></b>. El método <code>fromCode()</code> encapsula la regla RN-S500-420-004. A partir de ahora el compilador rechaza valores inválidos y el <code>switch</code> sobre la moneda es exhaustivo.`,
+    rules: ["RN-S500-420-004"]
+  },
+  s4: {
+    title: "Importes COMP-3 (Packed Decimal → BigDecimal)",
+    cobol: "05  WS-TBDE-SDOMN     PIC 9(12)V99 COMP-3.\n05  WS-TBDE-SDODL     PIC 9(12)V99 COMP-3.\n05  WS-TBDE-AUTPENMN  PIC 9(8)V99 COMP-3.\n05  WS-TBDE-AUTPENDL  PIC 9(8)V99 COMP-3.",
+    java:  "BigDecimal balanceMxn,     // WS-TBDE-SDOMN\nBigDecimal balanceUsd,     // WS-TBDE-SDODL\nBigDecimal pendingAuthMxn, // WS-TBDE-AUTPENMN\nBigDecimal pendingAuthUsd  // WS-TBDE-AUTPENDL\n// escala=2, RoundingMode.HALF_EVEN",
+    rationale: `<b>COMP-3 (Packed Decimal BCD)</b> es el formato de Mainframe para aritmética financiera exacta: almacena cada dígito decimal en 4 bits, sin punto flotante. Es el estándar bancario desde los años 60.<br><br>En Java, usar <code>double</code> o <code>float</code> <i>garantiza</i> errores de redondeo — <code>0.1 + 0.2 ≠ 0.3</code> en coma flotante. La única forma de replicar COMP-3 es <b><code>BigDecimal</code> con escala=2 y <code>RoundingMode.HALF_EVEN</code></b>.<br><br>Esta decisión está documentada en <code>ADR-SPE-MM-002</code> y es el insumo mínimo del golden-master de equivalencia ≥ 99.99% exigida por la CNBV.`,
+    rules: []
+  },
+  s5: {
+    title: "Código CSI — región geográfica",
+    cobol: "05  WS-TBDE-CSI      PIC 9(2).\n* ⚠ CSI 04=Monterrey  CSI 10=Valle de México\n05  WS-TBDE-STATUS   PIC X(1).",
+    java:  "Integer   csiCode,      // WS-TBDE-CSI\nCharacter accountStatus // WS-TBDE-STATUS\n\n// Enum sugerido para TO-BE:\npublic enum CsiRegion {\n    CSI_04_MTY, CSI_10_VMX\n}",
+    rationale: `El campo <b>CSI</b> determina la región: 04=Monterrey, 10=Valle de México. En COBOL estos valores son hardcodes numéricos sin documentación en el código (el significado vive solo en la mente del equipo original).<br><br>El Enterprise Digital Brain documenta este hallazgo como parte del análisis de P420. En Java se recomienda modelar CSI como un <b>enum <code>CsiRegion</code></b> para eliminar magic numbers. El <code>status</code> de cuenta (<code>PIC X(1)</code>) va a <code>Character</code> con pendiente de definir el catálogo de valores válidos.`,
+    rules: []
+  },
+  s6: {
+    title: "Cálculo de fecha de proceso (LOCSUP fnc=15 → LocalDate)",
+    cobol: "EJECUTAR Obtener_Fecha_Proceso()\n* LOCSUP fnc=15 resta 1 día a B02-FECHA-LINEA\n* RN-S500-420-001: La base ya avanzó; proceso = ayer",
+    java:  "// RN-S500-420-001: fechaProceso = fechaLinea − 1 día\nLocalDate processingDate =\n    fechaService.getLineDate().minusDays(1);",
+    rationale: `P420 corre en el batch nocturno <i>después</i> de que la base DMSII ya avanzó su fecha al día siguiente. Por eso la fecha de proceso es <b>fechaLinea − 1 día</b> (regla RN-S500-420-001).<br><br>En COBOL esto se hace llamando a la librería <b>LOCSUP con función 15</b> — un servicio de fechas propietario de Unisys. En Java, <code>java.time.LocalDate.minusDays(1)</code> es la traducción directa: sin ambigüedad de zona horaria, sin formatos AAAAMMDD, y el compilador garantiza que el tipo es correcto.`,
+    rules: ["RN-S500-420-001"]
+  },
+  s7: {
+    title: "Lectura secuencial con flag EOF (PERFORM UNTIL → Spring Batch Reader)",
+    cobol: "EJECUTAR Leer_CM_Monterrey()\n  HASTA QUE WS-1VEZ = 1\nEJECUTAR Leer_CM_ValleM()\n  HASTA QUE WS-2VEZ = 1",
+    java:  "for (CsiRegion r : List.of(CSI_04_MTY, CSI_10_VMX)) {\n    var records = reader.readSaldosTb(\n        processingDate, r, ProductType.CUENTA_MAESTRA);\n    processRecords(records, totals, OutputTape.CINTACM);\n}",
+    rationale: `COBOL usa un patrón de <b>flag de "primera vez"</b> (WS-1VEZ, WS-2VEZ…) para detectar el fin de cada archivo secuencial. Cuando el flag pasa a 1, el PERFORM termina. Es un patrón de los años 70 para emular un iterador.<br><br>Spring Batch <b>ItemReader</b> encapsula exactamente este comportamiento con streaming, checkpoint y <b>restart automático</b> si el batch falla a mitad. El <code>for</code> sobre las regiones CSI reemplaza los cuatro PERFORM secuenciales de COBOL con lógica parametrizada — si se añade una nueva región (CSI 05, por ejemplo), solo se añade un valor al enum.`,
+    rules: []
+  },
+  s8: {
+    title: "Discriminación de tipo de registro (EVALUAR → Pattern Matching)",
+    cobol: "EVALUAR WS-TB-TIPO-REG\n  CUANDO 0 → EJECUTAR Header_CintaCM()\n  CUANDO 1 → EJECUTAR Grabar_Detalle()\n  CUANDO 9 → EJECUTAR Trailer_Monterrey()",
+    java:  "switch (record) {\n  case HeaderRecord  h → validateHeader(h, processingDate);\n  case DetailRecord  d → processDetail(d, totals);\n  case TrailerRecord t → buildSyntheticTrailer(t, totals);\n}",
+    rationale: `El <b>EVALUAR</b> de COBOL discrimina por el valor del byte 0/1/9 en tiempo de ejecución — si alguien escribe un nuevo tipo de registro (por ejemplo, tipo 5), el COBOL no falla: simplemente lo ignora silenciosamente.<br><br>Java 21 usa <b>pattern matching en switch</b> sobre el sealed interface. El compilador verifica que el switch sea <i>exhaustivo</i>: si se añade un nuevo subtipo de <code>CardBalanceRecord</code>, el código no compila hasta que se añada su rama. Es imposible ignorar silenciosamente un caso nuevo.`,
+    rules: ["RN-S500-420-002"]
+  },
+  s9: {
+    title: "Acumulación de saldos MN/DL (ADD COMP-3 → BigDecimal.add HALF_EVEN)",
+    cobol: "SUMAR 1 A WS-TOTCTES-REG\nSI WS-TBDE-NUMMON = 1   // Moneda Nacional\n  SUMAR WS-TBDE-SDOMN\n        A WS-IMPCTESMN-REG\n          WS-TOT-SDOSMN\nSINO                    // Dólares\n  SUMAR WS-TBDE-SDODL\n        A WS-IMPCTESDL-REG\n          WS-TOT-SDOSDL\nFIN-SI",
+    java:  "// RN-S500-420-004: 1=MXN, otro=USD\nif (rec.currency() == Currency.MXN) {\n    t.addMxn(rec.balanceMxn()); // HALF_EVEN\n} else {\n    t.addUsd(rec.balanceUsd());\n}\nt.incrementCustomerCount();\n\n// ConsolidationTotals.addMxn():\npublic void addMxn(BigDecimal amount) {\n    totalMxn = totalMxn.add(amount)\n        .setScale(2, RoundingMode.HALF_EVEN);\n}",
+    rationale: `La instrucción <b>SUMAR … A …</b> de COBOL sobre campos <code>COMP-3</code> realiza aritmética BCD exacta — sin error de redondeo flotante. Acumula el mismo importe en <i>dos</i> acumuladores simultáneamente (detalle del archivo actual + gran total).<br><br>En Java, <code>BigDecimal.add()</code> con <code>RoundingMode.HALF_EVEN</code> replica exactamente este comportamiento. La clase <code>ConsolidationTotals</code> encapsula ambos acumuladores (el del archivo actual y el gran total), igual que las variables <code>WS-IMPCTESMN-REG</code> y <code>WS-TOT-SDOSMN</code> de COBOL.`,
+    rules: ["RN-S500-420-004"]
+  },
+  s10: {
+    title: "Escritura a cinta + cuadre de trailer (hallazgo crítico)",
+    cobol: "ESCRIBIR WS-REGTB A CINTACM\n* ⚠ RN-S500-420-005\n* Cuadre trailer DESACTIVADO — código comentado\n* Discrepancias en conteo/importes NO abortan el proceso",
+    java:  "writer.write(rec);\n// RN-S500-420-005: cuadre ahora configurable\n// batch.validate-trailer=warn|off|strict\n\n// En application.yml:\n# batch:\n#   validate-trailer: warn  # no aborta, solo alerta",
+    rationale: `<b>Hallazgo crítico del Enterprise Digital Brain:</b> En el código COBOL de P420, la validación de cuadre del trailer (comparar total de registros e importes contra la suma acumulada) está <b>completamente comentada</b>. No se sabe cuándo ni por qué se desactivó.<br><br>Esto significa que el proceso batch puede terminar con totales incorrectos sin que nadie lo sepa. El Enterprise Digital Brain documenta este riesgo como <b>RN-S500-420-005</b>.<br><br>En la versión Java TO-BE, la validación es <b>configurable</b>: <code>strict</code> aborta, <code>warn</code> aloga y continúa, <code>off</code> replica el comportamiento COBOL actual. Esta decisión debe quedar en un ADR firmado por el equipo de riesgos de Banamex.`,
+    rules: ["RN-S500-420-005"]
+  }
+};
+
+// ── INTERACTION ───────────────────────────────────────────────────────────────
+let activeCobol = null;
+
+function openPopup(cid) {
+  const m = MAPPINGS[cid];
+  if (!m) return;
+
+  // Clear previous highlights
+  document.querySelectorAll('.seg.active-cobol, .seg.active-java').forEach(el => {
+    el.classList.remove('active-cobol','active-java');
+  });
+
+  // Highlight COBOL segment
+  const cobolSeg = document.querySelector(`.seg[data-cid="${cid}"]`);
+  if (cobolSeg) cobolSeg.classList.add('active-cobol');
+
+  // Highlight Java segment
+  const jid = cobolSeg?.dataset.jid;
+  if (jid) {
+    const javaSeg = document.querySelector(`.java-seg[data-jid="${jid}"]`);
+    if (javaSeg) {
+      javaSeg.classList.add('active-java');
+      // Scroll java pane to show highlighted segment
+      javaSeg.scrollIntoView({block:'nearest', behavior:'smooth'});
+    }
+  }
+
+  // Fill popup
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent  = m.java;
+  document.getElementById('pp-rat').innerHTML     = m.rationale;
+  const rulesEl = document.getElementById('pp-rules');
+  rulesEl.innerHTML = m.rules.length
+    ? m.rules.map(r => `<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica — decisión de arquitectura de traducción</span>';
+
+  document.getElementById('popup').style.display = 'block';
+  document.getElementById('scrim').style.display  = 'block';
+  activeCobol = cid;
+}
+
+function closePopup() {
+  document.getElementById('popup').style.display = 'none';
+  document.getElementById('scrim').style.display  = 'none';
+  document.querySelectorAll('.seg.active-cobol, .seg.active-java').forEach(el => {
+    el.classList.remove('active-cobol','active-java');
+  });
+  activeCobol = null;
+}
+
+// Attach click handlers to COBOL segments
+document.querySelectorAll('.seg[data-cid]').forEach(el => {
+  el.addEventListener('click', () => openPopup(el.dataset.cid));
+});
+
+// Hover bidireccional: COBOL → ilumina Java
+document.querySelectorAll('.seg[data-cid]').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    if (el.dataset.jid)
+      document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java');
+  });
+  el.addEventListener('mouseleave', () => {
+    if (el.dataset.jid)
+      document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java');
+  });
+});
+
+// Hover bidireccional: Java → ilumina COBOL
+document.querySelectorAll('.java-seg[data-jid]').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`)?.classList.add('peer-cobol');
+  });
+  el.addEventListener('mouseleave', () => {
+    document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`)?.classList.remove('peer-cobol');
+  });
+});
+
+// Close on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+</script>
+</body></html>

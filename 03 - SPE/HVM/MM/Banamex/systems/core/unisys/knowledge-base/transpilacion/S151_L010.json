@@ -1,0 +1,169 @@
+{
+  "slug": "S151_L010",
+  "sistema": "S151",
+  "programa": "L010",
+  "nombre": "Librería de Bitácora en Línea del P010",
+  "funcion": "Librería ALGOL residente de S151 que exporta un único procedimiento, GRABA_BITACORA, con el que las copias del P010 escriben cada transacción en la bitácora diaria LOGP010 mientras dura la operación en línea.",
+  "resumen": "Al levantarse, la librería resuelve por control de versiones los títulos de S080L710 y de la librería CONTROL de S151, verifica en el dataset B05 que no exista otra L010 viva y se registra con su número de mezcla. Obtiene el CSI del equipo con SOPORTECOMS y la fecha contable con CONSISDIA, y abre la bitácora (S151)S151/FILE/LOGP010/AAMMDD ON CMEMP, creándola o agregando al final. Cada llamada a GRABA_BITACORA copia el registro recibido a un buffer de 1 260 caracteres, cuenta recibidos y errores según la clave de respuesta y lo escribe. Mientras haya usuarios enlazados atiende comandos HI del operador; al quedarse sin usuarios cierra la bitácora y se da de baja en B05.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s151.bitacora",
+  "secciones": [
+    {
+      "titulo": "Interfaz exportada y escritura de la bitácora",
+      "origen": {
+        "archivo": "ALGOL_L010.txt",
+        "contexto": "FILE BITA_P010 · PROCEDURE GRABA_BITACORA · bloque externo"
+      },
+      "java": {
+        "archivo": "BitacoraP010.java · BitacoraP010Service.java · BitacoraProperties.java",
+        "contexto": "interface · @Service · SmartLifecycle"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "GRABA_BITACORA: único entry point de la librería",
+          "linea_ini": 178,
+          "linea_fin": 202,
+          "origen_codigo": "  PROCEDURE GRABA_BITACORA(REGISTRO);                                   00174000\n  EBCDIC ARRAY REGISTRO[*];                                             00175000\n  BEGIN                                                                 00176000\n     DEFINE DF_NOMINA  (A) = A[0]                #, % 8                 00177000\n            DF_FECHA   (A) = A[07]               #, % 8                 00178000\n            DF_HORA    (A) = A[15]               #, % 8                 00179000\n            DF_ESTACION(A) = A[23]               #, % 8                 00180000\n            DF_SISTEMA (A) = A[31]               #, % 4                 00181000\n            DF_CVETRAN (A) = A[35]               #, % 8                 00182000\n            DF_TIPO_OPE(A) = A[43]               #, % 1                 00183000\n            DF_MSG_IN  (A) = A[44]               #, % 63                00184000\n            DF_MSG_OUT (A) = A[108]              #, % 1150              00185000\n            DF_CVE_RES (A) = A[1258]             #, % 2                 00186000\n           IDF_CVE_RES (A) = INTEGER(A[1258],2)  #; % 2                 00187000\n     EBCDIC  ARRAY REG_BITA[0:1255];                                    00188000\n     INTEGER LONG_MSG;                                                  00189000\n                                                                        00190000\n     LONG_MSG := SIZE(REGISTRO);                                        00191000\n     IF LONG_MSG > 1260 THEN LONG_MSG := 1260;                          00192000\n     REPLACE REG_BITA BY REGISTRO FOR 1260;                             00193000\n     TOT_RECIBIDOS := * + 1;                                            00194000\n     IF IDF_CVE_RES (REG_BITA) > 1 THEN                                 00195000\n        TOT_ERRORES := * + 1;                                           00196000\n     WRITE(BITA_P010,1260,REG_BITA);                                    00197000\n  END;                                                                  00198000",
+          "java_codigo": "/** Contrato que exponía EXPORT GRABA_BITACORA. */\npublic interface BitacoraP010 {\n    void grabaBitacora(byte[] registro);     // EBCDIC ARRAY REGISTRO[*]\n}\n\n@Service\n@RequiredArgsConstructor\nclass BitacoraP010Service implements BitacoraP010 {\n\n    static final int LONG_REGISTRO = 1260;   // MAXRECSIZE 210 palabras x 6 caracteres\n    static final int POS_CVE_RES = 1258;     // IDF_CVE_RES: 2 dígitos\n\n    private final ArchivoBitacora archivo;\n    private final AtomicLong totRecibidos = new AtomicLong();\n    private final AtomicLong totErrores = new AtomicLong();\n\n    @Override\n    public void grabaBitacora(byte[] registro) {\n        byte[] reg = Arrays.copyOf(registro, LONG_REGISTRO);   // rellena con ceros si viene corto\n        totRecibidos.incrementAndGet();\n        int cveRes = Ebcdic.entero(reg, POS_CVE_RES, 2);\n        if (cveRes > 1) {\n            totErrores.incrementAndGet();                       // clave de respuesta 2..99\n        }\n        archivo.escribe(reg);                                   // WRITE(BITA_P010,1260,REG_BITA)\n    }\n}",
+          "racional": "La librería tiene un solo procedimiento exportado: recibe el registro de bitácora del P010, lo copia a un buffer de 1 260 caracteres, suma uno a recibidos y uno a errores cuando la clave de respuesta de las posiciones 1258-1259 es mayor que 1, y lo escribe. En Java es una interfaz con un método y un <code>@Service</code> singleton; los contadores globales, que en ALGOL se incrementan sin candado desde varias copias del P010, se vuelven <code>AtomicLong</code>. El layout de campos que declara el <code>DEFINE</code> interno no se usa en el cuerpo y no se traduce.",
+          "reglas": [],
+          "riesgo": "REG_BITA se declara [0:1255] (1 256 caracteres) pero se copia FOR 1260 y la clave de respuesta se lee en la posición 1258; funciona si el compilador redondea el arreglo a 210 palabras de 6 caracteres. LONG_MSG se calcula y nunca se usa: si un llamador envía un registro de menos de 1 260 caracteres, REPLACE lee más allá de su arreglo."
+        },
+        {
+          "id": "s2",
+          "titulo": "Bloque externo: EXPORT, arranque y FREEZE controlado",
+          "linea_ini": 564,
+          "linea_fin": 573,
+          "origen_codigo": " EXPORT GRABA_BITACORA;                                                 00557000\n STR_HDRMSG := \"S151/L010/001:I>020901< \";                              00558000\n VERSIONES;                                                             00559000\n RESULT_LINK := LINKLIBRARY(CONTROL);                                   00560000\n VERIFICA_B05;                                                          00561000\n RESULT_LINK := DELINKLIBRARY(CONTROL);                                 00562000\n INICIA;                                                                00563000\n FREEZE(CONTROL,CONTROL_LIB);                                           00564000\n BAJA;                                                                  00565000\nEND.                                                                    00566000",
+          "java_codigo": "/** Equivalente del bloque externo: arranque ordenado y vida mientras haya usuarios. */\n@Component\n@RequiredArgsConstructor\nclass CicloVidaBitacora implements SmartLifecycle {\n\n    private final ResolutorVersiones versiones;   // VERSIONES: títulos de S080L710 y CONTROL\n    private final RegistroInstancia registro;     // VERIFICA_B05: una sola instancia viva\n    private final ArchivoBitacora archivo;        // INICIA: CSI, fecha contable y apertura\n    private volatile boolean activo;\n\n    @Override\n    public void start() {\n        versiones.resuelve();\n        registro.registraUnica();\n        archivo.abreDelDia();\n        activo = true;                // FREEZE(CONTROL, CONTROL_LIB): queda residente\n    }\n\n    @Override\n    public void stop() {              // BAJA\n        archivo.cierra();\n        registro.baja();              // función 22 en B05\n        activo = false;\n    }\n\n    @Override public boolean isRunning() { return activo; }\n}",
+          "racional": "El bloque externo exporta <code>GRABA_BITACORA</code>, fija el encabezado de mensajes, resuelve versiones, se registra en B05, abre la bitácora y se congela con <code>FREEZE(CONTROL, CONTROL_LIB)</code>: la librería queda residente ejecutando su procedimiento de control mientras tenga usuarios y, al terminar éste, corre <code>BAJA</code>. En Spring Boot ese ciclo corresponde a <code>SmartLifecycle</code>: <code>start</code> hace el arranque y <code>stop</code> el apagado ordenado.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Archivo de bitácora y nombre por fecha contable",
+          "linea_ini": 12,
+          "linea_fin": 424,
+          "origen_codigo": " FILE                                                                   00008000\n    % NOMBRE GENERICO : (S151)S151/FILE/BITAP010/AAMMDD                 00009000\n    BITA_P010(KIND=PACK,MAXRECSIZE = 210,BLOCKSIZE  = 30,               00010000\n              AREAS =300,AREASIZE = 1200,SECURITYUSE=3 ,                00011000\n              BUFFERS = 1,SECURITYTYPE=0,MYUSE = 2,                     00012000\n              UNITS=WORDS,PROTECTION=PROTECTED,SAVEFACTOR=99);          00013000\n       FECHA_PROCESO := ISISDFECCON(ACONTROL);                          00417000\n       REPLACE NOMB_ARC_BITA BY \"(S151)S151/FILE/LOGP010/\",             00418000\n                                FECHA_PROCESO  FOR 6 DIGITS,            00419000\n                                \" ON CMEMP.\";                           00420000",
+          "java_codigo": "# application.yml\nbitacora:\n  p010:\n    titulo: \"(S151)S151/FILE/LOGP010/{fecha} ON CMEMP\"   # el comentario dice BITAP010\n    fecha-en-nombre: yyMMdd           # FECHA_PROCESO FOR 6 DIGITS: se pierde el siglo\n    longitud-registro: 1260\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"bitacora.p010\")\npublic record BitacoraProperties(String titulo, String fechaEnNombre, int longitudRegistro) {\n\n    Path ruta(LocalDate fechaContable) {\n        return Path.of(titulo.replace(\"{fecha}\",\n                fechaContable.format(DateTimeFormatter.ofPattern(fechaEnNombre))));\n    }\n}",
+          "racional": "La declaración del archivo fija registros de 210 palabras (1 260 caracteres), protección contra pérdida y un factor de guardado de 99 días. El título se arma con la fecha contable obtenida de CONSISDIA en 6 dígitos, lo que trunca el siglo, y con la familia de discos <code>CMEMP</code>. La plantilla del nombre y la longitud pasan a <code>application.yml</code>; el patrón <code>yyMMdd</code> hace explícito el truncamiento.",
+          "reglas": [],
+          "riesgo": "El comentario de la declaración (línea 13) nombra el archivo BITAP010, pero el código lo crea como LOGP010. Cualquier proceso que busque BITAP010 no lo encontrará."
+        }
+      ]
+    },
+    {
+      "titulo": "Arranque: fecha contable, apertura y registro único en B05",
+      "origen": {
+        "archivo": "ALGOL_L010.txt",
+        "contexto": "PROCEDURE INICIA · CONSULTA_B01 · ASIGNA_ARCHIVOS · VERIFICA_B05"
+      },
+      "java": {
+        "archivo": "ArchivoBitacora.java · RegistroInstancia.java",
+        "contexto": "FileChannel APPEND · @Transactional · ShedLock"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Fecha contable desde la librería CONTROL",
+          "linea_ini": 404,
+          "linea_fin": 462,
+          "origen_codigo": "    PROCEDURE CONSULTA_B01;                                             00400000\n    BEGIN                                                               00401000\n       EBCDIC ARRAY ACONTROL[0:560];                                    00402000\n       REPLACE SISDFUNCI(ACONTROL) BY       1 FOR 2 DIGITS,             00403000\n                                          500 FOR 4 DIGITS,             00404000\n                                     CSI_LIB  FOR 2 DIGITS;             00405000\n       RESULT_CTL:= CONSISDIA(ACONTROL);                                00406000\n       IF RESULT_CTL > 0 THEN                                           00407000\n       BEGIN                                                            00408000\n          REPLACE MSGLJ BY STR_HDRMSG, 48\"00\" FOR 227;                  00409000\n          REPLACE TXTMSG BY \" L010 > ERROR EN CONSULTA \",               00410000\n                           \"DE LIB S151/L001, SISTEMA S\",               00411000\n                           SIST_LIB FOR 3 DIGITS,                       00412000\n                           RESULT_CTL FOR 6 DIGITS;                     00413000\n          LJ(CONLJ,MSGLJ);                                              00414000\n          MYSELF.STATUS:= -1;                                           00415000\n       END;                                                             00416000\n       FECHA_PROCESO := ISISDFECCON(ACONTROL);                          00417000\n    END;        % FIN DE CONSULTA_B01                                   00421000\n    INT := LINKLIBRARY(SOPORTE);                                        00451000\n    CSIID(DATOS_HOST);                                                  00452000\n    INT := DELINKLIBRARY(SOPORTE);                                      00453000\n    CSI_LIB := INTEGER(DATOS_HOST,2);                                   00454000\n    INT := LINKLIBRARY(CONTROL);                                        00455000\n    CONSULTA_B01;                                                       00456000\n    INT := DELINKLIBRARY(CONTROL);                                      00457000\n    ASIGNA_ARCHIVOS;                                                    00458000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass FechaContableResolver {\n\n    private final SoporteComs soporte;          // CSIID OF SOPORTECOMS\n    private final ControlSistemas control;      // CONSISDIA de (S151)S151/OBJECT/L001/CONTROL\n\n    /** CONSULTA_B01: función 1 para el sistema 500 en el CSI del equipo. */\n    LocalDate fechaContable() {\n        int csi = soporte.csiDelHost();\n        ConsultaSistema r = control.consisdia(1, 500, csi);\n        if (r.resultado() > 0) {\n            // MYSELF.STATUS := -1\n            throw new LibreriaNoDisponibleException(\n                    \"L010 > ERROR EN CONSULTA DE LIB S151/L001, SISTEMA S151 \" + r.resultado());\n        }\n        return r.fechaContable();               // ISISDFECCON: posiciones 16-23\n    }\n}",
+          "racional": "Para nombrar la bitácora, la librería pide a la librería CONTROL de S151 el registro de sistema del día mediante <code>CONSISDIA</code> y toma la fecha contable de las posiciones 16 a 23. El CSI del equipo se obtiene antes con <code>CSIID</code> de SOPORTECOMS. Ambas librerías se enlazan y desenlazan alrededor de cada llamada; en Java son clientes inyectados. Si la consulta falla, la tarea se termina con <code>STATUS -1</code> y aquí se lanza una excepción que impide el arranque.",
+          "reglas": [],
+          "riesgo": "La consulta se hace para el sistema 500 (línea 408) aunque la librería es de S151 y el mensaje de error dice sistema S151: la bitácora toma la fecha contable de Captación. Debe confirmarse si es intencional."
+        },
+        {
+          "id": "s5",
+          "titulo": "Apertura: crear o agregar al final",
+          "linea_ini": 430,
+          "linea_fin": 442,
+          "origen_codigo": "    PROCEDURE ASIGNA_ARCHIVOS;                                          00426000\n    BEGIN                                                               00427000\n       REPLACE BITA_P010.TITLE BY NOMB_ARC_BITA;                        00428000\n       BITA_P010.BLOCKSIZE := 37800;                                    00429000\n       BITA_P010.MYUSE := 3;                                            00430000\n       IF NOT (BITA_P010.RESIDENT) THEN                                 00431000\n       BEGIN                                                            00432000\n          BITA_P010.MYUSE := 2;       % MYUSE 1 = IN, 2 = OUT, 3 = IO   00433000\n          OPEN(BITA_P010,WAIT)                                          00434000\n       END                                                              00435000\n       ELSE                                                             00436000\n          OPEN(BITA_P010,ATEND);                                        00437000\n    END;       % FIN DE PROCEDIMIENTO DE VALIDACION DE ARCHIVOS         00438000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ArchivoBitacora {\n\n    private final BitacoraProperties props;\n    private final FechaContableResolver fecha;\n    private FileChannel canal;\n\n    /** ASIGNA_ARCHIVOS: OPEN(…,WAIT) si no existe; OPEN(…,ATEND) si ya existe. */\n    synchronized void abreDelDia() {\n        Path ruta = props.ruta(fecha.fechaContable());\n        try {\n            canal = FileChannel.open(ruta,\n                    StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND);\n        } catch (IOException e) {\n            throw new UncheckedIOException(\"No se pudo abrir \" + ruta, e);\n        }\n    }\n\n    synchronized void escribe(byte[] reg) {\n        try {\n            canal.write(ByteBuffer.wrap(reg));\n        } catch (IOException e) {\n            throw new UncheckedIOException(e);\n        }\n    }\n\n    synchronized void cierra() {        // CLOSE(BITA_P010, LOCK)\n        try { if (canal != null) canal.close(); } catch (IOException ignored) { }\n    }\n}",
+          "racional": "Si el archivo del día no existe se crea en modo salida; si ya existe, por ejemplo tras un reinicio de la librería en la misma fecha, se abre al final para agregar. <code>StandardOpenOption.CREATE</code> con <code>APPEND</code> cubre ambos casos. Los métodos sincronizados serializan las escrituras de las distintas copias del P010, que en el original comparten el mismo archivo sin un candado explícito.",
+          "reglas": [],
+          "riesgo": "BITA_P010.MYUSE se fija en 3 (entrada y salida) y solo se cambia a 2 cuando el archivo no existe; un archivo existente se abre en modo IO al final, lo que el pseudocódigo no documenta."
+        },
+        {
+          "id": "s6",
+          "titulo": "Una sola L010 viva: verificación por mezcla en B05",
+          "linea_ini": 240,
+          "linea_fin": 357,
+          "origen_codigo": "     REPLACE NOM_LIB BY MYSELF.NAME;                                    00236000\n     REPLACE LIB_SIN_MTP BY POINTER(NOM_LIB) FOR 33;                    00237000\n     REPLACE ACONTROL_B05 BY 48\"00\" FOR SIZE(ACONTROL_B05);             00238000\n     REPLACE DFB05FUNCION(ACONTROL_B05)                                 00239000\n             BY     1 FOR 2 DIGITS,                                     00240000\n                    SIST_LIB FOR 4 DIGITS,                              00241000\n                    0        FOR 8 DIGITS,                              00242000\n                    10       FOR 4 DIGITS;                              00243000\n     RESULT_CTL:= B05PROCESOS(ACONTROL_B05);                            00244000\n     WHILE RESULT_CTL = 0 DO                                            00245000\n     BEGIN                                                              00246000\n        MIX_L010 := IDFB05MIX(ACONTROL_B05);                            00247000\n        REPLACE ARR1 BY \" \" FOR 201 WORDS;                              00248000\n        REPLACE ARR1 BY MIX_L010   FOR 5 DIGITS,                        00249000\n                    \"Y\"                 ,                               00250000\n                    48\"00\";                                             00251000\n        DCKEYIN(POINTER(ARR1),ARR2);                                    00252000\n        P_SAL := POINTER(ARR2);                                         00253000\n        REPLACE TOKEN BY 48\"00\" FOR 80;                                 00254000\n        REPLACE TOKEN BY P_SAL:P_SAL UNTIL = \" \";                       00255000\n        IF TOKEN = \"INVALID\" OR TOKEN = \"Task\" THEN                     00256000\n           IF STR_MIX = STR_LIB THEN                                    00280000\n           BEGIN                                                        00281000\n              REPLACE ARR1 BY \" \" FOR 201 WORDS;                        00282000\n              REPLACE ARR1 BY MIX_L010   FOR 5 DIGITS,                  00283000\n                             \"HI 4\"                 ,                   00284000\n                             48\"00\";                                    00285000\n              DCKEYIN(POINTER(ARR1),ARR2);                              00286000\n              WAIT((5));                                                00287000\n              DCKEYIN(POINTER(ARR1),ARR2);                              00288000\n              IF  ARR2 = \"INVALID NUMBER\" THEN                          00289000\n              BEGIN                                                     00301000\n                 REPLACE MSGLJ BY STR_HDRMSG, 48\"00\" FOR 227;           00302000\n                 REPLACE TXTMSG BY \" L010 > \",                          00303000\n                                  \"ERROR L010/S\",                       00304000\n                                  SIST_LIB FOR 3 DIGITS,                00305000\n                                  \", EXISTE UNA L010 CON MIX \",         00306000\n                                  MIX_L010   FOR 4 DIGITS,              00307000\n                                  \" DARLA DE BAJA PARA PODER CONT. \";   00308000\n                 LJ(CONLJ,MSGLJ);                                       00309000\n                 ACCEPT(TXTMSG);                                        00310000\n     REPLACE ACONTROL_B05 BY 48\"00\" FOR SIZE(ACONTROL_B05);             00332000\n     REPLACE DFB05FUNCION(ACONTROL_B05)                                 00333000\n             BY    19 FOR 2 DIGITS,                                     00334000\n                   SIST_LIB FOR 4 DIGITS,                               00335000\n                   0        FOR 8 DIGITS,                               00336000\n                   10       FOR 4 DIGITS,                               00337000\n                   \"    \",                                              00338000\n                   0        FOR 2 DIGITS,                               00339000\n                   SNR      FOR 8 DIGITS;                               00340000\n     RESULT_CTL:= B05PROCESOS(ACONTROL_B05);                            00341000\n     IF RESULT_CTL > 0 THEN                                             00342000\n     BEGIN                                                              00343000\n        REPLACE MSGLJ BY STR_HDRMSG, 48\"00\" FOR 227;                    00344000\n        REPLACE TXTMSG BY \" L010 > \",                                   00345000\n                         \"ERROR L010/S\",                                00346000\n                         SIST_LIB FOR 3 DIGITS,                         00347000\n                         \", NO SE PUDO DAR DE ALTA REG. EN B05\"         00348000\n                         \", RESULT \",                                   00349000\n                         RESULT_CTL FOR 4 DIGITS;                       00350000\n        LJ(CONLJ,MSGLJ);                                                00351000\n        MYSELF.STATUS:= -1;                                             00352000\n     END;                                                               00353000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass RegistroInstancia {\n\n    private final ProcesosRepository b05;        // dataset B05 vía B05PROCESOS\n    private final InstanciaInfo yo;              // nombre de la librería y PID (antes MIXNUMBER)\n\n    /** VERIFICA_B05: si hay otra L010 viva con el mismo nombre, no se continúa. */\n    @Transactional\n    void registraUnica() {\n        for (Proceso p : b05.registrados(151, 10)) {              // función 1\n            if (!yo.procesoVivo(p.mix())) {                          // DCKEYIN \"<mix> Y\" = INVALID\n                b05.baja(p);                                         // función 22: registro huérfano\n            } else if (p.nombreLibreria().equals(yo.nombreSinVersion())) {\n                throw new InstanciaDuplicadaException(               // original: aviso y ACCEPT\n                        \"EXISTE UNA L010 CON MIX \" + p.mix() + \" DARLA DE BAJA PARA PODER CONT.\");\n            }\n        }\n        b05.alta(151, 10, yo.pid());                                 // función 19 con MIXNUMBER\n    }\n}\n// Con varias réplicas, la exclusión debe hacerse con un candado distribuido (p. ej. ShedLock\n// o una fila con llave única), no consultando procesos del sistema operativo.",
+          "racional": "Antes de arrancar, la librería recorre los registros de procesos de S151 en B05 y, por cada uno, pregunta al MCP con <code>DCKEYIN</code> si esa mezcla sigue viva. Los registros de mezclas muertas se dan de baja; si encuentra otra L010 viva con el mismo nombre, intenta bajarla con <code>HI 4</code>, avisa al operador y espera su respuesta con <code>ACCEPT</code>. Al final se registra con su propio número de mezcla. En Java la exclusión de instancias se expresa con una transacción sobre el registro y una excepción explícita en lugar de una espera en consola.",
+          "reglas": [],
+          "riesgo": "El HI 4 que se envía a la otra L010 no la detiene: su manejador (líneas 523-530) solo despliega un mensaje si tiene usuarios. La respuesta que el operador teclea en el ACCEPT no se examina: el flujo solo vuelve a consultar B05 (función 1) y depende de que la otra L010 se haya bajado a mano. Si el alta en B05 falla, la tarea termina con STATUS -1."
+        }
+      ]
+    },
+    {
+      "titulo": "Control operativo por comandos HI",
+      "origen": {
+        "archivo": "ALGOL_L010.txt",
+        "contexto": "PROCEDURE CONTROL_LIB · EJECUTA_HI"
+      },
+      "java": {
+        "archivo": "BitacoraEndpoint.java",
+        "contexto": "Spring Boot Actuator @Endpoint"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Ciclo de control y comandos del operador",
+          "linea_ini": 521,
+          "linea_fin": 561,
+          "origen_codigo": "         2 : MONITOR := TRUE;                                           00517000\n         3 : MONITOR := FALSE;                                          00518000\n         4 : IF MYSELF.LIBRARYUSERS > 0 THEN                            00519000\n             BEGIN                                                      00520000\n                REPLACE MSGLJ BY STR_HDRMSG, 48\"00\" FOR 227;            00521000\n                REPLACE TXTMSG BY \"NO ES POSIBLE DAR DE BAJA LA \",      00522000\n                                  \"LIBRERIA, EXISTEN USUARIOS\",         00523000\n                                  \" UTILIZANDOLA\";                      00524000\n                LJ(CONLJ,MSGLJ);                                        00525000\n             END;                                                       00526000\n        25 : BEGIN                                                      00527000\n                CLOSE (BITA_P010,LOCK);                                 00527100\n                INICIA;                                                 00527200\n             END;                                                       00527300\n   NUM_HI := 0;                                                         00538000\n   WHILE MYSELF.LIBRARYUSERS > 0  DO                                    00539000\n   BEGIN                                                                00540000\n      EVENTO := WAITANDRESET((10), MYSELF.EXCEPTIONEVENT);              00541000\n      CASE EVENTO OF                                                    00542000\n      BEGIN                                                             00543000\n         1    : BEGIN                                                   00544000\n                                                                        00545000\n                END;                                                    00546000\n         2    : BEGIN                                                   00547000\n                  NUM_HI := MYSELF.TASKVALUE;                           00548000\n                  EJECUTA_HI;                                           00549000\n                END;                                                    00550000\n         ELSE :    ;                                                    00551000\n      END ;                                                             00552000\n   END;                                                                 00553000\n   MYSELF.STATUS := VALUE(GOINGAWAY);                                   00554000",
+          "java_codigo": "/** EJECUTA_HI expuesto como endpoint de Actuator: /actuator/bitacorap010. */\n@Component\n@Endpoint(id = \"bitacorap010\")\n@RequiredArgsConstructor\nclass BitacoraEndpoint {\n\n    private final BitacoraP010Service servicio;\n    private final ArchivoBitacora archivo;\n    private final AtomicBoolean monitor = new AtomicBoolean();\n\n    @ReadOperation                                    // HI 1: cifras del proceso\n    public Map<String, Object> cifras() {\n        return Map.of(\"fechaProceso\", servicio.fechaProceso(),\n                      \"recibidos\", servicio.totRecibidos(),\n                      \"errores\", servicio.totErrores());\n        // ALTAS, BAJAS, MODIFICACIONES y CONSULTAS nunca se incrementan en el fuente.\n    }\n\n    @WriteOperation                                   // HI 2 / HI 3\n    public void monitor(boolean activo) { monitor.set(activo); }\n\n    @WriteOperation                                   // HI 25: cambio de archivo\n    public void reabre() {\n        archivo.cierra();\n        archivo.abreDelDia();                         // INICIA recalcula fecha y título\n    }\n}\n// WHILE LIBRARYUSERS > 0 + WAITANDRESET(10, EXCEPTIONEVENT): lo resuelve el contenedor;\n// el apagado se dispara con SmartLifecycle.stop() cuando el último consumidor se retira.",
+          "racional": "Mientras tenga usuarios enlazados, la librería despierta cada 10 segundos o cuando el operador le envía un HI, y ejecuta el comando: HI 1 despliega fecha y contadores, HI 2 y 3 encienden y apagan una bandera de monitor, HI 4 informa que no puede darse de baja con usuarios y HI 25 cierra la bitácora y vuelve a ejecutar <code>INICIA</code> para abrir la del nuevo día. Al quedarse sin usuarios se marca <code>GOINGAWAY</code>. Los comandos de consola se traducen a operaciones de un endpoint de Actuator.",
+          "reglas": [],
+          "riesgo": "HI 25 cierra y reabre el archivo sin detener las escrituras de las copias del P010 que siguen enlazadas; una llamada a GRABA_BITACORA entre el CLOSE y el OPEN fallaría. La bandera MONITOR no se consulta en ninguna parte del fuente."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Escrituras y contadores sin serialización",
+      "detalle": "GRABA_BITACORA incrementa TOT_RECIBIDOS y TOT_ERRORES y escribe en BITA_P010 sin INTERLOCK ni EVENT (líneas 195-201), en una librería SHAREDBYALL que usan varias copias del P010. Los contadores del HI 1 pueden perder incrementos."
+    },
+    {
+      "titulo": "Buffer más corto que el registro",
+      "detalle": "REG_BITA [0:1255] recibe 1 260 caracteres y la clave de respuesta se lee en la posición 1258; el código depende del redondeo del arreglo a palabras de 6 caracteres. LONG_MSG se calcula y no se usa para limitar la copia."
+    },
+    {
+      "titulo": "Reapertura en caliente",
+      "detalle": "El HI 25 cierra la bitácora y la reabre mientras las copias del P010 siguen enlazadas, sin bloquear las escrituras concurrentes."
+    },
+    {
+      "titulo": "Fecha de bitácora tomada de Captación",
+      "detalle": "CONSULTA_B01 consulta el sistema 500 (línea 408) y no el 151 para obtener la fecha contable que nombra el archivo."
+    },
+    {
+      "titulo": "Exclusión de instancias débil",
+      "detalle": "VERIFICA_B05 envía HI 4 a la L010 previa, pero ese comando no la baja; el flujo depende de que el operador la termine manualmente antes de responder al ACCEPT."
+    },
+    {
+      "titulo": "Código muerto",
+      "detalle": "El DEFINE VALIDA_CVE (líneas 133-142) referencia LIB_SBC, que no se declara, y nunca se invoca; los contadores de altas, bajas, modificaciones y consultas no se incrementan en ningún punto."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si la fecha contable de la bitácora debe ser la del sistema 500 o la del 151.",
+    "Confirmar el nombre real del archivo consumido aguas abajo: LOGP010 (código) o BITAP010 (comentario de la línea 13).",
+    "Identificar qué programa del P010 llama a GRABA_BITACORA y con qué longitud de registro, para validar el riesgo de lectura fuera del arreglo.",
+    "Confirmar si el MCP serializa las escrituras concurrentes a un archivo declarado en una librería compartida o si pueden intercalarse.",
+    "El inventario no asigna reglas del brain a este componente; los segmentos quedan sin reglas."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1153",
+    "RN-S500-893",
+    "RN-S500-903"
+  ]
+}

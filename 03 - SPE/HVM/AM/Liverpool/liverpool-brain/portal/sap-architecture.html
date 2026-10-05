@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Liverpool — Arquitectura SAP AS-IS · Módulo ZIM</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --cerise:#E00198;--sky:#87C3D3;--sky-l:#96CCEE;--rose:#DA7AB0;
+      --ink:#F8F0F5;--muted:#c4a8bc;--muted2:#9a7d92;
+      --bg:#0d0408;--glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.09)
+    }
+    html{scroll-behavior:smooth}
+    body{background:var(--bg);color:var(--ink);
+      font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+      -webkit-font-smoothing:antialiased;padding-bottom:80px}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+    .aurora::before{content:"";position:absolute;width:55vw;height:55vw;left:-10vw;top:-14vw;
+      border-radius:50%;filter:blur(90px);
+      background:radial-gradient(circle,rgba(224,1,152,.22),transparent 70%);
+      animation:f1 28s ease-in-out infinite}
+    .aurora::after{content:"";position:absolute;width:45vw;height:45vw;right:-8vw;top:6vw;
+      border-radius:50%;filter:blur(90px);
+      background:radial-gradient(circle,rgba(135,195,211,.15),transparent 70%);
+      animation:f2 34s ease-in-out infinite}
+    @keyframes f1{50%{transform:translate(4vw,6vh) scale(1.1)}}
+    @keyframes f2{50%{transform:translate(-5vw,8vh) scale(1.08)}}
+    .grain{position:fixed;inset:0;z-index:-1;opacity:.04;pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+    nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:14px;
+      padding:15px 30px;backdrop-filter:blur(18px) saturate(150%);
+      -webkit-backdrop-filter:blur(18px) saturate(150%);
+      background:rgba(13,4,8,.55);border-bottom:1px solid rgba(255,255,255,.06)}
+    nav img{height:21px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+    nav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+    nav .sp{flex:1}
+    nav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none}
+    nav a.jump:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+    nav a.jump.ext{color:var(--cerise)}
+    nav a.jump.ext:hover{color:#fff}
+    .wrap{max-width:1160px;margin:0 auto;padding:0 30px}
+    .hero{padding:110px 0 28px;display:flex;flex-direction:column}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;
+      padding:8px 16px;border-radius:30px;font-size:12px;font-weight:600;letter-spacing:.03em;
+      color:#f0dce8;margin-bottom:28px;background:rgba(255,255,255,.05);
+      border:1px solid var(--glassb);backdrop-filter:blur(10px)}
+    .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--cerise);
+      box-shadow:0 0 12px var(--cerise);animation:pulse 2.4s infinite}
+    @keyframes pulse{50%{opacity:.4}}
+    .hero h1{font-size:clamp(38px,5vw,68px);font-weight:800;line-height:1.0;letter-spacing:-.035em;
+      background:linear-gradient(176deg,#fff 34%,#e8b0d4);-webkit-background-clip:text;
+      background-clip:text;color:transparent;margin-bottom:18px}
+    .hero .sub{font-size:clamp(14px,1.4vw,16px);color:var(--muted);max-width:64ch;line-height:1.55;margin-bottom:28px}
+    .hero .sub b{color:#f0dce8;font-weight:600}
+    .layer-lbl{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+      color:var(--cerise);margin-bottom:10px;padding-left:2px}
+    .row{display:flex;gap:12px;margin-bottom:12px;align-items:stretch}
+    .box{background:rgba(20,6,16,.65);backdrop-filter:blur(14px);
+      border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;flex:1}
+    .box h3{font-size:.74rem;font-weight:700;margin-bottom:6px}
+    .box ul{list-style:none;font-size:.66rem;color:var(--muted);line-height:1.65}
+    .box ul li::before{content:"· ";color:var(--cerise)}
+    .tbl{font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7}
+    .conn{display:flex;align-items:center;justify-content:center;gap:8px;height:28px;
+      color:var(--muted2);font-size:.68rem;margin:2px 0}
+    .arrow-line{flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(255,255,255,.1),transparent)}
+    .sap-wrap{background:rgba(135,195,211,.04);border:2px solid rgba(135,195,211,.4);
+      border-radius:12px;padding:18px;margin-bottom:12px}
+    .sap-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .sap-title{font-size:.8rem;font-weight:700;color:var(--sky)}
+    .sap-badge{font-size:.6rem;background:rgba(135,195,211,.12);color:var(--sky);
+      border:1px solid rgba(135,195,211,.3);border-radius:4px;padding:2px 10px}
+    .zim-wrap{background:rgba(224,1,152,.04);border:2px dashed rgba(224,1,152,.4);
+      border-radius:8px;padding:14px;margin-bottom:16px}
+    .zim-title{font-size:.72rem;font-weight:700;color:var(--cerise);margin-bottom:10px}
+    .chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+    .stats{display:flex;gap:20px;font-size:.62rem;color:var(--muted2)}
+    .stats strong{color:var(--cerise)}
+    .mods{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+    .sigs{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+    .sig{font-size:.62rem;padding:3px 10px;border-radius:4px;border:1px solid}
+    .sig-g{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.35);color:#34d399}
+    .sig-y{background:rgba(224,1,152,.08);border-color:rgba(224,1,152,.35);color:var(--cerise)}
+    .sig-b{background:rgba(135,195,211,.08);border-color:rgba(135,195,211,.35);color:var(--sky)}
+    table{width:100%;border-collapse:collapse;font-size:.65rem}
+    th{text-align:left;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.07);
+      color:var(--muted2);font-weight:600;font-size:.62rem;letter-spacing:.05em;text-transform:uppercase}
+    td{padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--muted)}
+    tr:hover td{background:rgba(255,255,255,.03)}
+    .footer{margin-top:24px;font-size:.6rem;color:var(--muted2);text-align:center;
+      padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+    .chip{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);
+      color:var(--muted);margin:3px 3px 0 0;letter-spacing:.04em}
+    .chip.cerise{border-color:rgba(224,1,152,.35);color:var(--cerise);background:rgba(224,1,152,.09)}
+    .chip.sky{border-color:rgba(135,195,211,.35);color:var(--sky);background:rgba(135,195,211,.09)}
+    .chip.gold{border-color:rgba(201,161,48,.35);color:#fcd34d;background:rgba(201,161,48,.09)}
+  </style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="grain"></div>
+
+<nav>
+  <img src="Liverpool_logo.png" alt="Liverpool" onerror="this.style.display='none'">
+  <span class="nt">Liverpool Brain · Arquitectura SAP</span>
+  <div class="sp"></div>
+  <a href="index.html" class="jump">Brain</a>
+  <a href="cadena-valor.html" class="jump">Cadena de Valor</a>
+  <a href="mapa-capacidades.html" class="jump">Capacidades RTL</a>
+  <a href="sap-architecture.html" class="jump ext">Arquitectura SAP</a>
+  <a href="sap-modular.html" class="jump">Estructura Modular</a>
+</nav>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow"><span class="dot"></span> SPE-AM-003 · SAP ECC 6.0 LIV · AS-IS · 2026-09-30 17:51</div>
+  <h1>Arquitectura SAP<br>AS-IS</h1>
+  <p class="sub"><b>Módulo de Importaciones ZIM</b> — descubierto del análisis de 12 programas ABAP. SAP ECC 6.0 LIV on-premise con capas de sistemas externos, integración IBM IIB y módulos estándar confirmados por código fuente.</p>
+</header>
+
+<!-- EXTERNOS -->
+<div class="layer-lbl">Actores y Sistemas Externos</div>
+<div class="row">
+  <div class="box" style="border-left:3px solid #22c55e">
+    <h3 style="color:#4ade80">Proveedor Internacional</h3>
+    <ul>
+      <li>Importadores, brokers, agentes aduanales</li>
+      <li>Accede al portal de pre-embarques (ZIMFIC001)</li>
+      <li>Confirmación o rechazo del envío antes de embarcar</li>
+      <li class="tbl">LFA1 · LFB1 · LFM1 · ZIM_LFA1 · ZIM_AGAD</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #22c55e">
+    <h3 style="color:#4ade80">SAT / Aduana México</h3>
+    <ul>
+      <li>Pedimento aduanal — campo extendido a 16 dígitos (oct-2025)</li>
+      <li>Tasas: IGI, IVA, IEPS, DFC, ISAN, ITV, PRV, REC</li>
+      <li>Clasificación arancelaria por fracción</li>
+      <li class="tbl">ZIM_PEDI · ZIM_PEDIC · ZTASA* · ZOLLS_IMP</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #22c55e">
+    <h3 style="color:#4ade80">POS / Tiendas Liverpool</h3>
+    <ul>
+      <li>Receptor de pedimentos ECC via Bridgecore</li>
+      <li>Interface ZRT_PO_REP_EPI_BD activa en producción (oct-2025)</li>
+      <li>Destino final del pedimento 16 dígitos</li>
+      <li class="tbl">EKKO · EKPO → POS (via IBM IIB)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ARROW -->
+<div class="conn">
+  <div class="arrow-line"></div>
+  <span>↕ &nbsp; IBM IIB — Bus Corporativo Central &nbsp; ↕</span>
+  <div class="arrow-line"></div>
+</div>
+
+<!-- INTEGRACIÓN -->
+<div class="layer-lbl">Capa de Integración</div>
+<div class="row">
+  <div class="box" style="border-left:3px solid #8b5cf6;flex:2">
+    <h3 style="color:#a78bfa">IBM Integration Bus (IIB) 10</h3>
+    <ul>
+      <li>Bus corporativo central — 15+ sistemas integrados</li>
+      <li>SAP ECC ↔ POS/Bridgecore (pedimentos de importación)</li>
+      <li>SAP ECC ↔ SAT / Aduana (transmisión datos aduanales)</li>
+      <li>Orquesta el procesamiento paralelo RFC por grupos de trabajo</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #8b5cf6;flex:1">
+    <h3 style="color:#a78bfa">Event Manager (EM) SAP</h3>
+    <ul>
+      <li>Notificaciones inter-módulo dentro del ECC</li>
+      <li>Activado por: ZIMPOC001, ZIMPOC002, ZIMPOC003</li>
+      <li>Log de eventos de importación (trazabilidad completa)</li>
+      <li class="tbl">ZIM_EMLG · ZIM_SYLOG</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ARROW -->
+<div class="conn">
+  <div class="arrow-line"></div>
+  <span>↕ &nbsp; RFC / BAPI / Direct DB &nbsp; ↕</span>
+  <div class="arrow-line"></div>
+</div>
+
+<!-- SAP ECC CONTAINER -->
+<div class="layer-lbl">Capa Aplicativa — SAP ECC 6.0 LIV</div>
+<div class="sap-wrap">
+  <div class="sap-hdr">
+    <span class="sap-title">SAP ECC 6.0 — Landscape LIV (On-Premise)</span>
+    <span class="sap-badge">Multi-sociedad: LIV · SBB · Sfera (150)</span>
+  </div>
+
+  <!-- ZIM Layer -->
+  <div class="zim-wrap">
+    <div class="zim-title">Z — Módulo de Importaciones (ZIM) · Capa de Personalización Liverpool</div>
+    <div class="chips">
+      <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Reserva PO">ZIMPOC001</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Datos logísticos">ZIMPOC002</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Generación PO">ZIMPOC003</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Pre-embarque">ZIMPOC005</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Reserva extendida">ZIMPOC007</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Pedimentos batch">ZIMPOB010B</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Faltantes/sobrantes">ZIMPOC023</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Mantenimiento PO">ZIMPOC024</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Pre-embarque portal">ZIMFIC001</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Contabilización">ZIMFIC002</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(240,160,0,.08);border:1px solid rgba(240,160,0,.25);border-radius:3px;padding:3px 7px;color:#fcd34d;" title="Traslado tipo 7">ZRTPOC079</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.5);border-radius:3px;padding:3px 7px;color:#34d399;" title="Reporte pedidos — Activo en 2025">ZRTPOC079N &#9679;</span>
+        <span style="font-size:.6rem;font-family:Consolas,monospace;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.5);border-radius:3px;padding:3px 7px;color:#34d399;" title="Interface POS — Activo en 2025">ZRT_PO_REP_EPI_BD &#9679;</span>
+    </div>
+    <div class="stats">
+      <span><strong>213</strong> tablas Z</span>
+      <span><strong>33</strong> function modules Z propios</span>
+      <span><strong>2</strong> programas activos en 2025</span>
+      <span><strong>7</strong> fases del proceso cubiertas</span>
+    </div>
+  </div>
+
+  <!-- Módulos SAP estándar -->
+  <div style="font-size:.62rem;color:#8b949e;margin-bottom:8px;letter-spacing:.08em;text-transform:uppercase;">Módulos SAP Estándar Activados</div>
+  <div class="mods">
+    
+      <div style="background:rgba(28,127,211,0.08);border:1px solid rgba(28,127,211,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#60a5fa;margin-bottom:6px;">MM-PUR — Compras</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Motor central del módulo. Pedidos de compra de importación (EKKO/EKPO). Tipos IM, IP, TIM, TIP. Grupos de compras.</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">EKKO · EKPO · EKET</div>
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZIM_RVPO · ZRT_LEKPO</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">9 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(28,127,211,0.08);border:1px solid rgba(28,127,211,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#60a5fa;margin-bottom:6px;">MM-MAT — Materiales</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Maestro de materiales importados. Unidades de medida, clasificación, datos por centro.</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">MARA · MAKT · MARC</div>
+        
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">5 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(28,127,211,0.08);border:1px solid rgba(28,127,211,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#60a5fa;margin-bottom:6px;">LE-SHP — Logística Entregas</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Entregas parciales por pedimento. Tipo ZOIM. Pool WF30. Centros CDT (0090/L090/T090).</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">LIKP · LIPS</div>
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZIM_LICH · ZIM_RCBP</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">4 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(185,28,28,0.08);border:1px solid rgba(185,28,28,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#f87171;margin-bottom:6px;">FI-GL — General Ledger</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Documentos contables de pago de importación. Anticipos, gastos conceptos 003/008/016.</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">BKPF · BSEG</div>
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZIM_LIPG · ZIM_LDPG</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">2 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(185,28,28,0.08);border:1px solid rgba(185,28,28,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#f87171;margin-bottom:6px;">FI-AP — Cuentas por Pagar</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Saldos pendientes y pagados a proveedores internacionales. Retenciones IVA. TC fijo. Duty Free.</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">BSIK · BSAK</div>
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZIM_LICK · ZIM_LPPG</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">2 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(185,28,28,0.08);border:1px solid rgba(185,28,28,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#f87171;margin-bottom:6px;">FI — Multi-Sociedad</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Operación en 3 sociedades: LIV (El Puerto de Liverpool) + SBB (Suburbia) + Sfera Moda Joven (150).</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">T001</div>
+        
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">3 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(28,127,211,0.08);border:1px solid rgba(28,127,211,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#60a5fa;margin-bottom:6px;">MM/FI — Maestro Proveedores</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Datos de importadores, brokers y agentes aduanales. Extensión Z con datos específicos de importación.</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">LFA1 · LFB1 · LFM1</div>
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZIM_LFA1 · ZIM_AGAD</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">4 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#a78bfa;margin-bottom:6px;">SD — Condiciones/Precio</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Incoterms por grupo de compras. Cálculo de costo total de importación con aranceles.</div>
+        <div style="font-family:Consolas,monospace;font-size:.62rem;color:#6ee7b7;margin-bottom:2px;">KONV</div>
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZOLLS_IMP · ZTASA_IGI</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">2 programa(s)</div>
+      </div>
+
+      <div style="background:rgba(100,116,139,0.08);border:1px solid rgba(100,116,139,0.3);border-radius:6px;padding:12px;">
+        <div style="font-size:.72rem;font-weight:700;color:#94a3b8;margin-bottom:6px;">Basis — Técnico</div>
+        <div style="font-size:.64rem;color:#94a3b8;line-height:1.5;margin-bottom:8px;">Procesamiento paralelo RFC (STARTING NEW TASK). Grupos de trabajo p_group. Gestión de Work Processes.</div>
+        
+        <div style="font-family:Consolas,monospace;font-size:.60rem;color:#fcd34d;">ZRTPOF079N</div>
+        <div style="font-size:.60rem;color:#64748b;margin-top:6px;">2 programa(s)</div>
+      </div>
+  </div>
+
+  <!-- Señales AS-IS -->
+  <div class="sigs">
+    <span class="sig sig-g">● ZRTPOC079N activo abr-2025</span>
+    <span class="sig sig-g">● ZRT_PO_REP_EPI_BD activo oct-2025</span>
+    <span class="sig sig-y">⚠ Pedimento 14→16 dígitos absorto en código (oct-2025)</span>
+    <span class="sig sig-y">⚠ 33 Function Modules Z propios — sin BAPIs estándar SAP</span>
+    <span class="sig sig-b">ℹ 3 sociedades (LIV·SBB·Sfera) comparten el módulo</span>
+    <span class="sig sig-b">ℹ Procesamiento paralelo RFC (STARTING NEW TASK)</span>
+  </div>
+</div>
+
+<!-- ARROW -->
+<div class="conn">
+  <div class="arrow-line"></div>
+  <span>↕ &nbsp; RFC / IDOC / BW Extractors &nbsp; ↕</span>
+  <div class="arrow-line"></div>
+</div>
+
+<!-- DOWNSTREAM -->
+<div class="layer-lbl">Downstream / Destino</div>
+<div class="row">
+  <div class="box" style="border-left:3px solid #1c7fd3">
+    <h3 style="color:#60a5fa">SAP S/4HANA SBB (Azure Cloud)</h3>
+    <ul>
+      <li>Landscape separado (Suburbia + SBB)</li>
+      <li>EWM warehouse management cloud</li>
+      <li>BW4HANA analytics (Azure)</li>
+      <li>Destino de migración brownfield del ECC LIV</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #1c7fd3">
+    <h3 style="color:#60a5fa">SAP BW / Analytics</h3>
+    <ul>
+      <li>BW LIV (on-prem) + BW PDM</li>
+      <li>BW Híbrido (Presidencia)</li>
+      <li>Datos de importaciones para reportería ejecutiva</li>
+      <li>BW4HANA SBB (Azure) — landscape nuevo</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #1c7fd3">
+    <h3 style="color:#60a5fa">SAP EWM / Almacenes</h3>
+    <ul>
+      <li>Warehouse Management (CD Liverpool)</li>
+      <li>Integrado vía MM-PUR (recepción de mercancía)</li>
+      <li>Faltantes/sobrantes (ZIMPOC023)</li>
+      <li>Entregas parciales ZIM_LICH</li>
+    </ul>
+  </div>
+</div>
+
+<!-- MAPA DE INTEGRACIONES -->
+<div style="margin-top:20px;margin-bottom:20px;">
+  <div class="layer-lbl">Mapa de Integraciones Descubiertas del Código</div>
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;overflow:hidden">
+    <table>
+      <thead>
+        <tr style="background:#0d1117">
+          <th>Origen</th>
+          <th></th>
+          <th>Destino</th>
+          <th>Mecanismo</th>
+          <th>Programa</th>
+          <th>Dato</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.65rem;color:#60a5fa;">SAP ECC LIV</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#94a3b8;">→</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#c9d1d9;">POS / Bridgecore</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#a78bfa;">IBM IIB</td>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.62rem;color:#fcd34d;">ZRT_PO_REP_EPI_BD</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#94a3b8;">Pedimentos 16 dígitos</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#34d399">● Activo 2025</td>
+    </tr>
+<tr>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.65rem;color:#60a5fa;">SAP ECC LIV</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#94a3b8;">→</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#c9d1d9;">SAT / Aduana</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#a78bfa;">IBM IIB</td>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.62rem;color:#fcd34d;">ZIMPOB010B</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#94a3b8;">Datos de pedimentos</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#64748b">○</td>
+    </tr>
+<tr>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.65rem;color:#60a5fa;">SAP ECC LIV</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#94a3b8;">→</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#c9d1d9;">SAP S/4HANA SBB</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#a78bfa;">RFC/IDOC</td>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.62rem;color:#fcd34d;">—</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#94a3b8;">Replicación datos</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#64748b">○</td>
+    </tr>
+<tr>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.65rem;color:#60a5fa;">SAP ECC LIV</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#94a3b8;">→</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#c9d1d9;">Proveedor Internacional</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#a78bfa;">ZIMFIC001 (portal)</td>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.62rem;color:#fcd34d;">ZIMFIC001</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#94a3b8;">Pre-embarques</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#64748b">○</td>
+    </tr>
+<tr>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.65rem;color:#60a5fa;">SAP ECC LIV</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#94a3b8;">→</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#c9d1d9;">Event Manager (EM)</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#a78bfa;">RFC interno</td>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.62rem;color:#fcd34d;">ZIMPOC001/002/003</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#94a3b8;">Eventos de importación</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#64748b">○</td>
+    </tr>
+<tr>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.65rem;color:#60a5fa;">SAP ECC LIV</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#94a3b8;">→</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#c9d1d9;">SAP BW / Analytics</td>
+      <td style="padding:5px 10px;font-size:.65rem;color:#a78bfa;">BW extractors</td>
+      <td style="padding:5px 10px;font-family:Consolas,monospace;font-size:.62rem;color:#fcd34d;">—</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#94a3b8;">Datos de POs y contabilidad</td>
+      <td style="padding:5px 10px;font-size:.63rem;color:#64748b">○</td>
+    </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- HIPÓTESIS 7R -->
+<div class="layer-lbl">Hipótesis de Modernización (Framework 7R)</div>
+<div class="row">
+  <div class="box" style="border-left:3px solid #22c55e">
+    <h3 style="color:#4ade80">Replatform — Brownfield S/4HANA</h3>
+    <ul>
+      <li>Menor riesgo — 213 tablas Z migran como están</li>
+      <li>Deuda técnica persiste · Costo y tiempo mínimos</li>
+      <li>SAP moderniza MM, FI, LE en S/4HANA automáticamente</li>
+      <li style="color:#64748b">Señal: ZIM_CNST y ZZSTATUS_MI requieren revisión</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #f59e0b">
+    <h3 style="color:#fbbf24">Repurchase — SAP GTS</h3>
+    <ul>
+      <li>Global Trade Services — estándar SAP para pedimentos</li>
+      <li>Elimina las 213 tablas Z del módulo ZIM</li>
+      <li>Mayor beneficio · Mayor complejidad de migración</li>
+      <li style="color:#fcd34d">Señal clave: cambio 14→16 dígitos SAT (oct-2025) manejado manualmente — GTS lo haría estándar</li>
+    </ul>
+  </div>
+  <div class="box" style="border-left:3px solid #8b5cf6">
+    <h3 style="color:#a78bfa">Refactor — Microservicio</h3>
+    <ul>
+      <li>Extraer lógica ZIM como servicio independiente</li>
+      <li>Consume API MM-PUR de S/4HANA</li>
+      <li>Mayor flexibilidad · Requiere re-engineering completo</li>
+      <li style="color:#64748b">Señal: los 33 FMs Z propios son la API interna candidata</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  Liverpool AM · SPE-AM-003 · Análisis de código fuente: 12 programas ABAP (ZIMPOC* · ZIMFIC* · ZRTPOC* · ZRT_*) · Generado 2026-09-30 17:51
+</div>
+
+</div><!-- /wrap -->
+</body>
+</html>

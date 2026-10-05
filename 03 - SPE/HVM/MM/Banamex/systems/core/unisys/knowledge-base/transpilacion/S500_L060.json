@@ -1,0 +1,140 @@
+{
+  "slug": "S500_L060",
+  "sistema": "S500",
+  "programa": "L060",
+  "nombre": "Consulta Foránea de Contrato al host remoto (CONSULFOR)",
+  "funcion": "Librería ALGOL de S500 que los programas de captación invocan para consultar un contrato en el servidor de la otra plaza (Monterrey o Valle de México) mediante XATMI.",
+  "resumen": "Al cargarse, la librería identifica en qué plaza corre a partir del hostname, obtiene el designador del servicio de consulta de contratos de la plaza contraria y el de un buffer binario X_OCTET, y se congela como librería compartida. Su única entrada exportada, S500L060CONTRATO, envía el área común del llamador al servicio remoto fuera de transacción, espera la respuesta y devuelve como resultado el código de seis dígitos que trae al inicio, copiando el resto al arreglo de salida. Los errores de transporte se devuelven como 98 si son por tiempo agotado y como 99 en cualquier otro caso.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.contratos.foraneo",
+  "secciones": [
+    {
+      "titulo": "Inicialización: plaza propia y designadores XATMI",
+      "origen": {
+        "archivo": "S500_SOURCE_L060_CONSULFOR.txt",
+        "contexto": "PROCEDURE INICIALIZA"
+      },
+      "java": {
+        "archivo": "PlazaResolver.java · L060ClientConfig.java",
+        "contexto": "@ConfigurationProperties · RestClient"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Plaza propia por hostname y consulta a la plaza contraria",
+          "linea_ini": 95,
+          "linea_fin": 125,
+          "origen_codigo": "   % ---- Obtenemos designator de servicio S500_Con_Cto                 00004800\n   REPLACE EA_MY_HOST BY MYSELF.HOSTNAME;                               00004805\n   IF EA_MY_HOST = \"ACYPBETA\" OR                                        00004810\n      EA_MY_HOST = \"SITBETA\" OR                                         00004812\n      EA_MY_HOST = \"MONALFA\" OR                                         00004815\n      EA_MY_HOST = \"VDMKAPPA\" OR                                        00004817\n      EA_MY_HOST = \"MONBETA\" THEN                                       00004820\n      I_HOST:= 1                                                        00004825\n   ELSE                                                                 00004830\n   IF EA_MY_HOST = \"VDMBETA\" OR                                         00004835\n      EA_MY_HOST = \"ACYPGAMA\" OR                                        00004840\n      EA_MY_HOST = \"ACYPOMEGA\" OR                                       00004842\n      EA_MY_HOST = \"VDMALFA\" THEN                                       00004845\n      I_HOST:= 2                                                        00004850\n   ELSE                                                                 00004855\n   BEGIN                                                                00004860\n     REPLACE EA_SCR BY 4\"00\" FOR SIZE(EA_SCR);                          00004865\n     REPLACE EA_SCR BY \"HOST DESCONOCIDO\";                              00004867\n     DF_DISPLAY(\"E>050110<\",EA_SCR FOR 100);                            00004869\n     MYSELF.STATUS:= VALUE(TERMINATED);                                 00004875\n   END;                                                                 00004876\n                                                                        00004880\n% Si estoy en MTY consulto el servidor de VDM y viceversa               00004882\n   IF I_HOST = HOST_MTY THEN                                            00004884\n   BEGIN                                                                00004894\n      REPLACE EA BY \"S500_Con_Cto_V\", NULL;                             00004914\n   END                                                                  00004924\n   ELSE                                                                 00004934\n   BEGIN                                                                00004944\n      REPLACE EA BY \"S500_Con_Cto_M\", NULL;                             00004964\n   END;                                                                 00004974",
+          "java_codigo": "# application.yml  (los hostnames y los servicios dejan de estar compilados en la librería)\ns500:\n  l060:\n    hosts:\n      monterrey:  [ACYPBETA, SITBETA, MONALFA, VDMKAPPA, MONBETA]   # HOST_MTY = 1\n      valle:      [VDMBETA, ACYPGAMA, ACYPOMEGA, VDMALFA]           # HOST_VDM = 2\n    servicio-remoto:\n      monterrey: S500_Con_Cto_V      # desde MTY se consulta el servidor de VDM\n      valle:     S500_Con_Cto_M      # y viceversa\n\n// ---------------------------------------------------------------------------\npublic enum Plaza { MONTERREY, VALLE }\n\n@Component\n@RequiredArgsConstructor\nclass PlazaResolver {\n\n    private final L060Properties props;\n\n    /** INICIALIZA: un host fuera de las dos listas termina la librería. */\n    Plaza plazaDe(String hostname) {\n        if (props.hosts().monterrey().contains(hostname)) return Plaza.MONTERREY;\n        if (props.hosts().valle().contains(hostname))     return Plaza.VALLE;\n        throw new IllegalStateException(\"S500/L060/002:E>050110<HOST DESCONOCIDO \" + hostname);\n    }\n\n    /** Servicio de la plaza contraria a la propia. */\n    String servicioRemoto(Plaza propia) {\n        return propia == Plaza.MONTERREY ? props.servicioRemoto().monterrey()\n                                         : props.servicioRemoto().valle();\n    }\n}",
+          "racional": "La librería atiende la consulta de un contrato que vive en la otra plaza: si corre en un host de Monterrey invoca el servicio de Valle de México y al revés. Los nueve hostnames y los dos nombres de servicio son literales del fuente; se trasladan a <code>application.yml</code> para que agregar o renombrar un servidor no obligue a recompilar. Un host desconocido detiene la librería en el original y en Java impide que el bean arranque, que es el equivalente más cercano a <code>MYSELF.STATUS := TERMINATED</code> durante la inicialización.",
+          "reglas": [],
+          "riesgo": "Tras marcar la tarea como TERMINATED por host desconocido, el código sigue a la siguiente instrucción con I_HOST sin asignar, que no es HOST_MTY, y prepara el servicio S500_Con_Cto_M. No está claro si la terminación es inmediata."
+        },
+        {
+          "id": "s2",
+          "titulo": "Designadores XATMI del servicio y del buffer a cliente configurado",
+          "linea_ini": 127,
+          "linea_fin": 146,
+          "origen_codigo": "   IF I:= GET_DESIGNATOR_USING_NAME(EA, SERVICEV, SD) NEQ 0 THEN        00004994\n      BEGIN                                                             00005100\n      REPLACE EA_SCR BY 4\"00\" FOR SIZE(EA_SCR);                         00005200\n      REPLACE EA_SCR BY \"Get_Designator_Using_Name(S500_Consul_Cto)= \"  00005300\n                       ,I FOR * DIGITS;                                 00005320\n      DF_DISPLAY(\"E>050110<\",EA_SCR FOR 100);                           00005340\n      MYSELF.STATUS:= VALUE(TERMINATED);                                00005400\n      END;                                                              00005500\n                                                                        00005600\n   % ---- Obtenemos designador de buffer X_OCTET                        00005700\n   REPLACE EA BY \"X_OCTET\", NULL;                                       00005800\n   REPLACE EB BY NULL;                                                  00005900\n   IF I:= GET_BUFFER_DESIGNATOR(EA, EB, BD, LEN) < 0 THEN               00006000\n      BEGIN                                                             00006100\n      REPLACE EA_SCR BY 4\"00\" FOR SIZE(EA_SCR);                         00006200\n      REPLACE EA_SCR BY \"Get_Buffer_Designator(X_OCTET) = \"             00006300\n                       ,I FOR * DIGITS;                                 00006320\n      DF_DISPLAY(\"E>050110<\",EA_SCR FOR 100);                           00006340\n      MYSELF.STATUS:= VALUE(TERMINATED);                                00006400\n      END;                                                              00006500",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(L060Properties.class)\npublic class L060ClientConfig {\n\n    /**\n     * GET_DESIGNATOR_USING_NAME + GET_BUFFER_DESIGNATOR(\"X_OCTET\"): en el destino,\n     * un cliente HTTP hacia el servicio de consulta de contratos de la otra plaza.\n     * Cualquier falla de configuración detiene el arranque (FREEZE no llega a ocurrir).\n     */\n    @Bean\n    RestClient consultaContratoRemota(L060Properties props, PlazaResolver plazas,\n                                      @Value(\"${HOSTNAME}\") String hostname) {\n        Plaza propia = plazas.plazaDe(hostname);\n        String servicio = plazas.servicioRemoto(propia);\n        return RestClient.builder()\n                .baseUrl(props.endpoint(servicio))           // s500.l060.endpoints.S500_Con_Cto_V: https://...\n                .defaultHeader(HttpHeaders.CONTENT_TYPE,\n                               MediaType.APPLICATION_OCTET_STREAM_VALUE)   // buffer X_OCTET\n                .requestFactory(ClientHttpRequestFactories.get(\n                        ClientHttpRequestFactorySettings.DEFAULTS\n                            .withConnectTimeout(props.timeoutConexion())\n                            .withReadTimeout(props.timeoutRespuesta())))  // TPETIME explícito\n                .build();\n    }\n}",
+          "racional": "Antes de exportar su entrada, la librería obtiene el designador del servicio remoto y el de un buffer de tipo <code>X_OCTET</code>, es decir, bytes sin interpretar. En el destino eso equivale a construir un cliente hacia el servicio de la otra plaza con contenido binario. Se hacen explícitos los tiempos de conexión y de respuesta, que en XATMI dependen de la configuración del monitor y solo se perciben como el error <code>TPETIME</code>.",
+          "reglas": [],
+          "riesgo": "El mensaje de error de GET_DESIGNATOR_USING_NAME menciona S500_Consul_Cto aunque el servicio pedido es S500_Con_Cto_V o S500_Con_Cto_M, lo que complica el diagnóstico en bitácora."
+        }
+      ]
+    },
+    {
+      "titulo": "Entrada S500L060CONTRATO: llamada, errores y respuesta",
+      "origen": {
+        "archivo": "S500_SOURCE_L060_CONSULFOR.txt",
+        "contexto": "INTEGER PROCEDURE S500L060CONTRATO · EXPORT"
+      },
+      "java": {
+        "archivo": "ConsultaForaneaContrato.java · ConsultaForaneaContratoClient.java",
+        "contexto": "interfaz de librería · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Entrada exportada y códigos de resultado a interfaz de servicio",
+          "linea_ini": 150,
+          "linea_fin": 250,
+          "origen_codigo": " INTEGER PROCEDURE S500L060CONTRATO (AREA_COMUN, EA_O_CTO);             00007100\n EBCDIC ARRAY AREA_COMUN,EA_O_CTO[*];                                   00007200\n   DEFINE                                                               00008400\n      ERROR_NO_REINTENTEV  =  99  #,                                    00008500\n      ERROR_REINTENTEV     =  98  #,                                    00008600\n      LONGITUD_AREA_COMUNV = 180  #;                                    00008700\n                                                                        00008900\n   DEFINE                                                               00009000\n      % ---- Parametro RCODE de TP_GetRply, llamado erroneo             00009100\n      SERVICIO_DESCONOCIDOV = -1 #,                                     00009200\n      BUFFER_INVALIDOV      = -2 #;                                     00009300\nEXPORT                                                                  00014900\n   S500L060CONTRATO;                                                    00015000\nINICIALIZA;                                                             00015100\nFREEZE(TEMPORARY);                                                      00015200",
+          "java_codigo": "/** Misma interfaz que exportaba la librería: devuelve un código entero y llena la salida. */\npublic interface ConsultaForaneaContrato {\n\n    int ERROR_REINTENTE    = 98;   // ERROR_REINTENTEV: timeout, el llamador puede reintentar\n    int ERROR_NO_REINTENTE = 99;   // ERROR_NO_REINTENTEV\n\n    /**\n     * S500L060CONTRATO(AREA_COMUN, EA_O_CTO).\n     * @param areaComun petición tal como la arma el programa llamador (bytes EBCDIC)\n     * @param salida    buffer del llamador; se llena con la respuesta sin sus 6 bytes de código\n     * @return código remoto (6 primeros bytes de la respuesta) o 98 / 99 si falla el transporte\n     */\n    int consultaContrato(byte[] areaComun, byte[] salida);\n}\n\n// LONGITUD_AREA_COMUNV = 180 ya no se usa en el fuente: la longitud real es SIZE(AREA_COMUN).",
+          "racional": "La librería exporta una sola entrada, <code>S500L060CONTRATO</code>, que recibe el área común de la petición y un arreglo de salida. Se conserva la misma firma en una interfaz Java para que los programas migrados que la invocaban no cambien su contrato. Los códigos 98 y 99, que distinguen un error reintentable de uno definitivo, se vuelven constantes de la interfaz. La constante de 180 bytes quedó en el fuente pero sus dos usos están comentados.",
+          "reglas": [],
+          "riesgo": "El mismo valor de retorno mezcla el código que devuelve el host remoto con los códigos locales 98 y 99. Si el remoto responde 98 o 99, el llamador no puede saber si falló el transporte o la consulta."
+        },
+        {
+          "id": "s4",
+          "titulo": "Llamada asíncrona fuera de transacción y clasificación de errores",
+          "linea_ini": 195,
+          "linea_fin": 205,
+          "origen_codigo": "%  LEN:= LONGITUD_AREA_COMUNV;                                          00011200\n   LEN:= SIZE(AREA_COMUN);                                              00011250\n   FLAGS:= 0 & 1 TPNOTRAN;                                              00011300\n   IF I:= TP_ACALL(CD, SD, BD, AREA_COMUN, LEN, FLAGS) < 0 THEN         00011400\n      BEGIN                                                             00011500\n      DESPLIEGA_ERROR_TRANSIT(\"TP_ACall\");                              00011600\n      IF XOPEN_RSLT(I) = TPETIME THEN                                   00011700\n         I_RESULT:= ERROR_REINTENTEV                                    00011800\n      ELSE                                                              00011900\n         I_RESULT:= ERROR_NO_REINTENTEV;                                00012000\n      END                                                               00012100",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ConsultaForaneaContratoClient implements ConsultaForaneaContrato {\n\n    private final RestClient consultaContratoRemota;\n\n    @Override\n    public int consultaContrato(byte[] areaComun, byte[] salida) {\n        byte[] respuesta;\n        try {\n            // TP_ACALL con TPNOTRAN: la consulta no participa en la transacción del llamador\n            respuesta = consultaContratoRemota.post()\n                    .uri(\"/contratos/consulta\")\n                    .body(areaComun)                      // LEN := SIZE(AREA_COMUN)\n                    .retrieve()\n                    .body(byte[].class);\n        } catch (ResourceAccessException e) {\n            log.error(\"S500/L060/002:E>050110<TP_ACall error: {}\", e.getMessage());\n            return e.getCause() instanceof SocketTimeoutException\n                    ? ERROR_REINTENTE                     // XOPEN_RSLT = TPETIME\n                    : ERROR_NO_REINTENTE;\n        } catch (RestClientResponseException e) {\n            log.error(\"S500/L060/002:E>050110<Error [RCode = {}]\", e.getStatusCode().value());\n            return ERROR_NO_REINTENTE;                    // servicio desconocido o buffer inválido\n        }\n        return decodifica(respuesta, salida);\n    }",
+          "racional": "<code>TP_ACALL</code> seguido de <code>TP_GETRPLY</code> es, en la práctica, una llamada síncrona: se envía y se espera la respuesta en seguida. La bandera <code>TPNOTRAN</code> indica que la consulta no forma parte de la transacción distribuida del llamador, por eso el cliente Java no propaga contexto transaccional. Solo el vencimiento de tiempo se clasifica como reintentable; cualquier otro error de transporte devuelve 99, igual que el original.",
+          "reglas": [],
+          "riesgo": "La librería no reintenta por su cuenta y no limita los reintentos del llamador; si los programas reintentan en ciclo ante 98, una caída de la otra plaza puede multiplicar la carga sobre ella."
+        },
+        {
+          "id": "s5",
+          "titulo": "Respuesta truncada aceptada y error de servicio",
+          "linea_ini": 208,
+          "linea_fin": 231,
+          "origen_codigo": "%     LEN:= LONGITUD_AREA_COMUNV;                                       00012400\n      LEN:= SIZE(EA_O_CTO_TEM);                                         00012450\n      FLAGS:= 0 & 1 TPTRUNC;                                            00012500\n      IF CAND(I:= TP_GETRPLY(CD,BD,EA_O_CTO_TEM,LEN,FLAGS,RCODE) < 0,   00012600\n              XOPEN_RSLT(I) NEQ TPETOOSMALL) THEN                       00012700\n         BEGIN                                                          00012800\n         DESPLIEGA_ERROR_TRANSIT(\"TP_GetRply\");                         00012900\n         IF XOPEN_RSLT(I) = TPETIME THEN                                00013000\n            I_RESULT:= ERROR_REINTENTEV                                 00013100\n         ELSE                                                           00013200\n            I_RESULT:= ERROR_NO_REINTENTEV;                             00013300\n         END                                                            00013400\n      ELSE                                                              00013500\n         % ---- Errores de servicio y/o buffer                          00013600\n         IF RCODE < 0 THEN                                              00013700\n            BEGIN                                                       00013800\n            I_RESULT:= ERROR_NO_REINTENTEV;                             00013900\n            REPLACE EA_SCR BY 4\"00\" FOR SIZE(EA_SCR);                   00013920\n            REPLACE EA_SCR BY                                           00013940\n            \"Error [RCode = \", STRING(RCODE, *)                         00014000\n            ,\"]: Servicio desconocido o buffer invalido\";               00014100\n            DF_DISPLAY(\"E>050110<\",EA_SCR FOR 200);                     00014150\n            END;                                                        00014200\n      END;                                                              00014300",
+          "java_codigo": "    /** Capacidad del buffer temporal de respuesta: EA_O_CTO_TEM[0:1999]. */\n    static final int MAX_RESPUESTA = 2000;\n\n    /**\n     * TP_GETRPLY con TPTRUNC: si la respuesta excede 2000 bytes, XATMI la trunca y\n     * TPETOOSMALL NO se trata como error. Se reproduce ese comportamiento, pero\n     * se deja traza para poder medir cuántas respuestas llegan truncadas.\n     */\n    private byte[] ajustaTamano(byte[] respuesta) {\n        if (respuesta.length > MAX_RESPUESTA) {\n            log.warn(\"S500/L060/002: respuesta de {} bytes truncada a {}\", respuesta.length, MAX_RESPUESTA);\n            return Arrays.copyOf(respuesta, MAX_RESPUESTA);\n        }\n        return respuesta;\n    }",
+          "racional": "El buffer de respuesta tiene 2000 bytes y se pide con <code>TPTRUNC</code>, de modo que una respuesta mayor llega cortada. La condición con <code>CAND</code> excluye a propósito el error <code>TPETOOSMALL</code>: un truncamiento no se considera falla. Un <code>RCODE</code> negativo indica servicio desconocido o buffer inválido y se trata como error no reintentable. En Java se conserva el corte a 2000 bytes para no cambiar el contrato con los llamadores, con una advertencia en bitácora que hoy no existe.",
+          "reglas": [],
+          "riesgo": "Una respuesta truncada se entrega al llamador como exitosa y sin aviso: el contrato consultado podría llegar incompleto."
+        },
+        {
+          "id": "s6",
+          "titulo": "Decodificación: código en los primeros 6 bytes y copia acotada",
+          "linea_ini": 232,
+          "linea_fin": 242,
+          "origen_codigo": "   IF I_RESULT > 0 THEN                                                 00014305\n      S500L060CONTRATO:= I_RESULT                                       00014310\n   ELSE                                                                 00014315\n   BEGIN                                                                00014320\n     S500L060CONTRATO:= INTEGER(EA_O_CTO_TEM,6);                        00014325\n     IF SIZE(EA_O_CTO) > (SIZE(EA_O_CTO_TEM) - 6) THEN                  00014330\n        REPLACE EA_O_CTO BY EA_O_CTO_TEM[6] FOR (SIZE(EA_O_CTO_TEM) - 6)00014335\n     ELSE                                                               00014340\n        REPLACE EA_O_CTO BY EA_O_CTO_TEM[6] FOR SIZE(EA_O_CTO);         00014345\n   END;                                                                 00014370\n   END OF S500L060CONTRATO;                                             00014400",
+          "java_codigo": "    private static final Charset EBCDIC = Charset.forName(\"IBM037\");   // confirmar página de códigos\n\n    /** Si no hubo error local, el código viene en los 6 primeros bytes y el resto es la salida. */\n    private int decodifica(byte[] respuesta, byte[] salida) {\n        byte[] r = ajustaTamano(respuesta);\n        if (r.length < 6) {\n            return ERROR_NO_REINTENTE;                     // el original leería basura del buffer\n        }\n        int codigo = Integer.parseInt(new String(r, 0, 6, EBCDIC).strip());   // INTEGER(EA_O_CTO_TEM,6)\n        int n = Math.min(salida.length, MAX_RESPUESTA - 6);   // nunca más de lo que cabe en la salida\n        System.arraycopy(r, 6, salida, 0, Math.min(n, r.length - 6));\n        return codigo;\n    }\n}",
+          "racional": "Cuando no hubo error local, el código de resultado es el número que el servicio remoto escribe en los primeros seis bytes de la respuesta y el resto se copia a la salida del llamador. La copia está acotada al menor entre el tamaño de la salida y los 1994 bytes útiles del buffer, lo que en Java es un <code>Math.min</code>. La conversión desde EBCDIC se hace explícita porque en el destino los bytes ya no se interpretan de forma nativa.",
+          "reglas": [],
+          "riesgo": "El código copia siempre el tamaño completo del buffer temporal (2000 bytes menos 6), no la longitud real recibida. Si la respuesta es más corta, la salida del llamador recibe restos de respuestas anteriores que quedaron en EA_O_CTO_TEM, que es global a la librería compartida."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Código remoto y código local comparten valores",
+      "detalle": "S500L060CONTRATO devuelve 98 o 99 para errores de transporte y, si no hubo error, el número de los primeros seis bytes de la respuesta (líneas 232-236). Un 98 o 99 enviado por el servicio remoto es indistinguible de un error local."
+    },
+    {
+      "titulo": "Truncamiento silencioso",
+      "detalle": "TP_GETRPLY usa TPTRUNC y la condición de las líneas 211-212 excluye TPETOOSMALL, así que una respuesta mayor a 2000 bytes llega cortada como si fuera exitosa."
+    },
+    {
+      "titulo": "Restos de respuestas previas",
+      "detalle": "La copia a la salida usa SIZE(EA_O_CTO_TEM) y no la longitud recibida (líneas 237-240). EA_O_CTO_TEM es global y la librería se congela con FREEZE(TEMPORARY), por lo que la puede compartir más de un llamador."
+    },
+    {
+      "titulo": "Hostnames compilados",
+      "detalle": "Los nueve hostnames de las líneas 97-107 y los servicios S500_Con_Cto_V y S500_Con_Cto_M están en el fuente; un servidor nuevo cae en HOST DESCONOCIDO."
+    },
+    {
+      "titulo": "Inicialización de I_RESULT",
+      "detalle": "I_RESULT solo se asigna en las ramas de error; el camino exitoso depende de que el compilador lo inicialice en cero."
+    }
+  ],
+  "pendientes_revision": [
+    "La regla RN-S500-892 del brain está asociada a S500_SOURCE_L060_CONSULFOR y describe la librería como consulta de formatos para presentación; el fuente muestra una consulta de contrato al host de la otra plaza vía XATMI. Revisar la redacción de la regla. El inventario no la lista en reglas_brain, por lo que no se citó.",
+    "Confirmar si MYSELF.STATUS := VALUE(TERMINATED) en INICIALIZA detiene la librería de inmediato o si la ejecución alcanza a preparar el designador con I_HOST sin asignar.",
+    "Confirmar la página de códigos EBCDIC del área común y la estructura del área de 180 bytes que arman los llamadores; no viene en este fuente.",
+    "Confirmar si los programas llamadores reintentan ante el código 98 y con qué límite.",
+    "Confirmar si los hostnames SITBETA, MONBETA y VDMALFA siguen vigentes; no figuran en el mapa de nodos del WFL LINEA de S151, que además asigna ACYPBETA a dos nodos distintos según el número de serie."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-892"
+  ]
+}

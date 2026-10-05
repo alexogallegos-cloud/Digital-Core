@@ -1,0 +1,197 @@
+{
+  "slug": "S151_P153",
+  "sistema": "S151",
+  "programa": "P153",
+  "nombre": "Depuración de la base contable BIFIN",
+  "funcion": "Paso batch de S151 que reinicia los contadores globales de S151BD13BIFIN y borra los registros históricos de once sets según umbrales de retención calculados con el calendario bancario.",
+  "resumen": "Obtiene la fecha de proceso de L001/CONTROL y calcula como umbral general el día hábil anterior; para algunos sets calcula ventanas de 15, 3 y 365 días con LOCSUP. Pone en cero los 30 contadores de control del registro global y después recorre cada set con LOCK FIRST y LOCK NEXT filtrando por fecha, borrando registro por registro y confirmando cada 100 borrados (1 000 en capturas de migración). Entre sets atiende la interrupción HI 4 del operador para terminar de forma ordenada.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s151.bifin.depuracion",
+  "secciones": [
+    {
+      "titulo": "Umbrales de retención",
+      "origen": {
+        "archivo": "COBOL_P153.txt",
+        "contexto": "100-1000-INICIO · 0400 / 5605 / 5900-CALCULA-FECHA"
+      },
+      "java": {
+        "archivo": "UmbralesRetencionTasklet.java · P153Properties.java",
+        "contexto": "Tasklet · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Umbral general: día hábil anterior a la fecha de proceso",
+          "linea_ini": 887,
+          "linea_fin": 902,
+          "origen_codigo": "  MOVE 1               TO  WKS-B01-FUNCION                .       024500\n  MOVE 500             TO  WKS-B01-SISTEMA                .       024600\n  CALL \"CONSISDIA IN S151L001\" USING  WKS-S151B01SISDIA           024700\n                               GIVING W77-RESULT-LIBCON   .       024800\n  IF W77-RESULT-LIBCON = 0                                        024900\n     MOVE WKS-B01-FECPRO    TO WKS-FECHA-PROCR.                   025000\n  IF ATTRIBUTE TASKVALUE OF MYSELF > 0                            025020\n      MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-FECHA-PROCR.      025030\n  MOVE 65              TO WKS-CVESEM                      .       025060\n  MOVE 1               TO WKS-CVEFEST                     .       025070\n  MOVE WKS-FECHA-PROCR TO WKS-FECHAIN                    .        025080\n  CALL  \"DAME_ANTHAB2K IN FECHAS\" USING WKS-FECHAIN               025090\n                                        WKS-FECHAOUT              025100\n                                        WKS-CVESEM                025210\n                                        WKS-CVEFEST       .       025220",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class UmbralesRetencionTasklet implements Tasklet {\n\n    private final ControlSistemaClient l001;       // \"CONSISDIA IN S151L001\"\n    private final CalendarioBancario fechas;       // \"DAME_ANTHAB2K IN FECHAS\"\n    private final P153Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution contribution, ChunkContext ctx) {\n        var params = ctx.getStepContext().getJobParameters();\n        // La fecha de proceso viene de L001 para el sistema 500; un TASKVALUE > 0 la sustituía.\n        LocalDate fechaProceso = Optional.ofNullable((LocalDate) params.get(\"fechaProceso\"))\n                .orElseGet(() -> l001.fechaProceso(1, 500)\n                        .orElseThrow(() -> new ProcesoAbortadoException(\"CONSISDIA SIN FECHA\")));\n\n        // Clave de semana 65 y de festivos 1: calendario bancario con días inhábiles.\n        LocalDate umbral = fechas.diaHabilAnterior(fechaProceso,\n                props.claveSemana(), props.claveFestivos());       // 65, 1\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"fechaOut\", umbral);         // WKS-FECHAOUT\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de proceso se pide a L001/CONTROL para el sistema 500 y, si la tarea se lanzó con un <code>TASKVALUE</code> mayor que cero, ese valor la reemplaza. Con ella se obtiene el día hábil anterior usando la clave de semana 65 y la de festivos 1; ese es el umbral <code>WKS-FECHAOUT</code>: todo registro con fecha anterior se borra y los del día vigente se conservan. En Java la sustitución por <code>TASKVALUE</code> se vuelve un parámetro explícito del job y el umbral se publica en el <code>ExecutionContext</code>. Las dos claves de calendario pasan a propiedades.",
+          "reglas": [
+            "RN-S151-884"
+          ],
+          "riesgo": "Si CONSISDIA no devuelve 0, el programa no aborta: sigue con la fecha que tuviera WKS-FECHA-PROCR y calcula el umbral a partir de ella. Además, cualquier TASKVALUE mayor que cero al arrancar se toma como fecha de proceso sin validar su formato."
+        },
+        {
+          "id": "s2",
+          "titulo": "Ventanas de retención distintas por set: 15, 3 y 365 días",
+          "linea_ini": 957,
+          "linea_fin": 1391,
+          "origen_codigo": " 0400-CALCULA-FECHA.                                              027540\n*----------------------                                           027550\n     MOVE WKS-FECHA-PROCR TO WKS-CAL-FECHA1.                      027560\n     MOVE 10              TO WKS-CAL-FUNCION.                     027570\n*JMLTMOVE 2               TO WKS-CAL-FECHA2.                      027580\n     MOVE 15              TO WKS-CAL-FECHA2.                      027590\n     MOVE 13              TO WKS-CAL-FORMATO.                     027600\n     CALL \"THECALENDAR OF LOCSUP\"                                 027610\n                          USING WKS-CAL-FUNCION,                  027620\n                                WKS-CAL-FECHA1,                   027630\n                                WKS-CAL-FECHA2,                   027640\n                                WKS-CAL-FORMATO.                  027650\n     IF WKS-CAL-FUNCION  = 0                                      027660\n          MOVE WKS-CAL-FECHA1 TO WKS-FECHACALC.                   027670\n 5605-CALCULA-FECHA-B04.                                          062400\n*----------------------                                           062500\n     MOVE WKS-FECHA-PROCR TO WKS-CAL-FECHA1.                      062600\n     MOVE 10              TO WKS-CAL-FUNCION.                     062700\n     MOVE 3               TO WKS-CAL-FECHA2.                      062800\n     MOVE 13              TO WKS-CAL-FORMATO.                     062900\n     CALL \"THECALENDAR OF LOCSUP\"                                 063000\n                          USING WKS-CAL-FUNCION,                  063100\n                                WKS-CAL-FECHA1,                   063200\n                                WKS-CAL-FECHA2,                   063300\n                                WKS-CAL-FORMATO.                  063400\n     IF WKS-CAL-FUNCION  = 0                                      063500\n          MOVE WKS-CAL-FECHA1 TO WKS-FECHACALC.                   063600\n 5900-CALCULA-FECHA-B08.                                          064000\n*-----------------------                                          064100\n   MOVE 0               TO WKS-FECHA-B08.                         064200\n   MOVE WKS-FECHA-PROCR TO WKS-CAL-FECHA1.                        064400\n   MOVE 10              TO WKS-CAL-FUNCION.                       064500\n   MOVE 365             TO WKS-CAL-FECHA2.                        064600\n   MOVE 13              TO WKS-CAL-FORMATO.                       064700\n   CALL \"THECALENDAR OF LOCSUP\"                                   064800\n                        USING WKS-CAL-FUNCION,                    064900\n                              WKS-CAL-FECHA1,                     065000\n                              WKS-CAL-FECHA2,                     065100\n                              WKS-CAL-FORMATO.                    065200\n   IF WKS-CAL-FUNCION  = 0                                        065300\n        MOVE WKS-CAL-FECHA1 TO WKS-FECHA-B08.                     065400",
+          "java_codigo": "# application.yml (antes literales en 0400, 5605 y 5900)\np153:\n  clave-semana: 65\n  clave-festivos: 1\n  ventanas:                 # LOCSUP THECALENDAR función 10, formato 13\n    protcob-domi: 15        # B07 PROTCOB y B10 DOMI   (WKS-FECHACALC-06)\n    ctl-citi-dir: 3         # B04 CTLCITIDIR           (WKS-FECHACALC)\n    td-mig-cap: 365         # B08 TDMIGCAP             (WKS-FECHA-B08)\n\n// ---------------------------------------------------------------------------\n/** Las tres llamadas a THECALENDAR solo difieren en el número de días. */\npublic LocalDate umbralVentana(LocalDate fechaProceso, int dias) {\n    return calendario.proyecta(fechaProceso, dias, FormatoLocsup.F13)     // función 10\n            .orElseThrow(() -> new ProcesoAbortadoException(\n                    \"THECALENDAR no pudo proyectar \" + dias + \" días\"));   // en COBOL se ignora el error\n}",
+          "racional": "Además del día hábil anterior, P153 calcula otros tres umbrales con la función 10 de <code>THECALENDAR</code>: 15 días para los protegidos de cobranza y las domiciliaciones, 3 días para el control de envíos CITI directos y 365 días para las capturas de migración. Los tres cálculos son el mismo código con un literal distinto, por eso en Java se reducen a un método parametrizado y los días se mueven a <code>application.yml</code>. Si <code>THECALENDAR</code> falla, COBOL deja la fecha anterior en la variable; la traducción falla de forma explícita.",
+          "reglas": [
+            "RN-S151-885"
+          ],
+          "riesgo": "Si THECALENDAR devuelve error, WKS-FECHACALC conserva el valor previo (cero o el del cálculo anterior) y la depuración de B04 puede usar la ventana de 15 días calculada para B07. Además, B07 y B10 se comparan contra WKS-FECHACALC-06, los 6 dígitos de la derecha de la fecha: la comparación ignora el siglo."
+        }
+      ]
+    },
+    {
+      "titulo": "Depuración de sets con confirmación por bloques",
+      "origen": {
+        "archivo": "COBOL_P153.txt",
+        "contexto": "200-1000-PROCESO · 1000 / 1100 / 3500 / 5910"
+      },
+      "java": {
+        "archivo": "DepuracionBifinJobConfig.java",
+        "contexto": "Spring Batch Job · chunk · JpaCursorItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Secuencia de depuración por set con validación de HI entre bloques",
+          "linea_ini": 904,
+          "linea_fin": 956,
+          "origen_codigo": " 200-1000-PROCESO.                                                025500\n*-----------------                                                025600\n   PERFORM 0500-INICIALIZA-GLOBALES                       .       025700\n   PERFORM 1100-FIRST-TOTPROD                             .       025800\n   PERFORM 1000-DELE-B01TOTPROD  UNTIL W77-SW-TOTALES  = 1        025900\n                                 OR    W88-HI-4.                  025950\n   PERFORM 9999-VALIDA-HI                                         026000\n   PERFORM 2100-FIRST-ALARMAS                             .       026200\n   PERFORM 2000-DELE-B03ALARMAS  UNTIL W77-SW-ALARMAS  = 1        026300\n                                 OR    W88-HI-4.                  026305\n   PERFORM 9999-VALIDA-HI                                         026310\n   PERFORM 3100-FIRST-POSICION                            .       026315\n   PERFORM 3000-DELE-B02POSICION UNTIL W77-SW-POSICION = 1        026600\n                                  OR    W88-HI-4.                 026605\n   PERFORM 9999-VALIDA-HI                                         026611\n   PERFORM 0400-CALCULA-FECHA                             .       026612\n   PERFORM 3500-DEPURA-B07     VARYING W77-IND FROM 1 BY 1        026614\n                               UNTIL   W77-IND > 2 OR  W88-HI-4.  026616\n   PERFORM 9999-VALIDA-HI                                         026623\n   MOVE ZERO TO W77-SW-PROTCOB.                                   026624\n   PERFORM 3500-DEPURA-B10     UNTIL W77-SW-PROTCOB=1.            026630\n   PERFORM 9999-VALIDA-HI                                         026650\n   PERFORM 4100-FIRST-BATCH.                                      026700\n   PERFORM 4000-DELE-B05BATCH    UNTIL W77-SW-BATCH    = 1        026900\n                                 OR    W88-HI-4.                  026950\n   PERFORM 9999-VALIDA-HI                                         027000\n   PERFORM 5100-FIRST-CTLENVIO                            .       027200\n   PERFORM 5000-DELE-B06CTLENVIO UNTIL W77-SW-CTLENVIO = 1        027300\n                                 OR    W88-HI-4.                  027310\n   PERFORM 9999-VALIDA-HI                                         027330\n   PERFORM 5605-CALCULA-FECHA-B04                         .       027340\n*FIN JMLT                                                         027350\n   PERFORM 5600-LOCK-CTD                                  .       027360\n   PERFORM 5610-DELETE-CTD       UNTIL W77-ERROR-CTD   = 1        027370\n                                 OR    W88-HI-4.                  027380\n   PERFORM 9999-VALIDA-HI                                         027400\n   PERFORM 5900-CALCULA-FECHA-B08                         .       027410\n   PERFORM 5905-FIRST-TDMIGCAP.                                   027420\n*  IF W77-DELETE-B08 = 0                                          027430\n*     BEGIN-TRANSACTION NO-AUDIT S151B99REINICTL OF BIFINDB.      027440\n   PERFORM 5910-DELETE-B08TDMIGCAP UNTIL W77-SW-TDMIG = 1         027450\n                                   OR    W88-HI-4.                027460\n   PERFORM 9999-VALIDA-HI                                         027500\n   PERFORM 6100-ELIMINAR-S151B09TICKETSBN.                        027510\n   PERFORM 9999-VALIDA-HI.                                        027530",
+          "java_codigo": "@Configuration\npublic class DepuracionBifinJobConfig {\n\n    /** 200-1000-PROCESO: un step por set, en el mismo orden; el HI se valida entre steps. */\n    @Bean\n    Job depuracionBifin(JobRepository repo, Step umbrales, Step reiniciaGlobales,\n                        Step totProd, Step alarmas, Step posicion, Step protCob, Step domi,\n                        Step batch, Step ctlEnvio, Step ctlCitiDir, Step tdMigCap, Step ticketsBn) {\n        return new JobBuilder(\"S151P153\", repo)\n                .start(umbrales)\n                .next(reiniciaGlobales)     // 0500-INICIALIZA-GLOBALES\n                .next(totProd)              // B01 TOTPROD   < fechaOut\n                .next(alarmas)              // B03 ALARMAS   < fechaOut\n                .next(posicion)             // B02 POSICION  < fechaOut\n                .next(protCob)              // B07 PROTCOB   ids 1 y 2, ventana 15\n                .next(domi)                 // B10 DOMI      id 3, ventana 15\n                .next(batch)                // B05 BATCH     < fechaOut\n                .next(ctlEnvio)             // B06 CTLENVIO  < fechaOut\n                .next(ctlCitiDir)           // B04 CTLCITIDIR ventana 3\n                .next(tdMigCap)             // B08 TDMIGCAP  ventana 365\n                .next(ticketsBn)            // B09 TICKETSBN\n                .build();\n        // 9999-VALIDA-HI: JobOperator.stop() detiene el job al terminar el chunk en curso.\n    }\n}",
+          "racional": "El párrafo de proceso encadena la depuración de once sets, cada uno con su propio ciclo de borrado, y entre uno y otro revisa si el operador pidió la salida. En Spring Batch cada set es un step con su lector y su escritor de borrado, y la parada ordenada la da <code>JobOperator.stop()</code>, que respeta el límite del chunk en curso. El job queda reiniciable desde el step interrumpido gracias al <code>JobRepository</code>, que sustituye al control de reinicio <code>S151B99REINICTL</code>.",
+          "reglas": [
+            "RN-S151-883"
+          ],
+          "riesgo": "La depuración de B10 (línea 925) no incluye la condición OR W88-HI-4: un HI 4 durante ese set no se atiende hasta que el set termina."
+        },
+        {
+          "id": "s4",
+          "titulo": "Borrado de TOTPROD con LOCK FIRST / LOCK NEXT y confirmación cada 100",
+          "linea_ini": 991,
+          "linea_fin": 1096,
+          "origen_codigo": " 1000-DELE-B01TOTPROD.                                            029500\n*---------------------                                            029600\n   IF W77-BORRADOS = 0                                            029610\n      BEGIN-TRANSACTION NO-AUDIT S151B99REINICTL OF BIFINDB.      029700\n   PERFORM 1200-DELETE-TOTPROD                             .      029800\n   PERFORM 1300-NEXT-TOTPROD                               .      029810\n   ADD 1                  TO W77-BORRADOS                  .      029820\n   IF W77-BORRADOS = 100  OR W77-SW-TOTALES = 1                   029830\n      MOVE ZERO           TO W77-BORRADOS                         029900\n      END-TRANSACTION   NO-AUDIT S151B99REINICTL OF BIFINDB.      030000\n 1100-FIRST-TOTPROD.                                              034400\n*-------------------                                              034500\n  LOCK FIRST B01SXTOTPROD                                         034600\n          AT B01-TOT-FECINF < WKS-FECHAOUT                        034610\n          ON EXCEPTION                                            034700\n             IF DMSTATUS(NOTFOUND)                                034800\n                MOVE 1 TO W77-SW-TOTALES                          034900\n 1200-DELETE-TOTPROD.                                             035600\n*--------------------                                             035700\n   DELETE S151B01TOTPROD                                          035800\n 1300-NEXT-TOTPROD.                                               036500\n*------------------                                               036600\n   LOCK NEXT B01SXTOTPROD                                         036700\n          AT B01-TOT-FECINF < WKS-FECHAOUT                        036710\n          ON EXCEPTION                                            036800\n             IF DMSTATUS(NOTFOUND)                                036900\n                MOVE 1 TO W77-SW-TOTALES                          037000",
+          "java_codigo": "@Bean\nStep totProd(JobRepository repo, PlatformTransactionManager tx, EntityManagerFactory emf,\n             @Value(\"#{jobExecutionContext['fechaOut']}\") LocalDate fechaOut) {\n    // LOCK FIRST / LOCK NEXT B01SXTOTPROD AT B01-TOT-FECINF < WKS-FECHAOUT\n    var lector = new JpaCursorItemReaderBuilder<TotProd>()\n            .name(\"totProdDepurables\").entityManagerFactory(emf)\n            .queryString(\"select t from TotProd t where t.fecInf < :fechaOut order by t.id\")\n            .parameterValues(Map.of(\"fechaOut\", fechaOut))\n            .build();\n\n    return new StepBuilder(\"totProd\", repo)\n            .<TotProd, TotProd>chunk(props.commitCada(), tx)     // END-TRANSACTION cada 100 borrados\n            .reader(lector)\n            .writer(chunk -> chunk.forEach(em()::remove))        // DELETE S151B01TOTPROD\n            .faultTolerant()\n            .skip(OptimisticLockingFailureException.class).skipLimit(0)   // un error de borrado falla el step\n            .build();\n}",
+          "racional": "Cada set se recorre con <code>LOCK FIRST</code> y <code>LOCK NEXT</code> sobre un set ordenado, filtrando por fecha de información menor al umbral, y se borra el registro bloqueado. La transacción se abre cuando el contador está en cero y se confirma cada 100 borrados o al terminar el set. Es exactamente un step orientado a chunks con intervalo de commit 100: un cursor JPA con la misma condición, un escritor que elimina y una transacción por chunk. El intervalo pasa a propiedad.",
+          "reglas": [
+            "RN-S151-883",
+            "RN-S151-886"
+          ],
+          "riesgo": "Los errores de LOCK y DELETE solo se registran en bitácora; el interruptor de fin de set únicamente se enciende con NOTFOUND. Un error persistente de LOCK NEXT deja el ciclo sin condición de salida."
+        },
+        {
+          "id": "s5",
+          "titulo": "Protegidos de cobranza B07 depurados por identificador y ventana de 15 días",
+          "linea_ini": 921,
+          "linea_fin": 1207,
+          "origen_codigo": "   PERFORM 3500-DEPURA-B07     VARYING W77-IND FROM 1 BY 1        026614\n                               UNTIL   W77-IND > 2 OR  W88-HI-4.  026616\n 3500-DEPURA-B07.                                                 031814\n*---------------------                                            031816\n   MOVE ZERO TO W77-SW-PROTCOB                                    031817\n   PERFORM 3600-FIRST-PROTCOB                                     031818\n   PERFORM 3500-DELE-B07PROTCOB  UNTIL W77-SW-PROTCOB  = 1.       031820\n 3600-FIRST-PROTCOB.                                              044506\n*-------------------                                              044508\n  LOCK FIRST B07SXFECHA AT                                        044510\n             B07-NUM-ID      =  W77-IND      AND                  044511\n             B07-FEC-CARGO   <  WKS-FECHACALC-06                  044512\n   ON EXCEPTION                                                   044514\n      IF DMSTATUS(NOTFOUND)                                       044516\n         MOVE 1         TO  W77-SW-PROTCOB.                       044518\n   IF B07-NUM-ID      =  W77-IND       AND                        044567\n      B07-FEC-CARGO   <  WKS-FECHACALC-06                         044568\n      NEXT SENTENCE                                               044569\n   ELSE                                                           044570\n      MOVE 1 TO W77-SW-PROTCOB.                                   044571",
+          "java_codigo": "@Bean\n@StepScope\nJpaCursorItemReader<ProtCob> protCobDepurables(EntityManagerFactory emf,\n        @Value(\"#{jobExecutionContext['fechaVentana15']}\") LocalDate ventana) {\n    // 3500-DEPURA-B07 VARYING W77-IND FROM 1 BY 1 UNTIL W77-IND > 2\n    // LOCK FIRST B07SXFECHA AT B07-NUM-ID = W77-IND AND B07-FEC-CARGO < WKS-FECHACALC-06\n    return new JpaCursorItemReaderBuilder<ProtCob>()\n            .name(\"protCobDepurables\").entityManagerFactory(emf)\n            .queryString(\"select p from ProtCob p\"\n                    + \" where p.numId in (1, 2) and p.fecCargo < :ventana\"\n                    + \" order by p.numId, p.fecCargo\")\n            .parameterValues(Map.of(\"ventana\", ventana))   // fecha completa, no solo AAMMDD\n            .build();\n}",
+          "racional": "Los protegidos de cobranza se depuran dos veces, una por cada identificador 1 y 2, contra la ventana de 15 días. Como el <code>LOCK NEXT</code> no repite la condición (está comentada), el programa la vuelve a evaluar después de cada lectura y termina el recorrido en cuanto un registro ya no cumple. En Java la condición completa va en la consulta, lo que elimina esa doble evaluación y permite recorrer ambos identificadores en un solo step. Se compara contra la fecha completa en lugar de los 6 dígitos de la derecha.",
+          "reglas": [
+            "RN-S151-885"
+          ],
+          "riesgo": "El recorrido termina con el primer registro del set ordenado que no cumpla la condición; si el orden del set B07SXFECHA no agrupa por identificador y fecha, registros depurables posteriores quedarían sin borrar."
+        },
+        {
+          "id": "s6",
+          "titulo": "Capturas de migración B08 con confirmación cada 1000 borrados",
+          "linea_ini": 1407,
+          "linea_fin": 1421,
+          "origen_codigo": " 5910-DELETE-B08TDMIGCAP.                                         067000\n*------------------------                                         067100\n   IF W77-DELETE-B08 = 0                                          067120\n       BEGIN-TRANSACTION NO-AUDIT S151B99REINICTL OF BIFINDB.     067140\n   DELETE S151B08TDMIGCAP                                         067200\n   PERFORM 5905-NEXT-TDMIGCAP.                                    067800\n   ADD 1                  TO W77-DELETE-B08                .      067820\n   IF W77-DELETE-B08 = 1000 OR W77-SW-TDMIG = 1                   067840\n      MOVE ZERO           TO W77-DELETE-B08                       067860\n      END-TRANSACTION   NO-AUDIT S151B99REINICTL OF BIFINDB.      067880",
+          "java_codigo": "@Bean\nStep tdMigCap(JobRepository repo, PlatformTransactionManager tx,\n              JpaCursorItemReader<TdMigCap> tdMigCapDepurables) {\n    return new StepBuilder(\"tdMigCap\", repo)\n            .<TdMigCap, TdMigCap>chunk(props.commitCadaB08(), tx)   // 1000, no 100 como el resto\n            .reader(tdMigCapDepurables)                              // B08-FEC-MIG < ventana 365\n            .writer(chunk -> chunk.forEach(em()::remove))            // DELETE S151B08TDMIGCAP\n            .build();\n}",
+          "racional": "El set de capturas de migración, agregado después, usa su propio contador y confirma cada 1 000 borrados en lugar de 100. La traducción conserva la diferencia con una propiedad propia del step para no cambiar el tamaño de transacción sin aprobación. Su umbral es la ventana de 365 días calculada en <code>5900-CALCULA-FECHA-B08</code>.",
+          "reglas": [
+            "RN-S151-886"
+          ],
+          "riesgo": "Una transacción de hasta 1 000 borrados sin auditoría es diez veces mayor que la del resto de los sets; un HI 4 o una caída a mitad del bloque afecta más registros."
+        }
+      ]
+    },
+    {
+      "titulo": "Control global e interrupción del operador",
+      "origen": {
+        "archivo": "COBOL_P153.txt",
+        "contexto": "0500-INICIALIZA-GLOBALES · DECLARATIVES INTERRUPT-BY-HI · 9999-VALIDA-HI"
+      },
+      "java": {
+        "archivo": "ReiniciaGlobalesTasklet.java · P153AdminEndpoint.java",
+        "contexto": "@Transactional · JobOperator.stop()"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Reinicio de los 30 contadores globales de BIFIN",
+          "linea_ini": 973,
+          "linea_fin": 1298,
+          "origen_codigo": " 0500-INICIALIZA-GLOBALES.                                        027700\n*-------------------------                                        027800\n   BEGIN-TRANSACTION NO-AUDIT S151B99REINICTL OF BIFINDB          027900\n   PERFORM 5400-LOCK-GLOB                                         028000\n   IF WKS-IERR   =  0                                             028010\n      PERFORM 0700-INIC-CAMPOS                                    028100\n      PERFORM 5500-STORE-GLOB.                                    028200\n   END-TRANSACTION   NO-AUDIT S151B99REINICTL OF BIFINDB.         028300\n 0700-INIC-CAMPOS.                                                028500\n*-----------------                                                028600\n  PERFORM 0800-INICIALIZA-CAMPOS VARYING W77-INDICE               028700\n          FROM 1 BY 1 UNTIL W77-INDICE > 30.                      028800\n 0800-INICIALIZA-CAMPOS.                                          029000\n*-----------------------                                          029100\n   MOVE ZEROS   TO     B00-GLO-NCTLBIFIN(W77-INDICE).             029300\n 5400-LOCK-GLOB.                                                  053000\n*---------------                                                  053100\n  MOVE 0                                   TO WKS-IERR            053200\n  LOCK  BIFINDB                                                   053300\n   ON EXCEPTION                                                   053400\n      MOVE 1                               TO WKS-IERR            053500\n 5500-STORE-GLOB.                                                 054000\n*----------------                                                 054100\n  STORE BIFINDB                                                   054200",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ReiniciaGlobalesTasklet implements Tasklet {\n\n    private static final int CONTADORES = 30;           // B00-GLO-NCTLBIFIN(1..30)\n    private final GlobalesBifinRepository globales;\n\n    /** 0500-INICIALIZA-GLOBALES: LOCK del registro global, ceros en el arreglo y STORE. */\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        GlobalesBifin g = globales.findForUpdate()                       // LOCK BIFINDB\n                .orElseThrow(() -> new ProcesoAbortadoException(\" ERROR AL BLOQUEAR GLOBALES \"));\n        for (int i = 1; i <= CONTADORES; i++) {\n            g.setContadorControl(i, 0L);                                 // MOVE ZEROS\n        }\n        return RepeatStatus.FINISHED;                                    // STORE BIFINDB al commit\n    }\n}",
+          "racional": "Antes de depurar, el programa bloquea el registro global de la base contable, pone en cero el arreglo de 30 contadores de control por sistema y lo guarda, todo dentro de una transacción sin auditoría. En Java es un <code>Tasklet</code> transaccional con lectura bloqueante. En COBOL, si el <code>LOCK</code> falla, solo se registra el error y la depuración continúa con los contadores sin reiniciar; la traducción propone fallar el step, lo que es un cambio de comportamiento a validar.",
+          "reglas": [
+            "RN-S151-888"
+          ],
+          "riesgo": "Un error en LOCK BIFINDB o en STORE BIFINDB se registra pero no detiene el programa: la depuración procede aunque los contadores no se hayan reiniciado."
+        },
+        {
+          "id": "s8",
+          "titulo": "Interrupción HI 4 para salida ordenada",
+          "linea_ini": 814,
+          "linea_fin": 1515,
+          "origen_codigo": " DECLARATIVES.                                                    019220\n INTERRUPT-BY-HI SECTION.                                         019230\n            USE AS INTERRUPT PROCEDURE.                           019240\n 000A-BEGIN-INTERRUPT.                                            019250\n  DISALLOW INTERRUPT.                                             019260\n  MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-HI.                   019270\n  IF W88-HI-4                                                     019280\n     PERFORM 800100-HI-SALIDA.                                    019290\n  ALLOW INTERRUPT.                                                019310\n END DECLARATIVES.                                                019320\n ATTACH INTERRUPT-BY-HI            TO ATTRIBUTE EXCEPTIONEVENT    019520\n                                   OF MYSELF.                     019540\n   800100-HI-SALIDA.                                              076200\n*=================                                                076300\n   MOVE  020201                      TO CODIGO-LJ.                076400\n   MOVE  \"I\"                         TO TIPO-LJ.                  076500\n   MOVE \"TERMINACION NORMAL\"         TO TEXTO-LJ                  076600\n   PERFORM 000-9999-LIBJ.                                         076700\n 9999-VALIDA-HI.                                                  076800\n*===============                                                  076900\n  IF W88-HI-4                                                     077000\n     PERFORM 000-9999-CIERRA-ARCH                                 077100\n     STOP RUN.                                                    077200",
+          "java_codigo": "@Component\n@Endpoint(id = \"p153\")\n@RequiredArgsConstructor\npublic class P153AdminEndpoint {\n\n    private final JobOperator operador;\n    private final JobExplorer explorador;\n\n    /** Equivale a HI 4: la ejecución en curso se detiene al cerrar el chunk activo. */\n    @WriteOperation\n    @PreAuthorize(\"hasRole('OPERADOR_S151')\")\n    public String hi(@Selector int valor) throws Exception {\n        if (valor != 4) return \"HI IGNORADO\";                        // solo W88-HI-4 tiene efecto\n        for (Long id : explorador.findRunningJobExecutions(\"S151P153\").stream()\n                                 .map(JobExecution::getId).toList()) {\n            operador.stop(id);                                       // commit del chunk y STOPPED\n        }\n        return \"TERMINACION NORMAL\";                                 // 800100-HI-SALIDA\n    }\n}",
+          "racional": "El programa engancha una rutina de interrupción al evento de excepción de la tarea. Cuando el operador manda HI 4, la rutina solo deja un mensaje; el efecto real está en que cada ciclo de borrado tiene la condición de salida <code>OR W88-HI-4</code> y en que <code>9999-VALIDA-HI</code>, entre sets, cierra la base y termina. En Spring Batch eso es <code>JobOperator.stop()</code>: la ejecución se detiene en el siguiente límite de chunk, confirma lo hecho y queda en estado STOPPED, lista para reiniciarse.",
+          "reglas": [
+            "RN-S151-887"
+          ],
+          "riesgo": "9999-VALIDA-HI hace CLOSE BIFINDB y STOP RUN sin END-TRANSACTION. Si el HI llega con un bloque de borrados abierto (W77-BORRADOS entre 1 y 99), el destino de esos borrados queda en manos de DMSII al cerrar la base en estado de transacción."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Errores de base no fatales",
+      "detalle": "Los ON EXCEPTION de LOCK, DELETE, LOCK BIFINDB y STORE BIFINDB solo escriben en bitácora (por ejemplo, líneas 1072-1079, 1084-1088 y 1290-1302). La depuración continúa aunque falle el reinicio de globales, y un error persistente en LOCK NEXT puede dejar un ciclo sin salida."
+    },
+    {
+      "titulo": "Salida por HI con transacción abierta",
+      "detalle": "9999-VALIDA-HI (líneas 1511-1515) cierra la base y termina sin END-TRANSACTION; hasta 99 borrados (999 en B08) quedan en una transacción no confirmada al momento del cierre."
+    },
+    {
+      "titulo": "Fecha de proceso sustituible por TASKVALUE",
+      "detalle": "Si la tarea arranca con TASKVALUE mayor que cero, ese valor reemplaza la fecha de proceso (líneas 894-895) sin validación. Una fecha futura borraría registros vigentes."
+    },
+    {
+      "titulo": "Cálculos de fecha sin verificación",
+      "detalle": "Si CONSISDIA o THECALENDAR fallan, el programa sigue con el valor previo de la fecha (líneas 891-892, 969-970, 1372-1373 y 1390-1391)."
+    },
+    {
+      "titulo": "Comparación de fechas sin siglo",
+      "detalle": "B07 y B10 se comparan contra WKS-FECHACALC-06, los 6 dígitos de la derecha de una fecha de 8 (líneas 109-112, 1174 y 1529)."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-885 dice que TDMIGCAP (B08) usa la ventana de 15 días; el fuente calcula su umbral con 365 días (línea 1383) y la de 15 solo se usa para B07 y B10. Además, B04 CTLCITIDIR usa 3 días (línea 1365). Revisar la redacción de la regla en el brain.",
+    "RN-S151-886 indica confirmación cada 100 borrados; B08 confirma cada 1 000 (línea 1419). Confirmar si es intencional.",
+    "RN-S151-887 dice que la salida por HI cierra la transacción activa; en el fuente 9999-VALIDA-HI no ejecuta END-TRANSACTION. Confirmar con un DBA de DMSII qué ocurre con los borrados pendientes al cerrar la base.",
+    "No se sabe si THECALENDAR función 10 con formato 13 proyecta hacia adelante o hacia atrás; el comentario del fuente solo dice fecha proyectada a 15.",
+    "La depuración de B06 CTLENVIO, B04 CTLCITIDIR y B09 TICKETSBN no se detalló en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-883",
+    "RN-S151-884",
+    "RN-S151-885",
+    "RN-S151-886",
+    "RN-S151-887",
+    "RN-S151-888"
+  ]
+}

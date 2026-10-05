@@ -169,8 +169,14 @@ python digital-brain/brain.py questions
 | `cross_dependencies` | 8 | Informix, Unity, App Móvil, SPEI, E-Global, DataStage, Contabilidad, ACDC |
 | `open_questions` | 7 | EXO-Q01 a Q07 |
 | `applications_fts` | vista | Búsqueda fulltext |
+| `ams_support_proposal` | 8 | Propuesta equipo AMS/IMS para Ola 1 — 8 apps, 28 FTE total |
 
-`brain.py` implementa la interfaz estándar de 5 métodos (`coverage`, `components`, `search`, `rules`, `domains`) más `reconciliation`, `cross_dependencies` y `questions`. El método `rules` no devuelve reglas de negocio: Exodus declara el **alcance** de SPLs a refactorizar, y las reglas extraídas viven en el brain de Informix.
+`brain.py` implementa la interfaz estándar de 5 métodos (`coverage`, `components`, `search`, `rules`, `domains`) más `reconciliation`, `cross_dependencies`, `questions` y `support_proposal`.
+
+```bash
+python digital-brain/brain.py support              # 8 apps · 28 FTE · roles y riesgos por app
+python digital-brain/brain.py support --app ID-62  # filtrar por app_id
+``` El método `rules` no devuelve reglas de negocio: Exodus declara el **alcance** de SPLs a refactorizar, y las reglas extraídas viven en el brain de Informix.
 
 ---
 
@@ -226,6 +232,7 @@ Declaradas en `brain.db::cross_dependencies` conforme a la Regla B5. Todas outbo
 - [x] `brain.py` con interfaz estándar de 5 métodos más `reconciliation`
 - [x] 8 dependencias cross-programa y 7 preguntas abiertas registradas
 - [ ] **Propagar dependencias (Regla B10)** a los brains de Informix y Unity
+- [x] **Propuesta equipo AMS/IMS Ola 1** — `ams_support_proposal`: 8 apps · 28 FTE · roles y riesgos derivados de brains Informix y AppMovil (2026-09-21)
 - [ ] **Procesar `Clasificacion_APO.xlsx` y `Fuentedatos_APO.xlsx`** — tabla maestra de decisiones APO por aplicativo usada por AWS ProServe; necesaria para cerrar EXO-R001 (delta SPLs) y EXO-Q08 (unidad del campo SPL)
 - [ ] Cruzar las 30 aplicaciones de Exodus contra los 29 dominios D01-D49 del brain de Informix
 - [ ] Emitir seeds (Regla B11) hacia Informix, Unity, App Móvil, SPEI, E-Global, DataStage y Contabilidad

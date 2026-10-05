@@ -1,0 +1,149 @@
+{
+  "slug": "S500_WFL_GENERAP694",
+  "sistema": "S500",
+  "programa": "WFL_GENERAP694",
+  "nombre": "Generador del Reorganizador de S500BD04TARJETAS",
+  "funcion": "Job WFL de mantenimiento DMSII que genera y compila el programa reorganizador (garbage) de la base de tarjetas S500BD04TARJETAS y lo deja en disco como S500/OBJECT/P694; no tiene disparador declarado en el fuente.",
+  "resumen": "El job no recibe parámetros. Borra del pack CAPTACION el reorganizador anterior y el objeto P694 vigente, ejecuta la utilidad *SYSTEM/BUILDREORG con la descripción DASDL 25MTP001 de la base y una tarjeta de datos que pide reorganizar S500B03PREALTAS, S500B07PARCHIVOS y S500B08PCTRARRIBO por su clave, con copia a la familia REORG y AUTOSWAP. Si la compilación termina bien, espera en ciclos de 15 segundos a que aparezca REORGANIZATION/S500BD04TARJETAS y lo renombra a S500/OBJECT/P694/S500BD04TARJETAS/25MTP003. La reorganización física ocurre después, cuando se ejecuta ese objeto, fuera de este job.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "WFL",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.mantenimiento.reorg.tarjetas",
+  "secciones": [
+    {
+      "titulo": "Identidad del job, entorno y objetos de trabajo",
+      "origen": {
+        "archivo": "S500_WFL_REORG_GARBAGE_S500BD01CAPTACION.txt",
+        "contexto": "BEGIN JOB · FAMILY · FILE · REMOVE"
+      },
+      "java": {
+        "archivo": "ReorgTarjetasProperties.java · ArtefactosReorgTarjetas.java · LimpiaObjetosPreviosTasklet.java",
+        "contexto": "@ConfigurationProperties · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Identidad del job, familia de disco y listado a application.yml",
+          "linea_ini": 2,
+          "linea_fin": 11,
+          "origen_codigo": "%% PARA GENERAR EL GARBAGE DE LA BASE S500BD04TARJETAS EN PRODUCCION  %%          00001100\n%%    (S500)S500/OBJECT/P694/S500BD04TARJETAS/25MTP003                            00001500\n%% PARA LA VERSION 25MTP001 DE LA BASE S500BD04TARJETAS               %%          00001600\nBEGIN JOB S500/WFL/REORG/GARBAGE/S500BD04TARJETAS/25MTP003;                       00001800\nFAMILY DISK = CAPTACION OTHERWISE PACK;                                           00001900\nBDNAME = S500/LIST/CREAGARBAGE/TARJETAS/25MTP001;                                 00002000",
+          "java_codigo": "# application.yml  (todo lo que en el WFL es literal pasa a configuración)\ns500:\n  reorg:\n    tarjetas:\n      job-name: S500/WFL/REORG/GARBAGE/S500BD04TARJETAS/25MTP003\n      base: S500BD04TARJETAS\n      version-descripcion: 25MTP001     # DASDL de entrada y listado\n      version-objeto: 25MTP003          # objeto P694 generado\n      familia-residencia: CAPTACION     # FAMILY DISK = CAPTACION OTHERWISE PACK\n      familia-alterna: PACK\n      listado: S500/LIST/CREAGARBAGE/TARJETAS/25MTP001\n      ambiente: PRODUCCION              # hoy solo existe en el comentario del banner\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"s500.reorg.tarjetas\")\npublic record ReorgTarjetasProperties(String jobName, String base,\n                                      String versionDescripcion, String versionObjeto,\n                                      String familiaResidencia, String familiaAlterna,\n                                      String listado, String ambiente,\n                                      String descripcion,\n                                      List<EstructuraReorg> estructuras,\n                                      Reorganizacion reorganizacion,\n                                      Sondeo sondeo) {}",
+          "racional": "El encabezado del job no recibe parámetros: base, versiones, familia de disco y título del listado están escritos en el cuerpo. En Java se agrupan en un <code>@ConfigurationProperties</code> para poder cambiar versión o ambiente sin editar el flujo. La línea <code>FAMILY DISK = CAPTACION OTHERWISE PACK</code> redirige toda petición a la familia DISK hacia el pack CAPTACION, con PACK como alterno; se conservan ambos valores. El banner dice <code>EN PRODUCCION</code>, pero ningún atributo del job controla el ambiente, por lo que se agrega la propiedad <code>ambiente</code> para que el control sea explícito.",
+          "reglas": [],
+          "riesgo": "Conviven tres estampas de versión literales: 25MTP003 para el job y el objeto, 25MTP001 para el DASDL y el listado, y el banner dice 25MTP001."
+        },
+        {
+          "id": "s2",
+          "titulo": "Ficheros usados solo como sondas de existencia",
+          "linea_ini": 12,
+          "linea_fin": 19,
+          "origen_codigo": "FILE REORGANIZADOR(KIND=PACK,PACKNAME=CAPTACION),                                 00002100\n     GARBAGE(KIND=PACK,PACKNAME=CAPTACION);                                       00002200\nTASK T1;                                                                          00002300\nSTRING S1,S2;                                                                     00002400\nS1:=\"REORGANIZATION/S500BD04TARJETAS\";                                            00002500\nS2:=\"S500/OBJECT/P694/S500BD04TARJETAS/25MTP003\";                                 00002600\nREORGANIZADOR(TITLE=#S1);                                                         00002700\nGARBAGE(TITLE=#S2);                                                               00002800",
+          "java_codigo": "/** REORGANIZADOR y GARBAGE nunca se abren: el WFL solo pregunta IS RESIDENT. */\npublic interface CatalogoObjetos {\n    boolean existe(String titulo, String familia);                 // FILE ... IS RESIDENT\n    void elimina(String titulo, String familia);                   // REMOVE #S FROM familia\n    void renombra(String origen, String destino, String familia);  // CHANGE #S1 TO #S2 FROM familia\n}\n\n@Component\n@RequiredArgsConstructor\npublic class ArtefactosReorgTarjetas {\n\n    private final ReorgTarjetasProperties props;\n    private final CatalogoObjetos catalogo;\n\n    /** S1: objeto que deja BUILDREORG. */\n    public String reorganizador() { return \"REORGANIZATION/\" + props.base(); }\n\n    /** S2: objeto con el nombre definitivo del programa P694. */\n    public String garbage() {\n        return \"S500/OBJECT/P694/\" + props.base() + \"/\" + props.versionObjeto();\n    }\n\n    public boolean reorganizadorResidente() { return catalogo.existe(reorganizador(), props.familiaResidencia()); }\n    public boolean garbageResidente()       { return catalogo.existe(garbage(), props.familiaResidencia()); }\n}",
+          "racional": "Los dos <code>FILE</code> se declaran con <code>KIND=PACK</code> y <code>PACKNAME=CAPTACION</code> y se titulan con las cadenas S1 y S2, pero el job nunca los abre: solo los usa como predicado de presencia en disco. En Java eso es una interfaz de catálogo con <code>existe</code>, <code>elimina</code> y <code>renombra</code>, que puede implementarse sobre el repositorio de artefactos que sustituya a la familia de disco. Los títulos se construyen a partir de la configuración en vez de quedar compilados.",
+          "reglas": [],
+          "riesgo": "El job de la base de tarjetas reside en el pack CAPTACION; en el fuente no aparece ningún pack TARJETAS. No se puede saber desde el código si es correcto o un residuo de copia del gemelo GENERAP691."
+        },
+        {
+          "id": "s3",
+          "titulo": "Borrado previo de los objetos a respaldo recuperable",
+          "linea_ini": 20,
+          "linea_fin": 20,
+          "origen_codigo": "REMOVE #S1 FROM CAPTACION, #S2 FROM CAPTACION;                                    00002900",
+          "java_codigo": "/** Step 1. En el WFL es un REMOVE ciego; aquí se respalda antes de borrar. */\n@Component\n@RequiredArgsConstructor\npublic class LimpiaObjetosPreviosTasklet implements Tasklet {\n\n    private final ArtefactosReorgTarjetas artefactos;\n    private final CatalogoObjetos catalogo;\n    private final RespaldoArtefactos respaldo;\n    private final ReorgTarjetasProperties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        for (String titulo : List.of(artefactos.reorganizador(), artefactos.garbage())) {\n            if (catalogo.existe(titulo, props.familiaResidencia())) {\n                respaldo.guarda(titulo, props.familiaResidencia());   // no existe en el fuente\n                catalogo.elimina(titulo, props.familiaResidencia());  // REMOVE #S1, #S2 FROM CAPTACION\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La línea elimina el reorganizador anterior y el objeto productivo P694 antes de intentar generar el reemplazo. Se conserva el borrado porque BUILDREORG necesita el título libre, pero se antepone un respaldo para que un fallo posterior no deje el pack sin objeto. Es la única desviación deliberada respecto al fuente y se señala en el código.",
+          "reglas": [],
+          "riesgo": "Si BUILDREORG falla después del REMOVE, el job termina sin aviso y el objeto productivo P694 ya no existe."
+        }
+      ]
+    },
+    {
+      "titulo": "Construcción del reorganizador con BUILDREORG",
+      "origen": {
+        "archivo": "S500_WFL_REORG_GARBAGE_S500BD01CAPTACION.txt",
+        "contexto": "RUN *SYSTEM/BUILDREORG · DATA CARD"
+      },
+      "java": {
+        "archivo": "ConstruyeReorganizadorTasklet.java · EstructuraReorg.java · Reorganizacion.java",
+        "contexto": "Tasklet · record de configuración"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Tarjeta de datos de BUILDREORG a plan de reorganización declarativo",
+          "linea_ini": 21,
+          "linea_fin": 32,
+          "origen_codigo": "RUN                *SYSTEM/BUILDREORG[T1];                                        00003000\nFILE DASDL = DESCRIPTION/S500BD04TARJETAS/25MTP001;                               00003100\nDATA CARD                                                                         00003200\n       GENERATE S500B03PREALTAS  ORDER BY B03PSXTARJ;                             00003300\n       S500B03PREALTAS (COPY TO REORG COPY BACK=TRUE);                            00003320\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003340\n       GENERATE S500B07PARCHIVOS ORDER BY B07PSXSISCTESEC;                        00003400\n       S500B07PARCHIVOS (COPY TO REORG COPY BACK=TRUE);                           00003420\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003440\n       GENERATE S500B08PCTRARRIBO ORDER BY B08PSXFECSISCTESQ;                     00003500\n       S500B08PCTRARRIBO (COPY TO REORG COPY BACK=TRUE);                          00003520\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003540",
+          "java_codigo": "# application.yml (continuación): las tres estructuras y su clave de ordenamiento\ns500.reorg.tarjetas:\n  descripcion: DESCRIPTION/S500BD04TARJETAS/25MTP001     # FILE DASDL\n  estructuras:\n    - { nombre: S500B03PREALTAS,   orden: B03PSXTARJ,        copy-back: true, familia-trabajo: REORG }\n    - { nombre: S500B07PARCHIVOS,  orden: B07PSXSISCTESEC,   copy-back: true, familia-trabajo: REORG }\n    - { nombre: S500B08PCTRARRIBO, orden: B08PSXFECSISCTESQ, copy-back: true, familia-trabajo: REORG }\n\n// ---------------------------------------------------------------------------\npublic record EstructuraReorg(String nombre, String orden,\n                              boolean copyBack, String familiaTrabajo) {}\n\n/** Step 2. RUN *SYSTEM/BUILDREORG[T1]: genera y compila el reorganizador, no reorganiza. */\n@Component\n@RequiredArgsConstructor\npublic class ConstruyeReorganizadorTasklet implements Tasklet {\n\n    private final ReorgTarjetasProperties props;\n    private final GeneradorReorganizador generador;   // adaptador del motor de BD destino\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ResultadoGeneracion r = generador.genera(props.descripcion(), props.estructuras(),\n                                                 props.reorganizacion());\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"compiladoOk\", r.compiladoOk());   // T1 IS COMPILEDOK\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El job ejecuta la utilidad <code>*SYSTEM/BUILDREORG</code> con la descripción DASDL de la base y una <code>DATA CARD</code> que enumera tres estructuras, cada una con su clave de ordenamiento (<code>ORDER BY</code>), copia a la familia REORG y regreso automático (<code>COPY BACK=TRUE</code>). El producto es un programa reorganizador compilado; la reorganización física ocurre cuando alguien ejecuta ese objeto. En Java la tarjeta pasa a una lista declarativa en <code>application.yml</code> y la utilidad a un adaptador <code>GeneradorReorganizador</code>, cuya implementación depende del motor de base de datos destino. El resultado de compilación se publica en el <code>ExecutionContext</code> para el decisor del flujo.",
+          "reglas": [],
+          "riesgo": "El salto de secuencia entre 00003540 y 00004420 sugiere bloques GENERATE retirados; no es prueba, pero conviene confirmar que las tres estructuras son las vigentes."
+        },
+        {
+          "id": "s5",
+          "titulo": "Base intermedia y AUTOSWAP a propiedades con salvaguarda",
+          "linea_ini": 33,
+          "linea_fin": 37,
+          "origen_codigo": "       GLOBAL USEREORGDB;                                                         00004420\n         INTERNAL FILES (FAMILYNAME = REORG);                                     00004440\n         REORGDBTITLE=S500BD04GARBAGE ON REORG;                                   00004460\n         AUTOSWAP=TRUE;                                                           00004480\n?                                                                                 00004500",
+          "java_codigo": "# application.yml (continuación)\ns500.reorg.tarjetas:\n  reorganizacion:\n    usar-base-intermedia: true        # GLOBAL USEREORGDB\n    familia-trabajo: REORG            # INTERNAL FILES (FAMILYNAME = REORG)\n    titulo-intermedio: S500BD04GARBAGE\n    familia-intermedia: REORG         # REORGDBTITLE = ... ON REORG\n    autoswap: true                    # AUTOSWAP=TRUE: el objeto generado sustituye las estructuras vivas\n\n// ---------------------------------------------------------------------------\npublic record Reorganizacion(boolean usarBaseIntermedia, String familiaTrabajo,\n                             String tituloIntermedio, String familiaIntermedia,\n                             boolean autoswap) {\n    public Reorganizacion {\n        Objects.requireNonNull(tituloIntermedio, \"REORGDBTITLE es obligatorio\");\n    }\n}",
+          "racional": "El bloque <code>GLOBAL USEREORGDB</code> indica que la reorganización se hará sobre una base intermedia llamada S500BD04GARBAGE en la familia REORG, y <code>AUTOSWAP=TRUE</code> hace que, al ejecutar el objeto generado, las estructuras reorganizadas reemplacen a las vivas sin intervención. Se trasladan como propiedades con el mismo valor por defecto, de modo que el comportamiento no cambia, pero el intercambio automático queda visible y puede desactivarse por ambiente. El signo <code>?</code> cierra la tarjeta de datos.",
+          "reglas": [],
+          "riesgo": "AUTOSWAP=TRUE sobre tres estructuras de producción sin respaldo previo, sin verificación de sesiones activas ni confirmación de operador en el fuente."
+        }
+      ]
+    },
+    {
+      "titulo": "Control de compilación y promoción del objeto P694",
+      "origen": {
+        "archivo": "S500_WFL_REORG_GARBAGE_S500BD01CAPTACION.txt",
+        "contexto": "IF COMPILEDOK · DO ... UNTIL"
+      },
+      "java": {
+        "archivo": "CompiladoOkDecider.java · PromueveObjetoTasklet.java · ReorgTarjetasJobConfig.java",
+        "contexto": "JobExecutionDecider · Flow"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Compilación correcta y espera del objeto final a decisor y sondeo con límite",
+          "linea_ini": 38,
+          "linea_fin": 46,
+          "origen_codigo": "IF T1 IS COMPILEDOK THEN                                                          00004600\n   DO                                                                             00004700\n   BEGIN                                                                          00004800\n      WAIT(15);                                                                   00004900\n      IF REORGANIZADOR IS RESIDENT THEN                                           00005000\n         CHANGE #S1 TO #S2 FROM CAPTACION;                                        00005100\n   END                                                                            00005200\n   UNTIL GARBAGE IS RESIDENT;                                                     00005300\nEND JOB.                                                                          00005400",
+          "java_codigo": "/** IF T1 IS COMPILEDOK: en el fuente la rama falsa termina el job en silencio. */\npublic class CompiladoOkDecider implements JobExecutionDecider {\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        return Boolean.TRUE.equals(job.getExecutionContext().get(\"compiladoOk\"))\n                ? new FlowExecutionStatus(\"COMPILADO\")\n                : new FlowExecutionStatus(\"NO_COMPILADO\");\n    }\n}\n\n/** DO WAIT(15); IF REORGANIZADOR IS RESIDENT THEN CHANGE ...; UNTIL GARBAGE IS RESIDENT */\n@Component\n@RequiredArgsConstructor\npublic class PromueveObjetoTasklet implements Tasklet {\n\n    private final ArtefactosReorgTarjetas artefactos;\n    private final CatalogoObjetos catalogo;\n    private final ReorgTarjetasProperties props;   // sondeo.intervalo = 15s, sondeo.maximo = configurable\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws InterruptedException {\n        Instant limite = Instant.now().plus(props.sondeo().maximo());   // el WFL no tiene límite\n        do {                                                            // post-test: al menos una espera\n            Thread.sleep(props.sondeo().intervalo().toMillis());        // WAIT(15)\n            if (artefactos.reorganizadorResidente()) {\n                catalogo.renombra(artefactos.reorganizador(), artefactos.garbage(),\n                                  props.familiaResidencia());           // CHANGE #S1 TO #S2 FROM CAPTACION\n            }\n            if (Instant.now().isAfter(limite)) {\n                throw new ObjetoNoGeneradoException(artefactos.garbage());\n            }\n        } while (!artefactos.garbageResidente());\n        return RepeatStatus.FINISHED;\n    }\n}\n\n@Bean\nJob reorgTarjetas(JobRepository repo, Step limpia, Step construye, Step promueve) {\n    return new JobBuilder(\"S500-REORG-GARBAGE-TARJETAS\", repo)\n            .start(limpia).next(construye)\n            .next(new CompiladoOkDecider())\n                .on(\"COMPILADO\").to(promueve)\n            .from(new CompiladoOkDecider())\n                .on(\"NO_COMPILADO\").fail()        // el WFL termina sin aviso; aquí queda FAILED\n            .end().build();\n}",
+          "racional": "Si la tarea T1 compiló, el job entra en un ciclo que espera 15 segundos, renombra el reorganizador al título definitivo de P694 cuando aparece en disco y repite hasta que ese título existe. Si no compiló, el WFL llega a <code>END JOB</code> sin mensaje ni aborto. En Spring Batch la condición es un <code>JobExecutionDecider</code> y la rama de falla deja el job en FAILED en lugar de terminar como si hubiera ido bien. El ciclo se conserva como post-test, con el mismo intervalo, y se le agrega un límite de tiempo configurable porque el original puede girar indefinidamente.",
+          "reglas": [],
+          "riesgo": "El ciclo DO ... UNTIL no tiene contador ni límite de tiempo: si el objeto no aparece, el job queda girando cada 15 segundos."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Borrado previo sin respaldo",
+      "detalle": "La línea 20 elimina el reorganizador anterior y el objeto productivo P694 antes de generar el reemplazo. Si BUILDREORG falla, el pack queda sin objeto y el job termina sin aviso (líneas 38 y 46)."
+    },
+    {
+      "titulo": "Fallo de compilación silencioso",
+      "detalle": "Cuando T1 no es COMPILEDOK, el flujo salta a END JOB sin DISPLAY, ABORT ni código de retorno. No hay ON TASKFAULT ni manejo de excepciones en ninguna parte del job."
+    },
+    {
+      "titulo": "Ciclo de espera sin límite",
+      "detalle": "El DO ... UNTIL GARBAGE IS RESIDENT de las líneas 39 a 45 no tiene contador ni timeout. La versión Java agrega un límite configurable."
+    },
+    {
+      "titulo": "AUTOSWAP sobre estructuras productivas",
+      "detalle": "El objeto generado lleva AUTOSWAP=TRUE y COPY BACK=TRUE sobre tres estructuras de la base de tarjetas. La ventana de indisponibilidad no se controla en este job; ocurre al ejecutar el objeto P694."
+    },
+    {
+      "titulo": "Hardcodes de versión y pack",
+      "detalle": "Versiones 25MTP001 y 25MTP003, pack CAPTACION y familia REORG están escritos en el cuerpo. Se trasladan a application.yml. No hay credenciales embebidas en el fuente."
+    }
+  ],
+  "pendientes_revision": [
+    "Los nombres de los archivos extraídos no corresponden a su contenido: el texto de GENERAP694 está en S500_WFL_REORG_GARBAGE_S500BD01CAPTACION.txt, mientras que S500_WFL_REORG_GARBAGE_S500BD04TARJETAS.txt contiene el job S500/WFL/LOTE/26MTP002. El inventario ya apunta al archivo correcto; conviene renombrar los extraídos en una próxima carga del corpus para evitar confusiones.",
+    "Confirmar con operación si la base de tarjetas reside realmente en el pack CAPTACION o si es un residuo de copia del gemelo GENERAP691.",
+    "Definir el equivalente de BUILDREORG en la base de datos destino: la traducción deja un adaptador GeneradorReorganizador cuya implementación depende del motor elegido.",
+    "Confirmar quién y cuándo ejecuta el objeto S500/OBJECT/P694; en el job LOTE 26MTP002 aparece RUN #P694 con el título plantilla S500/OBJECT/P694/S500BD04TARJETAS/XXMTPXXX, que se resuelve con SACATIT2; falta confirmar que resuelve a 25MTP003."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

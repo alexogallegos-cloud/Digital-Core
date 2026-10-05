@@ -1,0 +1,224 @@
+{
+  "slug": "S500_P127",
+  "sistema": "S500",
+  "programa": "P127",
+  "nombre": "Aplicación de Cancelaciones S408 sobre Contratos de Depósito",
+  "funcion": "Paso del batch diario de S500 que aplica sobre S500BD01CAPTACION el archivo de movimientos que envía el S408 (línea de crédito y sobregiro): marca líneas de crédito, genera avisos de cancelación y bloquea contratos, reportando cada caso en el listado de cancelaciones.",
+  "resumen": "Abre la base de captación en modo de actualización, valida el header del archivo E01-MOVS408 (origen S408, destino S500 y fecha igual a la fecha base) y el header del archivo de punteo que deja P120, y ordena el archivo del S408 por tipo de registro, contrato y clave. Por cada detalle localiza el contrato en B03; según la clave de sobregiro marca línea de crédito (88 y 89), genera un aviso de próxima cancelación con clave 503 (01) o, si todos los saldos del contrato están en cero, lo bloquea con tipo 15 y genera la clave 504 (02). Los movimientos se envían al S151 en grupos de hasta 30 claves, se agregan al punteo y el listado R04-CANCS408 cierra con totales por tipo de tratamiento.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.captacion.cancelaciones408",
+  "secciones": [
+    {
+      "titulo": "Archivo del S408 y validación de entradas",
+      "origen": {
+        "archivo": "S500_SOURCE_P127.txt",
+        "contexto": "WORKING-STORAGE · 20004700 / 20004720 / 20004800"
+      },
+      "java": {
+        "archivo": "MovimientoS408.java · ValidacionEntradasTasklet.java · OrdenaS408Step.java",
+        "contexto": "record · Tasklet · ordenamiento previo"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Header y detalle del archivo E01-MOVS408",
+          "linea_ini": 551,
+          "linea_fin": 565,
+          "origen_codigo": "        04 WKS-TB-B05-CVAVIS-BLQ  PIC 9(04) COMP OCCURS 9 TIMES.\n        04 WKS-TB-B05-MESEXE-DEP  PIC 9(01) COMP.\n        04 WKS-TB-B05-INDRENDIF   PIC 9(01) COMP.\n        04 WKS-TB-B05-GPOCVECONTD      OCCURS 40 TIMES.\n           06 WKS-TB-B05-CONTDCVETRAN  PIC 9(04) COMP.\n           06 WKS-TB-B05-CONTDCVEGEN   PIC 9(04) COMP.\n           06 WKS-TB-B05-CONTDSIRHGEN  PIC 9(04) COMP.\n           06 WKS-TB-B05-CONTD-PORGEN   PIC 9(03) COMP.",
+          "java_codigo": "/** Registro del S408. Tipo 00 = header, 99 = trailer, cualquier otro = detalle. */\npublic sealed interface MovimientoS408 permits MovimientoS408.Header, MovimientoS408.Detalle, MovimientoS408.Trailer {\n\n    /** WKS-E01-R00: fecha AAMMDD de seis dígitos. */\n    record Header(LocalDate fechaProceso, String sistemaOrigen, String sistemaDestino)\n            implements MovimientoS408 {}\n\n    record Detalle(int tipoRegistro,\n                   ClaveSobregiro claveSobregiro,     // 9(02): 88, 89, 01, 02 u otra\n                   int prefijoCuenta,\n                   String contrato,                   // 9(12) COMP: String para conservar ceros\n                   int sucursalPromotora,\n                   BigDecimal importe)                // 9(10)V99 COMP -> escala 2\n            implements MovimientoS408 {}\n\n    record Trailer() implements MovimientoS408 {}\n\n    enum ClaveSobregiro {\n        LINEA_CREDITO(88), LINEA_CREDITO_LINEA(89), AVISO_PROXIMA(1), CANCELACION(2), OTRA(-1);\n        final int codigo;\n        ClaveSobregiro(int c) { codigo = c; }\n        static ClaveSobregiro de(int c) {\n            return Arrays.stream(values()).filter(v -> v.codigo == c).findFirst().orElse(OTRA);\n        }\n    }\n\n    /** Pivote de siglo para AAMMDD: el fuente compara seis dígitos y no lo necesita; Java sí. */\n    DateTimeFormatter AAMMDD = new DateTimeFormatterBuilder()\n            .appendValueReduced(ChronoField.YEAR, 2, 2, 2000).appendPattern(\"MMdd\").toFormatter();\n}",
+          "racional": "El archivo del S408 tiene un header con fecha AAMMDD y los sistemas origen y destino, y detalles con la clave de sobregiro, el contrato y el importe. En Java el header y el detalle son <code>record</code> de una <code>sealed interface</code> y la clave de sobregiro se vuelve un <code>enum</code> con un valor <code>OTRA</code> para el caso de rechazo. El importe <code>PIC 9(10)V99 COMP</code> pasa a <code>BigDecimal</code> con escala 2 y el contrato a <code>String</code>. La fecha de seis dígitos se convierte con pivote 2000 explícito.",
+          "reglas": [
+            "RN-S500-273",
+            "RN-S500-275"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Validación del header del S408 con tolerancia a archivo vacío",
+          "linea_ini": 1278,
+          "linea_fin": 1311,
+          "origen_codigo": "     04 WKS-TIT-R-TPO            PIC X     VALUE \"R\".\n     04 FILLER                   PIC X(4)  VALUE \"000/\".\n     04 WKS-TIT-R-FEC            PIC 9(6).\n     04 FILLER                   PIC X     VALUE \"/\".\n     04 WKS-TIT-R-MIX            PIC 9(07).\n     04 FILLER                   PIC X     VALUE \"/\".\n     04 WKS-TIT-R-NAME           PIC X(17).\n     04 FILLER                   PIC X     VALUE \".\".\n***************************************************************\n**** LINEAS DE IMPRESION   ********************\n 01  WLI-R00-L01-ENCA.\n     02 FILLER              PIC X(19) VALUE\n                             \"S500/P127/25MTP003/\".\n     02 WLI-R00-L01-NAME    PIC X(35) VALUE \" \".\n     02 FILLER              PIC X(51) VALUE\n                            \"DEPOSITOS A LA VISTA\".",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ValidacionS408Tasklet implements Tasklet {\n\n    private final ListadoMensajes mensajes;             // R05-MENSAJES\n    private final P127Properties props;\n    @Value(\"#{jobExecutionContext['fechaBase']}\") private LocalDate fechaBase;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws IOException {\n        boolean hayS408 = validar(Path.of(props.archivoS408()));\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"hayS408\", hayS408);     // W77-NOHAY-S408 = 0\n        return RepeatStatus.FINISHED;\n    }\n\n    private boolean validar(Path archivo) throws IOException {\n        Optional<MovimientoS408.Header> h = S408Reader.primerRegistro(archivo);\n        if (h.isEmpty()) {                                      // AT END en la primera lectura\n            mensajes.escribe(\"ARCHIVO S408 VACIO \");\n            return false;                                       // se tolera: no aborta\n        }\n        if (!h.get().fechaProceso().equals(fechaBase)) {\n            mensajes.escribe(\"ERR FECHA E01-MOVS408 \" + h.get().fechaProceso().format(MovimientoS408.AAMMDD));\n            return false;\n        }\n        if (!\"S408\".equals(h.get().sistemaOrigen()) || !\"S500\".equals(h.get().sistemaDestino())) {\n            mensajes.escribe(\"ERR E01-MOVS408 NUM-SISTEMAS  SISORIG =\" + h.get().sistemaOrigen()\n                    + \" SISDEST =\" + h.get().sistemaDestino());\n            return false;\n        }\n        mensajes.escribe(\"HEADER ARCH  S408 MOVNOCONT OK \");\n        mensajes.escribe(\"SE APLICO ARCH: \" + archivo);\n        return true;\n    }\n}",
+          "racional": "Un archivo del S408 vacío, de otra fecha o con origen y destino distintos de S408 y S500 no detiene el programa: se registra el motivo en el listado de mensajes y se marca que no hay archivo que aplicar, de modo que el resto del paso solo imprime la leyenda de sin información. En Java es un <code>Tasklet</code> que publica <code>hayS408</code> en el contexto del job; un <code>JobExecutionDecider</code> decide después si corre el step de aplicación. La comparación de fechas se hace con <code>LocalDate</code> en lugar de los seis dígitos sin siglo.",
+          "reglas": [
+            "RN-S500-273",
+            "RN-S500-274"
+          ],
+          "riesgo": "El mensaje SE APLICO ARCH se escribe al validar el header, antes de aplicar un solo movimiento; si la aplicación falla después, el listado ya dice que se aplicó."
+        },
+        {
+          "id": "s3",
+          "titulo": "Punteo obligatorio con paso anterior compilado",
+          "linea_ini": 1314,
+          "linea_fin": 1339,
+          "origen_codigo": "                            \"FECHA MOVTOS: \".\n     02 WLI-R00-L01-FPROC   PIC X(13).\n     02 FILLER              PIC X(03) VALUE \" \".\n 01  WLI-R00-L02-ENCA.\n     02 FILLER              PIC X(15) VALUE\n                            \"FECHA PROCESO: \".\n     02 WLI-R00-L02-FMAQ    PIC X(11).\n     02 FILLER              PIC X(16) VALUE \" \".\n     02 WLI-R00-L02-TITULO  PIC X(63) VALUE \" \".\n     02 FILLER              PIC X(14) VALUE\n                            \"TIPO PROCESO: \".\n     02 WLI-R00-L02-TPROC   PIC X(13) VALUE \"DIARIO\".",
+          "java_codigo": "# application.yml\np127:\n  punteo:\n    paso-anterior: P120          # WKS-I04-R00-PASO esperado en el header de entrada\n    copia: 1\n    paso-propio: P127\n\n// ---------------------------------------------------------------------------\n/** 20004720-VALIDA-PUNTEO: sin punteo válido no hay corrida (DMTERMINATE). */\n@Component\n@RequiredArgsConstructor\nclass ValidadorPunteo {\n\n    private final P127Properties.Punteo cfg;\n    private final Clock reloj;\n\n    PunteoHeader validarYReetiquetar(Optional<PunteoHeader> leido, LocalDate fechaBase, int miCsi) {\n        PunteoHeader h = leido.orElseThrow(() -> new ProcesoAbortadoException(\"ARCH PUNTEO VACIO \"));\n        boolean valido = h.tipoRegistro() == 0\n                && h.sistemaOrigen() == 500 && h.sistemaDestino() == 500\n                && h.fechaMovimiento().equals(fechaBase)\n                && h.csiOrigen() == miCsi\n                && cfg.pasoAnterior().equals(h.paso())\n                && h.copia() == cfg.copia();\n        if (!valido) throw new ProcesoAbortadoException(\"ERR HEADER PUNTEO \" + h);\n        return h.conMarcaDeMaquina(LocalDateTime.now(reloj))\n                .conPaso(cfg.pasoPropio(), cfg.copia());\n    }\n}",
+          "racional": "El punteo es un archivo encadenado entre pasos: P127 exige que su header traiga sistema 500 a 500, la fecha base, el CSI propio y que lo haya escrito P120 en su copia 01. Si falta o no cuadra, el programa termina con <code>DMTERMINATE</code>, a diferencia del archivo del S408, que puede venir vacío. Al pasar el header a la salida le pone su propia hora de máquina y el paso P127. El nombre del paso anterior está compilado y pasa a <code>application.yml</code>, porque cualquier reordenamiento del batch lo rompería.",
+          "reglas": [
+            "RN-S500-274"
+          ],
+          "riesgo": "La dependencia con P120 está compilada como literal; si el orden del batch cambia o se reprocesa desde otro paso, P127 aborta aunque el contenido del punteo sea correcto."
+        },
+        {
+          "id": "s4",
+          "titulo": "Ordenamiento del archivo con memoria calculada",
+          "linea_ini": 1372,
+          "linea_fin": 1400,
+          "origen_codigo": " 01  WLI-R00-L04-ENCA.\n     02 WLI-R00-L04-SUC     PIC 9(04)  VALUE 0511.\n     02 FILLER              PIC X(128) VALUE \" \".\n 01  WLI-R00-L05-ENCA.\n     02 WLI-R00-L05-NBSUC   PIC X(54) VALUE\n                            \"CTO PROC DE VALORES\".\n     02 WLI-R01-L05-NCSI    PIC X(78) VALUE \" \".\n 01  WLI-R04-L06-ENCA.\n     02 FILLER                   PIC X(22) VALUE\n                                 \"      CONTRATO  SUC \".\n     02 FILLER                   PIC X(32) VALUE\n                                 \"N O M B R E \".",
+          "java_codigo": "/**\n * 20004800-CLASI-S408: SORT USING/GIVING sobre el mismo archivo, por tipo de registro,\n * contrato y clave. El cálculo de MEMORY SIZE y DISK SIZE es propio del MCP y no se migra.\n */\n@Bean\nStep ordenaS408(JobRepository repo, PlatformTransactionManager tx, P127Properties props) {\n    return new StepBuilder(\"ordenaS408\", repo)\n            .tasklet((contribution, ctx) -> {\n                Path archivo = Path.of(props.archivoS408());\n                List<String> lineas;\n                try (var s = Files.lines(archivo, StandardCharsets.ISO_8859_1)) {\n                    lineas = s.sorted(Comparator\n                                    .comparing(S408Layout::tipoRegistro)   // 00 primero, 99 al final\n                                    .thenComparing(S408Layout::contrato)\n                                    .thenComparing(S408Layout::clave))\n                              .toList();\n                }\n                Path tmp = Files.createTempFile(archivo.getParent(), \"s408\", \".sort\");\n                Files.write(tmp, lineas, StandardCharsets.ISO_8859_1);\n                Files.move(tmp, archivo, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);\n                return RepeatStatus.FINISHED;\n            }, tx)\n            .build();\n}",
+          "racional": "El archivo se ordena sobre sí mismo para que los detalles de un mismo contrato queden juntos y el header y el trailer en los extremos. Los <code>COMPUTE</code> estiman memoria y disco del sort a partir del último registro, con un piso de 400000 y un tope de 258435000 palabras; son parámetros del sort del MCP y no tienen equivalente en Java. La versión Java ordena en un archivo temporal y lo reemplaza de forma atómica, lo que evita dejar el archivo a medias si el proceso cae durante el ordenamiento. Para volúmenes grandes se cambia por un ordenamiento externo o por un <code>ORDER BY</code> si el archivo se carga a una tabla de paso.",
+          "reglas": [],
+          "riesgo": "SORT USING E01-MOVS408 GIVING E01-MOVS408 sobrescribe la entrada original; un fallo a la mitad deja el archivo del S408 inutilizable para un reproceso."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso",
+      "origen": {
+        "archivo": "S500_SOURCE_P127.txt",
+        "contexto": "PROCEDURE DIVISION · 00000010 / 10000000 / 50000000"
+      },
+      "java": {
+        "archivo": "CancelacionesS408JobConfig.java · AmbienteGuard.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Candado de producción, interrupciones y versión",
+          "linea_ini": 908,
+          "linea_fin": 947,
+          "origen_codigo": "****************************************************************\n 01  VARIABLES-INDICES.\n     02 WKS-SI-B02               PIC 9(02)      COMP  VALUE 0.\n     02 WKS-SI-B03               PIC 9(02)      COMP  VALUE 0.\n     02 WKS-SI-B06               PIC 9(02)      COMP  VALUE 0.\n     02 WKS-IND-ITA              PIC 9(04)      COMP.\n     02 WKS-IND-ITB              PIC 9(04)      COMP.\n     02 WKS-IND-ITC              PIC 9(04)      COMP.\n     02 WKS-HAY-CVE              PIC 9(02)      COMP.\n     02 WKS-IND-99               PIC 9(04)      COMP.\n     02 WKS-IND-MOV              PIC 9(04)      COMP.\n     02 WKS-IND-TBCVE            PIC 9(04)      COMP.\n     02 WKS-NUM-MXCVE            PIC 9(04)      COMP.\n     02 WKS-NUM-TOT              PIC 9(04)      COMP.\n     02 WKS-IND-INST             PIC 9(02)      COMP.\n     02 WKS-INST-MEM             PIC 9(02)      COMP  VALUE 0.\n     02 WKS-IND-ESQ              PIC 9(04)      COMP.\n     02 WKS-HAY-ESQ              PIC 9(02)      COMP.\n     02 WKS-ESQ-CONTABLE         PIC 9(04)      COMP.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class AmbienteGuard implements JobExecutionListener {\n\n    private final Environment env;\n    private final ControlVersiones versiones;          // CHECAME IN CTLVERS\n\n    /** 00000010-INICIO-PGM + 10000000-TITLE-LIBRERIAS. */\n    @Override\n    public void beforeJob(JobExecution je) {\n        boolean esPrueba = env.matchesProfiles(\"pba\", \"sit\", \"uat\");   // WS-DH-HOSTNAME-PBA/SIT/UAT\n        boolean sinLibreriaS151 = je.getJobParameters().getLong(\"sinLibreriaS151\", 0L) == 1;\n\n        if (!esPrueba && sinLibreriaS151) {\n            throw new JobInterruptedException(\"EN PRODUCCION NO CORRE CON VALUE > 0\");   // STATUS -1\n        }\n        if (!versiones.esVigente(\"S500P127\", \"25MTP003\")) {\n            throw new JobInterruptedException(\"ERROR DE VERSION \");\n        }\n    }\n}",
+          "racional": "El <code>TASKVALUE</code> de la tarea se usa como bandera de prueba para correr sin la librería S151 (<code>WKS-SIN-LBS151</code>), y el programa se niega a correr con ese valor en un equipo que no sea de prueba. En Java la bandera es un parámetro explícito del job y el ambiente sale del perfil de Spring y no del nombre del host. La validación de versión contra el maestro S100 se conserva como un listener que impide arrancar el job, equivalente a <code>CHANGE ATTRIBUTE STATUS OF MYSELF TO -1</code>.",
+          "reglas": [
+            "RN-S500-278"
+          ],
+          "riesgo": "WKS-TASKVALUE-PBA es PIC 9(01): un TASKVALUE de 10 o más se trunca al último dígito (10 queda en 0) y evita el candado de producción. Además, un host que no esté en las listas de prueba se trata como producción."
+        },
+        {
+          "id": "s6",
+          "titulo": "Proceso principal condicionado a que exista archivo",
+          "linea_ini": 1479,
+          "linea_fin": 1491,
+          "origen_codigo": " 01  WLI-R00-L98-SININF.\n     02 FILLER                   PIC X(30)  VALUE \" \".\n     02 FILLER                   PIC X(25)  VALUE\n                                 \"*** SIN INFORMACION ***\".\n 01  WLI-R00-L99-FINAL.\n     02 FILLER                   PIC X(30)  VALUE \" \".\n     02 FILLER                   PIC X(25)  VALUE",
+          "java_codigo": "@Configuration\nclass CancelacionesS408JobConfig {\n\n    @Bean\n    Job cancelacionesS408(JobRepository repo, AmbienteGuard guard,\n                          Step validaEntradas, Step ordenaS408, Step aplicaCancelaciones,\n                          Step actualizaGlobales, Step sinInformacion, Step actualizaControl) {\n        JobExecutionDecider hayS408 = (je, se) -> new FlowExecutionStatus(\n                Boolean.TRUE.equals(je.getExecutionContext().get(\"hayS408\")) ? \"APLICAR\" : \"SIN_INFO\");\n\n        return new JobBuilder(\"S500P127\", repo)\n                .listener(guard)\n                .start(validaEntradas)                       // S408 + punteo\n                .next(hayS408)\n                    .on(\"APLICAR\").to(ordenaS408)\n                        .next(aplicaCancelaciones)           // S151 inicio, DELMOV1, 50003300\n                        .next(actualizaGlobales)             // 50097000 + S151 fin\n                .from(hayS408)\n                    .on(\"SIN_INFO\").to(sinInformacion)       // WLI-R00-L98-SININF en R04\n                .from(actualizaGlobales).next(actualizaControl)\n                .from(sinInformacion).next(actualizaControl)  // 59000000-ACTUALIZA-CONTROL\n                .end()\n                .build();\n    }\n}",
+          "racional": "Si hay archivo válido del S408, el paso abre la sesión con la librería S151, pide a esa librería eliminar movimientos del tipo de proceso 27 con la función 21 (DELMOV1, cuyo mensaje de error dice ELIM MOVS), aplica las cancelaciones, actualiza los acumulados globales y cierra la sesión S151. Si no lo hay, solo escribe la leyenda de sin información. En ambos casos actualiza el control y termina. En Spring Batch esa bifurcación es un <code>JobExecutionDecider</code> que lleva a dos flujos que vuelven a unirse en el step de control.",
+          "reglas": [
+            "RN-S500-274"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de cancelación por clave de sobregiro",
+      "origen": {
+        "archivo": "S500_SOURCE_P127.txt",
+        "contexto": "PROCEDURE DIVISION · 50003310 / 50003320 / 50003322 / 50090000"
+      },
+      "java": {
+        "archivo": "CancelacionProcessor.java · ContratoCaptacion.java · CancelacionWriter.java",
+        "contexto": "ItemProcessor · JPA · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Búsqueda del contrato con bloqueo y rechazo si no existe",
+          "linea_ini": 1502,
+          "linea_fin": 1520,
+          "origen_codigo": "     02 WKS-TITULO-R04.\n        03 FILLER                PIC X(06) VALUE \" \".\n        03 FILLER                PIC X(22) VALUE\n                                 \"DETALLE DE CANCELADOS \".\n        03 FILLER                PIC X(22) VALUE\n                                 \"POR EL SISTEMA S408 \".\n     02 WKS-TITULO-R05.\n        03 FILLER                PIC X(16)  VALUE \" \".",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class CancelacionProcessor implements ItemProcessor<MovimientoS408, ResultadoCancelacion> {\n\n    private final ContratoCaptacionRepository contratos;   // S500B03CONTRATOS\n    private final ReglasCancelacion reglas;\n    private final Autorizaciones autorizaciones;           // W77-MY-AUTORIZ\n\n    @Override\n    public ResultadoCancelacion process(MovimientoS408 m) {\n        if (!(m instanceof MovimientoS408.Detalle d)) return null;     // tipos 00 y 99 se saltan\n\n        // LOCK B03SXCTO: lectura con bloqueo pesimista dentro de la transacción del chunk\n        return contratos.findForUpdate(d.contrato())\n                .map(cto -> {\n                    autorizaciones.siguiente();                         // ADD 1 TO W77-MY-AUTORIZ\n                    return reglas.aplica(d, cto);                       // 50003320 + STORE\n                })\n                .orElseGet(() -> ResultadoCancelacion.rechazo(d, TipoCancelacion.CONTRATO_INEXISTENTE)); // 5\n    }\n}\n\npublic interface ContratoCaptacionRepository extends JpaRepository<ContratoCaptacion, String> {\n    @Lock(LockModeType.PESSIMISTIC_WRITE)\n    @Query(\"select c from ContratoCaptacion c where c.numContrato = :cto\")\n    Optional<ContratoCaptacion> findForUpdate(@Param(\"cto\") String cto);\n}",
+          "racional": "Para cada detalle se bloquea el contrato en B03; si no existe se rechaza con tipo 5 sin tocar la base, y si existe se consume un número de autorización, se evalúa la regla de la clave de sobregiro y se guarda. Cualquier error distinto de no encontrado termina el programa. En Java es un <code>ItemProcessor</code> que hace una lectura con bloqueo pesimista dentro de la transacción del chunk, de modo que el <code>LOCK</code> de DMSII y el <code>STORE</code> quedan en la misma unidad de trabajo.",
+          "reglas": [
+            "RN-S500-276"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Tratamiento según la clave de sobregiro",
+          "linea_ini": 1523,
+          "linea_fin": 1558,
+          "origen_codigo": "                                 \"MENSAJES DEL PROCESO\".\n        03 FILLER                PIC X(14)  VALUE \" \".\n****************************************************************\n 01  WKS-TABLA-TPO-CANC.\n     02 FILLER                   PIC X(25) VALUE\n                                 \"CANCELADO                \".\n     02 FILLER                   PIC X(25) VALUE\n                                 \"APERTURA LINEA CREDITO   \".\n     02 FILLER                   PIC X(25) VALUE\n                                 \"PROXIMA A CANCELAR       \".\n     02 FILLER                   PIC X(25) VALUE\n                                 \"RECHAZO (SOCIO FUNDADOR) \".\n     02 FILLER                   PIC X(25) VALUE\n                                 \"RECHAZO (NO EXISTE CTO)  \".\n     02 FILLER                   PIC X(25) VALUE\n                                 \"RECHAZO (ERROR EN CVE)   \".\n     02 FILLER                   PIC X(25) VALUE",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ReglasCancelacion {\n\n    private final AvisoCancelacion aviso;            // 50003321 / 50003322\n    private final MovimientosS151 s151;              // 50008190-ENVIA-MOVSS151\n    private final Totales totales;\n\n    ResultadoCancelacion aplica(MovimientoS408.Detalle d, ContratoCaptacion cto) {\n        ResultadoCancelacion r = switch (d.claveSobregiro()) {\n            case LINEA_CREDITO -> {                                     // 88\n                cto.setIndLineaCredito(1);\n                totales.sumaAperturaLc();\n                yield ResultadoCancelacion.reporta(d, TipoCancelacion.LINEA_CREDITO);        // 2\n            }\n            case LINEA_CREDITO_LINEA -> {                               // 89\n                cto.setIndLineaCredito(3);\n                totales.sumaAperturaLcLinea();\n                yield ResultadoCancelacion.reporta(d, TipoCancelacion.LINEA_CREDITO_LINEA);  // 8\n            }\n            case AVISO_PROXIMA -> aviso.proximaCancelacion(d, cto);                          // 3, clave 503\n            case CANCELACION -> {\n                if (cto.esSocioFuncionario())\n                    yield ResultadoCancelacion.rechazo(d, TipoCancelacion.SOCIO_FUNCIONARIO);  // 4\n                if (cto.bloqueadoCon(66) || cto.bloqueadoCon(14))\n                    yield ResultadoCancelacion.omitido(d, TipoCancelacion.YA_BLOQUEADO);       // 9: sin renglón\n                yield aviso.cancelacion(d, cto);                                             // 1 o 7\n            }\n            case OTRA -> ResultadoCancelacion.rechazo(d, TipoCancelacion.CLAVE_INVALIDA);    // 6\n        };\n        s151.enviarPendientes(cto);                  // IF WKS-IND-MOV > 0\n        return r;\n    }\n}",
+          "racional": "La clave de sobregiro decide el tratamiento completo. Las claves 88 y 89 solo marcan el indicador de línea de crédito del contrato (1 o 3) y se cuentan en los totales de aperturas de línea de crédito. La clave 01 genera un aviso de próxima cancelación y la 02 la cancelación efectiva, salvo para cuentas de socio funcionario, que se rechazan, y para contratos que ya tienen bloqueo vigente tipo 66 o 14, que no se vuelven a bloquear. Cualquier otra clave se rechaza con tipo 6. El <code>IF</code> anidado de cinco niveles se vuelve un <code>switch</code> exhaustivo sobre el <code>enum</code>, que obliga a tratar el caso <code>OTRA</code>. Los movimientos generados se envían al S151 antes de guardar el contrato, en el mismo orden que el fuente.",
+          "reglas": [
+            "RN-S500-275",
+            "RN-S500-277"
+          ],
+          "riesgo": "El tipo 9 (contrato ya bloqueado con 66 o 14) no suma a ningún total ni escribe renglón en el listado, así que esos casos no aparecen en el reporte. Las variantes ATM de los avisos (tipos 10 y 11) están comentadas en las líneas 1539 y 1551."
+        },
+        {
+          "id": "s9",
+          "titulo": "Cancelación efectiva solo con todos los saldos en cero",
+          "linea_ini": 1593,
+          "linea_fin": 1615,
+          "origen_codigo": "    02 WKS-TOT-NUM-NVALIC        PIC 9(06)      COMP.\n    02 WKS-TOT-NUM-NVALCLINEA    PIC 9(06)      COMP.\n*   02 WKS-TOT-NUM-SICANC-ATM    PIC 9(06)      COMP.\n*   02 WKS-TOT-NUM-PRXCAN-ATM    PIC 9(06)      COMP.\n***********************************************************\n/\n********* INCLUDE DE WORKING PARA RUTINAS COMUNES *************\n COPY \"S500/INC/WOR/25MTP002\".\n COPY \"S500/INC/WOR/DAS/25MTP006\".\n COPY \"S500/INC/MAPLI/WOR/15MTP001\".",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass AvisoCancelacion {\n\n    private final HistoricoRepository historico;   // S500B06HISTORICO\n    private final MovimientosS151 s151;\n    private final Totales totales;\n    private final P127Properties props;\n    private final FechaProceso fecha;              // fecha base del job (WKS-FEC-BASE-08)\n\n    /** 50003322-AVISO-CANCELACION. */\n    ResultadoCancelacion cancelacion(MovimientoS408.Detalle d, ContratoCaptacion cto) {\n        boolean sinSaldos = Stream.of(cto.getSdoActual(), cto.getSdoProtBloq(), cto.getSdoPendiente(),\n                                      cto.getSdoSbc(), cto.getSbc1Dia())\n                                  .allMatch(s -> s.signum() == 0);\n        if (!sinSaldos) {\n            return ResultadoCancelacion.rechazo(d, TipoCancelacion.CON_SALDO);        // 7\n        }\n        var hist = historico.findById(cto.getNumContrato()).orElseThrow();          // DAME-BDHISTORICO\n        s151.agrega(cto, props.claveCancelacion(), d.importe());                     // 504\n        cto.bloquear(props.tipoBloqueoCancelacion());                                // STATUS 1, TIPO 15\n        cto.setIndLcCancel(1);\n        hist.setFecBloqueo(fecha.base());                                            // B06-FEC-BLOQUEO\n        totales.sumaCancelado();\n        return ResultadoCancelacion.reporta(d, TipoCancelacion.CANCELADO);           // 1\n    }\n}",
+          "racional": "Un contrato solo se cancela si su saldo actual, el saldo protegido o bloqueado, el saldo pendiente y los dos saldos SBC están en cero. En ese caso se genera hacia el S151 la clave 504 con el importe que mandó el S408, el contrato queda bloqueado con tipo 15 y marca de cancelación de línea de crédito, y se registra la fecha de bloqueo en el histórico. Si queda algún saldo, se rechaza con tipo 7. La comparación usa <code>signum()</code> sobre <code>BigDecimal</code> para no depender de la escala. Las claves 503 y 504 y el tipo de bloqueo 15 pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-277"
+          ],
+          "riesgo": "El importe de la clave 504 es el que manda el S408 y no el saldo del contrato, que en este punto vale cero; confirmar con el SME qué representa ese importe en el S151."
+        },
+        {
+          "id": "s10",
+          "titulo": "STORE de contrato e histórico en una transacción",
+          "linea_ini": 1847,
+          "linea_fin": 1887,
+          "origen_codigo": "        MOVE 1 TO W77-ES-PRUEBA.\n     IF W77-ES-PRUEBA = 0\n        IF WKS-TASKVALUE-PBA > 0\n           STRING  \"EN PRODUCCION NO CORRE CON VALUE > 0 \",\n                   \" VALUE=\", WKS-TASKVALUE-PBA\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     ATTACH INTERRUPT-SECCION TO ATTRIBUTE EXCEPTIONEVENT\n            OF MYSELF.\n     ALLOW INTERRUPT.\n*************************************************************\n 10000000-TITLE-LIBRERIAS.\n*************************** LIBRERIA DE VERSIONES ***********\n***  PERFORM 10000100-VERSIONES.\n     PERFORM 20000100-CHECAME-VERSION.\n     IF S000-CTR-CVEERROR < 0",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CancelacionWriter implements ItemWriter<ResultadoCancelacion> {\n\n    private final ContratoCaptacionRepository contratos;\n    private final HistoricoRepository historico;\n    private final ListadoCancelaciones listado;        // R04-CANCS408\n\n    /**\n     * 50090000-STORE-BASE: BEGIN-TRANSACTION, STORE B03 y B06 solo si cambiaron, END-TRANSACTION.\n     * Spring Batch abre una transacción por chunk; cualquier error la revierte completa.\n     */\n    @Override\n    @Transactional\n    public void write(Chunk<? extends ResultadoCancelacion> chunk) {\n        for (var r : chunk) {\n            if (r.contratoModificado()) contratos.save(r.contrato());     // WKS-SI-B03 = 1\n            if (r.historicoModificado()) historico.save(r.historico());   // WKS-SI-B06 = 1\n            r.renglon().ifPresent(listado::escribe);                      // tipo 9 no tiene renglón\n        }\n    }\n}",
+          "racional": "Cada contrato se guarda en su propia transacción de DMSII y solo si alguna regla lo modificó; un error en el <code>STORE</code> de B03 o B06 cierra la transacción y termina el programa. En Spring Batch la unidad natural es el chunk: el writer guarda los contratos e históricos modificados y escribe los renglones del listado dentro de la misma transacción, de modo que un fallo revierte el chunk completo y el reinicio retoma desde el último chunk confirmado.",
+          "reglas": [
+            "RN-S500-276"
+          ],
+          "riesgo": "Los movimientos al S151 se envían en 50003320 antes de este STORE. Si el STORE falla, el S151 ya recibió las claves 503 o 504 de un contrato que no quedó bloqueado; en Java conviene enviar al S151 solo después del commit (TransactionSynchronization.afterCommit)."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Contratos ya bloqueados sin rastro en el listado",
+      "detalle": "En 50003320-VALIDA-CANCELACION (líneas 1547-1549) el tipo 9 no suma a ningún total ni llama a 60002000-ARMALIN-CANDELADOS, a diferencia del resto de los tipos. Los contratos con bloqueo vigente 66 o 14 desaparecen del reporte."
+    },
+    {
+      "titulo": "Envío al S151 antes de confirmar la base",
+      "detalle": "50003320 envía los movimientos acumulados al S151 (líneas 1557-1558) antes de que 50090000-STORE-BASE confirme el contrato. Un error de STORE deja movimientos contables sin el bloqueo correspondiente."
+    },
+    {
+      "titulo": "Candado de producción evadible",
+      "detalle": "WKS-TASKVALUE-PBA es PIC 9(01) (línea 181); un TASKVALUE de dos dígitos se trunca y puede quedar en 0, saltando la validación de 00000010-INICIO-PGM."
+    },
+    {
+      "titulo": "Ordenamiento destructivo",
+      "detalle": "20004800-CLASI-S408 ordena con USING y GIVING sobre el mismo E01-MOVS408. Si el sort falla, se pierde el archivo original del S408."
+    },
+    {
+      "titulo": "Lógica ATM comentada",
+      "detalle": "50003321-AVISO-PROX-CANCE-ATM y 50003322-AVISO-CANCELACION-ATM (líneas 1561-1591) y sus totales en el reporte (líneas 1642-1648) están comentados; los productos 66 instrumentos 6 a 9 y 500 instrumento 1 reciben el tratamiento general."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Paso anterior P120 y copia 01 del punteo, claves 503 y 504, tipo de bloqueo 15, tipo de proceso 27, bancos 002, límites de memoria del sort y lote de 30 movimientos por envío al S151."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-275 describe la clave 88 como cancelación por línea de crédito; en el fuente 88 y 89 solo marcan B03-IND-LINCREDIT y se totalizan como TOTAL APERTURAS L.C. y TOTAL APERT LC LINEA (líneas 1634-1640). Validar el significado con el SME y corregir la regla.",
+    "La condición WS03-88-TC-SOCFUN (socio funcionario) no está definida en el fuente extraído; confirmar en el copy de WORKING-STORAGE qué tipos de cuenta la activan.",
+    "Confirmar qué significa B03-IND-LINCREDIT = 3 frente a 1 y quién lo consume después de P127.",
+    "Confirmar si 40005000-S151-DELMOV1 (función 21 de la librería S151 con tipo de proceso 27) borra todos los movimientos de corridas previas de P127 del día; de eso depende que el paso sea reprocesable.",
+    "La estructura de B03, B06 y el registro de punteo vienen de copys de la base S500BD01CAPTACION que no se revisaron en detalle."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-273",
+    "RN-S500-274",
+    "RN-S500-275",
+    "RN-S500-276",
+    "RN-S500-277",
+    "RN-S500-278"
+  ]
+}

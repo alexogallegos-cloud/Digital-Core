@@ -1,0 +1,219 @@
+{
+  "slug": "S500_P191",
+  "sistema": "S500",
+  "programa": "P191",
+  "nombre": "Punteo de movimientos S500 contra S054",
+  "funcion": "Paso batch de S500 que concilia, por fecha contable, los movimientos de punteo de S500 (Valle de México y Monterrey, tres copias cada uno) contra el archivo de punteo que entrega S054, y avanza la fecha de última aplicación en S500B02CONTROL.",
+  "resumen": "P191 lee de S500B02CONTROL la fecha de línea, el CSI y la fecha del último archivo aplicado, y decide si procesa todas las fechas pendientes o solo la fecha que llega por TASKVALUE. Por cada fecha espera a que estén residentes los archivos de punteo de S054 (uno por cada día inhábil anterior), concentra los seis archivos de S500 en un temporal y ordena ambos lados por número de tarjeta e importe. Un recorrido de mezcla clasifica cada movimiento en aplicado o en diferencia y emite dos listados con totales. Al terminar cada fecha en modo normal, o en reproceso válido, calcula el siguiente día hábil y lo graba en B02CONTROL dentro de una transacción.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.conciliacion.punteo",
+  "secciones": [
+    {
+      "titulo": "Control de fechas y modo de ejecución",
+      "origen": {
+        "archivo": "S500_SOURCE_P191.txt",
+        "contexto": "60010000-OBTEN-FECHA-BD02 · 30010000-DECIDE-TIPO-PROCESO · 20011100-PROCESA-X-DIA-CON"
+      },
+      "java": {
+        "archivo": "VentanaPunteoTasklet.java · PunteoJobConfig.java",
+        "contexto": "Tasklet · Job con flujo por fecha"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Fechas de control leídas de B02 y arranque de 2006",
+          "linea_ini": 2787,
+          "linea_fin": 2803,
+          "origen_codigo": "           MOVE \"ERROR AL GRABAR TEMPORAL 500 VDM C03\"\n                           TO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           PERFORM 60073000-DECIDE-TIPO-FIN.\n*\n     PERFORM 30062500-READ-S500-VDM-C03.\n******************************************************************\n***   PROCESO QUE GRABA EL ARCHIVO DE PUNTEO S500 TEMPORAL     ***",
+          "java_codigo": "# application.yml\np191:\n  fecha-arranque-control: 2006-12-31   # antes de esta fecha se reinicia con la fecha lote\n\n// ---------------------------------------------------------------------------\n/** Resultado de 60010000-OBTEN-FECHA-BD02. */\nrecord FechasControl(int csi, LocalDate fechaLinea, LocalDate fechaLote,\n                     LocalDate ultimoArchivoAplicado) {}\n\n@Component\n@RequiredArgsConstructor\nclass FechasControlService {\n    private final ControlS500Repository b02;      // S500B02CONTROL, primer registro\n    private final CalendarioBancario calendario;  // S000LIBFEC, semana 65, festivos 1\n    private final P191Properties props;\n\n    FechasControl lee() {\n        var c = b02.primero().orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));\n        LocalDate lote = calendario.habilAnterior(c.fechaLinea());          // 60060000-OBTEN-ANT-FEC-HABIL\n        LocalDate ultimo = c.ultArchAplicado(14);                            // B02-ULT-ARCH-APLI(14)\n        if (!ultimo.isAfter(props.fechaArranqueControl())) {\n            ultimo = lote;                                                   // también se escribe en el registro en memoria\n        }\n        return new FechasControl(c.numCsi(), c.fechaLinea(), lote, ultimo);\n    }\n}",
+          "racional": "La fecha lote es el día hábil anterior a la fecha de línea y marca el final de la ventana; el inicio es la posición 14 del arreglo <code>B02-ULT-ARCH-APLI</code>. Las fechas del fuente son <code>CCAAMMDD</code> de 8 dígitos, por lo que pasan directo a <code>LocalDate</code> sin pivote. La comparación contra 20061231 es un candado de arranque compilado: si la posición 14 nunca se ha llenado, se inicia en la fecha lote. Se mueve a configuración.",
+          "reglas": [
+            "RN-S500-267"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Validación de versión con aborto inmediato",
+          "linea_ini": 1246,
+          "linea_fin": 1252,
+          "origen_codigo": "     02  FILLER                    PIC X(04) VALUE SPACES.\n     02  WKS-DET01-L01-SUCOPER     PIC 9(04).\n     02  FILLER                    PIC X(06) VALUE SPACES.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass VersionGuard implements JobExecutionListener {\n    private final ControlVersiones versiones;          // CTLVERS / maestro S100\n    @Value(\"${p191.version:25MTP004}\") private String miVersion;\n\n    @Override\n    public void beforeJob(JobExecution job) {\n        if (versiones.compara(\"S500P191\", miVersion) < 0) {\n            throw new ProcesoAbortadoException(\"VER. EJECUTADA DIF. A VERSIONES\");  // CALL SYSTEM DMTERMINATE\n        }\n    }\n}",
+          "racional": "La validación de versión corre antes de cualquier proceso y, a diferencia de otros pasos, aborta el task. En Java se coloca en un <code>JobExecutionListener</code> que lanza excepción en <code>beforeJob</code>, con lo que el job no inicia ningún step. En un despliegue con artefactos versionados esta verificación suele sustituirse por el control de versiones del pipeline de CI/CD, pero se conserva para no cambiar el comportamiento.",
+          "reglas": [
+            "RN-S500-272"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Modo normal, reproceso válido o reproceso neutralizado",
+          "linea_ini": 1959,
+          "linea_fin": 1978,
+          "origen_codigo": " 01  WKS-HORA-PROCESO-HMSC       PIC 9(08).\n 01  WKS-HORA-PROCESO-HMSC-R REDEFINES\n     WKS-HORA-PROCESO-HMSC.\n     02  WKS-HOR-PRO-HMS         PIC 9(06).\n     02  WKS-HOR-PRO-HMS-R   REDEFINES\n         WKS-HOR-PRO-HMS.\n         03 WKS-HOR-PRO-HH       PIC 9(02).\n         03 WKS-HOR-PRO-MM       PIC 9(02).\n         03 WKS-HOR-PRO-SS       PIC 9(02).\n     02  FILLER                  PIC 9(02).",
+          "java_codigo": "enum TipoProceso { NEUTRALIZADO, NORMAL, REPROCESO }   // WKS-TIPO-PROCESO 0, 8, 9\n\nrecord VentanaPunteo(TipoProceso tipo, LocalDate inicio, LocalDate fin) {\n\n    /** 30010000-DECIDE-TIPO-PROCESO. fechaParametro viene de TASKVALUE (W77-VAL-191). */\n    static VentanaPunteo decide(Optional<LocalDate> fechaParametro, FechasControl c) {\n        if (fechaParametro.isEmpty()) {\n            return new VentanaPunteo(TipoProceso.NORMAL, c.ultimoArchivoAplicado(), c.fechaLote());\n        }\n        LocalDate f = fechaParametro.get();\n        TipoProceso tipo = f.isAfter(c.ultimoArchivoAplicado())\n                ? TipoProceso.REPROCESO           // W77-REPROCESO-VAL = 1\n                : TipoProceso.NEUTRALIZADO;       // tipo 0: procesa la fecha pero no mueve B02\n        return new VentanaPunteo(tipo, f, f);\n    }\n\n    boolean actualizaControl() { return tipo != TipoProceso.NEUTRALIZADO; }\n}",
+          "racional": "Sin fecha por parámetro el proceso es normal y la ventana va del último archivo aplicado a la fecha lote. Con fecha, la ventana es ese único día y el tipo depende de si la fecha es posterior al último aplicado. Un <code>record</code> con un método de fábrica deja la decisión en un solo lugar y fácil de probar. La validación previa (60020000-VAL-FEC-PARAM) ya garantizó que la fecha es hábil y no mayor a la fecha lote.",
+          "reglas": [
+            "RN-S500-267"
+          ],
+          "riesgo": "Un reproceso válido es una fecha posterior al último aplicado: al terminar graba en B02 el día hábil siguiente a esa fecha, de modo que los días pendientes entre el último aplicado y la fecha solicitada ya no se procesan en modo normal."
+        },
+        {
+          "id": "s4",
+          "titulo": "Proceso de una fecha y avance del control",
+          "linea_ini": 1265,
+          "linea_fin": 1279,
+          "origen_codigo": "     02  WKS-DET01-L01-AUTS054     PIC 9(06).\n     02  FILLER                    PIC X(07) VALUE SPACES.\n     02  WKS-DET01-L01-SUCPRO      PIC 9(04).\n     02  FILLER                    PIC X(06) VALUE SPACES.\n     02  WKS-DET01-L01-CONS500     PIC 9(12).\n     02  FILLER                    PIC X(04) VALUE SPACES.\n     02  WKS-DET01-L01-AUTS500     PIC 9(06).\n*",
+          "java_codigo": "@Bean\nJob punteoS054(JobRepository repo, VersionGuard version, Step ventana, Flow punteoDeUnDia,\n               JobExecutionDecider quedanFechas) {\n    return new JobBuilder(\"S500P191\", repo)\n            .listener(version)\n            .start(ventana)                                  // VentanaPunteo en el ExecutionContext\n            .next(quedanFechas).on(\"FIN\").end()\n            .from(quedanFechas).on(\"PROCESA\").to(punteoDeUnDia)\n            .next(quedanFechas)                              // PERFORM ... UNTIL INI > FIN\n            .end()\n            .build();\n}\n\n/** 20011100-PROCESA-X-DIA-CON como flujo de steps sobre la fecha actual. */\n@Bean\nFlow punteoDeUnDia(Step esperaArchivosS054, Step concentraS500, Step cargaS054,\n                   Step conciliacion, Step revisaCifras, Step totales, Step avanzaControl) {\n    return new FlowBuilder<SimpleFlow>(\"punteoDeUnDia\")\n            .start(esperaArchivosS054)       // 20014000-VALIDA-ARC-S054\n            .next(concentraS500)             // 20013000-PROCESA-ARC-S500\n            .next(cargaS054)                 // 20014100-PROCESA-ARC-S054\n            .next(conciliacion)              // 20015000-GENERA-REPORTES\n            .next(revisaCifras)              // 20015200-REVISA-CIFRAS\n            .next(totales)                   // 20016000-GENERA-TOTALES\n            .next(avanzaControl)             // condicional: VentanaPunteo.actualizaControl()\n            .build();\n}",
+          "racional": "Cada fecha de la ventana recorre la misma secuencia de pasos, y al final, si el proceso es normal o un reproceso válido, se calcula el siguiente día hábil y se graba en B02. Ese cálculo es también lo que hace avanzar el ciclo, porque mueve el inicio de la ventana. En Spring Batch el ciclo se expresa con un <code>JobExecutionDecider</code> que compara inicio y fin, y el día con un <code>Flow</code> reutilizable. El step de avance revisa el tipo de proceso antes de escribir.",
+          "reglas": [
+            "RN-S500-268",
+            "RN-S500-270"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Archivos de punteo y espera de S054",
+      "origen": {
+        "archivo": "S500_SOURCE_P191.txt",
+        "contexto": "FD S500-I01-TEMP · 60072000-VAL-RESIDENCIA-S054 · 60074000-VERIFICA-CAMBIO"
+      },
+      "java": {
+        "archivo": "MovimientoPunteo.java · EsperaArchivoS054Tasklet.java",
+        "contexto": "record · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Registro temporal de punteo S500 con número de tarjeta",
+          "linea_ini": 172,
+          "linea_fin": 193,
+          "origen_codigo": "******************************************************************\n* DECLARACION DE LOS ARCHIVOS DE PUNTEO S500 VDM COPIA 1, 2 Y 3\n******************************************************************\n FD  S500-I01-PNTVC1\n     BLOCK CONTAINS         144 RECORDS\n     RECORD CONTAINS        65   CHARACTERS\n     VALUE OF AREAS         1000\n     VALUE OF AREASIZE      864\n     VALUE OF TITLE IS WKS-ETIQ-PUNTEO-S500\n     VALUE OF SECURITYTYPE         IS PUBLIC\n     VALUE OF PROTECTION IS        PROTECTED.",
+          "java_codigo": "/** I02-REG-S500-CRCHQRA-TEMPORAL: 65 bytes, campos binarios COMP. */\npublic record MovimientoS500(\n        int tipoRegistro,\n        long autorizacionS500,      // 9(12) COMP\n        String contrato,            // 9(12) COMP, se conserva como texto con ceros\n        int producto, int instrumento, int moneda,\n        int claveTransaccion,       // 3047 = abono\n        BigDecimal importe,         // 9(10)V99 COMP -> escala 2\n        long referencia,\n        long autorizacionS054,\n        LocalDate fechaMaquina, LocalTime horaMaquina,\n        int movimiento, int origen, int banco,\n        Pan numeroTarjeta,          // 9(16) COMP: tipo dedicado, nunca se registra en claro\n        int sucursalPromotora, int sucursalOperadora, int cajaOperadora) {}\n\n/** Valor de tarjeta enmascarado en toString y logs. */\npublic record Pan(String valor) {\n    @Override public String toString() { return \"************\" + valor.substring(12); }\n}",
+          "racional": "El archivo temporal concentra los seis archivos de punteo de S500 con un layout binario de 65 bytes. Los importes <code>9(10)V99 COMP</code> pasan a <code>BigDecimal</code> con escala 2 y el contrato a <code>String</code>. El campo <code>NUMTC</code> de 16 dígitos, que por nombre y longitud corresponde al número de tarjeta, es la llave del punteo; en Java se modela con un tipo propio que se enmascara al imprimirse, para cumplir PCI DSS en logs y reportes.",
+          "reglas": [
+            "RN-S500-268"
+          ],
+          "riesgo": "El FD declara SECURITYTYPE IS PUBLIC (línea 170) y el temporal se cierra WITH SAVE en lugar de WITH PURGE, que quedó comentado (líneas 1576-1580). El archivo con números de tarjeta queda en disco, legible por cualquier usuario."
+        },
+        {
+          "id": "s6",
+          "titulo": "Espera de residencia del archivo de S054",
+          "linea_ini": 2981,
+          "linea_fin": 3005,
+          "origen_codigo": "             UNTIL   WKS-IND-S054 > WKS-NUM-DIAS-S054.\n*--------------------------\n 20014100-PROCESA-ARC-S054.\n*--------------------------\n     PERFORM 50034000-ABRE-ARC-S054-TEM.\n     PERFORM 20014100-GENERA-ARC-TEM-S054\n             VARYING WKS-IND-S054  FROM 1 BY 1\n             UNTIL   WKS-IND-S054 > WKS-NUM-DIAS-S054.\n*\n     PERFORM 50034500-CIERRA-ARC-S054-TEM.\n*\n     PERFORM 20014200-PROCESO-SORT-S054.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass EsperaArchivoS054Tasklet implements Tasklet {\n\n    private final ArchivosS054 archivos;            // un archivo por día natural (incluye inhábiles previos)\n    private final VentanaHoraria ventana;\n    private final P191Properties props;             // p191.s054.reintento: PT20S\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws InterruptedException {\n        for (Path p : archivos.requeridos()) {      // 60070000-OBTEN-NUM-ARC-S054\n            while (!Files.exists(p)) {               // ATTRIBUTE RESIDENT = 0\n                ventana.verificaCorte(p, archivos.fechaLinea());   // 60074000-VERIFICA-CAMBIO\n                Thread.sleep(props.s054().reintento().toMillis());   // WAIT (20)\n            }\n            archivos.validaHeader(p);               // 50032000-ABRE-Y-VAL-ARC-S054\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Por cada fecha contable el programa calcula cuántos archivos de S054 necesita (la fecha y los días inhábiles inmediatamente anteriores) y espera a que cada uno esté residente, revisando cada 20 segundos. En la arquitectura destino lo ideal es un disparo por evento (llegada del archivo al bucket o al MFT); la traducción conserva el sondeo dentro de un <code>Tasklet</code> para la demostración, con el intervalo en configuración.",
+          "reglas": [
+            "RN-S500-268"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Corte de las 09:00 que termina sin punteo",
+          "linea_ini": 3016,
+          "linea_fin": 3043,
+          "origen_codigo": "     PERFORM 50030000-VALIDA-ARC-S054.\n     MOVE 1                               TO WKS-KEY-VDM10.\n     PERFORM 30065000-READ-MOVS-S054.\n     PERFORM 20014110-PROCESO-S054\n             UNTIL WKS88-EOF-S054-TRUE\n                OR E01-REG-S054-DET-REG NOT = \"02DET\".\n     PERFORM 50033000-CIERRA-ARC-S054.\n*---------------------\n 20014110-PROCESO-S054.\n*---------------------\n     MOVE \"20014110-PROCESO-S054 \" TO WKS-PASO-EFECTUADO",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass VentanaHoraria {\n    private final Clock reloj;\n    private final P191Properties props;        // p191.s054.hora-limite: 09:00:00, aviso-cada: 90 (30 min con reintento de 20 s)\n    private int ciclos;                          // WKS-CON-TIME\n\n    /** 60074000-VERIFICA-CAMBIO + 60075000-LEYENDA. */\n    void verificaCorte(Path faltante, LocalDate fechaLinea) {\n        ciclos++;\n        boolean mismoDia = LocalDate.now(reloj).equals(fechaLinea);   // B02-FECHA-LINEA = fecha de máquina\n        if (mismoDia && LocalTime.now(reloj).isAfter(props.s054().horaLimite())) {\n            log.warn(\"ARCHIVO {} NO EXISTE, ESTOY FUERA DE HORARIO TERMINO SIN PUNTEO\", faltante);\n            throw new JobInterruptedException(\"SIN PUNTEO\");   // hoy: 90000000-FIN, STOP RUN normal\n        }\n        if (ciclos % props.s054().avisoCada() == 0) {\n            log.warn(\"ARCHIVO {} NO EXISTE, HORARIO LIMITE {} FAVOR DE PONERLO RESIDENTE\",\n                     faltante, props.s054().horaLimite());\n        }\n    }\n}",
+          "racional": "Si la fecha de línea es la de la máquina y ya pasaron las 09:00, el programa imprime una leyenda en el reporte de aplicados, avisa al operador que pida el archivo a Tandem y termina con <code>STOP RUN</code>, es decir, con fin normal. En Java se propone terminar con un estado distinguible (STOPPED) para que el orquestador sepa que no hubo punteo. La hora límite y la frecuencia del aviso salen de configuración.",
+          "reglas": [],
+          "riesgo": "El fin por horario es un STOP RUN normal y no actualiza B02: el job aparece como exitoso aunque la conciliación del día no se hizo. Si la fecha de línea no es la de la máquina, el corte nunca aplica y el programa espera indefinidamente."
+        }
+      ]
+    },
+    {
+      "titulo": "Conciliación por mezcla y actualización de B02CONTROL",
+      "origen": {
+        "archivo": "S500_SOURCE_P191.txt",
+        "contexto": "20015100-EFECTUA-MATCH · 20015120-IMPRIME-REP-DIFE-S500 · 30051000-ACTUALIZA-BD02CONTROL"
+      },
+      "java": {
+        "archivo": "ConciliacionReader.java · ClasificadorPunteo.java · ControlS500Service.java",
+        "contexto": "ItemReader de mezcla · ClassifierCompositeItemWriter · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Mezcla de dos archivos ordenados por tarjeta e importe",
+          "linea_ini": 1584,
+          "linea_fin": 1609,
+          "origen_codigo": "         \"I M P O R T E\".\n     02  FILLER                    PIC X(52) VALUE SPACES.\n*\n 01  WKS-TOT-DET-S054.\n     02  FILLER                    PIC X(01) VALUE SPACES.\n     02  WKS-TOT-DET-LEYTRA        PIC X(44).\n     02  WKS-TOT-DET-NUMTRA        PIC ZZZ,ZZZ,ZZZ,Z99.\n     02  FILLER                    PIC X(05) VALUE SPACES.\n     02  WKS-TOT-DET-IMPTRA        PIC ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99.\n     02  FILLER                    PIC X(46) VALUE SPACES.\n*\n 01  WKS-LEYENDAS-TOTALES.\n     02  WKS-LEY-TOT-TRA-APLI      PIC X(44) VALUE",
+          "java_codigo": "/** Resultado de comparar la cabeza de cada archivo. */\nsealed interface Punteo permits Punteo.Aplicado, Punteo.SoloS500, Punteo.SoloS054 {\n    record Aplicado(MovimientoS500 s500, MovimientoS054 s054) implements Punteo {}\n    record SoloS500(MovimientoS500 s500) implements Punteo {}\n    record SoloS054(MovimientoS054 s054) implements Punteo {}\n}\n\n/** 20015100-EFECTUA-MATCH sobre dos PeekableItemReader ordenados por (tarjeta, importe). */\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass ConciliacionReader implements ItemReader<Punteo> {\n    private final SingleItemPeekableItemReader<MovimientoS500> s500;\n    private final SingleItemPeekableItemReader<MovimientoS054> s054;\n\n    private static final Comparator<Llave> ORDEN =\n            Comparator.comparing(Llave::tarjeta).thenComparing(Llave::importe);\n\n    @Override\n    public Punteo read() throws Exception {\n        var a = s500.peek();\n        var b = s054.peek();\n        if (a == null && b == null) return null;                 // ambos EOF\n        if (a == null) return new Punteo.SoloS054(s054.read());\n        if (b == null) return new Punteo.SoloS500(s500.read());\n        int cmp = ORDEN.compare(a.llave(), b.llave());\n        if (cmp == 0) return new Punteo.Aplicado(s500.read(), s054.read());\n        return cmp > 0 ? new Punteo.SoloS054(s054.read())        // el menor avanza\n                       : new Punteo.SoloS500(s500.read());\n    }\n}",
+          "racional": "Es un balance-line clásico: ambos lados están ordenados por número de tarjeta e importe y se compara la cabeza de cada uno. Si coinciden, el movimiento está aplicado y avanzan los dos; si no, se reporta como diferencia el menor y solo ese lado avanza. En Spring Batch se implementa con dos lectores <code>PeekableItemReader</code> y un tipo sellado para el resultado, que luego un <code>ClassifierCompositeItemWriter</code> manda al listado de aplicados o al de diferencias, como pide el arquetipo.",
+          "reglas": [
+            "RN-S500-268"
+          ],
+          "riesgo": "La llave de punteo es solo tarjeta e importe: la clave de transacción, la fecha y la autorización no participan. Dos movimientos distintos de la misma tarjeta y el mismo importe (o un cargo y un abono) se concilian entre sí."
+        },
+        {
+          "id": "s9",
+          "titulo": "Diferencia del lado S500 contada siempre como abono",
+          "linea_ini": 1741,
+          "linea_fin": 1775,
+          "origen_codigo": "     02  WKS-REG-S500-DET-CAJOPE PIC 9(02) COMP.\n     02  FILLER                  PIC X(01).\n*\n 01  WKS-REG-S500-CRCHQRA-TRA REDEFINES WKS-REG-S500-CRCHQRA.\n     02  WKS-REG-S500-TRA-REG    PIC 9(02).\n     02  WKS-REG-S500-TRA-NUMREG PIC 9(08) COMP.\n     02  FILLER                  PIC X(55).\n*\n 01  WKS-VARIABLES.\n     02  WKS-LASTRECORD          PIC 9(10).\n     02  WKS-SORT-ESPACIO        PIC 9(12).\n     02  WKS-SORT-MEMSIZE        PIC 9(12).\n     02  WKS-NUM-PROCESO         PIC 9(07).\n*\n 01  WKS-CONTADORES.\n     02  WKS-CON-LIN-APLI        PIC 9(03).\n     02  WKS-CON-LIN-DIFE        PIC 9(03).\n     02  WKS-CON-PAG-APLI        PIC 9(06).",
+          "java_codigo": "@Component\n@StepScope\nclass TotalesPunteo {\n    // WKS-TOT-REGISTROS: se reinician en cada fecha (20011100)\n    private long numAplicados, numDiferencias, numCargos, numAbonos;\n    private BigDecimal impAplicados = cero(), impDiferencias = cero(),\n                       impCargos = cero(), impAbonos = cero();\n\n    /** 20015120-IMPRIME-REP-DIFE-S500: todo faltante en S054 suma a abonos. */\n    RenglonDiferencia soloS500(MovimientoS500 m, P191Properties props) {\n        numDiferencias++; numAbonos++;\n        impDiferencias = impDiferencias.add(m.importe());\n        impAbonos = impAbonos.add(m.importe());\n\n        boolean esAbono = m.claveTransaccion() == props.claveAbono();   // p191.clave-abono: 3047\n        return new RenglonDiferencia(m,\n                esAbono ? \"ABONO\" : String.valueOf(m.claveTransaccion()),\n                esAbono ? \"CARGO A CUENTA\" : \" VERIFIQUE    \");\n    }\n\n    private static BigDecimal cero() { return BigDecimal.ZERO.setScale(2); }\n}",
+          "racional": "Cuando un movimiento de S500 no tiene par en S054 se suma a diferencias y a abonos, y el texto del renglón depende de si la clave de transacción es 3047. La suma de importes de escala 2 es exacta. El literal 3047 pasa a <code>application.yml</code>. El reporte se genera con JasperReports o con un writer de texto que conserve los títulos cada 54 líneas.",
+          "reglas": [
+            "RN-S500-268",
+            "RN-S500-269"
+          ],
+          "riesgo": "El total de abonos incluye cualquier diferencia de S500 aunque su clave no sea 3047, y el simétrico ocurre con los cargos del lado S054. El renglón imprime el número de tarjeta completo en el campo de consecutivo (líneas 1761 y 1637)."
+        },
+        {
+          "id": "s10",
+          "titulo": "Grabado de la nueva fecha de aplicación con LOCK y transacción",
+          "linea_ini": 1990,
+          "linea_fin": 2011,
+          "origen_codigo": "     02  WKS-FECHA-TIT-DD        PIC 9(02).\n*\n 01  WKS-FEC-REPROCESO           PIC 9(08).\n 01  WKS-FEC-REPROCESO-R  REDEFINES  WKS-FEC-REPROCESO.\n     02  WKS-FECREP-AA          PIC 9(04).\n     02  WKS-FECREP-MM          PIC 9(02).\n     02  WKS-FECREP-DD          PIC 9(02).\n 01  WKS-HORA-TIT-HMS            PIC 9(06).\n 01  WKS-HORA-TIT-HMS-R REDEFINES\n     WKS-HORA-TIT-HMS.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass ControlS500Service {\n\n    private final ControlS500Repository b02;\n\n    /** 30051000-ACTUALIZA-BD02CONTROL. */\n    @Transactional\n    public void registraAplicacion(LocalDate siguienteHabil) {\n        ControlS500 c = b02.findPrimeroForUpdate()                     // SET TO BEGINNING + LOCK\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B02CONTROL VACIO\"));\n        c.setUltArchAplicado(14, siguienteHabil);                       // B02-ULT-ARCH-APLI(14)\n        // BEGIN-TRANSACTION / STORE / END-TRANSACTION: el commit lo da @Transactional\n    }\n}\n\ninterface ControlS500Repository extends JpaRepository<ControlS500, Long> {\n    @Lock(LockModeType.PESSIMISTIC_WRITE)\n    @Query(\"select c from ControlS500 c order by c.id limit 1\")\n    Optional<ControlS500> findPrimeroForUpdate();\n}",
+          "racional": "El programa reabre la base, bloquea el primer registro de control y graba la nueva fecha dentro de una transacción DMSII. Un registro vacío o un error de lock termina el programa por 60073000-DECIDE-TIPO-FIN, que hace <code>DMTERMINATE</code>, por eso las líneas posteriores al IF solo se alcanzan con lock limpio. En JPA es un método <code>@Transactional</code> con bloqueo pesimista y la excepción provoca el rollback.",
+          "reglas": [
+            "RN-S500-270",
+            "RN-S500-271"
+          ],
+          "riesgo": "Lo que se graba como último archivo aplicado es el día hábil siguiente al procesado (WKS-FEC-CON-INI-CAMD ya avanzado por 60050000), no la fecha procesada. El nombre del campo no corresponde a su contenido."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Números de tarjeta en archivos públicos y reportes",
+      "detalle": "El temporal S500-I01-TEMP se declara SECURITYTYPE IS PUBLIC (línea 170) y ambos temporales se cierran WITH SAVE porque el WITH PURGE está comentado (líneas 1576-1580). Los listados de aplicados y diferencias imprimen el campo NUMTC de 16 dígitos completo. Es un hallazgo de cumplimiento PCI DSS si el campo es el PAN."
+    },
+    {
+      "titulo": "Llave de conciliación débil",
+      "detalle": "El SORT y la mezcla usan solo número de tarjeta e importe (líneas 1549-1551 y 1589-1592). Movimientos distintos con la misma tarjeta e importe, o un cargo contra un abono, se dan por aplicados."
+    },
+    {
+      "titulo": "Reproceso que salta fechas pendientes",
+      "detalle": "Un reproceso válido exige una fecha posterior al último aplicado (línea 1974) y al terminar graba el día hábil siguiente a esa fecha. Las fechas intermedias quedan sin punteo en modo normal."
+    },
+    {
+      "titulo": "Fin normal sin conciliación",
+      "detalle": "Después de las 09:00 sin archivo de S054, 60074000-VERIFICA-CAMBIO termina con STOP RUN (líneas 3023-3039) sin actualizar B02 y sin estado de error."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "La fecha de arranque 20061231, la clave de abono 3047, la hora límite 09:00:00, la semana de calendario 65, el reintento de 20 segundos, el aviso cada 90 ciclos y el tope de 90 posiciones para días inhábiles hacia atrás están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar que el campo NUMTC de S500 y S054 es el número de tarjeta completo (PAN) y no un número de contrato o cuenta de 16 dígitos.",
+    "RN-S500-267 dice que el tipo 0 neutraliza el reproceso; en el fuente la fecha sí se procesa y se generan los reportes (rama ELSE de las líneas 1238-1239), solo que no se actualiza B02. Revisar la redacción.",
+    "Los archivos de S054 traen la fecha del detalle en 6 dígitos (E01-REG-S054-DET-FEC PIC 9(06), línea 249); no se revisó qué pivote de siglo aplica el formateo del reporte.",
+    "La condición de B02-NUM-CSI = 10 que limitaba el proceso a Valle de México está comentada (líneas 1980-1984); confirmar si P191 corre hoy en ambos CSI.",
+    "No se revisaron los párrafos 50021100 a 50021600 de apertura y validación de header de los seis archivos de S500."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-267",
+    "RN-S500-268",
+    "RN-S500-269",
+    "RN-S500-270",
+    "RN-S500-271",
+    "RN-S500-272"
+  ]
+}

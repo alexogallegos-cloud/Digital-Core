@@ -1,0 +1,205 @@
+{
+  "slug": "S500_P107",
+  "sistema": "S500",
+  "programa": "P107",
+  "nombre": "Proceso Batch Comisiones EPP y Conciliación TESOFE",
+  "funcion": "Paso batch de S500 que, según el TASKVALUE (01 EPP, 02 TESOFE, 03 ambos), cierra o vence las comisiones pendientes EPP en S500B49COMPENDEPP y concilia y reinicia los saldos de las cuentas TESOFE ligadas en S500B50LIGASTESO, avisando las diferencias al mayor S151.",
+  "resumen": "Al iniciar, P107 valida el TASKVALUE, identifica la plaza por el nombre del host para fijar CSI y sucursal, toma la fecha de lote y la fecha de línea de S500B02CONTROL y decide si la corrida es mensual. En el proceso EPP carga de S500B17CVESXFUN los meses de vigencia por clave de cobro y su fecha proyectada con LOCSUP, recorre B49 marcando como pagadas (estatus 4) las comisiones con saldo cero y como vencidas (estatus 3) las que tienen saldo y una fecha de línea anterior a la proyectada, refuerza vencimientos por asistencia y genera el archivo COMPENDEPP con lo actualizado en el día o, si es fin de mes, con todo B49. En el proceso TESOFE compara los saldos de cada cuenta control contra la suma de sus subcuentas, reporta y avisa a S151 las diferencias, y reinicia los campos TESOFE de las cuentas que lo tienen pendiente.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.captacion.epp",
+  "secciones": [
+    {
+      "titulo": "Modo de ejecución, plaza y fechas del lote",
+      "origen": {
+        "archivo": "S500_SOURCE_P107.txt",
+        "contexto": "00000000-CONTROL-PROGRAMA · 40000000-INICIO · 40003000-IDENTIFICA-HOST · 40005000-VALIDO-FECHA-PRO"
+      },
+      "java": {
+        "archivo": "ComisionesEppTesofeJobConfig.java · P107Properties.java · FechasLoteTasklet.java",
+        "contexto": "Spring Batch Flow · @ConfigurationProperties · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "TASKVALUE 01, 02 o 03 a parámetro validado del job",
+          "linea_ini": 602,
+          "linea_fin": 640,
+          "origen_codigo": " 00000000-CONTROL-PROGRAMA.\n*****************************************************************\n    PERFORM 40000000-INICIO.\n    PERFORM 50000000-PROCESO.\n    PERFORM 70000000-FIN.\n    MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-TASK-VALUE.\n    IF W88-TASK-VAL-OK\n       STRING \"RECIBO TASK VALUE =\" WKS-TASK-VALUE\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n    ELSE\n       MOVE \"ERROR TASK VALUE  \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n    SET MYSELF (TASKVALUE) TO ZERO.\n    IF W88-TASK-VAL-EPP OR W88-TASK-VAL-TODO\n       PERFORM 40004000-CARGA-TABLA-EPP.",
+          "java_codigo": "public enum ModoP107 {\n    EPP(1), TESOFE(2), TODO(3);\n    final int valor;\n    ModoP107(int v) { valor = v; }\n    boolean incluyeEpp()    { return this == EPP || this == TODO; }\n    boolean incluyeTesofe() { return this == TESOFE || this == TODO; }\n\n    /** W88-TASK-VAL-OK: cualquier otro valor aborta (CHANGE ATTRIBUTE STATUS OF MYSELF TO -1). */\n    static ModoP107 de(long taskValue) {\n        return Arrays.stream(values()).filter(m -> m.valor == taskValue).findFirst()\n                .orElseThrow(() -> new JobParametersInvalidException(\"ERROR TASK VALUE \" + taskValue));\n    }\n}\n\n@Bean\nJob comisionesEppTesofe(JobRepository repo, Step fechasLote, Step cargaTablaEpp,\n                        Step revisaComisiones, Step revisaAsistencias, Step generaCompendepp,\n                        Step procesoTesofe, JobExecutionDecider modoDecider) {\n    return new JobBuilder(\"S500P107\", repo)\n            .validator(p -> ModoP107.de(p.getLong(\"modo\")))\n            .start(fechasLote)                                       // 40005000-VALIDO-FECHA-PRO\n            .next(modoDecider).on(\"TESOFE\").to(procesoTesofe)\n            .from(modoDecider).on(\"*\").to(cargaTablaEpp)             // EPP o TODO\n              .next(revisaComisiones).next(revisaAsistencias).next(generaCompendepp)\n              .next(modoDecider).on(\"TODO\").to(procesoTesofe)\n            .end().build();\n}",
+          "racional": "El programa no recibe parámetros: el ejecutor de batch fija el atributo <code>TASKVALUE</code> y P107 lo interpreta como modo de operación. Un valor fuera de 01, 02 y 03 pone el estatus de la tarea en -1, lo que la termina. En Spring Batch el modo es un parámetro del job validado antes de arrancar, y un <code>JobExecutionDecider</code> elige qué steps corren, de modo que la combinación de EPP y TESOFE queda declarada en el flujo y no repartida en los <code>IF</code> de cada párrafo.",
+          "reglas": [
+            "RN-S500-361"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "CSI y sucursal por nombre de host a configuración por plaza",
+          "linea_ini": 673,
+          "linea_fin": 690,
+          "origen_codigo": " 40003000-IDENTIFICA-HOST.\n*-------------------------\n     PERFORM 00000000-CHANGE-SOPCOMS.\n     PERFORM 0000-CALL-HOSTNAME.\n     IF WS-DH-HOSTNAME-VDM\n        MOVE 10          TO WKS-EPP-CSIO\n                            WS-VAL-TESOF-CSI\n                            WS-SAL-TESOF-CSI\n                            WS-IMP-CSI\n        MOVE 870         TO WKS-SUC-PROMOTORA-S015\n     ELSE\n        MOVE 04          TO WKS-EPP-CSIO\n                            WS-VAL-TESOF-CSI\n                            WS-SAL-TESOF-CSI\n                            WS-IMP-CSI\n        MOVE 519         TO WKS-SUC-PROMOTORA-S015.",
+          "java_codigo": "# application-vdm.yml   (WS-DH-HOSTNAME-VDM)\np107:\n  plaza: VDM\n  csi: 10\n  sucursal-promotora-s015: 870\n\n# application-mty.yml   (cualquier otro host)\np107:\n  plaza: MTY\n  csi: 4\n  sucursal-promotora-s015: 519\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p107\")\npublic record P107Properties(String plaza, int csi, int sucursalPromotoraS015,\n                             int bloqueTransaccionEpp,     // W77-BLQ-STORE = 100\n                             int cajaS151,                 // 62 en los avisos a S151\n                             String bancoS151) { }         // 002 (007 en host CAM)",
+          "racional": "La plaza se deduce comparando el nombre del host y de ahí salen, compilados, el número de CSI que se usa en los títulos de archivos y reportes y la sucursal promotora con la que se registran los avisos a S151. En Java esos valores son propiedades de un perfil por plaza, lo que permite desplegar la misma imagen en cualquier centro y probar la configuración sin depender del nombre de la máquina.",
+          "reglas": [
+            "RN-S500-365"
+          ],
+          "riesgo": "Cualquier host que no se reconozca como Valle de México se trata como Monterrey (CSI 04, sucursal 519), incluido un servidor nuevo o de contingencia."
+        },
+        {
+          "id": "s3",
+          "titulo": "Fecha de lote, fecha de línea y bandera de corrida mensual",
+          "linea_ini": 750,
+          "linea_fin": 761,
+          "origen_codigo": " 40005000-VALIDO-FECHA-PRO.\n*--------------------------\n     PERFORM 90000002-B02CONTROL-FIND.\n     MOVE B02-FECHA-LOTE    TO WKS-FEC-BASE\n                               WS-FECHA-TESOFE.\n     MOVE B02-FECHA-LINEA   TO WKS-FEC-PROX.\n     MOVE WKS-FEC-BASE      TO WKS-EPP-FECHA.\n     IF WKS-MM-FPROX  = WKS-MM-FBASE\n        MOVE 0 TO WKS-ES-MENSUAL\n     ELSE\n        MOVE 1 TO WKS-ES-MENSUAL.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechasLoteTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500B02CONTROL\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var b02 = control.findControl().orElseThrow();\n        LocalDate fecBase = b02.fechaLote();            // WKS-FEC-BASE, AAAAMMDD\n        LocalDate fecProx = b02.fechaLinea();           // WKS-FEC-PROX\n        boolean esMensual = fecProx.getMonthValue() != fecBase.getMonthValue();   // WKS-ES-MENSUAL\n\n        var job = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        job.put(\"fecBase\", fecBase);\n        job.put(\"fecProx\", fecProx);\n        job.put(\"esMensual\", esMensual);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La corrida es mensual cuando la fecha de línea próxima ya cae en otro mes que la fecha del lote, es decir, cuando el siguiente día hábil cambia de mes. Esa bandera decide en la tercera vuelta si el archivo COMPENDEPP lleva solo lo actualizado en el día o todo B49. En Java las fechas se leen una vez y se publican en el <code>ExecutionContext</code> del job; la comparación por mes es exactamente la del fuente, sin considerar el año.",
+          "reglas": [
+            "RN-S500-366"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Comisiones EPP: vigencia, pagadas, vencidas y archivo COMPENDEPP",
+      "origen": {
+        "archivo": "S500_SOURCE_P107.txt",
+        "contexto": "40004200-CARGA-TAB-B17 · 40005900-PROY-FECH-ATRAS · 50001200 · 50001300 · 50001600 · 50003100"
+      },
+      "java": {
+        "archivo": "TablaVigenciaEpp.java · RevisaComisionProcessor.java · ComisionEpp.java · CompendeppStepConfig.java",
+        "contexto": "@Component · ItemProcessor · JPA · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Tabla de vigencia por clave de cobro y fecha proyectada con LOCSUP",
+          "linea_ini": 721,
+          "linea_fin": 802,
+          "origen_codigo": "  40004200-CARGA-TAB-B17.\n*------------------------\n  IF B17-NUMEPP-MESVIG > 0\n     MOVE B17-CLAVE-TRANS TO WS-IND-EPP\n     IF WS-IND-EPP > 0 AND < 10000\n****   MOVE B17-CLAVE-TRANS   TO WS-TAB-CLAVE-TRANSSAM\n       MOVE B17-INDEPP-VENC   TO WS-TAB-INDEPP-VENC(WS-IND-EPP)\n       MOVE B17-NUMEPP-MESVIG TO WS-TAB-NUMEPP-MESVIG(WS-IND-EPP)\n       IF B17-NUMEPP-MESVIG = WKS-NUM-MESVIG\n          MOVE WKS-FEC-PROY   TO WS-TAB-FEC-PROY(WS-IND-EPP)\n       ELSE\n          MOVE B17-NUMEPP-MESVIG TO WKS-NUM-MESVIG\n          PERFORM 40005900-PROY-FECH-ATRAS\n          MOVE WKS-FEC-PROY   TO WS-TAB-FEC-PROY(WS-IND-EPP).\n 40005900-PROY-FECH-ATRAS.\n     MOVE WKS-FEC-BASE         TO WS-S006-FECHA1.\n     MOVE WKS-NUM-MESVIG       TO WS-S006-FECHA2.\n     MOVE 22                   TO WS-S006-FUNCION.\n     MOVE 13                   TO WS-S006-FORMATO.\n     PERFORM 20000006-LOCSUP.\n     IF WS-S006-FUNCION = 0\n        MOVE WS-S006-FECHA1   TO WKS-FEC-PROY.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class TablaVigenciaEpp {\n\n    private final ClavesPorFuncionRepository b17;   // S500B17CVESXFUN\n    private final CalendarioBancario locsup;        // S006LOCSUP\n\n    public record Vigencia(int mesesVigencia, int indicadorVencimiento, LocalDate fechaProyectada) {}\n    private final Map<Integer, Vigencia> porClave = new HashMap<>();   // WS-EPP-TABLA OCCURS 10000\n\n    public void carga(LocalDate fecBase) {\n        Map<Integer, LocalDate> proyectadaPorMeses = new HashMap<>();\n        for (var r : b17.findAll()) {\n            int clave = r.claveTransaccion();\n            if (r.mesesVigencia() <= 0 || clave <= 0 || clave >= 10_000) continue;\n            // LOCSUP función 22, formato 13: fecha base desplazada N meses (\"PROY-FECH-ATRAS\")\n            LocalDate proy = proyectadaPorMeses.computeIfAbsent(r.mesesVigencia(),\n                    m -> locsup.funcion22(fecBase, m)\n                               .orElseThrow(() -> new IllegalStateException(\"LOCSUP sin fecha para \" + m)));\n            porClave.put(clave, new Vigencia(r.mesesVigencia(), r.indicadorVencimiento(), proy));\n        }\n    }\n\n    public Optional<Vigencia> de(int claveCobro) { return Optional.ofNullable(porClave.get(claveCobro)); }\n}",
+          "racional": "La tabla en memoria se indexa por clave de transacción y guarda el indicador de vencimiento, los meses de vigencia y la fecha proyectada. Para no llamar a LOCSUP con cada clave, el fuente reutiliza la última fecha calculada cuando los meses coinciden con los de la clave anterior; en Java el mismo ahorro se logra con un mapa por número de meses. La rutina se llama \"PROY-FECH-ATRAS\" y se usa como fecha límite de vencimiento, por lo que se interpreta como la fecha base menos N meses.",
+          "reglas": [
+            "RN-S500-364"
+          ],
+          "riesgo": "Si LOCSUP regresa error (WS-S006-FUNCION distinto de 0), WKS-FEC-PROY conserva la fecha de la clave anterior y se guarda para la clave actual sin aviso. La versión Java falla explícitamente."
+        },
+        {
+          "id": "s5",
+          "titulo": "Recorrido de B49 con transacciones de 100 registros",
+          "linea_ini": 911,
+          "linea_fin": 943,
+          "origen_codigo": " 50001200-VALID-STATUS-B49.\n*--------------------------\n     IF W77-NUM-STORE = 0\n***     STRING \"  BEG-TRANSACTION NUM-REG=\" W77-NUM-STORE\n***                        \" TOTAL-LEIDOS=\" W77-NUM-TOT\n***            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n***     PERFORM 70000050-MENSAJE\n        PERFORM 90000000-BEGIN-TRANSACTION\n        IF WS-STATUS-BASE > 0\n           IF WS-STATUS-BASE = 15\n              NEXT SENTENCE\n           ELSE\n              MOVE WS-STATUS-BASE     TO WS-MSG-RS\n              STRING \"ERROR BEGIN TRANSACTION  \"\n                     \" STATUS BD=\"WS-MSG-RS\n                     DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n              PERFORM 70000050-MENSAJE.\n     ADD 1 TO W77-NUM-STORE.\n     IF B49-SALDO = 0\n        PERFORM 50001300-COMISION-PAGADA\n     ELSE\n        PERFORM 50001600-COMISION-VENCIDA.\n     IF W77-NUM-STORE = W77-BLQ-STORE\n**      STRING \" END-TRANSACTION NUM-REG=\" W77-NUM-STORE\n**                        \" TOTAL-LEIDOS \" W77-NUM-TOT\n**             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n**      PERFORM 70000050-MENSAJE\n        MOVE ZERO TO W77-NUM-STORE\n        PERFORM 90000000-END-TRANSACTIONNOAU",
+          "java_codigo": "@Bean\nStep revisaComisiones(JobRepository repo, PlatformTransactionManager tx, P107Properties props,\n                      JpaPagingItemReader<ComisionEpp> b49,          // SET S500B49COMPENDEPP TO BEGINNING\n                      RevisaComisionProcessor revisa,\n                      JpaItemWriter<ComisionEpp> writer) {\n    return new StepBuilder(\"revisaComisiones\", repo)\n            .<ComisionEpp, ComisionEpp>chunk(props.bloqueTransaccionEpp(), tx)   // W77-BLQ-STORE = 100\n            .reader(b49)\n            .processor(revisa)\n            .writer(writer)\n            .faultTolerant()\n            .skip(OptimisticLockingFailureException.class).skipLimit(0)   // el fuente ignora el estatus 15; aquí no\n            .build();\n}",
+          "racional": "La primera vuelta bloquea cada registro de B49 con <code>LOCK NEXT</code>, abre una transacción DMSII cada 100 registros y la cierra al llegar al bloque o al final del set. Es exactamente el modelo de chunk de Spring Batch: el tamaño del bloque pasa a propiedad y cada chunk es una transacción JPA. El fuente trata el estatus 15 de <code>BEGIN</code> y <code>END TRANSACTION</code> como no error y continúa; en Java no se replica ese silencio y cualquier fallo de commit detiene el step.",
+          "reglas": [],
+          "riesgo": "Los errores de BEGIN y END TRANSACTION distintos de 15 solo generan un mensaje y el ciclo sigue; las actualizaciones del bloque fallido pueden perderse sin que el paso termine con error."
+        },
+        {
+          "id": "s6",
+          "titulo": "Comisión pagada (estatus 4) y vencida (estatus 3)",
+          "linea_ini": 955,
+          "linea_fin": 991,
+          "origen_codigo": " 50001300-COMISION-PAGADA.\n*-------------------------\n     IF B49-STATUS = 0\n        MOVE 4            TO B49-STATUS\n        MOVE WKS-FEC-BASE TO B49-FECHA-ULTACT\n 50001600-COMISION-VENCIDA.\n*--------------------------\n     MOVE 0 TO WKS-BAND-CLAVE.\n     IF B49-STATUS = 0\n        PERFORM 50001620-VALIDA-CLAVE.\n 50001620-VALIDA-CLAVE.\n*----------------------\n     MOVE B49-CLAVE-COBRO TO WS-IND-EPP.\n     IF WS-TAB-NUMEPP-MESVIG (WS-IND-EPP) > 0\n    AND WS-TAB-INDEPP-VENC   (WS-IND-EPP) = 0\n        MOVE WS-TAB-FEC-PROY (WS-IND-EPP) TO WKS-FEC-PROY\n        PERFORM 50001630-VALIDA-COMISION.\n 50001630-VALIDA-COMISION.\n*-------------------------\n    IF B49-FECHA-LINEA <  WKS-FEC-PROY\n        MOVE 3            TO B49-STATUS\n        MOVE WKS-FEC-BASE TO B49-FECHA-ULTACT\n        PERFORM 50002900-ACTUALIZA-STATUS.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class RevisaComisionProcessor implements ItemProcessor<ComisionEpp, ComisionEpp> {\n\n    static final int ACTIVA = 0, VENCIDA = 3, PAGADA = 4;\n\n    private final TablaVigenciaEpp vigencias;\n    @Value(\"#{jobExecutionContext['fecBase']}\") private LocalDate fecBase;\n\n    @Override\n    public ComisionEpp process(ComisionEpp c) {\n        if (c.getStatus() != ACTIVA) return null;                      // solo comisiones activas\n        if (c.getSaldo().signum() == 0) {                              // 50001300-COMISION-PAGADA\n            return c.marca(PAGADA, fecBase);\n        }\n        return vigencias.de(c.getClaveCobro())                         // 50001620-VALIDA-CLAVE\n                .filter(v -> v.mesesVigencia() > 0 && v.indicadorVencimiento() == 0)\n                .filter(v -> c.getFechaLinea().isBefore(v.fechaProyectada()))   // 50001630\n                .map(v -> c.marca(VENCIDA, fecBase))\n                .orElse(null);                                         // sin cambio: no se reescribe\n    }\n}\n\n@Entity @Table(name = \"S500B49COMPENDEPP\")\npublic class ComisionEpp {\n    @EmbeddedId private ComisionEppId id;          // contrato + clave de cobro + fecha de línea\n    private int status;\n    @Column(precision = 15, scale = 2) private BigDecimal saldo;\n    private LocalDate fechaLinea, fechaUltact, fechaUltpago;\n    private int claveCobro;\n\n    ComisionEpp marca(int nuevoStatus, LocalDate fecha) {\n        this.status = nuevoStatus;\n        this.fechaUltact = fecha;                  // MOVE WKS-FEC-BASE TO B49-FECHA-ULTACT\n        return this;\n    }\n}",
+          "racional": "Una comisión activa con saldo cero se cierra como pagada; una con saldo se declara vencida si su clave de cobro tiene meses de vigencia, no está marcada como vencida por asistencia y su fecha de línea es anterior a la fecha proyectada. En ambos casos se sella la fecha de última actualización con la fecha del lote, que es la que después selecciona el archivo diario. El <code>ItemProcessor</code> devuelve <code>null</code> cuando no hay cambio para no reescribir registros que el fuente tampoco modifica.",
+          "reglas": [
+            "RN-S500-362",
+            "RN-S500-363"
+          ],
+          "riesgo": "50001620-VALIDA-CLAVE usa B49-CLAVE-COBRO como subíndice de una tabla OCCURS 10000 sin validar el rango; una clave 0 o mayor que 9999 lee fuera de la tabla."
+        },
+        {
+          "id": "s7",
+          "titulo": "Archivo COMPENDEPP: lo del día o todo B49 en fin de mes",
+          "linea_ini": 1214,
+          "linea_fin": 1235,
+          "origen_codigo": " 50003100-VALIDO-ARCHIVO.\n*------------------------\n     IF WKS-ES-MENSUAL = 0\n        PERFORM 50003200-BARRE-XFEHCA\n     ELSE\n     IF WKS-ES-MENSUAL = 1\n        PERFORM 50003300-BARRE-TODO.\n*----------------------\n 50003200-BARRE-XFEHCA.\n*----------------------\n     IF B49-FECHA-ULTACT  = WKS-FEC-BASE\n     OR B49-FECHA-ULTPAGO = WKS-FEC-BASE\n        PERFORM 50003500-WRITE-ARCHIVO.\n*--------------------\n 50003300-BARRE-TODO.\n*--------------------\n     PERFORM 50003500-WRITE-ARCHIVO.",
+          "java_codigo": "@Bean\nStep generaCompendepp(JobRepository repo, PlatformTransactionManager tx,\n                      JpaPagingItemReader<ComisionEpp> b49Lectura,       // FIND NEXT, sin bloqueo\n                      FlatFileItemWriter<ComisionEpp> compendepp) {      // header, detalle y trailer\n    return new StepBuilder(\"generaCompendepp\", repo)\n            .<ComisionEpp, ComisionEpp>chunk(192, tx)                   // 192 registros por bloque\n            .reader(b49Lectura)\n            .processor(seleccionArchivo(null, null))\n            .writer(compendepp)\n            .build();\n}\n\n@Bean @StepScope\nItemProcessor<ComisionEpp, ComisionEpp> seleccionArchivo(\n        @Value(\"#{jobExecutionContext['esMensual']}\") Boolean esMensual,\n        @Value(\"#{jobExecutionContext['fecBase']}\") LocalDate fecBase) {\n    return c -> {\n        if (esMensual) return c;                                       // 50003300-BARRE-TODO\n        boolean tocadaHoy = fecBase.equals(c.getFechaUltact())\n                         || fecBase.equals(c.getFechaUltpago());        // 50003200-BARRE-XFEHCA\n        return tocadaHoy ? c : null;\n    };\n}",
+          "racional": "La tercera vuelta recorre B49 sin bloquear y escribe un detalle por comisión: en un día normal solo las actualizadas o pagadas en la fecha del lote y, cuando la corrida es mensual, todas. El archivo se envía a Teradata con un header y un trailer de conteo. En Spring Batch la regla queda en un <code>ItemProcessor</code> de paso que filtra según la bandera mensual publicada al inicio del job.",
+          "reglas": [
+            "RN-S500-366"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "TESOFE: diferencias entre cuenta control y subcuentas, y reinicio",
+      "origen": {
+        "archivo": "S500_SOURCE_P107.txt",
+        "contexto": "500042500-500-DIFERENCIA · 500042500-520-AVISA-S151 · 50004400-600-VAL-SAL-BLO"
+      },
+      "java": {
+        "archivo": "ConciliacionTesofeProcessor.java · AvisoS151.java · ReinicioTesofePolicy.java",
+        "contexto": "ItemProcessor · @Service · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Diferencia de saldos y aviso a S151 con la clave 886",
+          "linea_ini": 1671,
+          "linea_fin": 1713,
+          "origen_codigo": " 500042500-500-DIFERENCIA.\n*-------------------------\n     IF WS-SALD-DISP-DIF-R = 0 AND\n        WS-SALD-TECH-DIF-R = 0 AND\n        WS-SALD-BLOQ-DIF-R = 0\n        NEXT SENTENCE\n     ELSE\n        PERFORM 500042500-520-AVISA-S151.\n     MOVE 1                       TO WS-S151-0101-FUNCION-I.\n     MOVE WKS-NUM-PRODUCTO-R      TO WS-S151-0101-PRODUCT-I.\n     MOVE WKS-NUM-INSTRUM-R       TO WS-S151-0101-INSTRUMENTO-I.\n     MOVE WKS-MONEDA-R            TO WS-S151-0101-MONEDA-I.\n     MOVE WKS-SUC-PROMOTORA-S015  TO WS-S151-0101-SUCPROM-I\n                                     WS-S151-0101-SUCOPER-I\n                                     WS-S151-0101-SUCTRAN-I\n                                     WS-S151-0101-SUCS028-I.\n     MOVE WKS-CUENTA-CONTROL1-R   TO WS-S151-0101-CUENTA-I.\n*    MOVE WKS-DISP-ASIG-CC1-R     TO WS-S151-0101-IMPORTE-I(1).\n     MOVE 886                     TO WS-S151-0101-CVETRAN-I(1).\n     MOVE WKS-FEC-BASE            TO WS-S151-0101-FECCONT-I\n                                     WS-S151-0101-FECVA-I.\n     MOVE 01                      TO WS-S151-0101-FORMATO-I.\n     MOVE 0500                    TO WS-S151-0101-SISTEMA.\n     MOVE 002                     TO WS-S151-0101-BCO-ORI-I.\n     MOVE 002                     TO WS-S151-0101-BCO-DES-I.\n     MOVE 0500                    TO WS-S151-0101-SISORI-I.\n     MOVE WKS-NUM-CLIENTE-CCR     TO WS-S151-0101-NUM-CTE-I.\n     MOVE WKS-TIME-MAQ-INI        TO WS-S151-0101-AUTAPL-I.\n     MOVE 62                      TO WS-S151-0101-CAJS028-I\n                                     WS-S151-0101-CAJOPER-I\n                                     WS-S151-0101-CAJTRAN-I.\n     MOVE WKS-CTA-CONCENT-CCR     TO WS-S151-0101-CTA-CONCENT-I.\n     MOVE WKS-FEC-ENVIO-S151      TO WS-S151-0101-FECMOV-I.\n     MOVE WKS-HORA-MAQ-INI        TO WS-S151-0101-HORAMOV-I.\n     MOVE 21                      TO WS-S151-0101-TIPO-PROC-I.\n     MOVE 1                       TO WS-S151-0101-ORIGEN-I.\n     MOVE WS-IMP-CSI              TO WS-S151-0101-NODORI-I.",
+          "java_codigo": "# application.yml\np107:\n  s151:\n    clave-diferencia: 886\n    clave-reinicio: 873\n    caja: 62\n    banco: \"002\"            # \"007\" cuando el host es CAM\n    tipo-proceso: 21\n\n// ---------------------------------------------------------------------------\n@Service\n@RequiredArgsConstructor\npublic class AvisoS151 {\n\n    private final RegistroContableS151 registra;   // S151REGISTRA, función 1 (CARGAMOV1)\n    private final P107Properties props;\n\n    /** 500042500-500-DIFERENCIA: solo se avisa si alguna de las tres diferencias es distinta de cero. */\n    public void avisaSiHayDiferencia(FamiliaTesofe f, LocalDate fecBase) {\n        if (f.difDisponible().signum() == 0 && f.difTecho().signum() == 0\n                && f.difBloqueado().signum() == 0) return;\n\n        var mov = MovimientoS151.builder()\n                .funcion(1).formato(1).sistema(500).sistemaOrigen(500)\n                .producto(f.producto()).instrumento(f.instrumento()).moneda(f.moneda())\n                .sucursal(props.sucursalPromotoraS015()).caja(props.s151().caja())\n                .cuenta(f.cuentaControl())\n                .claveTransaccion(props.s151().claveDiferencia())\n                // el importe está comentado en el fuente (línea 1694): el aviso viaja sin importe\n                .fechaContable(fecBase).fechaValor(fecBase)\n                .banco(props.s151().banco()).tipoProceso(props.s151().tipoProceso()).origen(1)\n                .nodoOrigen(props.csi())\n                .build();\n        var r = registra.cargaMov1(mov);\n        if (r.status() > 0) throw new AvisoS151Exception(\"ERR FUNCION 1 LIB S151 DIF-TESO\", r);\n    }\n}",
+          "racional": "Por cada familia de una cuenta control y sus subcuentas se acumulan tres diferencias de saldo (disponible, techo y bloqueado). Si alguna no es cero, P107 registra en S151 un movimiento con la clave 886 a nombre de la cuenta control, con sucursal y caja fijas, fecha contable igual a la del lote y banco 002 (o 007 en el host CAM). Todos esos literales se trasladan a <code>application.yml</code>. El fuente solo registra un mensaje si S151 rechaza el aviso; en Java se lanza una excepción para que la falla sea visible.",
+          "reglas": [],
+          "riesgo": "La asignación del importe de la diferencia está comentada en la línea 1694: el movimiento 886 se registra con el importe que tuviera WS-S151-0101-IMPORTE-I(1) de una llamada previa o en cero."
+        },
+        {
+          "id": "s9",
+          "titulo": "Reglas de reinicio TESOFE por bloqueo y estatus del contrato",
+          "linea_ini": 2014,
+          "linea_fin": 2040,
+          "origen_codigo": " 50004400-600-VAL-SAL-BLO.\n*-------------------------\n     MOVE 0 TO WKS-RESET.\n     PERFORM 50004400-750-MUEVE-CAMP-CC.\n     IF B03-IMPSOLBLO-TES = 0 AND B03-STATUS = 1 AND\n        B03-TIPO-BLOQUEO IS NOT EQUAL TO 14\n        PERFORM 50004400-610-RESET-ARBOL\n     ELSE\n     IF B03-IMPSOLBLO-TES = 0 AND B03-STATUS = 1 AND\n        B03-TIPO-BLOQUEO  = 14 AND B03-IMPSOL-BLOQ > 0\n        PERFORM 50004400-610-RESET-ARBOL\n     ELSE\n     IF B03-IMPSOLBLO-TES = 0 AND B03-STATUS = 0 AND\n        B03-TIPO-BLOQUEO  = 0 AND B03-IMPSOL-BLOQ > 0\n        PERFORM 50004400-610-RESET-ARBOL\n     ELSE\n     IF B03-IMPSOLBLO-TES = 0 AND B03-STATUS = 1 AND\n        B03-TIPO-BLOQUEO  = 14 AND B03-IMPSOL-BLOQ = 0\n        PERFORM 50004400-620-NO-RESET-ARBOL\n     ELSE\n     IF B03-IMPSOLBLO-TES = 0 AND B03-STATUS < 2\n        PERFORM 50004400-610-RESET-ARBOL\n     ELSE\n     IF B03-IMPSOLBLO-TES > 0 OR B03-STATUS > 1\n        PERFORM 50004400-620-NO-RESET-ARBOL.",
+          "java_codigo": "/** 50004400-600-VAL-SAL-BLO: decide si se reinicia el árbol TESOFE de la cuenta control. */\n@Component\npublic class ReinicioTesofePolicy {\n\n    static final int BLOQUEO_TESOFE = 14;\n\n    public boolean reinicia(ContratoCaptacion b03) {\n        boolean sinBloqueoTesofe = b03.impSolBloTes().signum() == 0;\n        int st = b03.status(), tipo = b03.tipoBloqueo();\n        boolean bloqueoGeneral = b03.impSolBloq().signum() > 0;\n\n        if (sinBloqueoTesofe && st == 1 && tipo != BLOQUEO_TESOFE)              return true;\n        if (sinBloqueoTesofe && st == 1 && tipo == BLOQUEO_TESOFE && bloqueoGeneral)  return true;\n        if (sinBloqueoTesofe && st == 0 && tipo == 0 && bloqueoGeneral)         return true;\n        if (sinBloqueoTesofe && st == 1 && tipo == BLOQUEO_TESOFE && !bloqueoGeneral) return false;\n        if (sinBloqueoTesofe && st < 2)                                         return true;\n        return false;   // IMPSOLBLO-TES > 0 o STATUS > 1: solo se limpia el indicador de reinicio\n    }\n}\n// true  -> 50004400-610-RESET-ARBOL    (reinicia CC y subcuentas, aviso S151 clave 873)\n// false -> 50004400-620-NO-RESET-ARBOL (B03-IND-RESET-TES := 0 y aviso S151 de no reinicio)",
+          "racional": "Una cuenta control con reinicio pendiente se reinicia, junto con todas sus subcuentas de B50, solo si no tiene importe bloqueado por TESOFE y su estatus es 0 o 1, con una excepción: activa (estatus 1) con bloqueo tipo 14 y sin importe en bloqueo general no se reinicia. El orden de los <code>IF</code> es significativo y se conserva tal cual en Java; la tercera condición queda cubierta por la quinta, pero se mantiene para que la revisión con el SME pueda compararlas una a una. En cualquier caso se avisa a S151 si hubo o no reinicio.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Aviso de diferencias TESOFE sin importe",
+      "detalle": "En 500042500-520-AVISA-S151 la línea 1694 que movía la diferencia al importe del movimiento está comentada. El mayor S151 recibe la clave 886 sin el monto de la diferencia que motivó el aviso."
+    },
+    {
+      "titulo": "Fecha proyectada heredada si LOCSUP falla",
+      "detalle": "40005900-PROY-FECH-ATRAS solo actualiza WKS-FEC-PROY si LOCSUP responde bien (línea 801); de lo contrario la clave recibe la fecha de la clave anterior y puede vencer comisiones con un plazo equivocado."
+    },
+    {
+      "titulo": "Subíndice sin validar",
+      "detalle": "50001620-VALIDA-CLAVE indexa WS-EPP-TABLA con B49-CLAVE-COBRO (línea 976) sin el control de rango 1..9999 que sí tiene la carga de la tabla."
+    },
+    {
+      "titulo": "Errores de base tolerados",
+      "detalle": "La apertura de S500BD01CAPTACION (líneas 650-653) y los BEGIN y END TRANSACTION solo emiten mensaje; el proceso continúa y puede terminar normal con actualizaciones perdidas."
+    },
+    {
+      "titulo": "Hardcodes de plaza y de registro contable",
+      "detalle": "CSI 10 y 04, sucursales 870 y 519, caja 62, banco 002 y 007, claves 886 y 873, tipo de proceso 21 y bloque de 100 registros. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME si LOCSUP función 22 formato 13 resta N meses a la fecha de lote; el nombre del párrafo (PROY-FECH-ATRAS) y su uso como límite de vencimiento lo sugieren, pero el copybook S006LOCSUP no viene en el fuente.",
+    "Confirmar si el aviso 886 sin importe es intencional (aviso informativo) o un defecto introducido al comentar la línea 1694.",
+    "La segunda vuelta (50002000-REVISO-ASISTENCIAS) y el detalle de 50004400-700 a 50004400-900 no se transpilaron en esta demostración.",
+    "Validar que RN-S500-366 describe la conciliación TESOFE de fin de mes; en el fuente WKS-ES-MENSUAL solo se usa en 50003100-VALIDO-ARCHIVO para el archivo COMPENDEPP."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-750",
+    "RN-S151-751",
+    "RN-S151-752",
+    "RN-S151-753",
+    "RN-S151-754",
+    "RN-S151-755",
+    "RN-S500-361",
+    "RN-S500-362",
+    "RN-S500-363",
+    "RN-S500-364",
+    "RN-S500-365",
+    "RN-S500-366"
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "slug": "S151_P122",
+  "sistema": "S151",
+  "programa": "P122",
+  "nombre": "Gateway de Inyección de Movimientos Multi-Sistema",
+  "funcion": "Programa batch de S151 que recibe como parámetro el número de sistema originador (402, 600, 804, 707 o 203), valida el archivo de movimientos que ese sistema dejó en disco y lo carga a la contabilidad S151 registro por registro a través de la librería L002 (CARGAMOV1).",
+  "resumen": "P122 resuelve el título del archivo de entrada según el sistema recibido: los sistemas C/S e IBM (402, 600 y 804) llegan en ARCHC402 con registro de 720 posiciones y los de Tandem (707 y 203) en ARCHS707 con registro de 1261. Exige un header HD y, solo para el 804, un trailer TR cuyos totales de registros e importe cuadren con lo calculado; si no, pide al operador cambiar el archivo y vuelve a validar. Después transforma cada movimiento al área de llamado de L002, forzando el tipo de proceso a 1, lo envía, escribe el punteo y al terminar manda el centinela de función 98. Para los sistemas 203 y 804 controla la reejecución con un registro de proceso en B05.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration · Spring Batch",
+  "paquete_java": "mx.banamex.s151.gateway.movimientos",
+  "secciones": [
+    {
+      "titulo": "Formatos de intercambio y ruteo por sistema originador",
+      "origen": {
+        "archivo": "COBOL_P122.txt",
+        "contexto": "WORKING-STORAGE · 000001-INICIO"
+      },
+      "java": {
+        "archivo": "MovimientoC402.java · P122Properties.java · RuteoArchivoOrigen.java",
+        "contexto": "sealed interface · @ConfigurationProperties · router"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro C402 de 720 posiciones: header, movimiento y trailer",
+          "linea_ini": 141,
+          "linea_fin": 233,
+          "origen_codigo": " 01 R01-MOV-HEADER.                                               001500\n    03 R01-MOV-HDR-HD                  PIC  X(02) VALUE \"HD\".     001600\n    03 R01-MOV-HDR-SISTEMA             PIC  9(04).                001700\n    03 R01-MOV-HDR-FECHA               PIC  9(08).                001800\n    03 FILLER                          PIC  X(710).               001900\n 01 R01-MOV-DATOS.                                                002100\n    03 R01-MOV-FUNCION                 PIC  9(02).                002200\n    03 R01-MOV-FN-ALFA REDEFINES R01-MOV-FUNCION PIC X(02).       002250\n    03 R01-MOV-SISTEMA                 PIC  9(04).                002300\n    03 R01-MOV-PRODUCTO                PIC  9(04).                002400\n    03 R01-MOV-INSTRUMENTO             PIC  9(02).                002500\n    03 R01-MOV-SUCPROM                 PIC  9(04).                002600\n    03 R01-MOV-CONTRATO                PIC  9(16).                002700\n    03 R01-TAB-CVEIMP                  OCCURS 5 TIMES.            002900\n       04 R01-MOV-CVETRAN              PIC  9(04).                003000\n       04 R01-MOV-INDLEY               PIC  9(02).                003100\n       04 R01-MOV-ESQCON               PIC  9(04).                003200\n       04 R01-MOV-IMPORTE              PIC  9(14)V99.             003300\n    03 R01-MOV-TIPO-PROC               PIC  9(02).                006300\n 01 R01-MOV-TRAILER.                                              010100\n    03 R01-MOV-TRA-HD                  PIC  X(02) VALUE \"TR\".     010200\n    03 R01-MOV-TRA-TOTREG              PIC  9(10).                010300\n    03 R01-MOV-TRA-TOTCLAVES           PIC  9(10).                010400\n    03 R01-MOV-TRA-TOTIMPORTE          PIC  9(16)V99.             010500\n    03 FILLER                          PIC  X(680).               010600",
+          "java_codigo": "/** Registro de ARCHC402 (720 bytes). Las tres vistas comparten el buffer; el discriminador son las 2 primeras posiciones. */\npublic sealed interface RegistroC402 permits RegistroC402.Header, RegistroC402.Movimiento, RegistroC402.Trailer {\n\n    record Header(String sistema, LocalDate fecha) implements RegistroC402 {}        // \"HD\" 9(04) 9(08)\n\n    record Movimiento(int funcion,                     // 9(02): 01, 11, 21 o 98\n                      String sistema, String producto, String instrumento,\n                      String sucursalPromotora,\n                      String contrato,                 // 9(16) como String: conserva ceros\n                      List<Concepto> conceptos,        // OCCURS 5\n                      int tipoProceso                  // R01-MOV-TIPO-PROC: P122 lo ignora (ver s7)\n                      /* ... fechas, autorizaciones, referencias, indicadores ... */) implements RegistroC402 {}\n\n    record Concepto(int claveTransaccion, int indLeyenda, int esquemaContable,\n                    BigDecimal importe) {}             // 9(14)V99 -> escala 2\n\n    record Trailer(long totalRegistros, long totalClaves,\n                   BigDecimal totalImporte) implements RegistroC402 {}   // 9(10) 9(10) 9(16)V99\n\n    static RegistroC402 parse(String r) {\n        return switch (r.substring(0, 2)) {\n            case \"HD\" -> new Header(r.substring(2, 6), Fixed.fechaAmd(r, 6));\n            case \"TR\" -> new Trailer(Fixed.entero(r, 2, 10), Fixed.entero(r, 12, 10), Fixed.decimal(r, 22, 18, 2));\n            default   -> Fixed.movimientoC402(r);   // R01-MOV-FN-ALFA no numérico se detecta al validar la función\n        };\n    }\n}",
+          "racional": "El archivo de los sistemas C/S e IBM usa un solo registro de 720 posiciones con tres vistas: header, movimiento con hasta cinco conceptos y trailer de control. El programa distingue el trailer leyendo la función como texto mediante el <code>REDEFINES</code> <code>R01-MOV-FN-ALFA</code>. En Java las tres vistas son <code>record</code> de una <code>sealed interface</code> con un parser que decide por los dos primeros caracteres. Los importes <code>9(14)V99</code> y el total <code>9(16)V99</code> son <code>BigDecimal</code> de escala 2 y el contrato de 16 dígitos se conserva como <code>String</code>. El formato de Tandem (1261 posiciones) tiene su propio record con la misma interfaz.",
+          "reglas": [
+            "RN-S151-850",
+            "RN-S151-851"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Títulos de archivo compilados a application.yml",
+          "linea_ini": 55,
+          "linea_fin": 72,
+          "origen_codigo": " 01 WKS-TIT-RECIBE-600.                                           001864\n    02 FILLER                      PIC X(06) VALUE \"(S151)\".      001866\n    02 FILLER                      PIC X(10) VALUE \"S151/FILE/\".  001868\n    02 FILLER                     PIC X(13) VALUE \"INTE/15101E02\".001870\n    02 FILLER                      PIC X(08) VALUE \"/10/C600\".    001875\n    02 FILLER                      PIC X(12) VALUE \"/FILE/E01/10\".001876\n    02 FILLER                      PIC X(06) VALUE \"/S151/\".      001878\n    02 WKS-TIT-FECHAPRO-600        PIC 9(08).                     001880\n    02 FILLER                      PIC X(10) VALUE \" ON CMEMP.\".  001882\n 01 WKS-TIT-RECIBE.                                               001900\n    02 FILLER                      PIC X(06) VALUE \"(S151)\".      002000\n    02 WKS-TIT-ID-SISTEMA          PIC X(01).                     002040\n    02 WKS-TIT-NUM-SISTEMA         PIC 9(03).                     002050\n    02 FILLER                      PIC X(12) VALUE \"/FILE/E01/10\".002100\n    02 FILLER                      PIC X(06) VALUE \"/S151/\".      002200\n    02 WKS-TIT-FECHAPRO            PIC 9(08).                     002300\n    02 FILLER                      PIC X(01) VALUE \".\".           002400",
+          "java_codigo": "# application.yml\np122:\n  pack: CMEMP\n  entradas:\n    \"600\": \"(S151)S151/FILE/INTE/15101E02/10/C600/FILE/E01/10/S151/{fecha}\"\n    default: \"(S151){prefijo}{sistema}/FILE/E01/10/S151/{fecha}.\"     # prefijo C o S\n  formato-fecha: yyyyMMdd\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p122\")\npublic record P122Properties(String pack, Map<String, String> entradas, String formatoFecha) {\n\n    public String tituloEntrada(SistemaOrigen s, LocalDate fechaProceso) {\n        String plantilla = entradas.getOrDefault(String.valueOf(s.numero()), entradas.get(\"default\"));\n        return plantilla.replace(\"{prefijo}\", s.prefijo())\n                        .replace(\"{sistema}\", \"%03d\".formatted(s.numero()))\n                        .replace(\"{fecha}\", fechaProceso.format(DateTimeFormatter.ofPattern(formatoFecha)))\n               + \" ON \" + pack;\n    }\n}",
+          "racional": "Hay dos plantillas de título: una exclusiva del sistema 600, con una ruta de interfaz propia, y una general que arma el nombre con el prefijo C o S, el número de sistema de tres dígitos y la fecha de proceso de ocho. Las rutas, el nodo 10 y el pack <code>CMEMP</code> pasan a <code>application.yml</code>. El número de sistema es <code>PIC 9(03)</code>, por eso se formatea con tres dígitos.",
+          "reglas": [
+            "RN-S151-850"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Ruteo del sistema recibido al archivo y formato correctos",
+          "linea_ini": 1618,
+          "linea_fin": 1647,
+          "origen_codigo": "    IF W77-SIST-PARAM = 600                                       011521\n       CHANGE ATTRIBUTE TITLE OF ARCHC402 TO WKS-TIT-RECIBE-600   011522\n       MOVE \"C\"                      TO WKS-TIT-ID-SISTEMA        011524\n                                        WKS-E01-ID-SISTEMA        011526\n    ELSE                                                          011528\n    IF W77-SIST-PARAM = 402 OR 600                                011530\n       MOVE \"C\"                      TO WKS-TIT-ID-SISTEMA        011540\n                                        WKS-E01-ID-SISTEMA        011550\n       CHANGE ATTRIBUTE TITLE OF ARCHC402 TO WKS-TIT-RECIBE       011552\n    ELSE                                                          011553\n    IF W77-SIST-PARAM = 804                                       011554\n       MOVE \"S\"                      TO WKS-TIT-ID-SISTEMA        011555\n                                        WKS-E01-ID-SISTEMA        011556\n       CHANGE ATTRIBUTE TITLE OF ARCHC402 TO WKS-TIT-RECIBE       011557\n    ELSE                                                          011560\n       MOVE \"S\"                      TO WKS-TIT-ID-SISTEMA        011570\n                                        WKS-E01-ID-SISTEMA        011580\n       CHANGE ATTRIBUTE TITLE OF ARCHS707 TO WKS-TIT-RECIBE.      011585\n    IF W77-SIST-PARAM = 707 OR 203                                011592\n       OPEN INPUT ARCHS707                                        011594\n    ELSE                                                          011596\n       OPEN INPUT ARCHC402.                                       011600",
+          "java_codigo": "/** Sistemas originadores conocidos; el fuente manda cualquier otro valor al formato Tandem. */\npublic enum SistemaOrigen {\n    C402(402, \"C\", Formato.C402), C600(600, \"C\", Formato.C402), S804(804, \"S\", Formato.C402),\n    S707(707, \"S\", Formato.S707), S203(203, \"S\", Formato.S707);\n\n    public enum Formato { C402, S707 }      // 720 y 1261 posiciones\n    private final int numero; private final String prefijo; private final Formato formato;\n    SistemaOrigen(int n, String p, Formato f) { numero = n; prefijo = p; formato = f; }\n    public int numero() { return numero; }\n    public String prefijo() { return prefijo; }\n    public Formato formato() { return formato; }\n\n    public static SistemaOrigen de(int parametro) {\n        return Arrays.stream(values()).filter(s -> s.numero == parametro).findFirst()\n                .orElseThrow(() -> new IllegalArgumentException(\n                        \"Sistema no soportado por P122: \" + parametro));   // el fuente lo trataría como Tandem\n    }\n}\n\n@Bean\nIntegrationFlow entradaMovimientos(P122Properties props) {\n    return IntegrationFlow.from(\"p122.solicitudes\")                       // sistema + fecha de proceso\n            .<SolicitudCarga, SistemaOrigen.Formato>route(s -> s.sistema().formato(), r -> r\n                    .subFlowMapping(SistemaOrigen.Formato.C402, f -> f.channel(\"p122.c402\"))\n                    .subFlowMapping(SistemaOrigen.Formato.S707, f -> f.channel(\"p122.s707\")))\n            .get();\n}",
+          "racional": "El programa recibe el sistema como parámetro y con una cadena de <code>IF</code> decide el prefijo, la plantilla de título y cuál de los dos archivos abrir: 402, 600 y 804 en el formato C402; 707 y 203 en el de Tandem. En Java el parámetro se valida contra un <code>enum</code> con los cinco sistemas conocidos y un router de Spring Integration envía la solicitud al flujo del formato correspondiente. La diferencia deliberada es que un sistema desconocido se rechaza, mientras que el fuente lo procesa como Tandem.",
+          "reglas": [
+            "RN-S151-850"
+          ],
+          "riesgo": "La última rama ELSE asigna prefijo S y archivo ARCHS707 a cualquier número de sistema que no sea 402, 600 u 804: un parámetro erróneo intentaría abrir un archivo Tandem inexistente y el MCP quedaría esperando al operador."
+        }
+      ]
+    },
+    {
+      "titulo": "Validación del archivo y control de reejecución en alta disponibilidad",
+      "origen": {
+        "archivo": "COBOL_P122.txt",
+        "contexto": "050-VALIDA-ARCHIVO · 082-VALIDA-TR-402 · 1000-VERIFICA-B05"
+      },
+      "java": {
+        "archivo": "ValidadorArchivoMovimientos.java · ControlReejecucion.java",
+        "contexto": "Tasklet de validación · JobExecutionDecider · cliente L001"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Header obligatorio; trailer solo para el sistema 804",
+          "linea_ini": 1686,
+          "linea_fin": 1707,
+          "origen_codigo": " 050-VALIDA-ARCHIVO.                                              012201\n    MOVE ZERO                              TO W77-TRAILER         012203\n                                              W77-FIN             012204\n                                              W77-HEADER          012205\n                                              W77-TOT-REGISTROS   012206\n                                              W77-TOT-CLAVES      012210\n                                              W77-TOT-IMPORTE  .  012211\n    IF W77-SIST-PARAM = 707 OR 203                                012212\n       PERFORM 051-VALIDA-HD     UNTIL W77-HEADER  = 1            012213\n       MOVE 1                             TO W77-TRAILER          012214\n*      PERFORM 052-VALIDA-TR-707 UNTIL W77-TRAILER = 1 OR         012215\n*                                      W77-FIN     = 1            012216\n    ELSE                                                          012217\n       PERFORM 081-VALIDA-HD     UNTIL W77-HEADER  = 1            012218\n       IF W77-SIST-PARAM = 804                                    012219\n          PERFORM 082-VALIDA-TR-402 UNTIL W77-TRAILER = 1 OR      012220\n                                          W77-FIN     = 1         012221\n       ELSE                                                       012222\n          MOVE 1                           TO W77-TRAILER.        012223\n    IF W77-HEADER = 1 AND W77-TRAILER = 1                         012224\n       MOVE 1                               TO W77-ARCHIVO-OK.    012225",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ValidadorArchivoMovimientos {\n\n    /** 050-VALIDA-ARCHIVO. */\n    public void valida(SistemaOrigen sistema, List<RegistroC402> archivo) {\n        if (archivo.isEmpty() || !(archivo.get(0) instanceof RegistroC402.Header)) {\n            throw new ArchivoRechazadoException(\"SE RECHAZA ARCHIVO SIN HEADER\");\n        }\n        // Los sistemas 707 y 203 tienen la validación de trailer comentada en el fuente.\n        if (sistema == SistemaOrigen.S804) {\n            validaTrailer(archivo);                          // 082-VALIDA-TR-402\n        }\n    }\n}\n\n// En el MCP el rechazo pide al operador cambiar el archivo y vuelve a validar (PERFORM ... UNTIL).\n// En Java el step termina en FAILED y el reintento lo decide el orquestador al recibir un archivo nuevo.",
+          "racional": "La validación se repite hasta que el archivo es aceptado: si falta el header o el trailer no cuadra, se pide al operador que cambie el archivo y se vuelve a leer desde el principio. Solo el sistema 804 pasa por la validación del trailer; para 707 y 203 la llamada está comentada y el trailer se da por bueno, igual que para 402 y 600. En Java la validación es un paso previo a la carga y el rechazo termina el step con error en lugar de esperar una respuesta en consola.",
+          "reglas": [
+            "RN-S151-851"
+          ],
+          "riesgo": "Para 402, 600, 707 y 203 no se valida ningún total de control: un archivo truncado o duplicado se carga completo a contabilidad."
+        },
+        {
+          "id": "s5",
+          "titulo": "Cuadre del trailer: registros e importe, sin el total de claves",
+          "linea_ini": 1812,
+          "linea_fin": 1867,
+          "origen_codigo": " 082-VALIDA-TR-402.                                               012420\n    READ ARCHC402 INTO R01-MOV-DATOS AT END MOVE 1 TO W77-FIN  .  012422\n    ADD 1                                 TO W77-TOT-REGISTROS.   012424\n    IF W77-FIN = 0                                                012425\n       MOVE R01-MOV-FUNCION               TO W77-VALIDA-FUNCION   012426\n       IF W88-VALIDA-FUNCION                                      012427\n          IF R01-MOV-FUNCION = 1                                  012428\n             PERFORM 084-ACUMULA VARYING W77-IND FROM 1 BY 1      012430\n                                 UNTIL   W77-IND > 5              012432\n          ELSE                                                    012434\n             NEXT SENTENCE                                        012435\n       ELSE                                                       012436\n          MOVE R01-MOV-DATOS    TO R01-MOV-TRAILER                012438\n          MOVE R01-MOV-FN-ALFA  TO R01-MOV-TRA-HD                 012440\n          IF R01-MOV-TRA-HD = \"TR\"                                012442\n             MOVE 1                         TO W77-TRAILER        012444\n             COMPUTE W77-TOT-REGISTROS = W77-TOT-REGISTROS - 1    012445\n             IF W77-TOT-REGISTROS = R01-MOV-TRA-TOTREG        AND 012446\n*                W77-TOT-CLAVES    = R01-MOV-TRA-TOTCLAVES     AND012448\n                W77-TOT-IMPORTE   = R01-MOV-TRA-TOTIMPORTE        012450\n                NEXT SENTENCE                                     012452\n             ELSE                                                 012454\n               MOVE ZERO                    TO W77-HEADER         012456\n               PERFORM 086-ACEPTA-RESPUESTA                       012488\n          ELSE                                                    012490\n             NEXT SENTENCE                                        012492\n    ELSE                                                          012494\n       PERFORM 086-ACEPTA-RESPUESTA.                              012508\n 084-ACUMULA.                                                     012512\n  IF R01-MOV-CVETRAN(W77-IND) > 0                                 012516\n     ADD 1                                TO W77-TOT-CLAVES       012518\n     ADD R01-MOV-IMPORTE(W77-IND)         TO W77-TOT-IMPORTE.     012520",
+          "java_codigo": "    /** 082-VALIDA-TR-402 + 084-ACUMULA. */\n    void validaTrailer(List<RegistroC402> archivo) {\n        long registros = 0, claves = 0;\n        BigDecimal importe = BigDecimal.ZERO.setScale(2);\n        RegistroC402.Trailer tr = null;\n\n        for (RegistroC402 r : archivo.subList(1, archivo.size())) {\n            registros++;\n            if (r instanceof RegistroC402.Trailer t) { tr = t; registros--; break; }\n            if (r instanceof RegistroC402.Movimiento m && m.funcion() == 1) {   // solo función 01 suma\n                for (var c : m.conceptos()) {\n                    if (c.claveTransaccion() > 0) { claves++; importe = importe.add(c.importe()); }\n                }\n            }\n            // funciones 11, 21, 98 y registros con función no catalogada que no son TR: se cuentan y se siguen leyendo\n        }\n        if (tr == null) {\n            throw new ArchivoRechazadoException(\"ARCHIVO SIN TRAILER SE RECHAZA ARCHIVO\");\n        }\n        boolean cuadra = tr.totalRegistros() == registros\n                && tr.totalImporte().compareTo(importe) == 0;\n        // R01-MOV-TRA-TOTCLAVES se calcula y se muestra pero la comparación está comentada.\n        if (!cuadra) {\n            throw new ArchivoRechazadoException(\"ARCHIVO CON TRAILER ERRONEO TOT REG CALC. %d VS %d IMP. CALC. %s VS %s\"\n                    .formatted(registros, tr.totalRegistros(), importe, tr.totalImporte()));\n        }\n    }",
+          "racional": "El cuadre cuenta todos los registros posteriores al header y antes del trailer, y suma los importes de los conceptos con clave de transacción mayor que cero, pero solo en registros de función 01. La comparación usa el total de registros y el de importe; la del total de claves está comentada aunque se sigue calculando y mostrando. En Java el recorrido es un ciclo sobre los registros ya parseados y la comparación de importes se hace con <code>compareTo</code> para no depender de la escala. La aceptación manual por el operador también está comentada, así que un trailer erróneo siempre rechaza el archivo.",
+          "reglas": [
+            "RN-S151-851",
+            "RN-S151-852"
+          ],
+          "riesgo": "El total de claves del trailer no se valida. Además, las funciones 11, 21 y 98 cuentan como registros pero sus importes no entran a la suma."
+        },
+        {
+          "id": "s6",
+          "titulo": "Control de reejecución con B05 para los sistemas 203 y 804",
+          "linea_ini": 1604,
+          "linea_fin": 2203,
+          "origen_codigo": "    IF ATTRIBUTE VALUE OF MYSELF = 0                              011100\n       MOVE WKS-B01-FECPRO              TO W77-FECHA-PROCESO      011200\n       MOVE WKS-B01-FECPRO151           TO W77-FECHA-PROCESO151   011210\n    ELSE                                                          011300\n       MOVE ATTRIBUTE VALUE OF MYSELF    TO W77-FECHA-PROCESO.    011400\n    IF(W77-SIST-PARAM = 203 OR 804)                               011588\n                 AND ATTRIBUTE VALUE OF MYSELF = 0                011589\n          PERFORM 1000-VERIFICA-B05.                              011590\n 1000-VERIFICA-B05.                                               032500\n     MOVE 01                      TO WKS-B05-FUNCION              032600\n     MOVE W77-SIST-PARAM          TO WKS-B05-SISTEMA              032700\n     MOVE W77-FECHA-PROCESO151    TO WKS-B05-FCHPRO               032800\n     MOVE 122                     TO WKS-B05-NUMPRO               032900\n     MOVE ZEROS                   TO WKS-B05-FCHINI               033000\n                                     WKS-B05-NUMREGINI.           033100\n     CALL \"B05PROCESOS IN S151LIBCONTROL\" USING WKS-B05PROCESOS   033300\n                                    GIVING W77-RESULT-LIBCON.     033400\n     IF W77-RESULT-LIBCON = 0                                     033600\n          IF WKS-B05-STAPGM = 0                                   033700\n              NEXT SENTENCE                                       033800\n          ELSE                                                    033900\n              STOP RUN                                            034000\n     ELSE                                                         034100\n          PERFORM 1100-CREA-B05.                                  034200\n 1200-ACTUALIZA-B05.                                              037000\n     MOVE 37                              TO WKS-B05-FUNCION      037100\n     MOVE W77-SIST-PARAM                  TO WKS-B05-SISTEMA      037200\n     MOVE W77-FECHA-PROCESO151            TO WKS-B05-FCHPRO       037300\n     MOVE 122                             TO WKS-B05-NUMPRO       037400\n     MOVE ZEROS                           TO WKS-B05-FCHINI       037500\n                                             WKS-B05-NUMREGINI    037600\n     MOVE 01                              TO WKS-B05-STAPGM.      037800\n     CALL \"B05PROCESOS IN S151LIBCONTROL\" USING WKS-B05PROCESOS   038000\n                                    GIVING W77-RESULT-LIBCON.     038100",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ControlReejecucion implements JobExecutionDecider {\n\n    private static final int NUM_PROCESO = 122;      // WKS-B05-NUMPRO\n    private final ControlS151 libControl;            // L001 B05PROCESOS\n\n    /** 1000-VERIFICA-B05: solo para 203 y 804 y solo cuando la tarea no recibió fecha (VALUE = 0). */\n    @Override\n    public FlowExecutionStatus decide(JobExecution je, StepExecution se) {\n        var p = Parametros.de(je);\n        if (!(p.sistema() == SistemaOrigen.S203 || p.sistema() == SistemaOrigen.S804) || p.fechaExplicita()) {\n            return FlowExecutionStatus.COMPLETED;\n        }\n        var clave = ProcesoDto.consulta(p.sistema().numero(), p.fechaProceso151(), NUM_PROCESO);\n        ResultadoControl r = libControl.b05Procesos(clave);                       // función 01\n        if (r == ResultadoControl.OK) {\n            return clave.statusPrograma() == 0 ? FlowExecutionStatus.COMPLETED\n                                               : new FlowExecutionStatus(\"YA_TERMINADO\");   // STOP RUN\n        }\n        if (r == ResultadoControl.NO_EXISTE) {\n            libControl.b05Procesos(clave.comoAlta());                                // función 19\n            return FlowExecutionStatus.COMPLETED;\n        }\n        throw new ControlException(r);   // el fuente intenta el alta ante cualquier resultado distinto de 0\n    }\n\n    /** 1200-ACTUALIZA-B05: función 37 con STAPGM = 01 al terminar la carga. */\n    public void marcaTerminado(Parametros p) {\n        libControl.b05Procesos(ProcesoDto.consulta(p.sistema().numero(), p.fechaProceso151(), NUM_PROCESO)\n                                         .comoCambio(1));\n    }\n}",
+          "racional": "El control solo se activa para los sistemas 203 y 804 y cuando el valor de la tarea es cero, que es el caso en que el programa toma las fechas de B01; si la tarea recibe una fecha explícita, el control no aplica. P122 consulta en B05 el proceso 122 del día: si existe y ya está terminado se detiene, si no existe lo da de alta, y al final lo marca terminado con estatus 01. En Java es un <code>JobExecutionDecider</code> que devuelve un estado propio para el caso de proceso ya terminado, en lugar de un <code>STOP RUN</code> que el WFL no puede distinguir de una ejecución normal.",
+          "reglas": [
+            "RN-S151-855"
+          ],
+          "riesgo": "Cualquier resultado de L001 distinto de 0, incluido un error de base, lleva a intentar el alta (línea 2163). Como ALTA_B05 de L001 regresa 0 ante un duplicado, el control puede quedar inconsistente sin que nadie lo note."
+        }
+      ]
+    },
+    {
+      "titulo": "Carga de movimientos hacia L002 y cierre del lote",
+      "origen": {
+        "archivo": "COBOL_P122.txt",
+        "contexto": "200-LEEYLLAMA · 400-ENVIA-FIN-MOVTOS · 000001-INICIO"
+      },
+      "java": {
+        "archivo": "CargaMovimientosWriter.java · MovimientoL002Mapper.java",
+        "contexto": "ItemProcessor · ItemWriter · adaptador CARGAMOV1"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Transformación al área de L002 con tipo de proceso forzado a 1",
+          "linea_ini": 1888,
+          "linea_fin": 1989,
+          "origen_codigo": " 200-LEEYLLAMA.                                                   012600\n   MOVE  LOW-VALUES               TO WKS-MOV-DATOS.               012700\n   MOVE  R01-MOV-FUNCION          TO WKS-MOV-FUNCION.             012800\n   MOVE  R01-MOV-SISTEMA          TO WKS-MOV-SISTEMA.             012900\n   MOVE  R01-MOV-PRODUCTO         TO WKS-MOV-PRODUCTO.            013000\n   MOVE  R01-MOV-INSTRUMENTO      TO WKS-MOV-INSTRUMENTO.         013100\n   MOVE  R01-MOV-SUCPROM          TO WKS-MOV-SUCPROM.             013200\n   MOVE  R01-MOV-CONTRATO         TO WKS-MOV-CONTRATO.            013300\n   MOVE  R01-MOV-CVETRAN(1)       TO WKS-MOV-CVETRAN(1).          013400\n*   MOVE  R01-MOV-TIPO-PROC        TO WKS-MOV-TIPO-PROC.          017600\n   MOVE  1                        TO WKS-MOV-TIPO-PROC.           017610\n   CALL \"CARGAMOV1 IN LIB-REG\"  USING WKS-MOV-DATOS               020300\n                                GIVING WKS-151-RESULT.            020400\n   ADD 1 TO W77-CONT.                                             020500\n   PERFORM 300-SUMA-IMPORTES.                                     020600\n   IF WKS-151-RESULT > 0                                          020700\n      CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ.        020760\n   MOVE 2                         TO A00-R01-PUN-CVEREG .         020810\n   IF R01-MOV-FUNCION = 01                                        020815\n      PERFORM 500-GRABA-PUNTEO.                                   020820\n   READ ARCHC402 INTO R01-MOV-DATOS AT END MOVE 1 TO W77-FIN.     020900\n   MOVE R01-MOV-FUNCION           TO W77-VALIDA-FUNCION.          021000\n   IF NOT W88-VALIDA-FUNCION                                      021100\n      PERFORM 400-ENVIA-FIN-MOVTOS                                021150\n      MOVE        1               TO W77-FIN.                     021200",
+          "java_codigo": "@Component\npublic class MovimientoL002Mapper implements ItemProcessor<RegistroC402.Movimiento, MovimientoL002> {\n\n    private static final int TIPO_PROCESO_NORMAL = 1;\n\n    /** 200-LEEYLLAMA: MOVE LOW-VALUES y copia campo a campo. */\n    @Override\n    public MovimientoL002 process(RegistroC402.Movimiento m) {\n        if (!FuncionMovimiento.esValida(m.funcion())) {     // 88 W88-VALIDA-FUNCION 01, 11, 21, 98\n            return null;                                    // fin del bloque: ver CargaMovimientosWriter\n        }\n        return MovimientoL002.builder()\n                .funcion(m.funcion()).sistema(m.sistema())\n                .producto(m.producto()).instrumento(m.instrumento())\n                .sucursalPromotora(m.sucursalPromotora()).contrato(m.contrato())\n                .conceptos(m.conceptos())\n                // .tipoProceso(m.tipoProceso())   línea original comentada en el fuente\n                .tipoProceso(TIPO_PROCESO_NORMAL)  // se ignora el valor que envía el sistema originador\n                .build();\n    }\n}\n\n@Component\n@RequiredArgsConstructor\nclass CargaMovimientosWriter implements ItemWriter<MovimientoL002> {\n    private final CargaMovimientosClient l002;      // CARGAMOV1 IN LIB-REG\n    private final PunteoWriter punteo;\n    private long contador;                          // W77-CONT\n\n    @Override\n    public void write(Chunk<? extends MovimientoL002> chunk) {\n        for (var mov : chunk) {\n            int resultado = l002.cargaMovimiento(mov);\n            contador++;\n            if (resultado > 0) {\n                log.warn(\"ERROR ENVIO {} {} EN REG. {}\", mov.sistema(), resultado, contador);   // y continúa\n            }\n            if (mov.funcion() == 1) punteo.escribe(mov);   // 500-GRABA-PUNTEO\n        }\n    }\n}",
+          "racional": "Cada movimiento se copia campo por campo al área de llamado de L002. El tipo de proceso que trae el registro de origen no se usa: la línea que lo copiaba está comentada y la siguiente fija el valor 1. La lectura se detiene en el primer registro cuya función no está entre 01, 11, 21 y 98, normalmente el trailer. En Java el mapeo es un <code>ItemProcessor</code> y la llamada a la librería un <code>ItemWriter</code>; la constante 1 queda con nombre para que la decisión sea visible. Un rechazo de L002 solo se informa en bitácora, igual que en el fuente.",
+          "reglas": [
+            "RN-S151-852",
+            "RN-S151-853"
+          ],
+          "riesgo": "Si L002 rechaza un movimiento (resultado mayor que 0) el programa solo muestra un mensaje y sigue: el lote termina normalmente con movimientos sin registrar en contabilidad."
+        },
+        {
+          "id": "s8",
+          "titulo": "Centinela de función 98 enviado al terminar el archivo",
+          "linea_ini": 1677,
+          "linea_fin": 2086,
+          "origen_codigo": "    PERFORM 400-ENVIA-FIN-MOVTOS.                                 012050\n 400-ENVIA-FIN-MOVTOS.                                            026700\n   MOVE  LOW-VALUES               TO   WKS-MOV-DATOS.             026900\n   MOVE  98                       TO   WKS-MOV-FUNCION.           027000\n   MOVE  W77-SIST-PARAM           TO   WKS-MOV-SISTEMA.           027100\n   MOVE  WKS-TIT-FECHAPRO         TO   WKS-MOV-FECCONT.           027200\n   CALL \"CARGAMOV1 IN LIB-REG\"    USING  WKS-MOV-DATOS            027300\n                                  GIVING WKS-151-RESULT.          027400",
+          "java_codigo": "    /** 400-ENVIA-FIN-MOVTOS: cierra el ciclo de carga del sistema en L002. */\n    @Bean\n    StepExecutionListener finDeMovimientos(CargaMovimientosClient l002) {\n        return new StepExecutionListener() {\n            @Override\n            public ExitStatus afterStep(StepExecution se) {\n                var p = Parametros.de(se.getJobExecution());\n                var fin = MovimientoL002.builder()\n                        .funcion(98)                                 // fin de proceso\n                        .sistema(String.valueOf(p.sistema().numero()))\n                        .fechaContable(p.fechaProceso())            // WKS-TIT-FECHAPRO\n                        .build();\n                int r = l002.cargaMovimiento(fin);\n                if (r > 0) {\n                    return ExitStatus.FAILED.addExitDescription(\"Fin de movimientos rechazado por L002: \" + r);\n                }\n                return se.getExitStatus();\n            }\n        };\n    }\n// Se envía una sola vez por ejecución; ver riesgo sobre el doble envío del fuente.",
+          "racional": "Al terminar el archivo, P122 manda a L002 un registro vacío con función 98, el sistema y la fecha de proceso, que la librería interpreta como cierre del lote de ese sistema. En Java el envío vive en un <code>StepExecutionListener</code> que corre una sola vez después del step de carga y, a diferencia del fuente, revisa el resultado de la librería.",
+          "reglas": [
+            "RN-S151-854"
+          ],
+          "riesgo": "El centinela se envía dos veces: dentro de 200-LEEYLLAMA y 800-LEEYLLAMA al encontrar una función no válida (líneas 1988 y 2019) y otra vez desde la rutina principal (línea 1677). El resultado de esta llamada no se revisa en ninguno de los dos casos."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Doble envío del fin de movimientos",
+      "detalle": "400-ENVIA-FIN-MOVTOS se ejecuta al detectar una función no válida en la lectura (líneas 1988 y 2019) y nuevamente en la rutina principal (línea 1677). L002 recibe dos registros de función 98 por ejecución; debe confirmarse que la librería tolera el segundo."
+    },
+    {
+      "titulo": "Validación de totales parcial",
+      "detalle": "Solo el sistema 804 valida trailer (líneas 1701-1705) y la comparación del total de claves está comentada (línea 1831). Para 707 y 203 incluso la llamada a la validación está comentada (líneas 1697-1698)."
+    },
+    {
+      "titulo": "Rechazos de L002 sin efecto",
+      "detalle": "Un resultado mayor que 0 de CARGAMOV1 solo genera un mensaje de consola (líneas 1970-1980 y 2001-2011); la carga continúa y el programa termina normalmente."
+    },
+    {
+      "titulo": "Dependencia del operador",
+      "detalle": "Un archivo sin header o con trailer erróneo provoca un ciclo de CLOSE, mensaje al operador y OPEN hasta que se entregue un archivo válido (PERFORM 050-VALIDA-ARCHIVO UNTIL, línea 1653). La aceptación manual está comentada (líneas 1871-1875)."
+    },
+    {
+      "titulo": "Detención silenciosa por B05",
+      "detalle": "Cuando el proceso ya está marcado como terminado en B05 el programa hace STOP RUN (línea 2161) sin mensaje ni código de resultado; el WFL no puede distinguirlo de una carga exitosa."
+    },
+    {
+      "titulo": "Valores fijos",
+      "detalle": "Títulos de archivo con el pack CMEMP, ruta especial del sistema 600, número de proceso 122 en B05, título por defecto de L002 y el título de LIBLJ están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-855 interpreta ATTRIBUTE VALUE OF MYSELF = 0 como ejecución en el host primario. En el fuente ese mismo valor decide si la fecha de proceso se toma de B01 o del valor de la tarea (líneas 1604-1610). Confirmar con SME el significado operativo del valor de la tarea en el WFL que lanza P122.",
+    "RN-S151-852 dice que la lectura termina al primer registro con función no catalogada; en la validación del trailer del 804 esos registros se cuentan y se siguen leyendo (líneas 1853-1854). Confirmar si pueden llegar registros intermedios con funciones no catalogadas.",
+    "Confirmar si L002 es idempotente ante el segundo registro de función 98.",
+    "El layout de WKS-REG-NVO y WKS-MSG-NVO (formato Tandem de 1261 posiciones) se mueve con MOVE CORRESPONDING; no se transpiló en este borrador y requiere un mapeo campo a campo validado."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-850",
+    "RN-S151-851",
+    "RN-S151-852",
+    "RN-S151-853",
+    "RN-S151-854",
+    "RN-S151-855"
+  ]
+}

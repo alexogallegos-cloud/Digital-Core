@@ -1,0 +1,134 @@
+{
+  "slug": "S151_L194",
+  "sistema": "S151",
+  "programa": "L194",
+  "nombre": "Librería de archivado de ficheros por fecha",
+  "funcion": "Librería ALGOL de S151 que, dado un directorio y una fecha de corte, mueve al árbol RESPALDO los archivos cuyo último acceso es anterior a esa fecha y que no están en uso.",
+  "resumen": "Recibe el nombre de un directorio en forma de despliegue MCP y una fecha. Valida el nombre, recorre el directorio con GETSTATUS por bloques y, para cada archivo con fecha de último acceso anterior a la de corte y que no esté en uso, le cambia el título anteponiendo RESPALDO/. Devuelve -2 si el nombre es inválido y -1 si falla la lectura del directorio; en la ruta exitosa no asigna resultado.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s151.archivos",
+  "secciones": [
+    {
+      "titulo": "Interfaz y validación de entrada",
+      "origen": {
+        "archivo": "ALGOL_L194.txt",
+        "contexto": "INTEGER PROCEDURE REMUEVE_ARCHIVOS · DEFINE"
+      },
+      "java": {
+        "archivo": "ArchivadorFicheros.java · L194Properties.java",
+        "contexto": "interfaz · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Firma exportada y switches de tarea anulados",
+          "linea_ini": 3,
+          "linea_fin": 45,
+          "origen_codigo": "$ SHARING = PRIVATE                                                     00000300\nINTEGER PROCEDURE REMUEVE_ARCHIVOS (DIR, FECHA);                        00001300\n   EBCDIC ARRAY DIR [0];                                                00001400\n   INTEGER FECHA;                                                       00001600\n   B_REMUEVE:= NOT MYSELF.SW1;                                          00005700\n   B_DESPLIEGA:= MYSELF.SW2;                                            00005800\n   B_REMUEVE  := TRUE;                                                  00005820\n   B_DESPLIEGA:= TRUE;                                                  00005850",
+          "java_codigo": "/** Misma interfaz que exportaba L194: un solo procedimiento entero. */\npublic interface ArchivadorFicheros {\n    /**\n     * REMUEVE_ARCHIVOS(DIR, FECHA).\n     * @return 0 si recorrió el directorio, -1 si falló la lectura del directorio, -2 si el nombre es inválido\n     */\n    int remueveArchivos(String directorio, int fechaCorteJuliana);\n}\n\n# application.yml (los switches SW1 y SW2 de la tarea quedaban sobrescritos en el código)\nl194:\n  mueve-archivos: true     # B_REMUEVE := TRUE  (ignora NOT MYSELF.SW1)\n  despliega: true          # B_DESPLIEGA := TRUE (los DISPLAY están comentados)\n  prefijo-respaldo: \"RESPALDO/\"",
+          "racional": "L194 exporta un único procedimiento que recibe un directorio y una fecha y procesa los archivos de ese directorio. Se compila con <code>SHARING = PRIVATE</code>, así que cada consumidor tiene su propia instancia; como no guarda estado entre llamadas, en Java basta un <code>@Service</code> singleton. Las banderas de mover y desplegar se leían de los switches SW1 y SW2 de la tarea, pero las dos líneas siguientes las fijan en verdadero; la traducción las convierte en propiedades con el valor que hoy tiene efecto.",
+          "reglas": [],
+          "riesgo": "Las líneas 44 y 45 anulan los switches de la tarea: no hay forma de correr L194 en modo de simulación sin mover archivos."
+        },
+        {
+          "id": "s2",
+          "titulo": "Validación del nombre de directorio",
+          "linea_ini": 46,
+          "linea_fin": 54,
+          "origen_codigo": "   P_STD:= POINTER(A_STANDARD);                                         00005900\n   SCAN P:= DIR FOR I:84 UNTIL= \".\";                                    00006000\n   IF COR(I = 0, DISPLAYTOSTANDARD(P, P_STD)) THEN                      00006100\n      BEGIN                                                             00006200\n      IF B_DESPLIEGA THEN   ;                                           00006300\n      REMUEVE_ARCHIVOS:= -2;                                            00006500\n      GO TO XIT;                                                        00006600\n      END;                                                              00006700",
+          "java_codigo": "    private static final int LONGITUD_MAXIMA = 84;   // SCAN P:= DIR FOR I:84 UNTIL= \".\"\n\n    private Optional<Path> directorioValido(String dir) {\n        int punto = dir.indexOf('.');\n        if (punto < 0 || punto >= LONGITUD_MAXIMA) {\n            return Optional.empty();                    // REMUEVE_ARCHIVOS := -2\n        }\n        try {\n            return Optional.of(raiz.resolve(NombresMcp.aRuta(dir.substring(0, punto))));\n        } catch (InvalidPathException e) {               // DISPLAYTOSTANDARD falló\n            return Optional.empty();\n        }\n    }",
+          "racional": "El nombre de directorio llega en forma de despliegue MCP terminado en punto. Si no hay punto en las primeras 84 posiciones o la conversión a forma estándar falla, el procedimiento devuelve -2. En Java el nombre se convierte a una ruta del sistema de archivos con un adaptador de nomenclatura MCP y cualquier error de conversión produce el mismo código. El mensaje de error está comentado en el fuente y la rama de despliegue quedó vacía.",
+          "reglas": [],
+          "riesgo": "El IF B_DESPLIEGA THEN ; de la línea 50 no hace nada: un directorio inválido no deja rastro en consola ni en bitácora."
+        }
+      ]
+    },
+    {
+      "titulo": "Recorrido del directorio y archivado",
+      "origen": {
+        "archivo": "ALGOL_L194.txt",
+        "contexto": "GETSTATUS · DO ... UNTIL · OUTER BLOCK"
+      },
+      "java": {
+        "archivo": "ArchivadorFicherosService.java",
+        "contexto": "@Service · java.nio.file"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Recorrido del directorio con GETSTATUS por bloques",
+          "linea_ini": 56,
+          "linea_fin": 104,
+          "origen_codigo": "   REPLACE POINTER(GSA[50]) BY DIR UNTIL= \".\", \".\";                     00007100\n   TYPE:= 3 & 1 SUBTYPEF & 7 [41:03] & 1 [45:01]; % Directory call      00007200\n   DO                                                                   00007300\n   BEGIN                                                                00007400\n      GSA[0]:= 50;                                                      00007500\n      IF BGS:= GETSTATUS(TYPE, 0, 0 & 1 ACCESSDATE_BIT, GSA) THEN       00007600\n         REMUEVE_ARCHIVOS:= -1;                                         00008000\n         GO TO XIT;                                                     00008100\n      I:= 1;                                                            00008400\n      WHILE (I:= * + 1) LSS GSA[0] DO                                   00008500\n      BEGIN                                                             00008600\n         ANOW:= IF GSA[I].LEVELF NEQ 0 THEN                             00008700\n                   GSA[I]                                               00008800\n                ELSE                                                    00008900\n                   GSA[GSA[I].LINKF + 1];                               00009000\n      END; % ENDWHILE                                                   00012400\n      TYPE:= * & (4)[15:08];                                            00012500\n      END % ENDWHILE                                                    00012600\n   UNTIL NOT (BOOLEAN(GSA[0].[47:1]));                                  00012700",
+          "java_codigo": "    @Override\n    public int remueveArchivos(String dir, int fechaCorteJuliana) {\n        var raizDir = directorioValido(dir);\n        if (raizDir.isEmpty()) return -2;\n\n        // GETSTATUS tipo directorio devuelve los nombres por bloques; el bit 47 de GSA[0]\n        // indica que hay más entradas. DirectoryStream entrega la lista completa de una vez.\n        try (DirectoryStream<Path> entradas = Files.newDirectoryStream(raizDir.get())) {\n            for (Path archivo : entradas) {\n                procesa(archivo, fechaCorteJuliana);\n            }\n        } catch (IOException e) {\n            log.warn(\"Error en GetStatus {}\", dir, e);   // el DISPLAY está comentado en ALGOL\n            return -1;\n        }\n        return 0;                                        // en ALGOL no se asigna en la ruta exitosa\n    }",
+          "racional": "El procedimiento consulta el directorio con <code>GETSTATUS</code>, que devuelve las entradas en bloques dentro de un arreglo y marca con un bit si quedan más; el ciclo <code>DO ... UNTIL</code> repite la llamada hasta agotar el directorio. Cada entrada se resuelve a su nombre completo siguiendo los apuntadores <code>LINKF</code> y <code>LEVELF</code> del bloque. En Java todo eso se sustituye por <code>Files.newDirectoryStream</code>. Un error de la llamada devuelve -1, igual que antes.",
+          "reglas": [],
+          "riesgo": "En la ruta exitosa REMUEVE_ARCHIVOS nunca recibe valor: el resultado depende de la inicialización por omisión de ALGOL y no informa cuántos archivos se procesaron."
+        },
+        {
+          "id": "s4",
+          "titulo": "Filtro por fecha de último acceso y archivo no en uso",
+          "linea_ini": 76,
+          "linea_fin": 84,
+          "origen_codigo": "         REPLACE P:= POINTER(ARCHIVO) BY EA[ANOW.LINKF + 2]             00009200\n                                      FOR REAL(EA[ANOW.LINKF], 2),      00009300\n                                      \".\",                              00009320\n                                      48\"00\";                           00009340\n         DISPLAYTOSTANDARD(P, P_STD);                                   00010200\n         ACC_DATE  := 1900000 + GSA[GSA[I].LINKF + ADBV + 1];           00010570\n         IF ACC_DATE < FECHA THEN                                       00010600\n            IF NOT BOOLEAN(GSA[GSA[I].LINKF + 1].SUBVALUE3F) THEN       00010700\n            BEGIN                                                       00010800",
+          "java_codigo": "    private void procesa(Path archivo, int fechaCorteJuliana) throws IOException {\n        var attrs = Files.readAttributes(archivo, BasicFileAttributes.class);\n        if (attrs.isDirectory()) return;                     // nuevo: L194 no lo verifica\n\n        // ACC_DATE := 1900000 + fecha de acceso de GETSTATUS: se interpreta como AAAADDD juliano.\n        LocalDate acceso = LocalDate.ofInstant(attrs.lastAccessTime().toInstant(), zona);\n        int accesoJuliano = acceso.getYear() * 1000 + acceso.getDayOfYear();\n        if (accesoJuliano >= fechaCorteJuliana) return;      // IF ACC_DATE < FECHA\n\n        if (enUso(archivo)) return;                          // SUBVALUE3F = 1: archivo en uso\n        if (props.mueveArchivos()) mueveARespaldo(archivo);\n    }\n\n    private boolean enUso(Path archivo) {\n        try (var ch = FileChannel.open(archivo, StandardOpenOption.WRITE);\n             var lock = ch.tryLock()) {\n            return lock == null;\n        } catch (IOException | OverlappingFileLockException e) {\n            return true;\n        }\n    }",
+          "racional": "Para cada archivo se obtiene la fecha de último acceso que reporta <code>GETSTATUS</code>, se le suma 1 900 000 y se compara contra la fecha recibida; solo se procesan los archivos con acceso anterior y que no estén en uso. La suma sugiere que el sistema entrega el año relativo a 1900 en formato juliano, de modo que el resultado queda como AAAADDD; la traducción hace explícito ese formato. Lo que decide es el último acceso, no la fecha de creación del archivo.",
+          "reglas": [],
+          "riesgo": "El bit SUBVALUE2F, que distingue archivos de directorios, se declara en las líneas 36-39 pero nunca se evalúa: una entrada que sea directorio con acceso antiguo también se intenta mover."
+        },
+        {
+          "id": "s5",
+          "titulo": "El archivo no se borra: se retitula bajo el prefijo RESPALDO",
+          "linea_ini": 85,
+          "linea_fin": 99,
+          "origen_codigo": "               IF B_REMUEVE THEN                                        00011100\n               BEGIN                                                    00011200\n                  REPLACE F.TITLE BY P;                                 00011300\n                  OPEN(F);                                              00011400\n                  REPLACE P := POINTER(ARCHIVO)                         00011420\n                       BY \"RESPALDO/\"                ,                  00011430\n                          EA[ANOW.LINKF + 2]                            00011440\n                          FOR REAL(EA[ANOW.LINKF], 2),                  00011442\n                          \".\",                                          00011444\n                          48\"00\";                                       00011446\n                  REPLACE F.TITLE BY P;                                 00011448\n                  CLOSE(F, LOCK);                                       00011460\n                  F(KIND = DISK, DEPENDENTSPECS, FILEUSE = IO,          00011900\n                    NEWFILE = FALSE);                                   00012000\n               END;                                                     00012100",
+          "java_codigo": "    /** OPEN(F) con el título original, cambio de TITLE a RESPALDO/<nombre> y CLOSE(F, LOCK). */\n    private void mueveARespaldo(Path archivo) throws IOException {\n        Path destino = raiz.resolve(props.prefijoRespaldo())\n                           .resolve(raiz.relativize(archivo));\n        Files.createDirectories(destino.getParent());\n        Files.move(archivo, destino, StandardCopyOption.ATOMIC_MOVE);   // conserva el contenido\n        log.info(\"Archivado {} -> {}\", archivo, destino);\n    }",
+          "racional": "Pese a su nombre, <code>REMUEVE_ARCHIVOS</code> no elimina nada. Abre el archivo con su título, le cambia el título anteponiendo <code>RESPALDO/</code> y lo cierra con <code>LOCK</code>, que en MCP conserva el archivo con su nuevo nombre. El efecto es mover los archivos antiguos a un árbol de respaldo. En Java es un <code>Files.move</code> atómico hacia el mismo prefijo, ahora configurable, y cada movimiento queda registrado en bitácora, cosa que el fuente no hace.",
+          "reglas": [],
+          "riesgo": "Si ya existe un archivo con el título RESPALDO/<nombre>, el comportamiento de CLOSE(F, LOCK) depende de MCP; el fuente no lo valida. Tampoco hay depuración del árbol RESPALDO, que crece sin límite."
+        },
+        {
+          "id": "s6",
+          "titulo": "Bloque externo: exportación y FREEZE temporal",
+          "linea_ini": 110,
+          "linea_fin": 114,
+          "origen_codigo": "EXPORT                                                                  00013300\n   REMUEVE_ARCHIVOS;                                                    00013400\nFREEZE(TEMPORARY);                                                      00013500\nEND.                                                                    00013700",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ArchivadorFicherosService implements ArchivadorFicheros {\n    private final L194Properties props;\n    private final Path raiz;                 // raíz del almacenamiento equivalente al pack MCP\n    private final ZoneId zona;               // zona horaria de la fecha de acceso\n    // FREEZE(TEMPORARY): la librería vive mientras tenga usuarios; en Spring el bean vive\n    // mientras el contexto esté activo y no requiere manejo explícito.\n}",
+          "racional": "El bloque externo solo exporta el procedimiento y congela la librería en modo temporal, es decir, permanece cargada mientras algún programa la tenga enlazada. En Spring Boot ese ciclo de vida lo da el contenedor, así que el bloque se reduce a la declaración del servicio y sus dependencias: la raíz del almacenamiento que sustituye al pack y la zona horaria con la que se interpretan las fechas de acceso.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Nombre engañoso",
+      "detalle": "REMUEVE_ARCHIVOS no borra: retitula los archivos bajo RESPALDO/ (líneas 87-96). Quien lo invoque esperando liberar espacio en el pack no lo logra."
+    },
+    {
+      "titulo": "Directorios no excluidos",
+      "detalle": "SUBVALUE2F (líneas 36-39) se define pero no se evalúa; solo se excluyen los archivos en uso (línea 83)."
+    },
+    {
+      "titulo": "Resultado indefinido en éxito y sin bitácora",
+      "detalle": "La ruta exitosa no asigna REMUEVE_ARCHIVOS y todos los DISPLAY están comentados (líneas 50-51 y 63-64); no queda evidencia de qué archivos se movieron."
+    },
+    {
+      "titulo": "Switches de tarea sin efecto",
+      "detalle": "B_REMUEVE y B_DESPLIEGA se leen de SW1 y SW2 y se sobrescriben con TRUE en las líneas 44-45."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario no asocia reglas del brain a L194; no se usaron IDs de regla.",
+    "Confirmar el formato de la fecha que recibe L194 y el de la fecha de acceso de GETSTATUS; la suma 1900000 de la línea 81 sugiere juliano AAAADDD con año relativo a 1900, pero no se documenta en el fuente.",
+    "Confirmar qué programas invocan L194 y con qué directorios, para dimensionar el árbol RESPALDO.",
+    "Confirmar qué hace CLOSE(F, LOCK) cuando ya existe un archivo con el título de respaldo."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1156"
+  ]
+}

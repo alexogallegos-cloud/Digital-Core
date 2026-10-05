@@ -1,0 +1,219 @@
+{
+  "slug": "S500_P170",
+  "sistema": "S500",
+  "programa": "P170",
+  "nombre": "Cuadre de Cifras de Control del Batch de Captación",
+  "funcion": "Paso batch de S500 que corre después de P160: cuadra los totales de cargos y abonos de captación contra lo que recibieron Contabilidad (S151) y Línea de Crédito (S408), imprime los reportes de cifras y deja la base marcada como salida del paso 170.",
+  "resumen": "Verifica la versión del ejecutable, se identifica ante XATMI para poder llamar al S408 y exige que la base de captación sea salida del paso 160. Recorre las cifras de control de S500B09CIFRAS y, para cada producto, instrumento y moneda, consulta los totales recibidos por el S408 a través de la librería LINCRED y los del S151 a través de TOTXCVE. Calcula las diferencias de importe y número de movimientos, imprime los reportes de cifras, posición y estadísticas, y cuadra clave por clave el archivo TOTCVE ordenado. Si una consulta falla, el operador decide por consola si continúa o reintenta. Al final marca el paso 170 en S500B00CTRLPASO y el estado de disponibilidad en S500B02CONTROL.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.cifras",
+  "secciones": [
+    {
+      "titulo": "Control del job y candados de encadenamiento",
+      "origen": {
+        "archivo": "S500_SOURCE_P170.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20000010 / 20000015 / 20000150"
+      },
+      "java": {
+        "archivo": "CuadreCifrasJobConfig.java · CandadosArranqueTasklet.java",
+        "contexto": "Spring Batch Job · Tasklet · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal a definición de Job",
+          "linea_ini": 1455,
+          "linea_fin": 1466,
+          "origen_codigo": " 00000000-PRINCIPAL.\n     MOVE 2           TO W77-USO-LIBLJ\n     MOVE \"S500P170\"  TO W77-S000-MY-ID.\n     MOVE \"25MTP004\"  TO W77-S000-MY-VERSION.\n     MOVE \"P170\"      TO WS-0101-PASO-MSG B91-IDPROG.\n     MOVE \"25MTP004\"  TO WS-0101-MTP-MSG.\n   PERFORM 10000000-LIBRERIAS          THRU 10000000-EXIT.\n   PERFORM 20000000-OPEN               THRU 20000000-EXIT.\n   PERFORM 50000000-PROCESOS           THRU 50000000-EXIT.\n   PERFORM 70000000-CIERRO             THRU 70000000-EXIT.\n   STOP RUN.",
+          "java_codigo": "@Configuration\npublic class CuadreCifrasJobConfig {\n\n    /** 00000000-PRINCIPAL: librerías, apertura, procesos y cierre. */\n    @Bean\n    Job cuadreCifrasCaptacion(JobRepository repo,\n                              Step candadosArranque,     // 10000000-LIBRERIAS + 20000000-OPEN\n                              Step cuadreCifras,         // 50005000-IMP-CIFRAS (lee B09)\n                              Step ordenaTotCve,         // 50006000-SORT-CVES\n                              Step cuadrePorClave,       // 50007000-LEO-TOTCVE\n                              Step cierre) {             // 70000000-CIERRO: B02, B00, FINBATCH S151\n        return new JobBuilder(\"S500P170\", repo)\n                .start(candadosArranque)\n                .next(cuadreCifras)\n                .next(ordenaTotCve)\n                .next(cuadrePorClave)\n                .next(cierre)\n                .build();\n    }\n}",
+          "racional": "La rutina principal es la secuencia fija de cuatro <code>PERFORM ... THRU</code> que comparten los programas de S500. Cada bloque se vuelve un <code>Step</code>; el bloque de procesos se divide en tres porque mezcla un recorrido de base, un <code>SORT</code> y una lectura del archivo ordenado, y así cada uno puede reiniciarse por separado. Los <code>MOVE</code> de identificación (<code>S500P170</code>, <code>25MTP004</code>) pasan a ser nombre del job y versión del artefacto.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Versión del ejecutable e identificación XATMI ante el S408",
+          "linea_ini": 1538,
+          "linea_fin": 1561,
+          "origen_codigo": " 20000010-CHECO-VER.\n     PERFORM 20000100-CHECAME-VERSION.\n     IF S000-CTR-CVEERROR < 0\n        MOVE \"VER. EJECUTADA DIF. A VERSIONES\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n 20000010-EXIT.\n    EXIT.\n******************************************************************\n* LLAMADOS NECESARIOS PARA EL MANEJO DE TRANSIT POR PARTE DEL 408.\n******************************************************************\n 20000015-TRANSIT.\n     PERFORM 0000-CHANGE-XATMI.\n     MOVE \"S500P170\"                TO WS-XATMI-PROG-NAME\n     PERFORM 0000-CALL-TRANSIT.\n     IF WS-XATMI-RSLT = 0\n        NEXT SENTENCE\n     ELSE\n        MOVE WS-XATMI-RSLT           TO WS-RSLT-TRANSIT\n        STRING \"ERROR EN TP_IDENTIFY \", WS-RSLT-TRANSIT\n        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CandadosArranqueTasklet implements Tasklet {\n\n    private final MaestroVersiones versiones;      // S100VERSIONES\n    private final LineaCreditoClient s408;         // reemplaza XATMI + LINCRED\n    private final BuildProperties build;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        // 20000010-CHECO-VER\n        if (!versiones.autorizada(\"S500P170\", build.getVersion())) {\n            throw new ProcesoAbortadoException(\"VER. EJECUTADA DIF. A VERSIONES\");   // STATUS := -1\n        }\n        // 20000015-TRANSIT: TP_IDENTIFY(\"S500P170\") se vuelve el handshake del cliente.\n        int rslt = s408.identifica(\"S500P170\");\n        if (rslt != 0) {\n            throw new ProcesoAbortadoException(\"ERROR EN TP_IDENTIFY \" + rslt);\n        }\n        validaPasoAnterior();                       // 20000150-VAL-PASO\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Ambas validaciones abortan el programa con <code>CHANGE ATTRIBUTE STATUS OF MYSELF TO -1</code>, que en MCP termina la tarea. En Java son excepciones que dejan el job en FAILED antes de tocar la base. El control de versiones contra S100 pierde sentido cuando el artefacto se despliega con un pipeline que ya garantiza la versión, pero se conserva como verificación mientras convivan ambos mundos. La identificación XATMI se encapsula en el cliente del S408.",
+          "reglas": [
+            "RN-S500-261",
+            "RN-S500-263"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "La base debe ser salida del paso 160",
+          "linea_ini": 1608,
+          "linea_fin": 1633,
+          "origen_codigo": " 20000150-VAL-PASO.\n   PERFORM 90000000-B00CTRLPASO-LOCK.\n   IF WS-STATUS-BASE > 0\n     IF WS-STATUS-BASE = 1\n       STRING \"ERROR B00CTRLPASO VACIO \" WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n     ELSE\n       STRING \"ERROR AL HACER LOCK A B00CTRLPASO \" ,WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n   IF B00-NUM-PASO-01 = 160 AND B00-NUM-PASO-02 = 160\n      AND B00-NUM-PASO-03 = 160\n      MOVE 0  TO                B00-NUM-PASO-01 B00-NUM-PASO-02\n                                B00-NUM-PASO-03\n   ELSE\n      MOVE \"ERROR BASE NO ES SALIDA DEL P160\" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n   PERFORM 90000000-BEGIN-TRANSACTION.\n   PERFORM 90000000-B00CTRLPASO-STORE.\n   PERFORM 90000000-END-TRANSACTIONSYNC.",
+          "java_codigo": "    private final ControlPasoRepository controlPaso;   // S500B00CTRLPASO\n    private static final int PASO_PREVIO = 160;\n\n    @Transactional                                     // BEGIN-TRANSACTION .. END-TRANSACTIONSYNC\n    void validaPasoAnterior() {\n        ControlPaso cp = controlPaso.findForUpdate()   // B00CTRLPASO-LOCK\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B00CTRLPASO VACIO\"));\n        if (cp.paso01() != PASO_PREVIO || cp.paso02() != PASO_PREVIO || cp.paso03() != PASO_PREVIO) {\n            throw new ProcesoAbortadoException(\"ERROR BASE NO ES SALIDA DEL P160\");   // DMTERMINATE\n        }\n        cp.reiniciaPasos();                            // MOVE 0 TO B00-NUM-PASO-01..03\n        controlPaso.save(cp);                          // B00CTRLPASO-STORE\n    }",
+          "racional": "Los tres contadores de paso son el candado que impide correr P170 fuera de secuencia. La lectura con <code>LOCK</code> es un <code>SELECT ... FOR UPDATE</code> (<code>@Lock(PESSIMISTIC_WRITE)</code> en el repositorio) y el par <code>BEGIN-TRANSACTION</code> y <code>END-TRANSACTIONSYNC</code> es la frontera de <code>@Transactional</code>. En Spring Batch este candado se complementa con la secuencia del job, pero se mantiene porque P160 y P170 pueden migrar en momentos distintos.",
+          "reglas": [
+            "RN-S500-262"
+          ],
+          "riesgo": "Los contadores se ponen en cero al arrancar y sólo vuelven a 170 al final (70000150-ACT-B00). Si P170 aborta a la mitad, la base queda con pasos en cero y no puede reintentarse sin restaurar a mano el valor 160."
+        }
+      ]
+    },
+    {
+      "titulo": "Consulta de totales al S408 y al S151 con decisión del operador",
+      "origen": {
+        "archivo": "S500_SOURCE_P170.txt",
+        "contexto": "PROCEDURE DIVISION · 50005252 / 40000200 / 50005254 / 50005270"
+      },
+      "java": {
+        "archivo": "LineaCreditoClient.java · ConsultaTotalesS408.java · DecisionOperador.java · ConsultaTotalesS151.java",
+        "contexto": "@Service · Spring Retry · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Parámetros constantes de la consulta al S408",
+          "linea_ini": 2066,
+          "linea_fin": 2077,
+          "origen_codigo": " 50005252-CONSULTO.\n        MOVE ALL @00@            TO WS-S408-FTO\n        MOVE 0                   TO WS-S408-STATUS\n        MOVE 0                   TO WS-CICLO4\n        MOVE 13                  TO WS-S408-FUNCION\n        MOVE 170                 TO WS-S408-PASO\n        MOVE 30                  TO WS-S408-TIPOPROCESO\n        MOVE WS-FECHA-PRO        TO WS-S408-FECPRO\n        MOVE B09-NUM-PRODUCTO    TO WS03-NUM-PRODUCTO\n        MOVE B09-NUM-INSTRUM     TO WS03-NUM-INSTRUM\n        MOVE B09-MONEDA          TO WS03-MONEDA\n        PERFORM 40000200-CALL-S408  THRU 40000200-EXIT.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ConsultaTotalesS408 {\n\n    private final LineaCreditoClient s408;\n    private final P170Properties props;\n\n    public TotalesS408 consulta(CifraControl b09, LocalDate fechaProceso) {\n        var req = new ConsultaTotalesRequest(\n                props.s408().funcion(),          // 13\n                props.s408().paso(),             // 170\n                props.s408().tipoProceso(),      // 30\n                fechaProceso,\n                b09.producto(), b09.instrumento(), b09.moneda());\n        return s408.totales(req);                // 40000200-CALL-S408 con reintentos\n    }\n}\n\n# application.yml\np170:\n  s408:\n    funcion: 13\n    paso: 170\n    tipo-proceso: 30",
+          "racional": "La consulta se arma con tres literales que identifican la operación ante el S408 (función 13, paso 170, tipo de proceso 30) más la fecha y la llave del registro B09 en curso. Los literales pasan a <code>application.yml</code> porque son parte del contrato con otro sistema. El <code>MOVE ALL @00@</code> que limpia el área de comunicación antes de cada llamada se sustituye por construir un objeto de petición nuevo.",
+          "reglas": [
+            "RN-S500-265"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Reintentos ante status 96 y caso de tarjeta prepagada",
+          "linea_ini": 1795,
+          "linea_fin": 1829,
+          "origen_codigo": " 40000200-CALL-S408.\n     PERFORM 20000408-LINCRED.\n     IF WS-S408-STATUS = 0\n        MOVE 1                   TO WS-CICLO3\n     ELSE\n     IF WS-S408-STATUS = 96\n        ADD 1 TO W77-CALL-S408-FAL\n        IF W77-CALL-S408-FAL > 4\n           MOVE WS-S408-STATUS    TO WS-MSG-RS\n           MOVE W77-CALL-S408-FAL TO WS-MSG-N-04\n           STRING \"ERR CALL S408 RS=\", WS-MSG-RS\n                  \" INTENTOS=\", WS-MSG-N-04\n                  \" (OK CUANDO ESTE DISPONIBLE S408L011LCRD)\"\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM  70000055-STOP-PGM\n           MOVE \" \"  TO WS-0101-TEXT-MSG\n           MOVE ZERO TO WS-S408-STATUS W77-CALL-S408-FAL\n        ELSE\n           MOVE ZERO TO WS-S408-STATUS\n           WAIT(30)\n     ELSE\n***************************************************************\n***  SI EL PRODUCTO ES TARJETAS PREPAGADAS 66-11-01          **\n***  (ESTE PRODUCTO NO MANEJA LINEAS DE CREDITO)             **\n***  MUEVE CERO A WS-S408-STATUS Y TOTALES                   **\n***  PARA SIMULAR QUE EL PRODUCTO NO TIENE MOVTOS EN S408    **\n***************************************************************\n     IF WS03-88-PIM-PROD-A-SOR OR WS03-88-PIM-PREPAGADA\n        MOVE 0 TO WS-S408-NUMCAR WS-S408-IMPCAR WS-S408-STATUS\n                  WS-S408-NUMABO WS-S408-IMPABO\n        MOVE 1 TO WS-CICLO3\n     ELSE\n        PERFORM 80002000-DIS-CONS408  THRU 80002000-EXIT\n        PERFORM 50005254-DECIDO       THRU 50005254-EXIT\n                UNTIL WS-CICLO4  = 1.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class LineaCreditoClient {\n\n    private static final int NO_DISPONIBLE = 96;\n    private final LincredGateway gateway;\n    private final DecisionOperador operador;\n    private final P170Properties props;\n\n    @Retryable(retryFor = S408NoDisponibleException.class,\n               maxAttemptsExpression = \"#{@p170Properties.s408().intentos()}\",          // 4\n               backoff = @Backoff(delayExpression = \"#{@p170Properties.s408().esperaMs()}\")) // WAIT(30)\n    public TotalesS408 totales(ConsultaTotalesRequest req) {\n        var resp = gateway.consulta(req);\n        if (resp.status() == 0) return resp.totales();\n        if (resp.status() == NO_DISPONIBLE) throw new S408NoDisponibleException(resp.status());\n        // Productos sin línea de crédito: se simula que no tienen movimientos en S408.\n        if (props.productosSinLinea().contains(req.llaveProducto())) {     // 88 PIM-PROD-A-SOR / PIM-PREPAGADA\n            return TotalesS408.CERO;\n        }\n        return operador.decide(req, resp);                                  // 50005254-DECIDO\n    }\n\n    @Recover\n    TotalesS408 agotado(S408NoDisponibleException e, ConsultaTotalesRequest req) {\n        // En el fuente, tras más de 4 intentos se ejecuta 70000055-STOP-PGM y el ciclo vuelve a empezar.\n        throw new ProcesoDetenidoException(\n            \"ERR CALL S408 RS=%d INTENTOS=%d (OK CUANDO ESTE DISPONIBLE S408L011LCRD)\"\n                .formatted(e.status(), props.s408().intentos() + 1));\n    }\n}",
+          "racional": "El status 96 indica que la librería del S408 no está disponible: el programa espera 30 segundos y reintenta, y al quinto fallo detiene el programa con un mensaje. Es exactamente el patrón de <code>@Retryable</code> con <code>@Recover</code>. Cualquier otro error se resuelve como sin movimientos si el producto es de los que no manejan línea de crédito, y en el resto se pasa la decisión al operador. La lista de productos sin línea se externaliza en lugar de depender de condiciones 88 compiladas.",
+          "reglas": [
+            "RN-S500-266"
+          ],
+          "riesgo": "Los productos sin línea de crédito (tarjeta prepagada 66-11-01) sólo se tratan como cero cuando el S408 regresa un error distinto de 96; si el S408 contesta con status 0 se usa lo que devuelva. El párrafo 70000055-STOP-PGM no está en el fuente extraído."
+        },
+        {
+          "id": "s6",
+          "titulo": "Decisión del operador por consola: continuar o reintentar",
+          "linea_ini": 2085,
+          "linea_fin": 2101,
+          "origen_codigo": " 50005254-DECIDO.\n      ACCEPT WS-DECIDE1    .\n      IF WS-DECIDE1     = \"C\"\n         MOVE 1      TO WS-CICLO4\n         MOVE 1      TO WS-CICLO3\n      ELSE\n      IF WS-DECIDE1     = \"R\"\n         CANCEL \"LINCRED\"\n         WAIT(2)\n         PERFORM 10000408-LINCRED\n         MOVE 1    TO WS-CICLO4\n      ELSE\n         MOVE \"I\"  TO W77-TIPO-DISP\n         STRING \"DECISION INVALIDA \"   WS-DECIDE1\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         MOVE \"E\"  TO W77-TIPO-DISP.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class DecisionOperador {\n\n    public enum Decision { CONTINUAR, REINTENTAR }\n\n    private final ConsolaOperacion consola;    // ACCEPT WS-DECIDE1 -> tarea humana / ticket\n    private final LincredGateway gateway;\n\n    public TotalesS408 decide(ConsultaTotalesRequest req, RespuestaS408 fallida) {\n        while (true) {\n            String r = consola.pregunta(\"CONSULTA S408 FALLIDA %s, C=CONTINUAR R=REINTENTAR\"\n                                        .formatted(fallida.status()));\n            switch (r) {\n                case \"C\" -> {\n                    log.warn(\"Operador continúa sin totales del S408 para {}\", req);\n                    return TotalesS408.SIN_DATO;          // explícito, no basura del área de comunicación\n                }\n                case \"R\" -> {\n                    gateway.recarga();                    // CANCEL \"LINCRED\" + WAIT(2) + nuevo enlace\n                    return reintenta(req);\n                }\n                default -> consola.avisa(\"DECISION INVALIDA \" + r);\n            }\n        }\n    }\n}",
+          "racional": "Ante un error del S408 el batch queda detenido en <code>ACCEPT</code> hasta que el operador escribe C o R. La decisión es humana y no debe desaparecer en la migración, pero ya no puede bloquear un hilo esperando consola: se modela como un servicio que en el destino abre una tarea en la herramienta de operación y suspende el job, que se reanuda con la respuesta. La opción C se traduce en un valor explícito de sin dato para que el reporte lo distinga de un cero real.",
+          "reglas": [
+            "RN-S500-266"
+          ],
+          "riesgo": "Con la opción C el programa continúa con lo que haya quedado en el área de comunicación del S408, que se inicializó con @00@ antes de la llamada; las diferencias impresas para ese producto no son confiables."
+        },
+        {
+          "id": "s7",
+          "titulo": "Consulta al S151 y caso especial producto 66, instrumento 15, moneda 5",
+          "linea_ini": 2142,
+          "linea_fin": 2161,
+          "origen_codigo": " 50005270-CON-S151.\n     MOVE 0 TO WS-S151-0301-PASO WS-S151-0301-CLAVE.\n     MOVE 0 TO WS-S151-0301-ESQCONT.\n     PERFORM 50005272-LLAMO-151 THRU 50005272-EXIT UNTIL WS-1 = 1.\n      IF (B09-NUM-PRODUCTO = 66)\n     AND (B09-NUM-INSTRUM  = 15)\n     AND (B09-MONEDA = 5)\n          MOVE 0 TO WS-1\n          MOVE 0 TO WS-S151-0301-CLAVE WS-S151-0301-ESQCONT\n          MOVE 0 TO WS-S151-0301-PASO\n          MOVE B09-LLAVE-BANCOS    TO WS-BANORIDES\n          MOVE B09-NUM-PRODUCTO    TO WS-CAMBIO-PRD\n          MOVE B09-NUM-INSTRUM     TO WS-CAMBIO-INS\n          MOVE 1                   TO WS-CAMBIO-MON\n          MOVE WS-BAN-ORI          TO WS-CAMBIO-ORI\n          MOVE WS-BAN-DES          TO WS-CAMBIO-DES\n          MOVE 1                   TO WS-CAMBIO\n          PERFORM 50005272-LLAMO-151  THRU 50005272-EXIT\n                  UNTIL WS-1 = 1.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ConsultaTotalesS151 {\n\n    private final TotalesContablesClient s151;      // librería TOTXCVETRAS500, función 06\n    private final P170Properties props;\n\n    public TotalesS151 consulta(CifraControl b09, LocalDate fechaProceso) {\n        TotalesS151 tot = s151.totalesPorClave(fechaProceso, b09.llave(), b09.bancos());\n        // Hardcode del fuente: 66-15 en moneda 5 se consulta otra vez en moneda 1 y se suma.\n        if (props.consultaAdicionalMn().contains(b09.llave())) {          // 66-15-5\n            var llaveMn = b09.llave().conMoneda(1);\n            tot = tot.mas(s151.totalesPorClave(fechaProceso, llaveMn, b09.bancos()));\n        }\n        return tot;\n    }\n}\n\n# application.yml\np170:\n  consulta-adicional-mn:\n    - { producto: 66, instrumento: 15, moneda: 5 }",
+          "racional": "La consulta al S151 se repite hasta agotar las claves que devuelve la librería. Para la combinación producto 66, instrumento 15 y moneda 5 el programa hace una segunda ronda forzando la moneda 1, con los mismos bancos origen y destino. Esa combinación está escrita en el código; se lleva a configuración y se documenta como regla de negocio pendiente de confirmar.",
+          "reglas": [
+            "RN-S500-264"
+          ],
+          "riesgo": "El fuente no explica por qué la moneda 5 se consulta también en moneda 1. Si el producto cambia de clave, el cuadre de ese producto quedará incompleto sin aviso."
+        }
+      ]
+    },
+    {
+      "titulo": "Cálculo de diferencias y cierre",
+      "origen": {
+        "archivo": "S500_SOURCE_P170.txt",
+        "contexto": "PROCEDURE DIVISION · 50005260 / 50007400 / 70000150"
+      },
+      "java": {
+        "archivo": "DiferenciaCifras.java · CuadrePorClaveProcessor.java · CierrePasoTasklet.java",
+        "contexto": "record · ItemProcessor @StepScope · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Diferencias S500 contra S408 en campos sin signo",
+          "linea_ini": 2108,
+          "linea_fin": 2135,
+          "origen_codigo": " 50005260-TOT-S408.\n     WRITE REG-CIFRAS FROM WS-TIT-S408            BEFORE 1.\n     WRITE REG-CIFRAS FROM WS-TIT-500408          BEFORE 1.\n     MOVE   B09-S408B-CARGOS      TO   WS-C500-IMP1.\n     MOVE   B09-S408B-ABONOS      TO   WS-A500-IMP1.\n     MOVE   B09-S408B-NUMCAR      TO   WS-C500-NUM1.\n     MOVE   B09-S408B-NUMABO      TO   WS-A500-NUM1.\n     MOVE   WS-S408-IMPCAR        TO   WS-COTRO-IMP1.\n     MOVE   WS-S408-NUMCAR        TO   WS-COTRO-NUM1.\n     MOVE   WS-S408-IMPABO        TO   WS-AOTRO-IMP1.\n     MOVE   WS-S408-NUMABO        TO   WS-AOTRO-NUM1.\n     SUBTRACT WS-S408-IMPCAR    FROM B09-S408B-CARGOS GIVING\n              WS-IMP-TCAR-DIF.\n     SUBTRACT WS-S408-IMPABO    FROM B09-S408B-ABONOS GIVING\n              WS-IMP-TABO-DIF.\n     SUBTRACT WS-S408-NUMCAR    FROM B09-S408B-NUMCAR GIVING\n              WS-NUM-TCAR-DIF.\n     SUBTRACT WS-S408-NUMABO    FROM B09-S408B-NUMABO GIVING\n              WS-NUM-TABO-DIF.\n     MOVE     WS-IMP-TCAR-DIF      TO WS-CDIF-IMP1.\n     MOVE     WS-NUM-TCAR-DIF      TO WS-CDIF-NUM1.\n     MOVE     WS-IMP-TABO-DIF      TO WS-ADIF-IMP1.\n     MOVE     WS-NUM-TABO-DIF      TO WS-ADIF-NUM1.\n     WRITE REG-CIFRAS FROM WS-C500-151               BEFORE 1.\n     WRITE REG-CIFRAS FROM WS-A500-151               BEFORE 3.",
+          "java_codigo": "/** Diferencias de cargos y abonos. En COBOL los campos -DIF son 9(16)V99 y 9(08) sin signo. */\npublic record DiferenciaCifras(BigDecimal importeCargos, long numCargos,\n                               BigDecimal importeAbonos, long numAbonos) {\n\n    public static DiferenciaCifras s500MenosOtro(Totales s500, Totales otro) {\n        return new DiferenciaCifras(\n                s500.impCargos().subtract(otro.impCargos()),     // SUBTRACT ... GIVING WS-IMP-TCAR-DIF\n                s500.numCargos() - otro.numCargos(),\n                s500.impAbonos().subtract(otro.impAbonos()),\n                s500.numAbonos() - otro.numAbonos());\n    }\n\n    public boolean cuadra() {\n        return importeCargos.signum() == 0 && numCargos == 0\n            && importeAbonos.signum() == 0 && numAbonos == 0;\n    }\n\n    /** Compatibilidad con el reporte actual, que imprime el valor absoluto. */\n    public DiferenciaCifras comoReporteLegado() {\n        return new DiferenciaCifras(importeCargos.abs(), Math.abs(numCargos),\n                                    importeAbonos.abs(), Math.abs(numAbonos));\n    }\n}",
+          "racional": "Las diferencias se calculan como S500 menos el sistema destino. La resta entre importes de escala 2 es exacta. El cambio importante es el signo: los campos receptores <code>WS-IMP-TCAR-DIF</code> y compañía son <code>PIC 9(16)V99</code> sin <code>S</code>, de modo que COBOL guarda el valor absoluto y el reporte no dice si sobra o falta. El record Java conserva el signo y ofrece una vista de compatibilidad para reproducir el reporte actual durante la conciliación en paralelo.",
+          "reglas": [
+            "RN-S500-264"
+          ],
+          "riesgo": "Al ser campos sin signo, una diferencia en la que el S408 reporta más que el S500 se imprime igual que la inversa. Lo mismo ocurre con WS-TCVE-NDIF y WS-TCVE-IDIF en el cuadre por clave."
+        },
+        {
+          "id": "s9",
+          "titulo": "Cuadre por clave: emparejamiento de registros consecutivos de TOTCVE",
+          "linea_ini": 2881,
+          "linea_fin": 2929,
+          "origen_codigo": " 50007400-VAL-CVE.\n     IF WS-12VEZ = 0\n        ADD 1             TO WS-12VEZ\n        MOVE TCVE-CVE     TO WS-CVEPASO1\n        MOVE TCVE-NUM     TO WS-NUMPASO1\n        MOVE TCVE-IMP     TO WS-IMPPASO1\n        MOVE TCVE-IDEN    TO WS-IDEPASO1\n     ELSE\n     IF WS-12VEZ = 1\n        ADD 1             TO WS-12VEZ\n        MOVE TCVE-CVE     TO WS-CVEPASO2\n        MOVE TCVE-NUM     TO WS-NUMPASO2\n        MOVE TCVE-IMP     TO WS-IMPPASO2\n        MOVE TCVE-IDEN    TO WS-IDEPASO2.\n     IF WS-12VEZ = 2\n       IF WS-CVEPASO1 = WS-CVEPASO2\n         IF WS-IDEPASO1 = WS-IDEPASO2\n            MOVE 0                      TO   WS-VALE2\n            PERFORM 50007420-LIMPIO-CVE THRU 50007420-EXIT\n            PERFORM 50007430-IMP-CVE    THRU 50007430-EXIT\n            MOVE 1 TO WS-12VEZ\n            MOVE WS-IDEPASO2            TO   WS-IDEPASO1\n            MOVE WS-CVEPASO2            TO   WS-CVEPASO1\n            MOVE WS-IMPPASO2            TO   WS-IMPPASO1\n            MOVE WS-NUMPASO2            TO   WS-NUMPASO1\n         ELSE\n            MOVE 1                     TO   WS-VALE2\n            MOVE WS-CVEPASO1           TO   WS-CVE-CVE\n            MOVE WS-NUMPASO1           TO   WS-CVE-NUM2 WS-NUMTEM2\n            MOVE WS-IMPPASO1           TO   WS-CVE-IMP2 WS-IMPTEM2\n            MOVE WS-NUMPASO2           TO   WS-CVE-NUM1 WS-NUMTEM1\n            MOVE WS-IMPPASO2           TO   WS-CVE-IMP1 WS-IMPTEM1\n            COMPUTE WS-TCVE-NDIF = WS-NUMTEM1 - WS-NUMTEM2\n            COMPUTE WS-TCVE-IDIF = WS-IMPTEM1 - WS-IMPTEM2\n            MOVE WS-TCVE-NDIF           TO   WS-CVE-NUM3\n            MOVE WS-TCVE-IDIF           TO   WS-CVE-IMP3\n            PERFORM 50007435-GENERA-DET-INC\n            PERFORM 50007430-IMP-CVE    THRU 50007430-EXIT\n            MOVE 0                      TO   WS-12VEZ\n       ELSE\n          MOVE 0                      TO   WS-VALE2\n          PERFORM 50007420-LIMPIO-CVE THRU 50007420-EXIT\n          PERFORM 50007430-IMP-CVE    THRU 50007430-EXIT\n          MOVE 1 TO WS-12VEZ\n          MOVE WS-IDEPASO2            TO   WS-IDEPASO1\n          MOVE WS-CVEPASO2            TO   WS-CVEPASO1\n          MOVE WS-IMPPASO2            TO   WS-IMPPASO1\n          MOVE WS-NUMPASO2            TO   WS-NUMPASO1.",
+          "java_codigo": "@Component\n@StepScope\npublic class CuadrePorClaveProcessor implements ItemProcessor<TotCve, List<RenglonClave>> {\n\n    private TotCve pendiente;        // WS-xxxPASO1; WS-12VEZ = 1 cuando hay uno guardado\n\n    /** TOTCVE viene ordenado por clave; cada clave debería traer un registro de cada origen. */\n    @Override\n    public List<RenglonClave> process(TotCve actual) {\n        if (pendiente == null) {\n            pendiente = actual;\n            return List.of();\n        }\n        var anterior = pendiente;\n        if (anterior.clave().equals(actual.clave()) && !anterior.identificador().equals(actual.identificador())) {\n            pendiente = null;                                     // par completo: se consumen ambos\n            long dNum = actual.numero() - anterior.numero();      // NUMTEM1 - NUMTEM2\n            BigDecimal dImp = actual.importe().subtract(anterior.importe());\n            return List.of(RenglonClave.par(anterior, actual, dNum, dImp));   // + 50007435-GENERA-DET-INC\n        }\n        pendiente = actual;                                       // el anterior queda sin pareja\n        return List.of(RenglonClave.solo(anterior));              // LIMPIO-CVE + IMP-CVE\n    }\n}\n// El último registro pendiente se imprime en el ItemStream.close() del step.",
+          "racional": "El párrafo compara cada registro de TOTCVE con el anterior usando dos juegos de variables de paso y el contador <code>WS-12VEZ</code>. Si clave e identificador forman un par (misma clave, distinto origen) imprime ambos con su diferencia; si no, imprime el anterior solo y el actual pasa a ser el pendiente. Es un emparejamiento de ventana deslizante sobre un archivo ordenado que en Java se expresa con un solo campo de estado en un procesador con <code>@StepScope</code>.",
+          "reglas": [
+            "RN-S500-264"
+          ],
+          "riesgo": "Si una clave trae tres o más registros, el emparejamiento depende del orden del SORT entre identificadores; dos registros del mismo origen con la misma clave se imprimen como no emparejados."
+        },
+        {
+          "id": "s10",
+          "titulo": "Marca de salida del paso 170",
+          "linea_ini": 3347,
+          "linea_fin": 3364,
+          "origen_codigo": " 70000150-ACT-B00.\n   SET S500B00CTRLPASO TO BEGINNING.\n   PERFORM 90000000-B00CTRLPASO-LOCK.\n   IF WS-STATUS-BASE > 0\n     IF WS-STATUS-BASE = 1\n       MOVE \"ERROR REG. B00CTRLPASO VACIO \"  TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n     ELSE\n       STRING \"ERROR AL HACER LOCK A B00\",   WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n   MOVE  170                  TO B00-NUM-PASO-01 B00-NUM-PASO-02\n                                 B00-NUM-PASO-03.\n   MOVE  1                    TO WS-BAN-B00\n   PERFORM 51001100-ACTUALIZO THRU  51001100-EXIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CierrePasoTasklet implements Tasklet {\n\n    private final ControlPasoRepository controlPaso;\n    private static final int ESTE_PASO = 170;\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlPaso cp = controlPaso.findForUpdate()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. B00CTRLPASO VACIO\"));\n        cp.marcaPasos(ESTE_PASO);              // B00-NUM-PASO-01..03 := 170\n        controlPaso.save(cp);                  // 51001100-ACTUALIZO\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al terminar sin errores el programa deja los tres contadores en 170, que es la condición de entrada del siguiente paso. Es la contraparte de la validación inicial y se ejecuta en el último step del job, dentro de una transacción con bloqueo del registro de control.",
+          "reglas": [
+            "RN-S500-262"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Diferencias sin signo",
+      "detalle": "Los campos de diferencia WS-IMP-TCAR-DIF, WS-IMP-TABO-DIF, WS-IMP-NCON-DIF y sus contadores (líneas 375-384) y WS-TCVE-NDIF y WS-TCVE-IDIF (líneas 197-198) no tienen signo. Los reportes de cuadre muestran el valor absoluto y no permiten saber qué sistema tiene de más."
+    },
+    {
+      "titulo": "Batch detenido esperando al operador",
+      "detalle": "Las consultas al S408 (50005254-DECIDO) y al S151 (50005302-DECIDE) se resuelven con ACCEPT por consola. Con la opción C el cuadre continúa con datos incompletos de ese producto sin marcarlo en el reporte."
+    },
+    {
+      "titulo": "Combinaciones de producto compiladas",
+      "detalle": "La segunda consulta al S151 para producto 66, instrumento 15 y moneda 5 (líneas 2147-2161) y los productos sin línea de crédito (condiciones 88 PIM-PROD-A-SOR y PIM-PREPAGADA) están escritos en el código."
+    },
+    {
+      "titulo": "Reintento manual tras un aborto",
+      "detalle": "Los contadores de paso se ponen en cero al inicio (línea 1624) y sólo se restauran a 170 al final; un aborto intermedio deja la base sin el valor 160 que exige el reintento."
+    }
+  ],
+  "pendientes_revision": [
+    "Los párrafos 70000055-STOP-PGM, 10000100-VERSIONES, 20000151-TOTXCVES, 20000408-LINCRED y 90000000-B00CTRLPASO-LOCK no están en el fuente extraído (vienen de copybooks); su comportamiento se infirió por el nombre y el contexto.",
+    "Confirmar la razón de la segunda consulta al S151 con moneda 1 para el producto 66-15 en moneda 5.",
+    "Confirmar la definición de las condiciones 88 WS03-88-PIM-PROD-A-SOR y WS03-88-PIM-PREPAGADA, que no están en el fuente extraído.",
+    "Confirmar si el reporte de cifras se usa hoy para decidir el sentido del descuadre; si es así, la versión con signo cambia la lectura del reporte y debe acordarse con Operación."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-895",
+    "RN-S151-896",
+    "RN-S151-897",
+    "RN-S151-898",
+    "RN-S151-899",
+    "RN-S500-917",
+    "RN-S500-921",
+    "RN-S500-261",
+    "RN-S500-262",
+    "RN-S500-263",
+    "RN-S500-264",
+    "RN-S500-265",
+    "RN-S500-266"
+  ]
+}

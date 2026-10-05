@@ -1,0 +1,191 @@
+{
+  "slug": "S500_P140",
+  "sistema": "S500",
+  "programa": "P140",
+  "nombre": "Motor de monitoreo de tareas batch",
+  "funcion": "Programa del S500 (PROGRAM-ID S500BATCH) que se ejecuta bajo demanda o desde la cadena batch con un parámetro de 13 dígitos y produce el listado de monitoreo de programas y actividades que reporta la librería MAPLI (S038L035).",
+  "resumen": "Recibe por USING un número de 13 dígitos que trae el tipo de reporte, el USER de la CSI y la fecha. Consulta a la librería MAPLI de forma jerárquica: agrupadores por USER (de 10 en 10), programas por agrupador (de 15 en 15) y actividades por programa (de 5 en 5), con continuaciones cuando hay más. Cada actividad, o el programa solo si no tiene actividades, se graba en el archivo de paso FILE-PROGRAMAS de 360 bytes; después se ordena por agrupador, programa, tipo, copia y actividad, y se imprime el reporte FILE-MONI filtrando agrupadores menores a 6 (monitoreo normal) o mayores a 5 (monitoreo batch). Si MAPLI responde 99 espera, reintenta y pide decisión al operador.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Retry",
+  "paquete_java": "mx.banamex.s500.monitoreo",
+  "secciones": [
+    {
+      "titulo": "Parámetro de entrada, registro de paso y etiquetas",
+      "origen": {
+        "archivo": "S500_SOURCE_P140.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE · PROCEDURE DIVISION USING"
+      },
+      "java": {
+        "archivo": "ParametroMonitoreo.java · TareaMonitoreada.java · MonitoreoProperties.java",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro de 13 dígitos con dos vistas REDEFINES",
+          "linea_ini": 184,
+          "linea_fin": 1104,
+          "origen_codigo": " 01 WS-PARAM-ENTRADA       PIC 9(13).\n 01 WS-PARAM-USERFEC  REDEFINES WS-PARAM-ENTRADA.\n   02 WS-PARAM-DECI   PIC 9(01).\n   02 WS-PARAM-USER   PIC 9(04).\n   02 WS-PARAM-FEC    PIC 9(08).\n 01 WS-PARAM-CUF      REDEFINES WS-PARAM-ENTRADA.\n   02 WS-PARAM-D      PIC 9(01).\n   02 WS-PARAM-C      PIC 9(01).\n   02 WS-PARAM-U      PIC 9(03).\n   02 WS-PARAM-F      PIC 9(08).\n 77 WS-USER-FEC                 PIC 9(13) RECEIVED BY CONTENT.\n PROCEDURE DIVISION USING WS-USER-FEC.                            457810",
+          "java_codigo": "/** WS-USER-FEC PIC 9(13) RECEIVED BY CONTENT, interpretado con WS-PARAM-USERFEC y WS-PARAM-CUF. */\npublic record ParametroMonitoreo(TipoReporte tipo,   // WS-PARAM-DECI  9(01)\n                                 int user,           // WS-PARAM-USER  9(04)\n                                 int sistema,        // WS-PARAM-U     9(03): últimos 3 dígitos del USER\n                                 LocalDate fecha) {  // WS-PARAM-FEC   9(08) AAAAMMDD\n\n    public enum TipoReporte { MONITOREO, MONIBATCH }\n\n    public static ParametroMonitoreo parse(String p13) {\n        if (p13 == null || !p13.matches(\"\\\\d{13}\")) {\n            throw new IllegalArgumentException(\"Parámetro de 13 dígitos inválido: \" + p13);\n        }\n        TipoReporte tipo = p13.charAt(0) == '1' ? TipoReporte.MONITOREO : TipoReporte.MONIBATCH;\n        int user = Integer.parseInt(p13.substring(1, 5));\n        int sistema = Integer.parseInt(p13.substring(2, 5));    // vista CUF: D(1) C(1) U(3) F(8)\n        LocalDate fecha = LocalDate.parse(p13.substring(5), DateTimeFormatter.BASIC_ISO_DATE);\n        return new ParametroMonitoreo(tipo, user, sistema, fecha);\n    }\n}",
+          "racional": "El programa recibe un único número de 13 dígitos y lo reinterpreta con dos <code>REDEFINES</code>: una vista lo parte en decisión, USER y fecha, y la otra en decisión, un dígito, sistema de 3 posiciones y fecha. Las dos vistas se usan en el código, así que el <code>record</code> conserva ambos cortes de forma explícita. La fecha de 8 dígitos pasa a <code>LocalDate</code> sin pivote porque ya trae siglo. Cualquier decisión distinta de 1 se comporta como reporte batch, igual que el <code>ELSE</code> del fuente.",
+          "reglas": [
+            "RN-S500-749"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "REG-PROGRAMA de 360 bytes: una fila por actividad monitoreada",
+          "linea_ini": 60,
+          "linea_fin": 97,
+          "origen_codigo": " FD  FILE-PROGRAMAS                                               036610\n     BLOCK CONTAINS 100 RECORDS                                   037210\n     RECORD CONTAINS 360 CHARACTERS                               037810\n     VALUE OF AREAS 1000                                          038410\n     VALUE OF AREASIZE 100                                        039010\n     VALUE OF TITLE IS WS-ETIQ-PROG                               039610\n     VALUE OF SECURITYTYPE IS PUBLIC.                             040210\n                                                                  040810\n 01  REG-PROGRAMA.                                                041410\n   02 MON-NUM-AGRUP         PIC 9(02).                            042010\n   02 MON-TIPO-PROG         PIC 9(02).                            042610\n   02 MON-NUM-PROG          PIC 9(04).                            043210\n   02 MON-NUM-ACT           PIC 9(02).                            043810\n   02 MON-TIP-ACTIVI        PIC 9(02).                            044410\n   02 MON-NUM-COPIAP        PIC 9(02).                            045010\n   02 MON-NOM-PGM           PIC X(40).                            045610\n   02 MON-NOM-AGRUP         PIC X(40).                            046210\n   02 MON-FEC-INIP          PIC 9(08).                            046810\n   02 MON-HRA-INIP          PIC 9(08).                            047410\n   02 MON-FEC-FINP          PIC 9(08).                            048010\n   02 MON-HRA-FINP          PIC 9(08).                            048610\n   02 MON-ET-ANTP           PIC 9(10).                            049210\n   02 MON-ET-ACTP           PIC 9(10).                            049810\n   02 MON-ET-AVANCEP        PIC 9(04).                            050410\n   02 MON-TE-TERMINOP       PIC 9(10).                            051010\n   02 MON-TIPO-DESPP        PIC 9(02).                            051610\n   02 MON-NOM-ACTIVI        PIC X(40).                            052210\n   02 MON-TE-AVANCEA        PIC 9(04).                            052810\n   02 MON-ET-ANTA           PIC 9(10).                            053410\n   02 MON-ET-ACTA           PIC 9(10).                            054010\n   02 MON-TE-TERMINOA       PIC 9(10).                            054610\n   02 MON-TEXTADIA          PIC X(40).                            055210\n   02 MON-NUMTRANA          PIC 9(10).                            055810\n   02 MON-TRANXSA           PIC 9(08)V99.                         056410\n   02 MON-TPROREA           PIC 9(06)V9(06).                      057010\n   02 MON-ENCUENA           PIC X(25).                            057610\n   02 MON-STAACT            PIC X(11).                            057620\n   02 FILLER                PIC X(16).                            058210",
+          "java_codigo": "/** REG-PROGRAMA: datos de un programa y, si existe, de una de sus actividades. */\npublic record TareaMonitoreada(\n        int numAgrupador, String nomAgrupador,        // MON-NUM-AGRUP 9(02) / X(40)\n        int tipoProg, int numProg, int numCopia,      // 1 = proceso, 2 = librería\n        String nomPrograma,\n        LocalDate fecIni, LocalTime hraIni,           // 9(08) AAAAMMDD / HHMMSSCC\n        LocalDate fecFin, LocalTime hraFin,\n        Duration etAnterior, Duration etActual,       // 9(10) HHHHMMSSCC\n        int avancePct, Duration tiempoEsperado, int tipoDespliegue,\n        Actividad actividad) {                         // null cuando el programa no tiene actividades\n\n    public record Actividad(int num, int tipo, String nombre, int avancePct,\n                            Duration etAnterior, Duration etActual, Duration tiempoEsperado,\n                            String textoAdicional, long transacciones,\n                            BigDecimal tranXSeg,           // 9(08)V99    -> escala 2\n                            BigDecimal tiempoPromResp,     // 9(06)V9(06) -> escala 6\n                            String seEncuentraEn, Estado estado) {}\n\n    public enum Estado { EN_PROCESO, TERMINADA, NO_INICIADA, SIN_ESTADO }\n}",
+          "racional": "El archivo de paso aplana la jerarquía agrupador, programa y actividad en un registro por actividad, repitiendo los datos del programa. En Java es un <code>record</code> con la actividad como componente opcional. Los tiempos <code>HHHHMMSSCC</code> se convierten a <code>Duration</code> y las tasas con decimales a <code>BigDecimal</code> con la escala del PIC, aunque no son importes, para no perder precisión en el reporte.",
+          "reglas": [
+            "RN-S500-749",
+            "RN-S500-750"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Títulos del reporte y del archivo de paso",
+          "linea_ini": 652,
+          "linea_fin": 681,
+          "origen_codigo": " 01 WS-ETIQ-MONI.                                                 220810\n   02 FILLER             PIC X(01) VALUE \"S\".                     221410\n   02 WS-MONI-SIS        PIC 9(03).                               221415\n   02 FILLER             PIC X(11) VALUE \"/LIST/P140/\".           221420\n   02 WS-MONI-CI         PIC 9(02).                               222010\n   02 WS-MONI-SUBNODO    PIC 99.                                  222610\n   02 FILLER             PIC X     VALUE \"/\".                     223210\n   02 WS-MONI-CIFRA      PIC X     VALUE \"R\".                     223810\n   02 WS-MONI-NUM        PIC 999.                                 224410\n   02 FILLER             PIC X  VALUE \"/\".                        225010\n   02 WS-MONI-FECHA      PIC 9(6).                                225610\n   02 FILLER             PIC X     VALUE \"/\".                     226210\n   02 WS-MONI-MIX        PIC 9(7).                                226810\n** 02 FILLER             PIC X(18)  VALUE \"/001MONITOREO    .\".\n   02 WS-COMODIN         PIC X(18).\n 01 WS-ETIQ-PROG.                                                 230410\n    02 WS-PROG-TIT              PIC X(15) VALUE                   231010\n                                \"S500/FILE/S038/\".\n    02 WS-PROG-CSIO             PIC 99.                           232210\n    02 FILLER                   PIC X(1) VALUE \"/\".               232810\n    02 WS-PROG-CSID             PIC 99.                           233410\n    02 FILLER                   PIC X(1) VALUE \"/\".               234010\n    02 WS-PROG-NOM              PIC X(10) VALUE \"MONITOREOS\".     234610\n    02 WS-PROG-SIST             PIC 9(04).                        235210\n    02 FILLER                   PIC X(1) VALUE \"/\".               235810\n    02 WS-PROG-FECHA            PIC 9(6).                         236410\n    02 FILLER                   PIC X VALUE \".\".                  237010",
+          "java_codigo": "# application.yml\np140:\n  reporte:\n    titulo: \"S{sistema}/LIST/P140/{csi}{subnodo}/R{num}/{fecha}/{mix}{nombre}\"\n    nombre-monitoreo: \"${P140_NNAME_1}\"      # WKS-NNAME-1 (tipo 1)\n    nombre-monibatch: \"${P140_NNAME_2}\"      # WKS-NNAME-2 (tipo 2)\n  paso:\n    titulo: \"S500/FILE/S038/{csiOrigen}/{csiDestino}/MONITOREOS{user}/{fecha}.\"\n  fecha-en-nombre: yyMMdd                    # WS-MONI-FECHA y WS-PROG-FECHA son 9(6)\n  umbral-agrupador-batch: 6                  # MON-NUM-AGRUP < 6 / > 5\n  espera-ms: 300000                          # WAIT ((300)), unidad por confirmar\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p140\")\npublic record MonitoreoProperties(Reporte reporte, Paso paso, String fechaEnNombre,\n                                  int umbralAgrupadorBatch, long esperaMs) {\n    public record Reporte(String titulo, String nombreMonitoreo, String nombreMonibatch) {}\n    public record Paso(String titulo) {}\n}",
+          "racional": "Las dos etiquetas fijan en el código el prefijo del sistema de reportes (<code>/LIST/P140/</code>), el nombre <code>MONITOREOS</code> y la ruta del sistema S038 para el archivo de paso. El número de mezcla del job forma parte del nombre del reporte para no colisionar entre corridas. Todo se lleva a <code>application.yml</code>. Las fechas de los nombres son <code>PIC 9(6)</code> y reciben la fecha de 8 dígitos, lo que deja AAMMDD; el patrón lo hace explícito.",
+          "reglas": [],
+          "riesgo": "WS-PROG-CSIO y WS-PROG-CSID quedan en 0 si MAPLI no responde y el operador cancela (20000410-VALIDOCSI), lo que genera un título con CSI 00."
+        }
+      ]
+    },
+    {
+      "titulo": "Orquestación y consulta jerárquica a MAPLI con reintento",
+      "origen": {
+        "archivo": "S500_SOURCE_P140.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 40000100 / 50010150 / 50013000"
+      },
+      "java": {
+        "archivo": "MonitoreoJobConfig.java · MapliClient.java · ConsultaJerarquicaTasklet.java",
+        "contexto": "Spring Batch Job · @Retryable · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Principal y procesos a Job de tres steps",
+          "linea_ini": 1113,
+          "linea_fin": 1427,
+          "origen_codigo": " 00000000-INICIO SECTION.                                         463210\n 00000000-PRINCIPAL.                                              463810\n     PERFORM 10000000-LIBRERIAS THRU 10000000-EXIT.               464410\n     PERFORM 20000000-OPEN      THRU 20000000-EXIT.               465010\n     PERFORM 50000000-PROCESOS  THRU 50000000-EXIT.               465610\n     PERFORM 70000000-CIERRO    THRU 70000000-EXIT.               466210\n     STOP RUN.                                                    466810\n 50000000-PROCESOS.                                               600010\n   PERFORM 50010000-OBTENGO-DATOS  THRU 50010000-EXIT.            600610\n   PERFORM 50020000-SORTEO-ARCHIVO THRU 50020000-EXIT.            601210\n   PERFORM 50030000-GENERO-REP     THRU 50030000-EXIT.            601810\n 50000000-EXIT.                                                   602410",
+          "java_codigo": "@Configuration\npublic class MonitoreoJobConfig {\n\n    @Bean\n    Job monitoreoBatch(JobRepository repo, Step consultaMapli, Step ordenaTareas,\n                       Step imprimeReporte) {\n        return new JobBuilder(\"S500P140\", repo)\n                .start(consultaMapli)    // 50010000-OBTENGO-DATOS: agrupador -> programa -> actividad\n                .next(ordenaTareas)      // 50020000-SORTEO-ARCHIVO\n                .next(imprimeReporte)    // 50030000-GENERO-REP\n                .build();\n    }\n}",
+          "racional": "El flujo es secuencial: obtener datos de MAPLI, ordenar y generar el reporte. En el arquetipo A5 cada bloque es un <code>Step</code> y el paso intermedio de archivo se sustituye por una tabla de staging o por el propio <code>ExecutionContext</code> si el volumen es chico. La librería de versiones (<code>CTLVERS</code>) se reemplaza por la versión del artefacto desplegado.",
+          "reglas": [
+            "RN-S500-749"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Resultado de MAPLI: 0 correcto, 99 no disponible, otro error",
+          "linea_ini": 1312,
+          "linea_fin": 1328,
+          "origen_codigo": " 40000100-CALL-S038-35-31.                                        555010\n     MOVE 0  TO  WS-BAN99 WS-BANERROR WS-CICLO1.                  555020\n     PERFORM 2000038-AGRUPADORES-X-USER.                          555610\n     IF WS-S038L035-RESULT = 0                                    556210\n       MOVE 1                    TO       WS-CICLO1               556810\n     ELSE                                                         557410\n       IF WS-S038L035-RESULT = 99                                 557420\n          MOVE 1                  TO      WS-BAN99                557430\n       ELSE                                                       557440\n          MOVE 1                  TO      WS-BANERROR             557450\n          MOVE WS-S038L035-RESULT TO      WS-MSG-RS               558010\n          MOVE 020901             TO      WS-0101-CODI-MSG        558610\n          MOVE 02                 TO      WS-0101-TIPO-MSG        559210\n          STRING \"ERR.AL ACCESAR AGRUXUSER\", WS-MSG-RS            559810\n          DELIMITED BY SIZE INTO          WS-0101-TEXT-MSG        560410\n          PERFORM 70000050-MENSAJE.                               561010\n 40000100-EXIT.                                                   562210",
+          "java_codigo": "/** Cliente del servicio que sustituye a MAPLI (S038L035). */\n@Component\n@RequiredArgsConstructor\npublic class MapliClient {\n\n    private final RestClient mapli;\n\n    /** S038L035_31_AGRUPXUSER: agrupadores del USER, de 10 en 10 a partir de 'desde'. */\n    @Retryable(retryFor = MapliNoDisponibleException.class,\n               maxAttempts = 2, backoff = @Backoff(delayExpression = \"${p140.espera-ms:300000}\"))\n    public List<Agrupador> agrupadores(int user, int desde) {\n        var r = mapli.get().uri(\"/users/{u}/agrupadores?desde={d}&max=10\", user, desde)\n                     .retrieve().toEntity(RespuestaMapli.class).getBody();\n        return switch (r.resultado()) {\n            case 0  -> r.agrupadores();\n            case 99 -> throw new MapliNoDisponibleException();          // WS-BAN99\n            default -> throw new MapliErrorException(\"ERR.AL ACCESAR AGRUXUSER\", r.resultado());\n        };\n    }\n}",
+          "racional": "Cada llamada a MAPLI clasifica el resultado en tres casos: correcto, librería no disponible (99) o error. Solo el 99 dispara espera y reintento; los demás errores se reportan con <code>70000050-MENSAJE</code> y el flujo sigue. En Java el caso 99 se modela como excepción reintentable con <code>@Retryable</code> y un <code>Backoff</code> igual al <code>WAIT ((300))</code> del fuente, y los otros resultados como excepción de negocio distinta.",
+          "reglas": [],
+          "riesgo": "Ningún error de MAPLI aborta el programa: con un error distinto de 99 el reporte sale incompleto y el job termina normal."
+        },
+        {
+          "id": "s6",
+          "titulo": "Reintento y decisión del operador ante MAPLI no disponible",
+          "linea_ini": 1471,
+          "linea_fin": 1636,
+          "origen_codigo": " 50010150-TOMO-DEC.                                               609970\n  MOVE SPACES  TO WS-DECIDE.                                      609975\n  PERFORM 70000100-MSG-OPE  THRU 70000100-EXIT                    609980\n  PERFORM 50010200-DECIDE   THRU 50010200-EXIT.                   609990\n 50010150-EXIT.                                                   610100\n    EXIT.                                                         610110\n                                                                  610120\n******************************************************************611630\n* EL OPER. DECIDE LA ACCION A SEGUIR SI LA LIB. NO ESTA DISPONIBLE611640\n******************************************************************611650\n 50010200-DECIDE.                                                 611660\n      ACCEPT WS-DECIDE.                                           611670\n      IF WS-DECIDE = \"C\"                                          611680\n           MOVE 1 TO WS-CICLO1                                    611690\n      ELSE                                                        611710\n           IF WS-DECIDE = \"R\"                                     611720\n              PERFORM 50010210-VAL-CALL THRU 50010210-EXIT        611725\n           ELSE                                                   611740\n            MOVE 030101                       TO WS-0101-CODI-MSG 611750\n            MOVE 02                           TO WS-0101-TIPO-MSG 611760\n            MOVE \"DECISION INVALIDA \"         TO WS-0101-TEXT-MSG 611770\n            PERFORM 70000050-MENSAJE.                             611780\n 50013000-CON-PGRS.                                               625210\n   PERFORM 50013100-CALLPGRS    THRU 50013100-EXIT.               625220\n   IF WS-BANERROR = 0                                             625230\n      IF WS-BAN99 = 1                                             625240\n         WAIT ((300))                                             625250\n         PERFORM 50013100-CALLPGRS    THRU 50013100-EXIT          625270\n         IF WS-BAN99 = 1                                          625280\n            MOVE 0 TO WS-BAN-CSI WS-BAN-AGRU  WS-BAN-AGRUC        625282\n            MOVE 0 TO WS-BAN-PGRSC WS-BAN-ACTI WS-BAN-ACTIC       625284\n            MOVE 1 TO WS-BAN-PGRS                                 625286\n            PERFORM 50010150-TOMO-DEC THRU 50010150-EXIT UNTIL    625290\n            WS-CICLO1 = 1                                         625300\n            PERFORM 50013200-VALIDOP  THRU 50013200-EXIT          625400\n         ELSE                                                     625410\n            MOVE SPACES  TO WS-DECIDE                             625420\n            PERFORM 50013200-VALIDOP  THRU 50013200-EXIT          625430\n      ELSE                                                        625440\n         MOVE SPACES  TO WS-DECIDE                                625450\n         PERFORM 50013200-VALIDOP  THRU 50013200-EXIT             625460\n   ELSE                                                           625470\n      MOVE 11      TO WS-IND                                      625480\n      MOVE 1       TO WS-10VEZ.                                   625490\n 50013000-EXIT.                                                   625500",
+          "java_codigo": "/** Sustituye ACCEPT WS-DECIDE (\"C\" cancelar, \"R\" reintentar) por una política sin operador. */\n@Component\n@RequiredArgsConstructor\npublic class ConsultaProgramas {\n\n    private final MapliClient mapli;\n    private final MonitoreoAlertas alertas;\n\n    public List<Programa> programasDe(int user, Agrupador a) {\n        try {\n            return mapli.programas(user, a.numero(), 0);    // 50013100-CALLPGRS (+ un reintento)\n        } catch (MapliNoDisponibleException e) {\n            // En MCP aquí se detenía la tarea esperando la decisión del operador.\n            alertas.mapliNoDisponible(user, a);              // aviso a operación (correo, Teams, PagerDuty)\n            return List.of();                                // equivale a responder \"C\": se corta el agrupador\n        } catch (MapliErrorException e) {\n            log.error(\"Error de MAPLI en agrupador {}: {}\", a.numero(), e.getMessage());\n            throw new CorteDeConsultaException(e);           // MOVE 11 TO WS-IND: deja de leer agrupadores\n        }\n    }\n}",
+          "racional": "Cuando el reintento falla, el programa prende la bandera del tipo de llamada que falló y entra a un ciclo interactivo: muestra el mensaje al operador y espera <code>C</code> o <code>R</code>. Con <code>R</code> repite exactamente la llamada marcada por la bandera; con <code>C</code> descarta ese nivel. Un batch moderno no debe esperar teclado, así que la decisión se convierte en una política: reintento con espera, alerta a operación y corte del nivel. Un error distinto de 99 en la consulta de programas corta además los agrupadores restantes, y la traducción lo hace explícito con una excepción.",
+          "reglas": [],
+          "riesgo": "El WAIT ((300)) se repite en cada nivel; según la convención del P015 (WAIT (20) descrito como 20 segundos) son 300 segundos por intento, lo que puede sumar varios minutos de espera por agrupador."
+        }
+      ]
+    },
+    {
+      "titulo": "Registro de actividades, orden y filtro del reporte por agrupador",
+      "origen": {
+        "archivo": "S500_SOURCE_P140.txt",
+        "contexto": "PROCEDURE DIVISION · 50018100 / 50020000 / 50031000"
+      },
+      "java": {
+        "archivo": "TareaWriter.java · ReporteMonitoreoStep.java",
+        "contexto": "ItemWriter · Comparator · Classifier"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Fila por actividad con estado traducido a texto",
+          "linea_ini": 1847,
+          "linea_fin": 1912,
+          "origen_codigo": " 50018100-MUEDAT-ACT.                                             691210\n   MOVE SPACES              TO  REG-PROGRAMA                      691810\n   MOVE TEM-NUM-AGRUP       TO  MON-NUM-AGRUP                     692410\n   IF WS-SACT = 1                                                 700815\n      MOVE 0                                  TO MON-NUM-ACT      700820\n      MOVE 0                                  TO MON-TIP-ACTIVI   700825\n   ELSE                                                           700880\n   MOVE WS-S038L035-33-NUM-ACTI-S(WS-IND2)    TO MON-NUM-ACT      701410\n   MOVE WS-S038L035-33-TPO-ACTI-S(WS-IND2)    TO MON-TIP-ACTIVI   702010\n   MOVE WS-S038L035-33-PJE-ACTI-S(WS-IND2)    TO MON-TE-AVANCEA   702610\n   MOVE WS-S038L035-33-NOM-ACTI-S(WS-IND2)    TO MON-NOM-ACTIVI   703210\n   MOVE WS-S038L035-33-NUM-LLAMA2-S(WS-IND2)  TO MON-NUMTRANA     703810\n   MOVE WS-S038L035-33-ET-ANT-S(WS-IND2)      TO MON-ET-ANTA      704410\n   MOVE WS-S038L035-33-ET-ACT-S(WS-IND2)      TO MON-ET-ACTA      705010\n   MOVE WS-S038L035-33-TE-TERM-S(WS-IND2)     TO MON-TE-TERMINOA  705610\n   MOVE WS-S038L035-33-TXT-ADIC-S(WS-IND2)    TO MON-TEXTADIA     706210\n   MOVE WS-S038L035-33-TRANSXSEG-S(WS-IND2)   TO MON-TRANXSA      706810\n   MOVE WS-S038L035-33-TPRMRESP-S(WS-IND2)    TO MON-TPROREA      707410\n   PERFORM 50018110-STAACT                    THRU 50018110-EXIT  707415\n   MOVE WS-S038L035-33-SEENCUENTRA-S(WS-IND2) TO MON-ENCUENA.     708010\n   WRITE REG-PROGRAMA INVALID KEY                                 708610\n      MOVE  010105                          TO WS-0101-CODI-MSG   709210\n      MOVE  02                              TO WS-0101-TIPO-MSG   709810\n      MOVE \"ERROR AL GRABAR ARCHIVO PROGS \" TO WS-0101-TEXT-MSG   710410\n      PERFORM 70000050-MENSAJE                                    711010\n      CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                    711610\n 50018110-STAACT.                                                 713450\n   IF WS-S038L035-33-STA-ACTI-S(WS-IND2) = 1                      713460\n      MOVE \" EN PROCESO\"      TO MON-STAACT.                      713470\n                                                                  713480\n   IF WS-S038L035-33-STA-ACTI-S(WS-IND2) = 2                      713490\n      MOVE \"  TERMINADA\"      TO MON-STAACT.                      713500\n                                                                  713510\n   IF WS-S038L035-33-STA-ACTI-S(WS-IND2) = 3                      713520\n      MOVE \"NO INICIADA\"      TO MON-STAACT.                      713530",
+          "java_codigo": "/** 50018100-MUEDAT-ACT + 50018110-STAACT */\npublic TareaMonitoreada fila(Agrupador a, Programa p, ActividadMapli act) {\n    TareaMonitoreada.Actividad actividad = (act == null) ? null      // WS-SACT = 1: programa sin actividades\n        : new TareaMonitoreada.Actividad(act.num(), act.tipo(), act.nombre(), act.pctAvance(),\n              act.etAnterior(), act.etActual(), act.tiempoEsperado(), act.textoAdicional(),\n              act.numLlamadas(), act.transXSeg().setScale(2, RoundingMode.DOWN),\n              act.tiempoPromResp().setScale(6, RoundingMode.DOWN),\n              act.seEncuentraEn(), estado(act.status()));\n    return new TareaMonitoreada(a.numero(), a.nombre(), p.tipo(), p.numero(), p.copia(), p.nombre(),\n              p.fecIni(), p.hraIni(), p.fecFin(), p.hraFin(), p.etAnterior(), p.etActual(),\n              p.pctAvance(), p.tiempoEsperado(), p.tipoDespliegue(), actividad);\n}\n\nstatic TareaMonitoreada.Estado estado(int sta) {\n    return switch (sta) {\n        case 1  -> TareaMonitoreada.Estado.EN_PROCESO;    // \" EN PROCESO\"\n        case 2  -> TareaMonitoreada.Estado.TERMINADA;     // \"  TERMINADA\"\n        case 3  -> TareaMonitoreada.Estado.NO_INICIADA;   // \"NO INICIADA\"\n        default -> TareaMonitoreada.Estado.SIN_ESTADO;    // queda en SPACES\n    };\n}",
+          "racional": "Por cada actividad se escribe una fila con los datos del programa repetidos; si el programa no tiene actividades se escribe una sola fila con los campos de actividad en cero y espacios. El estado numérico de MAPLI se traduce a texto para el reporte y cualquier valor fuera de 1 a 3 queda en blanco. En Java el estado es un <code>enum</code> y el texto con espacios iniciales se genera solo en la plantilla del reporte. Los MOVE a <code>9(08)V99</code> y <code>9(06)V9(06)</code> truncan, por eso <code>RoundingMode.DOWN</code>.",
+          "reglas": [
+            "RN-S500-749"
+          ],
+          "riesgo": "El WRITE con INVALID KEY solo marca STATUS -1 y continúa; la fila se pierde y el reporte no lo indica."
+        },
+        {
+          "id": "s8",
+          "titulo": "SORT del archivo de paso por agrupador, programa, tipo, copia y actividad",
+          "linea_ini": 1984,
+          "linea_fin": 1996,
+          "origen_codigo": " 50020000-SORTEO-ARCHIVO.                                         727810\n     CLOSE FILE-PROGRAMAS WITH SAVE.                              728410\n     OPEN INPUT FILE-PROGRAMAS.                                   729010\n     MOVE ATTRIBUTE LASTRECORD OF FILE-PROGRAMAS TO WS-LASTRECORD 729610\n     CLOSE FILE-PROGRAMAS                                         730210\n     COMPUTE WS-SORT-ESPACIO = (WS-LASTRECORD + 1) * 60 * 2.5     730810\n     COMPUTE WS-AREA-ESPACIO = (63 * 2000 ) + 1500                731410\n     SORT PRO-SORT ON ASCENDING KEY SORT-NUM-AGRUP SORT-NUM-PROG  732010\n     SORT-TIPO-PROG SORT-NUM-COPIAP SORT-TIP-ACTIVI               732610\n     SORT-NUM-ACTIVI USING FILE-PROGRAMAS GIVING FILE-PROGRAMAS   733210\n     MEMORY SIZE WS-AREA-ESPACIO WORDS                            733810\n     DISK   SIZE WS-SORT-ESPACIO WORDS.                           734410\n     OPEN INPUT FILE-PROGRAMAS.                                   735010",
+          "java_codigo": "/** SORT PRO-SORT ON ASCENDING KEY ... USING FILE-PROGRAMAS GIVING FILE-PROGRAMAS */\npublic static final Comparator<TareaMonitoreada> ORDEN_REPORTE =\n        Comparator.comparingInt(TareaMonitoreada::numAgrupador)\n                  .thenComparingInt(TareaMonitoreada::numProg)\n                  .thenComparingInt(TareaMonitoreada::tipoProg)\n                  .thenComparingInt(TareaMonitoreada::numCopia)\n                  .thenComparingInt(t -> t.actividad() == null ? 0 : t.actividad().tipo())\n                  .thenComparingInt(t -> t.actividad() == null ? 0 : t.actividad().num());\n\n// En la base destino: ORDER BY num_agrup, num_prog, tipo_prog, num_copia, tip_activi, num_activi.\n// MEMORY SIZE y DISK SIZE del sort de MCP no tienen equivalente.",
+          "racional": "El orden del reporte no sigue el orden físico del registro: la llave pone el número de programa antes que su tipo. Se traduce a un <code>Comparator</code> encadenado en el mismo orden de llaves, o a un <code>ORDER BY</code> si las filas se guardan en una tabla de staging. Las filas sin actividad quedan primero dentro de su programa porque llevan cero en tipo y número de actividad.",
+          "reglas": [
+            "RN-S500-750"
+          ]
+        },
+        {
+          "id": "s9",
+          "titulo": "Filtro del reporte por número de agrupador",
+          "linea_ini": 2010,
+          "linea_fin": 2021,
+          "origen_codigo": " 50031000-LEO-ARCH.\n    READ FILE-PROGRAMAS AT END\n          MOVE 1           TO WS-3VEZ.\n    IF WS-3VEZ = 0\n      IF WS-PARAM-DECI = 1\n        IF MON-NUM-AGRUP < 6\n           PERFORM 50032000-GEN-REP    THRU 50032000-EXIT\n        ELSE\n           NEXT SENTENCE\n      ELSE\n         IF MON-NUM-AGRUP > 5\n            PERFORM 50032000-GEN-REP    THRU 50032000-EXIT.",
+          "java_codigo": "/** 50031000-LEO-ARCH: Classifier que decide qué filas entran al listado. */\n@Component\n@RequiredArgsConstructor\npublic class FiltroAgrupador implements ItemProcessor<TareaMonitoreada, TareaMonitoreada> {\n\n    private final ParametroMonitoreo parametro;\n    private final MonitoreoProperties props;            // p140.umbral-agrupador-batch: 6\n\n    @Override\n    public TareaMonitoreada process(TareaMonitoreada t) {\n        boolean esBatch = t.numAgrupador() >= props.umbralAgrupadorBatch();\n        return switch (parametro.tipo()) {\n            case MONITOREO -> esBatch ? null : t;       // IF MON-NUM-AGRUP < 6\n            case MONIBATCH -> esBatch ? t : null;       // IF MON-NUM-AGRUP > 5\n        };\n    }\n}",
+          "racional": "El mismo archivo ordenado alimenta dos reportes distintos según el primer dígito del parámetro: el de monitoreo normal muestra los agrupadores 1 a 5 y el de monitoreo batch los de 6 en adelante. Es la forma en que P140 presenta la cadena batch por bloques lógicos. El umbral 6 está compilado y se lleva a una propiedad. En Spring Batch el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> para descartar.",
+          "reglas": [
+            "RN-S500-750"
+          ],
+          "riesgo": "El corte entre agrupadores normales y batch es el literal 6; un agrupador nuevo dado de alta con número 6 o mayor aparece en el reporte batch aunque sea operativo."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Espera interactiva en un proceso batch",
+      "detalle": "50010150-TOMO-DEC hace ACCEPT WS-DECIDE y repite el mensaje hasta que el operador teclee C o la llamada responda; si nadie atiende la consola, la tarea queda detenida indefinidamente."
+    },
+    {
+      "titulo": "Errores de MAPLI sin abortar",
+      "detalle": "No hay CALL SYSTEM DMTERMINATE en el programa. Un error distinto de 99 solo se informa (40000100 a 40000400) y en varios niveles corta la consulta del resto (MOVE 11 TO WS-IND); el reporte sale incompleto sin aviso en el listado."
+    },
+    {
+      "titulo": "Contador de continuación equivocado",
+      "detalle": "50019100-CALLACTC (línea 1960) pone en cero WS-S038L035-32-CUANTOS-E, que pertenece a la consulta de programas, en lugar del campo de la consulta de actividades (33). La continuación de actividades viaja con el contador que haya quedado de la llamada anterior."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Umbral de agrupador 6, prefijos S500/FILE/S038/ y /LIST/P140/, nombre MONITOREOS, versión 25MTP004 y WAIT ((300)) están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar la unidad de WAIT ((300)) en MCP; el pseudocódigo la describe como 300 ms, pero P015 usa WAIT (20) con el texto de 20 segundos.",
+    "Confirmar si la línea 1960 (MOVE 0 TO WS-S038L035-32-CUANTOS-E dentro de 50019100-CALLACTC) es un error de copia y debería ser el campo 33.",
+    "Definir con operación la política que reemplaza la decisión C o R del operador: número de reintentos, tiempo de espera y canal de alerta.",
+    "Confirmar el uso de la vista WS-PARAM-CUF: WS-MONI-SIS toma 3 dígitos (WS-PARAM-U) mientras el resto del programa usa el USER de 4 dígitos."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-749",
+    "RN-S500-750"
+  ]
+}

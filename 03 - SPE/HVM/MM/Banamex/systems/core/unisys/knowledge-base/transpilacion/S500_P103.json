@@ -1,0 +1,237 @@
+{
+  "slug": "S500_P103",
+  "sistema": "S500",
+  "programa": "P103",
+  "nombre": "Generador del archivo diario FRAUDLINK hacia S711",
+  "funcion": "Paso batch de S500 que recorre los movimientos del día en Captación y genera el archivo de movimientos con claves 2001, 2444 y 2496 para FraudLink (S711).",
+  "resumen": "P103 valida su versión, lee el registro de control de Captación para obtener el CSI y la fecha de lote, y abre el archivo S500/FILE/S711/FRAUDLINK con un header. Recorre S500B07MOVDIA y, salvo los movimientos con estatus 1, revisa la clave del movimiento principal, las de sus cinco movimientos adicionales y, si los hay, las diez claves adicionales de S500B13MOVCVES. Cada clave 2001, 2444 o 2496 produce un registro de detalle con sucursal, medio de acceso, fecha, clave, importe y referencia. Al final escribe un trailer con el número de registros y la suma de importes.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.fraude.fraudlink",
+  "secciones": [
+    {
+      "titulo": "Estructura del archivo FRAUDLINK (60 bytes)",
+      "origen": {
+        "archivo": "S500_SOURCE_P103.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "RegistroFraudlink.java · Autorizacion.java",
+        "contexto": "sealed interface · record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registros de 60 bytes del archivo FRAUDLINK y desglose de la autorización",
+          "linea_ini": 75,
+          "linea_fin": 123,
+          "origen_codigo": "******************************************************************\n DATA DIVISION.\n FILE SECTION.\n******************************************************************\n FD E03-CVES2001\n    BLOCK   CONTAINS 540 RECORDS\n    RECORD  CONTAINS  60 CHARACTERS\n    VALUE OF\n            AREAS        IS 1000\n            AREASIZE     IS 2700\n            SECURITYTYPE IS PUBLIC\n            TITLE        IS WKS-TIT-E03-CVES.\n 01 REG-E03-CVES         PIC X(60).\n******************************************************\n DATA-BASE SECTION.\n DB S500BD01CAPTACION.\n 01 S500B02CONTROL.\n 01 S500B07MOVDIA.\n 01 S500B13MOVCVES.",
+          "java_codigo": "/** Archivo E03-CVES2001: registros de 60 posiciones, tipo 1 header, 2 detalle, 9 trailer. */\npublic sealed interface RegistroFraudlink permits Header, Detalle, Trailer {\n    String aLinea();   // ancho fijo de 60\n}\n\n/** WKS-E03-HEADER: \"1\" + \"S500\" + \"S711\" + CSI + \" \" + fecha + 40 blancos. */\nrecord Header(int csi, LocalDate fechaLote) implements RegistroFraudlink {\n    public String aLinea() {\n        return \"1S500S711%02d %s%-40s\".formatted(csi, fechaLote.format(BASIC_ISO_DATE), \"\");\n    }\n}\n\n/** WKS-REG-E03-CVES. */\nrecord Detalle(int banco,                 // 9(04): siempre 0002 en el fuente\n               int sucursalOperacion,     // 9(04): primeros 4 dígitos de B07-AUTORIZACION\n               String medioAcceso,        // 9(16): campo WKS-REG-E03-CHQRA (nombre legado)\n               int clave, LocalDate fecha,\n               BigDecimal importe,        // 9(11)V99 -> escala 2, sin signo\n               long referencia) implements RegistroFraudlink {\n    public String aLinea() {\n        return \"2%04d%04d%16s%04d%s%013d%010d\".formatted(banco, sucursalOperacion, medioAcceso,\n                clave, fecha.format(BASIC_ISO_DATE), Fixed.sinPunto(importe, 11, 2), referencia);\n    }\n}\n\n/** WKS-E03-TRAILER: \"9\" + registros 9(08) + importe 9(12)V99 + 37 blancos. */\nrecord Trailer(long registros, BigDecimal importeTotal) implements RegistroFraudlink {\n    public String aLinea() {\n        return \"9%08d%014d%-37s\".formatted(registros, Fixed.sinPunto(importeTotal, 12, 2), \"\");\n    }\n}\n\n/** RD-WKS-AUTORIZ-MOV: 14 dígitos = sucursal(4) + caja(2) + secuencia(8). */\nrecord Autorizacion(long valor) {\n    int sucursal()  { return (int) (valor / 10_000_000_000L); }\n    int caja()      { return (int) (valor / 100_000_000L % 100); }\n    long secuencia() { return valor % 100_000_000L; }\n}",
+          "racional": "El archivo hacia S711 tiene tres tipos de registro de 60 posiciones que en COBOL son tres áreas de WORKING-STORAGE escritas sobre el mismo registro de 60 caracteres. En Java se modelan como una <code>sealed interface</code> con un <code>record</code> por tipo, cada uno responsable de producir su línea de ancho fijo. El importe <code>9(11)V99</code> y el total <code>9(12)V99</code> son <code>BigDecimal</code> de escala 2 que se escriben sin punto decimal. El desglose de la autorización con <code>REDEFINES</code> sobre un campo <code>COMP</code> de 14 dígitos se traduce a operaciones aritméticas sobre los dígitos decimales, porque en COBOL de MCP <code>COMP</code> guarda dígitos decimales de 4 bits.",
+          "reglas": [
+            "RN-S500-005",
+            "RN-S500-008"
+          ],
+          "riesgo": "El código de banco 0002 y los identificadores S500 y S711 del header están fijos en el programa; se mueven a application.yml."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job, apertura y ciclo principal",
+      "origen": {
+        "archivo": "S500_SOURCE_P103.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-MAIN-PARAGRAPH / 20000100-ABRE-BASE / 50001000-PROCESO"
+      },
+      "java": {
+        "archivo": "FraudlinkJobConfig.java",
+        "contexto": "Spring Batch Job · FlatFileItemWriter con header y footer"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Rutina principal y validación de versión",
+          "linea_ini": 136,
+          "linea_fin": 163,
+          "origen_codigo": " 77  W77-IND-B13       PIC 99.\n 77  W77-SIN-B13       PIC 9     VALUE 0.\n***********************************************************\n 01 WKS-TIT-E03-CVES.\n    02 FILLER                PIC X(25) VALUE\n                            \"S500/FILE/S711/FRAUDLINK/\".\n    02 WKS-TIT-E03-CSI       PIC 9(02).\n    02 FILLER                PIC X(01) VALUE \"/\".\n    02 WKS-TIT-E03-FECH      PIC 9(08).\n    02 FILLER                PIC X(01) VALUE \".\".",
+          "java_codigo": "@Configuration\npublic class FraudlinkJobConfig {\n\n    /** 00000000-MAIN-PARAGRAPH. */\n    @Bean\n    Job fraudlinkDiario(JobRepository repo, Step validaVersion, Step generaArchivo) {\n        return new JobBuilder(\"S500P103\", repo)\n                .start(validaVersion)          // 10000100-TIT-LIBS: si falla, el job termina y no se crea archivo\n                .next(generaArchivo)           // 20000100-ABRE-BASE .. 80000000-TERMINA\n                .build();\n    }\n\n    @Bean\n    Step validaVersion(JobRepository repo, PlatformTransactionManager tx, CatalogoVersiones versiones) {\n        return new StepBuilder(\"validaVersion\", repo)\n                .tasklet((c, ctx) -> {\n                    if (versiones.compara(\"S500P103\", \"25MTP004\") < 0) {     // S000-CTR-CVEERROR < 0\n                        throw new VersionNoVigenteException(\"ERROR DE VERSION \");  // STATUS OF MYSELF TO -1\n                    }\n                    return RepeatStatus.FINISHED;\n                }, tx)\n                .build();\n    }\n}",
+          "racional": "El programa principal ejecuta cuatro pasos fijos: identificación, validación de versión, apertura con header, ciclo sobre los movimientos del día y cierre con trailer. Si la versión no coincide con la del catálogo central, la tarea se marca con estatus -1 antes de abrir el archivo de salida, así que ese día no se genera reporte. En Spring Batch la validación es un step previo cuyo fallo detiene el job, con el mismo efecto.",
+          "reglas": [
+            "RN-S500-001"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Apertura de la base, fecha de lote y header; escritura del trailer",
+          "linea_ini": 172,
+          "linea_fin": 213,
+          "origen_codigo": "     02 FILLER         PIC X(04) VALUE \"S711\".\n     02 WKS-HEAD-CSI   PIC 9(02).\n     02 FILLER         PIC X     VALUE \" \".\n     02 WKS-HEAD-FECH  PIC 9(08).\n     02 FILLER         PIC X(40) VALUE \" \".\n**********************************************************\n 01 WKS-REG-E03-CVES.\n    02 WKS-REG-E03-TPO        PIC 9(01).\n    02 WKS-REG-E03-BCO        PIC 9(04).\n    02 WKS-REG-E03-SUC-OPE    PIC 9(04).\n    02 WKS-REG-E03-CHQRA      PIC 9(16).\n    02 WKS-REG-E03-CVE        PIC 9(04).\n    02 WKS-REG-E03-FECHA      PIC 9(08).\n    02 WKS-REG-E03-IMPORTE    PIC 9(11)V99.\n    02 WKS-REG-E03-REFNUM     PIC 9(10).\n**********************************************************\n 01  WKS-E03-TRAILER.\n     02 FILLER         PIC X(01)    VALUE \"9\".\n     02 WKS-NUM-REG    PIC 9(08)    VALUE 0.",
+          "java_codigo": "@Bean\n@StepScope\nFlatFileItemWriter<RegistroFraudlink> archivoFraudlink(ControlCaptacionRepository control,\n                                                       FraudlinkProperties props,\n                                                       CifrasControl cifras) {\n    ControlCaptacion b02 = control.find()\n            .orElseThrow(() -> new ProcesoAbortadoException(\"ERR FIND B02CONTROL\"));   // CALL SYSTEM DMTERMINATE\n    var header = new Header(b02.numCsi(), b02.fechaLote());       // fecha de LOTE, no de línea\n    String titulo = props.titulo(b02.numCsi(), b02.fechaLote());  // S500/FILE/S711/FRAUDLINK/{csi}/{aaaammdd}.\n\n    return new FlatFileItemWriterBuilder<RegistroFraudlink>()\n            .name(\"e03Cves2001\")\n            .resource(new FileSystemResource(titulo))\n            .lineAggregator(RegistroFraudlink::aLinea)\n            .headerCallback(w -> w.write(header.aLinea()))                    // 20000600-GEN-HEADER\n            .footerCallback(w -> w.write(new Trailer(cifras.registros(),\n                                                     cifras.importe()).aLinea()))   // 20000700-GEN-TRAILER\n            .build();\n}",
+          "racional": "Antes de abrir el archivo de salida se lee el registro de control de Captación; si la lectura falla, el proceso termina y no hay archivo. De ese registro salen el CSI y la fecha de lote, que se usan en el título del archivo y en el header; es la fecha de lote y no la de línea. El header se escribe al abrir y el trailer al terminar, después de cerrar la base. Aunque el arquetipo es Reporteador, la salida es un archivo de intercambio de ancho fijo y no un listado impreso, por lo que en lugar de JasperReports se usa un <code>FlatFileItemWriter</code> con callbacks de header y trailer.",
+          "reglas": [
+            "RN-S500-002",
+            "RN-S500-008"
+          ],
+          "riesgo": "Los WRITE de header, detalle y trailer usan INVALID KEY sobre un archivo secuencial; si la condición no se activa en ese tipo de archivo, un error de escritura no se detectaría. Confirmar el comportamiento en MCP."
+        },
+        {
+          "id": "s4",
+          "titulo": "Ciclo sobre B07MOVDIA: fin de datos, error y movimientos excluidos",
+          "linea_ini": 216,
+          "linea_fin": 237,
+          "origen_codigo": "     02 FILLER         PIC X(37)    VALUE \" \".\n**********************************************************\n 01 WS-FECHA-MOV        PIC 9(08).\n 01 WS-FECHA-MOV-AMD REDEFINES WS-FECHA-MOV.\n    02 WS-FECHA-AA      PIC 9(04).\n    02 WS-FECHA-MM      PIC 9(02).\n    02 WS-FECHA-DD      PIC 9(02).\n 01 WKS-AUTORIZ-MOV     PIC 9(14) COMP.",
+          "java_codigo": "@Bean\nStep generaArchivo(JobRepository repo, PlatformTransactionManager tx,\n                   ItemReader<MovimientoDia> b07MovDia,              // 90000007-B07MOVDIA-FINDN, OPEN INQUIRY\n                   FraudlinkProcessor processor,\n                   ItemWriter<List<RegistroFraudlink>> writer) {\n    return new StepBuilder(\"generaArchivo\", repo)\n            .<MovimientoDia, List<RegistroFraudlink>>chunk(540, tx)  // BLOCK CONTAINS 540 RECORDS\n            .reader(b07MovDia)          // fin de datos (status 1): el reader devuelve null y el step termina\n            .processor(processor)       // cualquier otro status: excepción y el job falla (DMTERMINATE)\n            .writer(writer)             // aplana la lista sobre el FlatFileItemWriter\n            .build();\n}\n\n/** 50001000-PROCESO. */\npublic List<RegistroFraudlink> process(MovimientoDia m) {\n    if (m.statusMovto() == 1) return null;                       // NEXT SENTENCE: no se reporta\n    var aut = new Autorizacion(m.autorizacion());\n    var r = new ArrayList<RegistroFraudlink>();\n    movimientoOriginal(m, aut).ifPresent(r::add);                // 50001100-MOV-ORIG\n    r.addAll(otrosMovimientos(m, aut));                          // 50001200-OPERO5-B07 5 TIMES\n    if (m.indMovsAds() > 0) r.addAll(clavesAdicionales(m, aut)); // 50001300-MOVS-B13\n    return r;\n}",
+          "racional": "El ciclo lee secuencialmente los movimientos del día; el estatus 1 de la base indica fin de datos y cualquier otro error aborta. Los movimientos con <code>B07-STATUS-MOVTO = 1</code> se descartan. Para los demás se desglosa la autorización una sola vez y se revisan tres niveles: el movimiento principal, sus cinco movimientos adicionales y, si el indicador lo señala, las claves adicionales en B13. En Spring Batch es un step de chunk con un lector sobre la base y un procesador que devuelve la lista de registros a escribir; el tamaño de chunk reproduce el bloqueo del archivo.",
+          "reglas": [
+            "RN-S500-003",
+            "RN-S500-004"
+          ],
+          "riesgo": "El significado del estatus 1 de B07 no está documentado en el fuente; si no es cancelación, se estarían omitiendo operaciones reales del reporte de fraude."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de detección por clave monitoreada",
+      "origen": {
+        "archivo": "S500_SOURCE_P103.txt",
+        "contexto": "PROCEDURE DIVISION · 50001100 / 50001200 / 50001300-50001350"
+      },
+      "java": {
+        "archivo": "FraudlinkProcessor.java",
+        "contexto": "ItemProcessor · JPA de solo lectura"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Movimiento principal con clave monitoreada",
+          "linea_ini": 240,
+          "linea_fin": 249,
+          "origen_codigo": "    02 WKS-SUC-OPE      PIC 9(04) COMP.\n    02 WKS-CAJ-OPE      PIC 9(02) COMP.\n    02 WKS-SEQ-OPE      PIC 9(08) COMP.",
+          "java_codigo": "    private static final Set<Integer> CLAVES_FRAUDE = Set.of(2001, 2444, 2496);   // p103.claves-monitoreadas\n\n    /** 50001100-MOV-ORIG. */\n    private Optional<RegistroFraudlink> movimientoOriginal(MovimientoDia m, Autorizacion aut) {\n        if (!CLAVES_FRAUDE.contains(m.claveMovto())) return Optional.empty();\n        return Optional.of(new Detalle(props.banco(), aut.sucursal(), m.medioAcceso(),\n                m.claveMovto(), fechaLote,\n                Fixed.trunca(m.importe(), 11, 2),      // MOVE a 9(11)V99: pierde dígitos altos, sin signo\n                m.referenciaNumerica()));\n    }",
+          "racional": "Si la clave del movimiento es 2001, 2444 o 2496 se escribe un detalle con banco 0002, la sucursal tomada de la autorización, el medio de acceso, la fecha de lote, la clave, el importe y la referencia. Las tres claves se vuelven un conjunto configurable. El <code>MOVE</code> del importe a un campo de 11 enteros corta los dígitos altos sin aviso; en Java se hace explícito con una función de truncamiento para reproducirlo, y queda señalado como riesgo. La fecha es la de lote del registro de control, no la del movimiento.",
+          "reglas": [
+            "RN-S500-005"
+          ],
+          "riesgo": "Un importe con más de 11 dígitos enteros se reporta truncado en el detalle y en el total del trailer."
+        },
+        {
+          "id": "s6",
+          "titulo": "Cinco movimientos adicionales del mismo registro B07",
+          "linea_ini": 252,
+          "linea_fin": 262,
+          "origen_codigo": "************************************************************\n COPY \"S500/INC/WOR/25MTP002\".",
+          "java_codigo": "    /** 50001200-OPERO5-B07, ejecutado 5 TIMES con W77-IND-B07 de 1 a 5. */\n    private List<RegistroFraudlink> otrosMovimientos(MovimientoDia m, Autorizacion aut) {\n        return IntStream.rangeClosed(1, 5)\n                .mapToObj(m::otroMovimiento)                         // B07-OTROS-MOVSAD(i)\n                .filter(ad -> CLAVES_FRAUDE.contains(ad.clave()))\n                .<RegistroFraudlink>map(ad -> new Detalle(props.banco(), aut.sucursal(),\n                        m.medioAcceso(), ad.clave(), fechaLote,\n                        Fixed.trunca(ad.importe(), 11, 2), ad.referencia()))\n                .toList();\n    }",
+          "racional": "Cada movimiento de B07 trae un grupo de cinco movimientos adicionales con su propia clave, importe y referencia. El párrafo se ejecuta cinco veces y genera un detalle por cada adicional con clave monitoreada, reutilizando la sucursal y el medio de acceso del movimiento padre. En Java el recorrido es un <code>IntStream</code> sobre las cinco posiciones. Las posiciones vacías no generan registro porque su clave no está en el conjunto.",
+          "reglas": [
+            "RN-S500-006"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Claves adicionales en B13 por contrato y autorización",
+          "linea_ini": 265,
+          "linea_fin": 296,
+          "origen_codigo": "*          P R O C E D U R E     D I V I S I O N               *\n****************************************************************\n PROCEDURE DIVISION.\n 00000000-MAIN-PARAGRAPH.\n     PERFORM 10000000-INICIO.\n     PERFORM 10000100-TIT-LIBS.\n     PERFORM 20000100-ABRE-BASE.\n     PERFORM 50001000-PROCESO UNTIL W77-EOF-B07 = 1.\n     PERFORM 80000000-TERMINA.\n     STOP RUN.\n**********************************************************\n*         00100000-CHANGE-LIBRERIAS                      *\n**********************************************************\n 10000000-INICIO.\n     MOVE \"S500P103\"        TO W77-S000-MY-ID.",
+          "java_codigo": "    /** 50001300-MOVS-B13 y 50001350-BUSCA-B13 (10 TIMES). */\n    private List<RegistroFraudlink> clavesAdicionales(MovimientoDia m, Autorizacion aut) {\n        Optional<MovimientoClaves> b13;\n        try {\n            b13 = b13Repo.findByContratoAndAutorizacion(m.contrato(), m.autorizacion());   // B13SXCTOAUT\n        } catch (DataAccessException e) {\n            throw new ProcesoAbortadoException(\"ERR FIND A B13 CTO=%s AUT=%d\"\n                    .formatted(m.contrato(), m.autorizacion()), e);                       // DMTERMINATE\n        }\n        return b13.map(reg -> IntStream.rangeClosed(1, 10)\n                        .mapToObj(reg::clave)                                              // B13-CLAVES-TRANS(i)\n                        .filter(c -> CLAVES_FRAUDE.contains(c.clave()))\n                        .<RegistroFraudlink>map(c -> new Detalle(props.banco(), aut.sucursal(),\n                                m.medioAcceso(), c.clave(), fechaLote,\n                                Fixed.trunca(c.importe(), 11, 2), c.referencia()))\n                        .toList())\n                  .orElse(List.of());                                                      // W77-SIN-B13 = 1\n    }",
+          "racional": "Cuando el movimiento indica que tiene claves adicionales, se busca en B13 el registro por contrato y autorización. Si no existe se sigue sin error; si la búsqueda falla por otra causa se aborta con el contrato y la autorización en el mensaje. Si existe, se revisan sus diez claves y cada una monitoreada genera otro detalle. En Java la búsqueda es un método de repositorio JPA que devuelve <code>Optional</code>, lo que separa con claridad el caso sin registro del caso de error.",
+          "reglas": [
+            "RN-S500-007"
+          ],
+          "riesgo": "Si B07-IND-MOVSADS es mayor que cero pero el registro B13 no existe, el programa continúa sin aviso y esas claves adicionales no se revisan."
+        }
+      ]
+    },
+    {
+      "titulo": "Cifras de control y trailer",
+      "origen": {
+        "archivo": "S500_SOURCE_P103.txt",
+        "contexto": "PROCEDURE DIVISION · 50002000-ESC-ARCHIVO / 80000000-TERMINA"
+      },
+      "java": {
+        "archivo": "CifrasControl.java",
+        "contexto": "ItemWriteListener @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Cifras de control por registro escrito y cierre",
+          "linea_ini": 299,
+          "linea_fin": 325,
+          "origen_codigo": "     MOVE \"25MTP004\"        TO WS-0101-MTP-MSG\n                               W77-S000-MY-VERSION.\n     MOVE 2                 TO W77-USO-LIBLJ.\n*********************************************************\n 10000100-TIT-LIBS.\n*************************** LIBRERIA DE VERSIONES ***************\n     PERFORM 10000100-VERSIONES.\n     PERFORM 20000100-CHECAME-VERSION.\n     IF S000-CTR-CVEERROR < 0\n        MOVE \"ERROR DE VERSION \"    TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "/** 50002000-ESC-ARCHIVO: contador y suma que alimentan el trailer. */\n@Component\n@StepScope\npublic class CifrasControl implements ItemWriteListener<List<RegistroFraudlink>> {\n\n    private static final BigDecimal TOPE_9_12_V99 = new BigDecimal(\"999999999999.99\");\n    private long registros;                                       // WKS-NUM-REG 9(08)\n    private BigDecimal importe = BigDecimal.ZERO.setScale(2);     // WKS-IMP-TOT 9(12)V99\n\n    @Override\n    public void afterWrite(Chunk<? extends List<RegistroFraudlink>> items) {\n        items.getItems().stream().flatMap(List::stream)\n             .map(Detalle.class::cast)\n             .forEach(d -> {\n                 registros++;\n                 importe = importe.add(d.importe());              // suma exacta de escala 2\n                 if (importe.compareTo(TOPE_9_12_V99) > 0) {\n                     throw new DesbordamientoAcumuladorException(importe);   // COBOL truncaría en silencio\n                 }\n             });\n    }\n\n    public long registros() { return registros; }\n    public BigDecimal importe() { return importe; }\n}\n// 80000000-TERMINA: CLOSE de la base, trailer y CLOSE ... WITH SAVE los hace el cierre del step.",
+          "racional": "Cada detalle escrito suma uno al contador y su importe, ya truncado, al total. Al terminar se cierra la base, se escribe el trailer con esas dos cifras y se guarda el archivo. En Java las cifras viven en un <code>ItemWriteListener</code> con alcance de step y el trailer las lee desde el callback del escritor. La suma de importes de escala 2 es exacta, sin modo de redondeo. El total <code>9(12)V99</code> no tiene <code>ON SIZE ERROR</code>; en Java se decidió fallar si se excede la capacidad, en lugar de perder dígitos.",
+          "reglas": [
+            "RN-S500-008"
+          ],
+          "riesgo": "Como el total suma importes ya truncados a 11 enteros, el trailer cuadra con el detalle del archivo pero no necesariamente con los importes reales de B07 y B13."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Truncamiento del importe",
+      "detalle": "WKS-REG-E03-IMPORTE es PIC 9(11)V99 (línea 101) y recibe importes de B07 y B13 con un MOVE sin control de tamaño (líneas 247, 260 y 294). Los dígitos altos se pierden en el detalle y en el total."
+    },
+    {
+      "titulo": "Importes sin signo",
+      "detalle": "Ni el detalle ni el total tienen signo; si B07 o B13 trajeran importes negativos, se reportarían como positivos."
+    },
+    {
+      "titulo": "Exclusión por estatus no documentada",
+      "detalle": "Los movimientos con B07-STATUS-MOVTO = 1 se omiten (línea 229) sin que el fuente explique qué significa ese estatus."
+    },
+    {
+      "titulo": "B13 ausente sin aviso",
+      "detalle": "Si el indicador B07-IND-MOVSADS es mayor que cero y B13 no tiene registro, las claves adicionales no se revisan y no queda rastro (líneas 270-283)."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "El banco 0002, las claves 2001, 2444 y 2496, los identificadores S500 y S711 del header y la ruta S500/FILE/S711/FRAUDLINK están compilados. Se trasladan a application.yml."
+    },
+    {
+      "titulo": "Desbordamiento silencioso del total",
+      "detalle": "WKS-IMP-TOT es PIC 9(12)V99 sin ON SIZE ERROR (línea 301). La versión Java falla de forma explícita."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el significado de B07-STATUS-MOVTO = 1; el catálogo DASDL solo lo describe como estado del movimiento.",
+    "Confirmar si INVALID KEY en el WRITE de un archivo secuencial de disco se activa en MCP; de no hacerlo, los errores de escritura no se detectan.",
+    "Confirmar si el medio de acceso (B07-MED-ACCESO) debe viajar en la posición WKS-REG-E03-CHQRA, cuyo nombre sugiere número de chequera, y cómo lo interpreta S711.",
+    "La lectura de B02CONTROL y B07MOVDIA está en el copybook S500/INC/PRO/25MTP002, que no viene en el fuente; se supuso que el estatus 1 significa fin de datos o registro inexistente, como indica su uso en el programa."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-916",
+    "RN-S151-917",
+    "RN-S151-918",
+    "RN-S151-919",
+    "RN-S151-920",
+    "RN-S151-201",
+    "RN-S151-202",
+    "RN-S151-203",
+    "RN-S151-204",
+    "RN-S151-205",
+    "RN-S151-206",
+    "RN-S151-207",
+    "RN-S500-173",
+    "RN-S500-174",
+    "RN-S500-175",
+    "RN-S500-176",
+    "RN-S500-177",
+    "RN-S500-178",
+    "RN-S500-179",
+    "RN-S500-180",
+    "RN-S500-181",
+    "RN-S500-182",
+    "RN-S500-001",
+    "RN-S500-002",
+    "RN-S500-003",
+    "RN-S500-004",
+    "RN-S500-005",
+    "RN-S500-006",
+    "RN-S500-007",
+    "RN-S500-008"
+  ]
+}

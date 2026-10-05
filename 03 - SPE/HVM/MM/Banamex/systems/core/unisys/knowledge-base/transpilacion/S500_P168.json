@@ -1,0 +1,210 @@
+{
+  "slug": "S500_P168",
+  "sistema": "S500",
+  "programa": "P168",
+  "nombre": "Generación del archivo regulatorio IPAB",
+  "funcion": "Paso batch de S500 que recorre los contratos de captación y genera el archivo ARCHIPAB para el IPAB con rendimientos, ISR, saldo promedio y tasas por contrato.",
+  "resumen": "Obtiene la fecha de proceso retrocediendo un día desde la fecha próxima y detecta si la corrida es de cierre de mes. Recorre S500B03CONTRATOS, descarta contratos clonados, migrados a S111, abiertos después de la fecha de proceso o cancelados, y para cada contrato restante cuyo instrumento paga rendimiento toma los datos almacenados o simula la capitalización del ciclo. Escribe un header, un detalle por contrato con rendimiento bruto y neto, ISR, saldo promedio, días del ciclo, tasas y saldos, y un trailer con el conteo. Emite además un listado de mensajes con cifras de control.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.regulatorio.ipab",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — ARCHIPAB (206 posiciones)",
+      "origen": {
+        "archivo": "S500_SOURCE_P168.txt",
+        "contexto": "WORKING-STORAGE · 20000020-ABRE-VAL-ARCH"
+      },
+      "java": {
+        "archivo": "RegistroIpab.java · ArchivoIpabWriterConfig.java",
+        "contexto": "sealed interface · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Archivo ARCHIPAB: header, detalle y trailer de 206 posiciones",
+          "linea_ini": 424,
+          "linea_fin": 462,
+          "origen_codigo": " 01  REG-IPAB-HEADER.\n     02 WR00-IPAB-TPOREG-H    PIC 9(02)    VALUE 01.\n     02 WR00-IPAB-SISO        PIC X(04)    VALUE \"S500\".\n     02 WR00-IPAB-FECPRO      PIC 9(08).\n     02 WR00-IPAB-CSI         PIC 9(02).\n     02 FILLER                PIC X(190)   VALUE \" \".\n 01  REG-IPAB-DETALLE.\n     02 WR02-IPAB-TPOREG       PIC 9(02)        VALUE 02.\n     02 WR02-IPAB-PRD          PIC 9(04).\n     02 WR02-IPAB-INST         PIC 9(02).\n     02 WR02-IPAB-MON          PIC 9(04).\n     02 WR02-IPAB-NUMCTO       PIC 9(12).\n     02 WR02-IPAB-NUMCTE       PIC 9(12).\n     02 WR02-IPAB-RENDBRTO     PIC 9(12)V99.\n     02 WR02-IPAB-RENDNETO     PIC 9(12)V99.\n     02 WR02-IPAB-IMPUESTO     PIC 9(12)V99.\n     02 WR02-IPAB-PROMCICLO    PIC 9(14)V99.\n     02 WR02-IPAB-DIASCICLO    PIC 9(02).\n     02 WR02-IPAB-TASAISR      PIC 9(04)V9(03).\n     02 WR02-IPAB-TASABRUTA    PIC 9(04)V9(03).\n     02 WR02-IPAB-TASANETA     PIC 9(04)V9(03).\n     02 WR02-IPAB-SDOANT       PIC 9(14)V99.\n     02 WR02-IPAB-SDOACT       PIC 9(14)V99.\n     02 WR02-IPAB-TIPOPERS     PIC 9(02).\n     02 WR02-IPAB-OPCRGO       PIC 9(04).\n     02 WR02-IPAB-OPCRGO-DR    REDEFINES WR02-IPAB-OPCRGO.\n        04 WR02-IPAB-OPCION    PIC 9(02).\n        04 WR02-IPAB-RANGO     PIC 9(02).\n     02 WR02-IPAB-PAGAREND     PIC 9(02).\n     02 WR02-IPAB-RENDXDIA     PIC 9(02).\n     02 WR02-IPAB-DIACORTE     PIC 9(02).\n     02 WR02-IPAB-INDCAL       PIC 9(02).\n     02 WR02-IPAB-FILLER       PIC X(43).\n 01 REG-IPAB-TRAILER.\n     02 R99-IPAB-TPOREG-T    PIC 9(02).\n     02 R99-IPAB-NUMREG      PIC 9(10).\n     02 R99-IPAB-FILLER      PIC X(194).",
+          "java_codigo": "/** Registros del archivo regulatorio IPAB. Los tres miden 206 posiciones (RECORD CONTAINS 206). */\npublic sealed interface RegistroIpab permits RegistroIpab.Header, RegistroIpab.Detalle, RegistroIpab.Trailer {\n\n    String toFixed();\n\n    /** Tipo 01. WR00-IPAB-SISO \"S500\" + fecha de proceso AAAAMMDD + CSI. */\n    record Header(String sistemaOrigen, LocalDate fechaProceso, int csi) implements RegistroIpab {\n        public String toFixed() {\n            return \"01\" + sistemaOrigen + fechaProceso.format(BASIC_ISO_DATE)\n                    + Fixed.num(csi, 2) + \" \".repeat(190);\n        }\n    }\n\n    /** Tipo 02: un registro por contrato de captación. */\n    record Detalle(int producto, int instrumento, int moneda,\n                   String contrato, String cliente,                  // 9(12): String conserva ceros\n                   BigDecimal rendBruto, BigDecimal rendNeto,        // 9(12)V99\n                   BigDecimal impuesto,                              // 9(12)V99 (ISR retenido)\n                   BigDecimal promedioCiclo,                         // 9(14)V99\n                   int diasCiclo,                                    // 9(02)\n                   BigDecimal tasaIsr, BigDecimal tasaBruta, BigDecimal tasaNeta,   // 9(04)V9(03)\n                   BigDecimal saldoAnterior, BigDecimal saldoActual, // 9(14)V99, sin signo\n                   int tipoPersona, int opcion, int rango,           // OPCRGO 9(04) = opción 99 + rango 99\n                   int pagaRend, int rendXDia, int diaCorte, int indCalculo) implements RegistroIpab {\n        public String toFixed() { return IpabLayout.detalle(this); }   // FILLER X(43) al final\n    }\n\n    /** Tipo 99: número de registros de detalle. */\n    record Trailer(long numRegistros) implements RegistroIpab {\n        public String toFixed() { return \"99\" + Fixed.num(numRegistros, 10) + \" \".repeat(194); }\n    }\n}",
+          "racional": "El archivo IPAB tiene tres tipos de registro de la misma longitud: header tipo 01 con sistema, fecha y centro de cómputo; detalle tipo 02 con un contrato de captación y sus rendimientos, impuesto, saldo promedio, tasas y saldos; y trailer tipo 99 con el conteo. Se modelan como <code>record</code> dentro de una <code>sealed interface</code>, cada uno con su serialización de ancho fijo. Los importes <code>9(12)V99</code> y <code>9(14)V99</code> pasan a <code>BigDecimal</code> de escala 2 y las tasas <code>9(04)V9(03)</code> a escala 3. El campo <code>OPCRGO</code> se redefine como opción y rango de dos dígitos, y se separa en dos campos.",
+          "reglas": [
+            "RN-S500-377"
+          ],
+          "riesgo": "Todos los importes del detalle son sin signo: un saldo o rendimiento negativo pierde el signo al moverse al registro."
+        },
+        {
+          "id": "s2",
+          "titulo": "Nombre del archivo compilado en WORKING-STORAGE",
+          "linea_ini": 414,
+          "linea_fin": 954,
+          "origen_codigo": " 01 WKS-TIT-ARCHIPAB.\n    02 FILLER                 PIC X(24) VALUE\n                              \"S500/FILE/INTS/50022S01/\".\n    02 WS-TIT-ARCH-CSI        PIC 99.\n    02 FILLER                 PIC X(01) VALUE \"/\".\n    02 WS-TIT-ARCH-FECH       PIC 9(08).\n    02 FILLER                 PIC X(10) VALUE\n                              \"/ARCHIPAB.\".\n     MOVE W77-MY-CSI        TO WS-TIT-ARCH-CSI.\n     MOVE WKS-FEC-PROC      TO WS-TIT-ARCH-FECH.\n     OPEN OUTPUT I60-ARCH-IPAB.\n     PERFORM 20000030-ESC-HEADER-IPAB.",
+          "java_codigo": "# application.yml\np168:\n  archivo-ipab: \"S500/FILE/INTS/50022S01/{csi}/{fecha}/ARCHIPAB.\"   # antes WKS-TIT-ARCHIPAB\n\n// ---------------------------------------------------------------------------\n@Bean\n@StepScope\nFlatFileItemWriter<RegistroIpab> archIpabWriter(P168Properties props,\n        @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fecha,\n        @Value(\"${banamex.csi}\") int csi) {\n    String ruta = props.archivoIpab()\n            .replace(\"{csi}\", \"%02d\".formatted(csi))\n            .replace(\"{fecha}\", fecha.format(BASIC_ISO_DATE));                // 9(08) AAAAMMDD\n    return new FlatFileItemWriterBuilder<RegistroIpab>()\n            .name(\"archIpab\")\n            .resource(new FileSystemResource(ruta))\n            .lineAggregator(RegistroIpab::toFixed)\n            .headerCallback(w -> w.write(new RegistroIpab.Header(\"S500\", fecha, csi).toFixed()))  // 20000030\n            .footerCallback(new TrailerIpabCallback())                     // 50117000-TRL-ARCHIPAB\n            .build();\n}",
+          "racional": "La ruta del archivo regulatorio está compilada con el prefijo <code>S500/FILE/INTS/50022S01/</code>, el centro de cómputo y la fecha de proceso de ocho dígitos. Se traslada a <code>application.yml</code>. En Spring Batch el header se escribe con el <code>headerCallback</code> del <code>FlatFileItemWriter</code> al abrir el step, igual que 20000030-ESC-HEADER-IPAB después del <code>OPEN OUTPUT</code>, y el trailer con el <code>footerCallback</code>, que recibe el conteo de detalles escritos.",
+          "reglas": [
+            "RN-S500-377"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job, recorrido de contratos y fecha de proceso",
+      "origen": {
+        "archivo": "S500_SOURCE_P168.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 50100005 / 50100022 / 20040100"
+      },
+      "java": {
+        "archivo": "ReporteIpabJobConfig.java · FiltroContratoIpab.java · FechasIpabTasklet.java",
+        "contexto": "Spring Batch Job · RepositoryItemReader · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Control del programa a definición de Job",
+          "linea_ini": 678,
+          "linea_fin": 698,
+          "origen_codigo": "     PERFORM 10000000-TITLE-LIBRERIAS.\n     PERFORM 00001000-INICIO-PGM.\n     PERFORM 20000000-VALIDA-BASE.\n     PERFORM 00000000-FORMA-ETIQ-TASKFILE.\n     PERFORM 40000000-LIBS-AMEMORIA.\n     PERFORM 20000010-SUBE-INSTYTASAS.\n     PERFORM 20000020-ABRE-VAL-ARCH.\n     PERFORM 40090000-CANCEL-LIBS.\n     PERFORM 50000000-PROCESO-PRINCIPAL.\n     DISALLOW  INTERRUPT.\n     PERFORM 59999990-FIN-PGM.\n     PERFORM 70000950-FIN-PGM-MAPLI.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class ReporteIpabJobConfig {\n\n    /** 00000000-CONTROL-PROGRAMA. */\n    @Bean\n    Job reporteIpab(JobRepository repo, Step inicializa, Step generaArchivoIpab, Step listadoMensajes) {\n        return new JobBuilder(\"S500P168\", repo)\n                .start(inicializa)          // 10000000 librerías, 00001000 inicio, 20000000 valida base,\n                                            // 40000000 librerías a memoria, 20000010 instrumentos y tasas\n                .next(generaArchivoIpab)    // 20000020 abre archivo + 50000000-PROCESO-PRINCIPAL + 59999990\n                .next(listadoMensajes)      // R01-MENSAJES -> JasperReports\n                .listener(new MonitoreoMapliListener())   // actividades 01 y 02 de MAPLI\n                .build();\n    }\n}",
+          "racional": "La rutina de control es una secuencia de inicialización (librerías, fecha, validación de la base, carga de instrumentos y tasas a memoria, apertura del archivo) seguida del proceso principal y del cierre. En Spring Batch se agrupa en un step de inicialización y un step orientado a chunks que genera el archivo. El listado de mensajes <code>R01-MENSAJES</code>, que hoy es un reporte de impresora, pasa a un tercer step con JasperReports según el arquetipo reporteador. El monitoreo de actividades MAPLI se vuelve un <code>JobExecutionListener</code>.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Recorrido de S500B03CONTRATOS y filtros de contratos",
+          "linea_ini": 1350,
+          "linea_fin": 1415,
+          "origen_codigo": " 50100005-LEE-B03.\n     MOVE 0                   TO W77-NEXT-CTO.\n     PERFORM 90000003-B03CONTRATOS-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-DB-NOTFOUND\n           MOVE 1                     TO  W77-EOF-B03\n           CALL SYSTEM DMTERMINATE.\n     IF W77-EOF-B03 = 0\n        PERFORM 50100022-VAL-SI-PROCESO\n        IF W77-NEXT-CTO = 1\n           PERFORM 50100001-PROCESA-CTO.\n     IF B03-STATUS = 0 OR 1 OR 5\n        PERFORM 50104000-DAME-INSTRUMENTO\n        PERFORM 50102000-DAME-BDHISTORICO\n        PERFORM 50101100-MUEVE-B03-WKS\n        PERFORM 50101105-ACT-B03-FIJOS\n        PERFORM 50110000-ACTUALIZACION\n     ELSE\n        ADD 1 TO W77-TOT-B03-CANCE.\n      IF B03-MARCA-CLON= 2\n        EXIT PERFORM.\n     ADD  1                     TO W77-TOT-B03-CTOS.\n     MOVE B03-NUM-CONTRATO      TO WS-NUM-CONTRATO.\n     MOVE W77-TOT-B03-CTOS      TO WKS-HI-LEIDOS.\n     IF B03-MIGR-S111 = 1\n        ADD 1     TO W77-TOT-B03-MIGR\n     ELSE\n     IF B03-FEC-APERTURA > WKS-FEC-PROC\n        ADD  1    TO W77-TOT-NVAS-APERT\n     ELSE\n     IF B03-MARCA-CLON = 3\n        ADD  1    TO W77-TOT-EXTEND\n     ELSE\n        MOVE 1    TO W77-NEXT-CTO.",
+          "java_codigo": "@Bean\n@StepScope\nRepositoryItemReader<Contrato> contratosReader(ContratoRepository repo) {   // S500B03CONTRATOS\n    return new RepositoryItemReaderBuilder<Contrato>()\n            .name(\"b03Contratos\").repository(repo).methodName(\"findAll\")\n            .sorts(Map.of(\"numContrato\", Sort.Direction.ASC))\n            .pageSize(1000).build();\n}\n\n@Component\n@StepScope\npublic class FiltroContratoIpab {\n\n    private static final Set<Integer> ESTATUS_PROCESABLES = Set.of(0, 1, 5);  // vigente, bloqueado, precancelado\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n    private final ContadoresIpab cont;     // W77-TOT-B03-*\n\n    /** 50100022-VAL-SI-PROCESO y 50100001-PROCESA-CTO. */\n    boolean procesa(Contrato c) {\n        if (c.marcaClon() == 2) return false;          // EXIT PERFORM: ni siquiera se cuenta como leído\n        cont.leidos++;\n        if (c.migradoS111() == 1)                   { cont.migrados++;      return false; }\n        if (c.fechaApertura().isAfter(fechaProceso)) { cont.nuevasApert++;   return false; }\n        if (c.marcaClon() == 3)                     { cont.extendidos++;    return false; }\n        if (!ESTATUS_PROCESABLES.contains(c.status())) { cont.cancelados++; return false; }\n        return true;\n    }\n}",
+          "racional": "El programa recorre todos los contratos de captación con <code>FIND NEXT</code> y decide uno por uno si entra al archivo. Quedan fuera los contratos con marca de clonación 2 o 3, los migrados a S111, los abiertos después de la fecha de proceso y los cancelados; entran los vigentes, bloqueados y precancelados. En Java el recorrido es un <code>RepositoryItemReader</code> paginado y los filtros quedan en un componente que el procesador consulta antes de calcular, devolviendo <code>null</code> para descartar. Cualquier estatus DMSII distinto de fin de datos aborta, lo que en Java es una excepción del lector.",
+          "reglas": [
+            "RN-S500-377"
+          ],
+          "riesgo": "La marca de clonación 2 sale con EXIT PERFORM antes de incrementar W77-TOT-B03-CTOS (línea 1401): esos contratos no aparecen en ningún contador de control."
+        },
+        {
+          "id": "s5",
+          "titulo": "Fecha de proceso y detección de cierre de mes",
+          "linea_ini": 1091,
+          "linea_fin": 1102,
+          "origen_codigo": "     MOVE WKS-FEC-PROX           TO WS-S006-FECHA1.\n     MOVE 1                      TO WS-S006-FECHA2.\n     MOVE 12                     TO WS-S006-FORMATO.\n     MOVE 15                     TO WS-S006-FUNCION.\n     MOVE 177100                 TO W77-Q-LINEA.\n     PERFORM 20040300-LLAMA-LOCSUP.\n     MOVE WS-S006-FECHA1      TO WKS-FEC-PROC.\n     IF WKS-MM-FPROX  = WKS-MM-FPROC\n        MOVE 0 TO WKS-ES-MENSUAL\n     ELSE\n        MOVE 1 TO WKS-ES-MENSUAL.",
+          "java_codigo": "/** 20040100-PROY-FECHA: LOCSUP función 15, formato 12, un día hacia atrás desde la fecha próxima. */\n@Component\n@RequiredArgsConstructor\npublic class FechasIpabTasklet implements Tasklet {\n\n    private final CalendarioBancario calendario;    // reemplaza LOCSUP\n    private final ControlCaptacionRepository control;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        LocalDate fechaProx = control.fechaProxima();                       // WKS-FEC-PROX\n        LocalDate fechaProc = calendario.retrocede(fechaProx, 1)\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR LOCSUP\"));\n        boolean esMensual = fechaProx.getMonthValue() != fechaProc.getMonthValue();  // WKS-ES-MENSUAL\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaProceso\", fechaProc);\n        ec.put(\"esMensual\", esMensual);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de proceso se obtiene retrocediendo un día desde la fecha próxima con <code>LOCSUP</code>. Si el mes de ambas fechas es distinto, la corrida es la de cierre mensual, y esa bandera decide más adelante si las tasas se recalculan. En Java ambas fechas son <code>LocalDate</code> y la bandera se publica en el <code>ExecutionContext</code> del job. La comparación del COBOL es solo por número de mes (<code>PIC 9(02)</code>); se conserva igual porque los dos días siempre son consecutivos en calendario bancario.",
+          "reglas": [],
+          "riesgo": "No se sabe si LOCSUP función 15 con formato 12 retrocede un día natural o un día hábil."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de cálculo del registro IPAB",
+      "origen": {
+        "archivo": "S500_SOURCE_P168.txt",
+        "contexto": "PROCEDURE DIVISION · 50110000 / 50116000"
+      },
+      "java": {
+        "archivo": "ContratoIpabProcessor.java · DatosIpabCalculator.java",
+        "contexto": "ItemProcessor @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Rama de cálculo según el esquema de rendimiento",
+          "linea_ini": 1609,
+          "linea_fin": 1647,
+          "origen_codigo": "     IF WS05-IND-PAGOREND = 0\n        ADD 1 TO W77-TOT-SINRENDI\n     ELSE\n     IF W77-HOY-CORTA = 1\n        ADD 1 TO W77-TOT-CORTES\n        PERFORM 50116000-ARMA-DTOS-SAL\n     ELSE\n     IF WS05-IND-RENDDIA = 1\n        ADD 1 TO W77-TOT-RENDIA\n        PERFORM 50116000-ARMA-DTOS-SAL\n     ELSE\n        MOVE S500B06HISTORICO    TO WS-S500B06HISTORICO\n        PERFORM 99900100-INIPROC-CORTE\n        PERFORM 20500000-CAPITALIZACION\n        ADD 1 TO W77-TOT-B03-PROC\n        MOVE WS-S500B06HISTORICO   TO S500B06HISTORICO\n        PERFORM 50116000-ARMA-REGIPAB.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ContratoIpabProcessor implements ItemProcessor<Contrato, RegistroIpab.Detalle> {\n\n    private final FiltroContratoIpab filtro;\n    private final CapitalizacionService capitalizacion;   // include CAPITALIZA: 20500000-CAPITALIZACION\n    private final DatosIpabCalculator calculo;\n\n    /** 50110000-ACTUALIZACION. */\n    @Override\n    public RegistroIpab.Detalle process(Contrato c) {\n        if (!filtro.procesa(c)) return null;\n        Instrumento inst = c.instrumento();                    // WS-S500B05INSTRUMEN en memoria\n        if (inst.indPagoRend() == 0) {                         // no paga rendimiento: no va al archivo\n            return null;\n        }\n        boolean hoyCorta = c.historico().fechaRealCorte().equals(calculo.fechaProceso());\n        if (hoyCorta || inst.indRendDia() == 1) {\n            return calculo.desdeDatosAlmacenados(c);           // 50116000-ARMA-DTOS-SAL\n        }\n        // Día sin corte y capitalización mensual: se simula la capitalización del ciclo\n        // sobre una copia del histórico (WS-S500B06HISTORICO) y se arma el registro con ese resultado.\n        ResultadoCapitalizacion r = capitalizacion.simula(c, c.historico().copia());\n        return calculo.desdeSimulacion(c, r);                  // 50116000-ARMA-REGIPAB\n    }\n}",
+          "racional": "Cada contrato que pasa los filtros toma uno de tres caminos según el instrumento. Si el instrumento no paga rendimiento, no se reporta. Si hoy es el día de corte del contrato o el instrumento capitaliza a diario, los rendimientos e impuestos se toman de los campos ya almacenados en la base. En cualquier otro caso el programa ejecuta la rutina de capitalización del include <code>CAPITALIZA</code> sobre una copia del histórico, sin grabar, para estimar el rendimiento del ciclo a la fecha. En Java la rutina compartida se vuelve un <code>@Service</code> reutilizable y el procesador solo decide la rama.",
+          "reglas": [
+            "RN-S500-377",
+            "RN-S500-380"
+          ],
+          "riesgo": "La rama de simulación depende del include CAPITALIZA, que no viene en el fuente; su resultado no se puede validar desde P168."
+        },
+        {
+          "id": "s7",
+          "titulo": "Rendimiento neto, ISR, bruto y saldo base por esquema de capitalización",
+          "linea_ini": 1693,
+          "linea_fin": 1718,
+          "origen_codigo": "     IF WS05-IND-RENDDIA = 1\n        MOVE B03-RENDIA-IPAB     TO WS-CAP-RENDNETO\n        MOVE B03-ISRDIA-IPAB     TO WS-CAP-IMPUESTO\n        MOVE B06-SDOPROM-IPAB    TO WS-CAP-PROMCICLO\n        MOVE B03-SDO-ANTERIOR    TO W77-SALDO-ACTUAL\n        COMPUTE W77-SALDO-ANTERIOR = W77-SALDO-ACTUAL\n                                   - WS-CAP-RENDNETO\n        MOVE WS-DIAS-INHAXCTO    TO WS-CAP-DIASCICLO\n     ELSE\n        MOVE B03-SDO-ANTERIOR    TO W77-SALDO-ACTUAL\n        COMPUTE W77-SALDO-ANTERIOR = W77-SALDO-ACTUAL\n                                   - B03-INTS-CAPIT\n        MOVE B03-INTS-CAPIT      TO WS-CAP-RENDNETO\n        MOVE B03-IMPUESTO-RET    TO WS-CAP-IMPUESTO\n        MOVE B06-PROM-CICLO(12)  TO WS-CAP-PROMCICLO\n        MOVE B06-DIAS-CICLO      TO WS-CAP-DIASCICLO.\n     MOVE B03-TASA-ANTERIOR   TO WS-CAP-TASANETA\n     MOVE B06-TASA-BRUTA      TO WS-CAP-TASABRUTA\n     COMPUTE WS-CAP-RENDBRTO = WS-CAP-RENDNETO\n                             + WS-CAP-IMPUESTO.",
+          "java_codigo": "/** 50116000-ARMA-DTOS-SAL: datos ya almacenados en B03 y B06. */\nRegistroIpab.Detalle desdeDatosAlmacenados(Contrato c) {\n    Historico h = c.historico();\n    BigDecimal saldoActual = c.saldoAnterior();                         // B03-SDO-ANTERIOR\n    BigDecimal rendNeto, impuesto, promCiclo; int diasCiclo;\n    if (c.instrumento().indRendDia() == 1) {                            // capitalización diaria\n        rendNeto  = c.rendDiaIpab();                                    // B03-RENDIA-IPAB\n        impuesto  = c.isrDiaIpab();                                     // B03-ISRDIA-IPAB\n        promCiclo = h.saldoPromedioIpab();                              // B06-SDOPROM-IPAB\n        diasCiclo = c.diasPeriodo();                                    // WS-DIAS-INHAXCTO (1 si abrió hoy)\n    } else {                                                            // capitalización mensual\n        rendNeto  = c.interesesCapitalizados();                         // B03-INTS-CAPIT\n        impuesto  = c.impuestoRetenido();                               // B03-IMPUESTO-RET\n        promCiclo = h.promedioCiclo(12);                                // B06-PROM-CICLO(12)\n        diasCiclo = h.diasCiclo();                                      // B06-DIAS-CICLO\n    }\n    BigDecimal saldoAnterior = saldoActual.subtract(rendNeto);          // saldo base sin el interés\n    BigDecimal rendBruto = rendNeto.add(impuesto);                      // bruto = neto + ISR retenido\n    Tasas tasas = tasas(c.tasaAnterior(), h.tasaBruta(), rendBruto, rendNeto, promCiclo, diasCiclo);\n    return arma(c, rendBruto, rendNeto, impuesto, promCiclo, diasCiclo, tasas, saldoAnterior, saldoActual);\n}",
+          "racional": "Cuando el dato ya existe en la base, el programa lo toma de campos distintos según el esquema: con capitalización diaria usa el rendimiento e ISR del día y el saldo promedio IPAB del histórico; con capitalización mensual usa los intereses capitalizados, el impuesto retenido y el promedio del ciclo 12. El saldo actual es el saldo anterior de la base y el saldo base se reconstruye restándole el rendimiento neto. El rendimiento bruto se obtiene sumando neto e impuesto. Todas son sumas y restas entre importes de escala 2, así que en <code>BigDecimal</code> no hay redondeo que decidir.",
+          "reglas": [
+            "RN-S500-378",
+            "RN-S500-380",
+            "RN-S500-381"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Anualización de tasas con base comercial de 360 días",
+          "linea_ini": 1721,
+          "linea_fin": 1733,
+          "origen_codigo": "     IF WKS-ES-MENSUAL = 1\n    AND WS05-IND-RENDDIA = 1\n        IF WS-CAP-DIASCICLO > 0\n       AND WS-CAP-PROMCICLO > 0\n           COMPUTE WS-CAP-TASABRUTA =\n                   WS-CAP-RENDBRTO / WS-CAP-PROMCICLO * 36000\n                 / WS-CAP-DIASCICLO\n           COMPUTE WS-CAP-TASANETA =\n                   WS-CAP-RENDNETO / WS-CAP-PROMCICLO * 36000\n                 / WS-CAP-DIASCICLO\n         ELSE\n            MOVE ZERO TO WS-CAP-TASABRUTA\n                         WS-CAP-TASANETA.",
+          "java_codigo": "private static final BigDecimal BASE_360_POR_100 = new BigDecimal(\"36000\");\nprivate static final MathContext INTERMEDIA = MathContext.DECIMAL128;\n\n/** Tasas del registro: por omisión las del contrato; en cierre mensual con capitalización diaria se recalculan. */\nTasas tasas(BigDecimal tasaNetaContrato, BigDecimal tasaBrutaHistorico,\n            BigDecimal rendBruto, BigDecimal rendNeto, BigDecimal promCiclo, int diasCiclo) {\n    if (!(esMensual && indRendDia == 1)) {\n        return new Tasas(tasaBrutaHistorico, tasaNetaContrato);          // B06-TASA-BRUTA, B03-TASA-ANTERIOR\n    }\n    if (diasCiclo <= 0 || promCiclo.signum() <= 0) {\n        return new Tasas(BigDecimal.ZERO, BigDecimal.ZERO);              // evita división entre cero\n    }\n    return new Tasas(anualiza(rendBruto, promCiclo, diasCiclo), anualiza(rendNeto, promCiclo, diasCiclo));\n}\n\n/** rend / promedio * 36000 / días, COMPUTE sin ROUNDED: se trunca a la escala del destino 9(04)V9(03). */\nprivate static BigDecimal anualiza(BigDecimal rend, BigDecimal prom, int dias) {\n    return rend.divide(prom, INTERMEDIA)\n               .multiply(BASE_360_POR_100, INTERMEDIA)\n               .divide(BigDecimal.valueOf(dias), INTERMEDIA)\n               .setScale(3, RoundingMode.DOWN);\n}",
+          "racional": "Las tasas bruta y neta se anualizan dividiendo el rendimiento entre el saldo promedio del ciclo, multiplicando por 36000 (360 días por 100 para expresarla en porcentaje) y dividiendo entre los días del ciclo. El cálculo solo ocurre en la corrida de cierre mensual y para instrumentos con capitalización diaria; si no hay días o promedio se reportan en cero. En el resto de los casos se informan la tasa neta del contrato y la tasa bruta del histórico. El <code>COMPUTE</code> no tiene <code>ROUNDED</code>, por lo que el resultado se trunca: en Java se usa precisión intermedia amplia y <code>RoundingMode.DOWN</code> al final.",
+          "reglas": [
+            "RN-S500-379"
+          ],
+          "riesgo": "El orden de la expresión (dividir antes de multiplicar) hace que el resultado dependa de la precisión intermedia del compilador MCP; conviene conciliar con una muestra real antes de aceptar diferencias en el tercer decimal."
+        },
+        {
+          "id": "s9",
+          "titulo": "Tasa de ISR por tipo de persona y saldos reportados",
+          "linea_ini": 1755,
+          "linea_fin": 1784,
+          "origen_codigo": "     MOVE WS-ISR-0-9991-254           TO WR02-IPAB-TASAISR.\n     IF WS03-88-TP-FISEXT\n     OR WS03-88-TP-MOREXT\n     OR WS03-88-TP-FNALENEXT\n        COMPUTE WR02-IPAB-TASAISR = WS-ISR-EXTR-0-NVO * 100.\n     IF WS03-88-TP-MORNOLUCR1\n        MOVE ZEROS TO WR02-IPAB-TASAISR.\n     IF (W77-HOY-CORTA = 1)\n     OR (WS05-IND-RENDDIA = 1)\n        NEXT SENTENCE\n     ELSE\n        MOVE B03-SDO-ANTERIOR    TO W77-SALDO-ANTERIOR\n        COMPUTE W77-SALDO-ACTUAL = W77-SALDO-ANTERIOR\n                                 + WS-CAP-RENDNETO.\n     IF W77-SALDO-ANTERIOR < 0\n        MOVE 0                TO W77-SALDO-ANTERIOR\n        MOVE WS-CAP-RENDNETO  TO W77-SALDO-ACTUAL.\n** INC0106665384 L3 DIFERENCIAS REPORTE IPAB\n     ADD B03-SDOPROT-ANT         TO  W77-SALDO-ACTUAL\n     ADD B06-SDOBLO-ANTANT       TO  W77-SALDO-ANTERIOR\n     MOVE W77-SALDO-ANTERIOR     TO WR02-IPAB-SDOANT.\n     MOVE W77-SALDO-ACTUAL       TO WR02-IPAB-SDOACT.",
+          "java_codigo": "private final IsrProperties isr;   // tasa general (WS-ISR-0-9991-254) y de extranjeros (WS-ISR-EXTR-0-NVO)\n\n/** 50116000-ARMA-REGIPAB, cálculo de tasa ISR y saldos. */\nRegistroIpab.Detalle arma(Contrato c, BigDecimal rendBruto, BigDecimal rendNeto, BigDecimal impuesto,\n                          BigDecimal promCiclo, int diasCiclo, Tasas tasas,\n                          BigDecimal saldoAnterior, BigDecimal saldoActual, boolean datosAlmacenados) {\n    BigDecimal tasaIsr = switch (c.tipoPersona().grupoIsr()) {\n        case EXTRANJERO     -> isr.extranjeros().multiply(CIEN).setScale(3, RoundingMode.DOWN);\n        case MORAL_NO_LUCRO -> BigDecimal.ZERO.setScale(3);\n        default             -> isr.general().setScale(3, RoundingMode.DOWN);\n    };\n    if (!datosAlmacenados) {                               // rama de simulación\n        saldoAnterior = c.saldoAnterior();\n        saldoActual = saldoAnterior.add(rendNeto);\n    }\n    if (saldoAnterior.signum() < 0) {\n        saldoAnterior = BigDecimal.ZERO.setScale(2);\n        saldoActual = rendNeto;\n    }\n    // INC0106665384: el saldo protegido se suma al actual y el bloqueado del ciclo previo al anterior.\n    saldoActual = saldoActual.add(c.saldoProtegidoAnterior());          // B03-SDOPROT-ANT\n    saldoAnterior = saldoAnterior.add(c.historico().saldoBloqAntAnt()); // B06-SDOBLO-ANTANT\n    return new RegistroIpab.Detalle(/* ... */ tasaIsr, tasas.bruta(), tasas.neta(),\n            Fixed.sinSigno(saldoAnterior), Fixed.sinSigno(saldoActual) /* ... */);\n}",
+          "racional": "La tasa de ISR reportada es la general, salvo para los tres tipos de persona extranjera (niveles 88 <code>TP-FISEXT</code>, <code>TP-MOREXT</code> y <code>TP-FNALENEXT</code>), a quienes se les aplica la tasa de extranjeros multiplicada por 100, y para personas morales no lucrativas, que van en cero. Las dos tasas son parámetros fiscales que se cargan de catálogo y en Java viven en una propiedad configurable. Los saldos se ajustan al final: un saldo anterior negativo se reporta en cero y el actual se iguala al rendimiento neto, y desde el incidente INC0106665384 se suma el saldo protegido al actual y el bloqueado del ciclo previo al anterior. El destino del registro no tiene signo, por eso la conversión final es explícita.",
+          "reglas": [
+            "RN-S500-377",
+            "RN-S500-381"
+          ],
+          "riesgo": "El ajuste del incidente INC0106665384 se aplica después de la corrección por saldo negativo y suma conceptos distintos a cada saldo (protegido al actual, bloqueado al anterior); no hay comentario que explique la asimetría."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Importes sin signo en el archivo regulatorio",
+      "detalle": "Los campos de importe de REG-IPAB-DETALLE (líneas 438-447) son PIC 9 sin signo y reciben variables S9(15)V99. Un valor negativo, por ejemplo un saldo actual negativo después del ajuste del incidente, se reportaría como positivo y además se pierde el dígito más alto."
+    },
+    {
+      "titulo": "Truncamiento en tasas",
+      "detalle": "Las tasas anualizadas (líneas 1725-1730) se calculan sin ROUNDED y con la división antes de la multiplicación; el resultado depende de la precisión intermedia y se trunca a tres decimales."
+    },
+    {
+      "titulo": "Contratos con clonación 2 fuera de las cifras de control",
+      "detalle": "50100022-VAL-SI-PROCESO sale con EXIT PERFORM antes de contar el contrato como leído (línea 1401). El total de leídos del listado no cuadra contra el total de la base."
+    },
+    {
+      "titulo": "Dependencia del include CAPITALIZA",
+      "detalle": "La rama de simulación (20500000-CAPITALIZACION, línea 1630) y las definiciones de WS-CAP-* vienen de un include que no está en el fuente; la escala de esos campos no se pudo confirmar."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "La ruta S500/FILE/INTS/50022S01/, el sistema origen \"S500\" del header y el factor 36000 están compilados. La ruta y el sistema se trasladan a application.yml; el factor se deja como constante con nombre."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME la escala de WS-CAP-TASABRUTA y WS-CAP-TASANETA en el include CAPITALIZA; la traducción trunca a tres decimales por el destino WR02-IPAB-TASA* 9(04)V9(03).",
+    "Confirmar si LOCSUP función 15 con formato 12 retrocede un día natural o un día hábil para obtener la fecha de proceso.",
+    "Validar con el área regulatoria la asimetría del ajuste INC0106665384 (líneas 1780-1781): saldo protegido al saldo actual y saldo bloqueado del ciclo previo al saldo anterior.",
+    "Confirmar qué representan las marcas de clonación 2 y 3 en B03-MARCA-CLON y si es correcto excluirlas del reporte al IPAB.",
+    "Confirmar el origen de WS-ISR-0-9991-254 y WS-ISR-EXTR-0-NVO (catálogo de tasas cargado en 20000010-SUBE-INSTYTASAS) y por qué solo la de extranjeros se multiplica por 100."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-862",
+    "RN-S151-863",
+    "RN-S151-864",
+    "RN-S151-865",
+    "RN-S151-866",
+    "RN-S500-377",
+    "RN-S500-378",
+    "RN-S500-379",
+    "RN-S500-380",
+    "RN-S500-381"
+  ]
+}

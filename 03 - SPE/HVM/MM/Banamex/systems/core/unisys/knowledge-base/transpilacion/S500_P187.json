@@ -1,0 +1,190 @@
+{
+  "slug": "S500_P187",
+  "sistema": "S500",
+  "programa": "P187",
+  "nombre": "Generador de Reportes de Captación Batch",
+  "funcion": "Paso batch de S500 que, al cierre de la captación nocturna de archivos, clasifica cada archivo registrado en B08PCTRARRIBO como procesado, pendiente o rechazado, emite los tres reportes de control y lanza P188 por WFL para los archivos que piden reporte de detalle.",
+  "resumen": "Lee la fecha de línea de B02CONTROL y recorre secuencialmente el dataset B08PCTRARRIBO de S500BD04TARJETAS, donde cada registro es un archivo de captación con su letra de estatus y sus contadores de registros. Según el estatus y la fecha de aplicación escribe el archivo en uno de tres archivos de staging (PROCESADOS, PENDIENTES, RECHAZADOS) con su leyenda, y para los archivos con B07P-LISTADOS entre 1 y 4 y B08P-ENVIO-INTE = 1 crea un archivo de control y lanza P188 por WFL, apagando después la marca de envío. Ordena los tres archivos de staging, genera con Report Writer los reportes por sistema-cliente con totales de registros, OK, rechazados, foráneos y no procesados, y al final espera a que terminen todas las copias de P188 vigilando un horario máximo.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.reportes",
+  "secciones": [
+    {
+      "titulo": "Clasificación de archivos por estatus",
+      "origen": {
+        "archivo": "S500_SOURCE_P187.txt",
+        "contexto": "WORKING-STORAGE (WKS-ESTATUS) · 50000100-GENERA-ARCHIVOS · 50000100-GRABA-ARCHIVOS"
+      },
+      "java": {
+        "archivo": "EstatusArchivo.java · ClasificaArchivosProcessor.java · StagingClassifierWriter.java",
+        "contexto": "enum · ItemProcessor · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Niveles 88 de estatus a un enum con categoría",
+          "linea_ini": 353,
+          "linea_fin": 359,
+          "origen_codigo": " 01 WKS-ESTATUS                  PIC X(01).\n   88 W88-STA-PROCESADO        VALUE \"D\",\"T\",\"H\".\n   88 W88-STA-RECHAZADO        VALUE \"G\",    \"I\",\"J\",\"K\",\n                                     \"L\",\"M\",\"N\",\"O\",\"P\",\"Q\",\n                                     \"R\",\"S\",\"U\".\n   88 W88-STA-PENDIENTE        VALUE \"A\",\"B\",\"C\",\"E\",\"F\",\"V\",\"W\".",
+          "java_codigo": "/** WKS-ESTATUS PIC X(01) con sus tres niveles 88 (IBM-CHARITY-2002). */\npublic enum Categoria { PROCESADO, RECHAZADO, PENDIENTE, SIN_CATEGORIA }\n\npublic final class EstatusArchivo {\n\n    private static final Map<Character, Categoria> CATEGORIA = new HashMap<>();\n    static {\n        for (char c : \"DTH\".toCharArray())           CATEGORIA.put(c, Categoria.PROCESADO);\n        for (char c : \"GIJKLMNOPQRSU\".toCharArray()) CATEGORIA.put(c, Categoria.RECHAZADO);\n        for (char c : \"ABCEFVW\".toCharArray())       CATEGORIA.put(c, Categoria.PENDIENTE);\n    }\n\n    /** Cualquier letra fuera de las tres listas no cae en ningún reporte (comportamiento actual). */\n    public static Categoria de(char estatus) {\n        return CATEGORIA.getOrDefault(estatus, Categoria.SIN_CATEGORIA);\n    }\n}",
+          "racional": "Las tres listas de valores de los niveles 88 son la taxonomía que decide en qué reporte cae cada archivo. Se traducen a un <code>enum</code> de categoría con un mapa por letra, de modo que la regla está en un solo lugar y es fácil de probar. Se agrega una categoría explícita para letras no listadas, porque el fuente simplemente no las escribe en ningún archivo de staging y conviene poder contarlas.",
+          "reglas": [
+            "RN-S500-392"
+          ],
+          "riesgo": "Una letra de estatus que no esté en ninguna de las tres listas, por ejemplo una nueva que agregue el pipeline de captación, desaparece de los tres reportes sin aviso."
+        },
+        {
+          "id": "s2",
+          "titulo": "Recorrido de B08PCTRARRIBO y filtro por fecha de aplicación",
+          "linea_ini": 1258,
+          "linea_fin": 1283,
+          "origen_codigo": " 50000100-GENERA-ARCHIVOS.\n   PERFORM 90400008-B08PCTRA-FINDN\n   IF WS-STATUS-BASE = 0\n      MOVE  B08P-ESTATUS TO WKS-ESTATUS\n      IF (B08P-FEC-APL = W88-FEC-OK AND W88-STA-PROCESADO) OR\n         (B08P-FEC-APL = W88-FEC-OK AND W88-STA-RECHAZADO) OR\n          W88-STA-PENDIENTE\n          MOVE B08P-SIST-CTE   TO WS-SIST-CTE\n          MOVE B08P-TIPO       TO WS-TIPO\n          MOVE B08P-SECUENCIAL TO WS-SECUENCIAL\n          MOVE B08P-NODO       TO WS-NODO\n          MOVE B08P-ESTATUS    TO WKS-ESTATUS\n          SET B07PSXSISCTESEC  TO BEGINNING\n          PERFORM 90400007-B07PSXSISCTESEC-F\n          IF WS-STATUS-BASE > 0\n             MOVE 0            TO WS-STATUS-BASE\n          ELSE\n             PERFORM 50000100-GRABA-ARCHIVOS\n             IF (B07P-LISTADOS = 1 OR 2 OR 3 OR 4 )\n             AND (B08P-ENVIO-INTE = 1 )\n                PERFORM 50000100-REPORTE-DETALLE\n                PERFORM 202002-ACTUALIZA-B08.",
+          "java_codigo": "/** 50000100-GENERA-ARCHIVOS UNTIL WS-STATUS-BASE > 0 como lector JPA paginado. */\n@Bean\nJpaPagingItemReader<ArriboArchivoB08> lectorB08(EntityManagerFactory emf) {\n    return new JpaPagingItemReaderBuilder<ArriboArchivoB08>()\n            .name(\"b08pctrarribo\").entityManagerFactory(emf).pageSize(500)\n            .queryString(\"select a from ArriboArchivoB08 a order by a.id\")\n            .build();\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ClasificaArchivosProcessor implements ItemProcessor<ArriboArchivoB08, ArchivoClasificado> {\n\n    @Value(\"#{jobExecutionContext['fechaLinea']}\") private LocalDate fechaOk;   // W88-FEC-OK\n    private final ParametroArchivoRepository b07;                              // B07PSXSISCTESEC\n\n    @Override\n    public ArchivoClasificado process(ArriboArchivoB08 a) {\n        Categoria cat = EstatusArchivo.de(a.estatus());\n        boolean delDia = a.fecApl().equals(fechaOk);\n        boolean entra = (delDia && (cat == Categoria.PROCESADO || cat == Categoria.RECHAZADO))\n                || cat == Categoria.PENDIENTE;               // los pendientes entran sin importar la fecha\n        if (!entra) return null;\n        return b07.findBySistCteAndSecuencial(a.sistCte(), a.secuencial())\n                .map(p -> new ArchivoClasificado(a, p, cat,\n                        p.listados() >= 1 && p.listados() <= 4 && a.envioInte() == 1))\n                .orElse(null);                                // sin B07: se omite en silencio\n    }\n}",
+          "racional": "El programa recorre todo el dataset de control de arribos y considera los procesados y rechazados solo si su fecha de aplicación es la fecha de línea, y los pendientes siempre. Para cada uno busca la parametría del archivo en B07; si no la encuentra, lo salta. La condición de detalle (listados 1 a 4 y envío a interfaz encendido) se calcula aquí y viaja con el registro para que el writer de P188 decida. El bucle termina con cualquier status de DMSII distinto de cero, no solo con fin de dataset.",
+          "reglas": [
+            "RN-S500-392",
+            "RN-S500-393"
+          ],
+          "riesgo": "El ciclo UNTIL WS-STATUS-BASE > 0 trata cualquier error de FIND NEXT como fin del dataset: un error de base corta el reporte sin mensaje y los archivos restantes no aparecen."
+        },
+        {
+          "id": "s3",
+          "titulo": "Escritura al staging de cada categoría con leyenda",
+          "linea_ini": 1426,
+          "linea_fin": 1495,
+          "origen_codigo": " 50000100-GRABA-ARCHIVOS.\n  IF B08P-FEC-APL = W88-FEC-OK AND W88-STA-PROCESADO\n     MOVE B08P-SIST-CTE        TO A01-SIST-CTE\n     MOVE B08P-CONT-REINTENTOS TO A01-REINTENTOS\n     MOVE B08P-ESTATUS         TO A01-ESTATUS\n                                  A02-ESTATUS\n     PERFORM 202002-VALIDA-SUBESTATUS\n     MOVE A02-LEYENDA          TO A01-LEYENDA\n     WRITE A01-DETALLE\n  ELSE\n  IF(B08P-FEC-APL = W88-FEC-OK AND W88-STA-RECHAZADO)\n                               OR W88-STA-PENDIENTE\n     MOVE B08P-SIST-CTE        TO A02-SIST-CTE   A03-SIST-CTE\n     MOVE B08P-ESTATUS         TO A02-ESTATUS    A03-ESTATUS\n     PERFORM 00-BUSCA-LEYENDA\n     MOVE A02-LEYENDA          TO A03-LEYENDA\n     IF W88-STA-PENDIENTE\n        WRITE A02-DETALLE\n     ELSE\n        WRITE A03-DETALLE.\n 00-BUSCA-LEYENDA.\n      SET INDICE          TO 1\n      SEARCH                  WKS-TAB-LEYOCC\n       AT END\n          STRING \"ESTATUS INVALIDO : \", A02-ESTATUS\n          DELIMITED BY SIZE INTO A02-LEYENDA\n       WHEN\n        WKS-ID-LEY(INDICE) = A02-ESTATUS\n        MOVE WKS-LEYENDA(INDICE)  TO A02-LEYENDA.",
+          "java_codigo": "@Bean\nClassifierCompositeItemWriter<ArchivoClasificado> stagingWriter(\n        FlatFileItemWriter<ArchivoClasificado> procesados,    // S500/FILE/P187/PROCESADOS\n        FlatFileItemWriter<ArchivoClasificado> pendientes,    // S500/FILE/P187/PENDIENTES\n        FlatFileItemWriter<ArchivoClasificado> rechazados) {  // S500/FILE/P187/RECHAZADOS\n    var w = new ClassifierCompositeItemWriter<ArchivoClasificado>();\n    w.setClassifier(a -> switch (a.categoria()) {\n        case PROCESADO -> procesados;\n        case PENDIENTE -> pendientes;\n        case RECHAZADO -> rechazados;\n        case SIN_CATEGORIA -> throw new IllegalStateException(\"filtrado en el processor\");\n    });\n    return w;\n}\n\n/** 00-BUSCA-LEYENDA y 202002-VALIDA-SUBESTATUS. */\n@Component\nclass LeyendaEstatus {\n    private final Map<Character, String> leyendas;           // WS-TAB-LEYENDA, 23 entradas\n    private final Map<Character, String> subLeyendasT;       // WS-TAB-LEYENDA-SUBEST para \"T\"\n\n    String de(char estatus, char subEstatus) {\n        if (estatus == 'T' && subLeyendasT.containsKey(subEstatus)) return subLeyendasT.get(subEstatus);\n        return leyendas.getOrDefault(estatus, \"ESTATUS INVALIDO : \" + estatus);\n    }\n}",
+          "racional": "Cada categoría tiene su archivo de staging de 180 bytes y su propio juego de campos; el procesado lleva además horas de aplicación, transacciones por segundo y número de copia. Es el patrón del arquetipo A3: un <code>ClassifierCompositeItemWriter</code> que dirige cada registro al writer de su categoría. La búsqueda de leyenda con <code>SEARCH ... AT END</code> se vuelve un mapa con valor por defecto, y las leyendas, que hoy están en <code>FILLER VALUE</code>, pasan a configuración. Se omitieron del extracto los <code>MOVE</code> campo a campo.",
+          "reglas": [
+            "RN-S500-392",
+            "RN-S500-393"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Reporte de procesados y cuadre del universo",
+      "origen": {
+        "archivo": "S500_SOURCE_P187.txt",
+        "contexto": "50000100-REPORTE-PROCESADOS · REPORT SECTION (REPORTE-PROC)"
+      },
+      "java": {
+        "archivo": "ReporteProcesadosService.java · reporte-procesados.jrxml",
+        "contexto": "JasperReports con grupo por sistema-cliente"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Corte por sistema-cliente y totales de registros",
+          "linea_ini": 1560,
+          "linea_fin": 1611,
+          "origen_codigo": " 50000100-REPORTE-PROCESADOS.\n     READ A01-PROC\n          AT END MOVE 1 TO WKS-FIN.\n     IF WKS-FIN = 0\n        IF A01-SIST-CTE = A01-SIST-CTEANT\n           NEXT SENTENCE\n        ELSE\n        IF A01-SIST-CTEANT = 0\n           MOVE A01-SIST-CTE     TO A01-SIST-CTEANT\n        ELSE\n           GENERATE R01-DET-PARCIAL1\n           GENERATE R01-DET-PARCIAL2\n           MOVE A01-SIST-CTE     TO A01-SIST-CTEANT\n           MOVE ZEROS            TO WKS-R1-REGXARCH\n           WKS-R1-PROCXARCH         WKS-R1-OKXARCH\n           WKS-R1-RECHXARCH         WKS-R1-FORANXARCH\n           WKS-R1-NOPROCESADOS\n           WKS-R1-TOTARCH.\n     IF WKS-FIN = 0\n        ADD  1              TO WKS-R1-ARCHPROC  WKS-R1-TOTARCH\n        ADD  A01-TOT-REG    TO WKS-R1-TOTREG    WKS-R1-REGXARCH\n        ADD  A01-REG-PROC   TO WKS-R1-TOTPROC   WKS-R1-PROCXARCH\n        ADD  A01-REG-OK     TO WKS-R1-TOTOK     WKS-R1-OKXARCH\n        ADD  A01-REG-RECH   TO WKS-R1-TOTRECH   WKS-R1-RECHXARCH\n        ADD  A01-REG-FOR    TO WKS-R1-TOTFORAN  WKS-R1-FORANXARCH\n        COMPUTE WS-REG-NPROCESADOS = A01-TOT-REG - A01-REG-PROC\n        ADD  WS-REG-NPROCESADOS TO  WKS-R1-TOTNOPROCE\n                                    WKS-R1-NOPROCESADOS\n        MOVE WKS-TIT-SALIDA TO WKS-NOM-ARCHENT\n        GENERATE R01-DET-PROC.\n     IF WKS-FIN = 1\n        IF WKS-R1-ARCHPROC > 0\n           GENERATE R01-DET-PARCIAL1\n           GENERATE R01-DET-PARCIAL2\n           GENERATE R01-DET-PROC-TOTAL\n        ELSE\n           GENERATE R01-DET-PROC-VACIO.",
+          "java_codigo": "/** Totales por archivo, por sistema-cliente y del reporte. Contadores PIC 9(10). */\npublic record Cuadre(long archivos, long totReg, long procesados, long ok,\n                     long rechazados, long foraneos, long noProcesados) {\n\n    static Cuadre de(ArchivoProcesado a) {\n        long noProc = a.totReg() - a.regProc();               // COMPUTE WS-REG-NPROCESADOS\n        if (noProc < 0) {\n            throw new CuadreInvalidoException(a, \"REG-PROC mayor que TOT-REG\");\n        }\n        return new Cuadre(1, a.totReg(), a.regProc(), a.regOk(), a.regRech(), a.regFor(), noProc);\n    }\n\n    Cuadre mas(Cuadre o) {\n        return new Cuadre(archivos + o.archivos, totReg + o.totReg, procesados + o.procesados,\n                ok + o.ok, rechazados + o.rechazados, foraneos + o.foraneos,\n                noProcesados + o.noProcesados);\n    }\n}\n\n// reporte-procesados.jrxml\n//   <group name=\"sistCte\"> <groupExpression>$F{sistCte}</groupExpression>\n//     groupFooter: R01-DET-PARCIAL1 y R01-DET-PARCIAL2 (subtotales del sistema-cliente)\n//   detail:      R01-DET-PROC (una línea por archivo)\n//   summary:     R01-DET-PROC-TOTAL, o R01-DET-PROC-VACIO si no hubo archivos\n//   pageHeight: 40 líneas por página (PAGE LIMIT del Report Writer)",
+          "racional": "El reporte de procesados lee el staging ordenado y hace corte de control por sistema-cliente: al cambiar imprime dos renglones de subtotal y reinicia los acumuladores del grupo. Por cada archivo suma total de registros, procesados, OK, rechazados y foráneos, y calcula los no procesados como total menos procesados. Ese desglose es el cuadre operativo del día. En JasperReports el corte es un <code>group</code> y los <code>GENERATE</code> de Report Writer son bandas; si no hubo archivos se imprime la banda de reporte vacío.",
+          "reglas": [
+            "RN-S500-395",
+            "RN-S500-393"
+          ],
+          "riesgo": "WS-REG-NPROCESADOS es PIC 9(08) sin signo: si un archivo trae más procesados que registros totales, el resultado negativo se guardaría sin signo y el cuadre sumaría un falso no procesado. En Java se rechaza."
+        }
+      ]
+    },
+    {
+      "titulo": "Encadenamiento con P188 y control de horario",
+      "origen": {
+        "archivo": "S500_SOURCE_P187.txt",
+        "contexto": "WKS-RUN-P188 · 50000100-REPORTE-DETALLE · 60000000-FIN · 202002-ACTUALIZA-B08"
+      },
+      "java": {
+        "archivo": "LanzadorDetalleP188.java · EsperaDetallesTasklet.java",
+        "contexto": "JobLauncher · Tasklet · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Plantilla WFL que arranca P188",
+          "linea_ini": 488,
+          "linea_fin": 523,
+          "origen_codigo": " 01 WKS-RUN-P188.\n    02 FILLER                    PIC X(50) VALUE\n \" BEGIN JOB ;\".\n    02 FILLER                    PIC X(50) VALUE\n \" FAMILY DISK = CAPTACION OTHERWISE DISK;\".\n    02 FILLER                    PIC X(50) VALUE\n \" STRING HNAME;\".\n    02 FILLER                    PIC X(50) VALUE\n \"                                          \".\n    02 FILLER                    PIC X(50) VALUE\n \"HNAME        := MYSELF(HOSTNAME);\".\n    02 FILLER                    PIC X(50) VALUE\n \"START \".\n    02 WKS-LOTE-NAME             PIC X(41).\n    02 FILLER                    PIC X(01) VALUE \"(\".\n    02 FILLER                    PIC X(01) VALUE QUOTES.\n    02 FILLER                    PIC X(09) VALUE \"ESPECIAL \".\n    02 FILLER                    PIC X(05) VALUE \"P188/\".\n    02 WKS-MTP-P188              PIC X(08) VALUE ZEROS.\n    02 FILLER                    PIC X(01) VALUE SPACE.\n    02 WKS-WFL-P188              PIC X(31) VALUE \"    \".\n    02 FILLER                    PIC X(01) VALUE QUOTES.\n    02 FILLER                    PIC X(02) VALUE \");\".\n    02 FILLER                    PIC X(10) VALUE \"END JOB.\".\n 01 WKS-WFL-PARAM.\n    03 WKS-WFL-SISCTE PIC 9(12).\n    03 WKS-WFL-NODO   PIC 9(02).\n    03 WKS-WFL-SEC    PIC 9(04).\n    03 WKS-WFL-FEC    PIC 9(08).\n    03 WKS-WFL-REG    PIC 9(04).",
+          "java_codigo": "# application.yml\np187:\n  detalle:\n    job: \"detalleCaptacionP188\"\n    sist-cte-comodin: 999999999999      # MOVE 999999999999 TO WKS-WFL-SISCTE\n    familia-disco: CAPTACION\n\n// ---------------------------------------------------------------------------\n/** Equivale a BEGIN JOB ...; START <lote>(\"ESPECIAL P188/<mtp> <param>\"); END JOB. */\n@Component\n@RequiredArgsConstructor\npublic class LanzadorDetalleP188 {\n\n    private final JobLauncher asyncLauncher;     // START: P187 no espera a P188\n    private final Job detalleCaptacionP188;\n    private final P187Properties props;\n\n    public JobExecution lanza(ParametrosP188 p) throws Exception {\n        return asyncLauncher.run(detalleCaptacionP188, new JobParametersBuilder()\n                .addLong(\"sistCte\", props.detalle().sistCteComodin())   // WKS-WFL-SISCTE 9(12)\n                .addLong(\"nodo\", (long) p.nodo())                      // WKS-WFL-NODO 9(02)\n                .addLong(\"sec\", 0L)                                     // WKS-WFL-SEC\n                .addLocalDate(\"fecha\", p.fecha())                      // WKS-WFL-FEC 9(08)\n                .addLong(\"registroControl\", (long) p.registro())       // WKS-WFL-REG 9(04)\n                .toJobParameters());\n    }\n}",
+          "racional": "P187 construye en memoria un job WFL que corre P188 dentro del lote S500JBATCH, con la versión de P188 obtenida de CTRLVERS y un parámetro de 30 posiciones con sistema-cliente, nodo, secuencia, fecha y número de registro de control. En la arquitectura destino es lanzar otro job de Spring Batch de forma asíncrona, porque <code>START</code> no espera a que P188 termine. Los valores fijos, como el sistema-cliente comodín 999999999999 y la familia de disco, pasan a <code>application.yml</code>. Las líneas comentadas de la plantilla se omitieron del extracto porque contienen una credencial.",
+          "reglas": [],
+          "riesgo": "Las líneas 499-502 conservan, comentado, un bloque que asigna un ACCESSCODE con usuario y contraseña en claro (valor sustituido aquí por ****). Aunque no se ejecuta, la credencial está expuesta en el fuente."
+        },
+        {
+          "id": "s6",
+          "titulo": "Archivo de control como semáforo y disparo de P188",
+          "linea_ini": 1613,
+          "linea_fin": 1697,
+          "origen_codigo": " 50000100-REPORTE-DETALLE.\n    IF WKS-SEC-ARCCTRL = 9999\n       MOVE 0 TO WKS-SEC-ARCCTRL.\n    MOVE 0 TO SW-IMP-DET\n    MOVE W88-FEC-OK        TO WS-TIT-CE-FEC\n    IF B08P-FEC-APL = W88-FEC-OK AND\n       (W88-STA-RECHAZADO OR W88-STA-PROCESADO)\n       MOVE  B08P-NODO     TO WS-A04-CSI\n       MOVE W88-FEC-OK     TO WS-A04-FEC\n       ADD 1               TO WKS-SEC-ARCCTRL\n       MOVE WKS-SEC-ARCCTRL TO WS-A04-SEC\n       CHANGE ATTRIBUTE TITLE OF  A04-PROCDET TO WS-TIT-A04\n       IF ATTRIBUTE RESIDENT OF A04-PROCDET IS= VALUE TRUE\n          MOVE 0 TO WKS-ID-OK\n          PERFORM 50000100-BUSCAID UNTIL WKS-ID-OK = 1\n                                   OR WKS-SEC-ARCCTRL = 9999\n       ELSE\n         MOVE 1 TO SW-IMP-DET.\n    IF SW-IMP-DET = 1\n       OPEN OUTPUT A04-PROCDET\n       MOVE 0 TO WKS-PARAM188, W77-KEY-DET\n       IF W88-STA-PROCESADO\n   IF SW-IMP-DET = 1\n       MOVE WKS-TIT-SALIDA      TO A04-DET-NOMARCH\n       MOVE B07P-LISTADOS       TO A04-DET-INDI\n       MOVE B07P-TIPO           TO A04-DET-TIPO\n       MOVE WS-A04-AA           TO A04-DET-AA\n       MOVE WS-A04-MM           TO A04-DET-MM\n       MOVE WS-A04-DD           TO A04-DET-DD\n       MOVE WS-TIT-CE-NODO      TO A04-DET-CSI WKS-WFL-NODO\n       MOVE B08P-ESTATUS         TO  A04-ESTATUS\n       MOVE B08P-CONT-REINTENTOS TO  A04-CONT-REINT\n       MOVE B08P-SUB-ESTATUS     TO  A04-SUBESTATUS\n       MOVE W88-FEC-OK          TO WKS-WFL-FEC\n       MOVE ZEROES              TO WKS-WFL-SEC\n       MOVE 999999999999        TO WKS-WFL-SISCTE\n       ADD  1                   TO W77-KEY-DET\n       MOVE WS-A04-SEC          TO WKS-WFL-REG\n       MOVE ATTRIBUTE MIXNUMBER OF MYSELF TO A04-DET-MIX\n       WRITE REG-ARCHDET\n       CLOSE A04-PROCDET WITH REMOVE\n       WAIT(1)\n       OPEN I-O A04-PROCDET\n       CLOSE A04-PROCDET WITH REMOVE\n       WAIT(1)\n       MOVE WKS-WFL-PARAM TO WKS-WFL-P188\n       DISALLOW INTERRUPT\n       CALL SYSTEM WFL USING WKS-RUN-P188\n       ATTACH INTERRUPT-SECCION TO ATTRIBUTE EXCEPTIONEVENT\n       OF MYSELF\n       ALLOW INTERRUPT.",
+          "java_codigo": "/** 50000100-REPORTE-DETALLE: un registro de control por archivo y un P188 por registro. */\n@Component\n@RequiredArgsConstructor\nclass DetalleP188Writer implements ItemWriter<ArchivoClasificado> {\n\n    private final SolicitudDetalleRepository solicitudes;   // reemplaza A04-PROCDET .../IMPDET/.../ssss\n    private final LanzadorDetalleP188 lanzador;\n    private final ArriboArchivoB08Repository b08;\n\n    @Override\n    public void write(Chunk<? extends ArchivoClasificado> chunk) throws Exception {\n        for (ArchivoClasificado a : chunk) {\n            if (!a.requiereDetalle() || a.categoria() == Categoria.PENDIENTE) continue;\n            // La secuencia ssss (1..9999) servía para encontrar un título libre en disco;\n            // con una tabla, la llave es un id generado y no hay tope de 9999.\n            SolicitudDetalle s = solicitudes.save(SolicitudDetalle.de(a));   // WRITE REG-ARCHDET\n            lanzador.lanza(new ParametrosP188(a.nodo(), a.fechaLinea(), s.id()));\n            b08.apagaEnvioInterfaz(a.id());       // 202002-ACTUALIZA-B08: B08P-ENVIO-INTE := 0\n        }\n    }\n}",
+          "racional": "El archivo de control A04-PROCDET actúa como semáforo entre procesos: su nombre lleva una secuencia de 4 dígitos, P187 busca el primer título no residente, escribe un registro con el nombre del archivo, los totales, estatus, reintentos y su propio número de mix, y P188 lo elimina al terminar. En Java el semáforo se sustituye por una tabla de solicitudes con estado, que P188 marca como atendida; desaparecen los <code>WAIT(1)</code> y los cierres con <code>REMOVE</code> que el fuente usa para soltar el archivo. Solo se piden detalles de archivos procesados o rechazados del día.",
+          "reglas": [
+            "RN-S500-393"
+          ],
+          "riesgo": "Si las 9999 secuencias están ocupadas, 50000100-BUSCAID termina sin encontrar título libre y el detalle de ese archivo no se genera, sin mensaje."
+        },
+        {
+          "id": "s7",
+          "titulo": "Espera de las copias de P188 con horario máximo",
+          "linea_ini": 1066,
+          "linea_fin": 1805,
+          "origen_codigo": " 10000050-HORA-INI.\n    ACCEPT WKS-TIME-MAQ FROM TIME\n    PERFORM 90000000-DAME-FEC-MAQUINA\n    MOVE WKS-FEC-MAQ-08    TO WS-A04-FEC\n    IF WKS-TIME-MAQ > WKS-TIME-INI\n       MOVE 8              TO WS-S006-FUNCION\n       MOVE WS-A04-FEC     TO WS-S006-FECHA1\n       MOVE 1              TO WS-S006-FECHA2\n       MOVE 12             TO WS-S006-FORMATO\n       PERFORM 20000006-LOCSUP\n       MOVE WS-S006-FECHA1 TO WKS-FEC-TERMINO\n    ELSE\n       MOVE WS-A04-FEC     TO WKS-FEC-TERMINO.\n 60000000-FIN.\n   IF WKS-SEC-ARCCTRL > 0\n      MOVE WKS-SEC-ARCCTRL TO WKS-MAX-ARCH\n      MOVE 0               TO WKS-SEC-ARCCTRL WKS-P188-FIN\n      PERFORM 60000000-VALIDA-ARCHIVOS\n                        UNTIL WKS-P188-FIN = 1.\n 60000000-VALIDA-ARCHIVOS.\n  ADD 1                TO WKS-SEC-ARCCTRL\n  MOVE WKS-SEC-ARCCTRL TO WS-A04-SEC\n  CHANGE ATTRIBUTE TITLE OF  A04-PROCDET TO WS-TIT-A04\n  IF ATTRIBUTE RESIDENT OF A04-PROCDET IS= VALUE TRUE\n     ADD 1 TO WKS-P188-ACTIVOS.\n  IF WKS-SEC-ARCCTRL > WKS-MAX-ARCH\n     IF WKS-P188-ACTIVOS > 0\n        MOVE WKS-P188-ACTIVOS TO WKS-P188-UP\n        MOVE 0  TO WKS-SEC-ARCCTRL WKS-P188-ACTIVOS\n        WAIT(10)\n        PERFORM 60000000-VAL-FINXHORARIO\n     ELSE\n        MOVE 1 TO WKS-P188-FIN.\n*===========================\n 60000000-VAL-FINXHORARIO.\n   PERFORM 90000000-DAME-FEC-MAQUINA\n   MOVE WKS-FEC-MAQ-08    TO WS-A04-FEC\n   IF WS-A04-FEC = WKS-FEC-TERMINO\n      ACCEPT WKS-TIME-MAQ FROM TIME\n      IF WKS-TIME-MAQ > WKS-TIME-MAX\n         STRING \"HORARIO MAX DEL P187 SUPERADO \",\n                \"LAS COPIAS DEL P188 SE DARAN DE BAJA\"\n         DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         WAIT(1)\n         STOP RUN.",
+          "java_codigo": "# application.yml\np187:\n  horario:\n    corte-dia-siguiente: \"19:00:00\"    # WKS-TIME-INI VALUE 190000\n    maximo: \"10:00:00\"                 # WKS-TIME-MAX VALUE 100000\n    sondeo: 10s                        # WAIT(10)\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class EsperaDetallesTasklet implements Tasklet {\n\n    private final SolicitudDetalleRepository solicitudes;\n    private final P187Properties props;\n    private final Clock reloj;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws InterruptedException {\n        LocalDateTime inicio = (LocalDateTime) ctx.getStepContext().getJobExecutionContext().get(\"inicio\");\n        // 10000050-HORA-INI: si arrancó después de las 19:00 el límite es el día siguiente.\n        LocalDate diaLimite = inicio.toLocalTime().isAfter(props.horario().corteDiaSiguiente())\n                ? inicio.toLocalDate().plusDays(1) : inicio.toLocalDate();\n        LocalDateTime limite = diaLimite.atTime(props.horario().maximo());\n\n        while (solicitudes.countPendientes(ctx) > 0) {          // 60000000-VALIDA-ARCHIVOS\n            if (LocalDateTime.now(reloj).isAfter(limite)) {   // comparación por instante, no por fecha igual\n                throw new HorarioExcedidoException(\n                        \"HORARIO MAX DEL P187 SUPERADO LAS COPIAS DEL P188 SE DARAN DE BAJA\");\n            }\n            Thread.sleep(props.horario().sondeo().toMillis());\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al terminar los reportes, P187 vuelve a recorrer los títulos de control que generó y, mientras alguno siga residente, espera 10 segundos y repite. Antes de cada vuelta revisa el horario: el límite es las 10:00 del día de inicio, o del día siguiente si arrancó después de las 19:00, y al superarlo termina con <code>STOP RUN</code>. En Java el límite se calcula como un instante completo y se compara con <code>isAfter</code>; las horas pasan a <code>application.yml</code>. La espera queda en un <code>Tasklet</code> con reloj inyectable para poder probarla.",
+          "reglas": [],
+          "riesgo": "El fuente solo aplica el límite si la fecha de máquina es igual a WKS-FEC-TERMINO (línea 1797). Si la espera rebasa ese día, la condición nunca vuelve a cumplirse y P187 espera sin límite. Además, el mensaje dice que las copias de P188 se darán de baja, pero el programa solo termina; no las cancela."
+        },
+        {
+          "id": "s8",
+          "titulo": "Apagado de la marca de envío con bloqueo sin validar",
+          "linea_ini": 1861,
+          "linea_fin": 1880,
+          "origen_codigo": " 202002-ACTUALIZA-B08.\n   PERFORM  90400000-BEGIN-TRANSAC-NOAUD.\n   PERFORM  202002-LOCKB08.\n   MOVE ZEROS  TO    B08P-ENVIO-INTE.\n   IF WS-STATUS-BASE = 0\n      PERFORM  90400008-B08PCTRA-STORE.\n   PERFORM  90400000-END-TRANSAC-NOAUD.\n  MOVE ZEROS TO WS-STATUS-BASE-ANT\n                WS-STATUS-BASE.\n 202002-LOCKB08.\n   MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n   MOVE 0              TO WS-STATUS-BASE.\n   LOCK S500B08PCTRARRIBO\n        ON EXCEPTION\n           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.",
+          "java_codigo": "@Repository\npublic interface ArriboArchivoB08Repository extends JpaRepository<ArriboArchivoB08, Long> {\n\n    /** 202002-ACTUALIZA-B08 + 202002-LOCKB08 en una sola sentencia transaccional. */\n    @Modifying\n    @Transactional\n    @Query(\"update ArriboArchivoB08 a set a.envioInte = 0 where a.id = :id and a.envioInte = 1\")\n    int apagaEnvioInterfaz(@Param(\"id\") long id);\n}\n\n// En el writer:\n//   if (b08.apagaEnvioInterfaz(a.id()) != 1) {\n//       log.warn(\"No se pudo apagar ENVIO-INTE de {}; P188 ya fue lanzado\", a.id());\n//   }",
+          "racional": "Después de lanzar P188, el programa bloquea el registro de B08, pone en cero la marca de envío a interfaz y lo guarda, para que la siguiente corrida no vuelva a pedir el detalle. En JPA se resuelve con un <code>update</code> condicionado que devuelve cuántas filas cambió, lo que permite detectar el caso en que no se pudo apagar. El fuente cierra la transacción aunque el <code>LOCK</code> haya fallado y después pone en cero el status de base, que también es la variable que controla el recorrido de B08.",
+          "reglas": [],
+          "riesgo": "Si el LOCK falla, la marca no se apaga, el error se descarta al poner WS-STATUS-BASE en cero y P188 se volverá a lanzar para el mismo archivo en la siguiente corrida."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Credencial en el fuente",
+      "detalle": "Las líneas 499-502 contienen, comentado, un bloque de la plantilla WFL que asigna ACCESSCODE con usuario y contraseña en claro. No se copió al portal (sustituido por ****). Se recomienda retirarlo del repositorio y rotar la credencial."
+    },
+    {
+      "titulo": "Espera sin límite de P188",
+      "detalle": "60000000-VAL-FINXHORARIO solo detiene el programa si la fecha de máquina es igual a WKS-FEC-TERMINO; si la espera pasa a otro día, P187 sigue sondeando cada 10 segundos indefinidamente. Al superar el horario no cancela las copias de P188 aunque el mensaje lo diga."
+    },
+    {
+      "titulo": "Errores DMSII tratados como fin de datos",
+      "detalle": "El recorrido de B08 termina con cualquier WS-STATUS-BASE > 0, y 202002-ACTUALIZA-B08 pone el status en cero aunque el LOCK haya fallado. Un error de base puede truncar los reportes o dejar la marca de envío encendida sin aviso."
+    },
+    {
+      "titulo": "Estatus sin categoría",
+      "detalle": "Cualquier letra fuera de las listas, incluido un estatus nuevo que agregue el pipeline, no pertenece a ninguna de las tres listas de niveles 88 y no aparecen en ningún reporte, lo que rompe el cuadre del universo de archivos."
+    },
+    {
+      "titulo": "Hardcodes de horario y rutas",
+      "detalle": "Horas 19:00 y 10:00, sistema-cliente comodín 999999999999, familia CAPTACION, prefijos S500/FILE/P187 y leyendas de estatus están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-394 (invocación de P188 bajo demanda) describe el comportamiento de los segmentos s5 a s8, pero no figura en reglas_brain del inventario para este componente, por lo que no se vinculó.",
+    "RN-S500-392 enumera el estatus rechazado como G, I, J, K y siguientes; el fuente incluye exactamente G, I, J, K, L, M, N, O, P, Q, R, S y U (líneas 356-358). Confirmar si la omisión de H en rechazados y su presencia en procesados es intencional.",
+    "Los pendientes entran a reporte sin importar la fecha de aplicación (líneas 1264-1266); confirmar con el SME que se espera ver pendientes de días anteriores.",
+    "Confirmar si P188 elimina el archivo de control al terminar o al iniciar; de eso depende que la espera de 60000000-FIN mida realmente el fin de P188.",
+    "La REPORT SECTION (líneas 639 en adelante) y los reportes de pendientes y rechazados no se transpilaron; siguen el mismo patrón que procesados."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-392",
+    "RN-S500-393",
+    "RN-S500-394",
+    "RN-S500-395"
+  ]
+}

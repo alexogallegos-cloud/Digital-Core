@@ -1,0 +1,215 @@
+{
+  "slug": "S500_P195",
+  "sistema": "S500",
+  "programa": "P195",
+  "nombre": "Clasificador y Ruteo de Rechazos de Captación",
+  "funcion": "Paso batch de S500 que recibe el archivo consolidado de rechazos del día y lo distribuye en listados por destino (prelínea, S151, S408, sin confirmar, recuperaciones, aceptados con línea de crédito forzada, borrados) y en un listado por nodo de impresión y sucursal; el TASKVALUE fija fecha, CSI y tipo de proceso (0, 1 o 2).",
+  "resumen": "Lee I01-RECHAZOS (276 caracteres), cuyo tipo de registro identifica el origen del rechazo (01 prelínea, 02 S151, 03 S408, 04 sin confirmar, 05 recuperaciones, 10 y 11 aceptados con línea de crédito forzada). Según el tipo de proceso del TASKVALUE, imprime cada registro en su listado y copia los de prelínea, recuperación y aceptados a un archivo intermedio, ajustando la sucursal y el nodo de impresión cuando el nodo no pertenece al CSI. Ordena ese archivo por tipo, nodo, sucursal y autorización y genera listados con corte por sucursal y por nodo con totales de abonos, cargos y línea de crédito forzada. En el proceso 1 genera además el archivo de devoluciones para el sistema 711, y en el proceso 2 el listado de movimientos borrados.",
+  "arquetipo": "A6",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.rechazos",
+  "secciones": [
+    {
+      "titulo": "Estructura del rechazo y parámetros del job",
+      "origen": {
+        "archivo": "S500_SOURCE_P195.txt",
+        "contexto": "WORKING-STORAGE · 10000020-VALIDA-TASKVALUE · 50000000-PROCESO-PRINCIPAL"
+      },
+      "java": {
+        "archivo": "Rechazo.java · P195JobParametersValidator.java · RuteoRechazosJobConfig.java",
+        "contexto": "sealed interface · JobParametersValidator · Job"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de 276 caracteres con tipo de origen y vista de prelínea",
+          "linea_ini": 376,
+          "linea_fin": 423,
+          "origen_codigo": " 01  WKS-I01-R01-DETALLE.\n     02 WKS-I01-R01-NUMCOPIA          PIC 9(02).\n     02 WKS-I01-R01-TPOREG            PIC 9(02).\n***     TPOREG = 01  RECHAZOS PRELINEA                 **\n***     TPOREG = 02  RECHAZOS S151                     **\n***     TPOREG = 03  RECHAZOS S408                     **\n***     TPOREG = 04  RECHAZOS SIN CONFIRMAR            **\n***     TPOREG = 05  RECHAZOS RECUPERACIONES           **\n***     TPOREG = 06  LOG MOVTOS ENVIADOS S408          **\n***     TPOREG = 07  RECHAZO POR EL S408 BD AUXILIAR   **\n***     TPOREG = 08  LLAMADOS OK AL S408 BD AUXILIAR   **\n***     TPOREG = 09  MOVTOS CON BRNCO DE AUTORIZACION  **\n***     TPOREG = 10  ACEPTADOS C/L.C.FORZADA PRELINEA  **\n***     TPOREG = 11  ACEPTADOS C/L.C.FORZADA RECUPERA  **\n     02 WKS-I01-R01-DATOS             PIC X(267).\n     02 WKS-I01-R01-PRELINEA          REDEFINES WKS-I01-R01-DATOS.\n        04 WKS-I01-R01-SUC-PROM       PIC 9(004).\n        04 WKS-I01-R01-NUM-CTO        PIC 9(012).\n        04 WKS-I01-R01-TPO-MDA        PIC 9(002).\n        04 WKS-I01-R01-NUM-MDA        PIC 9(016).\n        04 WKS-I01-R01-NUM-PROD       PIC 9(004).\n        04 WKS-I01-R01-NUM-INST       PIC 9(004).\n        04 WKS-I01-R01-MONEDA         PIC 9(003).\n        04 WKS-I01-R01-CVE-TRAN       PIC 9(004).\n        04 WKS-I01-R01-IMPORTE        PIC 9(012)V99.\n        04 WKS-I01-R01-FEC-MOVTO      PIC 9(006).\n        04 WKS-I01-R01-REG-DLOG       PIC 9(008).\n        04 WKS-I01-R01-SUC-OPERO      PIC 9(004).\n        04 WKS-I01-R01-CAJ-OPERO      PIC 9(002).\n        04 WKS-I01-R01-AUTORIZ        PIC 9(014).\n        04 RD-WKS-I01-R01-AUTORIZ REDEFINES WKS-I01-R01-AUTORIZ.\n           06 WKS-I01-R01-SUCOPE      PIC 9(04).\n           06 WKS-I01-R01-CAJOPE      PIC 9(02).\n           06 WKS-I01-R01-SEQOPE      PIC 9(08).\n        04 WKS-I01-R01-CVE-RECHAZO    PIC 9(004).\n        04 WKS-I01-R01-CONC-RECH      PIC X(050).\n        04 WKS-I01-R01-REF-ALFNUM     PIC X(040).\n        04 WKS-I01-R01-SISTORIG       PIC X(004).\n        04 WKS-I01-R01-NOMBRE         PIC X(036).\n        04 WKS-I01-R01-REF-NUM        PIC 9(012).\n        04 WKS-I01-R01-IMPLC-FORZ     PIC 9(012)V99.\n        04 FILLER                     PIC X(005).\n        04 WKS-I01-R01-NODOIMP        PIC 9(004)    COMP.\n        04 WKS-I01-R01-SECUENCIAL     PIC 9(006)    COMP.",
+          "java_codigo": "/** WKS-I01-R01-DETALLE: el tipo de registro define el origen del rechazo y la vista REDEFINES. */\npublic enum TipoRechazo {\n    PRELINEA(1), S151(2), S408(3), SIN_CONFIRMAR(4), RECUPERACION(5),\n    LOG_S408(6), RECHAZO_S408_AUX(7), OK_S408_AUX(8), BRINCO_AUTORIZACION(9),\n    ACEPTADO_LCF_PRELINEA(10), ACEPTADO_LCF_RECUPERA(11);\n    // 6 a 9 están documentados en el fuente pero P195 no los procesa\n}\n\n/** Vista WKS-I01-R01-PRELINEA (tipos 1, 5, 10 y 11). */\npublic record RechazoPrelinea(\n        int numCopia, TipoRechazo tipo,\n        int sucPromotora, String contrato,          // 9(012): String\n        int tipoMedio, String numMedio,             // 9(016)\n        int producto, int instrumento, int moneda, int claveTran,\n        BigDecimal importe,                         // 9(012)V99 -> escala 2\n        String fecMovto,                            // 9(006): formato no documentado en P195\n        long registroLog, int sucOpero, int cajOpero,\n        String autorizacion,                        // 9(014) = SUCOPE 4 + CAJOPE 2 + SEQOPE 8\n        int claveRechazo, String conceptoRechazo,   // 9(004) y X(050)\n        String refAlfanumerica, String sistemaOrigen, String nombre,\n        long refNumerica,\n        BigDecimal importeLcForzada,                // 9(012)V99\n        int nodoImpresion,                          // 9(004) COMP: lo calcula P195\n        int secuencial) implements Rechazo {}",
+          "racional": "El registro trae número de copia y tipo, y 267 caracteres cuya interpretación cambia por tipo mediante <code>REDEFINES</code> (prelínea, S151, S408, sin confirmar). En Java cada vista es un <code>record</code> dentro de una <code>sealed interface Rechazo</code> y el tipo es un <code>enum</code> que conserva los once valores documentados. Los importes <code>PIC 9(012)V99</code> son <code>BigDecimal</code> de escala 2 y el contrato, el medio y la autorización se manejan como <code>String</code>.",
+          "reglas": [
+            "RN-S500-743"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "TASKVALUE con fecha, CSI y tipo de proceso a JobParameters validados",
+          "linea_ini": 1155,
+          "linea_fin": 1194,
+          "origen_codigo": " 10000020-VALIDA-TASKVALUE.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-TASK-VALUE.\n     MOVE WKS-TASK-FECHA-08   TO WKS-FECHA-BATCH-08.\n     MOVE WKS-TASK-CSI        TO W77-MY-CSI.\n     IF WKS-TASK-PROC = 0 OR 1 OR 2\n        NEXT SENTENCE\n     ELSE\n        STRING \"ERROR EN VALUE \",\n               \" FECHA=\" WKS-TASK-FECHA-08,\n               \" C S I=\" WKS-TASK-CSI,\n               \" TIPOP=\" WKS-TASK-PROC\n        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     IF WKS-TASK-FECHA-08 > 0\n     OR WKS-TASK-CSI      > 0\n        IF  (WKS-AAAA-BATCH > 1994)\n        AND (WKS-MM-BATCH   > 0 AND < 13)\n        AND (WKS-DD-BATCH   > 0 AND < 32)\n        AND (W77-MY-CSI     = 04 OR 10)\n             MOVE 0         TO W77-VEO-BASE\n        ELSE\n           STRING \"ERR FECH/CSI EN VALUE \",\n                  \" FECHA \" WKS-TASK-FECHA-08,\n                  \" CSI \" WKS-TASK-CSI\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1\n     ELSE\n        MOVE 1         TO W77-VEO-BASE.",
+          "java_codigo": "/** 10000020-VALIDA-TASKVALUE: fecha AAAAMMDD, CSI y tipo de proceso. */\n@Component\npublic class P195JobParametersValidator implements JobParametersValidator {\n\n    @Override\n    public void validate(JobParameters p) throws JobParametersInvalidException {\n        int tipo = p.getLong(\"tipoProceso\").intValue();\n        if (tipo < 0 || tipo > 2) {\n            throw new JobParametersInvalidException(\"ERROR EN VALUE TIPOP=\" + tipo);\n        }\n        String fecha = p.getString(\"fechaBatch\");        // vacía: se toma de S500B02CONTROL\n        Long csi = p.getLong(\"csi\");\n        if (fecha != null || csi != null) {\n            LocalDate f = LocalDate.parse(fecha, DateTimeFormatter.BASIC_ISO_DATE);\n            if (f.getYear() <= 1994 || (csi != 4 && csi != 10)) {\n                throw new JobParametersInvalidException(\"ERR FECH/CSI EN VALUE FECHA \" + fecha + \" CSI \" + csi);\n            }\n        }\n    }\n}",
+          "racional": "El tipo de proceso, la fecha y el CSI llegan en el <code>TASKVALUE</code> del paso. Cualquier valor fuera de rango termina el programa con <code>CHANGE ATTRIBUTE STATUS OF MYSELF TO -1</code>; en Java es un <code>JobParametersValidator</code> que impide arrancar el job. Si el TASKVALUE no trae fecha ni CSI el programa abre la base y los toma del registro de control, lo que en Java se resuelve con un tasklet previo. El año mayor a 1994 y los CSI 04 y 10 son las únicas validaciones de fecha y CSI del fuente.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Flujo principal: clasificación, ordenamiento y listados por sucursal",
+          "linea_ini": 1424,
+          "linea_fin": 1482,
+          "origen_codigo": " 50000000-PROCESO-PRINCIPAL.\n     PERFORM 50003000-PROCESO-ARCH  UNTIL W77-EOF-ARCHS = 1.\n     IF W77-TOT-REGASUC > 0\n        CLOSE I02-PARASUC WITH SAVE\n        PERFORM 50008000-SORT-PARASUC\n        OPEN INPUT I02-PARASUC\n        MOVE ZERO  TO W77-EOF-ARCHS\n                      W77-TOT-REGASUC\n        PERFORM 50008100-REPORTE-ASUC UNTIL W77-EOF-ARCHS = 1\n        CLOSE I02-PARASUC WITH PURGE\n        IF W77-TPOREG-ANT = 1\n           PERFORM 50009300-CIERRA-REP-05\n        ELSE\n        IF W77-TPOREG-ANT = 5\n           PERFORM 50009700-CIERRA-REP-06\n        ELSE\n        IF W77-TPOREG-ANT = 10\n           PERFORM 50009300-CIERRA-REP-07\n        ELSE\n           PERFORM 50009700-CIERRA-REP-08\n     ELSE\n        CLOSE I02-PARASUC WITH PURGE.\n     IF WKS-TASK-PROC = 1\n        PERFORM 50004250-TRAILER-S711\n        CLOSE E04-ARCHS711 WITH SAVE.\n    IF WKS-TASK-PROC = 2\n       MOVE 0  TO  W77-NUM-BORRADOS   W77-EOF-BORRA\n       PERFORM 50003050-LEE-ARCH-BORRADOS UNTIL W77-EOF-BORRA = 1.",
+          "java_codigo": "@Configuration\npublic class RuteoRechazosJobConfig {\n\n    /** 50000000-PROCESO-PRINCIPAL. */\n    @Bean\n    Job ruteoRechazos(JobRepository repo, P195JobParametersValidator validador,\n                      Step clasificaRechazos, Step ordenaParaSucursal, Step listadosPorSucursal,\n                      Step trailerS711, Step listadoBorrados,\n                      JobExecutionDecider hayRegistrosParaSucursal,   // W77-TOT-REGASUC > 0\n                      JobExecutionDecider porTipoProceso) {           // WKS-TASK-PROC\n        return new JobBuilder(\"S500P195\", repo)\n                .validator(validador)\n                .start(clasificaRechazos)                                       // 50003000 hasta EOF\n                .next(hayRegistrosParaSucursal)\n                    .on(\"CON_REGISTROS\").to(ordenaParaSucursal)                 // 50008000\n                    .next(listadosPorSucursal)                                  // 50008100 con cortes\n                    .next(porTipoProceso)\n                .from(hayRegistrosParaSucursal).on(\"*\").to(porTipoProceso)      // CLOSE ... WITH PURGE\n                .from(porTipoProceso).on(\"1\").to(trailerS711)                   // 50004250\n                .from(porTipoProceso).on(\"2\").to(listadoBorrados)               // 50003050\n                .from(porTipoProceso).on(\"*\").end()\n                .end()\n                .build();\n    }\n}",
+          "racional": "El programa recorre una vez el archivo de rechazos clasificando cada registro; si hubo registros para el listado por sucursal cierra el intermedio, lo ordena, lo vuelve a leer con cortes y lo purga. Después, según el tipo de proceso, cierra el archivo del sistema 711 con su trailer o lista los movimientos borrados. En Spring Batch cada fase es un <code>Step</code> y las bifurcaciones por volumen y por tipo de proceso son <code>JobExecutionDecider</code>. El intermedio <code>S500/FILE/RECHASUC</code> pasa a un recurso temporal del step.",
+          "reglas": [
+            "RN-S500-743",
+            "RN-S500-744"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Clasificación y ruteo por origen y nodo",
+      "origen": {
+        "archivo": "S500_SOURCE_P195.txt",
+        "contexto": "50003000-PROCESO-ARCH · 50004000-PRELINEA · 50004100-ESC-ARCHIVO · 50004200-ARCHIVO-S711"
+      },
+      "java": {
+        "archivo": "RechazoClassifier.java · NodoImpresionResolver.java · P195Properties.java",
+        "contexto": "Classifier · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Ruteo por tipo de registro y tipo de proceso",
+          "linea_ini": 1485,
+          "linea_fin": 1508,
+          "origen_codigo": " 50003000-PROCESO-ARCH.\n     READ I01-RECHAZOS INTO WKS-I01-R01-DETALLE AT END\n        MOVE 1 TO W77-EOF-ARCHS.\n     IF W77-EOF-ARCHS = 0\n        ADD 1 TO W77-NUM-RECHAZOS\n        IF WKS-TASK-PROC = 0 OR 2\n           IF WKS-I01-R01-TPOREG = 2\n              PERFORM 50005000-S151\n           ELSE\n           IF WKS-I01-R01-TPOREG = 3\n              PERFORM 50006000-S408\n           ELSE\n           IF WKS-I01-R01-TPOREG = 4\n              PERFORM 50007000-SINCONFIRMAR\n           ELSE\n           IF WKS-I01-R01-TPOREG = 1 OR 5 OR 10 OR 11\n              PERFORM 50004000-PRELINEA\n           ELSE\n               NEXT SENTENCE\n        ELSE\n           IF WKS-I01-R01-TPOREG = 1 OR 10\n              PERFORM 50004000-PRELINEA\n              PERFORM 50004200-ARCHIVO-S711.",
+          "java_codigo": "/** 50003000-PROCESO-ARCH: decide los destinos de cada rechazo. */\n@Component\n@StepScope\npublic class RechazoClassifier implements Classifier<Rechazo, ItemWriter<? super Rechazo>> {\n\n    @Value(\"#{jobParameters['tipoProceso']}\") private int tipoProceso;\n    private final Map<Destino, ItemWriter<Rechazo>> writers;\n\n    @Override\n    public ItemWriter<? super Rechazo> classify(Rechazo r) {\n        List<Destino> destinos = switch (tipoProceso) {\n            case 0, 2 -> switch (r.tipo()) {\n                case S151          -> List.of(Destino.LISTADO_S151);          // R02\n                case S408          -> List.of(Destino.LISTADO_S408);          // R03\n                case SIN_CONFIRMAR -> List.of(Destino.LISTADO_SIN_CONFIRMAR); // R04\n                case PRELINEA, RECUPERACION, ACEPTADO_LCF_PRELINEA, ACEPTADO_LCF_RECUPERA\n                                   -> Destino.dePrelinea(r.tipo(), tipoProceso); // ver 50004000\n                default            -> List.of();                              // 6 a 9: sin destino\n            };\n            default -> (r.tipo() == TipoRechazo.PRELINEA || r.tipo() == TipoRechazo.ACEPTADO_LCF_PRELINEA)\n                    ? Destino.conS711(Destino.dePrelinea(r.tipo(), tipoProceso))\n                    : List.of();                                              // proceso 1\n        };\n        return items -> destinos.forEach(d -> writers.get(d).write(items));\n    }\n}",
+          "racional": "Este es el núcleo del arquetipo A6: un registro de entrada se reparte entre varios destinos según su tipo y el tipo de proceso. En los procesos 0 y 2 los rechazos de S151, S408 y sin confirmar van a su listado y los de prelínea, recuperación y aceptados pasan a <code>50004000-PRELINEA</code>; en el proceso 1 solo se atienden los tipos 1 y 10 y además se evalúan para el archivo del sistema 711. En Java el reparto es un <code>Classifier</code> que alimenta un <code>ClassifierCompositeItemWriter</code>, con un writer por listado. Los tipos 6 a 9 no tienen destino, igual que en el fuente.",
+          "reglas": [
+            "RN-S500-743"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Prelínea, recuperación y aceptados: listado y archivo para sucursal",
+          "linea_ini": 1528,
+          "linea_fin": 1549,
+          "origen_codigo": " 50004000-PRELINEA.\n     IF WKS-I01-R01-TPOREG = 1 OR 5\n        PERFORM 50004020-ARMA-REP-01\n     ELSE\n        PERFORM 50004030-ARMA-REP-09.\n     IF WKS-TASK-PROC = 0 OR 2\n        IF WKS-I01-R01-TPOREG = 1 OR 5\n           PERFORM 60001000-ESC-PRELINEA\n        ELSE\n           PERFORM 60001500-ESC-ACEPTADOS.\n     IF WKS-TASK-PROC = 0\n        PERFORM 50004100-ESC-ARCHIVO\n     ELSE\n     IF  (WKS-TASK-PROC = 1)\n     AND (WKS-I01-R01-TPOREG = 1 OR 10)\n         PERFORM 50004100-ESC-ARCHIVO\n     ELSE\n     IF  (WKS-TASK-PROC = 2)\n     AND (WKS-I01-R01-TPOREG = 5 OR 11)\n         PERFORM 50004100-ESC-ARCHIVO.",
+          "java_codigo": "/** 50004000-PRELINEA: listado de rechazos o de aceptados y, según el proceso, archivo por sucursal. */\nstatic List<Destino> dePrelinea(TipoRechazo t, int proceso) {\n    boolean rechazo = t == TipoRechazo.PRELINEA || t == TipoRechazo.RECUPERACION;      // 1 o 5\n    List<Destino> d = new ArrayList<>();\n    if (proceso == 0 || proceso == 2) {\n        d.add(rechazo ? Destino.LISTADO_PRELINEA : Destino.LISTADO_ACEPTADOS_LCF);     // R01 o R09\n    }\n    boolean deLinea = t == TipoRechazo.PRELINEA || t == TipoRechazo.ACEPTADO_LCF_PRELINEA;     // 1 o 10\n    boolean deRecup = t == TipoRechazo.RECUPERACION || t == TipoRechazo.ACEPTADO_LCF_RECUPERA; // 5 o 11\n    if (proceso == 0 || (proceso == 1 && deLinea) || (proceso == 2 && deRecup)) {\n        d.add(Destino.ARCHIVO_PARA_SUCURSAL);                                           // I02-PARASUC\n    }\n    return d;\n}",
+          "racional": "Los rechazos de prelínea y recuperación (1 y 5) se imprimen en el listado R01 y los aceptados con línea de crédito forzada (10 y 11) en el R09, que además acumula importes por moneda y producto (1, 66 y el resto como 05). El archivo intermedio por sucursal recibe todo en el proceso 0, solo lo de línea en el proceso 1 y solo lo de recuperación en el proceso 2. La regla se expresa como una función pura que devuelve la lista de destinos, fácil de probar contra los tres tipos de proceso.",
+          "reglas": [
+            "RN-S500-743"
+          ],
+          "riesgo": "En el proceso 1 no se imprime ni R01 ni R09: los rechazos de prelínea solo llegan al listado por sucursal y al archivo del sistema 711."
+        },
+        {
+          "id": "s6",
+          "titulo": "Nodo de impresión y sucursal por omisión según CSI",
+          "linea_ini": 1609,
+          "linea_fin": 1640,
+          "origen_codigo": " 50004100-ESC-ARCHIVO.\n     INSPECT WKS-I01-R01-REF-ALFNUM\n             REPLACING ALL @00@ BY \" \".\n     IF WKS-I01-R01-SUC-OPERO = 0\n        MOVE WKS-I01-R01-SUCOPE  TO  WKS-I01-R01-SUC-OPERO.\n     MOVE WKS-I01-R01-SUC-OPERO  TO WKS-S080-NUMSUC.\n     PERFORM 42000080-DATOS-S080.\n     MOVE WKS-S080-NODO-IMP      TO WKS-I01-R01-NODOIMP.\n     IF W77-MY-CSI = 4\n        IF WKS-I01-R01-NODOIMP = 01 OR 04 OR 06 OR 07 OR 61\n           NEXT SENTENCE\n        ELSE\n           MOVE 904    TO WKS-I01-R01-SUC-OPERO\n           MOVE 04     TO WKS-I01-R01-NODOIMP\n     ELSE\n     IF WKS-I01-R01-NODOIMP = 09 OR 10\n           NEXT SENTENCE\n        ELSE\n           MOVE 907    TO WKS-I01-R01-SUC-OPERO\n           MOVE 10     TO WKS-I01-R01-NODOIMP.\n     WRITE I02-R00-PARASUC FROM WKS-I01-R01-DETALLE\n           INVALID KEY\n           MOVE \"ERR WRITE PARASUC \"   TO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n      ADD 1 TO W77-TOT-REGASUC.",
+          "java_codigo": "# application.yml\np195:\n  nodos:\n    \"4\":  { validos: [1, 4, 6, 7, 61], sucursal-omision: 904, nodo-omision: 4 }     # Monterrey\n    \"10\": { validos: [9, 10],          sucursal-omision: 907, nodo-omision: 10 }    # Valle de México\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass NodoImpresionResolver implements ItemProcessor<RechazoPrelinea, RechazoPrelinea> {\n    private final P195Properties props;\n    private final SucursalesClient s080;                    // 42000080-DATOS-S080\n    @Value(\"#{jobParameters['csi']}\") private int csi;\n\n    @Override\n    public RechazoPrelinea process(RechazoPrelinea r) {\n        String refAlfa = r.refAlfanumerica().replace('\\u0000', ' ');      // INSPECT ... @00@ BY \" \"\n        int sucursal = r.sucOpero() != 0 ? r.sucOpero() : Integer.parseInt(r.autorizacion().substring(0, 4));\n        int nodo = s080.nodoImpresion(sucursal);\n        var cfg = props.nodos().get(csi);\n        if (!cfg.validos().contains(nodo)) {\n            sucursal = cfg.sucursalOmision();\n            nodo = cfg.nodoOmision();\n        }\n        return r.conSucursalNodo(sucursal, nodo, refAlfa);\n    }\n}",
+          "racional": "Si el registro no trae sucursal operadora se toma de los primeros cuatro dígitos de la autorización, y con ella se consulta en S080 el nodo de impresión. Cuando el nodo no pertenece al CSI que corre el proceso, el rechazo se reasigna a una sucursal y un nodo por omisión: 904 y 04 en Monterrey, 907 y 10 en Valle de México. Esos valores y la lista de nodos válidos estaban compilados y pasan a <code>application.yml</code>. Un error de escritura del intermedio termina el programa.",
+          "reglas": [],
+          "riesgo": "Un rechazo de un nodo no previsto se imprime en la sucursal 904 o 907, no en la sucursal que lo originó; si se abren nodos nuevos sin actualizar la lista, sus rechazos se concentran en esas sucursales."
+        },
+        {
+          "id": "s7",
+          "titulo": "Archivo de devoluciones para el sistema 711",
+          "linea_ini": 1643,
+          "linea_fin": 1669,
+          "origen_codigo": " 50004200-ARCHIVO-S711.\n     IF WKS-I01-R01-SISTORIG = 711\n    AND WKS-I01-R01-CVE-TRAN = 2002\n        PERFORM 50004300-ARMA-ARCHS711.\n*****************************************************\n 50004300-ARMA-ARCHS711.\n     ADD  1                        TO W77-SEQ-S711.\n     MOVE W77-SEQ-S711             TO WKS-E04-R02-SEQ.\n     MOVE WKS-I01-R01-REF-ALFNUM   TO WKS-E04-R02-REFALFA.\n     MOVE WKS-I01-R01-NUM-MDA      TO WKS-NUM-MDA.\n     MOVE WKS-SUC-MDA              TO WKS-E04-R02-SUC-MDA.\n     MOVE WKS-CTA-MDA              TO WKS-E04-R02-CTA-MDA.\n     MOVE WKS-I01-R01-REF-NUM      TO WKS-E04-R02-REFNUM.\n     MOVE WKS-I01-R01-IMPORTE      TO WKS-E04-R02-IMPORTE.\n     MOVE WKS-I01-R01-CVE-RECHAZO  TO WKS-E04-R02-CVERROR.\n     MOVE WKS-I01-R01-MONEDA       TO WKS-E04-R02-MONEDA.\n     MOVE WKS-I01-R01-NOMBRE       TO WKS-E04-R02-NOMBRE.\n     WRITE FD-E04-R00-ARCHS711  FROM WKS-E04-R02-DETALLE\n     ADD  1  TO WKS-E04-R09-NUMDEV.",
+          "java_codigo": "/** 50004200-ARCHIVO-S711 y 50004300-ARMA-ARCHS711 (solo proceso 1). */\n@Component\nclass DevolucionesS711Processor implements ItemProcessor<RechazoPrelinea, DevolucionS711> {\n    private final AtomicLong secuencia = new AtomicLong();        // W77-SEQ-S711\n\n    @Override\n    public DevolucionS711 process(RechazoPrelinea r) {\n        // SISTORIG es X(004) y se compara con el literal 711: el fuente espera \"711 \".\n        if (!\"711\".equals(r.sistemaOrigen().strip()) || r.claveTran() != 2002) return null;\n        Medio m = Medio.de(r.numMedio());                          // WKS-SUC-MDA y WKS-CTA-MDA\n        return new DevolucionS711(secuencia.incrementAndGet(), r.refAlfanumerica(),\n                m.sucursal(), m.cuenta(), r.refNumerica(), r.importe(),\n                r.claveRechazo(), r.moneda(), r.nombre());\n    }\n}",
+          "racional": "En el proceso 1, los rechazos originados en el sistema 711 con clave de transacción 2002 se escriben en un archivo de 180 caracteres con secuencia, referencia, sucursal y cuenta del medio, importe, clave de error, moneda y nombre; al final se agrega un trailer con el número de devoluciones. En Java es un <code>ItemProcessor</code> que filtra devolviendo <code>null</code> y numera con una secuencia propia del step. La comparación del sistema de origen se hace sobre el texto recortado para no depender de la alineación del campo.",
+          "reglas": [],
+          "riesgo": "WKS-I01-R01-SISTORIG es PIC X(004) y se compara con el literal numérico 711; COBOL lo trata como texto, así que un valor \"0711\" no coincide y la devolución no se genera."
+        }
+      ]
+    },
+    {
+      "titulo": "Ordenamiento, listados por sucursal y borrados",
+      "origen": {
+        "archivo": "S500_SOURCE_P195.txt",
+        "contexto": "50008000-SORT-PARASUC · 50008200-ARMA-REP-ASUC · 50003050-LEE-ARCH-BORRADOS"
+      },
+      "java": {
+        "archivo": "OrdenaParaSucursalStep.java · ListadoSucursalWriter.java · BorradosStep.java",
+        "contexto": "Tasklet de ordenamiento · JasperReports con grupos · FlatFileItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "SORT con disco y memoria calculados a partir del volumen",
+          "linea_ini": 1753,
+          "linea_fin": 1781,
+          "origen_codigo": " 50008000-SORT-PARASUC.\n     ADD 10  TO W77-TOT-REGASUC.\n     COMPUTE W77-TOT-DSKSIZE = W77-TOT-REGASUC * 46 * 3.5.\n     COMPUTE W77-TOT-MEMSIZE  =\n             ((W77-TOT-REGASUC / 16) * 48) + 1500.\n     IF W77-TOT-MEMSIZE < 400000\n        MOVE 400000 TO W77-TOT-MEMSIZE\n     ELSE\n     IF W77-TOT-MEMSIZE > 258435000\n        MOVE 258435000 TO W77-TOT-MEMSIZE.\n     MOVE W77-TOT-DSKSIZE  TO WS-MSG-N-14.\n     MOVE W77-TOT-MEMSIZE  TO WS-MSG-N-12.\n     STRING \"DISK-SIZE =\" WS-MSG-N-14\n            \", MEMORY-SIZE =\" WS-MSG-N-12\n            \", PARA SORT I02-PARASUC \"\n                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE.\n     SORT S03-SORTMOVS ON ASCENDING KEY WKS-S03-R01-TPOREG\n                                        WKS-S03-R01-NODOIMP\n                                        WKS-S03-R01-SUC-OPERO\n                                        WKS-S03-R01-AUTORIZ\n          USING  I02-PARASUC\n          GIVING I02-PARASUC\n          MEMORY SIZE W77-TOT-MEMSIZE WORDS\n          DISK   SIZE W77-TOT-DSKSIZE WORDS.",
+          "java_codigo": "/** 50008000-SORT-PARASUC: llave tipo, nodo, sucursal operadora y autorización. */\nstatic final Comparator<RechazoPrelinea> ORDEN_SUCURSAL =\n        Comparator.comparing((RechazoPrelinea r) -> r.tipo().codigo())\n                  .thenComparingInt(RechazoPrelinea::nodoImpresion)\n                  .thenComparingInt(RechazoPrelinea::sucOpero)\n                  .thenComparing(r -> r.autorizacion().substring(0, 12));   // la SD declara 9(012)\n\n@Bean\nStep ordenaParaSucursal(JobRepository repo, PlatformTransactionManager tx, ExternalSorter sorter) {\n    // DISK SIZE = (registros + 10) * 46 * 3.5 y MEMORY SIZE acotada entre 400000 y 258435000\n    // palabras: en Java el ordenamiento externo dimensiona sus corridas y no requiere esa fórmula.\n    return new StepBuilder(\"ordenaParaSucursal\", repo)\n            .tasklet((c, ctx) -> {\n                sorter.sort(rechasucTemporal(), ORDEN_SUCURSAL, RechazoPrelinea.class);\n                return RepeatStatus.FINISHED;\n            }, tx)\n            .build();\n}",
+          "racional": "El intermedio se ordena por tipo de registro, nodo de impresión, sucursal operadora y autorización, que es el orden que necesitan los cortes del listado. El programa calcula el espacio de disco multiplicando los registros más 10 por 46 y por el factor 3.5, y la memoria con un mínimo de 400000 y un máximo de 258435000 palabras. En Java el ordenamiento externo (por ejemplo, un <code>ExternalSorter</code> basado en archivos temporales) dimensiona sus corridas por memoria disponible, por lo que la fórmula desaparece; se documenta en el código para trazabilidad.",
+          "reglas": [
+            "RN-S500-745"
+          ],
+          "riesgo": "En la SD la autorización es PIC 9(012) mientras en el registro de trabajo es 9(014); la llave solo compara los primeros 12 dígitos y los dos últimos del consecutivo no participan en el orden."
+        },
+        {
+          "id": "s9",
+          "titulo": "Totales de abonos y cargos por rango de clave y línea de crédito forzada",
+          "linea_ini": 1899,
+          "linea_fin": 1917,
+          "origen_codigo": "     IF (WKS-I01-R01-CVE-TRAN > 0999 AND < 2000)\n     OR (WKS-I01-R01-CVE-TRAN > 2999 AND < 4000)\n        ADD WKS-I01-R01-IMPORTE    TO WKS-TOTS-IMP-ABOS\n        ADD 1                      TO WKS-TOTS-NUM-ABOS\n     ELSE\n     IF (WKS-I01-R01-CVE-TRAN > 1999 AND < 3000)\n     OR (WKS-I01-R01-CVE-TRAN > 3999 AND < 5000)\n        ADD WKS-I01-R01-IMPORTE    TO WKS-TOTS-IMP-CGOS\n        ADD 1                      TO WKS-TOTS-NUM-CGOS.\n     IF W77-TPOREG-ANT = 1 OR 5\n        NEXT SENTENCE\n     ELSE\n        ADD WKS-I01-R01-IMPLC-FORZ  TO WKS-TOTS-IMP-LCF.\n     IF W77-TPOREG-ANT = 1 OR 10\n        ADD 1 TO W77-TOT-REGXLIN\n     ELSE\n        ADD 1 TO W77-TOT-REGXRECU.",
+          "java_codigo": "/** 50008200-ARMA-REP-ASUC: acumulados del corte por sucursal (WKS-TOTALES-SUC). */\nrecord TotalesSucursal(BigDecimal abonos, int numAbonos, BigDecimal cargos, int numCargos,\n                       BigDecimal lcForzada) {\n\n    static TotalesSucursal vacio() { return new TotalesSucursal(ZERO2, 0, ZERO2, 0, ZERO2); }\n\n    TotalesSucursal mas(RechazoPrelinea r) {\n        int c = r.claveTran();\n        boolean abono = (c > 999 && c < 2000) || (c > 2999 && c < 4000);\n        boolean cargo = (c > 1999 && c < 3000) || (c > 3999 && c < 5000);\n        BigDecimal lcf = esAceptado(r.tipo()) ? lcForzada.add(r.importeLcForzada()) : lcForzada;\n        if (abono) return new TotalesSucursal(abonos.add(r.importe()), numAbonos + 1, cargos, numCargos, lcf);\n        if (cargo) return new TotalesSucursal(abonos, numAbonos, cargos.add(r.importe()), numCargos + 1, lcf);\n        return new TotalesSucursal(abonos, numAbonos, cargos, numCargos, lcf);   // fuera de rango: no suma\n    }\n}\n// En JasperReports cada corte es un <group> por nodo y por sucursal con estas variables.",
+          "racional": "Las claves de transacción de 1000 a 1999 y de 3000 a 3999 cuentan como abonos y las de 2000 a 2999 y 4000 a 4999 como cargos; cualquier otra clave se imprime pero no suma. Para los aceptados (10 y 11) se acumula además el importe de línea de crédito forzada. Los acumuladores son <code>PIC 9(12)V99 COMP</code> y se reinician en cada corte; en Java el acumulado es un <code>record</code> inmutable y el listado se arma en JasperReports con grupos por nodo y por sucursal.",
+          "reglas": [
+            "RN-S500-743"
+          ],
+          "riesgo": "Las claves menores a 1000 o mayores a 4999 aparecen en el listado sin entrar a los totales de abonos ni de cargos."
+        },
+        {
+          "id": "s10",
+          "titulo": "Listado de movimientos borrados en flujo separado",
+          "linea_ini": 1510,
+          "linea_fin": 1525,
+          "origen_codigo": " 50003050-LEE-ARCH-BORRADOS.\n   READ I05-BORRADOS INTO REG-BORRADOS   AT END\n                     MOVE 1 TO W77-EOF-BORRA.\n   IF W77-EOF-BORRA = 0\n      IF I05-TPOREG = 2\n         MOVE I05-SISTEMA-ARCH     TO  WLI-R10-L07-NUM-SIS\n         MOVE I05-NUM-CONTR        TO  WLI-R10-L07-CONTR\n         MOVE I05-IMPORTE-ORI      TO  WLI-R10-L07-IMPTE\n         MOVE I05-SALDO            TO  WLI-R10-L07-SALDO\n         MOVE I05-FECHA-LTECOBR    TO  WLI-R10-L07-FEC-LTE-COB\n         MOVE I05-STATUS           TO  WLI-R10-L07-STATUS\n         MOVE I05-HORA-LTECOBRO    TO  WLI-R10-L07-HORA-LTE-COB\n         MOVE I05-FECHA-INICOBR    TO  WLI-R10-L07-FECHA-INICOBR\n         PERFORM 60007000-ESC-REP-10.",
+          "java_codigo": "@Bean\nStep listadoBorrados(JobRepository repo, PlatformTransactionManager tx,\n                     FlatFileItemReader<RegistroBorrado> borrados,\n                     JasperItemWriter<RegistroBorrado> listadoR10) {\n    return new StepBuilder(\"listadoBorrados\", repo)\n            .<RegistroBorrado, RegistroBorrado>chunk(500, tx)\n            .reader(borrados)                                   // I05-BORRADOS\n            .processor(r -> r.tipoReg() == 2 ? r : null)        // solo detalle; header y trailer se ignoran\n            .writer(listadoR10)                                 // R10-BORRADOS\n            .build();\n}\n\n/** I05-DETALLE. */\nrecord RegistroBorrado(int tipoReg, int sistema, String contrato,\n                       BigDecimal importeOriginal, BigDecimal saldo,          // 9(12)V99\n                       LocalDate fechaLimiteCobro, int status, LocalTime horaLimiteCobro,\n                       LocalDate fechaInicioCobro) {}",
+          "racional": "Solo en el proceso 2 el programa lee el archivo de borrados y lista cada detalle (tipo 2) con sistema, contrato, importe original, saldo, fechas y hora límite de cobro y estatus. Es un flujo independiente del de rechazos, que en Java queda como un step propio con su lector y su listado. El header y el trailer del archivo se leen pero no se validan.",
+          "reglas": [
+            "RN-S500-744"
+          ],
+          "riesgo": "El trailer de I05-BORRADOS trae el número de registros pero P195 no lo compara con lo leído."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Reasignación de nodos compilada",
+      "detalle": "Los nodos válidos por CSI y las sucursales por omisión 904 y 907 están en el código (líneas 1621-1632). Un nodo nuevo hace que sus rechazos se impriman en otra sucursal."
+    },
+    {
+      "titulo": "Comparación de texto contra número en el sistema 711",
+      "detalle": "WKS-I01-R01-SISTORIG es PIC X(004) y se compara con 711 (línea 1644). Si el campo trae ceros a la izquierda, las devoluciones del sistema 711 no se generan."
+    },
+    {
+      "titulo": "Claves fuera de rango en totales",
+      "detalle": "Las claves de transacción fuera de 1000 a 4999 se listan pero no suman a abonos ni a cargos (líneas 1899-1907), por lo que los totales por sucursal pueden no cuadrar con el detalle."
+    },
+    {
+      "titulo": "Trailers sin validar",
+      "detalle": "Ni I01-RECHAZOS ni I05-BORRADOS validan conteos de trailer; un archivo truncado se procesa sin aviso."
+    },
+    {
+      "titulo": "Tipos de registro sin destino",
+      "detalle": "Los tipos 6 a 9 documentados en el registro no tienen ruta en 50003000-PROCESO-ARCH y se descartan en silencio."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el formato de WKS-I01-R01-FEC-MOVTO (9(006)); P195 no la transforma.",
+    "Confirmar si es intencional que en el proceso 1 no se impriman los listados R01 y R09.",
+    "Confirmar con SME el significado de los productos 1, 66 y el resto (acumulados como 05) en los totales del listado R09.",
+    "La SD ordena por los primeros 12 dígitos de la autorización; validar si el orden dentro de una misma sucursal y caja es relevante para los usuarios del listado."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-889",
+    "RN-S151-890",
+    "RN-S151-891",
+    "RN-S151-892",
+    "RN-S151-893",
+    "RN-S151-894",
+    "RN-S500-743",
+    "RN-S500-744",
+    "RN-S500-745"
+  ]
+}

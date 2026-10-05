@@ -123,6 +123,27 @@ class GemCogBrain:
         sql += " ORDER BY rule_id"
         return [dict(r) for r in self._q(sql, params)]
 
+    def rules_by_capacity_canonical(self, bc_or_slug: str, sistema: str | None = None) -> list[dict]:
+        """
+        Reglas de una capacidad de negocio por la vista canónica `rule_capability`:
+        resuelve tanto las reglas con BC en su ficha como las técnicas asignadas a la
+        capacidad vía cap-*.md (rescata BC-15/ODS, BC-20/WFL, etc.).
+        Acepta BC-ID ('BC-15') o slug ('ods'). Incluye columna 'fuente' (ficha|cap-file).
+        """
+        key = bc_or_slug.strip()
+        col = "rc.bc_id" if key.upper().startswith("BC-") else "rc.bc_slug"
+        sql = (
+            "SELECT r.*, rc.fuente FROM rule_capability rc "
+            "JOIN rules r ON r.rule_id = rc.rule_id "
+            f"WHERE {col}=?"
+        )
+        params: list = [key.upper() if col.endswith("bc_id") else key.lower()]
+        if sistema:
+            sql += " AND r.sistema=?"
+            params.append(sistema.upper())
+        sql += " ORDER BY r.rule_id"
+        return [dict(r) for r in self._q(sql, params)]
+
     def rules_by_program(self, prog_id: str) -> list[dict]:
         rows = self._q(
             "SELECT * FROM rules WHERE programa LIKE ? ORDER BY rule_id",
@@ -327,4 +348,87 @@ class GemCogBrain:
             GROUP BY bc_id
             ORDER BY n DESC
         """)
+        return [dict(r) for r in rows]
+
+    # ── Journeys (Bloque 2) ───────────────────────────────────────────────────
+    def journeys_by_capacity(self, bc_id: str) -> dict[str, list[dict]]:
+        """
+        Tareas de migración de una capacidad, agrupadas por tipo.
+        Devuelve {tipo: [task, ...]} ordenado por task_id dentro de cada tipo.
+        """
+        rows = self._q(
+            "SELECT * FROM tasks WHERE bc_id=? ORDER BY tipo, task_id", (bc_id,)
+        )
+        result: dict[str, list[dict]] = {}
+        for r in rows:
+            t = dict(r)
+            key = t.get("tipo") or "SIN_TIPO"
+            result.setdefault(key, []).append(t)
+        return result
+
+    def journey_summary(self) -> list[dict]:
+        """
+        Resumen de tareas por capacidad: total de tasks y distribución por tipo.
+        Útil para ver qué capacidades tienen más trabajo de migración pendiente.
+        """
+        rows = self._q("""
+            SELECT
+                t.bc_id,
+                c.nombre,
+                COUNT(*) total_tasks,
+                GROUP_CONCAT(DISTINCT t.tipo) tipos
+            FROM tasks t
+            LEFT JOIN capacidades c ON c.bc_id = t.bc_id
+            GROUP BY t.bc_id
+            ORDER BY total_tasks DESC
+        """)
+        return [dict(r) for r in rows]
+
+    def tasks_by_program(self, prog_id: str) -> list[dict]:
+        """Tareas asociadas a un programa específico."""
+        rows = self._q(
+            "SELECT * FROM tasks WHERE programa LIKE ? ORDER BY task_id",
+            (f"%{prog_id.upper()}%",)
+        )
+        return [dict(r) for r in rows]
+
+    # ── Search unificado (Bloque 2) ───────────────────────────────────────────
+    def search(
+        self,
+        query: str,
+        domains: list[str] | None = None,
+        limit: int = 10,
+    ) -> dict[str, list[dict]]:
+        """
+        Búsqueda FTS unificada sobre rules, risks y vocab.
+
+        Args:
+            query:   término o frase de búsqueda (sintaxis FTS5).
+            domains: lista de dominios a consultar ['rules', 'risks', 'vocab'].
+                     None = todos los dominios.
+            limit:   máximo de resultados por dominio.
+
+        Returns:
+            {'rules': [...], 'risks': [...], 'vocab': [...]}
+        """
+        all_domains = ["rules", "risks", "vocab"]
+        active = [d for d in all_domains if domains is None or d in domains]
+        result: dict[str, list[dict]] = {}
+
+        if "rules" in active:
+            result["rules"] = self.search_rules(query, limit)
+        if "risks" in active:
+            result["risks"] = self.search_risks(query, limit)
+        if "vocab" in active:
+            result["vocab"] = self.search_vocab(query, limit)
+
+        return result
+
+    def search_programs(self, query: str, limit: int = 20) -> list[dict]:
+        """Búsqueda sobre programas por nombre o rol funcional (LIKE)."""
+        rows = self._q(
+            "SELECT * FROM programs WHERE nombre LIKE ? OR rol_funcional LIKE ? "
+            "ORDER BY prog_id LIMIT ?",
+            (f"%{query}%", f"%{query}%", limit)
+        )
         return [dict(r) for r in rows]

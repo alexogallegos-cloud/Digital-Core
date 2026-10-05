@@ -1,0 +1,231 @@
+{
+  "slug": "S151_L014",
+  "sistema": "S151",
+  "programa": "L014",
+  "nombre": "Librería de consulta BIFIN en línea",
+  "funcion": "Librería COBOL S151L014 invocada en línea por las pantallas 27, 28, 29 y 30 de sucursal para consultar protección de cobros, migración de tarjetas y domiciliaciones en la base S151BD13BIFIN.",
+  "resumen": "L014 recibe un área de pantalla de 1872 bytes cuyo contenido cambia según el número de pantalla (REDEFINES por servicio), valida las fechas capturadas con THECALENDAR de LOCSUP y decide el criterio de búsqueda según qué campos vienen llenos. Con ese criterio recorre B07PROTCOB, B08TDMIGCAP o B10DOMI con FIND por llave, arma una página de resultados en el área de salida y guarda la posición del último registro para continuar en la siguiente llamada. Abre la base solo para consulta en la primera llamada y regresa un código en W77-RES-LIBCON.",
+  "arquetipo": "L",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Data JPA",
+  "paquete_java": "mx.banamex.s151.bifin.consulta",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — opciones de librería y áreas de pantalla",
+      "origen": {
+        "archivo": "COBOL_L014.txt",
+        "contexto": "Opciones de compilación · LINKAGE SECTION"
+      },
+      "java": {
+        "archivo": "ConsultaBifinService.java · PantallaRequest.java · ConsultaDomiciliacionRequest.java",
+        "contexto": "@Service · sealed interface · record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Opciones de compartición de la librería",
+          "linea_ini": 1,
+          "linea_fin": 4,
+          "origen_codigo": "$SET SHARING = SHAREDBYALL TEMPORARY FEDLEVEL=5\n$SET LIST LINEINFO MAP\n$$SET LIBRARYLOCK\n$$SHARING=PRIVATE",
+          "java_codigo": "/**\n * $SET SHARING = SHAREDBYALL TEMPORARY: una sola instancia compartida por todas las tareas\n * que la llaman, viva mientras tenga usuarios. En Spring es un singleton sin estado de\n * conversación: el estado de paginación viaja en la petición (WKS-ENT-*-ULT).\n */\n@Service\n@Transactional(readOnly = true)          // OPEN INQUIRY S151BD13BIFIN\npublic class ConsultaBifinService implements ConsultaBifin {\n\n    private final ProteccionCobroRepository b07;\n    private final MigracionTarjetaRepository b08;\n    private final DomiciliacionRepository b10;\n    private final CalendarioBancario calendario;   // THECALENDAR OF LOCSUP\n\n    // LIBRARYLOCK (si estuviera activo) serializaría las llamadas; aquí no se reproduce\n    // porque la librería solo lee y no comparte estado mutable entre peticiones.\n}",
+          "racional": "La primera línea declara la librería como compartida por todas las tareas y temporal. Eso corresponde a un <code>@Service</code> singleton. Lo importante para la traducción es que en COBOL las variables de WORKING-STORAGE quedan compartidas entre todos los llamadores; en Java el servicio no guarda estado entre peticiones y todo el contexto de paginación viaja en la petición y la respuesta, igual que en el área de pantalla. Las líneas 3 y 4 empiezan con <code>$$</code> y su efecto real se deja a revisión.",
+          "reglas": [
+            "RN-S151-1070",
+            "RN-S151-1079"
+          ],
+          "riesgo": "La línea 4 ($$SHARING=PRIVATE) contradice a la línea 1. Si el prefijo $$ desactiva la opción, LIBRARYLOCK tampoco está en efecto y RN-S151-1070 y RN-S151-1075 describirían un comportamiento que no existe."
+        },
+        {
+          "id": "s2",
+          "titulo": "Área de pantalla con vistas REDEFINES por servicio",
+          "linea_ini": 276,
+          "linea_fin": 304,
+          "origen_codigo": " 01 WKS-PANTALLAS-ENT      PIC X(1872).\n*01 WKS-PANTALLAS-SAL      PIC X(1872).\n 01 WKS-PANTALLA-ENT REDEFINES WKS-PANTALLAS-ENT.\n    03 WKS-ENT-SIS          PIC 9(03).\n    03 WKS-ENT-NUMPAN       PIC 9(02).\n    03 WKS-ENT-TEXTO        PIC X(1867).\n*Layout de Protecciÿn de cobros, Numero de Servicio 1\n    03 WKS-ENT-SERV1 REDEFINES WKS-ENT-TEXTO.\n       05 WKS-ENT-FECHA-ANT     PIC 9(08).\n       05 WKS-ENT-CONTRATO-ANT  PIC 9(16).\n       05 WKS-ENT-AUTORIZA-ANT  PIC 9(08).\n       05 FILLER                PIC X(31).\n       05 WKS-ENT-FECHA         PIC 9(08).\n       05 WKS-ENT-FECHA-A       REDEFINES\n          WKS-ENT-FECHA         PIC X(08).\n       05 WKS-ENT-CONTRATO      PIC 9(16).\n       05 WKS-ENT-CONTRATO-A    REDEFINES\n          WKS-ENT-CONTRATO      PIC X(16).\n       05 WKS-ENT-AUTORIZA      PIC 9(08).\n       05 WKS-ENT-AUTORIZA-A    REDEFINES\n          WKS-ENT-AUTORIZA      PIC X(08).\n       05 FILLER                PIC X(48).\n       05 WKS-ENT-FECHA-ULT     PIC 9(08).\n       05 WKS-ENT-CONTRATO-ULT  PIC 9(16).\n       05 WKS-ENT-AUTORIZA-ULT  PIC 9(08).\n       05 WKS-ENT-OCCURS-ULT    PIC 9(02).\n       05 WKS-ENT-MAS-MOVS      PIC 9(01).\n       05 FILLER                PIC X(45).\n       05 FILLER                PIC X(1644).",
+          "java_codigo": "/** WKS-PANTALLAS-ENT: 1872 bytes = sistema 9(03) + pantalla 9(02) + texto X(1867). */\npublic sealed interface PantallaRequest\n        permits ConsultaProteccionRequest, ConsultaAlertasRequest,\n                ConsultaMigracionRequest, ConsultaDomiciliacionRequest {\n\n    int sistema();\n    int pantalla();          // 27, 28, 29 o 30: decide qué vista del texto aplica\n}\n\n/** WKS-ENT-SERV1: protección de cobros (pantalla 27, servicio 1). */\npublic record ConsultaProteccionRequest(\n        int sistema, int pantalla,\n        Llave anterior,                  // WKS-ENT-*-ANT\n        LocalDate fecha,                 // WKS-ENT-FECHA 9(08) AAAAMMDD\n        String contrato,                 // 9(16): String para conservar ceros\n        String autorizacion,             // 9(08)\n        Cursor ultimo,                   // WKS-ENT-*-ULT + OCCURS-ULT\n        boolean masMovimientos           // WKS-ENT-MAS-MOVS\n) implements PantallaRequest {\n    public record Llave(LocalDate fecha, String contrato, String autorizacion) {}\n    public record Cursor(LocalDate fecha, String contrato, String autorizacion, int ocurrencia) {}\n}",
+          "racional": "La librería recibe un solo bloque de texto que se interpreta con una vista <code>REDEFINES</code> distinta según el número de pantalla. En Java cada vista es un <code>record</code> dentro de una <code>sealed interface</code>, de modo que el controlador que hoy recibe la pantalla construye el tipo correcto y el servicio no tiene que adivinar el formato. La captura anterior y el último registro mostrado se conservan como objetos propios porque son los que permiten detectar una consulta repetida y paginar.",
+          "reglas": [
+            "RN-S151-1078"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Vista de la pantalla 30 de domiciliaciones",
+          "linea_ini": 377,
+          "linea_fin": 400,
+          "origen_codigo": "*<INI LBM> LAYOUT DE ENTRADA DE PANTALLA 30\n    03 WKS-ENT-P30 REDEFINES WKS-ENT-TEXTO.\n*<LBM> DATOS CONSULTA ANTERIOR\n       05 WKS-ENT-P30FEC-INI-A                 PIC 9(08).\n       05 WKS-ENT-P30FEC-FIN-A                 PIC 9(08).\n       05 WKS-ENT-P30SUC-A                     PIC 9(04).\n       05 WKS-ENT-P30CTA-A                     PIC 9(16).\n       05 WKS-ENT-P30A151-A                    PIC 9(08).\n       05 WKS-ENT-P30AAP-A                     PIC 9(08).\n*<LBM> DATOS CAMPOS EDITABLES\n       05 WKS-ENT-P30FEC-INI                   PIC 9(08).\n       05 WKS-ENT-P30FEC-FIN                   PIC 9(08).\n       05 WKS-ENT-P30SUC                       PIC 9(04).\n       05 WKS-ENT-P30CTA                       PIC 9(16).\n       05 WKS-ENT-P30A151                      PIC 9(08).\n       05 WKS-ENT-P30AAP                       PIC 9(08).\n       05 WKS-ENT-P30CTO                       PIC 9(16).\n*<LBM> DATOS ULTIMA CONSULTA\n       05 WKS-ENT-P30FEC-U                     PIC 9(08).\n       05 WKS-ENT-P30OCU-U                     PIC 9(02).\n       05 WKS-ENT-P30A151-U                    PIC 9(08).\n       05 WKS-ENT-P30MMOVS                     PIC 9(01).\n*       05 FILLER                               PIC X(1744).\n       05 FILLER                               PIC X(1728).",
+          "java_codigo": "/** WKS-ENT-P30: consulta de B10DOMI. */\npublic record ConsultaDomiciliacionRequest(\n        int sistema, int pantalla,\n        Filtro anterior,                 // WKS-ENT-P30*-A\n        Filtro actual,                   // campos editables\n        String contrato,                 // WKS-ENT-P30CTO 9(16)\n        LocalDate fechaUltima, int ocurrenciaUltima, String aut151Ultima,   // *-U\n        boolean masMovimientos           // WKS-ENT-P30MMOVS\n) implements PantallaRequest {\n\n    public record Filtro(LocalDate fechaIni, LocalDate fechaFin,\n                         Integer sucursal,          // 9(04)\n                         String cuenta,             // 9(16)\n                         String autorizacionS151,   // 9(08)\n                         String autorizacionApl) {} // 9(08)\n}",
+          "racional": "La pantalla 30 lleva un rango de fechas, sucursal, cuenta, dos autorizaciones y el contrato, además de la consulta anterior y el cursor de la última página. Las llaves numéricas se pasan a <code>String</code> para conservar ceros a la izquierda. El <code>FILLER</code> que completa los 1867 bytes desaparece en el modelo de objetos.",
+          "reglas": [
+            "RN-S151-1073"
+          ],
+          "riesgo": "El FILLER se cambió de X(1744) a X(1728) dejando la versión anterior comentada; el área suma 1867 bytes con el valor actual, pero conviene verificar que el llamador use el mismo layout."
+        }
+      ]
+    },
+    {
+      "titulo": "Control de la librería — primera llamada, apertura y despacho por pantalla",
+      "origen": {
+        "archivo": "COBOL_L014.txt",
+        "contexto": "PROCEDURE DIVISION · 010-CONTROL SECTION · 090-ABRE-BASE"
+      },
+      "java": {
+        "archivo": "ConsultaBifinService.java · BifinHealthIndicator.java",
+        "contexto": "@Service · switch sobre sealed interface · Spring Retry"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Primera llamada: inicialización y apertura con reintentos",
+          "linea_ini": 724,
+          "linea_fin": 758,
+          "origen_codigo": " 010-0100-CHECA-OPCION.\n     IF SW-PRIMER-CALL           =   ZEROES\n        PERFORM  010-0200-INICIA-LIBRERIA\n        IF W77-RES-LIBCON = 0\n           PERFORM 010-0300-VALIDA\n        ELSE\n           NEXT SENTENCE\n     ELSE\n        PERFORM 010-0300-VALIDA.\n     EXIT PROGRAM.\n 010-0200-INICIA-LIBRERIA.\n*-------------------------\n     MOVE  01                     TO SW-PRIMER-CALL.\n     MOVE \"S151\"                  TO SISTEMA-LJ\n     MOVE \"L014\"                  TO PASO-LJ\n     MOVE 002                     TO MTP-LJ\n     MOVE \"L\"                     TO TIPO-LJ\n     MOVE 010101                  TO CODIGO-LJ\n     CHANGE ATTRIBUTE TITLE    OF \"LIBLJ\"  TO\n          \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK\"\n     CHANGE ATTRIBUTE LIBACCESS    OF \"LOCSUP\" TO BYFUNCTION\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"LOCSUP\" TO \"LOCSUP\"\n     MOVE 0                       TO WS-VECES\n     PERFORM 090-ABRE-BASE UNTIL WS-BANDERA > 0\n                              OR WS-VECES   > 5\n     IF WS-BANDERA = 0\n        MOVE \"BASE DE DATOS NO SE ABRIO\"\n                                  TO TEXTO-LJ\n        MOVE 79                   TO W77-RES-LIBCON\n        CALL \"LJ IN LIBLJ\"\n                  USING CONTADOR-LJ,MENSAJE-LJ.",
+          "java_codigo": "/** 010-0100-CHECA-OPCION: en Java la inicialización es del contenedor, no de la primera llamada. */\n@Override\npublic PantallaResponse consulta(PantallaRequest req) {\n    return switch (req) {                                    // 010-0300-VALIDA\n        case ConsultaProteccionRequest p    -> proteccion(p, 1);          // pantalla 27, servicio 1\n        case ConsultaAlertasRequest a       -> a.servicio() > 1\n                                               ? proteccion(a.comoProteccion(), a.servicio())\n                                               : PantallaResponse.error(0, \"NUMERO DE SERVICIO INVALIDO\");\n        case ConsultaMigracionRequest m     -> migracion(m);             // pantalla 29\n        case ConsultaDomiciliacionRequest d -> domiciliacion(d);         // pantalla 30\n    };\n}\n\n// 010-0200-INICIA-LIBRERIA: los MOVE a SISTEMA-LJ/PASO-LJ/MTP-LJ y el título de LIBLJ\n// pasan a application.yml (bitácora) y LOCSUP se inyecta como CalendarioBancario.",
+          "racional": "En COBOL la librería se inicializa en la primera llamada: registra su identidad para la bitácora LIBLJ, enlaza la función LOCSUP y abre la base. En Spring esa inicialización la hace el contenedor al arrancar y el método de servicio solo atiende la consulta. El título de la librería de bitácora <code>(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK</code> es una ruta compilada que pasa a <code>application.yml</code>.",
+          "reglas": [],
+          "riesgo": "SW-PRIMER-CALL se pone en 1 antes de intentar abrir la base. Si la apertura falla en la primera llamada (código 79), las llamadas siguientes ya no reintentan abrir y consultan sobre una base cerrada."
+        },
+        {
+          "id": "s5",
+          "titulo": "Apertura de solo consulta con espera de 10 segundos",
+          "linea_ini": 1268,
+          "linea_fin": 1282,
+          "origen_codigo": " 090-ABRE-BASE.\n*--------------\n     MOVE 0                       TO WS-BANDERA WS-FIN\n     OPEN INQUIRY S151BD13BIFIN\n          ON EXCEPTION\n             MOVE 1               TO WS-FIN\n             MOVE \"BASE NO ABIERTA,ESPERO 10 SEG\"\n                                  TO TEXTO-LJ\n             CALL \"LJ IN LIBLJ\"\n                  USING CONTADOR-LJ,MENSAJE-LJ\n             ADD 1                TO WS-VECES\n             WAIT(10).\n     IF WS-FIN = 0\n        MOVE 1                    TO WS-BANDERA.",
+          "java_codigo": "@Configuration\n@EnableRetry\nclass BifinDataSourceConfig {\n\n    /** 090-ABRE-BASE: hasta 6 intentos (WS-VECES > 5) con WAIT(10). */\n    @Bean\n    RetryTemplate aperturaBifin() {\n        return RetryTemplate.builder()\n                .maxAttempts(6)\n                .fixedBackoff(Duration.ofSeconds(10))\n                .retryOn(CannotGetJdbcConnectionException.class)\n                .withListener(new RetryListener() {\n                    @Override public <T, E extends Throwable> void onError(RetryContext c, RetryCallback<T, E> cb, Throwable t) {\n                        log.warn(\"BASE NO ABIERTA,ESPERO 10 SEG (intento {})\", c.getRetryCount());   // CALL LJ IN LIBLJ\n                    }\n                })\n                .build();\n    }\n}\n// En lugar de bloquear al cajero hasta 60 segundos, el pool se valida al arrancar\n// y un HealthIndicator marca el servicio fuera de línea si BIFIN no responde.",
+          "racional": "El párrafo intenta abrir S151BD13BIFIN en modo <code>INQUIRY</code> y, si falla, registra el evento y espera 10 segundos antes de volver a intentar, hasta seis veces. En Java el reintento se expresa con Spring Retry con los mismos parámetros, pero se aplica al arranque del pool y no dentro de la petición del cajero. El modo de solo consulta se mantiene con <code>@Transactional(readOnly = true)</code>.",
+          "reglas": [
+            "RN-S151-1071"
+          ],
+          "riesgo": "En el original la espera ocurre dentro de la llamada en línea: una base no disponible bloquea la pantalla del cajero hasta un minuto."
+        },
+        {
+          "id": "s6",
+          "titulo": "Despacho por número de pantalla y validación que nunca falla",
+          "linea_ini": 790,
+          "linea_fin": 832,
+          "origen_codigo": "*<INICIA JMLT> IF PARA VALIDAR NUMERO DE PANTALLA Y SERVICIO\n     IF WKS-ENT-NUMPAN = 27\n          MOVE 1 TO WKS-SERVICIO\n          PERFORM 010-0300-PANTALLA27\n     ELSE\n        IF WKS-ENT-NUMPAN = 28\n           IF WKS-ENT-SERV2-SERVICIO > 1\n              MOVE WKS-ENT-SERV2-SERVICIO TO WKS-SERVICIO\n              PERFORM 010-0500-PANTALLA28SERV1\n           ELSE\n              MOVE \"NUMERO DE SERVICIO INVALIDO\"\n                   TO WKS-SAL-ERRLEY\n        ELSE\n*<INICIO RMT> AGREGA PANTALLA 29 A VALIDACION\n          IF WKS-ENT-NUMPAN = 29\n             PERFORM 010-2900-PANTALLA29\n*<INI LBM> SI ES PANTALLA 30 SE ATIENDE LA CONSULTA\n          ELSE\n            IF WKS-ENT-NUMPAN = 30\n                MOVE 20 TO WKS-FECHAI-30-CONS-AA\n                MOVE 20 TO WKS-FECHAF-30-CONS-AA\n                MOVE 20 TO WKS-FECHAR-30-FORM-AA\n                PERFORM 010-0030-PANTALLA30\n*<FIN LBM> SI ES PANTALLA 30 SE ATIENDE LA CONSULTA\n            ELSE\n*<FIN RMT> AGREGA PANTALLA 29 A VALIDACION\n             MOVE \"NUMERO DE PANTALLA INVALIDA\" TO WKS-SAL-ERRLEY.\n*<FIN JMLT> IF PARA VALIDAR NUMERO DE PANTALLA Y SERVICIO\n*<INICIA JMLT> DECLARACION RUTINA PARA PANTALLA 27 NUMERO DE\n* SERVICIO 1\n 010-0300-PANTALLA27.\n*<FIN JMLT> DECLARACION RUTINA PARA PANTALLA 27 NUMERO DE\n* SERVICIO 1\n     IF NOT(WKS-ENT-CONTRATO > ZEROS OR WKS-ENT-CONTRATO = ZEROS)\n               MOVE 46 TO W77-RES-LIBCON\n               MOVE \"CONTRATO INVALIDO\" TO WKS-SAL-ERRLEY\n     ELSE\n     IF NOT(WKS-ENT-AUTORIZA > ZEROS OR WKS-ENT-AUTORIZA = ZEROS)\n                MOVE 68 TO W77-RES-LIBCON\n                MOVE \"AUTORIZACION INVALIDA\" TO WKS-SAL-ERRLEY.\n     IF W77-RES-LIBCON = 0\n          PERFORM 010-0400-VALIDA-COND.",
+          "java_codigo": "/** 010-0300-PANTALLA27. */\nprivate PantallaResponse proteccion(ConsultaProteccionRequest p, int servicio) {\n    // IF NOT(CONTRATO > ZEROS OR CONTRATO = ZEROS): para un PIC 9(16) sin signo la condición\n    // solo es verdadera si el campo trae datos no numéricos. Se valida el formato explícitamente.\n    if (!p.contrato().chars().allMatch(Character::isDigit)) {\n        return PantallaResponse.error(46, \"CONTRATO INVALIDO\");\n    }\n    if (!p.autorizacion().chars().allMatch(Character::isDigit)) {\n        return PantallaResponse.error(68, \"AUTORIZACION INVALIDA\");\n    }\n    return consultaProteccion(p, servicio);                  // 010-0400-VALIDA-COND\n}\n\n/** Pantalla 30: el siglo de las fechas de consulta se fija en 20. */\nprivate static final int SIGLO_PANTALLA_30 = 20;             // MOVE 20 TO WKS-FECHA*-30-*-AA",
+          "racional": "El despacho por pantalla es una cascada de <code>IF</code> que en Java se convierte en el <code>switch</code> sobre la <code>sealed interface</code> del segmento anterior. La pantalla 27 fija el servicio 1 y la 28 usa el servicio capturado si es mayor que 1. Las validaciones de contrato y autorización comparan un campo numérico sin signo contra cero con mayor o igual, así que en la práctica solo detectan basura no numérica; la traducción lo hace de forma explícita. El siglo 20 para la pantalla 30 es un pivote compilado y queda como constante nombrada.",
+          "reglas": [
+            "RN-S151-1077"
+          ],
+          "riesgo": "Las condiciones de las líneas 823 y 827 son falsas para cualquier valor numérico: no validan rango ni existencia. El siglo 20 fijo hace que una fecha anterior al año 2000 capturada en la pantalla 30 se interprete en el siglo XXI."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de consulta — fechas, criterio de búsqueda y paginación",
+      "origen": {
+        "archivo": "COBOL_L014.txt",
+        "contexto": "PROCEDURE DIVISION · 010-0300 / 010-0400 / 010-2900 / 010-0030"
+      },
+      "java": {
+        "archivo": "ConsultaBifinService.java · MigracionTarjetaRepository.java · DomiciliacionRepository.java",
+        "contexto": "@Service · Spring Data JPA · Slice"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Validación de fecha válida y hábil con THECALENDAR",
+          "linea_ini": 834,
+          "linea_fin": 913,
+          "origen_codigo": " 010-0300-VALIDA-FECHA.\n*----------------------\n*<INICIA JMLT>VALIDACION PARA FECHA DE ENTRADA\n IF WKS-ENT-NUMPAN = 27\n    MOVE WKS-ENT-FECHA   TO  WKS-CAL-FECHA1\n ELSE\n    IF WKS-ENT-NUMPAN = 28\n       IF WKS-ENT-SERV2-SERVICIO > 1\n*<INICIO RMT> VALIDACION FECHA PANTALLA 29\n*          MOVE WKS-ENT-SERV2-FECHA TO WKS-CAL-FECHA1.\n          MOVE WKS-ENT-SERV2-FECHA TO WKS-CAL-FECHA1\n       ELSE\n          NEXT SENTENCE\n    ELSE\n       IF WKS-ENT-NUMPAN = 29\n          MOVE WKS-ENT-MIG-FEC     TO WKS-CAL-FECHA1\n*<INI LBM> FECHA INICIAL VALIDA DE PANTALLA 30\n       ELSE\n          IF WKS-ENT-NUMPAN = 30\n             MOVE WKS-ENT-P30FEC-INI     TO WKS-CAL-FECHA1.\n*<FIN LBM> FECHA INICIAL VALIDA DE PANTALLA 30\n*<FIN RMT> VALIDACION FECHA PANTALLA 30\n*<FIN JMLT>VALIDACION PARA FECHA DE ENTRADA\n*<INICIA JMLT>COMENTAR LA LINEA 022000\n*     MOVE WKS-ENT-FECHA   TO  WKS-CAL-FECHA1.\n*<FIN JMLT>COMENTAR LA LINEA 022000\n*<INI LBM> TERMINACION DE IFS ANIDADOS HASTA EXIT PERFORM\n MOVE 20 TO  WKS-CAL-FUNCION.\n PERFORM 010-0300-CALL-THECALENDAR.\n*<FIN LBM> TERMINACION DE IFS ANIDADOS HASTA EXIT PERFORM\n IF WKS-CAL-FUNCION = 0\n  IF WKS-ENT-NUMPAN NOT = 30\n*<INICIO RMT> VALIDACION FECHA PANTALLA 29\n   IF WKS-ENT-NUMPAN = 29\n      NEXT SENTENCE\n   ELSE\n*<FIN RMT> VALIDACION FECHA PANTALLA 29\n     IF WKS-ENT-NUMPAN = 27\n        MOVE WKS-ENT-FECHA TO WKS-CAL-FECHA1\n     ELSE\n*<INI LBM> SE QUITA COMENTARIO LINEA 022214 Y 022217\n*    IF WKS-ENT-NUMPAN = 28\n        MOVE WKS-ENT-SERV2-FECHA TO WKS-CAL-FECHA1\n*    ELSE\n*       NEXT SENTENCE\n*          MOVE WKS-ENT-FECHA   TO  WKS-CAL-FECHA1\n     MOVE 18 TO WKS-CAL-FUNCION\n     PERFORM 010-0300-CALL-THECALENDAR\n     IF WKS-CAL-FECHA1 = 0\n        MOVE 76 TO W77-RES-LIBCON\n        MOVE \"FECHA INHABIL\" TO WKS-SAL-ERRLEY\n     ELSE\n           NEXT SENTENCE\n  ELSE\n    MOVE WKS-ENT-P30FEC-INI     TO WKS-CAL-FECHA1\n    MOVE 18 TO WKS-CAL-FUNCION\n    PERFORM 010-0300-CALL-THECALENDAR\n    IF WKS-CAL-FECHA1 = 0\n       MOVE 76 TO W77-RES-LIBCON\n       MOVE \"FECHA INHABIL\" TO WKS-SAL-ERRLEY\n    ELSE\n       PERFORM 010-0030-VALIDA-FECHA-FIN\n ELSE\n    MOVE 19 TO W77-RES-LIBCON\n    MOVE \"FECHA INVALIDA\" TO WKS-SAL-ERRLEY.\n*<INI LBM> VALIDA FECHAS PANTALLA 30\n*<FIN LBM> VALIDA FECHAS PANTALLA 30\n 010-0300-CALL-THECALENDAR.\n*--------------------------\n     MOVE ZEROS                    TO  WKS-CAL-FECHA2.\n     MOVE 13                       TO WKS-CAL-FORMATO.\n     CALL \"THECALENDAR OF LOCSUP\"\n                          USING WKS-CAL-FUNCION,\n                                WKS-CAL-FECHA1,\n                                WKS-CAL-FECHA2,\n                                WKS-CAL-FORMATO.",
+          "java_codigo": "/** 010-0300-VALIDA-FECHA. LOCSUP función 20 = fecha válida; función 18 = día hábil (0 si es inhábil). */\nprivate Optional<PantallaResponse> validaFecha(PantallaRequest req, LocalDate fecha) {\n    if (!calendario.esValida(fecha)) {                         // CALL THECALENDAR, función 20, formato 13\n        return Optional.of(PantallaResponse.error(19, \"FECHA INVALIDA\"));\n    }\n    if (req instanceof ConsultaMigracionRequest) {\n        return Optional.empty();                               // pantalla 29: no exige día hábil\n    }\n    if (!calendario.esHabil(fecha)) {                          // función 18\n        return Optional.of(PantallaResponse.error(76, \"FECHA INHABIL\"));\n    }\n    if (req instanceof ConsultaDomiciliacionRequest d) {       // 010-0030-VALIDA-FECHA-FIN\n        LocalDate fin = d.actual().fechaFin();\n        if (!calendario.esValida(fin)) return Optional.of(PantallaResponse.error(19, \"FECHA INVALIDA\"));\n        if (!calendario.esHabil(fin))  return Optional.of(PantallaResponse.error(76, \"FECHA INHABIL\"));\n        if (d.actual().fechaIni().isAfter(fin))\n            return Optional.of(PantallaResponse.error(97, \"RANGO DE FECHA INVALIDO\"));\n    }\n    return Optional.empty();\n}",
+          "racional": "La fecha capturada se valida en dos pasos con la rutina de calendario corporativo: la función 20 comprueba que sea una fecha válida y la 18 que sea día hábil. La pantalla 29 se salta la segunda validación por el <code>NEXT SENTENCE</code> de la línea 871, y la pantalla 30 valida además la fecha final y el orden del rango. En Java el calendario es un servicio inyectado y las fechas son <code>LocalDate</code>, con lo que el formato 13 de LOCSUP deja de ser un parámetro.",
+          "reglas": [
+            "RN-S151-1074",
+            "RN-S151-1073"
+          ],
+          "riesgo": "Para la pantalla 28 con servicio 1 o menor, el NEXT SENTENCE de la línea 846 salta el MOVE y THECALENDAR valida el valor que quedó en WKS-CAL-FECHA1 de una llamada anterior."
+        },
+        {
+          "id": "s8",
+          "titulo": "FIND por llave en B07PROTCOB",
+          "linea_ini": 1120,
+          "linea_fin": 1145,
+          "origen_codigo": " 010-0400-PRIMER-CASO-1.\n*-----------------------\n     MOVE        ZERO TO WS-OK\n     FIND  FIRST B07SXFECHA\n       AT B07-NUM-ID    = 1 AND\n          B07-FEC-CARGO = WKS-FECHA-CONS AND\n          B07-CONTRATO  = WKS-CONTRATO-CONS AND\n          B07-AUT-S151  = WKS-AUTORIZA-CONS\n          ON EXCEPTION\n          IF DMSTATUS(NOTFOUND)\n             MOVE 1 TO WS-OK.\n 010-0400-SIGUIENTE-CASO-1.\n*-----------------------\n     MOVE        ZERO TO WS-OK\n     FIND  NEXT B07SXFECHA\n*<INICIO JMLT> MODIFICACION\n*       AT B07-NUM-ID    = 1 AND\n       AT B07-NUM-ID   = WKS-SERVICIO       AND\n*<INICIO JMLT> MODIFICACION\n          B07-FEC-CARGO = WKS-FECHA-CONS    AND\n          B07-CONTRATO  = WKS-CONTRATO-CONS AND\n          B07-AUT-S151  = WKS-AUTORIZA-CONS\n          ON EXCEPTION\n          IF DMSTATUS(NOTFOUND)\n             MOVE 1 TO WS-OK.",
+          "java_codigo": "public interface ProteccionCobroRepository extends JpaRepository<ProteccionCobro, ProteccionCobroId> {\n\n    /** B07SXFECHA: llave (NUM-ID, FEC-CARGO, CONTRATO, AUT-S151), recorrido en orden de llave. */\n    @Query(\"\"\"\n           select p from ProteccionCobro p\n            where p.numId = :servicio and p.fecCargo = :fecha\n              and p.contrato = :contrato and p.autS151 = :aut\n            order by p.numId, p.fecCargo, p.contrato, p.autS151, p.ocurrencia\n           \"\"\")\n    Slice<ProteccionCobro> porLlaveCompleta(int servicio, LocalDate fecha, String contrato,\n                                            String aut, Pageable pagina);\n}\n\n// 010-0400-PRIMER-CASO-1 usa NUM-ID = 1 fijo y SIGUIENTE-CASO-1 usa WKS-SERVICIO:\n// en Java ambos usan el servicio de la petición.",
+          "racional": "El primer registro se busca con <code>FIND FIRST</code> y los siguientes con <code>FIND NEXT</code> sobre el mismo conjunto <code>B07SXFECHA</code>. En JPA esa navegación se convierte en una consulta ordenada por la llave con un <code>Slice</code> del tamaño de la página, que evita contar el total. Un <code>NOTFOUND</code> pasa a ser una página vacía.",
+          "reglas": [
+            "RN-S151-1071",
+            "RN-S151-1077"
+          ],
+          "riesgo": "Solo se trata la excepción NOTFOUND. Cualquier otro DMSTATUS deja WS-OK en cero y el programa continúa como si hubiera encontrado registro."
+        },
+        {
+          "id": "s9",
+          "titulo": "Pantalla 29: seis criterios de búsqueda de migración de tarjetas",
+          "linea_ini": 1653,
+          "linea_fin": 1703,
+          "origen_codigo": " 010-2900-PANTALLA29.\n*----------------------\n   MOVE 0 TO W77-OPC-BUS-MIG.\n   IF WKS-ENT-MIG-FEC >  0  AND WKS-ENT-MIG-MDA = 0    AND\n      WKS-ENT-MIG-SUC =  0  AND WKS-ENT-MIG-CTOCTA = 0 AND\n      WKS-ENT-MIG-TAR =  0  AND WKS-ENT-MIG-BIN    = 0\n*            BUSQUEDA POR FECHA\n      MOVE 1 TO W77-OPC-BUS-MIG\n   ELSE\n     IF  WKS-ENT-MIG-FEC >  0  AND\n        (WKS-ENT-MIG-MDA =  0  OR  WKS-ENT-MIG-MDA    = 1) AND\n         WKS-ENT-MIG-SUC >  0  AND WKS-ENT-MIG-CTOCTA > 0  AND\n         WKS-ENT-MIG-TAR =  0  AND WKS-ENT-MIG-BIN    = 0\n        IF WKS-ENT-MIG-MDA = 0\n*            BUSQUEDA POR FECHA-SUCURSALPROM-CONTRATO\n           MOVE 2 TO W77-OPC-BUS-MIG\n        ELSE\n*            BUSQUEDA POR FECHA-SUCURSAL-CTA CHEQUES\n           MOVE 3 TO W77-OPC-BUS-MIG\n     ELSE\n       IF WKS-ENT-MIG-FEC    >  0  AND WKS-ENT-MIG-MDA = 2 AND\n          WKS-ENT-MIG-TAR    >  0  AND WKS-ENT-MIG-SUC = 0 AND\n          WKS-ENT-MIG-CTOCTA =  0  AND WKS-ENT-MIG-BIN = 0\n*            BUSQUEDA POR FECHA-TARJETA\n             MOVE 4 TO W77-OPC-BUS-MIG\n       ELSE\n         IF WKS-ENT-MIG-BIN    >  0 AND WKS-ENT-MIG-MDA = 0 AND\n            WKS-ENT-MIG-SUC    =  0 AND\n            WKS-ENT-MIG-CTOCTA =  0 AND WKS-ENT-MIG-TAR = 0\n            IF WKS-ENT-MIG-FEC > 0\n               IF WKS-ENT-MIG-FEC-ANT = 0 AND\n                  WKS-ENT-MIG-MAS-MOVS = 1\n                  MOVE 0 TO WKS-ENT-MIG-FEC\n*                 BUSQUEDA POR BIN\n                  MOVE 6 TO W77-OPC-BUS-MIG\n               ELSE\n*                 BUSQUEDA POR FECHA-BIN\n                  MOVE 5 TO W77-OPC-BUS-MIG\n            ELSE\n*              BUSQUEDA POR BIN\n               MOVE 6 TO W77-OPC-BUS-MIG\n         ELSE\n*            CONSULTA INVALIDA\n            MOVE 77 TO W77-RES-LIBCON.\n   IF W77-RES-LIBCON > 0\n     MOVE \"CONSULTA INVALIDA\" TO WKS-SAL-MIG-LEY\n     PERFORM 010-2900-LIMPIA-ULT-DAT\n     PERFORM 010-2900-ACT-DAT-INI\n   ELSE\n     PERFORM 010-2900-BUSQUEDA-CASOS.",
+          "java_codigo": "/** W77-OPC-BUS-MIG con sus niveles 88 W88-X-*. */\npublic enum CriterioMigracion { FECHA, FECHA_SUC_CONTRATO, FECHA_SUC_CUENTA, FECHA_TARJETA, FECHA_BIN, BIN }\n\n/** 010-2900-PANTALLA29: el criterio se deduce de qué campos vienen en cero. */\nstatic Optional<CriterioMigracion> criterio(ConsultaMigracionRequest m) {\n    boolean fec = m.fecha() != null, suc = m.sucursal() > 0, cto = !esCero(m.contratoCuenta()),\n            tar = !esCero(m.tarjeta()), bin = !esCero(m.bin());\n    int mda = m.medioAcceso();\n\n    if (fec && mda == 0 && !suc && !cto && !tar && !bin)                  return Optional.of(CriterioMigracion.FECHA);\n    if (fec && (mda == 0 || mda == 1) && suc && cto && !tar && !bin)\n        return Optional.of(mda == 0 ? CriterioMigracion.FECHA_SUC_CONTRATO : CriterioMigracion.FECHA_SUC_CUENTA);\n    if (fec && mda == 2 && tar && !suc && !cto && !bin)                   return Optional.of(CriterioMigracion.FECHA_TARJETA);\n    if (bin && mda == 0 && !suc && !cto && !tar) {\n        if (!fec) return Optional.of(CriterioMigracion.BIN);\n        // con fecha: si es continuación de una búsqueda por BIN, se ignora la fecha\n        boolean continuaBin = m.anterior().fecha() == null && m.masMovimientos();\n        return Optional.of(continuaBin ? CriterioMigracion.BIN : CriterioMigracion.FECHA_BIN);\n    }\n    return Optional.empty();                                              // 77 CONSULTA INVALIDA\n}",
+          "racional": "El criterio no se captura: se deduce de la combinación de campos llenos y del medio de acceso (0 contrato, 1 cuenta de cheques, 2 tarjeta). Cada criterio usa un conjunto distinto de B08TDMIGCAP. En Java la deducción es una función pura que devuelve un <code>enum</code>, fácil de probar con una tabla de casos, y el repositorio expone un método por criterio. La regla especial de la búsqueda por BIN conserva el comportamiento de continuar la paginación sin fecha.",
+          "reglas": [
+            "RN-S151-1072"
+          ],
+          "riesgo": "El criterio FECHA_SUC_CUENTA recorre el conjunto B08SXFECSUCTAR comparando B08-MDA-SUC con la sucursal y partiendo el número capturado en BIN de 6 y cuenta de 10 (líneas 1889-1893)."
+        },
+        {
+          "id": "s10",
+          "titulo": "Pantalla 30: página de domiciliaciones y fin de datos",
+          "linea_ini": 2199,
+          "linea_fin": 2251,
+          "origen_codigo": " 010-0030-CASOS-VALIDOS.\n   MOVE 0 TO WS-OK.\n   PERFORM 010-0030-VALIDA-MISMA-CONS.\n   IF  WS-CASO = 3\n      MOVE ZEROS TO WKS-SUC-30-CONS.\n   IF WS-MISMA-CONS                =  1\n      PERFORM 010-0030-FFIRST-SCROLL\n   ELSE\n      PERFORM 010-0030-FFIRST-NVACONS.\n   IF WS-OK                             =  1\n      IF WS-MISMA-CONS                  =  1\n         MOVE 77                        TO W77-RES-LIBCON\n         MOVE \"CONSULTA INVALIDA\"       TO WKS-SAL-LEY-30\n         PERFORM 010-0030-LIMPIA-ULT-DAT\n         PERFORM 010-0030-ACT-DAT-INI\n      ELSE\n         MOVE 78 TO W77-RES-LIBCON\n         MOVE \"NO EXISTE INFORMACION\"   TO WKS-SAL-LEY-30\n         PERFORM 010-0030-LIMPIA-ULT-DAT\n         PERFORM 010-0030-ACT-DAT-INI\n   ELSE\n          MOVE 1                        TO WS-CONT\n          MOVE 0                        TO END-BD10\n          MOVE 0                        TO WKS-ENT-P30MMOVS\n          PERFORM 010-0030-RUTINA-MAXREGS UNTIL\n*               WS-CONT > 8 OR END-BD10 = 1\n               WS-CONT > 7 OR END-BD10 = 1\n          MOVE WKS-ENT-SIS        TO WKS-SAL-SIS\n          MOVE WKS-ENT-NUMPAN     TO WKS-SAL-NUMPAN.\n*<FIN LBM> SE IDENTIFICA CRITERIO DE BUSQUEDA\n*<INI LBM> SE CONSULTA COMO MAXIMO 7 REGISTROS\n 010-0030-RUTINA-MAXREGS.\n*   IF WS-CONT                   =  8\n   IF WS-CONT                   =  7\n      MOVE \"HAY MAS INFORMACION\" TO WKS-SAL-LEY-30\n      PERFORM 010-0030-ACT-DAT-INI\n      PERFORM 010-0030-GUARDA-ULT-CONS\n      MOVE 1                     TO  END-BD10\n      MOVE 1                     TO  WKS-SAL-P30MMOVS-U\n   ELSE\n      PERFORM 010-0030-ARMA-MENSAJE\n      ADD  1                     TO  WS-CONT\n      PERFORM 010-0030-RUTINA-COMUN.\n*<FIN LBM> SE CONSULTA COMO MAXIMO 7 REGISTROS\n*<INI LBM> BUSQUEDA DEL SIGUIENTE REGISTRO\n 010-0030-RUTINA-COMUN.\n   PERFORM 010-0030-NEXT-REGISTRO\n   IF WS-OK                      =  0\n      NEXT SENTENCE\n   ELSE\n      MOVE 1                     TO  END-BD10.",
+          "java_codigo": "/** 010-0030-CASOS-VALIDOS / RUTINA-MAXREGS. */\nprivate PantallaResponse domiciliacion(ConsultaDomiciliacionRequest d, CriterioDomi caso) {\n    boolean mismaConsulta = d.actual().equals(d.anterior()) && d.masMovimientos();\n    Pageable pagina = PageRequest.of(0, props.pantalla30().renglones());   // 6 visibles + 1 de control\n\n    Slice<Domiciliacion> s = mismaConsulta\n            ? b10.desde(caso, d.fechaUltima(), d.ocurrenciaUltima(), d.aut151Ultima(), pagina)\n            : b10.primeros(caso, d.actual(), pagina);\n\n    if (s.isEmpty()) {\n        return mismaConsulta ? PantallaResponse.error(77, \"CONSULTA INVALIDA\")\n                             : PantallaResponse.error(78, \"NO EXISTE INFORMACION\");\n    }\n    var renglones = s.getContent().stream().limit(6).map(Renglon30::de).toList();\n    boolean hayMas = s.getContent().size() > 6;\n    return PantallaResponse.pagina(renglones, hayMas ? \"HAY MAS INFORMACION\" : null,\n                                   hayMas ? Cursor.de(s.getContent().get(6)) : null);\n}\n\n# application.yml\nbifin:\n  pantalla30:\n    renglones: 7        # WS-CONT > 7 (antes 8, línea comentada)",
+          "racional": "El ciclo muestra registros hasta que el contador llega a 7; en ese punto no imprime el registro leído, responde HAY MAS INFORMACION y guarda su llave como punto de reanudación. El resultado son seis renglones visibles por página. En Java se pide un <code>Slice</code> de siete elementos, se muestran seis y el séptimo es el cursor. El límite, que ya se cambió una vez de 8 a 7 en el fuente, pasa a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-1073"
+          ],
+          "riesgo": "El comentario dice máximo 7 registros, pero la página muestra 6. Además, al agotar los datos 010-0030-NEXT-REGISTRO regresa W77-RES-LIBCON = 4 (línea 2271); no está claro si el llamador lo trata como fin normal o como error."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Validaciones de contrato y autorización sin efecto",
+      "detalle": "En 010-0300-PANTALLA27 (líneas 823-829) la condición NOT(X > ZEROS OR X = ZEROS) es falsa para cualquier valor numérico de un PIC 9 sin signo; los errores 46 y 68 solo aparecen con datos no numéricos."
+    },
+    {
+      "titulo": "Base no reabierta tras falla inicial",
+      "detalle": "010-0200-INICIA-LIBRERIA marca SW-PRIMER-CALL antes de abrir la base (línea 738). Si la apertura falla, las llamadas posteriores consultan sin reintentar la apertura."
+    },
+    {
+      "titulo": "Excepciones DMSII distintas de NOTFOUND ignoradas",
+      "detalle": "Los FIND de B07, B08 y B10 solo preguntan por DMSTATUS(NOTFOUND). Otro error de base deja la bandera de no encontrado en cero y la librería arma la página con el contenido que tenga el buffer."
+    },
+    {
+      "titulo": "Siglo fijo en la pantalla 30",
+      "detalle": "Las líneas 809-811 fijan el siglo en 20 para las fechas inicial, final y de formato. Es un pivote compilado; se traslada a una constante nombrada."
+    },
+    {
+      "titulo": "Espera bloqueante en línea",
+      "detalle": "090-ABRE-BASE espera 10 segundos por intento hasta seis veces dentro de la llamada del cajero."
+    },
+    {
+      "titulo": "Paginación distinta a la documentada",
+      "detalle": "La pantalla 27 muestra hasta 14 renglones (WS-CONT > 14, línea 979) y la 30 seis aunque el comentario diga siete."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el efecto de las líneas 3 y 4 ($$SET LIBRARYLOCK y $$SHARING=PRIVATE). Si el prefijo $$ las desactiva, RN-S151-1070 y RN-S151-1075 no aplican.",
+    "RN-S151-1075 habla de operaciones de escritura en B07PROTCOB, B08TDMIGCAP y B10DOMI; L014 abre S151BD13BIFIN con OPEN INQUIRY (línea 1271) y no se encontraron escrituras.",
+    "RN-S151-1077 dice que WKS-SERVICIO selecciona el dataset; en el fuente el dataset lo decide el número de pantalla y WKS-SERVICIO es el valor de B07-NUM-ID dentro de B07PROTCOB (líneas 792, 797 y 1138). El servicio 2 se describe en el fuente como Notificación de Alertas (línea 305).",
+    "Confirmar si W77-RES-LIBCON = 4 al agotar datos en la pantalla 30 es un código de fin normal para el llamador.",
+    "Confirmar con SME si el criterio FECHA_SUC_CUENTA de la pantalla 29 debe comparar B08-MDA-SUC con la sucursal capturada (línea 1891).",
+    "El calendario de días hábiles que consulta THECALENDAR función 18 vive en LOCSUP; definir la fuente equivalente para la versión Java."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1070",
+    "RN-S151-1071",
+    "RN-S151-1072",
+    "RN-S151-1073",
+    "RN-S151-1074",
+    "RN-S151-1075",
+    "RN-S151-1076",
+    "RN-S151-1077",
+    "RN-S151-1078",
+    "RN-S151-1079"
+  ]
+}

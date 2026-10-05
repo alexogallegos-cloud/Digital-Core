@@ -1,0 +1,176 @@
+{
+  "slug": "S151_P655",
+  "sistema": "S151",
+  "programa": "P655",
+  "nombre": "Control de Estatus de Sistema (CALLLIBCTL)",
+  "funcion": "Utilitario batch de S151 que el WFL invoca al inicio y al fin de la jornada para fijar el estatus del sistema en S151B04SISTEM y devolver los nombres de pack y de base del día.",
+  "resumen": "Recibe un código de función y un número de sistema. Liga la librería de control LIBCTL resolviendo su versión en CTLVER, con una ruta fija de respaldo, y consulta los datasets de control diario (B01SISDIA) y mensual (B03SISMEN) para devolver al WFL los nombres de los packs de movimientos, descuentos, errores y saldos y el de la base de saldos. Si la función es 2 o 3 lee el registro del sistema en B04SISTEM y escribe ese mismo código como nuevo estatus. Los errores solo se informan al operador; el programa siempre termina normalmente.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.batch.control",
+  "secciones": [
+    {
+      "titulo": "Interfaz y estructura de datos",
+      "origen": {
+        "archivo": "COBOL_P655.txt",
+        "contexto": "WORKING-STORAGE · PROCEDURE DIVISION USING"
+      },
+      "java": {
+        "archivo": "ControlEstatusRequest.java · ControlEstatusResult.java · SistemaS151.java",
+        "contexto": "record · @Entity con @Version"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Contrato de siete parámetros a request y response del paso",
+          "linea_ini": 662,
+          "linea_fin": 679,
+          "origen_codigo": " 77  W77-FUNCION                   PIC 9(02).                     004600\n 77  W77-SISTEMA                   PIC 9(03).                     004700\n 77  W77-NOMPACMOV                 PIC X(17).                     004800\n 77  W77-NOMPACDES                 PIC X(17).                     004900\n 77  W77-NOMPACERR                 PIC X(17).                     005000\n 77  W77-NOMPACSAL                 PIC X(17).                     005100\n 77  W77-NOMBDSAL                  PIC X(17).                     005200\n PROCEDURE DIVISION USING W77-FUNCION                             005700\n                          W77-SISTEMA                             005800\n                          W77-NOMPACMOV                           005900\n                          W77-NOMPACDES                           006000\n                          W77-NOMPACERR                           006100\n                          W77-NOMPACSAL                           006200\n                          W77-NOMBDSAL.                           006300",
+          "java_codigo": "/** Entrada del paso: W77-FUNCION y W77-SISTEMA. */\npublic record ControlEstatusRequest(\n        int funcion,          // 9(02): 2 = inicio de jornada, 3 = fin de jornada, otro = solo consulta\n        int sistema) {        // 9(03): se amplía a 9(04) al pasar a las librerías\n    public boolean escribeEstatus() { return funcion == 2 || funcion == 3; }\n}\n\n/** Salida: los cinco parámetros que P655 rellena por referencia para el WFL. */\npublic record ControlEstatusResult(\n        String nomPacMov,     // X(17) pack de movimientos\n        String nomPacDes,     // X(17) pack de descuentos\n        String nomPacErr,     // X(17) pack de errores\n        String nomPacSal,     // X(17) pack de saldos\n        String nomBdSal,      // X(17) base de saldos del ciclo\n        EstadoActualizacion estatus) {}\n\npublic enum EstadoActualizacion { NO_APLICA, ACTUALIZADO, FALLO_CONSULTA, FALLO_ACTUALIZACION }",
+          "racional": "P655 se invoca desde el WFL con siete parámetros por referencia: dos de entrada y cinco que el programa devuelve con los nombres de pack y de base que necesitan los pasos siguientes. En Java se separan en un <code>record</code> de entrada y otro de salida, y el resultado se publica en el <code>ExecutionContext</code> del job para que los pasos posteriores lo lean, en lugar de compartir variables del WFL. Se agrega un estado explícito de la actualización porque el original no lo comunica al llamador.",
+          "reglas": [],
+          "riesgo": "Los parámetros de salida son los mismos campos que el WFL pasó. Si una consulta falla, conservan el valor que traían de la llamada y el WFL no puede distinguir un dato vigente de uno anterior."
+        },
+        {
+          "id": "s2",
+          "titulo": "Registro del sistema en B04SISTEM a entidad JPA",
+          "linea_ini": 344,
+          "linea_fin": 367,
+          "origen_codigo": "*                ENTRY POINT B04SISTEMA                          =029200\n*                                                                =029300\n*  ACCESA LA INFORMACION DEL DATASET S151B04SISTEM               =029400\n*                                                                =029500\n*  FUNCIONES DISPONIBLES :                                       =029600\n*                                                                =029700\n*  1.- CONSULTA INFORMACION DADO UN SISTEMA, PROD. E INSTRUMENTO =029800\n*  2.- CONSULTA DE INFORMACION DE UN SIST MAYOR AL PROPORCIONADO =029900\n*      CON MISMO PRODUCTO E INSTRUMENTO.                         =030000\n*                                                                =030100\n*  PARAMETROS REQUERIDOS                                         =030200\n*    WKS-B04-SISTEMA   : NUMERO DE SISTEMA                       =030300\n*    WKS-B04-PRODUCTO  : NUMERO DE PRODUCTO                      =030400\n*    WKS-B04-INSTRUM   : NUMERO DE INTRUMENTO                    =030500\n*                                                                =030600\n*=================================================================030700\n 01  WKS-B04SISTEMA WITH LOWER-BOUNDS.                            030800\n     03 WKS-B04-FUNCION            PIC 9(02).                     030900\n     03 WKS-B04-SISTEMA            PIC 9(04).                     031000\n     03 WKS-B04-PRODUCTO           PIC 9(04).                     031100\n     03 WKS-B04-INSTRUM            PIC 9(04).                     031200\n     03 WKS-B04-NOMCOR             PIC X(20).                     031300\n     03 WKS-B04-NOMLAR             PIC X(40).                     031400\n     03 WKS-B04-ESTATUS            PIC 9(02).                     031500",
+          "java_codigo": "/** Dataset DMSII S151B04SISTEM migrado; llave sistema + producto + instrumento. */\n@Entity\n@Table(name = \"s151_sistema\")\npublic class SistemaS151 {\n\n    @EmbeddedId\n    private SistemaId id;                  // WKS-B04-SISTEMA 9(04), PRODUCTO 9(04), INSTRUM 9(04)\n\n    @Column(name = \"nom_corto\", length = 20) private String nomCorto;   // WKS-B04-NOMCOR X(20)\n    @Column(name = \"nom_largo\", length = 40) private String nomLargo;   // WKS-B04-NOMLAR X(40)\n\n    @Column(name = \"estatus\", nullable = false)\n    private int estatus;                   // WKS-B04-ESTATUS 9(02): 2 inicio, 3 fin de jornada\n\n    @Version\n    private long version;                  // sustituye la consulta previa obligatoria (función 1)\n}\n\n@Embeddable\npublic record SistemaId(int sistema, int producto, int instrumento) implements Serializable {}\n\npublic interface SistemaS151Repository extends JpaRepository<SistemaS151, SistemaId> {\n    /** P655 solo conoce el sistema; producto e instrumento no se envían. */\n    List<SistemaS151> findByIdSistema(int sistema);\n}",
+          "racional": "El área <code>WKS-B04SISTEMA</code> es el parámetro de entrada y salida de la librería <code>LIBCTL</code> para el dataset <code>S151B04SISTEM</code>: una función, la llave de tres partes y los datos del sistema. En el destino el dataset es una tabla con llave compuesta y la función 1 o 37 deja de viajar en el registro, porque la operación la decide el método del repositorio. El campo <code>@Version</code> cubre la necesidad que hoy resuelve leer antes de escribir.",
+          "reglas": [],
+          "riesgo": "El comentario de la librería dice que la consulta requiere sistema, producto e instrumento, pero P655 solo mueve WKS-B04-SISTEMA; producto e instrumento viajan con el valor inicial del área."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y enlace de librerías",
+      "origen": {
+        "archivo": "COBOL_P655.txt",
+        "contexto": "000100-INICIO · 000200-LIBRERIAS · 000300-PROCESO"
+      },
+      "java": {
+        "archivo": "ControlEstatusSistemaTasklet.java · ControlS151Config.java",
+        "contexto": "Tasklet @StepScope · ExitStatus · DataSource"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal y decisión por función a Tasklet",
+          "linea_ini": 681,
+          "linea_fin": 719,
+          "origen_codigo": " 000100-INICIO.                                                   006500\n     MOVE \"0151\"                   TO SISTEMA-LJ.                 006600\n     MOVE \"P655\"                   TO PASO-LJ                     006700\n     MOVE \"001\"                    TO MTP-LJ.                     006800\n     MOVE SPACES                   TO TEXTO-LJ.                   006900\n     MOVE \"I\"                      TO TIPO-LJ.                    007000\n     MOVE 051001                   TO CODIGO-LJ.                  007100\n     PERFORM 000200-LIBRERIAS.                                    007200\n     PERFORM 000300-PROCESO.                                      007300\n     CANCEL \"LIBCTL\".                                             007400\n     STOP RUN.                                                    007500\n 000300-PROCESO.                                                  009600\n*====================                                             009700\n   PERFORM 000310-CONSULTA-B01.                                   009800\n   PERFORM 000320-CONSULTA-B03.                                   009900\n                                                                  010000\n    IF W77-FUNCION = 2 OR 3                                       010100\n       PERFORM 000320-CONSULTA-B04                                010200\n       PERFORM 000320-CAMBIA-B04.                                 010300",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ControlEstatusSistemaTasklet implements Tasklet {   // PROGRAM-ID CALLLIBCTL\n\n    private final ControlS151Service control;   // reemplaza las entradas de LIBCTL\n    @Value(\"#{jobParameters['funcion']}\") private Integer funcion;\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;\n\n    @Override\n    public RepeatStatus execute(StepContribution contribution, ChunkContext ctx) {\n        var req = new ControlEstatusRequest(funcion, sistema);\n        var dia = control.datosDia(req.sistema());          // 000310-CONSULTA-B01\n        var mes = control.datosMes(req.sistema());          // 000320-CONSULTA-B03\n        var estado = EstadoActualizacion.NO_APLICA;\n        if (req.escribeEstatus()) {                          // IF W77-FUNCION = 2 OR 3\n            estado = control.cambiaEstatus(req.sistema(), req.funcion());  // CONSULTA-B04 + CAMBIA-B04\n        }\n        var res = new ControlEstatusResult(dia.nomPacMov(), dia.nomPacDes(), dia.nomPacErr(),\n                dia.nomPacSal(), mes.nomBdSal(), estado);\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"p655\", res);\n\n        if (estado == EstadoActualizacion.FALLO_ACTUALIZACION) {\n            contribution.setExitStatus(new ExitStatus(\"ESTATUS_NO_ACTUALIZADO\"));   // el WFL lo decide\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa es una secuencia fija: liga librerías, consulta datos del día y del mes y, solo si la función es 2 o 3, consulta y actualiza el estatus del sistema. El valor de la función se escribe tal cual como nuevo estatus. Como lo invoca el orquestador batch al inicio y fin de jornada, en Java es un <code>Tasklet</code> parametrizado por el job. A diferencia del original, un fallo de actualización produce un <code>ExitStatus</code> distinto para que el <code>Flow</code> pueda detenerse o desviarse.",
+          "reglas": [],
+          "riesgo": "P655 termina con STOP RUN aunque falle la actualización de B04; el WFL recibe una terminación normal y continúa la jornada con el estatus anterior. Una función distinta de 2 o 3 tampoco genera aviso."
+        },
+        {
+          "id": "s4",
+          "titulo": "Resolución de LIBCTL con CTLVER y título de respaldo fijo",
+          "linea_ini": 693,
+          "linea_fin": 710,
+          "origen_codigo": " 000200-LIBRERIAS.                                                007700\n*=================                                                007800\n     CHANGE ATTRIBUTE LIBACCESS    OF \"CTLVER\" TO BYFUNCTION.     007900\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"CTLVER\" TO \"CTLVERS\".      008000\n                                                                  008100\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      008200\n            \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK\".       008300\n                                                                  008400\n     MOVE \"S151L001CTL\"            TO WKS-LIBID.                  008500\n     CALL \"DAME_TIT IN CTLVER\" USING WKS-LIBID, WKS-NOMLIB        008600\n                               GIVING W77-ERR-CTLVER.             008700\n     IF W77-ERR-CTLVER = 0                                        008800\n        CHANGE ATTRIBUTE TITLE OF \"LIBCTL\" TO WKS-NOMLIB          008900\n     ELSE                                                         009000\n     CHANGE ATTRIBUTE TITLE OF \"LIBCTL\" TO                        009100\n       \"(S151)S151/OBJECT/L001/CONTROL  ON CMEMP\".                009200\n                                                                  009300\n     CANCEL \"CTLVER\".                                             009400",
+          "java_codigo": "# application.yml\ns151:\n  libctl:\n    lib-id: S151L001CTL\n    respaldo: \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP\"   # solo documental en el destino\n  datasource:\n    control:\n      url: jdbc:postgresql://s151-control/s151        # lo que antes resolvía CTLVER\n\n// ---------------------------------------------------------------------------\n@Configuration\npublic class ControlS151Config {\n\n    /**\n     * 000200-LIBRERIAS: CTLVER entrega el título vigente de LIBCTL y, si falla,\n     * se usa uno fijo. En el destino la versión la fija el despliegue y la\n     * conexión se valida al arrancar: no hay respaldo silencioso a otra versión.\n     */\n    @Bean\n    @ConfigurationProperties(\"s151.datasource.control\")\n    DataSource controlDataSource() {\n        return DataSourceBuilder.create().build();\n    }\n\n    @Bean\n    HealthIndicator controlS151Health(DataSource controlDataSource) {\n        return new DataSourceHealthIndicator(controlDataSource, \"select 1\");\n    }\n}",
+          "racional": "<code>LIBCTL</code> es la librería de acceso a la base de control de S151. P655 le pide a <code>CTLVER</code> el título de la versión activa y, si no lo obtiene, liga una ruta fija en la familia <code>CMEMP</code>. En el destino ese mecanismo lo sustituyen la versión del artefacto desplegado y la configuración del <code>DataSource</code>; el respaldo silencioso a una versión fija se elimina y en su lugar el servicio no arranca si la base de control no responde. La ruta de respaldo se deja como dato documental para la migración.",
+          "reglas": [],
+          "riesgo": "Si CTLVER falla, P655 usa sin aviso la librería fija (S151)S151/OBJECT/L001/CONTROL ON CMEMP, que puede no ser la versión vigente; ningún mensaje deja constancia de que se tomó el respaldo."
+        }
+      ]
+    },
+    {
+      "titulo": "Consultas de control y cambio de estatus",
+      "origen": {
+        "archivo": "COBOL_P655.txt",
+        "contexto": "000310-CONSULTA-B01 · 000320-CONSULTA-B03 · 000320-CONSULTA-B04 · 000320-CAMBIA-B04"
+      },
+      "java": {
+        "archivo": "ControlS151Service.java",
+        "contexto": "repositorios JPA · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Consulta de datos del día y del ciclo mensual",
+          "linea_ini": 721,
+          "linea_fin": 743,
+          "origen_codigo": "  000310-CONSULTA-B01.                                            010500\n*=====================                                            010600\n     MOVE LOW-VALUES               TO WKS-S151B01SISDIA.          010700\n     MOVE 1                        TO WKS-B01-FUNCION .           010800\n     MOVE W77-SISTEMA              TO WKS-B01-SISTEMA .           010900\n     CALL \"CONSISDIA IN LIBCTL\" USING WKS-S151B01SISDIA           011000\n                                GIVING W77-RESULT-LIBCON.         011100\n     IF W77-RESULT-LIBCON = 0                                     011200\n        MOVE WKS-B01-NOMPACMOV     TO W77-NOMPACMOV               011300\n        MOVE WKS-B01-NOMPACDES     TO W77-NOMPACDES               011400\n        MOVE WKS-B01-NOMPACERR     TO W77-NOMPACERR               011500\n        MOVE WKS-B01-NOMPACSAL     TO W77-NOMPACSAL.              011600\n                                                                  011700\n  000320-CONSULTA-B03.                                            011800\n*=====================                                            011900\n     MOVE ZERO                     TO W77-RESULT-LIBCON.          012000\n     MOVE LOW-VALUES               TO WKS-S151B03SISMEN.          012100\n     MOVE 1                        TO WKS-B03-FUNCION .           012200\n     MOVE W77-SISTEMA              TO WKS-B03-SISTEMA .           012300\n     CALL \"CONSISMEN IN LIBCTL\" USING  WKS-S151B03SISMEN          012400\n                                GIVING W77-RESULT-LIBCON.         012500\n     IF W77-RESULT-LIBCON = 0                                     012600\n        MOVE WKS-B03-NOMBDSAL      TO W77-NOMBDSAL.               012700",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ControlS151Service {\n\n    private final SistemaDiaRepository b01;    // S151B01SISDIA (entrada CONSISDIA)\n    private final SistemaMesRepository b03;    // S151B03SISMEN (entrada CONSISMEN)\n    private final SistemaS151Repository b04;\n\n    /** 000310-CONSULTA-B01. Sin registro: se informa vacío, no el valor anterior. */\n    public DatosDia datosDia(int sistema) {\n        return b01.findBySistema(sistema)\n                .map(d -> new DatosDia(d.nomPacMov(), d.nomPacDes(), d.nomPacErr(), d.nomPacSal()))\n                .orElseGet(() -> {\n                    log.warn(\"CONSISDIA sin datos para sistema {}\", sistema);\n                    return DatosDia.VACIO;\n                });\n    }\n\n    /** 000320-CONSULTA-B03. */\n    public DatosMes datosMes(int sistema) {\n        return b03.findBySistema(sistema)\n                .map(m -> new DatosMes(m.nomBdSal()))\n                .orElseGet(() -> {\n                    log.warn(\"CONSISMEN sin datos para sistema {}\", sistema);\n                    return DatosMes.VACIO;\n                });\n    }\n}",
+          "racional": "Las dos consultas usan la función 1 de <code>LIBCTL</code> sobre los datasets de control diario y mensual y, si el resultado es cero, copian los nombres de pack y de base a los parámetros de salida. En Java son lecturas de repositorio de solo lectura. Se cambió deliberadamente el caso de error: en vez de dejar en los parámetros el valor que traían, se devuelve un resultado vacío y se registra una advertencia, para que el paso que use el pack no tome un nombre de otro día.",
+          "reglas": [],
+          "riesgo": "El encabezado del área WKS-S151B01SISDIA (líneas 46-52) indica que la función 1 requiere también el número de CSI, pero P655 lo deja en LOW-VALUES. El resultado depende de cómo LIBCTL trate un CSI vacío."
+        },
+        {
+          "id": "s6",
+          "titulo": "Lectura previa y cambio de estatus en B04 a transacción con versión",
+          "linea_ini": 745,
+          "linea_fin": 769,
+          "origen_codigo": "  000320-CONSULTA-B04.                                            012900\n*====================                                             013000\n     MOVE 0                        TO W77-RESULT-LIBCON.          013100\n     MOVE 1                        TO WKS-B04-FUNCION.            013200\n     MOVE W77-SISTEMA              TO WKS-B04-SISTEMA.            013300\n     MOVE ZERO                     TO W77-RESULT-LIBCON.          013400\n     CALL \"B04SISTEM    IN LIBCTL\" USING  WKS-B04SISTEMA          013500\n                                   GIVING W77-RESULT-LIBCON.      013600\n     IF W77-RESULT-LIBCON > 0                                     013700\n        MOVE \"ERROR AL CONSULTAR B04\" TO TEXTO-LJ                 013800\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ                   013900\n                                    MENSAJE-LJ   .                014000\n                                                                  014100\n  000320-CAMBIA-B04.                                              014200\n*===================                                              014300\n     MOVE W77-FUNCION              TO WKS-B04-ESTATUS             014400\n     MOVE 0                        TO W77-RESULT-LIBCON.          014500\n     MOVE 37                       TO WKS-B04-FUNCION.            014600\n     MOVE W77-SISTEMA              TO WKS-B04-SISTEMA.            014700\n     CALL \"MANTB04SISTEM IN LIBCTL\" USING  WKS-B04SISTEMA         014800\n                                    GIVING W77-RESULT-LIBCON.     014900\n     IF W77-RESULT-LIBCON > 0                                     015000\n        MOVE \"ERROR AL ACTUALIZAR B04\" TO TEXTO-LJ                015100\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ                   015200\n                                    MENSAJE-LJ   .                015300",
+          "java_codigo": "    /** 000320-CONSULTA-B04 + 000320-CAMBIA-B04: el estatus nuevo es el código de función. */\n    @Transactional\n    public EstadoActualizacion cambiaEstatus(int sistema, int funcion) {\n        List<SistemaS151> regs = b04.findByIdSistema(sistema);       // función 1\n        if (regs.isEmpty()) {\n            log.error(\"ERROR AL CONSULTAR B04 sistema={}\", sistema);\n            return EstadoActualizacion.FALLO_CONSULTA;               // el original seguía y escribía\n        }\n        if (regs.size() > 1) {\n            throw new IllegalStateException(\n                \"B04 tiene \" + regs.size() + \" registros para el sistema \" + sistema\n                + \"; P655 no envía producto ni instrumento\");\n        }\n        try {\n            regs.get(0).setEstatus(funcion);                         // MOVE W77-FUNCION TO WKS-B04-ESTATUS\n            b04.flush();                                             // función 37 (MANTB04SISTEM)\n            return EstadoActualizacion.ACTUALIZADO;\n        } catch (OptimisticLockingFailureException e) {\n            log.error(\"ERROR AL ACTUALIZAR B04 sistema={}\", sistema, e);\n            return EstadoActualizacion.FALLO_ACTUALIZACION;\n        }\n    }",
+          "racional": "La actualización necesita que la consulta previa haya dejado el registro completo en el área, porque <code>MANTB04SISTEM</code> recibe el registro entero con el estatus cambiado. En el destino la entidad leída dentro de la misma transacción cumple ese papel y <code>@Version</code> evita sobrescribir un cambio concurrente. Si la consulta no encuentra el registro, el original registra el error y aun así intenta escribir; la versión Java se detiene ahí. Los mensajes al operador por <code>LJ IN LIB-DISP</code> pasan a la bitácora del servicio.",
+          "reglas": [],
+          "riesgo": "Ambos errores se reportan con TIPO-LJ = \"I\" (informativo), fijado en 000100-INICIO, y el programa no fija un código de terminación. La operación no recibe una alerta de severidad acorde."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Fallo de actualización invisible para el WFL",
+      "detalle": "Si MANTB04SISTEM devuelve error (líneas 764-769), P655 solo emite un mensaje informativo y termina con STOP RUN. La jornada sigue con el estatus anterior del sistema."
+    },
+    {
+      "titulo": "Escritura sin consulta válida",
+      "detalle": "000300-PROCESO ejecuta CAMBIA-B04 aunque CONSULTA-B04 haya fallado (líneas 717-719 y 753-756). El registro enviado a MANTB04SISTEM contendría lo que hubiera en el área, no el registro del sistema."
+    },
+    {
+      "titulo": "Llave incompleta en B04",
+      "detalle": "La librería documenta que la consulta de B04 es por sistema, producto e instrumento (líneas 350-357), pero P655 solo envía el sistema."
+    },
+    {
+      "titulo": "Consulta diaria sin CSI",
+      "detalle": "La función 1 de B01SISDIA documenta como entrada requerida el número de CSI (línea 52); P655 limpia el área con LOW-VALUES y solo mueve función y sistema (líneas 723-725)."
+    },
+    {
+      "titulo": "Respaldo silencioso de librería",
+      "detalle": "Si CTLVER falla se liga (S151)S151/OBJECT/L001/CONTROL ON CMEMP sin dejar mensaje (líneas 704-708)."
+    },
+    {
+      "titulo": "Datos de salida obsoletos",
+      "detalle": "Si CONSISDIA o CONSISMEN fallan, los parámetros de salida conservan el valor que traían de la llamada (líneas 728-732 y 742-743)."
+    }
+  ],
+  "pendientes_revision": [
+    "El brain tiene las reglas RN-S151-591 a RN-S151-600 asociadas a COBOL_P655.txt, pero el inventario no las incluye en reglas_brain de S151_P655, por lo que no se citaron en los segmentos. Revisar el vínculo en el inventario; describen exactamente la interfaz, la secuencia de consultas y la semántica 2 y 3 que se muestran aquí.",
+    "El brain también asocia las reglas RN-S500-027 a RN-S500-036 a un programa llamado P655, pero describen un proceso de enmascaramiento de nombres de S500 que no corresponde a este fuente; parece una colisión de nombre entre sistemas.",
+    "Confirmar con el dueño de LIBCTL qué hace B04SISTEM función 1 cuando producto e instrumento no se envían, y si puede haber más de un registro por sistema.",
+    "Confirmar si el WFL que llama a P655 revisa algún resultado; el programa no fija TASKVALUE ni código de terminación.",
+    "El pseudocódigo publicado describe WKS-B01-NOMPACMOV como X(34); en el fuente es X(17) (línea 65) y X(34) corresponde a WKS-B01-NOMARCMOV. Corregir el pseudocódigo.",
+    "Confirmar cómo resuelve CONSISDIA una consulta con WKS-B01-CSI en LOW-VALUES."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-591",
+    "RN-S151-592",
+    "RN-S151-593",
+    "RN-S151-594",
+    "RN-S151-595",
+    "RN-S151-596",
+    "RN-S151-597",
+    "RN-S151-599",
+    "RN-S151-600",
+    "RN-S500-027",
+    "RN-S500-028",
+    "RN-S500-029",
+    "RN-S500-030",
+    "RN-S500-031",
+    "RN-S500-032",
+    "RN-S500-033",
+    "RN-S500-034",
+    "RN-S500-035",
+    "RN-S500-036"
+  ]
+}

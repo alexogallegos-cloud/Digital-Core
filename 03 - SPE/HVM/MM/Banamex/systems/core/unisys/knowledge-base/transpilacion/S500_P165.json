@@ -1,0 +1,226 @@
+{
+  "slug": "S500_P165",
+  "sistema": "S500",
+  "programa": "P165",
+  "nombre": "Resultado de la Dispersión de Fondos",
+  "funcion": "Programa batch bifásico del S500 que recibe WS-VAL-165 por USING: en la fase 1 genera un archivo de pagos por sistema destino a partir de B17, B24 y B25; en la fase 2 lee los ORDENADO de la dispersión ya operada, reasigna prioridades y emite los reportes de operados, rechazos y calificativos.",
+  "resumen": "Abre S500BD01CAPTACION en modo INQUIRY y toma de B02CONTROL la fecha de lote, el CSI y el tipo de cambio de control. En la fase 1 vuelca a un archivo puente los sistemas configurados en B17 y los pagos pendientes de B24 y B25 con estatus distinto de 1, lo ordena por sistema, estructura y tipo de registro, y por cada sistema escribe un archivo PAGOS (estructura B24, 66 bytes) o PAGOS2 (estructura B25, 300 bytes) con header, detalle y trailer. En la fase 2 recorre hasta 30 archivos ORDENADO registrados en B15, reasigna la prioridad de cada movimiento por origen (EAS o S111), producto, instrumento y moneda, y produce los listados de resultado, incluido un desglose de rechazos en dólares calculado con B02-TC-TCAMBIO.",
+  "arquetipo": "A6",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.dispersion.resultado",
+  "secciones": [
+    {
+      "titulo": "Layout del archivo de pagos y etiqueta por sistema destino",
+      "origen": {
+        "archivo": "S500_SOURCE_P165.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "PagoRecord.java · PagosProperties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "REG-PAGOS de 66 bytes con tres vistas REDEFINES",
+          "linea_ini": 119,
+          "linea_fin": 144,
+          "origen_codigo": " FD PAGOS\n    BLOCK  CONTAINS       30 RECORDS\n    RECORD CONTAINS       66 CHARACTERS\n    VALUE OF TITLE IS     WS-ETIQ-PAGOS\n    VALUE OF SECURITYTYPE IS PUBLIC.\n 01 REG-PAGOS.\n    02 PAGO-TREG                 PIC 9(02).\n    02 PAGO-HEADER.\n       03 PAGO-FECPRO            PIC 9(08).\n       03 PAGO-SISTEMA           PIC X(04).\n       03 PAGO-CSI               PIC 9(02).\n       03 PAGO-PASO              PIC 9(04).\n       03 FILLER                 PIC X(46).\n    02 PAGO-DETALLE REDEFINES PAGO-HEADER.\n       03 PAGO-DCSI              PIC 9(02).\n       03 PAGO-SUCCTA            PIC 9(16).\n       03 PAGO-REFER             PIC 9(12).\n       03 PAGO-IMPORI            PIC 9(10)V99.\n       03 PAGO-IMPPAG            PIC 9(10)V99.\n       03 FILLER                 PIC X(10).\n    02 PAGO-TRAILER REDEFINES PAGO-HEADER.\n       03 PAGO-NUMREG            PIC 9(08).\n       03 PAGO-IMPORIT           PIC 9(12)V99.\n       03 PAGO-IMPPAGT           PIC 9(12)V99.\n       03 FILLER                 PIC X(28).",
+          "java_codigo": "/** REG-PAGOS (estructura B24): 66 bytes, vista según PAGO-TREG. */\npublic sealed interface PagoRecord permits PagoRecord.Header, PagoRecord.Detalle, PagoRecord.Trailer {\n\n    /** PAGO-TREG = 01. */\n    record Header(LocalDate fechaProceso,      // 9(08) AAAAMMDD\n                  String sistemaOrigen,        // \"S500\"\n                  int csi, int paso)           // paso = 165\n            implements PagoRecord {}\n\n    /** PAGO-TREG = 02. */\n    record Detalle(int csiDestino,\n                   String sucursalCuenta,      // 9(16): medio de acceso como String\n                   String referencia,          // 9(12)\n                   BigDecimal importeOriginal, // 9(10)V99 -> escala 2\n                   BigDecimal importePagado)   // 9(10)V99\n            implements PagoRecord {}\n\n    /** PAGO-TREG = 03. */\n    record Trailer(long registros,             // 9(08)\n                   BigDecimal totalOriginal,   // 9(12)V99\n                   BigDecimal totalPagado)     // 9(12)V99\n            implements PagoRecord {}\n\n    BigDecimal TOPE_DETALLE = new BigDecimal(\"9999999999.99\");\n}",
+          "racional": "El archivo de pagos B24 es un buffer de 66 bytes con header, detalle y trailer que comparten memoria mediante <code>REDEFINES</code>, discriminados por <code>PAGO-TREG</code>. Cada vista se vuelve un <code>record</code> de una <code>sealed interface</code>. Los importes <code>PIC 9(10)V99</code> y <code>9(12)V99</code> pasan a <code>BigDecimal</code> con escala 2; el medio de acceso y la referencia se conservan como <code>String</code> para no perder ceros a la izquierda. La constante de tope documenta la capacidad real del detalle, menor que la del archivo puente.",
+          "reglas": [],
+          "riesgo": "El detalle declara importes 9(10)V99 pero el archivo puente PAGOS1 los trae como 9(12)V99; el MOVE de la línea 2816 trunca los dos dígitos altos sin aviso para importes de 10 mil millones o más."
+        },
+        {
+          "id": "s2",
+          "titulo": "Una sola etiqueta para PAGOS y PAGOS2",
+          "linea_ini": 206,
+          "linea_fin": 919,
+          "origen_codigo": " FD PAGOS2\n    BLOCK  CONTAINS      180 RECORDS\n    RECORD CONTAINS      300 CHARACTERS\n    VALUE OF TITLE IS    WS-ETIQ-PAGOS\n    VALUE OF SECURITYTYPE IS PUBLIC.\n 01 REG-PAGOS2        PIC X(300).\n  01  WS-ETIQ-PAGOS.\n    02 FILLER            PIC X(11) VALUE \"S500/FILE/S\".\n    02 WS-ETIQ-PAG-SIS   PIC 9(03).\n    02 FILLER            PIC X(01) VALUE \"/\".\n    02 WS-ETIQ-PAG-CSIO  PIC 9(02).\n    02 FILLER            PIC X(01) VALUE \"/\".\n    02 WS-ETIQ-PAG-CSID  PIC 9(02).\n    02 FILLER            PIC X(07) VALUE \"/PAGOS/\".\n    02 WS-ETIQ-PAG-FECHA PIC 9(06).\n    02 FILLER            PIC X(01) VALUE \".\".",
+          "java_codigo": "# application.yml\np165:\n  pagos:\n    titulo: \"S500/FILE/S{sistema}/{csiOrigen}/{csiDestino}/PAGOS/{fecha}.\"\n    csi-destino: 10                     # MOVE 10 TO WS-ETIQ-PAG-CSID (línea 2339)\n    fecha-en-nombre: yyMMdd\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p165.pagos\")\npublic record PagosProperties(String titulo, int csiDestino, String fechaEnNombre) {\n\n    /** WS-ETIQ-PAG-SIS es PIC 9(03): de PAGO1-SISTEMA X(04) solo sobreviven los 3 dígitos de la derecha. */\n    public String resuelve(String sistema, int csiOrigen, LocalDate fecha) {\n        String sis3 = sistema.substring(sistema.length() - 3);\n        return titulo.replace(\"{sistema}\", sis3)\n                     .replace(\"{csiOrigen}\", \"%02d\".formatted(csiOrigen))\n                     .replace(\"{csiDestino}\", \"%02d\".formatted(csiDestino))\n                     .replace(\"{fecha}\", fecha.format(DateTimeFormatter.ofPattern(fechaEnNombre)));\n    }\n}",
+          "racional": "Los FD de <code>PAGOS</code> y <code>PAGOS2</code> usan el mismo <code>VALUE OF TITLE IS WS-ETIQ-PAGOS</code>, de modo que el nombre del archivo depende solo del sistema destino, el CSI y la fecha, no de la estructura. La etiqueta fija el prefijo <code>S500/FILE/S</code>, el nombre <code>PAGOS</code> y, por código, el CSI destino 10; todo se lleva a <code>application.yml</code>. El campo del sistema es <code>PIC 9(03)</code> y recibe un <code>X(04)</code>, así que el método replica el recorte a tres dígitos de forma explícita.",
+          "reglas": [],
+          "riesgo": "Si un mismo sistema tuviera pagos B24 y B25, las dos estructuras se escribirían con el mismo título y la segunda reemplazaría a la primera."
+        }
+      ]
+    },
+    {
+      "titulo": "Selector de fase y datos de control",
+      "origen": {
+        "archivo": "S500_SOURCE_P165.txt",
+        "contexto": "PROCEDURE DIVISION USING WS-VAL-165 · 00000000 / 20000200 / 50000000"
+      },
+      "java": {
+        "archivo": "ResultadoDispersionJobConfig.java · ControlLoteTasklet.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Parámetro de fase a JobParameter y decisión de flujo",
+          "linea_ini": 2185,
+          "linea_fin": 2567,
+          "origen_codigo": " PROCEDURE DIVISION USING WS-VAL-165.\n 00000000-INICIO SECTION.\n 00000000-PRINCIPAL.\n     MOVE 2             TO W77-USO-LIBLJ.\n     MOVE \"S500P165\"    TO W77-S000-MY-ID.\n     MOVE \"25MTP006\"    TO W77-S000-MY-VERSION WS-0101-MTP-MSG.\n     MOVE \"P165\"        TO WS-0101-PASO-MSG.\n      PERFORM 10000000-LIBRERIAS     THRU 10000000-EXIT\n      PERFORM 20000000-OPEN          THRU 20000000-EXIT\n      PERFORM 50000000-PROCESOS      THRU 50000000-EXIT\n      PERFORM 70000000-CIERRO        THRU 70000000-EXIT\n      STOP RUN.\n 50000000-PROCESOS.\n   IF WS-VAL-165 = 1\n      PERFORM 50010000-ARC-PAGOS     THRU 50010000-EXIT\n   ELSE\n      PERFORM 51000000-ARC-APLICADOS THRU 51000000-EXIT\n      PERFORM 52000000-ARC-ORDENADO  THRU 52000000-EXIT\n      PERFORM 53000000-LIS-MOVOPE    THRU 53000000-EXIT.",
+          "java_codigo": "@Configuration\npublic class ResultadoDispersionJobConfig {\n\n    /** PROCEDURE DIVISION USING WS-VAL-165: la fase llega como parámetro del job. */\n    @Bean\n    Job resultadoDispersion(JobRepository repo, Step controlLote,\n                            Flow fase1Pagos, Flow fase2Resultados) {\n        JobExecutionDecider porFase = (job, step) -> new FlowExecutionStatus(\n                \"1\".equals(job.getJobParameters().getString(\"val165\")) ? \"FASE1\" : \"FASE2\");\n\n        return new JobBuilder(\"S500P165\", repo)\n                .start(controlLote)                       // 20000000-OPEN: B02, fechas, etiquetas\n                .next(porFase)\n                    .on(\"FASE1\").to(fase1Pagos)           // 50010000-ARC-PAGOS\n                .from(porFase)\n                    .on(\"*\").to(fase2Resultados)          // 51000000 + 52000000 + 53000000\n                .end()\n                .build();\n    }\n}",
+          "racional": "P165 es un solo objeto que se lanza dos veces con distinto valor de <code>WS-VAL-165</code>, recibido <code>BY CONTENT</code>. En Spring Batch la fase es un <code>JobParameter</code> y la bifurcación de <code>50000000-PROCESOS</code> se expresa con un <code>JobExecutionDecider</code> que elige el <code>Flow</code> correspondiente. Cualquier valor distinto de 1 entra a la fase 2, igual que el <code>ELSE</code> del fuente.",
+          "reglas": [],
+          "riesgo": "Cualquier valor distinto de 1, incluidos 0 y 3, ejecuta la fase 2; no hay validación del parámetro."
+        },
+        {
+          "id": "s4",
+          "titulo": "Tipo de cambio, CSI y hardcodes tomados de B02CONTROL",
+          "linea_ini": 2312,
+          "linea_fin": 2344,
+          "origen_codigo": "     MOVE B02-TC-TCAMBIO TO WS-TIPCAM.\n     MOVE B02-NUM-CSI    TO WS-CIF-CI  WS-RECH-CI WS-REMB-CI\n                            WS-ETIQ-PAG-CSIO  WS-IMP-CSI\n                            WS-AHO-CI         WS-NODO\n                            WS-ETIQ-PAG1-CSIO WS-ETIQ-PAG1-CSID\n                            WS-ETIQ-PAG2-CSIO WS-ETIQ-PAG2-CSID\n                            W-ETIQ-CTRL-ARCH-CSI.\n     IF B02-NUM-CSI = 10\n        MOVE \"VDM\"       TO WS-CSIAL\n        MOVE \"MTY\"       TO WS-CSIAL-INV\n     ELSE\n        MOVE \"MTY\"       TO WS-CSIAL\n        MOVE \"VDM\"       TO WS-CSIAL-INV.\n     MOVE 10             TO WS-ETIQ-PAG-CSID.\n     MOVE 2459                 TO WS-HORAMIN.\n     MOVE 9999                 TO WS-ETIQ-ORDTOD-HORA.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ControlLoteTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository b02;   // OPEN INQUIRY: solo lectura\n    private final P165Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlCaptacion control = b02.findControl()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));\n\n        BigDecimal tipoCambio = control.tcTcambio().setScale(4);   // 9(04)V9(04)\n        int csi = control.numCsi();\n        // CSI 10 es Valle de México; cualquier otro valor se rotula como Monterrey\n        String plaza = (csi == props.csiValle()) ? \"VDM\" : \"MTY\";\n        String plazaInversa = plaza.equals(\"VDM\") ? \"MTY\" : \"VDM\";\n\n        var jc = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        jc.put(\"tipoCambio\", tipoCambio);\n        jc.put(\"fechaLote\", control.fechaLote());\n        jc.put(\"csi\", csi);\n        jc.put(\"plaza\", plaza);\n        jc.put(\"plazaInversa\", plazaInversa);\n        jc.put(\"horaMin\", props.horaMin());              // MOVE 2459 TO WS-HORAMIN\n        jc.put(\"horaOrdenadoTodo\", props.horaOrdTodo()); // MOVE 9999 TO WS-ETIQ-ORDTOD-HORA\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de proceso de P165 es <code>B02-FECHA-LOTE</code> y no la fecha de línea, y de B02 también salen el CSI y el tipo de cambio que se usará en el desglose de dólares. El rótulo de plaza se decide con un literal: CSI 10 es Valle de México y cualquier otro es Monterrey. Los valores 10, 2459 y 9999 están compilados y pasan a propiedades. Como la base se abre <code>INQUIRY</code>, el repositorio es de solo lectura.",
+          "reglas": [],
+          "riesgo": "El comentario de 20000100-ABRO-BASE dice que la base se abre de UPDATE porque será actualizada, pero el código la abre INQUIRY. Cualquier CSI distinto de 10 se etiqueta como MTY."
+        }
+      ]
+    },
+    {
+      "titulo": "Fase 1 — archivos de pagos por sistema destino",
+      "origen": {
+        "archivo": "S500_SOURCE_P165.txt",
+        "contexto": "PROCEDURE DIVISION · 20000800 / 50011100 / 50012000 / 50013100 / 50013400"
+      },
+      "java": {
+        "archivo": "PagosPendientesReader.java · PagosPorSistemaWriter.java",
+        "contexto": "JpaPagingItemReader · Classifier · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Filtro de B24 e importe pagado como diferencia",
+          "linea_ini": 2595,
+          "linea_fin": 2624,
+          "origen_codigo": " 50011100-LEO-B24.\n     PERFORM 90000024-B24PAGOSPEND-FINDN\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1                             TO WS-8VEZ\n        ELSE\n           STRING \"ERROR AL HACER FINDN A B24 \" ,WS-STATUS-BASE\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF WS-8VEZ = 0\n        IF (B24-STATUS = 1) OR (B24-SISTEMA-ARCH = 0)\n           NEXT SENTENCE\n        ELSE\n           PERFORM 50011150-MUEVO-B24 THRU 50011150-EXIT\n           PERFORM 50011300-GRABO-ARC THRU 50011300-EXIT.\n 50011100-EXIT.\n    EXIT.\n 50011150-MUEVO-B24.\n*===================\n   MOVE 1                                  TO PAGO1-DETALLE.\n   MOVE 24                                 TO PAGO1-ESTGEN.\n   MOVE B24-MED-ACCESO                     TO PAGO1-SUCCTA.\n   MOVE B24-SISTEMA-ARCH                   TO PAGO1-SISTEMA.\n   MOVE B24-REFERENCIA                     TO PAGO1-REFER.\n   MOVE B24-IMPORTE                        TO PAGO1-IMPORI.\n   COMPUTE WS-PAGO-IMPPAG = B24-IMPORTE -  B24-SALDO.\n   MOVE WS-PAGO-IMPPAG                     TO PAGO1-IMPPAG.",
+          "java_codigo": "@Bean\nJpaPagingItemReader<PagoPendienteB24> b24Reader(EntityManagerFactory emf) {\n    return new JpaPagingItemReaderBuilder<PagoPendienteB24>()\n            .name(\"b24PagosPend\")\n            .entityManagerFactory(emf)\n            // IF (B24-STATUS = 1) OR (B24-SISTEMA-ARCH = 0) NEXT SENTENCE\n            .queryString(\"select p from PagoPendienteB24 p \"\n                       + \"where p.status <> 1 and p.sistemaArch <> 0 order by p.id\")\n            .pageSize(500)\n            .build();\n}\n\n/** 50011150-MUEVO-B24 */\npublic PagoPuente aPuente(PagoPendienteB24 b) {\n    // WS-PAGO-IMPPAG es PIC 9(10)V99 sin signo: COBOL guarda el valor absoluto y trunca a 10 enteros.\n    BigDecimal pagado = b.importe().subtract(b.saldo());\n    if (pagado.signum() < 0) {\n        log.warn(\"B24 {} con saldo mayor al importe; COBOL lo graba como {}\", b.referencia(), pagado.abs());\n        pagado = pagado.abs();\n    }\n    return PagoPuente.detalle(b.sistemaArch(), 24, b.medAcceso(), b.referencia(),\n                              b.importe(), Fixed.trunca(pagado, 10, 2));\n}",
+          "racional": "El recorrido <code>FINDN</code> de B24 se reemplaza por un lector paginado con el filtro en la consulta: se omiten los pagos con estatus 1 y los que no tienen sistema destino. El importe pagado se calcula como importe menos saldo pendiente. Como el campo de trabajo es <code>PIC 9(10)V99</code> sin signo, una diferencia negativa se guarda como valor absoluto; la traducción conserva ese resultado para no alterar el archivo y deja registro del caso.",
+          "reglas": [],
+          "riesgo": "Un saldo mayor al importe produce un importe pagado positivo en el archivo de salida; ningún párrafo lo detecta."
+        },
+        {
+          "id": "s6",
+          "titulo": "Sistemas de B17 como registros semilla y SORT del puente",
+          "linea_ini": 2503,
+          "linea_fin": 2729,
+          "origen_codigo": "    IF WS-15VEZ = 0\n       IF B17-SISTEMA-ARCH  > 0  AND\n          B17-DATASET-A-GEN > 0\n          PERFORM 20000850-GRABO-ARCPASO.\n 20000800-EXIT.\n    EXIT.\n 20000850-GRABO-ARCPASO.\n*=======================\n    MOVE B17-SISTEMA-ARCH     TO PAGO1-SISTEMA.\n    MOVE B17-DATASET-A-GEN    TO PAGO1-ESTGEN.\n    MOVE 0                    TO PAGO1-DETALLE.\n    PERFORM 50011300-GRABO-ARC THRU 50011300-EXIT.\n   SORT PAGOS-SORT ON ASCENDING KEY PASORT-SISTEMA PASORT-ESTGEN\n                                    PASORT-DETALLE\n   USING PAGOS1 GIVING PAGOS1\n   MEMORY SIZE WS-SORT-MEMORY  WORDS\n   DISK   SIZE WS-SORT-ESPACIO WORDS.",
+          "java_codigo": "/**\n * 20000850-GRABO-ARCPASO: por cada sistema configurado en B17 se escribe un registro\n * con DETALLE = 0. Al ordenar por (sistema, estructura, detalle) queda primero y\n * garantiza que el sistema reciba archivo aunque no tenga pagos.\n */\npublic PagoPuente semilla(ClaveXFuncionB17 b17) {\n    return PagoPuente.semilla(b17.sistemaArch(), b17.datasetAGen());   // detalle = 0\n}\n\n/** SORT PAGOS-SORT ON ASCENDING KEY PASORT-SISTEMA PASORT-ESTGEN PASORT-DETALLE */\npublic static final Comparator<PagoPuente> ORDEN_SORT =\n        Comparator.comparing(PagoPuente::sistema)          // X(04): orden alfanumérico\n                  .thenComparingInt(PagoPuente::estGen)    // 24 = B24, 25 = B25\n                  .thenComparingInt(PagoPuente::detalle);  // 0 semilla, 1 pago\n\n// El archivo puente PAGOS1 se sustituye por una tabla de staging; el SORT de MCP\n// (MEMORY SIZE y DISK SIZE calculados en el programa) pasa a ORDER BY en el lector.",
+          "racional": "Los sistemas de B17 entran al archivo puente con <code>DETALLE = 0</code> y sin importes. Por la llave del <code>SORT</code> esa semilla queda antes que los pagos de su sistema, abre el header y hace que todo sistema configurado reciba un archivo con header y trailer aunque no tenga movimientos. En Java el archivo puente se vuelve una tabla de staging y el <code>SORT</code> un <code>ORDER BY</code>; el cálculo manual de memoria y disco del sort de MCP desaparece.",
+          "reglas": []
+        },
+        {
+          "id": "s7",
+          "titulo": "Corte por sistema: un archivo por destino",
+          "linea_ini": 2751,
+          "linea_fin": 2787,
+          "origen_codigo": " 50013100-ARCHIVO.\n   IF WS-11VEZ = 0\n     MOVE PAGO1-SISTEMA              TO WS-ETIQ-PAG-SIS\n     MOVE PAGO1-SISTEMA              TO WS-SISTEMA\n     MOVE PAGO1-ESTGEN               TO WS-ESTGEN\n     MOVE 1                          TO WS-11VEZ\n     PERFORM 50013200-GRABO-HEADER   THRU 50013200-EXIT.\n   IF PAGO1-SISTEMA = WS-SISTEMA\n     PERFORM 50013300-GRABO-DETALLE  THRU 50013300-EXIT\n   ELSE\n     PERFORM 50013400-GRABO-TRAILER  THRU 50013400-EXIT\n     PERFORM 50013450-CIERRA-ARHIVOS THRU 50013450-EXIT\n     MOVE PAGO1-SISTEMA              TO WS-ETIQ-PAG-SIS\n     MOVE PAGO1-SISTEMA              TO WS-SISTEMA\n     MOVE PAGO1-ESTGEN               TO WS-ESTGEN\n     PERFORM 50013200-GRABO-HEADER   THRU 50013200-EXIT\n     PERFORM 50013300-GRABO-DETALLE  THRU 50013300-EXIT.\n 50013200-GRABO-HEADER.\n   IF WS-ESTGEN = 24\n      OPEN OUTPUT PAGOS\n      MOVE LOW-VALUES                      TO REG-PAGOS\n      MOVE WS-FECHA-PRO                    TO PAGO-FECPRO\n      MOVE WS-NODO                         TO PAGO-CSI\n      MOVE \"S500\"                          TO PAGO-SISTEMA\n      MOVE 165                             TO PAGO-PASO\n      MOVE 01                              TO PAGO-TREG\n      WRITE REG-PAGOS INVALID KEY\n        MOVE \"ERROR A GRABAR HEADER PAGOS B24\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "/** Un writer por sistema destino; la clave de clasificación es (sistema, estructura). */\n@Component\n@StepScope\npublic class PagosPorSistemaWriter implements ItemStreamWriter<PagoPuente> {\n\n    private final PagosProperties props;\n    private String sistemaActual;                 // WS-SISTEMA\n    private ArchivoPagos archivo;                 // PAGOS (B24) o PAGOS2 (B25)\n\n    @Override\n    public void write(Chunk<? extends PagoPuente> chunk) {\n        for (PagoPuente p : chunk) {\n            if (!p.sistema().equals(sistemaActual)) {        // 50013100: corte de control\n                if (archivo != null) archivo.cierraConTrailer();\n                sistemaActual = p.sistema();\n                archivo = ArchivoPagos.abre(p.estGen(),      // 24 -> header S500/165/TREG 01\n                        props.resuelve(p.sistema(), csi, fechaProceso));\n            }\n            if (p.detalle() == 1) archivo.escribeDetalle(p);\n        }\n    }\n\n    @Override\n    public void close() {                                    // AT END -> 50013400-GRABO-TRAILER\n        if (archivo != null) archivo.cierraConTrailer();\n    }\n}",
+          "racional": "El fuente hace un corte de control clásico: cuando cambia <code>PAGO1-SISTEMA</code> escribe el trailer del archivo anterior, lo cierra con <code>SAVE</code> y abre el del nuevo sistema con su header. Es el patrón del arquetipo A6 con destino por sistema en lugar de por plaza. En Spring Batch se implementa como un <code>ItemStreamWriter</code> con <code>@StepScope</code> que mantiene el sistema en curso; la estructura de salida (B24 o B25) se decide con el <code>ESTGEN</code> del primer registro del sistema.",
+          "reglas": [],
+          "riesgo": "El corte compara solo el sistema, no la estructura. Si un sistema tuviera registros 24 y 25, los de B25 se escribirían en PAGOS2 sin haberlo abierto, porque el header se generó para PAGOS."
+        },
+        {
+          "id": "s8",
+          "titulo": "Trailer con cifras de control distintas por estructura",
+          "linea_ini": 2884,
+          "linea_fin": 2910,
+          "origen_codigo": " 50013400-GRABO-TRAILER.\n     MOVE LOW-VALUES                TO REG-PAGOS REG-PAGOS2.\n     IF WS-ESTGEN = 24\n        MOVE 03                     TO PAGO-TREG\n        MOVE WS-SUMPAG-REG          TO PAGO-NUMREG\n        MOVE WS-SUMPAG-IMPORI       TO PAGO-IMPORIT\n        MOVE WS-SUMPAG-IMPPAG       TO PAGO-IMPPAGT\n        WRITE REG-PAGOS INVALID KEY\n          MOVE 010105               TO WS-0101-CODI-MSG\n          MOVE 02                   TO WS-0101-TIPO-MSG\n          MOVE \"ERROR AL GRABAR TRAILER B24\" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n     IF WS-ESTGEN = 25\n        MOVE 99                    TO WKS-TRLR-TIPREG\n        MOVE WS-TOTREG-B25         TO WKS-TRLR-NUMREG\n        WRITE REG-PAGOS2 FROM WKS-PAGO2-TRAILER INVALID KEY\n          MOVE 010105               TO WS-0101-CODI-MSG\n          MOVE 02                   TO WS-0101-TIPO-MSG\n          MOVE \"ERROR AL GRABAR TRAILER B25\" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n     MOVE 0                       TO WS-SUMPAG-REG WS-TOTREG-B25\n                                     WS-SUMPAG-IMPORI\n                                     WS-SUMPAG-IMPPAG.",
+          "java_codigo": "/** 50013400-GRABO-TRAILER */\nvoid cierraConTrailer() {\n    switch (estructura) {\n        case B24 -> escribe(new PagoRecord.Trailer(registros,\n                                                   totalOriginal,     // WS-SUMPAG-IMPORI 9(12)V99\n                                                   totalPagado));     // WS-SUMPAG-IMPPAG 9(12)V99\n        case B25 -> escribe(PagoB25.trailer(registrosB25));           // TIPREG 99: solo conteo\n    }\n    registros = 0; registrosB25 = 0;\n    totalOriginal = BigDecimal.ZERO.setScale(2);\n    totalPagado = BigDecimal.ZERO.setScale(2);\n    cierra();                                                         // CLOSE ... WITH SAVE\n}",
+          "racional": "El trailer B24 lleva número de registros y las sumas de importe original y pagado, que son exactas con escala 2. El trailer B25 solo lleva el conteo, con tipo de registro 99, porque el detalle B25 no acumula importes. Los acumuladores se reinician al cerrar cada archivo, lo que en Java es el estado del writer.",
+          "reglas": [],
+          "riesgo": "El consumidor de PAGOS2 no puede cuadrar importes contra el trailer, solo el número de registros."
+        }
+      ]
+    },
+    {
+      "titulo": "Fase 2 — reasignación de prioridades y desglose en dólares",
+      "origen": {
+        "archivo": "S500_SOURCE_P165.txt",
+        "contexto": "PROCEDURE DIVISION · 5200005700 / 53211220"
+      },
+      "java": {
+        "archivo": "PrioridadClassifier.java · RechazoDolaresCalculator.java",
+        "contexto": "Classifier · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s9",
+          "titulo": "Prioridad por origen, producto 66 instrumento 15 y moneda",
+          "linea_ini": 3957,
+          "linea_fin": 4003,
+          "origen_codigo": "5200005700-ASIGNA-PRIORIDAD.\n  IF ORDENADO-TB-ORI-EAS  = 2\n    PERFORM 5200005701-PRIORIDAD-EAS THRU 5200005701-EXIT\n  ELSE\n    PERFORM 5200005702-PRIORIDAD-S111 THRU 5200005702-EXIT.\n5200005700-EXIT.\n   EXIT.\n5200005701-PRIORIDAD-EAS.\n    IF ORDENADO-TB-PRIORIDAD = 2 OR 7 OR 8\n    IF (ORDENADO-TB-PRODUCTO = 66) AND (ORDENADO-TB-INSTRUM = 15)\n       IF ORDENADO-TB-MONEDA = 1\n         MOVE 20                    TO WS-ORD-PRIORIDAD\n       ELSE\n          MOVE 21                   TO WS-ORD-PRIORIDAD\n    ELSE\n       MOVE 16                       TO WS-ORD-PRIORIDAD.\n5200005702-PRIORIDAD-S111.\n  IF ORDENADO-TB-PRIORIDAD = 2 OR 7 OR 8\n    IF (ORDENADO-TB-PRODUCTO = 66) AND (ORDENADO-TB-INSTRUM = 15)\n       IF ORDENADO-TB-MONEDA = 1\n          MOVE 9                    TO WS-ORD-PRIORIDAD\n       ELSE\n          MOVE 10                   TO WS-ORD-PRIORIDAD\n    ELSE\n       MOVE 2                       TO WS-ORD-PRIORIDAD.\n  IF ORDENADO-TB-PRIORIDAD = 4 OR 9\n    IF (ORDENADO-TB-PRODUCTO = 66) AND (ORDENADO-TB-INSTRUM = 15)\n       IF ORDENADO-TB-MONEDA = 1\n         MOVE 7                 TO WS-ORD-PRIORIDAD\n       ELSE\n          MOVE 8                 TO WS-ORD-PRIORIDAD\n    ELSE\n         MOVE 4                    TO WS-ORD-PRIORIDAD.",
+          "java_codigo": "/** 5200005700-ASIGNA-PRIORIDAD: Classifier de prioridad para el reporte. */\n@Component\npublic class PrioridadClassifier implements Classifier<MovimientoOrdenado, Integer> {\n\n    private static final int PRODUCTO_CTAMAE = 66, INSTRUM_TARJETA = 15, MN = 1;\n\n    @Override\n    public Integer classify(MovimientoOrdenado m) {\n        boolean tarjeta = m.producto() == PRODUCTO_CTAMAE && m.instrumento() == INSTRUM_TARJETA;\n        boolean mn = m.moneda() == MN;\n        int p = m.prioridad();\n        if (m.origenEas() == 2) {                              // 5200005701-PRIORIDAD-EAS\n            if (p == 2 || p == 7 || p == 8) return tarjeta ? (mn ? 20 : 21) : 16;\n            if (p == 4 || p == 9)           return tarjeta ? (mn ? 18 : 19) : 17;\n        } else {                                               // 5200005702-PRIORIDAD-S111\n            if (p == 2 || p == 7 || p == 8) return tarjeta ? (mn ? 9 : 10) : 2;\n            if (p == 4 || p == 9)           return tarjeta ? (mn ? 7 : 8)  : 4;\n            // prioridades 1 y 5 y producto 66 instrumento 11/12: líneas 4005-4029\n        }\n        // En COBOL WS-ORD-PRIORIDAD conserva el valor del registro anterior;\n        // aquí se hace explícito y se falla para que el SME decida.\n        throw new PrioridadNoAsignadaException(m);\n    }\n}",
+          "racional": "La fase 2 vuelve a clasificar cada movimiento para el reporte. La decisión combina el origen (EAS o S111), si el movimiento es de tarjeta de Cuenta Maestra (producto 66, instrumento 15) y la moneda; según el comentario de la línea 4414, 7, 9, 18 y 20 son prioridades en MN y 8, 10, 19 y 21 en dólares. En Java la cadena de IF anidados es un <code>Classifier</code> sin efectos laterales. Las ramas que el fuente no cubre se vuelven una excepción explícita en lugar de heredar el valor del registro anterior.",
+          "reglas": [],
+          "riesgo": "Para movimientos EAS con prioridad original 1 o 5, ninguna rama asigna WS-ORD-PRIORIDAD y el campo no se reinicia por registro (52000053-LEE-REGISTRO), así que hereda la prioridad del movimiento anterior."
+        },
+        {
+          "id": "s10",
+          "titulo": "Conversión MN y USD con el tipo de cambio de control",
+          "linea_ini": 4405,
+          "linea_fin": 4429,
+          "origen_codigo": "*SUMARA ALGUNOS DE LOS 2 IMPORTES , DADO QUE EL OTRO ESTARA EN 0\n    COMPUTE WS-TB-IMPORTE = ORDENADO-TB-IMPORTE +\n                            ORDENADO-TB-IMPORTE2 +\n                            ORDENADO-TB-IMP-AUT.\n*   INDICADOR DE EAS   2 = EAS      1= S111\n    IF ORDENADO-TB-ORI-EAS = 2\n       MOVE \"   E\" TO WS-DETREDIS-CSIORIG\n    ELSE\n      MOVE SPACES TO WS-DETREDIS-CSIORIG.\n*   7,9,18 Y 20 SON EN MN     8,10,19 Y 21 SON EN DLS\n    IF ORDENADO-TB-PRIORIDAD = 7 OR 9 OR 18 OR 20\n       MOVE WS-TB-IMPORTE                 TO WS-DETREDISDL-IMPMN\n       COMPUTE WS-VALDL ROUNDED =\n       (ORDENADO-TB-IMPORTE + ORDENADO-TB-IMP-AUT) / WS-TIPCAM\n       MOVE WS-VALDL                      TO WS-DETREDISDL-IMPDL\n       MOVE WS-TIPCAM                     TO WS-DETTPOCM-DLS\n    ELSE\n      IF ORDENADO-TB-PRIORIDAD = 8 OR 10 OR 19 OR 21\n        MOVE WS-TB-IMPORTE                TO WS-DETREDISDL-IMPDL\n        COMPUTE WS-VALMN ROUNDED =\n        (ORDENADO-TB-IMPORTE + ORDENADO-TB-IMP-AUT)* WS-TIPCAM\n        MOVE WS-VALMN                     TO WS-DETREDISDL-IMPMN\n        MOVE WS-TIPCAM                    TO WS-DETTPOCM-DLS\n      ELSE\n        MOVE WS-TB-IMPORTE                TO WS-DETREDIS-IMPORTE.",
+          "java_codigo": "/** 53211220-IMPRIME-DETALLE: desglose de rechazos en MN y dólares. */\n@Component\npublic class RechazoDolaresCalculator {\n\n    private static final Set<Integer> EN_MN  = Set.of(7, 9, 18, 20);\n    private static final Set<Integer> EN_DLS = Set.of(8, 10, 19, 21);\n\n    public Desglose desglosa(MovimientoOrdenado m, BigDecimal tipoCambio /* 9(04)V9(04) */) {\n        // WS-TB-IMPORTE suma los tres importes; la conversión solo usa IMPORTE e IMP-AUT\n        BigDecimal total = m.importe().add(m.importe2()).add(m.impAut());\n        BigDecimal base  = m.importe().add(m.impAut());\n\n        if (EN_MN.contains(m.prioridad())) {\n            if (tipoCambio.signum() == 0) throw new TipoCambioCeroException();\n            BigDecimal dls = base.divide(tipoCambio, 2, RoundingMode.HALF_UP);   // COMPUTE ROUNDED\n            return Desglose.dolares(total, dls, tipoCambio);\n        }\n        if (EN_DLS.contains(m.prioridad())) {\n            BigDecimal mn = base.multiply(tipoCambio).setScale(2, RoundingMode.HALF_UP);\n            return Desglose.dolares(mn, total, tipoCambio);\n        }\n        return Desglose.soloMn(total);\n    }\n}",
+          "racional": "P165 no calcula el tipo de cambio: usa <code>B02-TC-TCAMBIO</code> leído al inicio. Para prioridades en MN divide entre el tipo de cambio y para prioridades en dólares multiplica, ambas con <code>ROUNDED</code>, que se traduce a <code>RoundingMode.HALF_UP</code> con la escala 2 de <code>WS-VALDL</code> y <code>WS-VALMN</code>. La traducción conserva que el importe convertido excluye <code>ORDENADO-TB-IMPORTE2</code> mientras el importe mostrado sí lo incluye. La división entre cero se vuelve una excepción.",
+          "reglas": [],
+          "riesgo": "Si B02-TC-TCAMBIO llega en cero la división de la línea 4417 no tiene ON SIZE ERROR. Además, el importe convertido omite IMPORTE2 y no cuadra con el importe original del mismo renglón cuando IMPORTE2 es distinto de cero."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Prioridad heredada del registro anterior",
+      "detalle": "En 5200005701-PRIORIDAD-EAS no hay rama para las prioridades 1 y 5, que sí entran a 5200005700 desde 52000057-VAL-PRIORIDAD (línea 3942). WS-ORD-PRIORIDAD no se reinicia por registro, así que esos movimientos EAS toman la prioridad del movimiento anterior y pueden caer en un renglón equivocado del reporte de cifras."
+    },
+    {
+      "titulo": "Truncamiento de importes en el archivo de pagos",
+      "detalle": "PAGO1-IMPORI y PAGO1-IMPPAG son 9(12)V99 y se mueven a campos 9(10)V99 del detalle (líneas 2816-2817), mientras el trailer acumula en 9(12)V99. Un importe grande se trunca en el detalle pero no en el trailer."
+    },
+    {
+      "titulo": "Pérdida de signo en el importe pagado",
+      "detalle": "WS-PAGO-IMPPAG es PIC 9(10)V99 sin signo (línea 515). Si el saldo de B24 supera al importe, el resultado negativo se graba como positivo."
+    },
+    {
+      "titulo": "Mismo título para PAGOS y PAGOS2 y corte solo por sistema",
+      "detalle": "Ambos FD usan WS-ETIQ-PAGOS y el corte de 50013100 compara solo el sistema. Un sistema con pagos B24 y B25 produciría escritura sobre un archivo no abierto o un archivo sobrescrito."
+    },
+    {
+      "titulo": "Desglose en dólares sin protección",
+      "detalle": "COMPUTE WS-VALDL ROUNDED divide entre WS-TIPCAM sin ON SIZE ERROR (línea 4417); un tipo de cambio en cero en B02 deja el resultado indefinido."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "CSI destino 10 en la ruta de pagos, CSI 10 como Valle de México, WS-HORAMIN 2459, hora 9999 del ordenado consolidado y el prefijo S500/FILE/S están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario no tiene reglas del brain para P165; el pseudocódigo cita RN-S500-547 a RN-S500-560, que no están en reglas_brain del componente. Validar si deben ligarse.",
+    "Confirmar con SME que ningún sistema destino recibe pagos B24 y B25 a la vez; de lo contrario el corte de control de 50013100 falla.",
+    "Confirmar si un movimiento EAS puede llegar con prioridad 1 o 5 al reporte de la fase 2.",
+    "Confirmar si la exclusión de ORDENADO-TB-IMPORTE2 en la conversión a dólares es intencional (el comentario de la línea 4405 dice que uno de los importes estará en cero).",
+    "El encabezado del programa en la línea 2572 dice que el archivo de pagos es del S403, pero la ruta usa el sistema de B17/B24/B25; confirmar qué sistemas consumen PAGOS hoy."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-546",
+    "RN-S500-547",
+    "RN-S500-548",
+    "RN-S500-549",
+    "RN-S500-550",
+    "RN-S500-551",
+    "RN-S500-553",
+    "RN-S500-554",
+    "RN-S500-555",
+    "RN-S500-556",
+    "RN-S500-557",
+    "RN-S500-558",
+    "RN-S500-559",
+    "RN-S500-560"
+  ]
+}

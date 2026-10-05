@@ -187,6 +187,68 @@ DROP TABLE IF EXISTS applications_fts;
 CREATE VIRTUAL TABLE applications_fts USING fts5(
     id, app_id, name, description, apo_class, apo_rationale, obsolescence_drivers
 );
+
+DROP TABLE IF EXISTS ey_rfp_structure;
+CREATE TABLE ey_rfp_structure (
+    rfp_id        TEXT PRIMARY KEY,
+    label         TEXT,
+    apps          TEXT,
+    criticality   TEXT,
+    close_date    TEXT,
+    rfp_type      TEXT,
+    responsible   TEXT,
+    notes         TEXT
+);
+
+DROP TABLE IF EXISTS ey_app_inventory;
+CREATE TABLE ey_app_inventory (
+    app_id_ey       INTEGER PRIMARY KEY,
+    name            TEXT,
+    short_name      TEXT,
+    rfp_id          TEXT REFERENCES ey_rfp_structure(rfp_id),
+    lang_frontend   TEXT,
+    lang_backend    TEXT,
+    app_server      TEXT,
+    os              TEXT,
+    hosting         TEXT,
+    sp_count_raw    TEXT,
+    sp_count_int    INTEGER,
+    dbms            TEXT,
+    batch_jobs      INTEGER,
+    middleware      TEXT,
+    vendor          TEXT,
+    criticality     TEXT,
+    concurrent_users TEXT,
+    arch_design     TEXT,
+    monitoring      TEXT,
+    manager         TEXT,
+    notes           TEXT
+);
+
+DROP TABLE IF EXISTS ams_support_proposal;
+CREATE TABLE ams_support_proposal (
+    id                    TEXT PRIMARY KEY,
+    exodus_app_id         TEXT,
+    exodus_wave           TEXT,
+    ola1_priority         INTEGER,
+    app_name              TEXT,
+    spl_count_pptx        INTEGER,
+    criticality_biz       TEXT,
+    complexity_tech       TEXT,
+    migration_approach    TEXT,
+    ams_coverage_level    TEXT,
+    ams_service_type      TEXT,
+    knowledge_source      TEXT,
+    brain_sp_count        INTEGER,
+    migration_description TEXT,
+    ola1_advantage        TEXT,
+    ola1_feasibility      TEXT,
+    proposed_roles        TEXT,
+    team_size_fte         REAL,
+    effort_months         INTEGER,
+    key_risks             TEXT,
+    source_artifact       TEXT
+);
 """
 
 
@@ -497,6 +559,429 @@ RISKS = [
 ]
 
 
+# ──────────────────────────────────────── Ola 1 — propuesta soporte AMS/IMS
+# Derivado del Reporte Ejecutivo Exodus 02Sep2026.pptx.
+# Coverage AMS/IMS derivado del brain de Informix (11,391 SPs / 53 DBs) y
+# AppMovil brain (49 SPs mapeados, 216 microservicios Spring Boot).
+# Columnas: id, exodus_app_id, exodus_wave, ola1_priority, app_name,
+#   spl_count_pptx, criticality_biz, complexity_tech, migration_approach,
+#   ams_coverage_level, ams_service_type, knowledge_source, brain_sp_count,
+#   migration_description, ola1_advantage, ola1_feasibility,
+#   proposed_roles (JSON), team_size_fte, effort_months,
+#   key_risks (JSON), source_artifact
+
+AMS_SUPPORT_PROPOSAL = [
+    (
+        "AMS-OLA1-ID62",
+        "ID-62",
+        "W1",
+        1,
+        "App BanCoppel Móvil",
+        80,
+        "Alta / Muy Alta",
+        "Muy Alta",
+        "strangler-fig",
+        "full",
+        "AMS-dev",
+        "appmovil-brain,informix-brain",
+        49,
+        "Migración parcialmente iniciada. Estrangular Informix y migrar a MuleSoft/EKS 2027. "
+        "Apagado On-Prem pendiente de fecha.",
+        "Migración parcialmente iniciada, issues de performance conocidos. "
+        "AMS tiene cobertura total del canal digital móvil.",
+        "El esfuerzo se concentra en estrangular Informix y migrar a MuleSoft/EKS en 2027.",
+        json.dumps([
+            {"role": "App Móvil SME", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "Informix DBA", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "Java/Spring Boot Engineer", "level": "L9-Analyst", "fte": 2, "stream": "delivery"},
+            {"role": "Mobile QA", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+        ], ensure_ascii=False),
+        5.0,
+        12,
+        json.dumps([
+            "Apagado On-Prem pendiente de fecha confirmada",
+            "49 SPs Informix mapeados en AppMovil brain — impacto real conocido pero no trivial",
+            "216 microservicios Spring Boot requieren inventario completo de dependencias Informix",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ID71",
+        "ID-71",
+        "W1",
+        2,
+        "SPEI Enlace Financiero",
+        30,
+        "Alta / Alta",
+        "Alta",
+        "invertir-innovar",
+        "high",
+        "AMS-ops",
+        "informix-brain,exodus-brain",
+        30,
+        "PoC en Cloud ya implementada (adapter). Evolucionar a producción con certificación "
+        "Banxico/CNBV. 1.8M ops/día.",
+        "PoC implementada en Cloud. AMS opera SPEI en producción y conoce el flujo completo.",
+        "Con validación de PoC es factible ir a producción. "
+        "Riesgo: certificación Banxico/CNBV con plazo no controlado.",
+        json.dumps([
+            {"role": "Integration Architect", "level": "L7-Manager", "fte": 1, "stream": "delivery"},
+            {"role": "SPEI / Banxico Specialist", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "Java Backend Engineer", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+            {"role": "Compliance QA", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+        ], ensure_ascii=False),
+        4.0,
+        18,
+        json.dumps([
+            "Requiere certificación Banxico/CNBV — plazo no controlado por Accenture",
+            "1.8M ops/día — mayor volumetría de Ola 1; riesgo operacional en transición",
+            "SPEI es sistema nacional crítico — cualquier incidente tiene impacto regulatorio",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ID58",
+        "ID-58",
+        "W1",
+        3,
+        "Oficina Financiera Integral (OFI)",
+        10000,
+        "Alta / Muy Alta",
+        "Muy Alta",
+        "eliminar-reemplazar",
+        "high",
+        "AMS-dev",
+        "informix-brain,exodus-brain",
+        None,
+        "Mayor carga de SPLs del banco. Análisis de Front/Back/BD disponible. "
+        "Deprecar VB6 legacy; back sin plan de movimiento definido.",
+        "Análisis detallado de Front/Back/BD disponible. Eliminaría la mayor carga de SPLs. "
+        "AMS conoce OFI en producción.",
+        "Análisis previo de evolución del front disponible. "
+        "Falta definir movimiento del back (Deprecación VB6 legacy).",
+        json.dumps([
+            {"role": "OFI Migration Lead (SM)", "level": "L6-SM", "fte": 1, "stream": "AMS"},
+            {"role": "VB6 / Legacy Tech Lead", "level": "L7-Manager", "fte": 1, "stream": "delivery"},
+            {"role": "Java/Spring Boot Engineer", "level": "L9-Analyst", "fte": 3, "stream": "delivery"},
+            {"role": "Informix DBA", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "QA Engineer", "level": "L9-Analyst", "fte": 2, "stream": "delivery"},
+        ], ensure_ascii=False),
+        8.0,
+        18,
+        json.dumps([
+            "10,000 SPLs declarados — conteo redondo; real desconocido hasta inventario formal",
+            "Deprecación VB6 legacy sin arquitectura de back definida",
+            "Mayor carga de SPLs del banco — riesgo de alcance más alto de Ola 1",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ID2",
+        "ID-2",
+        "W1",
+        4,
+        "Administrador de token (CAS)",
+        10,
+        "Alta / Alta",
+        "Alta",
+        "lift-shift-modernize",
+        "partial",
+        "AMS-ops",
+        "informix-brain,exodus-brain",
+        70,
+        "Lift and shift. Modernizar Java 7 a Java 21. Funcionalidades básicas de autenticación.",
+        "Lift and shift factible. Tecnología se adapta a la nube sin rediseño complejo.",
+        "Modernizar Java 7 a Java 21; funcionalidades básicas adaptables a la nube.",
+        json.dumps([
+            {"role": "IAM / Security Specialist", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "Java Backend Engineer", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+        ], ensure_ascii=False),
+        2.0,
+        6,
+        json.dumps([
+            "Discrepancia SPL: PPTX declara 10, brain de Exodus registra 70 — validar con DBA",
+            "Java 7 → Java 21: posibles incompatibilidades de API",
+            "CAS es dependencia transversal — impacto en múltiples canales al modificarlo",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ID30",
+        "ID-30",
+        "W1",
+        5,
+        "Latinia",
+        50,
+        "Media / Alta",
+        "Alta",
+        "tolerar-migrar",
+        "partial",
+        "AMS-ops",
+        "informix-brain,exodus-brain",
+        50,
+        "SNS en AWS ya existe. Complejidad en mapeo de campañas dependientes. Migrar a AWS SNS.",
+        "SNS en AWS ya disponible. Migración técnica sencilla.",
+        "Sencillo de utilizar en la nube. Complejidad en identificar todas las aplicaciones "
+        "(campañas) dependientes.",
+        json.dumps([
+            {"role": "Integration Specialist", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "Notification Platform Developer", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+        ], ensure_ascii=False),
+        2.0,
+        6,
+        json.dumps([
+            "Mapeo de campañas y aplicaciones dependientes no documentado — alcance subestimado",
+            "50 SPLs Informix pendientes de inventario detallado",
+            "Riesgo de miss de campañas no mapeadas en producción",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ARES",
+        "ARES",
+        "W1-PROP",
+        6,
+        "ARES (EmpresaNet 2.0)",
+        400,
+        "Alta / Muy Alta",
+        "Muy Alta",
+        "cloud-native-2027",
+        "high",
+        "AMS-dev",
+        "ams-knowledge",
+        None,
+        "Cloud native en 2027. Estrangular Informix migrando a la nueva BD.",
+        "Liberación cloud native en 2027. AMS conoce ARES en operación.",
+        "El esfuerzo se concentra en estrangular Informix migrando a la nueva BD.",
+        json.dumps([
+            {"role": "ARES Migration Lead", "level": "L7-Manager", "fte": 1, "stream": "delivery"},
+            {"role": "Java / Spring Boot Engineer", "level": "L8-Consultant", "fte": 1, "stream": "delivery"},
+            {"role": "Informix DBA", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "QA Engineer", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+        ], ensure_ascii=False),
+        4.0,
+        12,
+        json.dumps([
+            "ARES no tiene ficha técnica formal en Exodus — sin inventario validado de SPLs",
+            "400 SPLs declarados en PPTX sin respaldo en brain de Informix",
+            "Cloud native 2027 puede implicar dependencias de plataforma no documentadas",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ID9",
+        "ID-9",
+        "W1",
+        7,
+        "Monitor de Operaciones BPI",
+        4,
+        "Baja / Media",
+        "Media",
+        "tolerar-reemplazar",
+        "full",
+        "AMS-ops",
+        "exodus-brain,ams-knowledge",
+        0,
+        "Portal de consulta de operaciones. Tecnología vieja pero sencilla de reemplazar.",
+        "Tecnología vieja pero sencilla de reemplazar por lenguaje de desarrollo.",
+        "Alta factibilidad por simplicidad — es un portal de consulta.",
+        json.dumps([
+            {"role": "AMS Ops Developer", "level": "L9-Analyst", "fte": 1, "stream": "AMS"},
+        ], ensure_ascii=False),
+        1.0,
+        3,
+        json.dumps([
+            "4 SPLs declarados en PPTX vs 0 en brain de Exodus — validar con DBA",
+            "Monitor BPI es herramienta operativa AMS 24x7 — migración requiere ventana cuidadosa",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+    (
+        "AMS-OLA1-ID13",
+        "ID-13",
+        "W3",
+        8,
+        "Conciliación Automática ATM / POS",
+        10,
+        "Media / Media",
+        "Media",
+        "validar-smartvista",
+        "partial",
+        "AMS-ops",
+        "informix-brain,exodus-brain",
+        30,
+        "Validar que SmartVista cubra el 100% de la funcionalidad. 30 SPLs en brain (W3).",
+        "SmartVista puede absorber la funcionalidad. AMS conoce el proceso ATM/POS.",
+        "Validar roadmap de SmartVista para absorción de funcionalidad de conciliación.",
+        json.dumps([
+            {"role": "Payments / SmartVista SME", "level": "L8-Consultant", "fte": 1, "stream": "AMS"},
+            {"role": "Reconciliation Developer", "level": "L9-Analyst", "fte": 1, "stream": "delivery"},
+        ], ensure_ascii=False),
+        2.0,
+        6,
+        json.dumps([
+            "Roadmap SmartVista no validado — puede no absorber toda la funcionalidad",
+            "10 SPLs en PPTX vs 30 en brain de Exodus (W3) — discrepancia a validar",
+            "App en W3 original (2028-H1) — aceleración a Ola 1 requiere alineación con governance",
+        ], ensure_ascii=False),
+        "Reporte Ejecutivo Exodus 02Sep2026.pptx",
+    ),
+]
+
+
+# ──────────────────────────────────────── EY Data — RFP structure & app inventory
+# Fuente: Reporte Ejecutivo Exodus 18Sep2026.pptx + Exodus_Roadmap_V1.xlsx
+#         + Inventario aplicativos_versióncorta.xlsx
+# Compartido por EY a Alejandro Gallegos — 2026-09
+
+# Columnas: rfp_id, label, apps, criticality, close_date, rfp_type, responsible, notes
+EY_RFP_STRUCTURE = [
+    ("RFP-1", "SPEI Enlace Financiero (individual)",
+     "SPEI Enlace Financiero",
+     "Nivel 0 — Crítico regulatorio (Banxico)", "19-dic-2026", "Individual",
+     "Arquitectura / Cumplimiento",
+     "Mayor volumetría de Ola 1 (1.8M ops/día). Requiere certificación Banxico. "
+     "Umbral técnico de evaluación elevado a 75 pts. Peso seguridad = 25 %."),
+    ("RFP-2", "Empresa Net Ares (individual)",
+     "ARES (EmpresaNet 2.0)",
+     "Nivel 1", "21-nov-2026", "Individual",
+     "Arquitectura / Negocio",
+     "Cloud native 2027. 200 SPs app + 200 reuso en Informix 12. Java 7 con backlog a Java 21."),
+    ("RFP-3", "Oficina Financiera Integral (individual)",
+     "Oficina Financiera Integral (OFI)",
+     "Nivel 1", "21-nov-2026", "Individual",
+     "Arquitectura / Negocio",
+     "Mayor carga de SPLs (~10,000 estimados, sin validar). Frontend VB6 legacy en Windows. "
+     "Múltiples DBs Informix (bdinteg, bdisolic, bdiburo, bdicred, bdicheq, bdinvers, bdidigital)."),
+    ("RFP-4", "App BanCoppel Móvil (individual)",
+     "App BanCoppel Móvil",
+     "Nivel 1", "19-dic-2026", "Individual",
+     "Arquitectura / Canales",
+     "Canal digital principal. Java 8→21 multi-versión. "
+     "Middleware: IBM BUS + SPL + Servicios Intermedios JBoss. AMS Accenture activo."),
+    ("RFP-5", "Satélites — consolidado (4 aplicativos)",
+     "Administrador Token (CAS) · Monitor BPI · Latinia · Conciliación ATM/POS",
+     "Nivel 0 (CAS) · Nivel 2 (BPI, Latinia, Conciliación)", "05-dic-2026", "Consolidado",
+     "Arquitectura / Seguridad",
+     "CAS es habilitador transversal — su indisponibilidad afecta autenticación de todos los canales. "
+     "El RFP-5 debe exigir objetivos de recuperación diferenciados para CAS."),
+]
+
+# Columnas: app_id_ey, name, short_name, rfp_id,
+#   lang_frontend, lang_backend, app_server, os, hosting,
+#   sp_count_raw, sp_count_int, dbms, batch_jobs, middleware,
+#   vendor, criticality, concurrent_users, arch_design, monitoring, manager, notes
+EY_APP_INVENTORY = [
+    (62, "App BanCoppel Móvil", "APP BanCoppel", "RFP-4",
+     "N/A (native Android/iOS)", "Java 8/11/17/21",
+     "JBoss EAP 8.01 + microservicios Spring Boot", "Android 6+ / iOS 11+", "On-Premise",
+     "70-80", 75,
+     "Informix 12 · MongoDB (bitácora) · PostgreSQL (SSO)",
+     0, "IBM BUS · SPL · Servicios Intermedios JBoss",
+     "Accenture AMS (mantenimiento)", "Alta",
+     "12,650 transacciones/día (declarado Exodus); app store: millones de usuarios",
+     "Microservicios + MVC legacy",
+     "Dynatrace",
+     "Gustavo Valdez / Edgar Martinez",
+     "216 microservicios Spring Boot activos. "
+     "AMS Accenture opera canal móvil. Strangler Fig propuesto hacia MuleSoft/EKS."),
+    (71, "SPEI Enlace Financiero", "SPEI", "RFP-1",
+     "N/A", "Java",
+     "JBoss / servidor propio", "Linux RH8", "On-Premise",
+     "20-30", 25,
+     "Informix · PostgreSQL",
+     22, "BUS · IHS (balanceador de cargas)",
+     "Desarrollo In-House", "Alta",
+     "1,800,000 ops/día",
+     "Client-Server / integración mensajería",
+     "Dynatrace",
+     "Arturo Pérez / Juan Carlos Argudín",
+     "22 jobs batch activos. PoC en cloud implementada. "
+     "Requiere certificación Banxico/CNBV como gate formal de Ola 1."),
+    (58, "Oficina Financiera Integral (OFI)", "OFI", "RFP-3",
+     "Visual Basic 6 (frontend legacy)", "Visual Basic 6 / backend sin definir",
+     "Servidor Windows legacy", "Windows", "On-Premise",
+     "10,000 (estimado — sin validar)", 10000,
+     "Informix (bdinteg · bdisolic · bdiburo · bdicred · bdicheq · bdinvers · bdidigital) · PostgreSQL",
+     None, "INTERACT · Bus",
+     "Desarrollo In-House", "Alta / Muy Alta",
+     "Usuarios de sucursales (volumen sin declarar)",
+     "MVC legacy / monolito",
+     "N/A",
+     "Patricia Tovar / Jesús Montoya",
+     "Conteo 10,000 SPLs es redondo y sin metodología. "
+     "Mayor riesgo de alcance de toda Ola 1. "
+     "Múltiples DBs Informix especializadas por dominio. VB6 requiere reescritura completa."),
+    (2, "Administrador de Token (CAS)", "Admon Token", "RFP-5",
+     "JSP", "Java 7",
+     "JBoss EAP 7.2", "Linux RH8", "On-Premise",
+     "50 app + 20 reuso (validar)", 50,
+     "Informix 12 · PostgreSQL 9 (en actualización a 17)",
+     2, "InterAct",
+     "COPPEL", "Alta",
+     "2 usuarios operativos (inventario interno)",
+     "MVC",
+     "Nagios",
+     "Pamela Cárdenas / Gabriela Aguilar",
+     "Habilitador transversal de autenticación — impacta todos los canales. "
+     "Java 7 → Java 21 es deuda técnica confirmada. "
+     "RFP-5 requiere SLA de recuperación diferenciado para CAS."),
+    (3, "Empresa Net (ARES / EmpresaNet 2.0)", "Empresa Net", "RFP-2",
+     "JSP", "Java 7 (backlog → Java 21)",
+     "JBoss EAP 7.2 (backlog → 8.x)", "Linux RH8", "On-Premise",
+     "200 app + 200 reuso (validar)", 200,
+     "Informix 12",
+     6, "InterAct",
+     "SOLSER", "Alta",
+     "2,800 usuarios concurrentes",
+     "MVC · Spring Boot · Spring Security",
+     "Dynatrace",
+     "Pamela Cárdenas / Gutberto Gómez",
+     "Portal banca empresas (personas morales): SPEI, dispersión de nómina, consultas. "
+     "Cierre de expediente 21-nov-2026 — uno de los más tempranos de Ola 1."),
+    (9, "Monitor de Operaciones BPI", "Monitor BPI", "RFP-5",
+     "JSP", "Java 7",
+     "JBoss EAP 7.2", "Linux RH8", "On-Premise",
+     "Validar (funciones PostgreSQL)", 0,
+     "PostgreSQL 17 (sin Informix)",
+     0, "N/A",
+     "SOLSER", "Media",
+     "5 usuarios AMS / operación BPI",
+     "Client-Server",
+     "Dynatrace",
+     "Pamela Cárdenas / Gabriela Aguilar",
+     "Portal de monitoreo de operaciones BPI — trazas de auditoría sin datos sensibles. "
+     "Sin SPLs Informix confirmados (solo funciones PostgreSQL). Lift & shift sencillo."),
+    (13, "Conciliación Automática ATM / POS", "Conciliación ATM", "RFP-5",
+     "N/A", "SPL (puro Informix)",
+     "Informix IDS en AIX", "AIX", "On-Premise",
+     "> 30 (estimado)", 30,
+     "Informix",
+     10, "N/A (Control-M)",
+     "Desarrollo In-House", "Media",
+     "5 usuarios operativos (soporte)",
+     "BD / batch puro",
+     "N/A",
+     "José Alberto Bautista / Roberto Guzmán",
+     "10 jobs Control-M activos. "
+     "Puro SPL sin frontend — absorción candidata por SmartVista. "
+     "Validar roadmap SmartVista antes de comprometer alcance."),
+    (30, "Latinia", "Latinia", "RFP-5",
+     "N/A", "Java 7",
+     "Servidor propio", "Linux / AIX", "On-Premise",
+     "40-50", 45,
+     "Informix Core · PostgreSQL · Informix Latinia (propia)",
+     2, "N/A",
+     "Latinia (producto comercial)", "Media / Alta",
+     "Uso masivo por canales y apps back (notificaciones)",
+     "Microservicios / API",
+     "N/A",
+     "Gabriel Maldonado / Óscar Melo",
+     "Producto comercial con BD Informix propia. "
+     "Migración a AWS SNS candidata pero requiere mapeo de todas las campañas dependientes. "
+     "Riesgo: notificaciones no mapeadas se pierden en producción."),
+]
+
 # ─────────────────────────────────────────── build
 
 def build(dry_run: bool = False) -> None:
@@ -548,6 +1033,19 @@ def build(dry_run: bool = False) -> None:
     con.executemany("INSERT INTO cross_dependencies VALUES (?,?,?,?,?,?,?,?)", CROSS_DEPS)
     con.executemany("INSERT INTO open_questions VALUES (?,?,?,?)", OPEN_QUESTIONS)
     con.executemany("INSERT INTO risks VALUES (?,?,?,?,?,?,?)", RISKS)
+    con.executemany(
+        "INSERT INTO ams_support_proposal VALUES "
+        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        AMS_SUPPORT_PROPOSAL)
+
+    con.executemany(
+        "INSERT INTO ey_rfp_structure VALUES (?,?,?,?,?,?,?,?)",
+        EY_RFP_STRUCTURE)
+    con.executemany(
+        "INSERT INTO ey_app_inventory VALUES "
+        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        EY_APP_INVENTORY)
+
     con.commit()
 
     n_apps = con.execute("SELECT COUNT(*) FROM applications").fetchone()[0]
@@ -556,10 +1054,17 @@ def build(dry_run: bool = False) -> None:
     hosts = con.execute("SELECT COALESCE(SUM(hosts_released),0) FROM applications").fetchone()[0]
     n_risks = con.execute("SELECT COUNT(*) FROM risks").fetchone()[0]
     n_critical = con.execute("SELECT COUNT(*) FROM risks WHERE severity='critical'").fetchone()[0]
+    n_rfps = con.execute("SELECT COUNT(*) FROM ey_rfp_structure").fetchone()[0]
+    n_ey_apps = con.execute("SELECT COUNT(*) FROM ey_app_inventory").fetchone()[0]
     print(f"\nbrain.db escrito en {DB_PATH}")
     print(f"  aplicaciones={n_apps} (core={n_core}) · SPLs declarados={spl} · hosts={hosts}")
     print(f"  cross_dependencies={len(CROSS_DEPS)} · open_questions={len(OPEN_QUESTIONS)} · "
           f"risks={n_risks} (critical={n_critical})")
+    n_support = con.execute("SELECT COUNT(*) FROM ams_support_proposal").fetchone()[0]
+    n_fte = con.execute(
+        "SELECT COALESCE(SUM(team_size_fte),0) FROM ams_support_proposal").fetchone()[0]
+    print(f"  ams_support_proposals={n_support} · total_fte_propuesto={int(n_fte)}")
+    print(f"  ey_rfp_structure={n_rfps} RFPs · ey_app_inventory={n_ey_apps} aplicativos")
     con.close()
 
 

@@ -1,0 +1,229 @@
+{
+  "slug": "S151_P103",
+  "sistema": "S151",
+  "programa": "P103",
+  "nombre": "Control de Fechas y Período Corporativo",
+  "funcion": "Paso del lote S151 que el WFL invoca con parámetro 01 para publicar la fecha de proceso vigente, o con 02 al final del día para proyectarla al siguiente día hábil y reportar el estatus de los sistemas alimentadores.",
+  "resumen": "P103 trabaja sobre el archivo secuencial (S151)S151/FILE/CONTROL/CORP, cuyo primer registro trae CSI y fecha de proceso y los siguientes la última fecha procesada por cada sistema, terminando en el sistema 999. Con parámetro 01 lee el header y publica la fecha en el atributo VALUE de la propia tarea para que el WFL la use. Con parámetro 02 calcula el siguiente día hábil con THECALENDAR de LOCSUP, imprime un listado que compara la fecha de cada sistema contra la del header, reabre el archivo en I-O y reescribe el header con la fecha proyectada.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.control.fechas",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — archivo de control corporativo",
+      "origen": {
+        "archivo": "COBOL_P103.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "ControlCorporativo.java · P103Properties.java",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Archivo CONTROL/CORP con título compilado",
+          "linea_ini": 19,
+          "linea_fin": 34,
+          "origen_codigo": " FILE-CONTROL.                                                    002000\n      SELECT A01-CONTROL    ASSIGN TO DISK                        002200\n                            ORGANIZATION IS SEQUENTIAL.           002300\n      SELECT V01-REPORTE        ASSIGN TO PRINTER.                002350\n      SELECT V00-REPORTE2       ASSIGN TO PRINTER.                002390\n/                                                                 002400\n DATA DIVISION.                                                   002500\n FILE SECTION.                                                    002600\n*                                                                 002700\n FD A01-CONTROL                                                   002800\n    VALUE OF TITLE IS \"(S151)S151/FILE/CONTROL/CORP.\"             002900\n    VALUE OF DEPENDENTSPECS IS TRUE.                              003000\n 01 A01-REG-CONTROL               PIC X(90).                      003200",
+          "java_codigo": "# application.yml\np103:\n  control: \"(S151)S151/FILE/CONTROL/CORP.\"   # VALUE OF TITLE del FD A01-CONTROL\n  reporte: \"S151/LIST/P103/1000/C000/{fecha}/{mix}/001S151CONTROL.\"\n  sentinela-fin: 999                         # WKS-DET-SIST = 999\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p103\")\npublic record P103Properties(String control, String reporte, int sentinelaFin) {}",
+          "racional": "El archivo de control es secuencial de 90 bytes y su título está fijo en el FD, igual que el patrón del nombre del listado en WORKING-STORAGE. Ambos pasan a <code>application.yml</code> para poder cambiarlos por ambiente sin recompilar. El valor 999 que marca el fin de la lista de sistemas también se vuelve propiedad.",
+          "reglas": [
+            "RN-S151-202"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Header y detalle del control, parámetros de LOCSUP",
+          "linea_ini": 195,
+          "linea_fin": 236,
+          "origen_codigo": " 01  WKS-REG-HD-CONTROL.                                          003600\n     03  WKS-HD-CSI                    PIC 9(02).                 003700\n     03  WKS-HD-FECPRO                 PIC 9(08).                 003800\n     03  FILLER                        PIC X(80).                 003900\n 01  WKS-REG-DET-CONTROL.                                         004100\n     03  WKS-DET-SIST                  PIC 9(03).                 004200\n     03  WKS-DET-FECPRO                PIC 9(08).                 004300\n***********************************************************       004500\n*         PARAMETROS PARA LAMAR AL CALLENDAR              *       004600\n***********************************************************       004700\n 77  W77-FORMATO                       PIC S9(11) BINARY.         004800\n 77  W77-FUNCION                       PIC S9(11) BINARY.         004900\n 01  WKS-FECHA1                        PIC X(08).                 005000\n 01  WKS-FECHA1-NUM REDEFINES WKS-FECHA1  PIC 9(08).              005100\n 01  WKS-FECHA2                        PIC 9(08).                 005200\n*                                                                 005300\n 01  WKS-FECHA8D                    PIC 9(08).                    005400\n 01  WKS-FECHA8D-R REDEFINES WKS-FECHA8D .                        005500\n     03 WKS-AA-2D                   PIC 9(02).                    005600\n     03 WKS-FEC-6D                  PIC 9(06).                    005700\n 01  WKS-FECHA-MAQ                  PIC 9(06).                    005705\n 01  WKS-FECHA-MAQ-R REDEFINES WKS-FECHA-MAQ.                     005706\n     03 WKS-FM-AMO                 PIC 9(2).                      005707\n     03 WKS-FM-MES                 PIC 9(2).                      005708\n     03 WKS-FM-DIA                 PIC 9(2).                      005709\n 01  WKS-HORA-MAQ                   PIC 9(08).                    005712\n 01  WKS-HORA-MAQ-R REDEFINES WKS-HORA-MAQ.                       005713\n     03 WKS-HORA-HHMMSS             PIC 9(06).                    005714\n     03 WKS-HORA-HHMMSS-R REDEFINES WKS-HORA-HHMMSS.              005716\n        05 WKS-HORA-HH              PIC 9(02).                    005718\n        05 WKS-HORA-MM              PIC 9(02).                    005720\n        05 WKS-HORA-SS              PIC 9(02).                    005722\n     03 FILLER                      PIC 9(02).                    005730\n*                                                                 005800\n 77  W77-FECHA-PROCESO                 PIC 9(08).                 005900\n 77  W77-FECHA-PROFUT                  PIC 9(08).                 006000\n 77  W77-FIN                           PIC 9(01) VALUE 0.         006100\n 77  W77-PARAMETRO                     PIC 9(02).                 006200\n 77  W77-VALUE                         PIC 9(06).                 006300",
+          "java_codigo": "/** WKS-REG-HD-CONTROL: primer registro del archivo. */\npublic record HeaderControl(int csi,                 // 9(02)\n                            LocalDate fechaProceso)  // 9(08) AAAAMMDD\n{}\n\n/** WKS-REG-DET-CONTROL: un registro por sistema alimentador; 999 termina la lista. */\npublic record DetalleControl(int sistema,            // 9(03)\n                             LocalDate fechaProceso) // 9(08)\n{\n    boolean esSentinela(int fin) { return sistema == fin; }\n}\n\npublic record ControlCorporativo(HeaderControl header, List<DetalleControl> sistemas) {}\n\nstatic LocalDate aaaammdd(String s) {\n    return LocalDate.parse(s, DateTimeFormatter.BASIC_ISO_DATE);\n}",
+          "racional": "El mismo buffer de lectura se interpreta como header en la primera lectura y como detalle en las siguientes, cada uno con su propia área de WORKING-STORAGE. En Java son dos <code>record</code> y un agregado que los contiene. Las fechas de 8 dígitos AAAAMMDD se convierten a <code>LocalDate</code>. Los parámetros de THECALENDAR (función, formato y dos fechas) dejan de existir porque el calendario se modela como un servicio con métodos tipados.",
+          "reglas": [
+            "RN-S151-202",
+            "RN-S151-204"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso — modo por parámetro y publicación de la fecha",
+      "origen": {
+        "archivo": "COBOL_P103.txt",
+        "contexto": "PROCEDURE DIVISION USING W77-PARAMETRO · 000000-PROGRAMA / 000050-CONSULTA"
+      },
+      "java": {
+        "archivo": "ControlFechasJobConfig.java · ConsultaFechaTasklet.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Despacho por W77-PARAMETRO",
+          "linea_ini": 314,
+          "linea_fin": 329,
+          "origen_codigo": " PROCEDURE DIVISION USING W77-PARAMETRO.                          006900\n 000000-PROGRAMA.                                                 007000\n*================                                                 007100\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\"    TO                   007200\n        \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".          007300\n     CHANGE ATTRIBUTE LIBACCESS    OF \"LOCSUP\" TO BYFUNCTION.     007400\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"LOCSUP\" TO \"LOCSUP\".       007420\n     IF W77-PARAMETRO = 01                                        007500\n        PERFORM 000050-CONSULTA                                   007600\n     ELSE                                                         007700\n     IF W77-PARAMETRO = 02                                        007800\n        PERFORM 000080-PROYECTA.                                  007900\n     STOP RUN.                                                    008100",
+          "java_codigo": "@Configuration\npublic class ControlFechasJobConfig {\n\n    /** El WFL pasaba 01 o 02; aquí es un JobParameter validado. */\n    @Bean\n    Job controlFechas(JobRepository repo, Step consultaFecha, Step proyectaFecha) {\n        JobExecutionDecider modo = (je, se) -> new FlowExecutionStatus(\n                switch (je.getJobParameters().getString(\"parametro\")) {\n                    case \"01\" -> \"CONSULTA\";\n                    case \"02\" -> \"PROYECTA\";\n                    default   -> throw new IllegalArgumentException(\n                            \"W77-PARAMETRO debe ser 01 o 02\");   // en COBOL: STOP RUN sin hacer nada\n                });\n        return new JobBuilder(\"S151P103\", repo)\n                .start(modo)\n                    .on(\"CONSULTA\").to(consultaFecha)\n                .from(modo)\n                    .on(\"PROYECTA\").to(proyectaFecha)\n                .end()\n                .build();\n    }\n}",
+          "racional": "El programa enlaza la librería de bitácora y LOCSUP y luego decide por el parámetro recibido. En el arquetipo Orquestador la decisión se modela con un <code>JobExecutionDecider</code> que enruta a uno de dos steps. A diferencia del original, un parámetro distinto de 01 o 02 hace fallar el job en lugar de terminar con éxito sin haber hecho nada.",
+          "reglas": [
+            "RN-S151-201"
+          ],
+          "riesgo": "Con un parámetro distinto de 01 o 02 el programa llega a STOP RUN sin error: el WFL lo ve como ejecución correcta."
+        },
+        {
+          "id": "s4",
+          "titulo": "Modo consulta: la fecha viaja en el VALUE de la tarea",
+          "linea_ini": 410,
+          "linea_fin": 444,
+          "origen_codigo": " 000050-CONSULTA.                                                 008300\n*================                                                 008400\n     OPEN INPUT A01-CONTROL                                       008600\n     READ A01-CONTROL INTO WKS-REG-HD-CONTROL.                    008700\n     MOVE  WKS-HD-CSI     TO      WKS-TR-CSI2.                    008771\n     MOVE WKS-HD-FECPRO   TO      W77-FECHA-PROCESO               008900\n                                  WLI-RB-E1-FECHA-INF2            008951\n     MOVE \"S151\"          TO      SISTEMA-LJ                      009000\n                                  WKS-SIS-BACK2                   009051\n                                  WLI-RB-E3-SISTEMA2              009071\n     MOVE \"P103\"          TO      PASO-LJ                         009100\n                                  WKS-PASO-BACK2                  009151\n                                  WLI-RB-E1-PASO                  009171\n     MOVE \"DIARIO\"        TO      WLI-RB-E2-TIPO-PROC2            009191\n     PERFORM 000050-DISPLAY.                                      009195\n     MOVE \"001\"           TO      MTP-LJ                          009200\n     MOVE SPACES          TO      WLI-ENCAB-52, TEXTO-LJ          009251\n     MOVE \"I\"             TO      TIPO-LJ , WLI-TIPO-LJ           009300\n     MOVE 020101          TO      CODIGO-LJ                       009400\n     STRING \"INICIO PROCESO PARA CONSULTA DE FECHA DE PROCESO : \" 009500\n            ,W77-FECHA-PROCESO                                    009600\n     DELIMITED BY SIZE INTO TEXTO-LJ.                             009700\n     MOVE TEXTO-LJ        TO       WLI-TEXTO-LJ                   009751\n     PERFORM      000-030-IMPRIME-MENSAJE.                        009771\n*    CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ.         009800\n     MOVE WKS-HD-FECPRO   TO      WKS-FECHA8D                     010000\n     CHANGE ATTRIBUTE VALUE OF MYSELF   TO WKS-FEC-6D.            010100\n     CLOSE A01-CONTROL WITH SAVE.                                 010200",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ConsultaFechaTasklet implements Tasklet {\n\n    private final ControlCorporativoRepository control;\n    private final Bitacora bitacora;                  // 000-030-IMPRIME-MENSAJE / LIB-DISP\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        HeaderControl h = control.leeHeader();        // OPEN INPUT + READ\n        bitacora.info(\"INICIO PROCESO PARA CONSULTA DE FECHA DE PROCESO : \" + h.fechaProceso());\n\n        // CHANGE ATTRIBUTE VALUE OF MYSELF TO WKS-FEC-6D: el WFL lee la fecha como AAMMDD.\n        // En Java se publica completa y el adaptador del orquestador decide el formato.\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"fechaProceso\", h.fechaProceso());\n        c.setExitStatus(new ExitStatus(\"COMPLETED\",\n                h.fechaProceso().format(DateTimeFormatter.ofPattern(\"yyMMdd\"))));\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "En MCP una tarea puede devolver un número al WFL que la ejecutó a través de su atributo <code>VALUE</code>; P103 lo usa para entregar la fecha de proceso. En Spring Batch el equivalente es publicar la fecha en el <code>ExecutionContext</code> del job, donde la toman los steps siguientes, y dejar la versión de seis dígitos en el <code>ExitStatus</code> para compatibilidad con quien todavía la espere así.",
+          "reglas": [
+            "RN-S151-917",
+            "RN-S151-201"
+          ],
+          "riesgo": "VALUE recibe WKS-FEC-6D, los seis dígitos finales de la fecha: el siglo se pierde en la comunicación con el WFL."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de proyección — siguiente día hábil, estatus y reescritura",
+      "origen": {
+        "archivo": "COBOL_P103.txt",
+        "contexto": "PROCEDURE DIVISION · 000080-PROYECTA / 000100-CHECA-STATUS / 000-050-CHECA-SALTO-HOJA2"
+      },
+      "java": {
+        "archivo": "ProyectaFechaTasklet.java · CalendarioBancario.java · EstatusSistemasReport.java",
+        "contexto": "Tasklet @Transactional · JasperReports"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Siguiente día hábil con THECALENDAR",
+          "linea_ini": 478,
+          "linea_fin": 500,
+          "origen_codigo": "     MOVE WKS-HD-FECPRO   TO      WKS-FECHA1, WKS-FECBACK.        012000\n     MOVE 12              TO      W77-FORMATO                     012100\n     MOVE 13              TO      W77-FUNCION                     012200\n     MOVE \"00000001\"      TO      WKS-FECHA2                      012300\n     CALL \"THECALENDAR IN LOCSUP\" USING                           012400\n          W77-FUNCION,WKS-FECHA1,WKS-FECHA2,W77-FORMATO           012500\n     IF W77-FUNCION > 0                                           012700\n        MOVE SPACES       TO      WLI-ENCAB-52, TEXTO-LJ          012751\n        MOVE \"E\"          TO      TIPO-LJ,  WLI-TIPO-LJ           012800\n        MOVE 010105       TO      CODIGO-LJ                       012900\n        STRING \"ERROR AL PROYECTAR PROXIMA FECHA DE PROCESO\",     013000\n               \", NECESARIA PARA ACTUALIZAR ARCHIVO \",            013100\n               \" S151/FILE/CONTROL/CORP  \"                        013200\n                 DELIMITED BY SIZE INTO TEXTO-LJ                  013300\n        MOVE TEXTO-LJ     TO      WLI-TEXTO-LJ                    013351\n        PERFORM      000-030-IMPRIME-MENSAJE                      013371\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,MENSAJE-LJ        013400\n        SET MYSELF(STATUS)  TO  -1                                013500\n     ELSE                                                         013600\n        MOVE WKS-FECHA1   TO      W77-FECHA-PROFUT.               013700\n     CANCEL \"LOCSUP\".                                             013800",
+          "java_codigo": "public interface CalendarioBancario {\n    /** THECALENDAR función 13, formato 12, WKS-FECHA2 = 00000001. */\n    LocalDate siguienteHabil(LocalDate desde, int dias);\n}\n\n// ProyectaFechaTasklet\nLocalDate proxima;\ntry {\n    proxima = calendario.siguienteHabil(h.fechaProceso(), 1);\n} catch (CalendarioException e) {                     // W77-FUNCION > 0\n    bitacora.error(\"ERROR AL PROYECTAR PROXIMA FECHA DE PROCESO, NECESARIA PARA ACTUALIZAR ARCHIVO \"\n            + props.control());\n    throw new ProcesoAbortadoException(e);              // SET MYSELF(STATUS) TO -1\n}",
+          "racional": "La fecha del header se pasa a la rutina corporativa de calendario con la función 13 y un desplazamiento de un día; el resultado regresa en la misma variable. Un código de función mayor que cero indica error y la tarea se marca con estatus -1. En Java el calendario es una interfaz con un método explícito y el error es una excepción que deja el step en FAILED, de modo que la fecha nunca se reescribe si el cálculo falló.",
+          "reglas": [
+            "RN-S151-203",
+            "RN-S151-918",
+            "RN-S151-207"
+          ],
+          "riesgo": "Tras SET MYSELF(STATUS) TO -1 el fuente no tiene STOP RUN ni salto: si la asignación no termina la tarea de inmediato, el flujo sigue y reescribe el header con W77-FECHA-PROFUT sin inicializar."
+        },
+        {
+          "id": "s6",
+          "titulo": "Estatus de cada sistema contra la fecha del header",
+          "linea_ini": 547,
+          "linea_fin": 562,
+          "origen_codigo": " 000100-CHECA-STATUS.                                             016700\n*====================                                             016800\n     READ A01-CONTROL INTO WKS-REG-DET-CONTROL                    016900\n          AT END MOVE 1 TO W77-FIN.                               017000\n     IF WKS-DET-SIST = 999                                        017200\n        MOVE 1 TO W77-FIN                                         017300\n     ELSE                                                         017400\n        MOVE WKS-DET-SIST   TO WLI-SIS-NUM                        017420\n        MOVE WKS-DET-FECPRO TO WLI-SIS-FEC                        017450\n        IF WKS-DET-FECPRO = WKS-HD-FECPRO                         017500\n           MOVE \"SE EJECUTO CORRECTAMENTE     \" TO WLI-SIS-MSG    017600\n        ELSE                                                      017700\n           MOVE \"NO HA SIDO PROCESADO DESDE   \" TO WLI-SIS-MSG.   017800\n     IF W77-FIN = 0                                               017900\n        WRITE REG-REPORTE FROM WLI-TOT-SISTEMA AFTER 1.           018000",
+          "java_codigo": "/** 000100-CHECA-STATUS UNTIL W77-FIN = 1. */\nList<RenglonEstatus> estatus(ControlCorporativo cc) {\n    var renglones = new ArrayList<RenglonEstatus>();\n    for (DetalleControl d : cc.sistemas()) {                     // AT END también termina\n        if (d.esSentinela(props.sentinelaFin())) break;         // WKS-DET-SIST = 999\n        String msg = d.fechaProceso().equals(cc.header().fechaProceso())\n                ? \"SE EJECUTO CORRECTAMENTE\"\n                : \"NO HA SIDO PROCESADO DESDE\";                 // seguido de la fecha del sistema\n        renglones.add(new RenglonEstatus(\"%03d\".formatted(d.sistema()), msg, d.fechaProceso()));\n    }\n    return renglones;   // informativo: un sistema atrasado no detiene la proyección\n}",
+          "racional": "Cada detalle compara la fecha del sistema con la del header y produce un renglón del listado ESTATUS DE PROCESO DE LOS SISTEMAS. La lista de sistemas no está en el código, sale del archivo, y termina en el registro 999 o en fin de archivo. En Java el recorrido es un ciclo con <code>break</code> sobre el sentinela y el listado se genera con el reporteador del proyecto. La proyección continúa aunque algún sistema esté atrasado, como en el original.",
+          "reglas": [
+            "RN-S151-205",
+            "RN-S151-919",
+            "RN-S151-920",
+            "RN-S151-204"
+          ],
+          "riesgo": "Un sistema que no procesó no impide avanzar la fecha corporativa; el atraso solo queda en el listado."
+        },
+        {
+          "id": "s7",
+          "titulo": "Reapertura en I-O y reescritura del header",
+          "linea_ini": 515,
+          "linea_fin": 535,
+          "origen_codigo": "     MOVE ZEROS           TO  W77-FIN.                            013900\n     PERFORM 000100-CHECA-STATUS UNTIL W77-FIN = 1.               014000\n     CLOSE A01-CONTROL WITH SAVE  V01-REPORTE WITH SAVE.          014100\n     OPEN I-O A01-CONTROL                                         014300\n     READ A01-CONTROL INTO WKS-REG-HD-CONTROL.                    014400\n     MOVE W77-FECHA-PROFUT        TO      WKS-HD-FECPRO           014500\n     REWRITE A01-REG-CONTROL FROM WKS-REG-HD-CONTROL              014600\n          INVALID KEY                                             014700\n          MOVE SPACES  TO      WLI-ENCAB-52, TEXTO-LJ             014751\n          MOVE \"E\"     TO      TIPO-LJ, WLI-TIPO-LJ               014800\n          MOVE 020202  TO      CODIGO-LJ                          014900\n          MOVE  \"ERROR AL ACTUALIZAR FECHA DE PROXIMO PROCESO \"   015000\n                       TO      TEXTO-LJ, WLI-TEXTO-LJ             015100\n          PERFORM      000-030-IMPRIME-MENSAJE                    015120\n          CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                015200\n                                      MENSAJE-LJ                  015300\n          SET MYSELF(STATUS)  TO -1.                              015400\n     CLOSE A01-CONTROL WITH SAVE.                                 015800",
+          "java_codigo": "@Override\n@Transactional\npublic RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n    ControlCorporativo cc = control.leeConBloqueo();            // SELECT ... FOR UPDATE\n    LocalDate proxima = proyecta(cc.header());                   // segmento anterior\n    reporte.emite(estatus(cc));                                  // V01-REPORTE\n\n    int n = control.actualizaFechaHeader(cc.header().fechaProceso(), proxima);\n    if (n != 1) {                                                // REWRITE ... INVALID KEY\n        bitacora.error(\"ERROR AL ACTUALIZAR FECHA DE PROXIMO PROCESO\");\n        throw new ProcesoAbortadoException(\"REWRITE del header de control\");\n    }\n    bitacora.info(\"FIN DE PROCESO PROYECCION DE FECHA Y STATUS\");\n    return RepeatStatus.FINISHED;\n}",
+          "racional": "Después del listado el programa cierra el archivo, lo vuelve a abrir en I-O, lee el header otra vez y lo reescribe con la fecha proyectada. En Java la lectura y la actualización ocurren en una sola transacción con bloqueo del registro, y la actualización es condicional a la fecha leída, lo que cierra la ventana entre el cierre y la reapertura del original. Si no se actualizó exactamente un registro, el step falla.",
+          "reglas": [
+            "RN-S151-206",
+            "RN-S151-207",
+            "RN-S151-918"
+          ],
+          "riesgo": "INVALID KEY no aplica a un REWRITE sobre un archivo de organización secuencial; la rama de error probablemente nunca se ejecuta y una falla de escritura pasaría sin aviso."
+        },
+        {
+          "id": "s8",
+          "titulo": "Pivote de siglo 50 en el encabezado del listado de mensajes",
+          "linea_ini": 376,
+          "linea_fin": 388,
+          "origen_codigo": " 000-050-CHECA-SALTO-HOJA2.                                       003051\n*==========================                                       003071\n    MOVE  WLI-RB-E1-FECHA-INF2 TO WKS-RB-E1-FECHA-INF2.           003073\n     IF WKS-RB-E1-FECHA-INF2-A2 < 50                              003075\n        MOVE 20              TO WKS-RB-E1-FECHA-INF2-A1           003077\n     ELSE                                                         003079\n        MOVE 19              TO WKS-RB-E1-FECHA-INF2-A1.          003081\n     MOVE WKS-RB-E1-FECHA-INF2-A1 TO WLI-RB-E1-ANIO41.            003083\n     MOVE WKS-RB-E1-FECHA-INF2-A2 TO WLI-RB-E1-ANIO42.            003085\n     MOVE \"/\"                     TO WKS-SLASH1.                  003086\n     MOVE WKS-RB-E1-FECHA-INF2-MM TO WLI-RB-E1-MES.               003087\n     MOVE \"/\"                     TO WKS-SLASH2.                  003088\n     MOVE WKS-RB-E1-FECHA-INF2-DD TO WLI-RB-E1-DIA.               003089",
+          "java_codigo": "/** Pivote Y2K del copy de mensajes: AA < 50 es 20AA, de lo contrario 19AA. */\nstatic final int PIVOTE_SIGLO = 50;\n\nstatic int sigloDe(int aa) {\n    return aa < PIVOTE_SIGLO ? 20 : 19;\n}\n\n// Con LocalDate la fecha ya trae el siglo y el pivote solo se necesita para\n// interpretar valores de dos dígitos que todavía lleguen de otros sistemas.",
+          "racional": "El párrafo del copy de mensajes reconstruye el siglo de la fecha del encabezado con una ventana fija en 50. La fecha que recibe ya tiene ocho dígitos, así que el pivote reemplaza un siglo correcto por uno calculado. En Java la fecha es <code>LocalDate</code> y el pivote queda como constante nombrada, aplicada solo donde de verdad llegue un año de dos dígitos.",
+          "reglas": [],
+          "riesgo": "El MOVE de la línea 378 sobrescribe el siglo de una fecha de 8 dígitos con el pivote; a partir de 2050 el encabezado mostraría 19AA."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Parámetro inválido termina con éxito",
+      "detalle": "Si W77-PARAMETRO no es 01 ni 02, 000000-PROGRAMA (líneas 323-329) llega a STOP RUN sin hacer nada y sin marcar error."
+    },
+    {
+      "titulo": "Abort sin salida explícita",
+      "detalle": "Después de SET MYSELF(STATUS) TO -1 (líneas 497 y 533) no hay STOP RUN. Si el MCP no detiene la tarea en ese momento, el flujo continúa hasta reescribir el header."
+    },
+    {
+      "titulo": "INVALID KEY en archivo secuencial",
+      "detalle": "El REWRITE de la línea 522 usa INVALID KEY sobre un archivo ORGANIZATION IS SEQUENTIAL, donde esa condición no aplica; el manejo de error podría ser código muerto."
+    },
+    {
+      "titulo": "Ventana entre cierre y reapertura",
+      "detalle": "El archivo se cierra (línea 517) y se reabre en I-O (línea 519) antes de reescribir; otro proceso podría modificarlo en ese intervalo."
+    },
+    {
+      "titulo": "Fecha de seis dígitos hacia el WFL",
+      "detalle": "CHANGE ATTRIBUTE VALUE OF MYSELF recibe WKS-FEC-6D (línea 443): la fecha publicada no lleva siglo."
+    },
+    {
+      "titulo": "Pivote de siglo fijo",
+      "detalle": "Las líneas 379-382 reconstruyen el siglo con una ventana en 50 aunque la fecha ya trae ocho dígitos."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-205 y RN-S151-920 dicen que el reporte de estatus se genera para S084, S087, S408, S500 y S701; esa lista solo aparece en el comentario de las líneas 8-11. En el código los sistemas salen del archivo de control, por lo que la lista real depende de su contenido.",
+    "Confirmar con SME si SET MYSELF(STATUS) TO -1 termina la tarea de inmediato en esta versión del MCP.",
+    "Confirmar si la rama INVALID KEY del REWRITE (líneas 522-533) se ha ejecutado alguna vez.",
+    "Validar si THECALENDAR función 13 con desplazamiento 1 devuelve el siguiente día hábil o el siguiente día natural.",
+    "W77-PARAMETRO está declarado como 77 en WORKING-STORAGE y se usa en PROCEDURE DIVISION USING sin LINKAGE SECTION; confirmar cómo lo recibe del WFL."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-916",
+    "RN-S151-917",
+    "RN-S151-918",
+    "RN-S151-919",
+    "RN-S151-920",
+    "RN-S151-201",
+    "RN-S151-202",
+    "RN-S151-203",
+    "RN-S151-204",
+    "RN-S151-205",
+    "RN-S151-206",
+    "RN-S151-207",
+    "RN-S500-173",
+    "RN-S500-174",
+    "RN-S500-175",
+    "RN-S500-176",
+    "RN-S500-177",
+    "RN-S500-178",
+    "RN-S500-179",
+    "RN-S500-180",
+    "RN-S500-181",
+    "RN-S500-182",
+    "RN-S500-001",
+    "RN-S500-002",
+    "RN-S500-003",
+    "RN-S500-004",
+    "RN-S500-005",
+    "RN-S500-006",
+    "RN-S500-007",
+    "RN-S500-008"
+  ]
+}

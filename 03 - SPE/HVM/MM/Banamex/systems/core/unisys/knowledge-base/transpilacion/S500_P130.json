@@ -1,0 +1,272 @@
+{
+  "slug": "S500_P130",
+  "sistema": "S500",
+  "programa": "P130",
+  "nombre": "Cierre de Captación: Rendimientos, ISR y Comisiones",
+  "funcion": "Paso batch nocturno de S500 que corre después del punteo (P127, o P305 en cierre mensual) en tres copias paralelas, barre el maestro de contratos S500B03CONTRATOS y ejecuta el corte de ciclo de cada cuenta de cheques.",
+  "resumen": "P130 abre S500BD01CAPTACION en modo actualización, valida en S500B00CTRLPASO que el paso anterior haya terminado en las tres copias y determina qué copia le toca (1, 2 o 3), con su identificador de proceso hacia S151 (30, 31 o 32). Recorre S500B03CONTRATOS contrato por contrato, descarta los migrados a S111 y los ya procesados en la fecha base, y para cada contrato de su partición calcula rendimientos, retiene ISR, cobra comisiones, evalúa traspasos a Cuenta Global y a Beneficencia, y arma movimientos contables que envía en lotes de 30 a la librería S151REGISTRA. Produce además archivos de rendimientos, promedios, cancelados, traspasos y pendientes para P015, y once reportes impresos.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.cierre",
+  "secciones": [
+    {
+      "titulo": "Control del job, secuencia de pasos y partición por copia",
+      "origen": {
+        "archivo": "S500_SOURCE_P130.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-CONTROL / 00001000-VALIDA-PROCESO"
+      },
+      "java": {
+        "archivo": "CierreCaptacionJobConfig.java · SecuenciaPasosValidator.java · P130Properties.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal a definición de Job",
+          "linea_ini": 2954,
+          "linea_fin": 2996,
+          "origen_codigo": "     MOVE 2             TO W77-USO-LIBLJ.\n     MOVE 051010        TO WS-0101-CODI-MSG.\n     MOVE 02            TO WS-0101-TIPO-MSG.\n     MOVE \"S500P130\"    TO W77-S000-MY-ID.\n     MOVE 130           TO W77-MY-PASO.\n     MOVE \"P130\"        TO WS-0101-PASO-MSG.\n     MOVE \"P130\"        TO B91-IDPROG.\n     MOVE \"25MTP013\"    TO WS-0101-MTP-MSG W77-S000-MY-VERSION.\n     PERFORM 90000000-DAME-FEC-MAQUINA.\n     ACCEPT  WKS-TIME-MAQ-INI         FROM TIME.\n     PERFORM 00001000-VALIDA-PROCESO.\n     MOVE B02-NUM-CSI  TO WKS-TIT-CSI-I07.\n     MOVE W77-MY-COPIA TO WKS-TIT-CPY-I07.\n     MOVE WKS-FEC-BASE TO WKS-TIT-FEC-I07.\n     OPEN OUTPUT I07-TASASTARIF83.\n     MOVE \" \"  TO  WKS-TABLA-LIBS-USED.\n     PERFORM 10000100-VERSIONES.\n     PERFORM 1000038-S038L035.\n     MOVE S000-CTR-NOMLIB  TO WKS-NAME-LIB-S038MAPLI\n     INSPECT WKS-NAME-LIB-S038MAPLI\n             REPLACING ALL @00@ BY \" \".\n     PERFORM 99900010-INI-PGM-MAPLI.\n     PERFORM 00001000-INICIO-PGM.\n     PERFORM 10000000-TITLE-LIBRERIAS.\n     PERFORM 20000000-ABRE-BASE.\n     PERFORM 40000000-LIBS-AMEMORIA.\n     PERFORM 20000010-SUBE-INSTYTASAS.\n     PERFORM 20000015-IMP-TEF-GPOS.\n     PERFORM 20000020-ABRE-VAL-ARCH.\n     PERFORM 40089900-VAL-CETES-LIBOR.\n     PERFORM 40090000-CANCEL-LIBS.\n     PERFORM 50000000-PROCESO-PRINCIPAL.\n     DISALLOW  INTERRUPT.\n     PERFORM 59999990-FIN-PGM.\n     PERFORM 70000950-FIN-PGM-MAPLI.\n     SET MYSELF (TASKVALUE)     TO W77-PAR-RESULT.\n     WAIT (02).\n     STOP RUN.",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P130Properties.class)\npublic class CierreCaptacionJobConfig {\n\n    /** 00000000-CONTROL-PROGRAMA: secuencia fija de PERFORM y STOP RUN. */\n    @Bean\n    Job cierreCaptacion(JobRepository repo,\n                        Step validaProceso,          // 00001000-VALIDA-PROCESO (B00CTRLPASO, B02CONTROL)\n                        Step cargaCatalogos,         // 40000000-LIBS-AMEMORIA, 20000010-SUBE-INSTYTASAS\n                        Step validaTasasCetesLibor,  // 40089900-VAL-CETES-LIBOR\n                        Step barridoContratos,       // 50000000-PROCESO-PRINCIPAL\n                        Step actualizaGlobales,      // 50600000-ACTUALIZA-GLOBALES (B09 y B14)\n                        Step actualizaControl) {     // 59000000-ACTUALIZA-CONTROL\n        return new JobBuilder(\"S500P130\", repo)\n                .start(validaProceso)\n                .next(cargaCatalogos)\n                .next(validaTasasCetesLibor)\n                .next(barridoContratos)\n                .next(actualizaGlobales)\n                .next(actualizaControl)\n                .build();\n        // SET MYSELF (TASKVALUE) TO W77-PAR-RESULT: el código de salida del job\n        // se publica con un JobExecutionListener (ExitStatus personalizado, p. ej. 68 = tasa GBNP anterior).\n    }\n}",
+          "racional": "El párrafo principal es una cadena de <code>PERFORM</code> sin condiciones, por lo que cada bloque se vuelve un <code>Step</code> encadenado con <code>next()</code>. Los <code>MOVE</code> de identificación (<code>S500P130</code>, paso 130, versión <code>25MTP013</code>) pasan a ser el nombre del job y la versión del artefacto. El <code>TASKVALUE</code> con el que termina la tarea lo lee el WFL para decidir el siguiente paso; en Java se traduce a un <code>ExitStatus</code> que el orquestador consume, y el <code>WAIT (02)</code> final no tiene equivalente necesario.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Modo mensual y validación de la secuencia de pasos en S500B00CTRLPASO",
+          "linea_ini": 3009,
+          "linea_fin": 3066,
+          "origen_codigo": "     PERFORM 90000002-B02CONTROL-FIND.\n     MOVE B02-FECHA-LOTE    TO WKS-FEC-BASE.\n     MOVE B02-FECHA-LINEA   TO WKS-FEC-PROX.\n     MOVE B02-NUM-CSI       TO WS02-NUM-CSI.\n     IF WKS-MM-FPROX  = WKS-MM-FBASE\n        MOVE 0 TO WKS-ES-MENSUAL\n     ELSE\n        MOVE 1 TO WKS-ES-MENSUAL.\n     IF WKS-ES-MENSUAL = 1\n        MOVE 305 TO W77-PASOANT\n        MOVE 3   TO W77-ID-NUM-COPIA-MAPLI\n     ELSE\n        MOVE 0   TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 127 TO W77-PASOANT.\n     IF B00-NUM-PASO-01 = W77-PASOANT\n    AND B00-NUM-PASO-02 = W77-PASOANT\n    AND B00-NUM-PASO-03 = W77-PASOANT\n        ADD  1  TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 0  TO B00-NUM-PASO-01\n     ELSE\n     IF (B00-NUM-PASO-01 = 0 OR 130)\n    AND B00-NUM-PASO-02 = W77-PASOANT\n    AND B00-NUM-PASO-03 = W77-PASOANT\n        ADD  2  TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 0  TO B00-NUM-PASO-02\n     ELSE\n     IF (B00-NUM-PASO-01 = 0 OR 130)\n    AND (B00-NUM-PASO-02 = 0 OR 130)\n    AND  B00-NUM-PASO-03 = W77-PASOANT\n        ADD  3  TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 0  TO B00-NUM-PASO-03\n     ELSE\n        MOVE B00-NUM-PASO-01     TO WS-MSG-PASO\n        MOVE B00-NUM-PASO-02     TO WS-MSG-MDA\n        MOVE B00-NUM-PASO-03     TO WS-MSG-CVE\n        MOVE B00-TIPO-PROCESO    TO WS-MSG-N-02\n        STRING \"ERROR SEQ PROCESOS\"\n               \" B00-NUM-PASO-01=\"  WS-MSG-PASO\n               \" B00-NUM-PASO-02=\"  WS-MSG-MDA\n               \" B00-NUM-PASO-03=\"  WS-MSG-CVE\n               \" TPO-PROCESO=\"      WS-MSG-N-02\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class SecuenciaPasosValidator {\n\n    private static final int PASO_PROPIO = 130;\n    private final ControlPasoRepository ctrlPaso;     // S500B00CTRLPASO, lock al arranque\n    private final ControlCaptacionRepository control; // S500B02CONTROL\n\n    /** Devuelve la copia (1, 2 o 3) que debe correr esta instancia y marca su contador en 0. */\n    @Transactional\n    public CopiaAsignada asigna() {\n        var b02 = control.findControl().orElseThrow();\n        LocalDate fecBase = b02.fechaLote();          // B02-FECHA-LOTE\n        LocalDate fecProx = b02.fechaLinea();         // B02-FECHA-LINEA\n        boolean mensual = fecProx.getMonthValue() != fecBase.getMonthValue();   // WKS-ES-MENSUAL\n        int pasoAnterior = mensual ? 305 : 127;       // W77-PASOANT\n        int base = mensual ? 3 : 0;                   // W77-ID-NUM-COPIA-MAPLI inicial\n\n        var b00 = ctrlPaso.lockForUpdate();           // CALL SYSTEM DMTERMINATE si falla el LOCK\n        int p1 = b00.paso(1), p2 = b00.paso(2), p3 = b00.paso(3);\n        boolean libre1 = p1 == 0 || p1 == PASO_PROPIO;\n        boolean libre2 = p2 == 0 || p2 == PASO_PROPIO;\n\n        int copia;\n        if (p1 == pasoAnterior && p2 == pasoAnterior && p3 == pasoAnterior) copia = 1;\n        else if (libre1 && p2 == pasoAnterior && p3 == pasoAnterior)         copia = 2;\n        else if (libre1 && libre2 && p3 == pasoAnterior)                     copia = 3;\n        else throw new ProcesoAbortadoException(\n                \"ERROR SEQ PROCESOS B00-NUM-PASO-01=%d B00-NUM-PASO-02=%d B00-NUM-PASO-03=%d TPO-PROCESO=%d\"\n                        .formatted(p1, p2, p3, b00.tipoProceso()));\n\n        b00.ponPaso(copia, 0);                        // MOVE 0 TO B00-NUM-PASO-0n, STORE en la misma transacción\n        return new CopiaAsignada(copia, base + copia, mensual, fecBase, fecProx);\n    }\n}",
+          "racional": "La fecha base y la fecha próxima salen del registro de control; si sus meses difieren, hoy es el último día hábil del mes y el paso que debió correr antes es P305 en lugar de P127. Cada una de las tres copias reclama su turno leyendo los contadores de paso de las otras: la primera exige que las tres digan el paso anterior y las siguientes aceptan que las previas ya estén en 0 o en 130. En Java esa reclamación se hace dentro de una transacción con bloqueo pesimista sobre la fila de control, que es lo que hacen el <code>LOCK</code> y el <code>STORE</code> de DMSII. Cualquier otro estado aborta el job con el mismo mensaje del fuente.",
+          "reglas": [
+            "RN-S500-079"
+          ],
+          "riesgo": "La validación de que la fecha base sea menor que la fecha próxima (líneas 3013-3023) está comentada; un B02 con fechas invertidas no se detecta aquí."
+        },
+        {
+          "id": "s3",
+          "titulo": "Identificador de proceso hacia S151 por copia y bypass de librerías",
+          "linea_ini": 2897,
+          "linea_fin": 5316,
+          "origen_codigo": "***  (2) =1   SIN LIBRERIAS DEL SISTEMA S050.  WKS-SIN-LBS050   *\n***  (3) =1   SIN LIBRERIAS DEL SISTEMA S016.  WKS-SIN-LBS016   *\n***  (4) =1   SIN LIBRERIA  DEL SISTEMA S408.  WKS-SIN-LBS408   *\n***  (5) =1   SIN LIBRERIAS DEL SISTEMA S151.  WKS-SIN-LBS151   *\n***  (6) =1   SIN LIBRERIAS DEL SISTEMA S500.  WKS-SIN-LBS500   *\n***                                                             *\n***  EN PRODUCCION NO CORRE CON VALUE > 0 [DEL (2) AL (6)]      *\n     IF W77-ID-NUM-COPIA-MAPLI = 1 OR 4\n        MOVE 01  TO W77-MY-COPIA WKS-HI-NCOPIA WLI-R00-L01-COPY\n        MOVE 30  TO W77-ID-P-S151\n     ELSE\n     IF W77-ID-NUM-COPIA-MAPLI = 2 OR 5\n        MOVE 02  TO W77-MY-COPIA WKS-HI-NCOPIA WLI-R00-L01-COPY\n        MOVE 31  TO W77-ID-P-S151\n     ELSE\n        MOVE 03  TO W77-MY-COPIA WKS-HI-NCOPIA WLI-R00-L01-COPY\n        MOVE 32  TO W77-ID-P-S151.\n     IF B00-NUM-CTO-CPY(W77-MY-COPIA) > 0\n        MOVE B00-NUM-CTO-CPY(W77-MY-COPIA) TO W77-CTO-INICIAL\n        MOVE B00-NUM-REG-CPY(W77-MY-COPIA) TO W77-REG-INICIAL.\n     IF W77-ES-PRUEBA = 0\n        IF WKS-SIN-LBS050 > 0\n        OR WKS-SIN-LBS016 > 0\n        OR WKS-SIN-LBS408 > 0\n        OR WKS-SIN-LBS151 > 0\n        OR WKS-SIN-LBS500 > 0\n           STRING \"VALUE INVALIDO PARA PRODUCCION \",\n                  \"VALUE=\", WKS-TASKVALUE-PBA\n                  \" COPIA=\", W77-MY-COPIA\n           DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF WKS-SIN-LBS151 = 1\n        NEXT SENTENCE\n     ELSE\n        PERFORM 40010000-INICIO-LIB151.",
+          "java_codigo": "# application.yml\np130:\n  copias:                       # W77-MY-COPIA -> W77-ID-P-S151\n    \"1\": { id-proceso-s151: 30 }\n    \"2\": { id-proceso-s151: 31 }\n    \"3\": { id-proceso-s151: 32 }\n  bypass:                       # TASKVALUE posiciones 2..6; en producción deben ser false\n    sin-s050: false\n    sin-s016: false\n    sin-s408: false\n    sin-s151: false             # WKS-SIN-LBS151: corre sin generar asientos GL\n    sin-s500: false\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p130\")\n@Validated\npublic record P130Properties(Map<String, Copia> copias, Bypass bypass) {\n    public record Copia(int idProcesoS151) {}\n    public record Bypass(boolean sinS050, boolean sinS016, boolean sinS408,\n                         boolean sinS151, boolean sinS500) {}\n\n    /** W77-ID-NUM-COPIA-MAPLI 1 o 4 -> copia 1; 2 o 5 -> copia 2; resto -> copia 3. */\n    public int idProcesoS151(int copia) { return copias.get(String.valueOf(copia)).idProcesoS151(); }\n}\n\n/** Líneas 3155-3166: fuera de PBA, SIT y UAT cualquier bypass aborta con DMTERMINATE. */\n@Component\n@Profile(\"!pba & !sit & !uat\")\nclass BypassGuard implements InitializingBean {\n    private final P130Properties props;\n    BypassGuard(P130Properties props) { this.props = props; }\n\n    @Override public void afterPropertiesSet() {\n        var b = props.bypass();\n        if (b.sinS050() || b.sinS016() || b.sinS408() || b.sinS151() || b.sinS500())\n            throw new ProcesoAbortadoException(\"VALUE INVALIDO PARA PRODUCCION \" + b);\n    }\n}",
+          "racional": "Los identificadores 30, 31 y 32 con los que cada copia se presenta ante la librería contable S151 están compilados en el programa; se trasladan a <code>application.yml</code>. Las banderas de bypass llegan por <code>TASKVALUE</code>; el programa las acepta solo si el equipo se reconoce como de pruebas (PBA, SIT o UAT) y en cualquier otro caso aborta con VALUE INVALIDO PARA PRODUCCION. En Java las banderas son propiedades y la misma validación la hace un componente activo en todo perfil que no sea de pruebas, de modo que el criterio deja de depender del nombre del equipo. El reinicio por copia se conserva: si <code>B00-NUM-CTO-CPY</code> trae un contrato, la copia retoma desde él.",
+          "reglas": [
+            "RN-S500-080",
+            "RN-S500-081"
+          ],
+          "riesgo": "La protección depende de que el nombre del equipo se clasifique bien como de pruebas (líneas 3133-3135). En un equipo de pruebas, WKS-SIN-LBS151 = 1 actualiza saldos en S500 sin generar asientos en S151."
+        }
+      ]
+    },
+    {
+      "titulo": "Barrido contrato por contrato sobre S500B03CONTRATOS",
+      "origen": {
+        "archivo": "S500_SOURCE_P130.txt",
+        "contexto": "PROCEDURE DIVISION · 50100000-LEE-BASE / 50100020 / 50100022"
+      },
+      "java": {
+        "archivo": "ContratoReader.java · ParticionCopiaProcessor.java",
+        "contexto": "ItemStreamReader reiniciable · ItemProcessor (filtro)"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Lectura circular con punto de reinicio por copia",
+          "linea_ini": 5446,
+          "linea_fin": 5656,
+          "origen_codigo": "     MOVE ZERO TO W77-NEXT-CTO.\n     IF W77-MY-COPIA < 3\n        IF W77-CTO-INICIAL > 0\n           MOVE W77-CTO-INICIAL TO WS-NUM-CONTRATO\n           PERFORM 50100015-DAME-CTO-INICIO\n           IF W77-HAY-INICIO = 1\n              IF W77-NEXT-CTO = 1\n                 PERFORM 50100001-PROCESA-CTO\n              ELSE\n                 NEXT SENTENCE\n           ELSE\n              MOVE 0                TO W77-POS-B03-CTOS\n              SET S500B03CONTRATOS  TO BEGINNING.\n     PERFORM 50100005-LEE-B03  UNTIL W77-EOF-B03 = 1.\n     MOVE W77-POS-B03-CTOS TO W77-NUM-08\n     STRING \"TERMINO PRIMERA VUELTA \"\n            \", COPIA=\" W77-MY-COPIA\n            \", POS=\" W77-NUM-08\n            DELIMITED BY SIZE INTO WLI-R06-MENSAJE\n      PERFORM 60613000-ESC-MENSAJES.\n     IF W77-MY-COPIA < 3\n    AND W77-HAY-INICIO = 1\n        STRING \"INICIO SEGUNDA VUELTA \"\n               \",COPIA=\" W77-MY-COPIA\n               DELIMITED BY SIZE INTO WLI-R06-MENSAJE\n        PERFORM 60613000-ESC-MENSAJES\n        SET S500B03CONTRATOS  TO BEGINNING\n        MOVE 0                TO W77-POS-B03-CTOS\n        MOVE 2                TO W77-Q-VUELTA\n        MOVE 0                TO W77-EOF-B03\n        PERFORM 50100005-LEE-B03  UNTIL W77-EOF-B03 = 1.\n     IF W77-EOF-B03 = 0\n        IF W77-Q-VUELTA = 2\n           IF B03-NUM-CONTRATO = W77-CTO-INICIAL\n              MOVE 1          TO W77-EOF-B03\n              MOVE 1          TO W77-NEXT-CTO.",
+          "java_codigo": "/**\n * 50100000-LEE-BASE: si la copia trae contrato de reinicio, lee desde él hasta el fin\n * y luego da una segunda vuelta desde el inicio hasta llegar otra vez a ese contrato.\n */\n@Component\n@StepScope\npublic class ContratoReader extends AbstractItemCountingItemStreamItemReader<Contrato> {\n\n    private final ContratoRepository contratos;          // S500B03CONTRATOS, orden físico del dataset\n    private final Long contratoInicial;                  // W77-CTO-INICIAL (B00-NUM-CTO-CPY)\n    private final int copia;\n    private Iterator<Contrato> it;\n    private int vuelta = 1;                              // W77-Q-VUELTA\n\n    @Override protected void doOpen() {\n        it = (copia < 3 && contratoInicial != null)\n                ? contratos.streamDesde(contratoInicial).iterator()\n                : contratos.streamTodos().iterator();\n    }\n\n    @Override protected Contrato doRead() {\n        if (!it.hasNext() && vuelta == 1 && copia < 3 && contratoInicial != null) {\n            vuelta = 2;                                  // INICIO SEGUNDA VUELTA\n            it = contratos.streamTodos().iterator();\n        }\n        if (!it.hasNext()) return null;\n        Contrato c = it.next();\n        if (vuelta == 2 && c.numContrato().equals(contratoInicial)) return null;   // W77-EOF-B03 = 1\n        return c;\n    }\n\n    @Override protected void doClose() { it = null; }\n}",
+          "racional": "El maestro se recorre en orden físico, no por llave, y cada copia puede retomar desde el contrato guardado en el control de pasos. Para no perder los contratos anteriores al punto de reinicio, P130 da una segunda vuelta desde el principio y se detiene al volver a encontrar el contrato inicial. Se traduce a un lector propio de Spring Batch que reproduce las dos vueltas; el número de contrato se maneja como <code>Long</code> en la llave de la tabla pero se compara por igualdad exacta, igual que el fuente.",
+          "reglas": [
+            "RN-S500-913"
+          ],
+          "riesgo": "La copia 3 nunca usa el punto de reinicio (condición W77-MY-COPIA < 3), así que tras una caída reprocesa desde el inicio y depende de B03-FECACT-BATCH para no duplicar cortes."
+        },
+        {
+          "id": "s5",
+          "titulo": "Selección del contrato: migrados, ya procesados y partición por copia",
+          "linea_ini": 5664,
+          "linea_fin": 5684,
+          "origen_codigo": "     ADD  1                     TO W77-TOT-B03-CTOS.\n     ADD  1                     TO W77-POS-B03-CTOS.\n     MOVE B03-NUM-CONTRATO      TO WS-NUM-CONTRATO.\n     MOVE W77-TOT-B03-CTOS      TO WKS-HI-LEIDOS.\n     IF B03-MIGR-S111 = 1\n        ADD 1 TO W77-TOT-B03-MIGR\n     ELSE\n     IF B03-FECACT-BATCH = WKS-FEC-BASE\n        ADD 1 TO W77-TOT-B03-YAPROC\n     ELSE\n        PERFORM 50101100-MUEVE-B03-WKS\n        PERFORM 50104000-DAME-INSTRUMENTO\n        IF WS05-PROCESA-COPIA = 1 OR 2 OR 3\n           IF W77-MY-COPIA = WS05-PROCESA-COPIA\n              MOVE 1 TO W77-NEXT-CTO\n           ELSE\n              NEXT SENTENCE\n        ELSE\n        IF W77-MY-COPIA = 1\n           MOVE 1 TO W77-NEXT-CTO.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ParticionCopiaProcessor implements ItemProcessor<Contrato, ContratoEnProceso> {\n\n    private final CatalogoInstrumentos instrumentos;   // TB-B05-* en memoria (50104000-DAME-INSTRUMENTO)\n    @Value(\"#{jobExecutionContext['copia']}\")   private int copia;\n    @Value(\"#{jobExecutionContext['fecBase']}\") private LocalDate fecBase;\n    private final ContadoresBarrido contadores;        // W77-TOT-B03-MIGR, W77-TOT-B03-YAPROC\n\n    @Override\n    public ContratoEnProceso process(Contrato b03) {\n        if (b03.migradoS111()) {                       // B03-MIGR-S111 = 1\n            contadores.migrado();\n            return null;\n        }\n        if (fecBase.equals(b03.fechaActBatch())) {     // B03-FECACT-BATCH = WKS-FEC-BASE: ya se cortó hoy\n            contadores.yaProcesado();\n            return null;\n        }\n        var inst = instrumentos.de(b03.producto(), b03.instrumento(), b03.moneda());\n        int copiaAsignada = inst.procesaCopia();       // WS05-PROCESA-COPIA\n        boolean esMio = (copiaAsignada >= 1 && copiaAsignada <= 3)\n                ? copiaAsignada == copia\n                : copia == 1;                          // instrumentos sin copia asignada: los toma la copia 1\n        return esMio ? new ContratoEnProceso(b03, inst) : null;\n    }\n}",
+          "racional": "La partición no es por rango de contratos sino por instrumento: el catálogo S500B05INSTRUMEN dice qué copia procesa cada producto y lo que no tiene copia asignada cae en la copia 1. Las tres copias leen todo el maestro y cada una descarta lo ajeno. Devolver <code>null</code> en un <code>ItemProcessor</code> filtra el registro, que equivale a dejar <code>W77-NEXT-CTO</code> en 0. Una alternativa más eficiente en Java es un <code>Partitioner</code> que entregue a cada worker solo sus instrumentos, pero se conserva primero la semántica exacta.",
+          "reglas": [],
+          "riesgo": "Si el catálogo de instrumentos asigna un valor de copia fuera de 1 a 3, el contrato se va a la copia 1 sin aviso."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de negocio: UMA, Beneficencia, capitalización y comisiones hacia S151",
+      "origen": {
+        "archivo": "S500_SOURCE_P130.txt",
+        "contexto": "PROCEDURE DIVISION · 4011000 / 50113600 / 50116120 / 50116400 / 50116700"
+      },
+      "java": {
+        "archivo": "TarifasS080Client.java · TraspasoBeneficenciaRule.java · AsientosRendimientoService.java · ComisionesService.java · MovimientosS151Buffer.java",
+        "contexto": "@Service · BigDecimal · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Consulta del UMA diario al catálogo S080 (tarifa 252, catálogo 9991)",
+          "linea_ini": 4825,
+          "linea_fin": 4846,
+          "origen_codigo": "     MOVE ALL @00@               TO WS-S080-0201-ENTRADA\n                                    WS-S080-0201-SALIDA.\n     MOVE WS-CANC-NUM-PASO       TO WS-S080-0201-PASO.\n     MOVE WKS-FEC-BASE-06        TO WS-S080-0201-FECHVIG.\n     MOVE 252                    TO WS-S080-0201-CVTARIF.\n     MOVE 9991                   TO WS-S080-0201-PRODUCTO.\n     MOVE 2                      TO WS-S080-0201-INSTRUM.\n     MOVE 0                      TO WS-S080-0201-MONEDA\n                                    WS-S080-0201-HORAVIG\n                                    WS-S080-0201-IMPMIN\n                                    WS-S080-0201-NIVEL\n                                    WS-S080-0201-FECHCTRL\n                                    WS-S080-0201-HORACTRL.\n     MOVE 1                      TO WS-S080-0201-NUMREGS.\n     PERFORM 20000080-L700-TARIFAS.\n     IF WS-S080-0201-RESULT = 0 OR 1\n        COMPUTE WS-CAP-IMPPTE = WS-S080-ENT-CAMPO-01 (01) /\n                         (10 ** WS-S080-DEC-CAMPO-01 (01))\n        MOVE WS-CAP-IMPPTE TO WKS-IMP-UMA-FEB-DIC.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class TarifasS080Client {\n\n    private final S080TarifasPort l700;   // reemplaza la librería S080L700 (PERFORM 20000080-L700-TARIFAS)\n    private final P130Properties props;  // tarifa-uma: 252, producto-uma: 9991, instrumento-uma: 2\n\n    /** 4011000-CARGA-UMA-FEB-DIC: UMA diario vigente a la fecha base. */\n    public Optional<BigDecimal> umaDiario(int paso, LocalDate fechaVigencia) {\n        var consulta = TarifaConsulta.builder()\n                .paso(paso)\n                .fechaVigencia(fechaVigencia)              // WKS-FEC-BASE-06 (AAMMDD)\n                .tarifa(props.uma().tarifa())              // 252\n                .producto(props.uma().producto())          // 9991\n                .instrumento(props.uma().instrumento())    // 2\n                .moneda(0)\n                .numRegistros(1)                           // WS-S080-0201-NUMREGS\n                .build();\n        var r = l700.consulta(consulta);\n        if (r.resultado() != 0 && r.resultado() != 1) {\n            return Optional.empty();                       // el fuente deja el UMA en 0 sin abortar\n        }\n        // COMPUTE sin ROUNDED: entero / 10^decimales, truncado a 2 decimales (PIC 9(06)V9(02))\n        BigDecimal uma = new BigDecimal(r.campoEntero(1))\n                .movePointLeft(r.campoDecimales(1))\n                .setScale(2, RoundingMode.DOWN);\n        return Optional.of(uma);\n    }\n}",
+          "racional": "La librería del catálogo de tarifas S080 recibe una llave de paso, fecha de vigencia, tarifa, producto, instrumento y moneda, y regresa el valor como un entero con su número de decimales. El <code>COMPUTE</code> divide entre la potencia de diez sin <code>ROUNDED</code> y el resultado acaba en un campo <code>PIC 9(06)V9(02)</code>, por eso en Java se usa <code>movePointLeft</code>, que es exacto, y luego <code>RoundingMode.DOWN</code> a escala 2. La tarifa 252 y el catálogo 9991 son hardcodes que se mueven a <code>application.yml</code>. La fecha de vigencia viaja en formato de seis dígitos y debe construirse a partir de un <code>LocalDate</code> con el pivote de siglo explícito.",
+          "reglas": [
+            "RN-S500-099"
+          ],
+          "riesgo": "Si la consulta regresa un resultado distinto de 0 o 1, el UMA se queda en cero y el programa solo lo deja en el reporte de mensajes; el tope de saldo a traspasar a Beneficencia se calcularía con UMA cero."
+        },
+        {
+          "id": "s7",
+          "titulo": "Traspaso a Beneficencia: saldo a traspasar y tope por UMA",
+          "linea_ini": 6601,
+          "linea_fin": 7183,
+          "origen_codigo": "     MOVE ZERO TO W77-TRP-CTA-BENEF.\n     IF WKS-ES-1ERVIE-ANH = 1\n        IF B03-MONEDA = 1\n           IF B03-STA-BENEF = 3 OR 8\n              IF WKS-MESES-TRP-BENEF > 0\n             AND W77-SDO-MAX-BENF    > 0\n                 PERFORM 50113600-TRASP-BENEF.\n     IF WKS-IND-SDO-BENEF = 0\n        MOVE W77-SDOACT-TOTAL TO W77-SDO-TRASPBENEF\n     ELSE\n        MOVE B03-SDO-CONGBENE TO W77-SDO-TRASPBENEF\n        COMPUTE W77-SDO-RESTOBENEF = W77-SDOACT-TOTAL -\n                                     B03-SDO-CONGBENE.\n     IF W77-SDO-TRASPBENEF > 0\n        IF B03-FECH-BENEF  NOT > WKS-FECHA-TRP-BENEF\n           MOVE B03-FECH-BENEF TO WKS-FEC-CTO-BENEF\n           IF WKS-AAAA-FCTOBF = WKS-AAAA-FVALTBF\n              MOVE B03-FECH-BENEF TO WKS-FEC-TRASP-UMA\n              IF WKS-MM-TRASP-UMA > 1\n                 IF B03-SDO-CONGBENE NOT > W77-SDO-MAX-BENF\n                    MOVE 1 TO W77-TRP-CTA-BENEF\n                 ELSE\n                    NEXT SENTENCE\n              ELSE\n                 IF B03-SDO-CONGBENE NOT > W77-SDO-MAX-BENF-ENE\n                    MOVE 1 TO W77-TRP-CTA-BENEF.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class TraspasoBeneficenciaRule {\n\n    /**\n     * 50113600-TRASP-BENEF. Solo se evalúa el primer viernes del año, en moneda nacional\n     * y con estado de beneficencia 3 u 8 (bloque de las líneas 6601-6607).\n     */\n    public boolean aplicaTraspaso(ContratoEnProceso c, ParametrosBeneficencia p) {\n        if (!(p.esPrimerViernesAnio() && c.moneda() == 1\n              && (c.staBenef() == 3 || c.staBenef() == 8)\n              && p.mesesTraspaso() > 0 && p.saldoMaximo().signum() > 0)) {\n            return false;\n        }\n        // WKS-IND-SDO-BENEF se fuerza a 0 al cargar parámetros (línea 5056): siempre se toma el saldo total.\n        BigDecimal saldoTraspaso = (p.indicadorSaldo() == 0)\n                ? c.saldoActualTotal()                       // W77-SDOACT-TOTAL  S9(13)V99\n                : c.saldoCongeladoBenef();                   // B03-SDO-CONGBENE\n        if (saldoTraspaso.signum() <= 0) return false;\n        if (c.fechaBenef().isAfter(p.fechaTraspaso())) return false;      // B03-FECH-BENEF NOT > fecha\n        if (c.fechaBenef().getYear() != p.anioValidacion()) return false; // año inmediato anterior\n\n        BigDecimal tope = (c.fechaBenef().getMonthValue() > 1)\n                ? p.saldoMaximo()                            // W77-SDO-MAX-BENF      (febrero a diciembre)\n                : p.saldoMaximoEnero();                      // W77-SDO-MAX-BENF-ENE  (UMA del año anterior)\n        return c.saldoCongeladoBenef().compareTo(tope) <= 0; // W77-TRP-CTA-BENEF = 1\n    }\n}",
+          "racional": "El traspaso de cuentas inactivas a Beneficencia se decide una vez al año. El saldo que se compara contra el tope es siempre el saldo congelado, aunque el saldo a traspasar sea el total. El tope cambia según el mes en que la cuenta cumplió su fecha de beneficencia: para enero se usa el UMA del año inmediato anterior y para el resto el del año en curso. Las comparaciones <code>NOT &gt;</code> se traducen a <code>compareTo(...) &lt;= 0</code> y <code>!isAfter</code>, y los importes son <code>BigDecimal</code> de escala 2. Los <code>IF</code> anidados sin <code>END-IF</code> se resolvieron pareando cada <code>ELSE</code> con el <code>IF</code> abierto más cercano, como lo hace el compilador.",
+          "reglas": [],
+          "riesgo": "El indicador WKS-IND-SDO-BENEF se forzó a cero en 2019 (líneas 5053-5057), así que la rama que traspasa solo el saldo congelado es código muerto. Además, el tope W77-SDO-MAX-BENF no se asigna en ningún párrafo del fuente; debe venir de un copybook."
+        },
+        {
+          "id": "s8",
+          "titulo": "Asientos de rendimiento neto, ISR y rendimiento bruto hacia S151",
+          "linea_ini": 7662,
+          "linea_fin": 7732,
+          "origen_codigo": "     IF WS-CAP-RENDNETO > 0\n        MOVE WS-CAP-RENDNETO TO W77-IMP-COMUN\n        MOVE 3000            TO W77-CVE-COMUN\n        MOVE 1               TO W77-HAY-PAGO-REND\n     IF WS-CAP-RENDNETO > 0\n        PERFORM 50116700-LLENA-MOVS-S151\n        IF B03-MONEDA = 5\n           COMPUTE W77-VAL-PUENTE ROUNDED = WS-CAP-RENDNETO\n                                          * W77-TCAMBIO-VTA\n           ADD W77-VAL-PUENTE            TO WKS-VAL-CGOMN\n           ADD WS-CAP-RENDNETO           TO WKS-VAL-CGODLS.\n     IF WS-CAP-IMPUESTO > 0\n        MOVE WS-CAP-IMPUESTO  TO W77-IMP-COMUN\n        MOVE 4009             TO W77-CVE-COMUN\n        PERFORM 50116700-LLENA-MOVS-S151\n        IF B03-MONEDA = 5\n           COMPUTE W77-VAL-PUENTE ROUNDED = WS-CAP-IMPUESTO\n                                          * W77-TCAMBIO-VTA\n           ADD W77-VAL-PUENTE TO WKS-VAL-CGOMN\n                                 WKS-VAL-ABOMN\n                                 B06-IMPTO-VALMN\n           ADD WS-CAP-IMPUESTO   TO WKS-VAL-CGODLS\n                                    WKS-VAL-ABODLS.\n     IF WS-CAP-RENDBRTO > 0\n        MOVE WS-CAP-RENDBRTO TO W77-IMP-COMUN\n        MOVE 809             TO W77-CVE-COMUN\n        PERFORM 50116700-LLENA-MOVS-S151.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class AsientosRendimientoService {\n\n    private static final int CVE_REND_NETO  = 3000;   // claves comunes compiladas; candidatas a application.yml\n    private static final int CVE_ISR        = 4009;\n    private static final int CVE_REND_BRUTO = 809;\n    private final MovimientosS151Buffer movimientos;   // 50116700-LLENA-MOVS-S151\n\n    @Transactional(propagation = Propagation.MANDATORY)\n    public void asienta(ContratoEnProceso c, Capitalizacion cap, BigDecimal tcVenta,  // W77-TCAMBIO-VTA 9(04)V9(04)\n                        CifrasControl cifras) {\n        boolean dolares = c.moneda() == 5;\n        if (cap.rendNeto().signum() > 0) {\n            c.marcaPagoRendimiento();                                    // W77-HAY-PAGO-REND = 1\n            movimientos.agrega(c, MovimientoS151.de(CVE_REND_NETO, cap.rendNeto(), c.esquemaContable()));\n            if (dolares) {\n                cifras.cargoMn(aPesos(cap.rendNeto(), tcVenta));         // WKS-VAL-CGOMN\n                cifras.cargoDl(cap.rendNeto());                          // WKS-VAL-CGODLS\n            }\n        }\n        if (cap.impuesto().signum() > 0) {\n            movimientos.agrega(c, MovimientoS151.de(CVE_ISR, cap.impuesto(), c.esquemaContable()));\n            if (dolares) {\n                BigDecimal mn = aPesos(cap.impuesto(), tcVenta);\n                cifras.cargoMn(mn); cifras.abonoMn(mn); c.historico().sumaIsrValorizadoMn(mn);   // B06-IMPTO-VALMN\n                cifras.cargoDl(cap.impuesto()); cifras.abonoDl(cap.impuesto());\n            }\n        }\n        if (cap.rendBruto().signum() > 0) {\n            movimientos.agrega(c, MovimientoS151.de(CVE_REND_BRUTO, cap.rendBruto(), c.esquemaContable()));\n        }\n    }\n\n    /** COMPUTE W77-VAL-PUENTE ROUNDED = importe * tipo de cambio: redondeo a 2 decimales HALF_UP. */\n    static BigDecimal aPesos(BigDecimal usd, BigDecimal tc) {\n        return usd.multiply(tc).setScale(2, RoundingMode.HALF_UP);\n    }\n}",
+          "racional": "Al capitalizar, P130 genera tres asientos posibles con claves comunes fijas: 3000 para el rendimiento neto, 4009 para el ISR retenido y 809 para el rendimiento bruto, cada uno solo si su importe es mayor que cero. En contratos en dólares el rendimiento neto y el impuesto se convierten a pesos con el tipo de cambio de venta; el <code>COMPUTE ... ROUNDED</code> se traduce a <code>RoundingMode.HALF_UP</code> con escala 2, y el ISR convertido se acumula además en el histórico del contrato. El rendimiento bruto no se convierte ni entra a las cifras en pesos. El tipo de cambio <code>9(04)V9(04)</code> conserva escala 4 en el <code>BigDecimal</code>.",
+          "reglas": [
+            "RN-S500-091",
+            "RN-S500-092",
+            "RN-S500-093",
+            "RN-S500-094"
+          ],
+          "riesgo": "WKS-VAL-CGODLS es PIC 9(12)V99 contra 9(14)V99 de WKS-VAL-CGOMN; los ADD no tienen ON SIZE ERROR y un acumulado de dólares de trece o más enteros perdería dígitos en silencio."
+        },
+        {
+          "id": "s9",
+          "titulo": "Suma de comisiones al saldo y armado del movimiento contable",
+          "linea_ini": 7875,
+          "linea_fin": 7899,
+          "origen_codigo": " 50116400-SUMA-COMISIONES.\n     IF WS-CAP-COMICONIVA(WS-IND-CVE) > 0\n        SUBTRACT WS-CAP-COMICONIVA(WS-IND-CVE)\n            FROM B03-SDO-ACTUAL.\n     IF  WS-CAP-COMISINIVA(WS-IND-CVE) > 0\n     AND WS-CAP-CVECOMI   (WS-IND-CVE) > 0\n        MOVE WS-CAP-COMISINIVA (WS-IND-CVE)  TO W77-IMP-COMUN\n        MOVE WS-CAP-CVECOMI    (WS-IND-CVE)  TO W77-CVE-COMUN\n        IF WS-IND-CVE = 02 OR 03 OR 06 OR 08 OR 09 OR 10 OR\n                        20 OR 24 OR 25 OR 27 OR 35 OR 36 OR\n                        38 OR 39 OR 40\n           MOVE WS-CAP-NUMGRAVADO (WS-IND-CVE)\n             TO WKS-LEY-REF-01\n           PERFORM 50116700-LLENA-MOVS-S151\n***\n** LEYENDA PARA EL PRODUCTO 66-14 POR DEPOSITO EXTRA\n        ELSE\n        IF (WS-IND-CVE = 34 AND WS03-88-PIM-66-14-01)\n           MOVE \"COMISION POR DEPOSITO EXTRA MENSUAL\"\n             TO WKS-LEY-ADICIONAL\n           MOVE 1   TO W77-ES-SUSTIT-LEY\n           PERFORM 50116700-LLENA-MOVS-S151\n        ELSE\n           PERFORM 50116700-LLENA-MOVS-S151.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ComisionesService {\n\n    /** Claves de comisión que reportan número de eventos gravados en la referencia 01. */\n    private static final Set<Integer> CLAVES_CON_EVENTOS =\n            Set.of(2, 3, 6, 8, 9, 10, 20, 24, 25, 27, 35, 36, 38, 39, 40);   // candidatas a application.yml\n\n    private final MovimientosS151Buffer movimientos;\n\n    /** 50116400-SUMA-COMISIONES para una posición WS-IND-CVE de la tabla de comisiones calculadas. */\n    @Transactional(propagation = Propagation.MANDATORY)\n    public void aplica(ContratoEnProceso c, ComisionCalculada com) {\n        if (com.conIva().signum() > 0) {\n            c.cargaSaldo(com.conIva());             // SUBTRACT WS-CAP-COMICONIVA FROM B03-SDO-ACTUAL\n        }\n        if (com.sinIva().signum() > 0 && com.claveTransaccion() > 0) {\n            var mov = MovimientoS151.de(com.claveTransaccion(), com.sinIva(), c.esquemaContable());\n            if (CLAVES_CON_EVENTOS.contains(com.indice())) {\n                mov = mov.conReferencia01(com.numGravado());           // WKS-LEY-REF-01\n            } else if (com.indice() == 34 && c.esProductoPim6614()) {\n                mov = mov.conLeyenda(\"COMISION POR DEPOSITO EXTRA MENSUAL\", /*sustituye*/ true);\n            }\n            movimientos.agrega(c, mov);                                 // 50116700-LLENA-MOVS-S151\n        }\n    }\n}",
+          "racional": "La comisión con IVA se descuenta de <code>B03-SDO-ACTUAL</code>, uno de los dos saldos con signo del maestro de contratos, así que el resultado puede quedar negativo y en Java el saldo es un <code>BigDecimal</code> con signo y escala 2. La comisión sin IVA, si tiene clave de transacción, se convierte en un movimiento contable. Según la posición en la tabla de comisiones, el movimiento lleva el número de eventos gravados como referencia o, para el producto 66-14, una leyenda que sustituye la de la clave. El método exige una transacción abierta porque el saldo del contrato y el envío a contabilidad deben confirmarse juntos. La lista fija de posiciones se deja como constante con la recomendación de llevarla a configuración.",
+          "reglas": [
+            "RN-S500-916"
+          ],
+          "riesgo": "La lista de quince posiciones con referencia de eventos está compilada; una comisión nueva fuera de la lista se contabiliza sin el número de eventos."
+        },
+        {
+          "id": "s10",
+          "titulo": "Lotes de 30 movimientos hacia S151REGISTRA",
+          "linea_ini": 8686,
+          "linea_fin": 8712,
+          "origen_codigo": "     ADD 1   TO WKS-IND-MOV\n                W77-NUM-MOVS-GEN\n                W77-TOT-MOVS-GEN.\n     IF WKS-IND-MOV > 30\n        PERFORM  50122000-ENVIA-MOVSS151\n        MOVE 1                 TO WKS-IND-MOV.\n     MOVE W77-CVE-COMUN    TO WS-S151-0101-CVETRAN-I(WKS-IND-MOV)\n                              WS-CLAVE-TRANS.\n     MOVE W77-IMP-COMUN    TO WS-S151-0101-IMPORTE-I(WKS-IND-MOV).\n     MOVE WKS-ESQ-CONTABLE TO WS-S151-0101-ESQCON-I(WKS-IND-MOV).\n     IF WKS-LEY-ADICIONAL = SPACES\n        NEXT SENTENCE\n     ELSE\n        MOVE WKS-LEY-ADICIONAL\n          TO WS-S151-0101-LEYENDA-I(WKS-IND-MOV)\n        MOVE SPACES        TO WKS-LEY-ADICIONAL\n        MOVE 1             TO W77-DATO-ADD-151\n** ENVIA INDICADOR PARA SUSTITUIR LEYENDA DE LA CLAVE\n** EN COBRO DE COMISION AL PRODUCTO 66-14\n        IF W77-ES-SUSTIT-LEY = 1\n           MOVE 3   TO WS-S151-0101-INDLEY-I(WKS-IND-MOV)\n           MOVE 0   TO W77-ES-SUSTIT-LEY\n        ELSE\n           MOVE 2   TO WS-S151-0101-INDLEY-I(WKS-IND-MOV).",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class MovimientosS151Buffer {\n\n    private static final int TAMANO_LOTE = 30;           // OCCURS de WS-S151-0101-*-I\n    private final S151RegistraPort s151;                 // librería S151REGISTRA\n    private final List<MovimientoS151> lote = new ArrayList<>(TAMANO_LOTE);\n\n    /** 50116700-LLENA-MOVS-S151: al llenar el arreglo se envía y se reinicia. */\n    public void agrega(ContratoEnProceso c, MovimientoS151 mov) {\n        if (lote.size() == TAMANO_LOTE) {\n            s151.envia(List.copyOf(lote));               // 50122000-ENVIA-MOVSS151\n            lote.clear();\n        }\n        // INDLEY: 2 = leyenda adicional, 3 = sustituye la leyenda de la clave (66-14)\n        lote.add(mov.leyenda() == null ? mov\n                : mov.conIndicadorLeyenda(mov.sustituyeLeyenda() ? 3 : 2));\n        c.generaPunteo(mov);                             // 50117700-GENERA-PUNTEO\n        c.acumulaClave(mov);                             // 50116800-ACUMULA-CLAVES\n    }\n\n    /** El remanente se envía al cerrar el contrato o el step. */\n    public void vacia() {\n        if (!lote.isEmpty()) { s151.envia(List.copyOf(lote)); lote.clear(); }\n    }\n}",
+          "racional": "La interfaz con S151REGISTRA es un arreglo de 30 posiciones: cuando se llena se envía y se empieza de nuevo. En Java el puerto <code>S151RegistraPort</code> mantiene esa granularidad para no cambiar el contrato con la librería contable mientras conviva el mainframe. El indicador de leyenda 2 o 3 se conserva tal cual porque S151 lo interpreta. Cada movimiento también alimenta el archivo de punteo y los totales por clave, que son la base de las cifras de control del paso.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Bypass contable controlado por nombre de equipo",
+      "detalle": "Las banderas de TASKVALUE (líneas 2895-2903) permiten correr sin las librerías S050, S016, S408, S151 o S500. Fuera de equipos PBA, SIT o UAT el programa aborta (líneas 3155-3166), pero esa clasificación depende del hostname. Con WKS-SIN-LBS151 = 1 (línea 5313) se actualizan saldos sin asientos en S151."
+    },
+    {
+      "titulo": "Indicador de saldo de Beneficencia forzado a cero",
+      "detalle": "En la línea 5056 se reemplazó la carga del indicador desde L710 por un MOVE 0 (cambio EVM-2019). La rama que traspasa solo el saldo congelado (líneas 7166-7169) nunca se ejecuta."
+    },
+    {
+      "titulo": "Tope de Beneficencia asignado fuera del fuente",
+      "detalle": "W77-SDO-MAX-BENF y W77-SDO-MAX-BENF-ENE se leen pero no se asignan en P130; su cálculo debe estar en un copybook no incluido. Si quedaran en cero, el traspaso no se evalúa (condición de la línea 6606)."
+    },
+    {
+      "titulo": "Validación de fechas de control comentada",
+      "detalle": "El chequeo de que B02-FECHA-LOTE sea menor que B02-FECHA-LINEA (líneas 3013-3023) está comentado; el modo mensual se decide solo comparando meses."
+    },
+    {
+      "titulo": "Partición dependiente del catálogo",
+      "detalle": "La copia que procesa cada contrato depende de WS05-PROCESA-COPIA del catálogo de instrumentos; valores fuera de 1 a 3 caen en la copia 1 sin aviso, y las tres copias leen el maestro completo."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-102 (comisión de aniversario) no se pudo ubicar en este fuente: WS03-FEC-APERTURA solo se asigna en la línea 5720 y no hay referencias a TB-B05-CVECOMI ni a WS-S016-0101-CVECOBRO. La lógica debe estar en un copybook (por ejemplo S500/INC/PRO/25MTP004); no se incluyó segmento para no adivinar.",
+    "RN-S500-099 describe la consulta a S080 como rutina de comisiones; en el fuente las dos únicas llamadas a 20000080-L700-TARIFAS (líneas 4841 y 4888) cargan el UMA diario. El párrafo 20000080-L700-TARIFAS no está en el fuente; confirmar en qué copybook vive y si otras rutinas de comisión lo invocan desde ahí.",
+    "Las estructuras WS-CAP-COMICONIVA, WS-CAP-COMISINIVA, WS-CAP-IMPPTE y WS-S151-0101-* no están definidas en el fuente expandido; los PIC usados en Java (escala 2) se asumieron y deben confirmarse con los copybooks.",
+    "Confirmar con SME el significado del estado de beneficencia 3 y 8 y de WKS-ES-1ERVIE-ANH (primer viernes del año).",
+    "Confirmar si la copia 3 debe soportar reinicio desde B00-NUM-CTO-CPY o si su reproceso completo es intencional."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-061",
+    "RN-S151-062",
+    "RN-S151-063",
+    "RN-S151-064",
+    "RN-S151-065",
+    "RN-S151-066",
+    "RN-S151-067",
+    "RN-S151-068",
+    "RN-S151-069",
+    "RN-S151-070",
+    "RN-S151-071",
+    "RN-S151-072",
+    "RN-S151-073",
+    "RN-S151-074",
+    "RN-S151-075",
+    "RN-S151-076",
+    "RN-S151-077",
+    "RN-S151-078",
+    "RN-S151-079",
+    "RN-S151-080",
+    "RN-S500-912",
+    "RN-S500-913",
+    "RN-S500-915",
+    "RN-S500-916",
+    "RN-S500-921",
+    "RN-S500-933",
+    "RN-S500-079",
+    "RN-S500-080",
+    "RN-S500-081",
+    "RN-S500-082",
+    "RN-S500-083",
+    "RN-S500-084",
+    "RN-S500-085",
+    "RN-S500-086",
+    "RN-S500-087",
+    "RN-S500-088",
+    "RN-S500-089",
+    "RN-S500-090",
+    "RN-S500-091",
+    "RN-S500-092",
+    "RN-S500-093",
+    "RN-S500-094",
+    "RN-S500-095",
+    "RN-S500-096",
+    "RN-S500-097",
+    "RN-S500-098",
+    "RN-S500-099",
+    "RN-S500-100",
+    "RN-S500-101",
+    "RN-S500-102",
+    "RN-S500-103",
+    "RN-S500-061",
+    "RN-S500-062",
+    "RN-S500-063",
+    "RN-S500-064",
+    "RN-S500-065",
+    "RN-S500-066",
+    "RN-S500-067",
+    "RN-S500-068",
+    "RN-S500-069",
+    "RN-S500-070",
+    "RN-S500-071"
+  ]
+}

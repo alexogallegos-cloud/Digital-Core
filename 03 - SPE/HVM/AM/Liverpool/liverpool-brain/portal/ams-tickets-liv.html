@@ -1,0 +1,733 @@
+<!DOCTYPE html><html lang="es"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Liverpool · Carga operativa AMS</title><style>
+:root{--pink:#E00198;--sky:#87C3D3;--rose:#DA7AB0;--ink:#FFF0F8;--muted:#c09ab8;--muted2:#9070a0;
+--bg:#0d0408;--bg2:#130610;--panel:#1a0814;--txt:#f0e6ef;--line:rgba(224,1,152,.18)}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#0d0408,#200412 40%,#360820 65%,#200412);flex-shrink:0}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(224,1,152,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(224,1,152,.10) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,transparent,rgba(0,0,0,.5) 30%,rgba(0,0,0,.3) 70%,transparent)}
+.hero-glow{position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(224,1,152,.28),transparent 70%)}
+.hero-bar{position:relative;z-index:1;display:flex;align-items:center;gap:18px;padding:14px 28px 16px;border-bottom:1px solid rgba(224,1,152,.12)}
+.hero-logo{height:30px;width:auto;flex-shrink:0}
+.hero-bar .crumb{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.hero-bar .crumb em{color:var(--sky);font-style:normal}.hero-bar .sp{flex:1}
+.hero-bar .badge{font-size:9px;font-weight:800;letter-spacing:.1em;color:#0d0408;background:var(--sky);padding:2px 8px;border-radius:20px}
+.hero-bar a.back{font-size:11px;color:var(--muted);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none}
+.hero-bar a.back:hover{color:var(--txt);background:rgba(255,255,255,.07)}
+.hero-body{position:relative;z-index:1;padding:18px 28px 22px;display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap}
+.hero-title{flex:1;min-width:240px}
+.hero-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);margin-bottom:8px}
+.hero-h1{font-size:clamp(22px,4vw,32px);font-weight:900;letter-spacing:-.03em;line-height:1.1;background:linear-gradient(135deg,#fff 40%,rgba(224,1,152,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:10px;max-width:700px}
+.hero-stats{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-end}
+.stat-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:11px 16px;min-width:84px}
+.stat-block .sn{font-size:24px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,var(--sky),#b8e0ea);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.stat-block.pink .sn{background:linear-gradient(135deg,var(--pink),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-block.red .sn{background:linear-gradient(135deg,#fca5a5,#f87171);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-block .sl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+#fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 24px;background:var(--bg2);border-bottom:1px solid var(--line);flex-shrink:0}
+#q{background:var(--panel);border:1px solid rgba(224,1,152,.4);border-radius:7px;color:var(--txt);padding:5px 10px;font-size:12px;width:210px;outline:none}
+#q:focus{border-color:var(--sky)}
+.sep{width:1px;height:18px;background:rgba(255,255,255,.08)}
+.pill{border-radius:5px;padding:3px 9px;font-size:9.5px;font-weight:700;cursor:pointer;user-select:none;border:1px solid rgba(224,1,152,.25);color:var(--muted);background:rgba(224,1,152,.06);white-space:nowrap;transition:.15s}
+.pill.on{border-color:var(--sky);color:var(--sky);background:rgba(135,195,211,.12)}
+#info{margin-left:auto;font-size:9.5px;color:var(--muted)}
+#tip{position:fixed;z-index:99;max-width:360px;pointer-events:none;display:none;background:#0d0408;color:#e2d0df;border:1px solid rgba(224,1,152,.3);border-radius:7px;padding:8px 12px;font-size:11px;line-height:1.5;white-space:pre-wrap;box-shadow:0 12px 34px rgba(0,0,0,.6)}
+
+#wrap{flex:1;overflow-y:auto;padding:22px 26px 60px}
+.sec{margin-bottom:34px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.sec-h h2{font-size:17px;font-weight:800;letter-spacing:-.02em}
+.sec-h .n{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--pink);background:rgba(224,1,152,.1);border:1px solid rgba(224,1,152,.28);
+  border-radius:20px;padding:2px 9px}
+.sec-p{font-size:12.5px;color:var(--muted);line-height:1.6;max-width:96ch;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted2);padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;
+  background:var(--bg);z-index:2}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.045);vertical-align:middle}
+tr:hover td{background:rgba(224,1,152,.05)}
+.app{font-weight:700;color:var(--ink)}
+.sys{font-size:10.5px;color:var(--muted2)}
+.bar{height:6px;border-radius:4px;background:linear-gradient(90deg,var(--pink),var(--rose));min-width:2px}
+.barw{background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;width:150px}
+.tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  padding:2px 7px;border-radius:10px;border:1px solid}
+.t-core{color:#fca5a5;border-color:rgba(252,165,165,.3);background:rgba(252,165,165,.1)}
+.t-processors{color:var(--pink);border-color:rgba(224,1,152,.3);background:rgba(224,1,152,.1)}
+.t-channels{color:var(--sky);border-color:rgba(135,195,211,.3);background:rgba(135,195,211,.1)}
+.t-data{color:#c4b5fd;border-color:rgba(196,181,253,.3);background:rgba(196,181,253,.1)}
+.t-integration{color:#fcd34d;border-color:rgba(252,211,77,.3);background:rgba(252,211,77,.1)}
+.t-gap{color:#f87171;border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.12)}
+.gapcard{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.22);border-radius:12px;
+  padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:16px}
+.gapcard .gn{font-size:21px;font-weight:900;color:#f87171;font-variant-numeric:tabular-nums;min-width:74px}
+.gapcard .gt{font-weight:700;font-size:13px}
+.gapcard .gd{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+.rec{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.045);display:flex;gap:12px;align-items:baseline}
+.rec .rn{font-size:13px;font-weight:800;color:var(--pink);font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+.rec .rk{flex:1;font-size:11.5px;color:var(--txt);line-height:1.45}
+.rec .rg{font-size:9.5px;color:var(--muted2);white-space:nowrap}
+.hidden{display:none}
+</style></head><body>
+<div class="hero"><div class="hero-grid"></div><div class="hero-glow"></div>
+  <div class="hero-bar"><img class="hero-logo" src="Liverpool_logo.png" alt="Liverpool" onerror="this.style.display='none'">
+    <span class="crumb">SPE-AM-003 › Liverpool Brain › <em>Carga operativa AMS</em></span><span class="sp"></span>
+    <span class="badge">GenWizard</span><a class="back" href="index.html">← Inicio</a></div>
+  <div class="hero-body"><div class="hero-title">
+    <div class="hero-label">Carga operativa</div><h1 class="hero-h1">Tickets AMS contra el mapa de aplicaciones</h1>
+    <div class="hero-sub">Volumen real de incidentes y requerimientos atendidos por los grupos de soporte, cruzado contra las aplicaciones catalogadas en el brain. La sección de brechas muestra los grupos que sostienen operación sobre sistemas que todavía no existen en el inventario, evidencia de que el catálogo está incompleto.</div></div>
+  <div class="hero-stats"><div class="stat-block "><div class="sn">40,056</div><div class="sl">Tickets</div></div><div class="stat-block "><div class="sn">88</div><div class="sl">Grupos AMS</div></div><div class="stat-block pink"><div class="sn">74.6%</div><div class="sl">Volumen mapeado</div></div><div class="stat-block red"><div class="sn">9,284</div><div class="sl">Sin aplicación</div></div><div class="stat-block "><div class="sn">4,833</div><div class="sl">Patrones</div></div></div></div></div>
+<div id="fbar">
+  <input id="q" placeholder="Buscar aplicación o dominio…">
+  <div class="sep"></div>
+  <span id="info">50 aplicaciones visibles</span></div>
+<div id="wrap">
+
+<div class="sec">
+  <div class="sec-h"><h2>Carga por aplicación</h2><span class="n">50 aplicaciones</span></div>
+  <p class="sec-p">Cada renglón concentra los grupos de soporte que operan sobre la misma aplicación.
+  La columna de recurrentes indica cuántos de esos tickets repiten un patrón ya visto, que es la
+  señal más directa de deuda técnica no resuelta. El percentil noventa de atención expone dónde
+  la cola de espera se dispara aunque la mediana se vea sana.</p>
+  <table id="apptbl"><thead><tr>
+    <th>Aplicación</th><th>Tipo</th><th>Dominio</th><th class="num">Tickets</th><th></th>
+    <th class="num">Recurrentes</th><th class="num">Crítica y alta</th>
+    <th class="num">P90 horas</th><th class="num">Grupos</th></tr></thead>
+    <tbody><tr data-k="xd y app surtido sud-xd-app-surtido processors r04">
+  <td><div class="app">XD y App Surtido</div>
+      <div class="sys">SUD-xd-app-surtido</div></td>
+  <td><span class="tag t-processors">processors</span></td>
+  <td>R04</td>
+  <td class="num">8,477</td>
+  <td><div class="barw"><div class="bar" style="width:100%"></div></div></td>
+  <td class="num">5,695</td>
+  <td class="num">34</td>
+  <td class="num">597</td>
+  <td class="num">1</td></tr><tr data-k="sap bw liv (retail) sud-sap-bw-liv data r09">
+  <td><div class="app">SAP BW LIV (Retail)</div>
+      <div class="sys">SUD-sap-bw-liv</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R09</td>
+  <td class="num">5,176</td>
+  <td><div class="barw"><div class="bar" style="width:61%"></div></div></td>
+  <td class="num">4,225</td>
+  <td class="num">128</td>
+  <td class="num">18</td>
+  <td class="num">1</td></tr><tr data-k="sap sap gap ">
+  <td><div class="app">SAP</div>
+      <div class="sys">SAP</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">3,547</td>
+  <td><div class="barw"><div class="bar" style="width:41%"></div></div></td>
+  <td class="num">2,131</td>
+  <td class="num">28</td>
+  <td class="num">1,887</td>
+  <td class="num">13</td></tr><tr data-k="sap ecc retail sud-sap-ecc-retail core r01">
+  <td><div class="app">SAP ECC Retail</div>
+      <div class="sys">SUD-sap-ecc-retail</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R01</td>
+  <td class="num">1,912</td>
+  <td><div class="barw"><div class="bar" style="width:22%"></div></div></td>
+  <td class="num">1,158</td>
+  <td class="num">93</td>
+  <td class="num">141</td>
+  <td class="num">1</td></tr><tr data-k="bridgecore bridgecore gap ">
+  <td><div class="app">Bridgecore</div>
+      <div class="sys">Bridgecore</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">1,216</td>
+  <td><div class="barw"><div class="bar" style="width:14%"></div></div></td>
+  <td class="num">260</td>
+  <td class="num">17</td>
+  <td class="num">743</td>
+  <td class="num">1</td></tr><tr data-k="mainframe mainframe gap ">
+  <td><div class="app">Mainframe</div>
+      <div class="sys">Mainframe</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">1,087</td>
+  <td><div class="barw"><div class="bar" style="width:12%"></div></div></td>
+  <td class="num">605</td>
+  <td class="num">45</td>
+  <td class="num">625</td>
+  <td class="num">2</td></tr><tr data-k="sap ewm (extended warehouse management) sud-sap-ewm core r04">
+  <td><div class="app">SAP EWM (Extended Warehouse Management)</div>
+      <div class="sys">SUD-sap-ewm</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R04</td>
+  <td class="num">897</td>
+  <td><div class="barw"><div class="bar" style="width:10%"></div></div></td>
+  <td class="num">607</td>
+  <td class="num">5</td>
+  <td class="num">66</td>
+  <td class="num">1</td></tr><tr data-k="oms - order management system (sterling 10) sud-oms-liv processors r04">
+  <td><div class="app">OMS - Order Management System (Sterling 10)</div>
+      <div class="sys">SUD-oms-liv</div></td>
+  <td><span class="tag t-processors">processors</span></td>
+  <td>R04</td>
+  <td class="num">673</td>
+  <td><div class="barw"><div class="bar" style="width:7%"></div></div></td>
+  <td class="num">212</td>
+  <td class="num">10</td>
+  <td class="num">192</td>
+  <td class="num">1</td></tr><tr data-k="sap bw híbrido sud-sap-bw-hibrido data r09">
+  <td><div class="app">SAP BW Híbrido</div>
+      <div class="sys">SUD-sap-bw-hibrido</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R09</td>
+  <td class="num">668</td>
+  <td><div class="barw"><div class="bar" style="width:7%"></div></div></td>
+  <td class="num">518</td>
+  <td class="num">28</td>
+  <td class="num">79</td>
+  <td class="num">1</td></tr><tr data-k="vpl-vision-plus vpl-vision-plus gap ">
+  <td><div class="app">VPL-Vision-Plus</div>
+      <div class="sys">VPL-Vision-Plus</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">591</td>
+  <td><div class="barw"><div class="bar" style="width:6%"></div></div></td>
+  <td class="num">128</td>
+  <td class="num">27</td>
+  <td class="num">1,108</td>
+  <td class="num">2</td></tr><tr data-k="pao - plataforma de administración de órdenes sud-pao channels r04">
+  <td><div class="app">PAO - Plataforma de Administración de Órdenes</div>
+      <div class="sys">SUD-pao</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R04</td>
+  <td class="num">535</td>
+  <td><div class="barw"><div class="bar" style="width:6%"></div></div></td>
+  <td class="num">265</td>
+  <td class="num">1</td>
+  <td class="num">431</td>
+  <td class="num">1</td></tr><tr data-k="gestor4pl sud-gestor-4pl integration r04">
+  <td><div class="app">Gestor4PL</div>
+      <div class="sys">SUD-gestor-4pl</div></td>
+  <td><span class="tag t-integration">integration</span></td>
+  <td>R04</td>
+  <td class="num">447</td>
+  <td><div class="barw"><div class="bar" style="width:5%"></div></div></td>
+  <td class="num">192</td>
+  <td class="num">6</td>
+  <td class="num">130</td>
+  <td class="num">1</td></tr><tr data-k="base24 base24 gap ">
+  <td><div class="app">Base24</div>
+      <div class="sys">Base24</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">341</td>
+  <td><div class="barw"><div class="bar" style="width:4%"></div></div></td>
+  <td class="num">46</td>
+  <td class="num">14</td>
+  <td class="num">181</td>
+  <td class="num">1</td></tr><tr data-k="óptica sud-optica channels r06">
+  <td><div class="app">Óptica</div>
+      <div class="sys">SUD-optica</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R06</td>
+  <td class="num">322</td>
+  <td><div class="barw"><div class="bar" style="width:3%"></div></div></td>
+  <td class="num">48</td>
+  <td class="num">—</td>
+  <td class="num">99</td>
+  <td class="num">1</td></tr><tr data-k="fico-triad fico-triad gap ">
+  <td><div class="app">FICO-TRIAD</div>
+      <div class="sys">FICO-TRIAD</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">199</td>
+  <td><div class="barw"><div class="bar" style="width:2%"></div></div></td>
+  <td class="num">29</td>
+  <td class="num">12</td>
+  <td class="num">1,324</td>
+  <td class="num">5</td></tr><tr data-k="simpli route (ruteador última milla) sud-simpli-route integration r04">
+  <td><div class="app">Simpli Route (Ruteador Última Milla)</div>
+      <div class="sys">SUD-simpli-route</div></td>
+  <td><span class="tag t-integration">integration</span></td>
+  <td>R04</td>
+  <td class="num">131</td>
+  <td><div class="barw"><div class="bar" style="width:1%"></div></div></td>
+  <td class="num">22</td>
+  <td class="num">—</td>
+  <td class="num">112</td>
+  <td class="num">1</td></tr><tr data-k="cyberfinancial sud-cyberfinancial core r03">
+  <td><div class="app">Cyberfinancial</div>
+      <div class="sys">SUD-cyberfinancial</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R03</td>
+  <td class="num">119</td>
+  <td><div class="barw"><div class="bar" style="width:1%"></div></div></td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">309</td>
+  <td class="num">1</td></tr><tr data-k="siebel crm sud-crm-siebel channels r02">
+  <td><div class="app">Siebel CRM</div>
+      <div class="sys">SUD-crm-siebel</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R02</td>
+  <td class="num">110</td>
+  <td><div class="barw"><div class="bar" style="width:1%"></div></div></td>
+  <td class="num">74</td>
+  <td class="num">18</td>
+  <td class="num">355</td>
+  <td class="num">3</td></tr><tr data-k="portal integral de proveedores (pip / entrada unica) sud-pip-portal-proveedores channels r06">
+  <td><div class="app">Portal Integral de Proveedores (PIP / Entrada Unica)</div>
+      <div class="sys">SUD-pip-portal-proveedores</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R06</td>
+  <td class="num">96</td>
+  <td><div class="barw"><div class="bar" style="width:1%"></div></div></td>
+  <td class="num">64</td>
+  <td class="num">—</td>
+  <td class="num">766</td>
+  <td class="num">2</td></tr><tr data-k="ibm-iib ibm-iib gap ">
+  <td><div class="app">IBM-IIB</div>
+      <div class="sys">IBM-IIB</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">94</td>
+  <td><div class="barw"><div class="bar" style="width:1%"></div></div></td>
+  <td class="num">22</td>
+  <td class="num">15</td>
+  <td class="num">537</td>
+  <td class="num">1</td></tr><tr data-k="sap ecc rh nominas (sap hcm) sud-sap-nomina core r08">
+  <td><div class="app">SAP ECC RH Nominas (SAP HCM)</div>
+      <div class="sys">SUD-sap-nomina</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R08</td>
+  <td class="num">90</td>
+  <td><div class="barw"><div class="bar" style="width:1%"></div></div></td>
+  <td class="num">31</td>
+  <td class="num">5</td>
+  <td class="num">141</td>
+  <td class="num">1</td></tr><tr data-k="sap-bw sap-bw gap ">
+  <td><div class="app">SAP-BW</div>
+      <div class="sys">SAP-BW</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">84</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">58</td>
+  <td class="num">2</td>
+  <td class="num">117</td>
+  <td class="num">1</td></tr><tr data-k="sap pdm liv (point/product data management - auditoría de ventas) sud-sap-pdm-liv data r06">
+  <td><div class="app">SAP PDM Liv (Point/Product Data Management - Auditoría de Ventas)</div>
+      <div class="sys">SUD-sap-pdm-liv</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R06</td>
+  <td class="num">72</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">32</td>
+  <td class="num">6</td>
+  <td class="num">190</td>
+  <td class="num">1</td></tr><tr data-k="portal de citas softline plan n5 sud-portal-citas-softline-plan-n5 channels r04">
+  <td><div class="app">Portal de Citas Softline PLAN N5</div>
+      <div class="sys">SUD-portal-citas-softline-plan-n5</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R04</td>
+  <td class="num">60</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">47</td>
+  <td class="num">—</td>
+  <td class="num">169</td>
+  <td class="num">1</td></tr><tr data-k="vcm (verificacion y conteo de mercancia) sud-vcm core r06">
+  <td><div class="app">VCM (Verificacion y Conteo de Mercancia)</div>
+      <div class="sys">SUD-vcm</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R06</td>
+  <td class="num">47</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">5</td>
+  <td class="num">1</td>
+  <td class="num">92</td>
+  <td class="num">1</td></tr><tr data-k="sastreria (sastrerias y alteraciones) sud-sastreria core r06">
+  <td><div class="app">Sastreria (Sastrerias y Alteraciones)</div>
+      <div class="sys">SUD-sastreria</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R06</td>
+  <td class="num">36</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">3</td>
+  <td class="num">—</td>
+  <td class="num">146</td>
+  <td class="num">1</td></tr><tr data-k="apigee apigee gap ">
+  <td><div class="app">Apigee</div>
+      <div class="sys">Apigee</div></td>
+  <td><span class="tag t-gap">gap</span></td>
+  <td>—</td>
+  <td class="num">35</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">14</td>
+  <td class="num">1</td>
+  <td class="num">103</td>
+  <td class="num">1</td></tr><tr data-k="sibo sud-sibo core r06">
+  <td><div class="app">SIBO</div>
+      <div class="sys">SUD-sibo</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R06</td>
+  <td class="num">32</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">12</td>
+  <td class="num">1</td>
+  <td class="num">481</td>
+  <td class="num">1</td></tr><tr data-k="tms (transportation management system) plan n5 sud-tms-plan-n5 processors r04">
+  <td><div class="app">TMS (Transportation Management System) PLAN N5</div>
+      <div class="sys">SUD-tms-plan-n5</div></td>
+  <td><span class="tag t-processors">processors</span></td>
+  <td>R04</td>
+  <td class="num">28</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">14</td>
+  <td class="num">3</td>
+  <td class="num">243</td>
+  <td class="num">1</td></tr><tr data-k="cdp (customer data platform) sud-cdp data r02">
+  <td><div class="app">CDP (Customer Data Platform)</div>
+      <div class="sys">SUD-cdp</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R02</td>
+  <td class="num">27</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">3</td>
+  <td class="num">—</td>
+  <td class="num">500</td>
+  <td class="num">1</td></tr><tr data-k="portal de citas bt sud-portal-de-citas-bt channels r04">
+  <td><div class="app">Portal de Citas BT</div>
+      <div class="sys">SUD-portal-de-citas-bt</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R04</td>
+  <td class="num">21</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">13</td>
+  <td class="num">—</td>
+  <td class="num">196</td>
+  <td class="num">1</td></tr><tr data-k="hub de pagos sud-hub-de-pagos integration r03">
+  <td><div class="app">Hub de Pagos</div>
+      <div class="sys">SUD-hub-de-pagos</div></td>
+  <td><span class="tag t-integration">integration</span></td>
+  <td>R03</td>
+  <td class="num">15</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">600</td>
+  <td class="num">1</td></tr><tr data-k="sap inmobiliaria (sap re - real estate) sud-sap-inmobiliaria core r07">
+  <td><div class="app">SAP Inmobiliaria (SAP RE - Real Estate)</div>
+      <div class="sys">SUD-sap-inmobiliaria</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R07</td>
+  <td class="num">14</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">7</td>
+  <td class="num">—</td>
+  <td class="num">329</td>
+  <td class="num">1</td></tr><tr data-k="opentext exstream (motor de estado de cuenta edc) sud-opentext-exstream data r03">
+  <td><div class="app">OpenText Exstream (Motor de Estado de Cuenta EDC)</div>
+      <div class="sys">SUD-opentext-exstream</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R03</td>
+  <td class="num">12</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">4</td>
+  <td class="num">—</td>
+  <td class="num">339</td>
+  <td class="num">1</td></tr><tr data-k="préstamos personales / disposición de efectivo sud-prestamos-personales processors r03">
+  <td><div class="app">Préstamos Personales / Disposición de Efectivo</div>
+      <div class="sys">SUD-prestamos-personales</div></td>
+  <td><span class="tag t-processors">processors</span></td>
+  <td>R03</td>
+  <td class="num">10</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">4</td>
+  <td class="num">—</td>
+  <td class="num">108</td>
+  <td class="num">2</td></tr><tr data-k="vas (value added services - reparaciones) sud-vas-reparaciones channels r06">
+  <td><div class="app">VAS (Value Added Services - Reparaciones)</div>
+      <div class="sys">SUD-vas-reparaciones</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R06</td>
+  <td class="num">10</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">332</td>
+  <td class="num">1</td></tr><tr data-k="mi puerto sud-mipuerto channels r03">
+  <td><div class="app">Mi puerto</div>
+      <div class="sys">SUD-mipuerto</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R03</td>
+  <td class="num">7</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">4</td>
+  <td class="num">—</td>
+  <td class="num">374</td>
+  <td class="num">2</td></tr><tr data-k="pantalla unica (puccl - pantalla unica contact center liverpool) sud-pantalla-unica channels r02">
+  <td><div class="app">Pantalla Unica (PUCCL - Pantalla Unica Contact Center Liverpool)</div>
+      <div class="sys">SUD-pantalla-unica</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R02</td>
+  <td class="num">7</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">3</td>
+  <td class="num">—</td>
+  <td class="num">378</td>
+  <td class="num">1</td></tr><tr data-k="plm (centric c8 - product lifecycle management) sud-plm core r01">
+  <td><div class="app">PLM (Centric C8 - Product Lifecycle Management)</div>
+      <div class="sys">SUD-plm</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R01</td>
+  <td class="num">6</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">2</td>
+  <td class="num">—</td>
+  <td class="num">1,339</td>
+  <td class="num">2</td></tr><tr data-k="cherwell service management sud-cherwell integration r10">
+  <td><div class="app">Cherwell Service Management</div>
+      <div class="sys">SUD-cherwell</div></td>
+  <td><span class="tag t-integration">integration</span></td>
+  <td>R10</td>
+  <td class="num">3</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">1</td>
+  <td class="num">—</td>
+  <td class="num">154</td>
+  <td class="num">1</td></tr><tr data-k="mecalux (sorter / almacén automático - thyssen/thystore) sud-mecalux core r04">
+  <td><div class="app">Mecalux (Sorter / Almacén Automático - Thyssen/Thystore)</div>
+      <div class="sys">SUD-mecalux</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R04</td>
+  <td class="num">3</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">1</td>
+  <td class="num">44</td>
+  <td class="num">1</td></tr><tr data-k="icm (incentive compensation management) sud-icm processors r08">
+  <td><div class="app">ICM (Incentive Compensation Management)</div>
+      <div class="sys">SUD-icm</div></td>
+  <td><span class="tag t-processors">processors</span></td>
+  <td>R08</td>
+  <td class="num">2</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">296</td>
+  <td class="num">1</td></tr><tr data-k="power bi (pbi - indicadores financieros suburbia) sud-power-bi data r09">
+  <td><div class="app">Power BI (PBI - Indicadores Financieros Suburbia)</div>
+      <div class="sys">SUD-power-bi</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R09</td>
+  <td class="num">2</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">417</td>
+  <td class="num">1</td></tr><tr data-k="task manager sud-task-manager channels r10">
+  <td><div class="app">Task Manager</div>
+      <div class="sys">SUD-task-manager</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R10</td>
+  <td class="num">2</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">777</td>
+  <td class="num">1</td></tr><tr data-k="work front (workfront) sud-work-front integration r10">
+  <td><div class="app">Work Front (WorkFront)</div>
+      <div class="sys">SUD-work-front</div></td>
+  <td><span class="tag t-integration">integration</span></td>
+  <td>R10</td>
+  <td class="num">2</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">1</td>
+  <td class="num">—</td>
+  <td class="num">814</td>
+  <td class="num">1</td></tr><tr data-k="disposición de efectivo en medios digitales sud-disposicion-medios-digitales processors r03">
+  <td><div class="app">Disposición de Efectivo en Medios Digitales</div>
+      <div class="sys">SUD-disposicion-medios-digitales</div></td>
+  <td><span class="tag t-processors">processors</span></td>
+  <td>R03</td>
+  <td class="num">1</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">—</td>
+  <td class="num">1</td></tr><tr data-k="pa&amp;a (planning assortment &amp; allocation - o9 mfp) sud-paa core r04">
+  <td><div class="app">PA&amp;A (Planning Assortment &amp; Allocation - o9 MFP)</div>
+      <div class="sys">SUD-paa</div></td>
+  <td><span class="tag t-core">core</span></td>
+  <td>R04</td>
+  <td class="num">1</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">1</td>
+  <td class="num">0</td>
+  <td class="num">1</td></tr><tr data-k="portal de reparaciones (plan n5) sud-reparaciones channels r06">
+  <td><div class="app">Portal de Reparaciones (PLAN N5)</div>
+      <div class="sys">SUD-reparaciones</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R06</td>
+  <td class="num">1</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">48</td>
+  <td class="num">1</td></tr><tr data-k="sas sud-sas data r09">
+  <td><div class="app">SAS</div>
+      <div class="sys">SUD-sas</div></td>
+  <td><span class="tag t-data">data</span></td>
+  <td>R09</td>
+  <td class="num">1</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">338</td>
+  <td class="num">1</td></tr><tr data-k="vas made to order (mto) sud-vas-made-to-order channels r06">
+  <td><div class="app">VAS Made To Order (MTO)</div>
+      <div class="sys">SUD-vas-made-to-order</div></td>
+  <td><span class="tag t-channels">channels</span></td>
+  <td>R06</td>
+  <td class="num">1</td>
+  <td><div class="barw"><div class="bar" style="width:0%"></div></div></td>
+  <td class="num">0</td>
+  <td class="num">—</td>
+  <td class="num">144</td>
+  <td class="num">1</td></tr></tbody></table>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>Brechas de inventario</h2><span class="n">14 grupos</span></div>
+  <p class="sec-p">Estos grupos de soporte generan trabajo real todos los meses, de modo que los
+  sistemas que atienden existen en la operación de Liverpool aunque no estén documentados.
+  Concentran 9,284 tickets, equivalentes al 25.4 por ciento del volumen total,
+  y cada uno es candidato a incorporarse al catálogo de aplicaciones.</p>
+  <div class="gapcard"><div class="gn">7,065</div>
+  <div><div class="gt">AMS DWH/DATA</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">1,341</div>
+  <div><div class="gt">AMS ACC</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">749</div>
+  <div><div class="gt">AMS CONTROL CXEC</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">70</div>
+  <div><div class="gt">AMS RH PORTALES</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">14</div>
+  <div><div class="gt">AMS JIRA</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">11</div>
+  <div><div class="gt">AMS PRM</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">10</div>
+  <div><div class="gt">AMS UKG</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">7</div>
+  <div><div class="gt">AMS ITR</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">6</div>
+  <div><div class="gt">AMS MONEDEROS</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">3</div>
+  <div><div class="gt">AMS BSM COUPA</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">3</div>
+  <div><div class="gt">AMS UPF</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">2</div>
+  <div><div class="gt">AMS PARADOX</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">2</div>
+  <div><div class="gt">AMS MYWIZARD</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div><div class="gapcard"><div class="gn">1</div>
+  <div><div class="gt">AMS VOICE LINK/VOICE PICKING</div>
+  <div class="gd">Este grupo de soporte atiende tickets de forma continua, pero no existe
+  una aplicación catalogada en el brain que le corresponda.</div></div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>Patrones recurrentes dominantes</h2><span class="n">Top 25 de 4,833</span></div>
+  <p class="sec-p">Un patrón recurrente es un texto de ticket que se repite con mínimas variaciones.
+  Cuando un mismo patrón acumula cientos de ocurrencias durante meses, deja de ser un incidente y
+  se convierte en un defecto estructural que nadie ha cerrado, o en un proceso manual que debería
+  estar automatizado.</p>
+  <div class="grid2"><div><div class="rec"><div class="rn">606</div>
+  <div class="rk">inc corporativo mario pani batch cancelacion</div>
+  <div class="rg">AMS DWH/DATA<br>2025-12 a 2026-09</div></div><div class="rec"><div class="rn">345</div>
+  <div class="rk">inc corporativo mario pani batch cancelacion</div>
+  <div class="rg">AMS SAP BW LIV/ SAP BW PDM<br>2025-12 a 2026-09</div></div><div class="rec"><div class="rn">229</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad corporativo</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2024-09 a 2026-09</div></div><div class="rec"><div class="rn">228</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad &lt;num&gt;</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2024-09 a 2026-09</div></div><div class="rec"><div class="rn">147</div>
+  <div class="rk">inc cancelacion batch bi pc xrotadir inv prom dia bw</div>
+  <div class="rg">AMS SAP BW LIV/ SAP BW PDM<br>2024-12 a 2026-02</div></div><div class="rec"><div class="rn">141</div>
+  <div class="rk">inc corporativo mario pani batch cancelacion</div>
+  <div class="rg">AMS SAP ECC RETAIL<br>2025-12 a 2026-09</div></div><div class="rec"><div class="rn">125</div>
+  <div class="rk">sop mesa de servicios afectados &lt;num&gt; localidad xd</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2025-05 a 2026-09</div></div><div class="rec"><div class="rn">111</div>
+  <div class="rk">no se procesa</div>
+  <div class="rg"><br></div></div><div class="rec"><div class="rn">111</div>
+  <div class="rk">inc corporativo mario pani batch cancelacion bi pc xrotadir inv prom dia</div>
+  <div class="rg">AMS SAP BW LIV/ SAP BW PDM<br>2026-01 a 2026-09</div></div><div class="rec"><div class="rn">109</div>
+  <div class="rk">sop mesa de servicios afectados &lt;num&gt; localidad sistema xd</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2024-10 a 2026-09</div></div><div class="rec"><div class="rn">103</div>
+  <div class="rk">actualizacion de indicadores de mesa de regalos</div>
+  <div class="rg">AMS SOMS (CIBERCOM)<br>2025-03 a 2025-08</div></div><div class="rec"><div class="rn">101</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad liverpool ecatepec</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2026-02 a 2026-09</div></div><div class="rec"><div class="rn">101</div>
+  <div class="rk">sop mesa de servicios afectados xd localidad &lt;num&gt;</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2025-07 a 2026-09</div></div></div><div><div class="rec"><div class="rn">99</div>
+  <div class="rk">inc bod &lt;num&gt; plan hardline n3 sap ewm borrado de datos</div>
+  <div class="rg">AMS SAP EWM (LIV Y SBB)<br>2026-04 a 2026-09</div></div><div class="rec"><div class="rn">91</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad insurgentes</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2024-10 a 2026-09</div></div><div class="rec"><div class="rn">90</div>
+  <div class="rk">inc cancelacion batch zrtuaj546 ecc</div>
+  <div class="rg">AMS SAP ECC RETAIL<br>2024-11 a 2026-02</div></div><div class="rec"><div class="rn">87</div>
+  <div class="rk">inc ams dwh data falla job10341 sh</div>
+  <div class="rg">AMS DWH/DATA<br>2025-02 a 2025-12</div></div><div class="rec"><div class="rn">85</div>
+  <div class="rk">job10341 sh</div>
+  <div class="rg">AMS DWH/DATA<br>2025-02 a 2025-11</div></div><div class="rec"><div class="rn">85</div>
+  <div class="rk">sop mesa de servicios afectados &lt;num&gt; localidad acc</div>
+  <div class="rg">AMS ACC<br>2025-10 a 2026-09</div></div><div class="rec"><div class="rn">83</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad centro</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2024-10 a 2026-09</div></div><div class="rec"><div class="rn">81</div>
+  <div class="rk">sop mesa de servicios afectados sistema xd localidad remision &lt;num&gt;</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2026-02 a 2026-09</div></div><div class="rec"><div class="rn">80</div>
+  <div class="rk">inc cancelacion batch bi bwp plan 09 bw</div>
+  <div class="rg">AMS SAP BW LIV/ SAP BW PDM<br>2024-12 a 2025-10</div></div><div class="rec"><div class="rn">79</div>
+  <div class="rk">inc ams dwh data falla job10686 sh</div>
+  <div class="rg">AMS DWH/DATA<br>2025-04 a 2025-12</div></div><div class="rec"><div class="rn">77</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad perisur</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2024-12 a 2026-09</div></div><div class="rec"><div class="rn">75</div>
+  <div class="rk">ams xd appsurtido afectados &lt;num&gt; localidad tezontle</div>
+  <div class="rg">AMS XD APPSURTIDO<br>2026-01 a 2026-09</div></div></div></div>
+</div>
+
+</div>
+<script>
+const q=document.getElementById('q');
+q.addEventListener('input',()=>{
+  const v=q.value.toLowerCase().trim();
+  let shown=0;
+  document.querySelectorAll('#apptbl tbody tr').forEach(tr=>{
+    const hit=!v||tr.dataset.k.includes(v);
+    tr.classList.toggle('hidden',!hit); if(hit)shown++;
+  });
+  document.getElementById('info').textContent=shown+' aplicaciones visibles';
+});
+
+
+const _tip=document.createElement('div');_tip.id='tip';document.body.appendChild(_tip);
+document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-tip]');if(el){_tip.textContent=el.getAttribute('data-tip');_tip.style.display='block';}});
+document.addEventListener('mousemove',e=>{if(_tip.style.display==='block'){let x=e.clientX+14,y=e.clientY+14;const r=_tip.getBoundingClientRect();if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;_tip.style.left=x+'px';_tip.style.top=y+'px';}});
+document.addEventListener('mouseout',e=>{if(e.target.closest('[data-tip]'))_tip.style.display='none';});
+</script></body></html>

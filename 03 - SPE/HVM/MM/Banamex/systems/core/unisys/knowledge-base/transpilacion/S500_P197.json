@@ -1,0 +1,207 @@
+{
+  "slug": "S500_P197",
+  "sistema": "S500",
+  "programa": "P197",
+  "nombre": "Transferencia de Archivos entre Hosts Unisys",
+  "funcion": "Utilitario de S500 invocado desde WFL con un parámetro de opción y fecha; copia o envía un archivo entre los hosts Unisys de Monterrey y Valle de México, a cinta o por INTELAR hacia otros sistemas.",
+  "resumen": "P197 recibe por contenido un parámetro de 30 posiciones con la opción (01 a 99 y familias alfanuméricas), la fecha AAAAMMDD y datos complementarios. Con el HOSTNAME de la propia tarea deduce si corre en desarrollo, SIT, UAT o producción y cuál es el host y CSI destino, y lee de S500B02CONTROL si hay envío al S274. Según la familia de la opción arma un comando ADD para la librería XFER, lanza un WFL con SYSTEM/DUMPALL a cinta o envía el archivo por INTELARSND con reintentos. El resultado de XFER o DUMPALL se devuelve en el TASKVALUE de la tarea.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s500.intercambio.transferencias",
+  "secciones": [
+    {
+      "titulo": "Parámetros, plantillas y matriz de hosts",
+      "origen": {
+        "archivo": "S500_SOURCE_P197.txt",
+        "contexto": "WORKING-STORAGE · 1000000-INICIO"
+      },
+      "java": {
+        "archivo": "SolicitudTransferencia.java · P197Properties.java · TopologiaHosts.java",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro de entrada con familias de opción como condiciones 88",
+          "linea_ini": 255,
+          "linea_fin": 305,
+          "origen_codigo": " 01 WKS-PARAM-ENT.\n    02 WKS-PAR-OPCION  PIC XX.\n    88 W88-PAR-OPC1-OK VALUE \"01\",\"02\",\"03\",\"04\",\"05\",\"06\",\"07\",\n                             \"08\",\"09\",\"10\",\"11\",\"12\",\"13\",\"14\",\n                             \"15\",\"16\",\"17\",\"18\",\"19\",\"20\",\n                             \"21\",\"22\",\"23\",\"24\",\"25\",\"26\",\"27\".\n    88 W88-PAR-OPC2-OK VALUE \"40\",\"41\",\"51\",\"52\",\"53\",\"54\",\"55\",\n                             \"56\",\"57\",\"58\".\n    88 W88-PAR-OPC3-OK VALUE \"81\",\"82\",\"83\",\"84\",\"85\",\"86\",\n                             \"87\",\"88\",\"89\".\n    88 W88-PAR-OPC4-OK VALUE \"60\",\"61\",\"62\",\"63\",\"65\",\"66\",\"67\",\n                             \"68\",\"69\",\"70\",\"71\",\"72\",\"73\",\"74\",\n                             \"75\",\"76\",\"77\",\"78\",\"79\",\"90\",\"91\",\n                             \"92\",\"93\",\"94\",\"95\",\"96\",\"97\",\"98\",\n                             \"99\",\"80\".\n    88 W88-PAR-OPC5-OK VALUE \"30\",\"31\".\n    88 W88-PAR-OPCE-OK VALUE \"EO\",\"E1\",\"E2\",\"E3\",\"E4\",\"E5\",\"E6\",\n                             \"E7\",\"E8\",\"E9\".\n    88 W88-PAR-OPCI-OK VALUE \"I1\".\n    02 FILLER                PIC X.\n    02 WKS-PAR-FECHA         PIC 9(08).\n    02 RD-WKS-PAR-FECHA      REDEFINES WKS-PAR-FECHA.\n       04 WKS-PAR-FEC-AAAA   PIC 9(04).\n       88 W88-PAR-AAAA-OK    VALUE 2000 THRU 2060.\n       04 WKS-PAR-FEC-MM     PIC 9(02).\n       88 W88-PAR-MM-OK      VALUE 01 THRU 12.\n       04 WKS-PAR-FEC-DD     PIC 9(02).\n       88 W88-PAR-DD-OK      VALUE 01 THRU 31.\n    02 FILLER                PIC X.\n    02 WKS-PAR-ARCH-CONSEC   PIC X(03).\n    02 RD-EKS-PAR-ARCH-CONS  REDEFINES WKS-PAR-ARCH-CONSEC.\n       04 WKS-PAR-ARCH-DIAG  PIC X(01).\n       88 W88-PAR-DIAG-OK    VALUE \"/\".\n       04 WKS-PAR-NUM-CONSEC PIC 9(02).\n       88 W88-PAR-CONSEC-OK  VALUE 01 THRU 99.\n    02 FILLER                PIC X.",
+          "java_codigo": "/** WKS-PARAM-ENT: \"OO AAAAMMDD /NN ...\" recibido por contenido desde el WFL. */\npublic record SolicitudTransferencia(String opcion, LocalDate fecha,\n                                     Optional<Integer> consecutivo, String extra) {\n\n    public enum Familia { HOST_MTY_VDM, HOST_VDM_MTY, DUMPALL_CINTA, INTELAR, AL_S274,\n                          EXTRACCION_E, OTRA }\n\n    private static final Set<String> OPC1 = rango(\"01\", \"27\");                       // MTY a VDM\n    private static final Set<String> OPC2 = Set.of(\"40\",\"41\",\"51\",\"52\",\"53\",\"54\",\"55\",\"56\",\"57\",\"58\");\n    private static final Set<String> OPC3 = rango(\"81\", \"89\");                       // DUMPALL\n    private static final Set<String> OPC5 = Set.of(\"30\", \"31\");                     // hacia S274\n\n    public Familia familia() {\n        if (OPC1.contains(opcion)) return Familia.HOST_MTY_VDM;\n        if (OPC2.contains(opcion)) return Familia.HOST_VDM_MTY;\n        if (OPC3.contains(opcion)) return Familia.DUMPALL_CINTA;\n        if (OPC5.contains(opcion)) return Familia.AL_S274;\n        return Familia.INTELAR;     // OPC4, A, B, C, D, E, M, P, R: 7003000-ENVIA-S022\n    }\n\n    /** Los nombres de archivo usan PIC 9(06): un MOVE desde 9(08) deja AAMMDD. */\n    public String fechaAammdd() { return fecha.format(DateTimeFormatter.ofPattern(\"yyMMdd\")); }\n}",
+          "racional": "El parámetro es un texto de posiciones fijas: opción de dos caracteres, fecha <code>9(08)</code> con sus partes redefinidas, un consecutivo opcional <code>/nn</code> y catorce posiciones extra. Las condiciones 88 agrupan las opciones en familias que deciden el mecanismo de transferencia. En Java la familia es un <code>enum</code> calculado a partir de conjuntos con nombre, y el despacho posterior se hace con un <code>switch</code> sobre ella en lugar de la cadena de IF. La fecha se modela como <code>LocalDate</code> y se formatea a AAMMDD solo al construir nombres de archivo, que es lo que provoca el MOVE de <code>9(08)</code> a <code>9(06)</code> del fuente.",
+          "reglas": [
+            "RN-S500-736"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Plantilla WFL de copia a cinta con SYSTEM/DUMPALL",
+          "linea_ini": 980,
+          "linea_fin": 994,
+          "origen_codigo": " 01 WKS-COPY-DUMPALL-81.\n    02 FILLER            PIC X(35) VALUE\n                         \"BEGIN JOB  S500/VDM/S036MOVTOS500; \".\n    02 FILLER            PIC X(28) VALUE\n                         \"RUN SYSTEM/DUMPALL (\"\"COPY \".\n    02 WKS-NOMB-ARCH-81  PIC X(37) VALUE\n                         \"(S500)S500/FILE/S036/10/10/MOVTOS500/\".\n    02 WKS-FECH-ARCH-81  PIC 9(06) VALUE 999999.\n    02 FILLER            PIC X(20) VALUE\n                         \" ON CAPTACION TO UL \".\n    02 FILLER            PIC X(28) VALUE\n                         \"(KIND=TAPE,TITLE=S500S036VDM\".\n    02 WKS-FEC2-ARCH-81  PIC 9(06) VALUE 999999.\n    02 FILLER            PIC X(03) VALUE\n                         \")\"\")\".",
+          "java_codigo": "# application.yml  (las 9 plantillas 81..89 dejan de estar compiladas)\np197:\n  dumpall:\n    \"81\":\n      job: \"S500/VDM/S036MOVTOS500\"\n      archivo: \"(S500)S500/FILE/S036/10/10/MOVTOS500/{aammdd}\"\n      pack: CAPTACION\n      cinta: \"S500S036VDM{aammdd}\"\n    # \"82\" .. \"89\": mismo formato\n\n// ---------------------------------------------------------------------\n@ConfigurationProperties(\"p197\")\npublic record P197Properties(Map<String, Dumpall> dumpall, Map<String, String> intelar) {\n\n    public record Dumpall(String job, String archivo, String pack, String cinta) {\n        /** Reproduce \"RUN SYSTEM/DUMPALL (\"COPY ... ON pack TO UL (KIND=TAPE,TITLE=...)\")\". */\n        public String comando(String aammdd) {\n            return \"BEGIN JOB  %s; RUN SYSTEM/DUMPALL (\\\"COPY %s ON %s TO UL (KIND=TAPE,TITLE=%s)\\\")\"\n                    .formatted(job, archivo.replace(\"{aammdd}\", aammdd), pack,\n                               cinta.replace(\"{aammdd}\", aammdd));\n        }\n    }\n}",
+          "racional": "Cada opción 81 a 89 tiene en <code>WORKING-STORAGE</code> un WFL completo que copia un archivo de un pack a cinta con <code>SYSTEM/DUMPALL</code>; solo cambian el job, el archivo, el pack y el título de la cinta. Se convierten en una plantilla parametrizable en <code>application.yml</code>. En el destino la copia a cinta deja de existir como tal y la sustituye el destino de respaldo que defina la arquitectura (almacenamiento de objetos o el gestor de archivos), pero la plantilla documenta qué archivo y con qué nombre se copiaba.",
+          "reglas": [
+            "RN-S500-736"
+          ],
+          "riesgo": "Las fechas de la plantilla tienen VALUE 999999; si el párrafo de opción no las sustituye, el WFL busca un archivo con fecha 999999."
+        },
+        {
+          "id": "s3",
+          "titulo": "HOSTNAME de la tarea a ambiente, CSI origen y host destino",
+          "linea_ini": 1563,
+          "linea_fin": 1683,
+          "origen_codigo": "     MOVE ATTRIBUTE HOSTNAME  OF MYSELF TO WKS-MY-HOST.\n     IF WKS-MY-HOST = \"ACYPBETA.           \"\n     OR WKS-MY-HOST = \"CACYPBET.           \"\n        MOVE 1 TO W77-ES-DESA\n     ELSE\n     IF WKS-MY-HOST = \"VDMALFA.            \"\n     OR WKS-MY-HOST = \"MONBETA.            \"\n     OR WKS-MY-HOST = \"CVDMALF.            \"\n     OR WKS-MY-HOST = \"CMONBET.            \"\n        MOVE 1 TO W77-ES-PROD\n    ELSE\n     IF WKS-MY-HOST = \"ACYPGAMA.           \"\n     OR WKS-MY-HOST = \"MONALFA.            \"\n     OR WKS-MY-HOST = \"ACYPOMEGA.          \"\n     OR WKS-MY-HOST = \"VDMKAPPA.           \"\n     OR WKS-MY-HOST = \"CACYPGAM.           \"\n     OR WKS-MY-HOST = \"CMONALF.            \"\n        MOVE 1 TO W77-ES-UAT\n     ELSE\n     IF WKS-MY-HOST = \"VDMBETA.            \"\n     OR WKS-MY-HOST = \"SITBETA.            \"\n     OR WKS-MY-HOST = \"CVDMBET.            \"\n        MOVE 1 TO W77-ES-SIT\n     ELSE\n        MOVE 1 TO W77-ES-UAT.\n     IF WKS-HOST-ORIG = \"ACYPBETA  \"\n        MOVE  04          TO WKS-CSI-ORIG\n        MOVE  10          TO WKS-CSI-DEST\n        MOVE \"VDMBETA   \" TO WKS-HOST-DEST\n     ELSE\n     IF WKS-HOST-ORIG = \"VDMBETA  \"\n        MOVE  10          TO WKS-CSI-ORIG\n        MOVE  04          TO WKS-CSI-DEST\n        IF WKS-SIT-PACKOK\n           MOVE \"SITBETA   \" TO WKS-HOST-DEST\n        ELSE\n           MOVE \"ACYPBETA  \" TO WKS-HOST-DEST\n     ELSE\n     IF WKS-HOST-ORIG = \"VDMALFA   \"\n        MOVE  10          TO WKS-CSI-ORIG\n        MOVE  04          TO WKS-CSI-DEST\n        MOVE \"MONBETA   \" TO WKS-HOST-DEST\n     ELSE\n     IF WKS-HOST-ORIG = \"MONBETA   \"\n        MOVE  04          TO WKS-CSI-ORIG\n        MOVE  10          TO WKS-CSI-DEST\n        MOVE \"VDMALFA   \" TO WKS-HOST-DEST\n     ELSE\n        STRING \"NO RECONOCE HOST-NAME  \" WKS-HOST-ORIG\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 70000050-CALL-LJ-MSG\n        MOVE 10 TO WKS-CSI-ORIG\n        MOVE 04 TO WKS-CSI-DEST\n        MOVE 1  TO W77-SIN-TRANSF.",
+          "java_codigo": "/** Topología que P197 deduce de ATTRIBUTE HOSTNAME OF MYSELF. */\n@ConfigurationProperties(\"p197.topologia\")\npublic record TopologiaHosts(Map<String, Host> hosts) {\n\n    public enum Ambiente { DESA, SIT, UAT, PROD }\n    public record Host(Ambiente ambiente, int csiOrigen, int csiDestino, String hostDestino) {}\n\n    /** Un host no registrado se trata como UAT y sin transferencia (W77-SIN-TRANSF = 1). */\n    public Optional<Host> resuelve(String hostname) {\n        return Optional.ofNullable(hosts.get(hostname.replace(\".\", \"\").trim()));\n    }\n}\n\n# application.yml\np197:\n  topologia:\n    hosts:\n      MONBETA:  { ambiente: PROD, csi-origen: 4,  csi-destino: 10, host-destino: VDMALFA }\n      VDMALFA:  { ambiente: PROD, csi-origen: 10, csi-destino: 4,  host-destino: MONBETA }\n      ACYPBETA: { ambiente: DESA, csi-origen: 4,  csi-destino: 10, host-destino: VDMBETA }\n      VDMBETA:  { ambiente: SIT,  csi-origen: 10, csi-destino: 4,  host-destino: ACYPBETA }  # SITBETA si SIT-PACKOK\n      # ACYPGAMA, MONALFA, ACYPOMEGA, VDMKAPPA y la réplica Citi (C*) siguen el mismo patrón",
+          "racional": "El programa no recibe el ambiente: lo infiere del nombre del host en que corre. Con ese nombre fija el ambiente (desarrollo, SIT, UAT o producción), el CSI origen (04 Monterrey, 10 Valle de México), el CSI destino y el host al que se copia. La matriz está escrita como una cadena de IF con nombres de máquina literales. En Java se vuelve una tabla en <code>application.yml</code>, lo que permite agregar o retirar hosts sin recompilar y hace explícito que un host desconocido no transfiere. En la plataforma destino el ambiente lo da el perfil de Spring, no el nombre de la máquina.",
+          "reglas": [
+            "RN-S500-734"
+          ],
+          "riesgo": "Un host que no aparece en la primera lista se clasifica como UAT por defecto (línea 1589). Si además no está en la matriz de destinos, el programa registra NO RECONOCE HOST-NAME, asume CSI 10 a 04 y no transfiere."
+        }
+      ]
+    },
+    {
+      "titulo": "Control, validación y despacho de la transferencia",
+      "origen": {
+        "archivo": "S500_SOURCE_P197.txt",
+        "contexto": "PROCEDURE DIVISION · 0000000-CTRLPGM / 1000200 / 5000000 / 5002000"
+      },
+      "java": {
+        "archivo": "TransferenciaFlowConfig.java · ValidadorSolicitud.java · XferGateway.java",
+        "contexto": "IntegrationFlow · router · @MessagingGateway"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Rutina principal y validación del parámetro",
+          "linea_ini": 1532,
+          "linea_fin": 1891,
+          "origen_codigo": " 0000000-CTRLPGM.\n     PERFORM 1000100-LIBS.\n     PERFORM 1000000-INICIO.\n     IF W77-SIN-TRANSF = 0\n        PERFORM 1000200-VALIDA-PARAM\n        PERFORM 5000000-PRINCIPAL\n     ELSE\n        MOVE 9 TO W77-SAL-RESULT.\n     SET MYSELF (TASKVALUE)  TO W77-SAL-RESULT.\n     STOP RUN.\n 1000200-VALIDA-PARAM.\n     MOVE    W77-PARAM-WFL      TO WKS-PARAM-ENT.\n     IF (W88-PAR-OPC1-OK OR W88-PAR-OPC2-OK OR W88-PAR-OPC3-OK OR\n         W88-PAR-OPC4-OK OR W88-PAR-OPC5-OK OR W88-PAR-OPCE-OK OR\n         W88-PAR-OPCA-OK OR W88-PAR-OPCB-OK OR W88-PAR-OPCR-OK OR\n         W88-PAR-OPCM-OK OR W88-PAR-OPCP-OK OR W88-PAR-OPCC-OK OR\n         W88-PAR-OPCD-OK OR W88-PAR-OPCI-OK)\n    AND (WKS-PAR-FECHA  IS NUMERIC)\n    AND (WKS-PAR-FEC-AAAA  > 2016 AND < 2061)\n    AND (W88-PAR-MM-OK)\n    AND (W88-PAR-DD-OK)\n        IF WKS-PAR-OPCION = \"96\"\n        ELSE\n           MOVE WKS-PAR-OPCION TO WKS-QUE-OPC\n           PERFORM 1000400-PARAM-FIJO\n     ELSE\n        STRING \"ERR PARAM RECIBIDO <\",WKS-PARAM-ENT,\">\",\n               \", OPCION DE 01-19, 30, 40-41, 51-55,60-61,70-71\",\n               \",81-89 \",\n               \", 90-97, A1-F4, B1-G4, R1-H4, M1-M5, P1-P5 \",\n               \", C1-C2, D1-D2, EO, E1-E9\",\n               \"FECHA AAAAMMDD \", WKS-FIN-MSG\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 70000050-CALL-LJ-MSG\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "@Component\npublic class ValidadorSolicitud {\n\n    private final int anioMin, anioMax;   // hoy compilados: > 2016 y < 2061\n\n    public ValidadorSolicitud(@Value(\"${p197.anio-min:2017}\") int anioMin,\n                              @Value(\"${p197.anio-max:2060}\") int anioMax) {\n        this.anioMin = anioMin; this.anioMax = anioMax;\n    }\n\n    /** 1000200-VALIDA-PARAM: opción conocida y fecha AAAAMMDD válida. */\n    public SolicitudTransferencia valida(String paramWfl) {\n        var s = SolicitudParser.parse(paramWfl);          // lanza si la fecha no es numérica\n        int anio = s.fecha().getYear();\n        if (!OpcionesConocidas.contiene(s.opcion()) || anio < anioMin || anio > anioMax) {\n            throw new ParametroInvalidoException(\"ERR PARAM RECIBIDO <\" + paramWfl + \">\");\n        }\n        if (\"96\".equals(s.opcion()) && s.consecutivo().isEmpty()) {\n            throw new ParametroInvalidoException(\"OPCION 96 FECHA AAAAMMDD , CONSECUTIVO /nn\");\n        }\n        return s;\n    }\n}\n\n/** 0000000-CTRLPGM: el resultado se devuelve al WFL vía TASKVALUE. */\n@Bean\nIntegrationFlow transferencia(ValidadorSolicitud v, TopologiaHosts topo) {\n    return IntegrationFlow.from(\"p197.entrada\")\n            .transform(String.class, v::valida)\n            .enrichHeaders(h -> h.headerFunction(\"host\", m -> topo.resuelve(hostname())))\n            .route(SolicitudTransferencia.class, SolicitudTransferencia::familia, r -> r\n                    .channelMapping(Familia.HOST_MTY_VDM, \"xfer\")\n                    .channelMapping(Familia.HOST_VDM_MTY, \"xfer\")\n                    .channelMapping(Familia.AL_S274, \"xferS274\")\n                    .channelMapping(Familia.DUMPALL_CINTA, \"dumpall\")\n                    .defaultOutputChannel(\"intelar\"))\n            .get();\n}",
+          "racional": "La rutina principal carga librerías, deduce la topología y, si el host se reconoce, valida el parámetro y despacha; en caso contrario devuelve 9 en el <code>TASKVALUE</code>. La validación exige una opción conocida y una fecha numérica con año entre 2017 y 2060, mes 01 a 12 y día 01 a 31; la opción 96 requiere además el consecutivo. Un parámetro inválido termina la tarea con estado de error. En Spring Integration esto es un <code>IntegrationFlow</code> con un transformador que valida y un <code>router</code> por familia de opción, que es el patrón del arquetipo A4. El rango de años pasa a propiedades.",
+          "reglas": [
+            "RN-S500-736"
+          ],
+          "riesgo": "El rango de años está compilado (> 2016 y < 2061): a partir de 2061 todas las corridas fallan. El día se valida solo entre 01 y 31, sin considerar el mes, por lo que 20260231 se acepta."
+        },
+        {
+          "id": "s5",
+          "titulo": "Despacho por familia de opción",
+          "linea_ini": 2519,
+          "linea_fin": 2542,
+          "origen_codigo": " 5000000-PRINCIPAL.\n     IF W88-PAR-OPC1-OK OR W88-PAR-OPC2-OK OR W88-PAR-OPCI-OK\n        PERFORM 5001000-ARMA-PARAM\n     ELSE\n     IF W88-PAR-OPC5-OK\n        IF W77-SI-AL-274 = 1 OR WKS-PAR-OPCION = \"31\"\n*          IF WKS-HOST-ORIG-XFER-XX = WKS-HOST-DEST-XFER-XX\n*             STRING \"NO TRANSFIERE AL MISMO HOST \",\n*                 WKS-QUSERDEST-XFER-XX, WKS-ARCHIDEST-XFER-XX\n*                 \" AL PACK \", WKS-PACK-DEST-XFER-XX\n*              DELIMITED BY SIZE INTO TEXTO-LJ\n*             PERFORM 70000050-CALL-LJ-MSG\n*          ELSE\n           PERFORM 5001000-ARMA-PARAM\n        ELSE\n           NEXT SENTENCE\n     ELSE\n     IF W88-PAR-OPC3-OK\n        PERFORM 5002000-LLAMA-DMPALL\n     ELSE\n        PERFORM 7003000-ENVIA-S022.",
+          "java_codigo": "@Bean\nIntegrationFlow xferS274(XferGateway xfer, Control274 control) {\n    // OPC5 solo transfiere si B02-NVOHOST-S274 habilita el host del ambiente, o si la opción es 31\n    return IntegrationFlow.from(\"xferS274\")\n            .filter(SolicitudTransferencia.class,\n                    s -> control.envioAlS274Habilitado() || \"31\".equals(s.opcion()),\n                    f -> f.discardChannel(\"nullChannel\"))       // NEXT SENTENCE: no hace nada\n            .handle(xfer, \"envia\")\n            .get();\n}",
+          "racional": "Las opciones de copia entre hosts (01 a 27, 40 a 58 e I1) arman el comando ADD y llaman a XFER. Las opciones 30 y 31 hacia S274 solo se ejecutan si la base de control habilita el envío al S274 en ese ambiente o si la opción es 31; si no, el programa termina sin hacer nada y sin avisar. Las 81 a 89 lanzan DUMPALL y el resto se envía por INTELAR. En Java la condición del S274 es un <code>filter</code> cuyo descarte va al <code>nullChannel</code>, que reproduce el <code>NEXT SENTENCE</code>, aunque convendría registrar el descarte.",
+          "reglas": [],
+          "riesgo": "Una opción 30 con el envío al S274 deshabilitado termina con TASKVALUE 0, igual que una transferencia exitosa."
+        },
+        {
+          "id": "s6",
+          "titulo": "Comando ADD a la librería XFER con transferencia manual de respaldo",
+          "linea_ini": 2545,
+          "linea_fin": 2584,
+          "origen_codigo": " 5001000-ARMA-PARAM.\n     MOVE ZERO               TO WS-TRF-RESULT.\n     MOVE SPACES             TO WS-TRF-COMANDO.\n     MOVE 192                TO WS-TRF-TAMACOM.\n     MOVE WKS-PARAM-XFER-XX  TO WS-TRF-COMANDO.\n     IF (WKS-PAR-OPCION = \"17\" AND B02-IND-ENVIOS711 > 0)\n        NEXT SENTENCE\n     ELSE\n        PERFORM 5002000-LLAMA-XFER.\n 5002000-LLAMA-XFER.\n     CALL \"ENVIA_XFER IN XFER\"\n           USING  WS-TRF-COMANDO\n                  WS-TRF-TAMACOM\n          GIVING  WS-TRF-RESULT.\n     MOVE WS-TRF-RESULT  TO W77-SAL-RESULT.\n     IF WS-TRF-RESULT > 0\n        MOVE \"O\" TO TIPO-LJ\n        STRING \" ERR CALL LIB XFER RS=\" W77-SAL-RESULT\n               \" TRANSFERIR MANUAL: \" WS-TRF-COMANDO,\n               \" OK PARA CONTINUAR \" WKS-FIN-MSG\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 70000050-CALL-LJ-MSG\n        MOVE \"E\"  TO TIPO-LJ\n     ELSE\n        STRING \" ENVIO \" WKS-QUSERDEST-XFER-XX\n                         WKS-ARCHIDEST-XFER-XX\n                     \" \" WKS-HOST-DEST-XFER-XX\n                     \"(\" WKS-PACK-DEST-XFER-XX \")\"\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 70000050-CALL-LJ-MSG.",
+          "java_codigo": "/** WKS-PARAM-XFER-XX: \" ADD  (U)archivo AS (U)archivo FROM pack,host TO pack,host\" (192 bytes). */\npublic record ComandoXfer(String usuarioOrigen, String archivoOrigen, String usuarioDestino,\n                          String archivoDestino, String packOrigen, String hostOrigen,\n                          String packDestino, String hostDestino) {\n    public String texto() {\n        return \" ADD  %s%s AS %s%s FROM %s,%s TO %s,%s\".formatted(usuarioOrigen, archivoOrigen,\n                usuarioDestino, archivoDestino, packOrigen, hostOrigen, packDestino, hostDestino);\n    }\n}\n\n@Service\n@RequiredArgsConstructor\npublic class XferAdapter {\n    private final FileTransferClient transferencias;   // sustituye ENVIA_XFER IN XFER\n    private final Control274 control;\n\n    @ServiceActivator(inputChannel = \"xfer\")\n    public int envia(SolicitudTransferencia s, ComandoXfer cmd) {\n        if (\"17\".equals(s.opcion()) && control.indicadorEnviosS711() > 0) {\n            return 0;                                   // la opción 17 se omite si B02-IND-ENVIOS711 > 0\n        }\n        int rs = transferencias.copia(cmd);\n        if (rs > 0) {\n            log.error(\" ERR CALL LIB XFER RS={} TRANSFERIR MANUAL: {}\", rs, cmd.texto());\n        } else {\n            log.info(\" ENVIO {}{} {}({})\", cmd.usuarioDestino(), cmd.archivoDestino(),\n                     cmd.hostDestino(), cmd.packDestino());\n        }\n        return rs;                                      // W77-SAL-RESULT -> TASKVALUE\n    }\n}",
+          "racional": "El comando de copia es un texto de 192 posiciones que la librería XFER interpreta: usuario y archivo de origen y destino, y pack y host en cada lado. Se conserva como <code>record</code> con un método que produce exactamente ese texto, útil para la bitácora y para la transferencia manual que el mensaje de error pide al operador. El resultado de XFER es lo único que el programa devuelve al WFL. La opción 17 se omite cuando la base de control indica que los envíos al S711 ya se hacen por otro camino.",
+          "reglas": [],
+          "riesgo": "Ante un error de XFER el programa no reintenta: muestra el comando para que el operador lo ejecute a mano y continúe."
+        },
+        {
+          "id": "s7",
+          "titulo": "Lanzamiento del WFL DUMPALL sin verificar el resultado",
+          "linea_ini": 2587,
+          "linea_fin": 2617,
+          "origen_codigo": " 5002000-LLAMA-DMPALL.\n     MOVE 0 TO W77-SAL-RESULT.\n     IF WKS-PAR-OPCION = \"81\"\n        CALL  SYSTEM WFL  USING WKS-COPY-DUMPALL-81\n     ELSE\n     IF WKS-PAR-OPCION = \"82\"\n        CALL  SYSTEM WFL  USING WKS-COPY-DUMPALL-82\n     ELSE\n     IF WKS-PAR-OPCION = \"83\"\n        CALL  SYSTEM WFL  USING WKS-COPY-DUMPALL-83\n     ELSE\n     IF WKS-PAR-OPCION = \"84\"\n        CALL  SYSTEM WFL  USING WKS-COPY-DUMPALL-84\n     IF WKS-PAR-OPCION = \"89\"\n        CALL  SYSTEM WFL  USING WKS-COPY-DUMPALL-89\n     ELSE\n        MOVE 9 TO W77-SAL-RESULT.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class DumpallAdapter {\n    private final P197Properties props;\n    private final OrquestadorClient orquestador;    // sustituye CALL SYSTEM WFL\n\n    @ServiceActivator(inputChannel = \"dumpall\")\n    public int lanza(SolicitudTransferencia s) {\n        var plantilla = props.dumpall().get(s.opcion());\n        if (plantilla == null) return 9;              // opción fuera de 81..89\n        var ejecucion = orquestador.lanza(plantilla.comando(s.fechaAammdd()));\n        // El COBOL devuelve 0 sin esperar ni revisar el WFL; aquí se espera el resultado.\n        return ejecucion.esperaResultado(Duration.ofMinutes(30)).exitoso() ? 0 : 1;\n    }\n}",
+          "racional": "Para las opciones 81 a 89 el programa lanza con <code>CALL SYSTEM WFL</code> la plantilla correspondiente y deja el resultado en cero, sin revisar si el WFL terminó bien. La traducción busca la plantilla en la configuración y espera el resultado de la ejecución, lo que es un cambio de comportamiento deliberado que se deja documentado. Si se quiere equivalencia estricta, basta con devolver cero tras lanzar.",
+          "reglas": [
+            "RN-S500-736"
+          ],
+          "riesgo": "Un DUMPALL fallido no se refleja en el TASKVALUE de P197: el WFL que llamó al programa lo da por exitoso."
+        }
+      ]
+    },
+    {
+      "titulo": "Envío por INTELAR con reintentos",
+      "origen": {
+        "archivo": "S500_SOURCE_P197.txt",
+        "contexto": "PROCEDURE DIVISION · 9000000 / 9000001 / 7004680-ENVIA-MOTOR"
+      },
+      "java": {
+        "archivo": "IntelarAdapter.java",
+        "contexto": "@ServiceActivator · RetryTemplate"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Dos intentos con espera de 60 segundos y control de residencia",
+          "linea_ini": 3987,
+          "linea_fin": 4096,
+          "origen_codigo": " 9000000-ENVIA-INTELAR.\n   MOVE 0                            TO WKS-INTENTOS\n   MOVE SPACES                       TO WS-ARCH-SDOS.\n   MOVE ZEROS                        TO WS77-INTELAR-RESULT.\n   MOVE WKS-ARCHIVO-ENVIAR           TO WS-ARCH-SDOS.\n   PERFORM 9000001-CALL-INTELARSND UNTIL WKS-INTENTOS = 2.\n 9000001-CALL-INTELARSND.\n   CALL \"INTELARSND IN ADMONXFERS\" USING WS-ARCH-SDOS\n                                   GIVING WS77-INTELAR-RESULT.\n   IF WS77-INTELAR-RESULT NOT = 0\n      ADD 1                       TO WKS-INTENTOS\n      IF WKS-INTENTOS = 2\n         MOVE \"O\"                 TO TIPO-LJ\n         MOVE WS77-INTELAR-RESULT TO WS-RESULT-N1\n         STRING \"ERROR AL ENVIAR ARCHIVO \" WKS-NOMBRE-ARCH\n         DELIMITED BY \"  \"\n         \" RS=\" WS-RESULT-N1 \" TRANSFERIR MANUAL OPC=\"\n         WKS-OPCION-ARCH DELIMITED BY \"  \"\n         \" OK PARA CONTINUAR \" WKS-FIN-MSG\n         DELIMITED BY SIZE INTO TEXTO-LJ\n         PERFORM 70000050-CALL-LJ-MSG\n      ELSE\n         WAIT (60)\n   ELSE\n      MOVE 2                         TO WKS-INTENTOS\n      MOVE \"E\"                       TO TIPO-LJ\n      STRING \"ARCHIVO \" WKS-NOMBRE-ARCH DELIMITED BY \"  \"\n      \" ENVIADO\" DELIMITED BY SIZE INTO TEXTO-LJ\n      PERFORM 70000050-CALL-LJ-MSG .\n 9000001-ENVIA-O-RECHAZA.\n*========================\n   CHANGE ATTRIBUTE TITLE OF ARCH-RESIDENTE TO WKS-ARCHIVO-ENVIAR\n   IF ATTRIBUTE RESIDENT OF ARCH-RESIDENTE = VALUE TRUE\n      PERFORM 9000000-ENVIA-INTELAR\n   ELSE\n      PERFORM 9000002-ERROR-RESIDENTE.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class IntelarAdapter {\n\n    private final IntelarClient intelar;             // INTELARSND IN ADMONXFERS\n    private final ArchivoResolver archivos;          // ATTRIBUTE RESIDENT\n\n    private final RetryTemplate reintento = RetryTemplate.builder()\n            .maxAttempts(2)                            // UNTIL WKS-INTENTOS = 2\n            .fixedBackoff(60_000)                      // WAIT (60)\n            .retryOn(IntelarException.class)\n            .build();\n\n    /** 9000000-ENVIA-INTELAR. */\n    public void envia(EnvioIntelar e) {\n        try {\n            reintento.execute(ctx -> {\n                int rs = intelar.envia(e.archivo());\n                if (rs != 0) throw new IntelarException(rs);\n                log.info(\"ARCHIVO {} ENVIADO\", e.nombre());\n                return null;\n            });\n        } catch (IntelarException ex) {\n            // Mensaje al operador; el TASKVALUE no cambia y el paso termina normal.\n            log.error(\"ERROR AL ENVIAR ARCHIVO {} RS={} TRANSFERIR MANUAL OPC={}\",\n                      e.nombre(), ex.rs(), e.opcionManual());\n        }\n    }\n\n    /** 9000001-ENVIA-O-RECHAZA: solo envía si el archivo existe. */\n    public void enviaSiResidente(EnvioIntelar e) {\n        if (archivos.existe(e.archivo())) envia(e);\n        else log.error(\"ERROR AL ENVIAR ARCHIVO {} NO RESIDENTE\", e.nombre());\n    }\n}",
+          "racional": "El envío genérico por INTELAR hace hasta dos intentos con una espera de 60 segundos entre ellos y, si ambos fallan, deja un mensaje con la opción que el operador debe correr para transferir a mano. Algunas opciones verifican antes que el archivo exista con <code>ATTRIBUTE RESIDENT</code>. En Java el ciclo de intentos es un <code>RetryTemplate</code> con espera fija y la verificación de residencia es una consulta previa al almacenamiento. Se conserva que el error no cambie el resultado del paso, pero se recomienda publicarlo como alerta.",
+          "reglas": [
+            "RN-S500-735"
+          ],
+          "riesgo": "Un envío INTELAR fallido no modifica W77-SAL-RESULT, así que la tarea devuelve TASKVALUE 0 y el WFL continúa como si el archivo se hubiera entregado."
+        },
+        {
+          "id": "s9",
+          "titulo": "Opción 66: envío del archivo MOTOR solo desde Monterrey",
+          "linea_ini": 3530,
+          "linea_fin": 3566,
+          "origen_codigo": " 7004680-ENVIA-MOTOR.\n       MOVE SPACES                       TO WS-ARCH-SDOS.\n       MOVE ZEROS                        TO WS77-INTELAR-RESULT.\n       MOVE WKS-ARCH-66-MOTOR            TO WS-ARCH-SDOS.\n       CALL \"INTELARSND IN ADMONXFERS\"\n                                  USING WS-ARCH-SDOS\n                                  GIVING WS77-INTELAR-RESULT.\n*\n       IF WS77-INTELAR-RESULT NOT = 0\n          WAIT (30)\n          MOVE SPACES                    TO WS-ARCH-SDOS\n          MOVE ZEROS                     TO WS77-INTELAR-RESULT\n          MOVE WKS-ARCH-66-MOTOR    TO WS-ARCH-SDOS\n          CALL \"INTELARSND IN ADMONXFERS\"\n                                     USING WS-ARCH-SDOS\n                                     GIVING WS77-INTELAR-RESULT\n*\n          IF WS77-INTELAR-RESULT NOT = 0\n             MOVE \"O\"                 TO TIPO-LJ\n             MOVE WS77-INTELAR-RESULT TO WS-RESULT-N1\n             STRING \"ERROR AL ENVIAR \" WKS-ARCH-66-MOTOR\n                    \" RS=\"               WS-RESULT-N1\n                    \" TRANSFERIR MANUAL OPC=60 AAAAMMDD\"\n                    \" OK PARA CONTINUAR \" WKS-FIN-MSG\n             DELIMITED BY SIZE INTO TEXTO-LJ\n             PERFORM 70000050-CALL-LJ-MSG\n          ELSE\n             MOVE \"E\"                          TO TIPO-LJ\n             STRING \"ARCHIVO \" WKS-ARCH-66-MOTOR \" ENVIADO\"\n                    DELIMITED BY SIZE INTO TEXTO-LJ\n             PERFORM 70000050-CALL-LJ-MSG\n       ELSE\n          MOVE \"E\"                           TO TIPO-LJ\n          STRING \"ARCHIVO \" WKS-ARCH-66-MOTOR \" ENVIADO\"\n                  DELIMITED BY SIZE INTO TEXTO-LJ\n          PERFORM 70000050-CALL-LJ-MSG.",
+          "java_codigo": "/** 7004680-ENVIA-MOTOR. Se despacha solo con opción 66 y CSI origen 04 (línea 2649). */\npublic void enviaMotor(SolicitudTransferencia s, TopologiaHosts.Host host) {\n    if (host.csiOrigen() != 4) {\n        return;                                      // en VDM la opción 66 no hace nada\n    }\n    String archivo = props.intelar().get(\"66\")      // S500/FILE/INTS/50009S01/04/{aaaammdd}/MOTOR.\n            .replace(\"{aaaammdd}\", s.fecha().format(DateTimeFormatter.BASIC_ISO_DATE));\n    var e = new EnvioIntelar(archivo, \"MOTOR\", \"66 AAAAMMDD\");\n    RetryTemplate.builder().maxAttempts(2).fixedBackoff(30_000)   // WAIT (30)\n            .retryOn(IntelarException.class).build()\n            .execute(ctx -> enviaUnaVez(e), ctx -> { reportaFalla(e); return null; });\n}",
+          "racional": "La opción 66 tiene su propio párrafo: envía el archivo MOTOR de la ruta 50009S01 del nodo 04, reintenta una vez tras 30 segundos y, si vuelve a fallar, pide transferencia manual. El despacho solo lo invoca cuando el CSI origen es 04, de modo que en Valle de México la opción no hace nada. La ruta con el nodo 04 fijo y la condición de plaza se trasladan a configuración. Se corrige en el mensaje la opción manual a 66.",
+          "reglas": [
+            "RN-S500-737"
+          ],
+          "riesgo": "El mensaje de error pide TRANSFERIR MANUAL OPC=60 (línea 3553), pero la opción 60 envía COMPENDEPP, no MOTOR: el operador que siga la instrucción enviará un archivo distinto."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Fallas de envío invisibles para el WFL",
+      "detalle": "Solo XFER (5002000-LLAMA-XFER) y el caso de opción DUMPALL desconocida modifican W77-SAL-RESULT. Las fallas de INTELAR y de los WFL DUMPALL terminan con TASKVALUE 0."
+    },
+    {
+      "titulo": "Instrucción manual equivocada en la opción 66",
+      "detalle": "7004680-ENVIA-MOTOR indica al operador transferir con OPC=60 (línea 3553), que corresponde a otro archivo."
+    },
+    {
+      "titulo": "Topología compilada",
+      "detalle": "Los nombres de host de todos los ambientes, sus CSI y destinos, y los packs CAPTACION, EMPRESAS y otros están escritos en el programa. Cualquier cambio de máquina obliga a recompilar. Un host no listado se trata como UAT."
+    },
+    {
+      "titulo": "Validación de fecha incompleta y con vigencia",
+      "detalle": "El año debe estar entre 2017 y 2060 y el día entre 01 y 31 sin validar contra el mes."
+    },
+    {
+      "titulo": "Descartes silenciosos",
+      "detalle": "La opción 30 sin envío al S274 habilitado, la 17 con B02-IND-ENVIOS711 mayor que cero y la 66 desde VDM terminan sin hacer nada y sin mensaje de advertencia."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-735 menciona un comando de transferencia manual como fallback; en el fuente el fallback es solo un mensaje al operador con la opción a ejecutar, no un comando automático.",
+    "Confirmar el significado de B02-NVOHOST-S274 y de los indicadores WKS-PROD-PACKOK, WKS-PROD-MTYOK, WKS-PROD-VDMOK y equivalentes de UAT y SIT, que se derivan de ese campo en una parte del código no revisada.",
+    "Confirmar si la opción 61, que ejecuta 7004690-ENVIA-INCIDENTE 3 TIMES (línea 2638), debe enviar tres veces el mismo archivo.",
+    "Confirmar que la sustitución del respaldo a cinta (DUMPALL) por otro destino es aceptable para auditoría.",
+    "No se revisaron una por una las más de 60 opciones de archivo; la traducción muestra el patrón con las opciones 01, 66 y 81."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-807",
+    "RN-S151-808",
+    "RN-S151-809",
+    "RN-S151-810",
+    "RN-S151-811",
+    "RN-S500-734",
+    "RN-S500-735",
+    "RN-S500-736",
+    "RN-S500-737"
+  ]
+}

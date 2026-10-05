@@ -1,0 +1,184 @@
+{
+  "slug": "S500_P400",
+  "sistema": "S500",
+  "programa": "P400",
+  "nombre": "Dispersión de Movimientos de Tarjetas a Estado de Cuenta",
+  "funcion": "Paso batch de S500 (PROGRAM-ID S500P400) que, en modo TARJETADIA o TARJETASEM, toma los movimientos de tarjeta del S111 y de banca electrónica EAS/ECMS, resuelve contrato, sucursal y CSI de cada uno y los reparte en archivos MOVSTBINTER para Monterrey (CSI 04) y Valle de México (CSI 10).",
+  "resumen": "El parámetro del data set decide si la corrida es diaria o semanal. Mientras haya archivos pendientes según las fechas de B02, P400 procesa primero el del S111 y luego el de ECMS: valida que el header traiga la fecha de proceso y el sistema emisor esperado, lee cada detalle, mapea la clave de transacción, obtiene el contrato y la sucursal promotora con las librerías S500 L040 y S016 L422 y, con la sucursal, el CSI vía S080. Cada movimiento se escribe en el archivo de su CSI con header y trailer propios. Al final compara el trailer de entrada contra lo leído; si no cuadra, salvo en una ventana de fechas de diciembre de 2011, pregunta al operador si se procesa de todos modos y le pide el SOEID de quien autoriza, o purga las salidas. Después actualiza B02 y lanza el WFL P197 para enviar los archivos a Monterrey.",
+  "arquetipo": "A6",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.tarjetas.dispersion",
+  "secciones": [
+    {
+      "titulo": "Modo de corrida y selección de archivos pendientes",
+      "origen": {
+        "archivo": "S500_SOURCE_P335.txt",
+        "contexto": "00000000-PRINCIPAL · 31000000-PROCESOS · 31200000-VALIDAR-ARCH-PEND"
+      },
+      "java": {
+        "archivo": "DispersionTarjetasJobConfig.java · ArchivosPendientesDecider.java",
+        "contexto": "Spring Batch Flow · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "TARJETADIA o TARJETASEM a parámetro del job",
+          "linea_ini": 1535,
+          "linea_fin": 1562,
+          "origen_codigo": " 00000000-PRINCIPAL.\n     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO WKS-NAME-HOST.\n     MOVE 2              TO W77-USO-LIBLJ.\n     MOVE \"P400\"         TO WS-0101-PASO-MSG B91-IDPROG.\n     MOVE \"25MTP011\"     TO WS-0101-MTP-MSG  W77-S000-MY-VERSION.\n     MOVE \"S500P400\"     TO W77-S000-MY-ID\n     PERFORM 10000000-LIBRERIAS THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN      THRU 20000000-EXIT.\n**INI-EASF5\n     IF WS-TAR-DS = \"TARJETADIA\" OR \"TARJETASEM\"\n        PERFORM 30000000-PROCESO   THRU 30000000-EXIT.\n**FIN-EASF5\n     DISALLOW  INTERRUPT.\n*     PERFORM 70000000-CIERRO    THRU 70000000-EXIT.\n     STOP RUN.",
+          "java_codigo": "public enum Ciclo { DIARIO, SEMANAL;\n    /** WS-TAR-DS: \"TARJETADIA\" es diario; \"TARJETASEM\" semanal; cualquier otro no procesa. */\n    static Optional<Ciclo> de(String dataSet) {\n        return switch (dataSet) {\n            case \"TARJETADIA\" -> Optional.of(DIARIO);\n            case \"TARJETASEM\" -> Optional.of(SEMANAL);\n            default           -> Optional.empty();\n        };\n    }\n}\n\n@Bean\nJob dispersionTarjetas(JobRepository repo, Step librerias, Step apertura,\n                       ArchivosPendientesDecider pendientes,\n                       Step procesaS111, Step procesaEcms, Step cierraYEnviaP197) {\n    return new JobBuilder(\"S500P400\", repo)\n            .start(librerias).next(apertura)             // 10000000-LIBRERIAS, 20000000-OPEN\n            .next(pendientes)\n              .on(\"S111\").to(procesaS111).next(cierraYEnviaP197).next(pendientes)\n            .from(pendientes).on(\"ECMS\").to(procesaEcms).next(cierraYEnviaP197).next(pendientes)\n            .from(pendientes).on(\"NINGUNO\").end()\n            .end().build();\n}",
+          "racional": "El programa recibe el modo en el nombre del data set: <code>TARJETADIA</code> o <code>TARJETASEM</code>; los drivers anteriores de la versión STEFANINI EAS siguen en el fuente pero comentados. En Spring Batch el ciclo es un parámetro del job y el ciclo de <code>31000000-PROCESOS</code>, que procesa un archivo pendiente por vuelta y vuelve a evaluar, se expresa con un <code>JobExecutionDecider</code> que regresa al mismo punto hasta que no quedan archivos.",
+          "reglas": [
+            "RN-S500-531"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Archivos pendientes por fecha y prioridad S111 antes que ECMS",
+          "linea_ini": 2477,
+          "linea_fin": 2550,
+          "origen_codigo": " 31000000-PROCESOS.\n  MOVE ZEROS TO ARCHPEND-S111  ARCHPEND-EAS  ARCH-A-PROCESAR\n                WS-PROCESO-1-ARCH  WS-OMITIR-RESI WS-NO-PROCESO.\n  IF (WS-FECHA-PRO      < WS-FECHA-MAQ  AND WS-B02-DECOM-S111 = 0)\n      OR\n     (WS-FECHA-PRO-EAS  < WS-FECHA-LINE AND WS-OMITIR-ECMS    = 0)\n*    ENCENDER BANDERAS DE ARCHIVOS PENDIENTES\n     PERFORM 31200000-VALIDAR-ARCH-PEND THRU 31200000-EXIT\n*    LOGICA PARA PROCESAR ARCHIVOS , PRIORIDAD S111 LUEGO ECMS\n     PERFORM 31300001-PROCESAR-ARCH     THRU 31300001-EXIT\n             UNTIL WS-PROCESO-1-ARCH = 1 OR WS-NO-PROCESO = 1\n     IF WS-NO-PROCESO = 0\n*       PROYECTA SIG FEC, ACT FEC B02 Y CIERRA ARCHIVOS\n        PERFORM 31400000-PROY-ACT-CIERRA    THRU 31400000-EXIT\n     ELSE\n*       NO PROCESO NINGUN ARCHIVO POR ALGUN ERROR DE TRAILER\n        NEXT SENTENCE\n  ELSE\n***   NO EXISTE ARCHIVOS PENDIENTES A PROCESAR ***\n      MOVE 1             TO WS-FIN-PROCESOS.\n 31200000-VALIDAR-ARCH-PEND.\n   IF WS-FECHA-PRO <  WS-FECHA-MAQ AND WS-B02-DECOM-S111 = 0\n      MOVE 1 TO ARCHPEND-S111.\n   IF WS-FECHA-PRO-EAS < WS-FECHA-LINE\n      MOVE 1 TO ARCHPEND-EAS.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ArchivosPendientesDecider implements JobExecutionDecider {\n\n    private final ControlCaptacionRepository b02;\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        var c = b02.findControl().orElseThrow();\n        boolean pendS111 = c.fechaProS111().isBefore(c.fechaMaquina()) && !c.decomisoS111();   // WS-B02-DECOM-S111\n        boolean pendEcms = c.fechaProEas().isBefore(c.fechaLinea()) && !c.omitirEcms();\n\n        if (pendS111) return new FlowExecutionStatus(\"S111\");   // WS-INT-CONTROL: 88 ARCH-S111 = 1\n        if (pendEcms) return new FlowExecutionStatus(\"ECMS\");   // 88 ARCH-ECMS = 2\n        return new FlowExecutionStatus(\"NINGUNO\");              // WS-FIN-PROCESOS = 1\n    }\n}",
+          "racional": "Un archivo del S111 está pendiente mientras su fecha de proceso sea anterior a la fecha de máquina y no esté encendido el decomiso del S111 en B02; uno de ECMS, mientras su fecha sea anterior a la fecha de línea. Primero se procesa el del S111 y luego el de ECMS, y tras cada uno se proyecta la siguiente fecha y se actualiza B02, de modo que un atraso de varios días se recupera en la misma corrida. El decider reproduce esa prioridad.",
+          "reglas": [
+            "RN-S500-532"
+          ],
+          "riesgo": "31200000-VALIDAR-ARCH-PEND enciende ARCHPEND-EAS sin revisar WS-OMITIR-ECMS, que sí se considera en la condición de 31000000. Si solo el S111 está pendiente y la omisión de ECMS está encendida, el archivo de ECMS se marca igualmente como pendiente."
+        }
+      ]
+    },
+    {
+      "titulo": "Header, resolución de CSI y reparto por plaza",
+      "origen": {
+        "archivo": "S500_SOURCE_P335.txt",
+        "contexto": "50002000-DIARIO · 50002100-LEO-HEADER · 50002250-CVETAR · 50002300-GRADET"
+      },
+      "java": {
+        "archivo": "HeaderS111Validator.java · ResolucionCsiProcessor.java · MovsPorCsiWriter.java",
+        "contexto": "StepExecutionListener · ItemProcessor · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Header con fecha de proceso y sistema S111, con espera a reinyección",
+          "linea_ini": 2767,
+          "linea_fin": 2847,
+          "origen_codigo": "    PERFORM 50002115-OPEN-VALHEADER THRU 50002115-EXIT\n                      UNTIL WS-HEA-FEC-D = 1 AND WS-HEA-SIS-D =1.\n    IF ARCH-S111\n       PERFORM 50002230-LEO-DETALLE-S111 THRU 50002230-EXIT\n                                        UNTIL WS-1VEZ = 1.\n    PERFORM 50002450-VAL-TRAILER    THRU 50002450-EXIT\n*** VALIDAR SI EL TRAILER DEL ARCHIVO DIARIO FUE CORRECTO  ******\n***       O SI ESTUVO INCORRECTO Y SE DECIDIO CONTINUAR *********\n    IF WS-NOPROC-ERR-TRAI = 0\n       PERFORM 50002500-SUM-TAR        THRU 50002500-EXIT\n       PERFORM 50002600-IMP-TAR        THRU 50002600-EXIT\n       MOVE    1                       TO   WS-FIN-DIARIO.\n 50002100-LEO-HEADER.\n     MOVE 1 TO W-LLAVE-TARJETA.\n     READ TARJETA INTO REG-TBINTER INVALID KEY\n       MOVE \"ERROR AL LEER HEAD. ARC DIARIO\"  TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n     MOVE REG-TBINTER                TO REG-TBINTER-ANT.\n     MOVE WS-FECHA-PRO               TO       WS-FECHA-TEMP-AMD\n     IF (WS-TEMP-AA = WS-INTCTL-AA)  AND\n        (WS-TEMP-MM = WS-INTCTL-MM)  AND\n        (WS-TEMP-DD = WS-INTCTL-DD)\n         MOVE 1 TO WS-HEA-FEC-D\n     ELSE\n       MOVE \"FEC INT. DIF. PROC. ARC DIARIO\"  TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE.\n      IF WS-INTCTL-ID-UNO       = \"S111\"\n*        NEXT SENTENCE\n         MOVE 1 TO WS-HEA-SIS-D\n     ELSE\n       MOVE \"SIS. INT. DIFERENTE DE S111   \"  TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE.\n*       CALL SYSTEM DMTERMINATE.\n     IF WS-HEA-FEC-D = 0 OR WS-HEA-SIS-D=0\n        PERFORM 31310110-CHANGETIT-ARCH-ERR  THRU 31310110-EXIT\n        STRING \"ARCH CON HEADER ERRONEO \" WS-ETIQTARJETA\n               \"INYECTAR ARC DIARIO CON HEADER CORRECTO Y DAR OK\"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n*   \"O\" = a pantalla y Log  no acumula mensajes  se va a STOP\n               MOVE \"O\" TO W77-TIPO-DISP\n               PERFORM 70000050-MENSAJE",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class HeaderS111Validator implements StepExecutionListener {\n\n    private final TbinterRepository entrada;                 // TARJETA, acceso RANDOM\n    private final RutasArchivo rutas;                        // ERRTBINTER/ y APLTBINTER/\n\n    @Override\n    public void beforeStep(StepExecution s) {\n        LocalDate fechaPro = s.getJobExecution().getExecutionContext().get(\"fechaProS111\", LocalDate.class);\n        var h = entrada.leeRegistro(1)                       // MOVE 1 TO W-LLAVE-TARJETA\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR AL LEER HEAD. ARC DIARIO\"));\n        List<String> errores = new ArrayList<>();\n        if (!h.fecha().equals(fechaPro)) errores.add(\"FEC INT. DIF. PROC. ARC DIARIO\");  // DDMMAA\n        if (!\"S111\".equals(h.idSistema())) errores.add(\"SIS. INT. DIFERENTE DE S111\");\n        if (!errores.isEmpty()) {\n            rutas.marcaErroneo(h);                           // 31310110-CHANGETIT-ARCH-ERR\n            // El fuente espera en consola a que se inyecte un archivo correcto y vuelve a leer.\n            // En Java el step falla; el reintento lo decide el orquestador tras reemplazar el archivo.\n            throw new HeaderInvalidoException(\"ARCH CON HEADER ERRONEO \" + errores);\n        }\n    }\n}",
+          "racional": "El header del archivo diario debe traer exactamente la fecha de proceso y el identificador <code>S111</code>; para ECMS el sistema esperado es 175172. Si falla cualquiera de las dos validaciones, el archivo se renombra con el prefijo de error y el programa manda a consola el aviso de inyectar un archivo con header correcto y vuelve a intentar hasta que el operador lo resuelve. En Java esa espera interactiva no es viable en un job desatendido: el step falla con un mensaje claro y el reintento queda en manos del orquestador. El header de salida se escribe una vez por CSI.",
+          "reglas": [
+            "RN-S500-530",
+            "RN-S500-531"
+          ],
+          "riesgo": "El ciclo 50002115-OPEN-VALHEADER no tiene límite de intentos: si nadie inyecta el archivo correcto, el paso queda esperando indefinidamente. La fecha del header se compara solo en dos dígitos de año (AA)."
+        },
+        {
+          "id": "s4",
+          "titulo": "Contrato, sucursal y CSI del movimiento con CSI 10 por omisión",
+          "linea_ini": 3318,
+          "linea_fin": 3381,
+          "origen_codigo": "     MOVE TB-SUCURSAL TO W77-SUC-PTE.\n     MOVE 1           TO W77-QUE-VA.\n     PERFORM 40000450-CSI-SUCPTE.\n     MOVE W77-CSI-PTE TO W77-CSI-SUCORIG.\n*    MOVE W77-SUC-PTE TO TB-SUCURSAL WS-INTSUCURSAL\n     MOVE W77-SUC-PTE TO TB-SUCURSAL.\n     IF TB-CONTRATO > 0 AND ORIGEN-SIST = 2\n        ADD 1           TO W77-NOLLAMA-S016-BD04\n     ELSE\n     IF TB-TARJETA > 999999999999999\n        PERFORM 50002256-OBTENGO-CONTRATO THRU 50002256-EXIT\n        IF W77-S016-CONTRATO > 0\n           IF W77-ES-L422 = 1\n              MOVE W77-SUCP-S016    TO W77-SUC-PTE\n              MOVE 2                TO W77-QUE-VA\n              PERFORM 40000450-CSI-SUCPTE\n        ELSE\n        IF W77-BD04-CONTRATO > 0\n           MOVE WS-BD04-SUCP     TO W77-SUC-PTE\n           MOVE 3                TO W77-QUE-VA\n           PERFORM 40000450-CSI-SUCPTE\n           MOVE W77-SUC-PTE      TO WS-BD04-SUCP\n        ELSE\n           ADD 1   TO W77-NOS016-NOBD04.\n     PERFORM 40000480-VALI-CSI.\n     IF WS-NUMCSI = 0\n        STRING  \" WS-NUMCSI = CERO  REG:\" W77-REG-LEI\n                \" TARJ=\" TB-TARJETA\n                \" CTO=\"  TB-CONTRATO\n                \" ORIGEN(1 S111/2 EAS)=\" ORIGEN-SIST\n*                \" TARJ=\" WS-INTNUM-TARJETA\n*                \" CTO=\"  WS-INTNUM-CONTRATO\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        MOVE 10         TO WS-NUMCSI\n*       MOVE 105        TO TB-SUCURSAL WS-INTSUCURSAL\n        MOVE 105        TO TB-SUCURSAL.\n     MOVE WS-NUMCSI   TO IND-CSI.\n     PERFORM 50002253-SUMA-TOTALES-X-SIST.\n     MOVE SPACES     TO WS-INTCVE-AUTORIZA-S.\n     IF TB-IMP-POSTEO > 0 AND TB-IMP-AUTORI = 0\n        MOVE \"C\"    TO WS-INTCVE-AUTORIZA-S\n     ELSE\n     IF TB-IMP-POSTEO = 0 AND TB-IMP-AUTORI > 0\n        MOVE \"V\"    TO WS-INTCVE-AUTORIZA-S\n     ELSE\n     IF TB-IMP-POSTEO > 0 AND TB-IMP-AUTORI > 0\n        MOVE \"P\"    TO WS-INTCVE-AUTORIZA-S.",
+          "java_codigo": "# application.yml\np400:\n  csi-validos: [4, 10]\n  csi-por-omision: 10           # WS-NUMCSI = 0\n  sucursal-por-omision: 105\n\n// ---------------------------------------------------------------------------\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ResolucionCsiProcessor implements ItemProcessor<MovimientoTarjeta, MovimientoTarjeta> {\n\n    private final P400Properties props;\n    private final ContratoTarjetaResolver contratos;   // S500 L040 y S016 L422\n    private final SucursalCsiCatalogo s080;            // 40000450-CSI-SUCPTE\n\n    @Override\n    public MovimientoTarjeta process(MovimientoTarjeta m) {\n        int sucursal = m.sucursal();\n        int csi = s080.csiDe(sucursal);\n        if (!(m.contrato() > 0 && m.esEcms()) && m.tarjeta().length() == 16) {   // TB-TARJETA > 999999999999999\n            var cto = contratos.porTarjeta(m.tarjeta());\n            if (cto.isPresent()) {\n                sucursal = cto.get().sucursalPromotora();\n                csi = s080.csiDe(sucursal);\n            }\n        }\n        if (!props.csiValidos().contains(csi)) {\n            log.warn(\"WS-NUMCSI = CERO tarjeta={} contrato={} origen={}\",\n                     Pan.enmascara(m.tarjeta()), m.contrato(), m.origen());\n            csi = props.csiPorOmision();\n            sucursal = props.sucursalPorOmision();\n        }\n        char autoriza = (m.importePosteo().signum() > 0 && m.importeAutorizado().signum() == 0) ? 'C'\n                      : (m.importePosteo().signum() == 0 && m.importeAutorizado().signum() > 0) ? 'V'\n                      : (m.importePosteo().signum() > 0 && m.importeAutorizado().signum() > 0) ? 'P' : ' ';\n        return m.conCsi(csi, sucursal).conClaveAutoriza(autoriza);\n    }\n}",
+          "racional": "La plaza del movimiento sale de la sucursal: primero la que trae el archivo y, si la tarjeta es de 16 dígitos, la sucursal promotora del contrato que devuelven las librerías L040 o L422. Si al final el CSI no es válido, el movimiento no se rechaza: se registra un mensaje y se envía a Valle de México con la sucursal 105, valores que están compilados y se llevan a configuración. La clave de autorización de salida distingue movimientos solo posteados (C), solo autorizados (V) o ambos (P). El mensaje de bitácora del fuente imprime la tarjeta completa; en Java se enmascara.",
+          "reglas": [],
+          "riesgo": "Todo movimiento cuyo CSI no se pueda resolver termina en el archivo de Valle de México con sucursal 105, mezclado con los movimientos válidos. Además el mensaje de la línea 3357-3358 escribe el número de tarjeta completo en la bitácora."
+        },
+        {
+          "id": "s5",
+          "titulo": "Escritura al archivo de su CSI a ClassifierCompositeItemWriter",
+          "linea_ini": 3815,
+          "linea_fin": 3832,
+          "origen_codigo": " 50002300-GRADET.\n     MOVE ZEROES   TO WS-IMP-BRUTO-ANT WS-IMP-CONTR-ANT\n                      WS-IMP-AUTOR-ANT WS-ACUMULADO-IMP-BRUTO\n                      WS-ACUMULADO-IMP-AUTOR\n                      WS-ACUMULADO-IMP-DETAL.\n     ADD 1 TO TOT-REGS(IND-CSI).\n  IF ARCH-S111\n     IF IND-CSI = 4\n        WRITE REG-TBINTERMON FROM REG-TBINTER-S\n     ELSE IF IND-CSI = 10\n        WRITE REG-TBINTERVDM FROM REG-TBINTER-S.\n  IF ARCH-ECMS\n     IF IND-CSI = 4\n        WRITE REG-TBINTERMON-EAS FROM REG-TBINTER-S\n     ELSE IF IND-CSI = 10\n        WRITE REG-TBINTERVDM-EAS FROM REG-TBINTER-S.",
+          "java_codigo": "@Bean\n@StepScope\nClassifierCompositeItemWriter<MovimientoTarjeta> movsPorCsi(\n        @Value(\"#{jobExecutionContext['origen']}\") String origen,        // S111 o ECMS\n        Map<String, FlatFileItemWriter<MovimientoTarjeta>> salidas) {     // MOVSTBINTER[EAS] 04 y 10\n    var w = new ClassifierCompositeItemWriter<MovimientoTarjeta>();\n    w.setClassifier(m -> switch (m.csi()) {\n        case 4  -> salidas.get(origen + \"-04\");     // TBINTERMON / TBINTERMON-EAS\n        case 10 -> salidas.get(origen + \"-10\");     // TBINTERVDM / TBINTERVDM-EAS\n        default -> throw new IllegalStateException(\"CSI sin archivo: \" + m.csi());\n    });\n    return w;\n}\n// ADD 1 TO TOT-REGS(IND-CSI): los totales por CSI los lleva un ItemWriteListener\n// y alimentan el trailer de cada archivo (50002500-SUM-TAR) y el reporte (50002600-IMP-TAR).",
+          "racional": "Es el núcleo del arquetipo A6: cada movimiento ya clasificado se escribe en el archivo de su plaza, con un par de archivos para el S111 y otro para ECMS. El <code>ClassifierCompositeItemWriter</code> elige el escritor por CSI y el origen; los contadores por CSI que el fuente acumula en <code>TOT-REGS</code> pasan a un listener que después escribe los trailers. Si el volumen lo requiere, el mismo step puede particionarse por CSI con <code>PartitionedStep</code> sin cambiar el clasificador.",
+          "reglas": [
+            "RN-S500-532"
+          ],
+          "riesgo": "Un IND-CSI distinto de 4 y 10 se cuenta en TOT-REGS pero no se escribe en ningún archivo. Con la regla de omisión del segmento anterior no debería ocurrir, pero el fuente no lo impide; en Java se falla explícitamente."
+        }
+      ]
+    },
+    {
+      "titulo": "Validación de trailer y autorización del descuadre",
+      "origen": {
+        "archivo": "S500_SOURCE_P335.txt",
+        "contexto": "50002450-VAL-TRAILER · 50002452-VAL-TRAILER-S111 · 50002454-MSG-TRAI-ERROR"
+      },
+      "java": {
+        "archivo": "TrailerValidator.java · AutorizacionDescuadreService.java",
+        "contexto": "StepExecutionListener · @Service con aprobación externa"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Registros e importe bruto contra el trailer del S111",
+          "linea_ini": 3840,
+          "linea_fin": 3879,
+          "origen_codigo": " 50002450-VAL-TRAILER.\n   PERFORM 50002455-POSICIONO-TRAILER THRU 50002455-EXIT.\n   IF ARCH-S111\n      PERFORM 50002452-VAL-TRAILER-S111 THRU 50002452-EXIT\n   ELSE IF ARCH-ECMS\n      PERFORM 50002451-VAL-TRAILER-EAS  THRU 50002451-EXIT.\n   IF WS-ERROR-TRAILER = 1\n      PERFORM 50002454-MSG-TRAI-ERROR  THRU 50002454-EXIT.\n 50002450-EXIT.\n    EXIT.\n50002452-VAL-TRAILER-S111.\n   IF WS-TAR-DS = \"TARJETADIA\"\n     MOVE \"DIARIO S111\"   TO WS-TIT-ARCH-TRAI-ERROR\n   ELSE\n     MOVE \"SEMANAL S111\"   TO WS-TIT-ARCH-TRAI-ERROR.\n   IF (WS-INTRAIL-NUMREG-E      NOT = REG-LEIDOS      ) OR\n      (WS-INTRAIL-IMPBRUTO-E    NOT = WS-SUM-TOT-BRUTO)\n       MOVE SPACES              TO WS-0101-TEXT-MSG\n       MOVE 1                   TO WS-ERROR-TRAILER\n       MOVE WS-SUM-TOT-BRUTO    TO WS-SUM-TOT-BRUTO-DISP\n*       MOVE WS-SUM-TOT-EAS      TO WS-SUM-TOT-EAS-DISP\n       STRING \" DETALLE Y TRAI. DIF ARC. \" WS-TIT-ARCH-TRAI-ERROR\n              \", REG-LEIDOS \"     REG-LEIDOS\n              \", TRAIL-NUMREG \"   WS-INTRAIL-NUMREG-E\n              \", SUM-BRUTO \"      WS-SUM-TOT-BRUTO-DISP\n              \", TRAIL-IMPBRUTO \" WS-INTRAIL-IMPBRUTO-E\n*              \", SUM-POST-AUT EAS \"    WS-SUM-TOT-EAS-DISP\n*              \", TRAIL-IMPBRUTO EAS \"  WS-EAS-TOTIMP\n              \", WS-FECHA-PRO \"   WS-FECHA-PRO\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE.",
+          "java_codigo": "@Component\npublic class TrailerValidator implements StepExecutionListener {\n\n    @Override\n    public ExitStatus afterStep(StepExecution s) {\n        var ctx = s.getExecutionContext();\n        TrailerEntrada t = (TrailerEntrada) ctx.get(\"trailerEntrada\");   // 50002455-POSICIONO-TRAILER\n        long leidos = ctx.getLong(\"regLeidos\");\n        BigDecimal sumaBruto = (BigDecimal) ctx.get(\"sumTotBruto\");      // escala 2, 9(12)V99\n        String titulo = ctx.getString(\"ciclo\").equals(\"DIARIO\") ? \"DIARIO S111\" : \"SEMANAL S111\";\n\n        boolean cuadra = t.numRegistros() == leidos && t.importeBruto().compareTo(sumaBruto) == 0;\n        if (cuadra) return s.getExitStatus();\n        log.error(\" DETALLE Y TRAI. DIF ARC. {}, REG-LEIDOS {}, TRAIL-NUMREG {}, SUM-BRUTO {}, TRAIL-IMPBRUTO {}\",\n                  titulo, leidos, t.numRegistros(), sumaBruto, t.importeBruto());\n        return new ExitStatus(\"TRAILER_DESCUADRADO\");                    // WS-ERROR-TRAILER = 1\n    }\n}",
+          "racional": "Al terminar el detalle, el programa se posiciona en el último registro del archivo para leer el trailer y compara su número de registros y su importe bruto contra lo acumulado; para ECMS compara total de registros e importe de posteo o autorización. Un descuadre no aborta por sí mismo: enciende una bandera que lleva a la decisión del operador. En Java el resultado se publica como un <code>ExitStatus</code> propio para que el flujo del job enrute a la autorización o a la purga.",
+          "reglas": [
+            "RN-S500-527",
+            "RN-S500-531"
+          ],
+          "riesgo": "El trailer del S111 trae también importe de comisión e importe neto, que se acumulan en WS-SUM-TOT-COMIS y WS-SUM-TOT-NETO pero no se validan."
+        },
+        {
+          "id": "s7",
+          "titulo": "Ventana de diciembre de 2011 y autorización con SOEID",
+          "linea_ini": 3883,
+          "linea_fin": 3917,
+          "origen_codigo": "50002454-MSG-TRAI-ERROR.\n       IF WS-FECHA-PRO > 20111201 AND\n          WS-FECHA-PRO < 20111207\n          NEXT SENTENCE\n       ELSE\n          MOVE SPACES           TO WS-0101-TEXT-MSG\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          ACCEPT WS-SINO\n          IF WS-SINO =\"SI\"\n             MOVE SPACES        TO WS-0101-TEXT-MSG\n             STRING \"DEME EL SOEID DE QUIEN ESTA AUTORIZANDO, \",\n             \"SI LO DESCONOCE, OBTENGALO DEL DIRECTORIO DE \",\n             \"PERSONAL EN INTRANET\"\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n             PERFORM 70000050-MENSAJE\n             ACCEPT WS-SOEID-VOBO-TRAILER\n             MOVE SPACES        TO WS-0101-TEXT-MSG\n             STRING \"EL SOEID DE QUIEN AUTORIZO PROCESAR SIN \",\n                    \"VALIDAR EL TRAILER ES: \"\n                    WS-SOEID-VOBO-TRAILER\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n             PERFORM 70000050-MENSAJE\n          ELSE\n*             CALL SYSTEM DMTERMINATE.\n* EAS INI F5 - ADAPTACION PARA NO PROCESAMIENTO DE TRAILER ERRONEO\n*            CAMBIAR DE RUTA EL TBINTER CON PREFIJO ERRTBINTER/\n             PERFORM 31310110-CHANGETIT-ARCH-ERR\n                                            THRU 31310110-EXIT\n*            ELIMINAR LOS MOVS 10-04 CREADOS\n             PERFORM 50002456-PURGE-MOVS    THRU 50002456-EXIT\n*            ENCENDER BANDERA PARA NO CONTINUAR CON EL PROCESO\n             MOVE  1 TO WS-NOPROC-ERR-TRAI.",
+          "java_codigo": "# application.yml\np400:\n  trailer:\n    # 50002454: ventana compilada en el fuente; se deja vacía por defecto (ver riesgo)\n    ventanas-sin-validar: []        # antes: 20111202 a 20111206\n\n// ---------------------------------------------------------------------------\n@Service\n@RequiredArgsConstructor\npublic class AutorizacionDescuadreService {\n\n    private final P400Properties props;\n    private final AprobacionesClient aprobaciones;   // reemplaza ACCEPT WS-SINO / WS-SOEID-VOBO-TRAILER\n    private final SalidasMovs salidas;\n\n    public Decision resuelve(LocalDate fechaPro, Descuadre d) {\n        if (props.trailer().enVentanaSinValidar(fechaPro)) return Decision.CONTINUAR;   // sin aviso en el fuente\n\n        Optional<Aprobacion> ap = aprobaciones.solicita(\n                \"DESEA PROCESAR SIN VALIDAR TRAILER (SI/NO)?\", d, Duration.ofHours(2));\n        if (ap.filter(Aprobacion::aprobada).isPresent()) {\n            log.warn(\"EL SOEID DE QUIEN AUTORIZO PROCESAR SIN VALIDAR EL TRAILER ES: {}\", ap.get().soeid());\n            return Decision.CONTINUAR;\n        }\n        salidas.marcaEntradaErronea();               // 31310110-CHANGETIT-ARCH-ERR: prefijo ERRTBINTER/\n        salidas.purgaMovs();                         // 50002456-PURGE-MOVS: CLOSE ... WITH PURGE\n        return Decision.NO_PROCESAR;                 // WS-NOPROC-ERR-TRAI = 1\n    }\n}",
+          "racional": "Ante un descuadre, el fuente primero revisa si la fecha de proceso cae estrictamente entre el 1 y el 7 de diciembre de 2011; en ese caso continúa sin preguntar. Fuera de esa ventana pregunta en consola si se procesa sin validar el trailer y, si la respuesta es <code>SI</code>, pide y registra el SOEID de quien autoriza. Con cualquier otra respuesta renombra la entrada como errónea, purga los archivos de salida ya creados y no sigue con ese archivo; el <code>DMTERMINATE</code> original quedó comentado. En Java la pregunta interactiva pasa a un flujo de aprobación externo con tiempo límite y la ventana de 2011 se vuelve una lista configurable vacía.",
+          "reglas": [
+            "RN-S500-528",
+            "RN-S500-529"
+          ],
+          "riesgo": "La ventana 20111201 < fecha < 20111207 sigue activa en el código: una corrida con fecha de proceso en ese rango (por ejemplo un reproceso histórico) omite el control de integridad sin dejar rastro. El SOEID se acepta tal como se teclea, sin validarlo contra ningún directorio."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Control de trailer desactivable",
+      "detalle": "La ventana de fechas de diciembre de 2011 (líneas 3885-3887) omite la validación sin mensaje, y fuera de ella basta con responder SI y teclear cualquier SOEID para procesar un archivo descuadrado hacia estados de cuenta."
+    },
+    {
+      "titulo": "CSI por omisión",
+      "detalle": "Los movimientos sin CSI válido se envían a Valle de México con sucursal 105 (líneas 3356-3367) en lugar de rechazarse; quedan mezclados con los movimientos correctos."
+    },
+    {
+      "titulo": "Espera indefinida en header erróneo",
+      "detalle": "50002115-OPEN-VALHEADER se repite hasta que el header sea correcto, con un mensaje a consola para reinyectar el archivo; sin intervención el paso no termina."
+    },
+    {
+      "titulo": "Número de tarjeta en bitácora",
+      "detalle": "Los mensajes de las líneas 3357-3358 escriben la tarjeta completa. Debe enmascararse en la versión Java y revisarse la retención de las bitácoras actuales."
+    },
+    {
+      "titulo": "Código muerto extenso",
+      "detalle": "Los drivers STEFANINI EAS (50000000, 60000000) y el flujo combinado con SORT siguen en el fuente comentados o sin invocar; no se transpilan."
+    }
+  ],
+  "pendientes_revision": [
+    "El fuente usado es S500_SOURCE_P335.txt, cuyo PROGRAM-ID es S500P400 (línea 65); el inventario lo corrigió porque los archivos de P335 y P400 venían cruzados.",
+    "Confirmar con SME si la ventana del 2 al 6 de diciembre de 2011 puede eliminarse; la versión Java la deja configurable y vacía.",
+    "Confirmar si los movimientos con CSI no resuelto deben seguir enviándose a VDM con sucursal 105 o rechazarse a un archivo de excepciones.",
+    "RN-S500-923 describe la base S500BD04TARJETAS; en este fuente P400 abre S500BD01CAPTACION y los campos WS-BD04-* vienen de la librería L040, por lo que la regla no se asoció a ningún segmento.",
+    "El proceso semanal (50003000-SEMANAL), la validación del header de ECMS (50002110) y el envío por P197 (60004100) siguen el mismo patrón y no se transpilaron en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-923",
+    "RN-S500-527",
+    "RN-S500-528",
+    "RN-S500-529",
+    "RN-S500-530",
+    "RN-S500-531",
+    "RN-S500-532"
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "slug": "S500_P045",
+  "sistema": "S500",
+  "programa": "P045",
+  "nombre": "Captación de Donativos TELETON en línea",
+  "funcion": "Programa COMS residente que, mientras dura la campaña TELETON, recibe donativos con cargo a tarjeta desde cajas de sucursal (pantallas Q050066 a Q050069), desde tercer nivel e Internet, y pide autorización al autorizador B24 por el sistema de mensajes S036.",
+  "resumen": "P045 se habilita en COMS y queda en un ciclo que recibe mensajes de terminal y de aplicación hasta que COMS le ordena terminar. Para un donativo de sucursal desarma la pantalla, valida que la sucursal sea de captación de valores, el dígito verificador y el BIN de la tarjeta, la vigencia y el importe, pide la clave de seguridad S041 según un umbral de supervisor y, si el BIN, el carácter internacional o el monto lo exigen, solicita autorización a B24 antes de aplicar. El abono se registra en S500BD06TELETON, en el log de recuperación I02-LOG y en el mayor de S151 mediante L002. Una consola por interrupción (HI) permite al operador activar el monitor, apagar la seguridad, deshabilitar B24 o cambiar el nodo del S036 sin detener el programa.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s500.teleton.donativos",
+  "secciones": [
+    {
+      "titulo": "Consola operativa por interrupción y arranque por equipo",
+      "origen": {
+        "archivo": "S500_SOURCE_P045.txt",
+        "contexto": "DECLARATIVES · INTERRUPT-BY-HI · 10001000-INICIO"
+      },
+      "java": {
+        "archivo": "ConsolaOperativaEndpoint.java · EstadoLinea.java · application-{perfil}.yml",
+        "contexto": "Actuator @Endpoint · @Profile"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Comandos HI a endpoint de administración autenticado",
+          "linea_ini": 2419,
+          "linea_fin": 2512,
+          "origen_codigo": " DECLARATIVES.\n INTERRUPT-SECCION SECTION.\n     USE AS INTERRUPT PROCEDURE.\n INTERRUPT-BY-HI.\n     DISALLOW INTERRUPT.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-MY-VALUE.\n     SET MYSELF (TASKVALUE)  TO ZERO.\n     IF W77-TPO-HI = 02\n        IF W77-ACTIVO-MONITOR = 1\n           MOVE \"MONITOR YA ESTA ACTIVADO\" TO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n        ELSE\n           MOVE W77-SUC-HI  TO W77-SUC-MONITOR\n           STRING \"ACTIVO MONITOR PARA SUCURSAL \"\n                  W77-SUC-MONITOR\n           DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 1  TO W77-ACTIVO-MONITOR\n     ELSE\n     IF W77-MY-VALUE = 3\n        IF W77-ACTIVO-MONITOR = 0\n           MOVE \"MONITOR NO ACTIVADO\" TO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n        ELSE\n           MOVE \"DESACTIVO MONITOREO DE MENSAJES\"\n             TO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 0 TO W77-ACTIVO-MONITOR\n     ELSE\n     IF W77-MY-VALUE = 4\n        PERFORM 20000000-DISABLE-PGM\n        IF W77-COMS-RESULT = 1\n             TO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n        ELSE\n           NEXT SENTENCE\n     ELSE\n     IF W77-MY-VALUE = 10\n           STRING \"DESACTIVO SEGURIDAD\"\n                DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 1 TO W77-SW-SEGURIDAD\n     ELSE\n     IF W77-MY-VALUE = 11\n           STRING  \"ACTIVO SEGURIDAD\"\n                   DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 0 TO W77-SW-SEGURIDAD\n     ELSE\n     IF W77-MY-VALUE = 36\n        IF W88-CON-S036\n           STRING  \"DESHABILITO BASE/24.\"\n               DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 1 TO W77-SIN-AUTB24\n        ELSE\n           STRING  \"HABILITO BASE/24.\"\n              DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 0 TO W77-SIN-AUTB24\n     ELSE\n     IF W77-MY-VALUE = 1212\n        MOVE \"RECIBO HI PARA S500/L046/OLVIDATODO \"\n          TO TEXTO-LJ\n        PERFORM 70000050-MENSAJE\n        PERFORM 90606000-L046-OLVIDA\n     ELSE\n     IF W77-MY-VALUE = 1317\n        MOVE ZERO  TO W77-HI-NODOS\n        MOVE \"ENVIA MSG DEL S036 A NODO ALTERNOS\"\n          TO TEXTO-LJ\n        PERFORM 70000050-MENSAJE\n     ELSE\n     IF W77-MY-VALUE = 1717\n        MOVE 17    TO W77-HI-NODOS\n        MOVE \"ENVIA MSG DEL S036 A NODO 17\"\n          TO TEXTO-LJ\n        PERFORM 70000050-MENSAJE\n     ELSE\n     IF W77-MY-VALUE = 1313\n        MOVE 13    TO W77-HI-NODOS\n        MOVE \"ENVIA MSG DEL S036 A NODO 13\"\n          TO TEXTO-LJ\n        PERFORM 70000050-MENSAJE\n     ELSE\n        MOVE W77-MY-VALUE TO WS-MSG-N-06\n        STRING \"HI INVALIDO \", WS-MSG-N-06\n        DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 70000050-MENSAJE.\n END-INTERRUPT-BY-HI.\n      ALLOW INTERRUPT.",
+          "java_codigo": "/**\n * INTERRUPT-BY-HI: el operador escribe un número en TASKVALUE y el programa lo interpreta.\n * En Java es un endpoint de Actuator protegido por rol; cada comando queda auditado.\n */\n@Component\n@Endpoint(id = \"teleton-consola\")\n@RequiredArgsConstructor\n@Slf4j\npublic class ConsolaOperativaEndpoint {\n\n    private final EstadoLinea estado;            // W77-ACTIVO-MONITOR, W77-SW-SEGURIDAD, W77-SIN-AUTB24, W77-HI-NODOS\n    private final RevocacionesL046 l046;\n    private final LineaComs linea;\n\n    @WriteOperation\n    public String comando(int valor) {           // W77-MY-VALUE PIC 9(06)\n        int tipo = valor / 10_000;               // W77-TPO-HI: dos primeros dígitos\n        if (tipo == 2) {\n            int sucursal = valor % 10_000;       // W77-SUC-HI; 9999 = todas\n            return estado.activaMonitor(sucursal)\n                    ? \"ACTIVO MONITOR PARA SUCURSAL %04d\".formatted(sucursal)\n                    : \"MONITOR YA ESTA ACTIVADO\";\n        }\n        return switch (valor) {\n            case 3    -> estado.desactivaMonitor() ? \"DESACTIVO MONITOREO DE MENSAJES\" : \"MONITOR NO ACTIVADO\";\n            case 4    -> linea.deshabilita();                                  // 20000000-DISABLE-PGM\n            case 10   -> { estado.seguridad(false); yield \"DESACTIVO SEGURIDAD\"; }\n            case 11   -> { estado.seguridad(true);  yield \"ACTIVO SEGURIDAD\"; }\n            case 36   -> estado.alternaB24() ? \"HABILITO BASE/24.\" : \"DESHABILITO BASE/24.\";\n            case 1212 -> { l046.olvidaTodo(); yield \"RECIBO HI PARA S500/L046/OLVIDATODO\"; }\n            case 1317 -> { estado.nodoS036(0);  yield \"ENVIA MSG DEL S036 A NODO ALTERNOS\"; }\n            case 1717 -> { estado.nodoS036(17); yield \"ENVIA MSG DEL S036 A NODO 17\"; }\n            case 1313 -> { estado.nodoS036(13); yield \"ENVIA MSG DEL S036 A NODO 13\"; }\n            default   -> \"HI INVALIDO %06d\".formatted(valor);\n        };\n    }\n}\n\n# application.yml\nmanagement.endpoints.web.exposure.include: health,teleton-consola\n# el acceso a /actuator/teleton-consola exige el rol OPERADOR_LINEA_S500",
+          "racional": "La sección <code>DECLARATIVES</code> es una consola operativa: el operador manda un HI con un número que el programa lee de <code>TASKVALUE</code> y que cambia en caliente el estado de la línea. El primer comando usa los dos primeros dígitos como tipo y los cuatro siguientes como sucursal; el resto compara el número completo. En Java el estado vive en un bean de alcance de aplicación y los comandos se exponen como operación de escritura de Actuator, lo que permite autenticarlos y auditarlos. Se conservan los mismos textos de respuesta para que operación reconozca los mensajes.",
+          "reglas": [
+            "RN-S500-624"
+          ],
+          "riesgo": "Los HI 10 y 36 apagan la seguridad de operador S041 y la autorización B24 sin pedir ninguna credencial; basta con poder enviar un HI a la tarea. La regla del brain documenta el comando 4646 para limpiar revocaciones de L012, pero el código usa 1212 y la librería L046."
+        },
+        {
+          "id": "s2",
+          "titulo": "Equipo detectado por HOSTNAME a perfiles de Spring",
+          "linea_ini": 2549,
+          "linea_fin": 2569,
+          "origen_codigo": "     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO W77-MY-HOST.\n     IF W77-MY-HOST = \"ACYPBETA.\" OR \"VDMBETA. \"\n        MOVE 2 TO W77-EQUIPO\n     ELSE\n     IF W77-MY-HOST = \"ACYPGAMA.\" OR \"MONALFA. \" OR \"ACYPOMEGA\"\n        MOVE 1 TO W77-EQUIPO.\n     IF EQUIPO-ACYP\n        MOVE 1  TO W77-PBA-UAT.\n     PERFORM 10005000-TITLE-LIBRERIAS.\n****************************************************************\n*** EN ACYPBETA, VDMBETA Y VDMDELTA                          ***\n***    INICIO SIN SEGURIDAD                                  ***\n****************************************************************\n     IF EQUIPO-DESA\n        MOVE 1        TO W77-SW-SEGURIDAD\n        MOVE 1        TO W77-ES-PBA-INTERNA.",
+          "java_codigo": "# application-desa.yml   (antes: HOSTNAME = ACYPBETA o VDMBETA)\nteleton:\n  equipo: DESA\n  seguridad-operador: false          # MOVE 1 TO W77-SW-SEGURIDAD\n  prueba-interna: true               # W77-ES-PBA-INTERNA\n  validar-sucursal-captacion: false  # en DESA se omite la lista de sucursales (50030000)\n\n# application-acyp.yml   (ACYPGAMA, MONALFA, ACYPOMEGA)\nteleton:\n  equipo: ACYP\n  uat: true                          # W77-PBA-UAT\n\n# application-prod.yml   (cualquier otro host)\nteleton:\n  equipo: PROD\n  seguridad-operador: true\n  validar-sucursal-captacion: true\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"teleton\")\npublic record TeletonProperties(Equipo equipo, boolean seguridadOperador, boolean pruebaInterna,\n                                boolean uat, boolean validarSucursalCaptacion) {\n    public enum Equipo { PROD, ACYP, DESA }\n}",
+          "racional": "El programa decide si es producción, ACYP o desarrollo comparando el nombre del host contra literales, y en desarrollo arranca sin seguridad y salta la restricción de sucursales. Esa decisión pasa a perfiles de Spring con propiedades explícitas, de modo que el comportamiento de cada ambiente se lee en configuración y no depende del nombre de la máquina. Se separan las banderas para que desactivar la seguridad sea una decisión visible y no un efecto colateral del ambiente.",
+          "reglas": [],
+          "riesgo": "Si un servidor productivo se renombra como ACYPBETA o VDMBETA, P045 arranca sin seguridad S041 y acepta donativos de cualquier sucursal."
+        }
+      ]
+    },
+    {
+      "titulo": "Recepción COMS y despacho por origen",
+      "origen": {
+        "archivo": "S500_SOURCE_P045.txt",
+        "contexto": "10000000-CONTROL-PGM · 40300000-DE-APLICACION"
+      },
+      "java": {
+        "archivo": "TeletonIntegrationConfig.java · RuteoAplicacion.java",
+        "contexto": "Spring Integration IntegrationFlow · router"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Ciclo principal de recepción a IntegrationFlow",
+          "linea_ini": 2517,
+          "linea_fin": 2538,
+          "origen_codigo": " 10000000-CONTROL-PGM.\n      PERFORM 10001000-INICIO.\n     IF W77-EQUIPO = 2\n        IF W77-EOF-ARCHS = 0\n           DISPLAY \" ** S500P045 EN LINEA ** \".\n      IF W77-EOF-ARCHS = 2\n         MOVE 1 TO W77-FIN-ANORMAL\n      ELSE\n         PERFORM 40000000-RECIBE-MENSAJES\n            UNTIL W77-END-OF-PROGRAM = 2.\n      IF W77-END-OF-PROGRAM NOT = 2\n         PERFORM 20000000-DISABLE-PGM\n         MOVE 1  TO W77-END-OF-PROGRAM\n         PERFORM 20001000-ESPERA-DISABLE\n           UNTIL W77-END-OF-PROGRAM = 2.\n      PERFORM 99900000-FIN.\n      STOP RUN.",
+          "java_codigo": "@Configuration\n@RequiredArgsConstructor\npublic class TeletonIntegrationConfig {\n\n    /**\n     * 10000000-CONTROL-PGM: PERFORM 40000000-RECIBE-MENSAJES UNTIL fin de programa.\n     * El ciclo de RECEIVE COMS-IN lo hace el adaptador de entrada; cada mensaje\n     * se enruta por origen (terminal o aplicación) al flujo correspondiente.\n     */\n    @Bean\n    IntegrationFlow donativosEntrada(MessageProducerSupport comsAdapter,   // reemplaza COMS-IN KEY \"ONLINE\"\n                                     JournalRecuperacion journal) {         // I02-LOG\n        return IntegrationFlow.from(comsAdapter)\n                .handle(journal, \"registra\")                                 // header y texto al log antes de procesar\n                .<MensajeComs, Origen>route(MensajeComs::origen, r -> r\n                        .subFlowMapping(Origen.TERMINAL,   sf -> sf.channel(\"terminalChannel\"))\n                        .subFlowMapping(Origen.APLICACION, sf -> sf.channel(\"aplicacionChannel\")))\n                .get();\n    }\n\n    /** STOP RUN tras DISABLE: el contexto se detiene de forma ordenada y espera los mensajes en curso. */\n    @Bean\n    SmartLifecycle bajaOrdenada(LineaComs linea) {\n        return new LineaLifecycle(linea);          // 20000000-DISABLE-PGM + 20001000-ESPERA-DISABLE\n    }\n}",
+          "racional": "El driver es un ciclo de recepción que corre hasta que COMS devuelve el estado de cierre, seguido de la baja del programa. Es el patrón del arquetipo A4: un adaptador de entrada convierte cada mensaje en un <code>Message</code> y un <code>IntegrationFlow</code> lo enruta por origen. El registro en el log de recuperación antes de procesar se conserva como primer paso del flujo, porque P045 lo usa para reprocesar mensajes tras una caída. La espera del disable pasa a un <code>SmartLifecycle</code> que cierra la entrada y deja terminar los mensajes en curso.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Mensajes de aplicación: solo clave 1500 y ruteo a B24",
+          "linea_ini": 3076,
+          "linea_fin": 3117,
+          "origen_codigo": " 40300000-DE-APLICACION.\n     MOVE WKS-HDR-STA-SUC   TO WKS-S080-NUMSUC.\n     PERFORM 42000080-DATOS-S080.\n      MOVE 0                  TO W77-CLAVE-ERROR.\n      MOVE WKS-SC-CLAVE-TRANS TO W77-CLAVE-TRANS.\n      IF WKS-S080-STA-DATO = 0\n         NEXT SENTENCE\n      ELSE\n         MOVE 26 TO W77-CLAVE-ERROR.\n     IF W77-CLAVE-ERROR = 0\n        IF W88-VINO-DEAPLICACION\n           IF W88-VINO-DE3ERNIVEL\n              PERFORM 60050000-VAL-3ERNIVEL\n           ELSE\n           IF W88-TCO-INTERNET\n              IF W77-CLAVE-TRANS = 1500\n                 NEXT SENTENCE\n              ELSE\n                 MOVE 5 TO W77-CLAVE-ERROR.\n      IF W77-CLAVE-ERROR = 0\n         IF W88-TCO-S036\n            PERFORM 60020000-RCV-MSG-S036\n         ELSE\n         IF WKS-SC-CLAVE-TRANS = 1500\n***         IF WKS-SC-CVV > 0\n               MOVE WKS-SA2-OPERADOR     TO W77-NUM-NOMINA\n               PERFORM 60050800-ABOTARJ-DIALOGO\n***         ELSE\n***            MOVE 32          TO W77-CLAVE-ERROR\n         ELSE\n            MOVE \"MOVIMIENTO DE APL NO IDENTIFICADO \"\n              TO WKS-TERR-CONCEPTO(56)\n            MOVE 1901\n              TO WKS-TERR-NUMERO (56)\n            MOVE 56           TO W77-CLAVE-ERROR.\n      IF W77-CLAVE-ERROR > 0\n         PERFORM 60050700-ARMAMSG-ENVIA.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class RuteoAplicacion {\n\n    static final int CLAVE_CARGO_TARJETA = 1500;\n\n    private final DatosSucursalS080 s080;\n    private final RespuestaB24Handler respuestaB24;       // 60020000-RCV-MSG-S036\n    private final DonativoAplicacionHandler donativo;      // 60050800-ABOTARJ-DIALOGO\n    private final RechazoAplicacion rechazo;               // 60050700-ARMAMSG-ENVIA\n\n    @ServiceActivator(inputChannel = \"aplicacionChannel\")\n    public void deAplicacion(MensajeComs msg) {\n        int error = s080.datosSucursal(msg.sucursal()).ok() ? 0 : 26;\n        int clave = msg.claveTransaccion();\n\n        if (error == 0 && msg.vinoDeAplicacion()) {\n            if (msg.vinoDeTercerNivel()) {\n                error = (clave == CLAVE_CARGO_TARJETA) ? 0 : 2;    // 60050000-VAL-3ERNIVEL\n            } else if (msg.esInternet() && clave != CLAVE_CARGO_TARJETA) {\n                error = 5;\n            }\n        }\n        if (error == 0) {\n            if (msg.esS036())                                 respuestaB24.procesa(msg);\n            else if (msg.claveTransaccion() == CLAVE_CARGO_TARJETA) donativo.procesa(msg, msg.operador());\n            else                                              error = 56;  // MOVIMIENTO DE APL NO IDENTIFICADO\n        }\n        if (error > 0) rechazo.envia(msg, error);\n    }\n}",
+          "racional": "Los mensajes de aplicación pueden ser respuestas de B24 que llegan por S036 o donativos de tercer nivel e Internet. Para estos dos canales solo se acepta la clave 1500, que es el cargo a tarjeta; cualquier otra clave se rechaza con el código del canal. El router de Spring Integration toma la decisión que hoy reparte el <code>IF</code> anidado y cada destino es un <code>@ServiceActivator</code> independiente. La validación de CVV que existía en este punto está comentada en el fuente y no se traslada.",
+          "reglas": [
+            "RN-S500-625"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Donativo con cargo a tarjeta desde sucursal (Q050066)",
+      "origen": {
+        "archivo": "S500_SOURCE_P045.txt",
+        "contexto": "50030000-RECIBE-50066 · 70063000 · 70064000 · 50030490 · 50030700 · 50030800"
+      },
+      "java": {
+        "archivo": "DonativoSucursalService.java · TarjetaValidator.java · DonativoRepository.java",
+        "contexto": "@Service · @Transactional · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Sucursales de captación de valores y vigencia con pivote 49",
+          "linea_ini": 3129,
+          "linea_fin": 3207,
+          "origen_codigo": " 50030000-RECIBE-50066.\n     MOVE 0            TO W77-HUBO-ERROR W77-CLAVE-ERROR.\n     MOVE SPACES       TO WKS-PANTALLAS.\n     MOVE 2            TO W77-ORIGEN.\n     UNSTRING WKS-TEXTO-UNSTRING DELIMITED BY WKS-FS  INTO\n        WKS-P-RCV-VACIO\n        WKS-P-CTA-X-50066\n        WKS-P-MVT-X-50066\n        WKS-P-AVT-X-50066\n        WKS-P-CVV-X-50066\n        WKS-P-IMP-X-50066\n     IF (W77-SIN-DIALOGO = 0)\n    AND (W77-CLAVE-ERROR = 0)\n        IF WKS-S080-STA-DATO = 0\n           IF (WKS-HDR-STA-SUC = 0519 OR 4899 OR 1037 OR 1905)\n               NEXT SENTENCE\n           ELSE\n           IF W77-EQUIPO = 2\n              NEXT SENTENCE\n           ELSE\n               MOVE 63 TO W77-CLAVE-ERROR\n        ELSE\n            MOVE 26 TO W77-CLAVE-ERROR.\n     IF W77-CLAVE-ERROR   = 0\n        IF (WKS-P-AVT-X-50066 IS NUMERIC)\n       AND (WKS-P-MVT-N-50066 > 0 AND < 13)\n           MOVE WKS-P-AVT-N-50066 TO WKS-AA-FTARJ\n           MOVE WKS-P-MVT-N-50066 TO WKS-MM-FTARJ\n           IF WKS-P-AVT-N-50066 > 49\n              MOVE 19             TO WKS-SS-FTARJ\n           ELSE\n              MOVE 20             TO WKS-SS-FTARJ\n        ELSE\n           MOVE 36 TO W77-CLAVE-ERROR.\n     IF W77-CLAVE-ERROR   = 0\n        IF WKS-SSAAMM-TARJ < WKS-SSAAMM-LINEA\n            MOVE 37 TO W77-CLAVE-ERROR.\n***  IF W77-CLAVE-ERROR   = 0\n***     IF WKS-P-CVV-X-50066 IS NUMERIC\n***        MOVE ZERO                 TO WT-INDICA-CTA\n***        MOVE WKS-P-CVV-X-50066    TO WT-IMP-EDIT-19\n***        PERFORM 80010000-DESEDITA-IMPORTE\n***        MOVE WT-03-DESED          TO WKS-P-CVV-N-50066\n***        IF WKS-P-CVV-N-50066 > 0\n     MOVE WKS-P-CVV-N-50066 TO W77-CVV-RECIBIDO.\n***        ELSE\n***           MOVE 32    TO  W77-CLAVE-ERROR\n***     ELSE\n***        MOVE 32       TO  W77-CLAVE-ERROR.",
+          "java_codigo": "# application.yml   (lista compilada en 50030000-RECIBE-50066)\nteleton:\n  sucursales-captacion: [\"0519\", \"4899\", \"1037\", \"1905\"]\n  pivote-anio-tarjeta: 49            # AA > 49 es 19AA; AA <= 49 es 20AA\n\n// ---------------------------------------------------------------------------\nint validaSucursalYVigencia(PantallaQ050066 p, CabeceraComs h, YearMonth mesLinea) {\n    if (!s080.datosSucursal(h.sucursal()).ok()) return 26;\n    if (props.validarSucursalCaptacion()\n            && !props.sucursalesCaptacion().contains(h.sucursal())) return 63;\n\n    if (!p.cuentaNumerica()) return 1;\n    int error = tarjetas.valida(p.tarjeta());                 // 70063000 + 70064000\n    if (error != 0) return error;\n\n    if (!p.anioVtoNumerico() || p.mesVto() < 1 || p.mesVto() > 12) return 36;\n    int siglo = (p.anioVto() > props.pivoteAnioTarjeta()) ? 1900 : 2000;\n    YearMonth vence = YearMonth.of(siglo + p.anioVto(), p.mesVto());\n    if (vence.isBefore(mesLinea)) return 37;                  // WKS-SSAAMM-TARJ < WKS-SSAAMM-LINEA\n\n    // El CVV de la pantalla NO se conserva (ver riesgo): la validación está comentada en el fuente\n    return 0;\n}",
+          "racional": "La pantalla de cargo a tarjeta solo se acepta en cuatro sucursales de captación de valores, salvo en el equipo de desarrollo; la lista está compilada y se lleva a <code>application.yml</code>. La vigencia se arma como siglo, año y mes con un pivote propio de 49, distinto del pivote 50 de otras rutinas, y se compara contra el mes de la fecha de línea, de modo que una tarjeta que vence en el mes en curso se acepta. En Java la comparación se hace con <code>YearMonth</code> y el pivote queda explícito.",
+          "reglas": [
+            "RN-S500-621"
+          ],
+          "riesgo": "Las validaciones del CVV están comentadas, pero la línea 3203 sigue activa: el CVV tecleado se mueve a W77-CVV-RECIBIDO sin validarse y después se graba en la base (ver segmento s8)."
+        },
+        {
+          "id": "s6",
+          "titulo": "Dígito verificador Luhn y BIN a clave contable",
+          "linea_ini": 4823,
+          "linea_fin": 4944,
+          "origen_codigo": " 70063000-VALIDA-DIG-TARJ.\n     COMPUTE WKS-RS-PESO(01) = WKS-DIG-TARJ (01) * 2.\n     COMPUTE WKS-RS-PESO(02) = WKS-DIG-TARJ (02) * 1.\n     COMPUTE WKS-RS-PESO(14) = WKS-DIG-TARJ (14) * 1.\n     COMPUTE WKS-RS-PESO(15) = WKS-DIG-TARJ (15) * 2.\n     COMPUTE WKS-SUMA-RS-PESO =\n             WKS-DG1-PESO(01) + WKS-DG2-PESO(01) +\n             WKS-DG1-PESO(02) + WKS-DG2-PESO(02) +\n             WKS-DG1-PESO(14) + WKS-DG2-PESO(14) +\n             WKS-DG1-PESO(15) + WKS-DG2-PESO(15).\n     DIVIDE WKS-SUMA-RS-PESO BY 10 GIVING WKS-SUMA-RS-PESO\n            REMAINDER WKS-REMAINDER.\n     COMPUTE WKS-DIGITO-CALULADO = 10 - WKS-REMAINDER.\n     IF WKS-DIGITO-CALULADO NOT = WKS-DIG-TARJ(16)\n        MOVE 35 TO W77-CLAVE-ERROR.\n 70064000-VALIDA-BIN-B04.\n     MOVE ZERO         TO W77-ES-INTERNACIONAL.\n     MOVE ZERO         TO W77-NUM-EMISOR.\n     MOVE ZERO         TO W77-NUM-NEGOCIO.\n     IF WKS-TRES-DIG-TARJ = 0\n        MOVE WKS-NUM-BIN-R13   TO WKS-BIN\n     ELSE\n     IF WKS-DOS-DIG-TARJ = 0\n        MOVE WKS-NUM-BIN-R14   TO WKS-BIN\n     ELSE\n     IF WKS-UN-DIG-TARJ = 0\n        MOVE WKS-NUM-BIN-R15   TO WKS-BIN\n     ELSE\n        MOVE WKS-NUM-BIN-R16   TO WKS-BIN.\n     IF W88-BIN-02-AMEX\n        MOVE 1     TO W77-ES-AMEX-REF\n        MOVE 0796  TO W77-CLAVE-TRANS\n        MOVE 97    TO W77-NUM-EMISOR\n     ELSE\n        MOVE ZEROS                TO W77-FIN-BIN\n        PERFORM 70064010-BUSCA-NIVEL\n                             VARYING W77-IND-BIN FROM 1 BY 1\n                             UNTIL   W77-IND-BIN > 1000\n                                  OR W77-FIN-BIN = 1\n        IF W77-FIN-BIN = ZEROS\n           PERFORM 70064100-VE-B04BIN.\n 70064100-VE-B04BIN.\n     IF EQUIPO-DESA\n        DISPLAY \"S500/P045: BUSCA BIN EN BASE\".\n     PERFORM 999104-B04TSXBIN-FIND.\n     IF W88-DB-ERROR\n        IF W88-DB-NOTFOUND\n           MOVE 0795   TO W77-CLAVE-TRANS\n           MOVE 1      TO W77-ES-INTERNACIONAL\n        ELSE\n           STRING \"ERROR B04SXBIN-FIND \"\n                  \" BIN \" WKS-BIN\n                  \" STATUSDB \" WKS-STATUS-BASE\n                  \" TARJETA  \" WKS-NUM-TARJETA-R16\n                  DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 70000050-MENSAJE\n           MOVE 0795   TO W77-CLAVE-TRANS\n           MOVE 1      TO W77-ES-INTERNACIONAL\n     ELSE\n     IF B04T-VALIDO-TELE = 1\n        MOVE B04T-NUM-EMISOR   TO W77-NUM-EMISOR\n        MOVE B04T-NUM-NEGOCIO  TO W77-NUM-NEGOCIO\n        IF W77-NUM-EMISOR = 02\n           MOVE 0793  TO W77-CLAVE-TRANS\n        ELSE\n           MOVE 0794  TO W77-CLAVE-TRANS\n     ELSE\n        MOVE 29 TO W77-CLAVE-ERROR.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class TarjetaValidator {\n\n    private final BinRepository bines;            // S500B04TBINES\n    private final TablaBinesMemoria tablaBines;   // WKS-BIN-NUM (hasta 1000 renglones)\n\n    /** 70063000: pesos 2,1,2,1... de izquierda a derecha sobre 16 dígitos con ceros a la izquierda. */\n    static boolean luhnValido(String tarjeta16) {\n        int suma = 0;\n        for (int i = 0; i < 15; i++) {\n            int p = (tarjeta16.charAt(i) - '0') * ((i % 2 == 0) ? 2 : 1);\n            suma += p / 10 + p % 10;                   // WKS-DG1-PESO + WKS-DG2-PESO\n        }\n        int digito = (10 - suma % 10) % 10;            // PIC 9 trunca el 10 a 0; aquí se hace explícito\n        return digito == tarjeta16.charAt(15) - '0';\n    }\n\n    /** 70064000: BIN de 6 dígitos tras los ceros de relleno y clave contable por emisor. */\n    ResultadoBin claveDonativo(String tarjeta16) {\n        String sinRelleno = tarjeta16.replaceFirst(\"^0{0,3}\", \"\");\n        int bin = Integer.parseInt(sinRelleno.substring(0, 6));\n        if (Set.of(34, 35, 37).contains(bin / 10_000)) {\n            return ResultadoBin.amex(796, 97);            // W88-BIN-02-AMEX\n        }\n        return tablaBines.busca(bin)\n                .or(() -> bines.findById(bin).map(b -> b.validoTeleton() ? b : null))\n                .map(b -> ResultadoBin.nacional(b.emisor() == 2 ? 793 : 794, b.emisor(), b.negocio()))\n                .orElseGet(() -> bines.existsById(bin)\n                        ? ResultadoBin.error(29)              // BIN no válido para TELETON\n                        : ResultadoBin.internacional(795));   // NOTFOUND: tarjeta internacional\n    }\n}",
+          "racional": "El dígito verificador se calcula con pesos alternos 2 y 1 sobre los primeros 15 dígitos, sumando los dos dígitos de cada producto con la vista <code>REDEFINES</code> de <code>WKS-RS-PESO</code>. Cuando el residuo es cero, <code>10 - 0</code> no cabe en <code>PIC 9</code> y COBOL lo trunca a 0, que es el resultado correcto; en Java se hace explícito con módulo 10. El BIN se toma tras los ceros de relleno, se busca primero en la tabla en memoria y luego en S500B04TBINES, y determina la clave contable del donativo: 793 si el emisor es 02, 794 para otros emisores nacionales, 795 si el BIN no existe y se trata como internacional, y 796 para los prefijos que el programa considera American Express.",
+          "reglas": [],
+          "riesgo": "El 88 W88-BIN-02-AMEX acepta los prefijos 34, 35 y 37; el 35 corresponde a JCB, no a American Express. Además, un error de base distinto de NOTFOUND al buscar el BIN también clasifica la tarjeta como internacional, y el mensaje al operador incluye el número de tarjeta completo (línea 4930)."
+        },
+        {
+          "id": "s7",
+          "titulo": "Clave de seguridad por umbral de supervisor y decisión de pedir autorización a B24",
+          "linea_ini": 3251,
+          "linea_fin": 3298,
+          "origen_codigo": " 50030490-SEGURIDA-050066.\n     PERFORM 99901-S500B00TGLOBAL-FINDF.\n     IF WS-IMPORTE < B00T-IMP-SUPERV\n        MOVE \"A\" TO WS-CVESEG-OPC\n     ELSE\n        MOVE \"B\" TO WS-CVESEG-OPC.\n     MOVE WKS-NOM-PANTALLA   TO WS-CVESEG-PANT.\n     MOVE 0                  TO WS-CVESEG-CLAVE.\n     PERFORM 90500000-VALIDA-SEGURIDAD.\n     IF WS-S041-RESULTADO = 0\n        MOVE WS-GEN-NOMINA    TO W77-NUM-NOMINA\n     ELSE\n     IF WS-S041-RESULTADO = 1\n        MOVE WS-GEN-NOMI-FUN1 TO W77-NUM-NOMINA\n     ELSE\n        MOVE WS-ERR-S041-VA   TO W77-CLAVE-ERROR.\n 50030700-PIDE-AUTORIZ.\n     MOVE ZERO           TO W77-CON-AUT-TARJ.\n     IF W88-SIN-S036\n        NEXT SENTENCE\n     ELSE\n     IF WKS-BIN = 602089\n        MOVE 1           TO W77-CON-AUT-TARJ\n        PERFORM 70065000-AUTORIZACION-TARJ\n     ELSE\n     IF W77-ES-INTERNACIONAL = 1\n        MOVE 1           TO W77-CON-AUT-TARJ\n        PERFORM 70065000-AUTORIZACION-TARJ\n     ELSE\n     IF WS-IMPORTE NOT < B00T-IMP-AUTORI\n        MOVE 1           TO W77-CON-AUT-TARJ\n        PERFORM 70065000-AUTORIZACION-TARJ.",
+          "java_codigo": "/** 50030490: S041 con opción A debajo del umbral de supervisor y B a partir de él. */\nlong seguridadOperador(BigDecimal importe, String pantalla, Globales g) {\n    char opcion = importe.compareTo(g.importeSupervisor()) < 0 ? 'A' : 'B';\n    ResultadoS041 r = s041.valida(pantalla, opcion);\n    return switch (r.resultado()) {\n        case 0  -> r.nominaGeneral();\n        case 1  -> r.nominaFuncionario();\n        default -> throw new RechazoDonativo(r.codigoError());\n    };\n}\n\n/** 50030700: B24 solo se consulta en estos casos; el resto se aplica sin autorización. */\nboolean requiereAutorizacionB24(ResultadoBin bin, BigDecimal importe, Globales g) {\n    if (!estado.b24Habilitado()) return false;            // HI 36: W88-SIN-S036\n    return bin.bin() == props.binAutorizacionObligatoria() // 602089, compilado en el fuente\n        || bin.internacional()\n        || importe.compareTo(g.importeAutorizacion()) >= 0; // B00T-IMP-AUTORI\n}",
+          "racional": "La seguridad del operador se pide con dos claves distintas según el importe quede por debajo o por encima del umbral de supervisor que vive en S500B00TGLOBAL, y la nómina que se registra depende de si autorizó un operador o un funcionario. La autorización a B24 no es incondicional: se pide para el BIN 602089, para tarjetas internacionales y para importes iguales o mayores que el umbral de autorización; en cualquier otro caso el donativo se aplica sin consultar a B24. Los umbrales se siguen leyendo de la base y el BIN fijo pasa a propiedad.",
+          "reglas": [
+            "RN-S500-621",
+            "RN-S500-625"
+          ],
+          "riesgo": "RN-S500-625 afirma que el S500 siempre pide autorización a B24; el fuente solo la pide en los tres casos de 50030700 y la omite por completo si se envió el HI 36."
+        },
+        {
+          "id": "s8",
+          "titulo": "Folio de autorización y alta del movimiento en S500BD06TELETON",
+          "linea_ini": 3301,
+          "linea_fin": 3370,
+          "origen_codigo": " 50030800-ABO-TARJ-50066.\n     IF W77-ES-AMEX-REF = 1\n        MOVE 15   TO W77-B02T-STATUS\n        MOVE 0796 TO W77-CLAVE-TRANS\n     ELSE\n        MOVE 0    TO W77-B02T-STATUS.\n     PERFORM 99901-S500B00TGLOBALES-LOCK.\n     ADD  1                TO B00T-NUM-AUTORIZ.\n     MOVE B00T-NUM-AUTORIZ  TO W77-NUM-AUTORIZ.\n     MOVE 424600   TO W77-LINEA-LLAMADO.\n     PERFORM 99900-BEGIN-TRANSACTION-BD06.\n     PERFORM 99901-S500B00TGLOBLAL-STORE.\n     PERFORM 99900-END-TRANSACTION-B06.\n     MOVE 55                TO WKS-PREFJ-TRANS.\n     MOVE W77-NUM-AUTORIZ   TO WKS-AUTORIZ-10.\n     PERFORM 999102-B02TSXAUTORIZ-LOCK.\n     IF W88-DB-NOTFOUND\n        PERFORM 999102-S500B02TMOVTOS2-CREA\n        ACCEPT WKS-FECHA-MAQUINA FROM DATE\n        PERFORM 50030900-ENV-S151-50066\n        MOVE 1                   TO W77-LOCK-B03\n        MOVE WKS-HDR-STA-SUC     TO B02T-SUC-PROMOT\n        MOVE WKS-P-TAR-N-50066   TO B02T-CUENTA-TARJ\n        MOVE WKS-AUTORIZACION    TO B02T-AUTORIZA\n        MOVE W77-CLAVE-TRANS     TO B02T-CLAVE-MOVTO\n        MOVE WKS-P-IMP-N-50066   TO B02T-IMPORTE\n                                    W77-IMPORTE\n        MOVE W77-B02T-STATUS      TO B02T-STA-MOVTO\n        MOVE 500                 TO B02T-TCODE-ORIG\n        MOVE WKS-P-MVT-N-50066   TO B02T-FECVEN-MM\n        MOVE WKS-P-AVT-N-50066   TO B02T-FECVEN-AA\n        MOVE W77-NUM-EMISOR      TO B02T-EMISOR\n        MOVE W77-NUM-NEGOCIO     TO B02T-NUM-NEG-TC\n        COMPUTE B02T-NUM-REGLOG = W77-LLAVE-LOG + 1\n        MOVE W77-AUT-S151        TO B02T-AUT-S151\n        MOVE W77-AUT-B24         TO B02T-AUT-B24\n        MOVE W77-NODO-DEST       TO B02T-NODO-B24\n        MOVE WKS-LLAVE-B05       TO B02T-LLAVE-B05\n        MOVE W77-AUT-C218-X4     TO B02T-REF-C218\n        MOVE W77-CVV-RECIBIDO    TO B02T-CVV\n        MOVE W77-NUM-NOMINA      TO I02-R-00-NOMINA\n        PERFORM 70030000-GRABA-LOG\n        PERFORM 70030100-MUEVE-A-B01TCTRL\n        MOVE 430300              TO W77-LINEA-LLAMADO\n        PERFORM 50030802-MOD-STA-B05\n        PERFORM 70040000-GRABA-BASE\n     ELSE\n        GO TO 50030800-ABO-TARJ-50066.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class DonativoSucursalService {\n\n    private final GlobalesRepository globales;     // S500B00TGLOBAL\n    private final DonativoRepository movtos;       // S500B02TMOVTOS\n    private final RegistroContableS151 s151;       // L002 REGISTRAS\n    private final JournalRecuperacion journal;     // I02-LOG\n\n    @Transactional\n    public Donativo abona(SolicitudDonativo s, ResultadoBin bin) {\n        int estatus = bin.amex() ? 15 : 0;\n        int clave   = bin.amex() ? 796 : bin.claveTransaccion();\n\n        // 99901-LOCK + ADD 1 TO B00T-NUM-AUTORIZ: folio con bloqueo pesimista en lugar de reintento por GO TO\n        long folio = globales.siguienteAutorizacion();            // @Lock(PESSIMISTIC_WRITE)\n        String autorizacion = \"55\" + \"%010d\".formatted(folio);    // WKS-PREFJ-TRANS = 55\n\n        var d = Donativo.builder()\n                .autorizacion(autorizacion)\n                .sucursal(s.sucursal()).caja(s.caja()).nomina(s.nomina())\n                .tarjeta(Pan.tokeniza(s.tarjeta()))                // nunca el PAN en claro\n                .claveMovimiento(clave).estatus(estatus)\n                .importe(s.importe().setScale(2, RoundingMode.UNNECESSARY))\n                .vencimiento(s.vencimiento())\n                .emisor(bin.emisor()).negocio(bin.negocio())\n                .autS151(s151.registra(s, clave))                  // 50030900-ENV-S151-50066\n                .autB24(s.autB24()).nodoB24(props.nodoDestino())\n                .build();                                          // B02T-CVV no se migra\n        journal.registra(d);                                        // 70030000-GRABA-LOG\n        return movtos.save(d);                                      // 70040000-GRABA-BASE\n    }\n}",
+          "racional": "El folio de autorización sale de un contador en S500B00TGLOBAL que se bloquea, incrementa y guarda en su propia transacción; si el folio ya existe en S500B02TMOVTOS, el <code>GO TO</code> vuelve a empezar el párrafo y toma el siguiente. En Java el contador se obtiene con bloqueo pesimista dentro de la transacción del alta, lo que elimina la carrera entre copias. El movimiento se registra en el mayor S151, en el log de recuperación y en la base. Se tokeniza el número de tarjeta y no se persiste el CVV.",
+          "reglas": [],
+          "riesgo": "La línea 3355 graba el CVV en B02T-CVV y la 3331 el número de tarjeta completo en B02T-CUENTA-TARJ. Conservar el CVV después de la autorización está prohibido por PCI DSS (requisito 3.2); la base actual debe tratarse como dato sensible."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "CVV almacenado",
+      "detalle": "El CVV tecleado se copia a W77-CVV-RECIBIDO (líneas 3203 y 4444) y se graba en B02T-CVV (línea 3355), aunque toda su validación está comentada. Es un incumplimiento directo de PCI DSS que aplica también a los respaldos de S500BD06TELETON e I02-LOG."
+    },
+    {
+      "titulo": "Número de tarjeta en claro",
+      "detalle": "El PAN se guarda completo en B02T-CUENTA-TARJ y se imprime en el mensaje de error de la línea 4930. La migración debe tokenizarlo y depurar el histórico."
+    },
+    {
+      "titulo": "Seguridad apagable sin control",
+      "detalle": "Los HI 10 y 36 desactivan la seguridad de operador S041 y la autorización B24 en caliente, y el arranque en DESA (líneas 2567-2569) lo hace por nombre de host. No hay registro de quién lo pidió."
+    },
+    {
+      "titulo": "Autorización B24 condicional",
+      "detalle": "Solo se consulta B24 para el BIN 602089, tarjetas internacionales e importes iguales o mayores que B00T-IMP-AUTORI (líneas 3282-3298). El resto de los cargos se aplica sin autorización del emisor."
+    },
+    {
+      "titulo": "Prefijo 35 tratado como American Express",
+      "detalle": "W88-BIN-02-AMEX (línea 1252) incluye 35, que es rango JCB. Esas tarjetas reciben la clave 796 y el estatus 15 de American Express."
+    },
+    {
+      "titulo": "Hardcodes de negocio",
+      "detalle": "Sucursales 0519, 4899, 1037 y 1905; BIN 602089; contrato, cuenta y centro de costo de la fundación (líneas 234-237); nodos B24 17 y 13. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-622 y RN-S500-623 (estados de B02-ACT-TELETON y corte de las 22:00) solo aparecen en los comentarios de cabecera de P045 (líneas 57-97); la lógica vive en P010 y P100. Confirmar si deben asociarse a P045.",
+    "RN-S500-624 menciona el comando 4646 para limpiar revocaciones de L012; el código implementa 1212 con L046 (línea 2482) y añade 1313, 1317 y 1717 para el nodo del S036. Actualizar la regla.",
+    "RN-S500-625 dice que en ambos canales se pide autorización a B24; el fuente la pide solo bajo las condiciones de 50030700. Validar con SME cuál es el comportamiento esperado.",
+    "Confirmar si el prefijo 35 debe seguir clasificado como American Express.",
+    "La comparación de vigencia acepta tarjetas que vencen en el mes en curso y usa pivote 49; confirmar que es el criterio vigente.",
+    "Confirmar con Seguridad de la Información el plan de depuración de B02T-CVV y del PAN en claro antes de cualquier migración de datos."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-620",
+    "RN-S500-621",
+    "RN-S500-622",
+    "RN-S500-623",
+    "RN-S500-624",
+    "RN-S500-625"
+  ]
+}

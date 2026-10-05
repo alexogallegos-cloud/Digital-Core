@@ -1,0 +1,215 @@
+{
+  "slug": "S151_P312",
+  "sistema": "S151",
+  "programa": "P312",
+  "nombre": "Archivo de Saldos para S084 Cobertura Monterrey",
+  "funcion": "Paso batch de S151 que lee en consulta la base de saldos de S500 dentro de S151 y genera para el sistema S084 de la cobertura Monterrey el archivo SALDOS084 con saldos y movimientos por concepto de los contratos de producto 1, instrumento 3, moneda 1.",
+  "resumen": "P312 consulta en la librería de control de S151 la fecha y el nombre físico de la base de saldos del sistema 500, la abre en modo consulta y abre el archivo de salida con título fijo al nodo 04 y la fecha de consulta. Escribe un header y recorre el estado de cuenta B80 de los contratos de producto 1 e instrumento 3; por cada uno busca el saldo mensual en B20 y, si este indica apuntes, los conceptos adicionales en B21. Solo exporta los conceptos de una lista fija de 16 que tengan saldo o movimientos mayores que cero, hasta 25 por contrato. Cierra con un trailer que lleva el número de detalles escritos.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.saldos.s084",
+  "secciones": [
+    {
+      "titulo": "Inicio: base de saldos, fechas y archivo SALDOS084",
+      "origen": {
+        "archivo": "COBOL_P312.txt",
+        "contexto": "PROCEDURE DIVISION · 00000-INICIO / 01000-PROC-INICIO / 01100-GRABA-HED"
+      },
+      "java": {
+        "archivo": "SaldosS084JobConfig.java · InicioS084Tasklet.java · P312Properties.java",
+        "contexto": "Spring Batch Job · Tasklet · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Fecha de consulta y base de saldos del sistema 500",
+          "origen_codigo": " 00000-INICIO.                                                    019400\n    PERFORM 01000-PROC-INICIO.                                    019700\n    PERFORM 02000-PROCESO.                                        019800\n    PERFORM 03000-PROC-FIN.                                       019900\n    STOP RUN.                                                     020000\n 01000-PROC-INICIO.                                               020200\n     MOVE ZERO                     TO W77-RESULT-LIBCON.          021600\n     MOVE 01                       TO WKS-B01-FUNCION             021700\n     MOVE 500                      TO WKS-B01-SISTEMA             021800\n     CALL \"CONSISDIA IN LIB-CONTROL\" USING  WKS-S151B01SISDIA     022100\n                                     GIVING W77-RESULT-LIBCON.    022200\n     MOVE WKS-B01-FECCON           TO WKS-FECHA-LINEA.            022400\n     MOVE WKS-B01-FECPRO151        TO WKS-FECHA-PROC.             022500\n     MOVE 01                       TO WKS-B03-FUNCION             022700\n     MOVE 500                      TO WKS-B03-SISTEMA             022800\n     CALL \"CONSISMEN IN LIB-CONTROL\" USING  WKS-S151B03SISMEN     022900\n                                     GIVING W77-RESULT-LIBCON.    023000\n     IF W77-RESULT-LIBCON = 0                                     023100\n        MOVE WKS-B03-NOMBDSAL     TO WKS-NOMBD.                   023200\n     CHANGE ATTRIBUTE TITLE       OF BASESDO TO WKS-NOMBASE-SDO   023400\n     OPEN INQUIRY BASESDO                                         023500\n          ON EXCEPTION                                            023600\n             MOVE 1                TO W77-ERROR-BASE              023700\n             MOVE 3                TO W77-RESULT-S151             023800\n             PERFORM 900000-CHE-STA.                              023900",
+          "java_codigo": "# application.yml\np312:\n  sistema-saldos: 500            # MOVE 500 TO WKS-B01-SISTEMA / WKS-B03-SISTEMA\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class InicioS084Tasklet implements Tasklet {\n\n    private final ControlSistemasClient control;   // CONSISDIA / CONSISMEN IN LIB-CONTROL\n    private final BaseSaldosResolver bases;\n    private final P312Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var dia = control.consultaSistemaDia(props.sistemaSaldos());\n        if (dia.result() != 0) throw new ControlSistemaException(\"CONSISDIA \" + dia.result());\n        var men = control.sistemaMensual(props.sistemaSaldos());\n        if (men.result() != 0) throw new ControlSistemaException(\"CONSISMEN \" + men.result());\n\n        // OPEN INQUIRY BASESDO: si la base no abre, el step falla aquí (el original sigue).\n        bases.verificaLectura(men.nombreBdSaldos());\n\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaConsulta\", dia.fechaConsulta());      // WKS-FECHA-LINEA (B01-FECCON)\n        ec.put(\"fechaProceso151\", dia.fechaProceso151());  // WKS-FECHA-PROC para el header\n        ec.put(\"baseSaldos\", men.nombreBdSaldos());\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa no trabaja sobre la base declarada en el fuente sino sobre la que la librería de control registra para el sistema 500, que es la base de saldos de captación dentro de S151. De la misma librería toma la fecha de consulta y la fecha de proceso de S151. En Java el número de sistema pasa a <code>application.yml</code> y los dos resultados de la librería se validan antes de continuar, porque el fuente no los revisa. La apertura en consulta se verifica en el mismo tasklet para que un fallo detenga el job antes de producir el archivo.",
+          "reglas": [
+            "RN-S151-710",
+            "RN-S151-717"
+          ],
+          "riesgo": "Si OPEN INQUIRY BASESDO falla, el programa registra el error pero no se detiene: el FIND NEXT de B80 falla de inmediato, se marca fin y S084 recibe un archivo válido en forma, con header y trailer de cero registros. El resultado de CONSISDIA tampoco se revisa.",
+          "linea_ini": 914,
+          "linea_fin": 969
+        },
+        {
+          "id": "s2",
+          "titulo": "Título fijo al nodo 04 y header del archivo",
+          "origen_codigo": " 01  WKS-TIT-SDOS084.                                             013200\n     02  FILLER                        PIC X(21) VALUE            013300\n                                      \"(S151)S151/FILE/S084/\".    013400\n     02  WKS-NODO-ORIGEN-S084          PIC 9(02) VALUE 04.        013500\n     02  FILLER                        PIC X     VALUE \"/\".       013600\n     02  WKS-FEC-S084                  PIC 9(06) VALUE 0.         013700\n     02  FILLER                        PIC X     VALUE \".\".       013800\n 01  WKS-HED-SDOS084.                                             014500\n     02 WKS-HED-FUNCION            PIC 9(02) COMP.                014600\n     02 WKS-HED-SISORIGEN          PIC 9(04) COMP.                014700\n     02 WKS-HED-SISTEMA            PIC 9(04) COMP.                014800\n     02 WKS-HED-FECHA              PIC 9(08) COMP.                014900\n     02 FILLER                     PIC X(409).                    015000\n     MOVE WKS-FECHA-AAMMDD         TO WKS-FEC-S084.               024100\n     CHANGE ATTRIBUTE TITLE OF SALDOS084 TO WKS-TIT-SDOS084.      024200\n                                                                  024300\n     OPEN OUTPUT SALDOS084.                                       024400\n     PERFORM 01100-GRABA-HED.                                     024600\n 01100-GRABA-HED.                                                 024800\n     MOVE 01            TO    WKS-HED-FUNCION                     025100\n     MOVE 151           TO    WKS-HED-SISORIGEN                   025200\n     MOVE 084           TO    WKS-HED-SISTEMA                     025300\n     MOVE WKS-FECHA-PROC TO   WKS-HED-FECHA                       025400\n                                                                  025500\n     WRITE REG-SALDOS084 FROM WKS-HED-SDOS084.                    025600",
+          "java_codigo": "# application.yml\np312:\n  salida:\n    plantilla: \"(S151)S151/FILE/S084/{nodo}/{fecha}.\"\n    nodo: \"04\"                    # WKS-NODO-ORIGEN-S084 VALUE 04: cobertura Monterrey\n    sistema-origen: 151\n    sistema-destino: 84\n\n// ---------------------------------------------------------------------------\npublic sealed interface RegistroS084 permits RegistroS084.Header, RegistroS084.Detalle,\n                                              RegistroS084.Trailer {\n    /** FUNCION 01: header de 423 posiciones, campos COMP. */\n    record Header(int sistemaOrigen, int sistemaDestino, LocalDate fecha) implements RegistroS084 {}\n    record Detalle(/* ver s3 */) implements RegistroS084 {}\n    /** FUNCION 09. */\n    record Trailer(long totalRegistros) implements RegistroS084 {}\n}\n\n@Bean\n@StepScope\nFlatFileHeaderCallback headerS084(P312Properties p,\n        @Value(\"#{jobExecutionContext['fechaProceso151']}\") LocalDate fechaPro) {\n    return w -> w.write(CodecS084.encode(new RegistroS084.Header(\n            p.salida().sistemaOrigen(), p.salida().sistemaDestino(), fechaPro)));\n}\n\n// Título: la fecha es AAMMDD (los 6 dígitos bajos de B01-FECCON); se conserva por compatibilidad con S084.\nstatic String titulo(P312Properties p, LocalDate fechaConsulta) {\n    return p.salida().plantilla().replace(\"{nodo}\", p.salida().nodo())\n            .replace(\"{fecha}\", fechaConsulta.format(DateTimeFormatter.ofPattern(\"yyMMdd\")));\n}",
+          "racional": "El nombre del archivo lleva fijo el nodo 04 y la fecha de consulta en seis dígitos, que salen de truncar la fecha de ocho dígitos por <code>REDEFINES</code>. El header identifica origen 151, destino 084 y la fecha de proceso de S151. En Java la plantilla del título, el nodo y los sistemas pasan a <code>application.yml</code>; el patrón <code>yyMMdd</code> deja explícita la pérdida del siglo que S084 espera hoy. Los tres tipos de registro se modelan como una <code>sealed interface</code> porque comparten el mismo registro físico.",
+          "reglas": [
+            "RN-S151-711",
+            "RN-S151-712",
+            "RN-S151-716"
+          ],
+          "linea_ini": 813,
+          "linea_fin": 986
+        }
+      ]
+    },
+    {
+      "titulo": "Recorrido de B80, B20 y B21 por contrato",
+      "origen": {
+        "archivo": "COBOL_P312.txt",
+        "contexto": "WKS-DET-SDOS084 · 02100-DET-PROC / 02110 / 02120 / 02130 / 02140 / 02142"
+      },
+      "java": {
+        "archivo": "DetalleS084.java · ContratoS084Processor.java",
+        "contexto": "record · ItemReader · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Detalle con llave, tasas y hasta 25 conceptos",
+          "origen_codigo": " 01  WKS-DET-SDOS084.                                             015200\n     02 WKS-DET-KEYID.                                            015300\n        04 WKS-DET-FUNCION         PIC 9(02)       COMP.          015400\n        04 WKS-DET-SISORIGEN       PIC 9(04)       COMP.          015500\n        04 WKS-DET-SISTEMA         PIC 9(04)       COMP.          015600\n        04 WKS-DET-PRODUCTO        PIC 9(04)       COMP.          015700\n        04 WKS-DET-INSTRUMENTO     PIC 9(04)       COMP.          015800\n        04 WKS-DET-MONEDA          PIC 9(04)       COMP.          015900\n     02 WKS-DET-KEYCTO.                                           016000\n        04 WKS-DET-CONTRATO        PIC 9(20)       COMP.          016100\n     02 WKS-DET-RESTO.                                            016200\n        04 WKS-DET-FECHA           PIC 9(06)       COMP.          016300\n        04 WKS-DET-CONCEPTOS       PIC 9(02)       COMP.          016400\n        04 WKS-DET-CONTRATOS.                                     016500\n           06 WKS-DET-SUCPROM      PIC 9(04)       COMP.          016600\n           06 WKS-DET-DIAS-CICLO   PIC 9(02)       COMP.          016700\n           06 WKS-DET-CHQ-EXENTOS  PIC 9(06)       COMP.          016800\n           06 WKS-DET-TASANETA     PIC 9(04)V9(04) COMP.          016900\n           06 WKS-DET-TASABRUTA    PIC 9(04)V9(04) COMP.          017000\n           06 WKS-DET-NETAANUAL    PIC 9(04)V9(04) COMP.          017100\n           06 WKS-DET-CONCEPTOS OCCURS 25 TIMES.                  017200\n              08 WKS-DET-CLAVE     PIC 9(04)       COMP.          017300\n              08 WKS-DET-NUMMOV    PIC 9(08)       COMP.          017400\n              08 WKS-DET-IMPORTE   PIC S9(15)V99   COMP.          017500",
+          "java_codigo": "/** WKS-DET-SDOS084 (FUNCION 02). Todos los campos son COMP en el archivo. */\npublic record DetalleS084(\n        int producto, int instrumento, int moneda,        // 1, 3, 1\n        String contrato,                                  // 9(20) como String\n        LocalDate fecha,                                  // 9(06) AAMMDD, pivote en FechasY2k\n        int numConceptos,                                 // WKS-DET-CONCEPTOS 9(02): ver riesgo\n        int sucursalPromotora,                            // 9(04)\n        int diasCiclo,                                    // 9(02)\n        long chequesExentos,                              // 9(06)\n        BigDecimal tasaNeta, BigDecimal tasaBruta,        // 9(04)V9(04) escala 4\n        BigDecimal tasaNetaAnual,\n        List<ConceptoS084> conceptos) implements RegistroS084 {\n\n    public static final int MAX_CONCEPTOS = 25;           // OCCURS 25 TIMES\n\n    public DetalleS084 {\n        if (conceptos.size() > MAX_CONCEPTOS) throw new IllegalArgumentException(\"más de 25 conceptos\");\n        conceptos = List.copyOf(conceptos);\n    }\n}\n\n/** Clave 9(04), movimientos 9(08), importe S9(15)V99 con signo y escala 2. */\npublic record ConceptoS084(int clave, long numMovimientos, BigDecimal importe) {}",
+          "racional": "El detalle lleva una llave con función, sistemas, producto, instrumento y moneda, el contrato de 20 dígitos y, en el resto, fecha, sucursal, días del ciclo, cheques exentos, tres tasas con cuatro decimales y un arreglo de 25 conceptos con clave, número de movimientos e importe con signo. En Java los conceptos son una lista inmutable con el tope de 25 validado en el constructor, de modo que no puede quedar basura de un contrato anterior en posiciones no usadas. Las tasas pasan a <code>BigDecimal</code> con escala 4 y los importes con escala 2.",
+          "reglas": [
+            "RN-S151-716"
+          ],
+          "riesgo": "El campo de cantidad de conceptos (WKS-DET-CONCEPTOS PIC 9(02), línea 845) comparte nombre con el arreglo OCCURS de la línea 853 y ningún párrafo le asigna valor: el detalle viaja con lo que tenga ese campo en memoria.",
+          "linea_ini": 833,
+          "linea_fin": 856
+        },
+        {
+          "id": "s4",
+          "titulo": "Ciclo por contrato: el detalle solo se escribe si hay apuntes en B21",
+          "origen_codigo": " 02000-PROCESO.                                                   025800\n     SET B80SXEDOCTA   TO BEGINNING.                              026100\n     PERFORM 02100-DET-PROC UNTIL WKS-FIN = 1.                    026200\n 02100-DET-PROC.                                                  026400\n     PERFORM 02110-LIMPIA-VARIABLES.                              026700\n     PERFORM 02120-LEE-NEXT-B80.                                  026900\n     IF WKS-FIN = 0                                               027100\n        PERFORM 02130-DATOS-B80                                   027200\n        PERFORM 02140-DATOS-B20                                   027300\n        IF B20-SDO-APUIMP > 0                                     027400\n           PERFORM 02150-DATOS-B21                                027500\n           PERFORM 02160-DET-B21 UNTIL W77-ERROR-BASE > 0         027600\n           PERFORM 02170-GRABA-REGDET.                            027700",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ContratoS084Processor implements ItemProcessor<EstadoCuentaB80, DetalleS084> {\n\n    private final SaldoMensualRepository b20;   // B20SXSDOMENCON\n    private final ApunteMensualRepository b21;   // B21SXSDMENCON1\n    private final ConceptosS084 conceptos;\n    private final P312Properties props;\n\n    @Override\n    public DetalleS084 process(EstadoCuentaB80 ec) {\n        var lista = new ArrayList<ConceptoS084>();\n        var saldo = b20.findFirst(ec.contrato(), ec.anioMes(), 1, 3, 1);\n        saldo.ifPresent(s -> conceptos.deB20(s, lista));\n        boolean tieneApuntes = saldo.map(s -> s.apuntadorImportes() > 0).orElse(false);\n        if (tieneApuntes) {\n            b21.findAll(ec.contrato(), ec.anioMes(), 1, 3).forEach(a -> conceptos.deB21(a, lista));\n        }\n        // Comportamiento del fuente: el WRITE está dentro del IF B20-SDO-APUIMP > 0.\n        if (!tieneApuntes && props.soloConApuntes()) {\n            return null;                         // el contrato no llega a S084\n        }\n        return DetalleS084.de(ec, saldo, lista);\n    }\n}\n\n// p312.solo-con-apuntes: true   # replica la conducta actual; false = escribir todos los contratos",
+          "racional": "Por cada contrato de B80 se limpian las variables, se leen los datos del estado de cuenta y de B20, y si B20 indica apuntes se agregan los conceptos de B21. Como el fuente no usa <code>END-IF</code>, el punto de la línea 1007 cierra los dos IF y el <code>PERFORM 02170-GRABA-REGDET</code> queda dentro del IF de apuntes: un contrato sin apuntes en B21 no se escribe. La traducción reproduce esa conducta por defecto y la deja detrás de la propiedad <code>p312.solo-con-apuntes</code> para que el SME decida si es intencional. El recorrido de B80 por producto e instrumento lo hace el lector del step.",
+          "reglas": [
+            "RN-S151-710",
+            "RN-S151-718"
+          ],
+          "riesgo": "Si B20 no existe para el contrato, B20-SDO-APUIMP conserva el valor del registro leído antes; según ese valor residual, el contrato se escribe sin conceptos o se omite.",
+          "linea_ini": 988,
+          "linea_fin": 1007
+        },
+        {
+          "id": "s5",
+          "titulo": "Limpieza parcial del arreglo y PIM fijo 1, 3, 1",
+          "origen_codigo": " 02110-LIMPIA-VARIABLES.                                          027900\n     MOVE ZERO                     TO WKS-DET-SUCPROM             028200\n                                      WKS-DET-DIAS-CICLO          028300\n                                      WKS-DET-TASANETA            028400\n                                      WKS-DET-TASABRUTA           028500\n                                      WKS-DET-NETAANUAL           028600\n                                      W77-IND                     028700\n                                      W77-FECHA-VALIDA            028800\n                                      W77-ERROR-BASE              028900\n                                      WKS-DET-CHQ-EXENTOS.        029000\n     PERFORM 02110-LIMPIA-CONCEPTOS                               029100\n             VARYING W77-IND2 FROM 1 BY 1                         029200\n             UNTIL W77-IND2 > 15.                                 029300\n     MOVE 02               TO         WKS-DET-FUNCION.            029500\n     MOVE 151              TO         WKS-DET-SISORIGEN.          029600\n     MOVE 084              TO         WKS-DET-SISTEMA.            029700\n     MOVE 1                TO         WKS-DET-PRODUCTO            029800\n                                      WKS-SDO-PRODUCTO            029900\n                                      WKS-DET-MONEDA              030000\n                                      WKS-SDO-MONEDA.             030100\n     MOVE 3                TO         WKS-DET-INSTRUMENTO         030200\n                                      WKS-SDO-INSTRUMENTO.        030300\n 02110-LIMPIA-CONCEPTOS.                                          030400\n     MOVE ZERO             TO         WKS-DET-CLAVE(W77-IND2)     030700\n                                      WKS-DET-NUMMOV(W77-IND2)    030800\n                                      WKS-DET-IMPORTE(W77-IND2).  030900\n 02120-LEE-NEXT-B80.                                              031100\n     FIND NEXT B80SXEDOCTA AT                                     031400\n                         B80-SDO-PRD    = WKS-SDO-PRODUCTO        031500\n                     AND B80-SDO-INS    = WKS-SDO-INSTRUMENTO     031600\n       ON EXCEPTION                                               031700\n          MOVE 1                  TO  WKS-FIN.                    031800\n 02130-DATOS-B80.                                                 032100\n       MOVE B80-SDO-KEYCON        TO  WKS-DET-CONTRATO            032400\n                                      WKS-SDO-CONTRATO.           032500\n       MOVE B80-SDO-FECCON        TO  WKS-FECHA-PROC.             032600\n       MOVE WKS-FECHA-AAMMDD      TO  WKS-DET-FECHA.              032700\n       MOVE B80-SDO-DATOS         TO  WKS-INFADI-S500.            032800\n       MOVE WKS-ADI500-DIASCICLO  TO  WKS-DET-DIAS-CICLO.         032900\n       MOVE WKS-ADI500-TASRENET   TO  WKS-DET-TASANETA.           033000\n       MOVE WKS-ADI500-TASREBRU   TO  WKS-DET-TASABRUTA.          033100\n       MOVE WKS-ADI500-TASREANO   TO  WKS-DET-NETAANUAL.          033200",
+          "java_codigo": "# application.yml\np312:\n  pim: { producto: 1, instrumento: 3, moneda: 1 }   # único perfil que exporta P312\n\n// ---------------------------------------------------------------------------\n@Bean\n@StepScope\nRepositoryItemReader<EstadoCuentaB80> lectorB80(EstadoCuentaRepository repo, P312Properties p) {\n    // FIND NEXT B80SXEDOCTA AT B80-SDO-PRD = 1 AND B80-SDO-INS = 3\n    return new RepositoryItemReaderBuilder<EstadoCuentaB80>()\n            .name(\"b80\")\n            .repository(repo)\n            .methodName(\"findByProductoAndInstrumento\")\n            .arguments(p.pim().producto(), p.pim().instrumento())\n            .sorts(Map.of(\"contrato\", Sort.Direction.ASC))\n            .pageSize(1_000)\n            .build();\n}\n\n/** 02130-DATOS-B80: tasas y días del ciclo vienen del bloque de 146 bytes de S500 (B80-SDO-DATOS). */\nrecord EstadoCuentaB80(String contrato, LocalDate fechaCorte, InfoAdicionalS500 s500) {\n    int anioMes() { return fechaCorte.getYear() * 100 + fechaCorte.getMonthValue(); }  // WKS-AAMM-PROC\n}",
+          "racional": "Antes de cada contrato se ponen en cero tasas, sucursal, días y cheques exentos y se fijan producto 1, instrumento 3 y moneda 1, que son los únicos que el programa exporta; esos valores pasan a <code>application.yml</code>. El estado de cuenta B80 se recorre por producto e instrumento y de su bloque de datos de S500 se toman días del ciclo y tasas. El año y mes con que se buscan B20 y B21 salen de la fecha del estado de cuenta de cada contrato. En Java cada contrato produce un objeto nuevo, sin variables compartidas que limpiar.",
+          "reglas": [
+            "RN-S151-713"
+          ],
+          "riesgo": "02110-LIMPIA-CONCEPTOS limpia las posiciones 1 a 15 del arreglo de 25. Con 16 conceptos válidos posibles, la posición 16 de un contrato puede quedar en el registro del siguiente si este tiene menos conceptos.",
+          "linea_ini": 1009,
+          "linea_fin": 1062
+        },
+        {
+          "id": "s6",
+          "titulo": "Saldo mensual B20 y sucursal promotora que no se asigna",
+          "origen_codigo": " 02140-DATOS-B20.                                                 033400\n    PERFORM 02142-FIND-B20.                                       033700\n    IF W77-ERROR-BASE = 0                                         033900\n       MOVE B20-SDO-SUCPRO TO WKS-DET-SUCPROM                     034000\n       MOVE ZERO           TO W77-IND3                            034100\n       PERFORM 02144-MUEVE-CONCEPTOS                              034200\n                        VARYING W77-IND FROM 1 BY 1               034300\n                        UNTIL W77-IND > 10.                       034400\n 02142-FIND-B20.                                                  034600\n     FIND FIRST B20SXSDOMENCON AT                                 034900\n                B20-SDO-KEYCON   = WKS-SDO-CONTRATO    AND        035000\n                B20-SDO-KEYAM    = WKS-AAMM-PROC       AND        035100\n                B20-SDO-KEYPRD   = WKS-SDO-PRODUCTO    AND        035200\n                B20-SDO-KEYINS   = WKS-SDO-INSTRUMENTO AND        035300\n                B20-SDO-KEYMON   = WKS-SDO-MONEDA                 035400\n             ON EXCEPTION                                         035500\n                MOVE 1             TO W77-ERROR-BASE              035600\n                IF DMSTATUS(NOTFOUND)                             035700\n                   NEXT SENTENCE                                  035800\n                ELSE                                              035900\n                   MOVE 6          TO W77-RESULT-S151             036000\n                   PERFORM 900000-CHE-STA.                        036100\n     IF W77-ERROR-BASE = 0                                        036300\n        MOVE ZERO                  TO W77-IND3                    036400\n        PERFORM 02144-MUEVE-CONCEPTOS                             036500\n                                   VARYING W77-IND FROM 1 BY 1    036600\n                                   UNTIL W77-IND > 10             036700\n                                                                  036800\n        IF B20-SDO-APUIMP > 0                                     036900\n           PERFORM 02150-DATOS-B21                                037000\n           PERFORM 02160-DET-B21                                  037100\n                                   UNTIL W77-ERROR-BASE > 0.      037200",
+          "java_codigo": "public interface SaldoMensualRepository {\n    /** FIND FIRST B20SXSDOMENCON AT contrato, año-mes, producto, instrumento, moneda. */\n    Optional<SaldoMensualB20> findFirst(String contrato, int anioMes, int prd, int ins, int mon);\n}\n\n// En DetalleS084.de(...): la sucursal promotora se toma siempre de B20 cuando existe.\nstatic int sucursalPromotora(Optional<SaldoMensualB20> b20, P312Properties p) {\n    if (p.replicarSucursalCero()) {\n        // Conducta actual: cuando hay apuntes, 02140 no mueve B20-SDO-SUCPRO porque\n        // W77-ERROR-BASE ya vale 1 al terminar el ciclo de B21.\n        return b20.filter(s -> s.apuntadorImportes() == 0).map(SaldoMensualB20::sucursal).orElse(0);\n    }\n    return b20.map(SaldoMensualB20::sucursal).orElse(0);\n}\n\n// NOTFOUND en B20, B21: se trata como ausencia (Optional vacío). Cualquier otro DMSTATUS lanza\n// DataAccessException y el step falla; en el fuente solo se registra con 900000-CHE-STA.",
+          "racional": "02142 busca el saldo mensual del contrato y, si existe, carga sus conceptos y recorre B21 cuando hay apuntes; de vuelta en 02140, si no hubo error, asigna la sucursal promotora y vuelve a cargar los mismos conceptos de B20. El ciclo de B21 termina siempre con <code>W77-ERROR-BASE = 1</code>, así que para los contratos con apuntes, que son los únicos que se escriben, la sucursal promotora queda en cero. La traducción lee B20 una vez, y deja la réplica de la sucursal en cero detrás de una propiedad mientras el SME confirma qué espera S084.",
+          "reglas": [
+            "RN-S151-718"
+          ],
+          "riesgo": "Según el fuente, todo detalle escrito en SALDOS084 lleva WKS-DET-SUCPROM en cero. Un error de base distinto de NOTFOUND en B20 o B21 solo se reporta al operador; el contrato se procesa igual.",
+          "linea_ini": 1064,
+          "linea_fin": 1102
+        }
+      ]
+    },
+    {
+      "titulo": "Conceptos exportados, escritura y trailer",
+      "origen": {
+        "archivo": "COBOL_P312.txt",
+        "contexto": "W88-CONCEPTOS · 02144-MUEVE-CONCEPTOS / 02160-DET-B21 / 02162 / 02170 / 03000"
+      },
+      "java": {
+        "archivo": "ConceptosS084.java · TrailerS084Callback.java",
+        "contexto": "@Component · FlatFileFooterCallback"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Lista fija de 16 conceptos y carga desde B20",
+          "origen_codigo": " 77  W77-CONCEPTOS-VALIDOS         PIC 9(02).                     009100\n 88  W88-CONCEPTOS                 VALUE 02, 13, 15,              009200\n                                         29, 30, 34, 35, 36, 43,  009300\n                                         44, 45, 5, 6, 7, 8, 9.   009400\n 02144-MUEVE-CONCEPTOS.                                           037400\n     MOVE W77-IND                 TO W77-CONCEPTOS-VALIDOS.       037700\n     IF W88-CONCEPTOS                                             037800\n        IF B20-SDO-SD(W77-IND) > 0 OR B20-SDO-CNTMOV(W77-IND) > 0 037900\n           COMPUTE W77-IND3 = W77-IND3 + 1                        038000\n           MOVE W77-IND            TO WKS-DET-CLAVE(W77-IND3)     038100\n           MOVE B20-SDO-CNTMOV(W77-IND) TO                        038200\n                                     WKS-DET-NUMMOV(W77-IND3)     038300\n           MOVE B20-SDO-SD(W77-IND) TO                            038400\n                                     WKS-DET-IMPORTE(W77-IND3).   038500",
+          "java_codigo": "# application.yml\np312:\n  conceptos-validos: [2, 5, 6, 7, 8, 9, 13, 15, 29, 30, 34, 35, 36, 43, 44, 45]   # W88-CONCEPTOS\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class ConceptosS084 {\n\n    private final P312Properties props;\n\n    /** 02144-MUEVE-CONCEPTOS: posiciones 1..10 de B20; la clave es la posición. */\n    void deB20(SaldoMensualB20 s, List<ConceptoS084> destino) {\n        for (int i = 1; i <= 10; i++) {\n            agrega(i, s.cntMov(i), s.saldo(i), destino);\n        }\n    }\n\n    private void agrega(int clave, long movs, BigDecimal saldo, List<ConceptoS084> destino) {\n        if (!props.conceptosValidos().contains(clave)) return;\n        // Se exporta si saldo > 0 o movimientos > 0: un saldo negativo sin movimientos se omite.\n        if (saldo.signum() > 0 || movs > 0) {\n            if (destino.size() == DetalleS084.MAX_CONCEPTOS) return;\n            destino.add(new ConceptoS084(clave, movs, saldo));\n        }\n    }\n}",
+          "racional": "Solo 16 conceptos se exportan a S084 y la lista está compilada como un nivel 88; pasa a <code>application.yml</code>. De B20 se toman las diez posiciones del arreglo y la clave del concepto es la propia posición, por lo que solo 2, 5, 6, 7, 8 y 9 pueden salir de B20. Un concepto se exporta si su saldo es mayor que cero o tiene movimientos. En Java la regla queda en un solo método que comparten B20 y B21.",
+          "reglas": [
+            "RN-S151-714"
+          ],
+          "riesgo": "La condición B20-SDO-SD > 0 OR B20-SDO-CNTMOV > 0 omite los conceptos con saldo negativo y sin movimientos; S084 no recibe saldos deudores de ese tipo.",
+          "linea_ini": 772,
+          "linea_fin": 1115
+        },
+        {
+          "id": "s8",
+          "titulo": "Conceptos de B21 por grupo: fórmula de la clave",
+          "origen_codigo": " 02160-DET-B21.                                                   040300\n     MOVE B21-SDO-KEYIND           TO W77-IND.                    040600\n     PERFORM 02162-RESTO-B21                                      040700\n             VARYING W77-IND1 FROM 1 BY 1                         040800\n             UNTIL   W77-IND1 > 12 OR                             040900\n                     W77-IND3 = 25.                               041000\n                                                                  041100\n     PERFORM 02164-NEXT-B21.                                      041200\n 02162-RESTO-B21.                                                 041400\n     COMPUTE W77-CONCEPTO = W77-IND * 12 + W77-IND1 - 2.          041700\n     MOVE W77-CONCEPTO          TO W77-CONCEPTOS-VALIDOS.         041800\n     IF W88-CONCEPTOS                                             041900\n        IF B21-SDO-SD(W77-IND1) > 0 OR B21-SDO-CNTMOV(W77-IND1) >0042000\n           COMPUTE W77-IND3 = W77-IND3 + 1                        042100\n           MOVE W77-CONCEPTO          TO WKS-DET-CLAVE(W77-IND3)  042200\n           MOVE B21-SDO-CNTMOV(W77-IND1)                          042300\n                                   TO WKS-DET-NUMMOV(W77-IND3)    042400\n           MOVE B21-SDO-SD(W77-IND1)                              042500\n                                   TO WKS-DET-IMPORTE(W77-IND3).  042600",
+          "java_codigo": "    /** 02160-DET-B21 / 02162-RESTO-B21: 12 posiciones por grupo; clave = grupo * 12 + posición - 2. */\n    void deB21(ApunteMensualB21 a, List<ConceptoS084> destino) {\n        int grupo = a.keyInd();                          // B21-SDO-KEYIND\n        for (int pos = 1; pos <= 12 && destino.size() < DetalleS084.MAX_CONCEPTOS; pos++) {\n            int clave = grupo * 12 + pos - 2;            // grupo 1: 11..22, grupo 2: 23..34, grupo 3: 35..46\n            agrega(clave, a.cntMov(pos), a.saldo(pos), destino);\n        }\n    }",
+          "racional": "B21 guarda los conceptos en grupos de doce, y la clave de concepto que se envía a S084 se calcula como el número de grupo por doce más la posición menos dos. Con esa fórmula el grupo 1 cubre las claves 11 a 22, el 2 de 23 a 34 y el 3 de 35 a 46, lo que explica los valores 13, 15, 29, 30, 34, 35, 36, 43, 44 y 45 de la lista. El ciclo se detiene al llenar las 25 posiciones. En Java la fórmula se conserva literal y documentada porque es parte del contrato con S084.",
+          "reglas": [
+            "RN-S151-715"
+          ],
+          "riesgo": "W77-CONCEPTO es PIC 9(04) pero se mueve a W77-CONCEPTOS-VALIDOS PIC 9(02): una clave mayor que 99 (posible desde el grupo 8) se trunca a sus dos últimos dígitos antes de compararla con la lista; por ejemplo, 105 pasaría el filtro como 05 y se exportaría con clave 105.",
+          "linea_ini": 1133,
+          "linea_fin": 1156
+        },
+        {
+          "id": "s9",
+          "titulo": "Escritura del detalle y trailer con total de registros",
+          "origen_codigo": "  02170-GRABA-REGDET.                                             044400\n     MOVE WKS-DET-KEYID   TO REG-KEY-ID.                          044700\n     MOVE WKS-DET-KEYCTO  TO REG-KEY-CTO.                         044800\n     MOVE WKS-DET-RESTO   TO REG-RESTO-SDOS84.                    044900\n     MOVE ZERO            TO W77-ERROR-ARCH                       045000\n     WRITE REG-SALDOS084  .                                       045100\n     ADD 1             TO WKS-CONT-GRAB.                          045400\n  03000-PROC-FIN.                                                 045600\n     MOVE  09            TO   WKS-TRA-FUNCION.                    045900\n     MOVE  WKS-CONT-GRAB TO   WKS-TRA-TOTREG.                     046000\n     WRITE REG-SALDOS084 FROM WKS-TRA-SDOS084.                    046100\n                                                                  046200\n     CLOSE SALDOS084 WITH SAVE.                                   046300\n     CLOSE  BASESDO.                                              046400",
+          "java_codigo": "@Component\n@StepScope\npublic class TrailerS084Callback implements FlatFileFooterCallback, ItemWriteListener<DetalleS084> {\n\n    private long grabados;                                 // WKS-CONT-GRAB PIC 9(06)\n\n    @Override\n    public void afterWrite(Chunk<? extends DetalleS084> items) {\n        grabados += items.size();\n        if (grabados > 999_999) {\n            throw new IllegalStateException(\"WKS-CONT-GRAB excede 9(06)\");   // el original truncaría\n        }\n    }\n\n    @Override\n    public void writeFooter(Writer w) throws IOException {\n        w.write(CodecS084.encode(new RegistroS084.Trailer(grabados)));    // FUNCION 09\n    }\n}\n// CLOSE SALDOS084 WITH SAVE: FlatFileItemWriter con transactional=true y renombrado al terminar.",
+          "racional": "Cada detalle se arma moviendo la llave, el contrato y el resto del registro, se escribe y se cuenta. Al final se escribe un trailer tipo 09 con el total y se cierra el archivo con <code>SAVE</code>. En Java el conteo vive en un listener de escritura y el trailer en el pie del archivo. El contador original es de seis dígitos y se valida explícitamente para no truncar en silencio.",
+          "reglas": [
+            "RN-S151-716"
+          ],
+          "linea_ini": 1174,
+          "linea_fin": 1192
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Contratos sin apuntes no se exportan",
+      "detalle": "En 02100-DET-PROC (líneas 1004-1007) el PERFORM 02170-GRABA-REGDET está dentro del IF B20-SDO-APUIMP > 0 porque no hay END-IF ni punto intermedio. Solo se escriben contratos con apuntes en B21."
+    },
+    {
+      "titulo": "Sucursal promotora en cero",
+      "detalle": "Para los contratos que sí se escriben, W77-ERROR-BASE vale 1 al volver a 02140-DATOS-B20 (línea 1069) y B20-SDO-SUCPRO no se asigna. Todo detalle sale con sucursal promotora cero."
+    },
+    {
+      "titulo": "Archivo vacío ante falla de la base",
+      "detalle": "Si OPEN INQUIRY BASESDO falla (líneas 965-969), el programa continúa y entrega a S084 un archivo con header y trailer de cero registros, indistinguible de un día sin movimientos."
+    },
+    {
+      "titulo": "Arrastre de datos entre contratos",
+      "detalle": "Solo se limpian 15 de las 25 posiciones de conceptos (línea 1023) y el campo de cantidad de conceptos nunca se asigna. Si B20 no existe para un contrato, se usa el B20-SDO-APUIMP del contrato anterior."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Sistema 500, PIM 1/3/1, nodo 04, sistemas 151 y 084, la lista de 16 conceptos, la ruta de la librería de mensajes y la ruta de respaldo de LIB-CONTROL en CMEMP están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con S084 si es intencional recibir solo contratos con apuntes en B21; el patrón de indentación sugiere que el WRITE debía ir fuera del IF.",
+    "Confirmar si S084 usa la sucursal promotora del detalle; según el fuente siempre llega en cero.",
+    "Confirmar el formato de B01-FECCON (CCAAMMDD) del que se derivan el título y la fecha del detalle en seis dígitos.",
+    "RN-S151-718 dice que con B20-SDO-APUIMP = 0 el detalle se graba solo con conceptos de B20; en el fuente (líneas 1004-1007) el PERFORM 02170-GRABA-REGDET está dentro del IF B20-SDO-APUIMP > 0, así que ese contrato no se graba.",
+    "RN-S151-714 dice que se omiten los conceptos con saldo y movimientos en cero; la condición B20-SDO-SD > 0 OR B20-SDO-CNTMOV > 0 también omite los saldos negativos sin movimientos.",
+    "RN-S151-716 dice que hay un detalle por contrato procesado; por el punto anterior, solo hay detalle para contratos con apuntes en B21."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-710",
+    "RN-S151-711",
+    "RN-S151-712",
+    "RN-S151-713",
+    "RN-S151-714",
+    "RN-S151-715",
+    "RN-S151-716",
+    "RN-S151-717",
+    "RN-S151-718"
+  ]
+}

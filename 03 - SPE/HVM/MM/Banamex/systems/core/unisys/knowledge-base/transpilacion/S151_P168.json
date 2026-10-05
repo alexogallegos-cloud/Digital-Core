@@ -1,0 +1,210 @@
+{
+  "slug": "S151_P168",
+  "sistema": "S151",
+  "programa": "P168",
+  "nombre": "Auditor de Saldos CBII (AHR contra ACC)",
+  "funcion": "Paso batch diario de S151 que concilia, cuenta por cuenta, el saldo de mayor del archivo AHR de CBII contra el saldo del archivo ACC, emite el reporte de diferencias AUDSDOS y envía por INTELAR el detalle de las cuentas INTEL.",
+  "resumen": "P168 recibe sistema y fecha de proceso en un parámetro de 11 dígitos. Carga el archivo de saldos ACC en un indexado temporal por número de cuenta y luego recorre el AHR, ordenado por cuenta: al cambiar de cuenta compara el saldo de mayor y su signo del último movimiento contra el saldo y signo de ACC, y graba las cuentas que no cuadran en ARCH-CTAS. Para ocho cuentas INTEL fijas en el código arma además un archivo con encabezado de saldos de apertura y cierre más el detalle de movimientos, lo envía por INTELARSND y dispara un WFL de transferencia. Al final imprime el reporte de diferencias con los movimientos de cada cuenta descuadrada y deja un archivo bandera BANDE-P168.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.auditoria.saldos",
+  "secciones": [
+    {
+      "titulo": "Estructuras de datos y carga del saldo ACC",
+      "origen": {
+        "archivo": "COBOL_P168.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE · 11000-GENERA-ACC2"
+      },
+      "java": {
+        "archivo": "SaldoAcc.java · DiferenciaSaldo.java · CargaAccTasklet.java · P168Properties.java",
+        "contexto": "@Entity · record · Tasklet · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Saldo ACC indexado por cuenta y registro de diferencias",
+          "linea_ini": 155,
+          "linea_fin": 202,
+          "origen_codigo": " 01 REG-ARCH-ACC2.                                                004800\n    03 ACC-LLAVE.                                                 004900\n       05 ACC-CUENTA                         PIC  9(11).          005000\n    03 ACC-RESTO-REG.                                             005100\n       05 ACC-CTA-FTOBANAMEX                 PIC  9(11).          005200\n       05 ACC-SALDO                          PIC  9(14)V99.       005300\n       05 ACC-SSDO                           PIC  X(01).          005400\n       05 FILLER                             PIC  X(03).          005500\n 01 REG-ARCH-CTAS.                                                006120\n    03 WKS-LLAVE-CTAS .                                           006122\n       05 WKS-CTA-AHR                         PIC  9(11)    .     006124\n    03 WKS-RESTO-REG.                                             006126\n       05 WKS-SDO-AHR                         PIC  9(12)V99 .     006128\n       05 WKS-SDO-ACC                         PIC  9(14)V99 .     006130\n       05 WKS-SSDO-AHR                        PIC  X(01)    .     006132\n       05 WKS-SSDO-ACC                        PIC  X(01)    .     006134",
+          "java_codigo": "/** REG-ARCH-ACC2: indexado temporal (S151/FILE/ACC2) con llave ACC-CUENTA 9(11). */\n@Entity\n@Table(name = \"S151_P168_SALDO_ACC\")\npublic class SaldoAcc {\n    @Id @Column(length = 11) private String cuenta;            // ACC-CUENTA 9(11): String, conserva ceros\n    @Column(length = 11)     private String ctaFtoBanamex;     // ACC-CTA-FTOBANAMEX (no se llena en P168)\n    @Column(precision = 16, scale = 2) private BigDecimal saldo;   // ACC-SALDO 9(14)V99\n    @Column(length = 1)      private String signo;             // ACC-SSDO: \"+\" o \"-\"\n}\n\n/** REG-ARCH-CTAS: cuenta descuadrada. Nótese que el saldo AHR se guarda con dos enteros menos. */\npublic record DiferenciaSaldo(String cuenta,          // WKS-CTA-AHR  9(11)\n                              BigDecimal saldoAhr,    // WKS-SDO-AHR  9(12)V99\n                              BigDecimal saldoAcc,    // WKS-SDO-ACC  9(14)V99\n                              char signoAhr,          // WKS-SSDO-AHR\n                              char signoAcc) {        // WKS-SSDO-ACC (espacio si la cuenta no existe en ACC)\n    public static final BigDecimal TOPE_AHR = new BigDecimal(\"999999999999.99\");\n    public DiferenciaSaldo {\n        if (saldoAhr.compareTo(TOPE_AHR) > 0)\n            throw new DesbordamientoCampoException(\"WKS-SDO-AHR\", saldoAhr);   // COBOL truncaría\n    }\n}",
+          "racional": "Los saldos de ambos archivos se manejan como importe sin signo más un carácter de signo aparte, y así se conservan para que la comparación sea idéntica. El número de cuenta es <code>String</code> porque es un identificador de 11 dígitos con ceros a la izquierda. El indexado ARCH-ACC2 solo existe para buscar por cuenta, así que se modela como una tabla de trabajo con llave primaria; ARCH-CTAS, que se graba con <code>WRITE</code> y si la llave existe con <code>REWRITE</code>, se vuelve un <code>record</code> que se persiste con upsert.",
+          "reglas": [
+            "RN-S151-862"
+          ],
+          "riesgo": "WKS-SDO-AHR es 9(12)V99 mientras el saldo de origen es 9(15)V99: en el archivo de diferencias y en el reporte un saldo de un billón o más pierde los dígitos altos sin aviso."
+        },
+        {
+          "id": "s2",
+          "titulo": "Carga del archivo ACC al indexado por cuenta",
+          "linea_ini": 1534,
+          "linea_fin": 1573,
+          "origen_codigo": "    OPEN OUTPUT ARCH-ACC2.                                        045700\n    CLOSE ARCH-ACC2 WITH SAVE.                                    045800\n    OPEN I-O ARCH-ACC2.                                           045900\n    OPEN INPUT ARCH-ACC.                                          046000\n    MOVE 0 TO W77-EOF                                             046100\n    PERFORM 11100-LEE-ARCH-ACC UNTIL W77-EOF = 1.                 046200\n 11100-LEE-ARCH-ACC.                                              046600\n*===================                                              046700\n     READ ARCH-ACC  AT END MOVE 1 TO W77-EOF.                     046800\n     IF W77-EOF = 0                                               047000\n        PERFORM 11200-GRABA-ACC2 UNTIL W77-EOF = 1.               047100\n 11200-GRABA-ACC2.                                                047300\n*=================                                                047400\n     MOVE ZEROS TO ACC-CUENTA,ACC-CTA-FTOBANAMEX,ACC-SALDO,       047500\n                   ACC-SSDO.                                      047600\n     MOVE ACCI-ACCT-NBR           TO      ACC-CUENTA              047700\n     MOVE ACCI-ACCT-BAL-AMT       TO      ACC-SALDO               047800\n     MOVE ACCI-ACCT-BAL-AMT-SIGN  TO      ACC-SSDO                047900\n     WRITE REG-ARCH-ACC2                                          048100\n           INVALID KEY NEXT SENTENCE.                             048200\n     READ ARCH-ACC  AT END MOVE 1 TO W77-EOF.                     049000\n     MOVE ACCI-INT-REC TO ACCI-TR-REC                             049200\n     IF ACCI-ENDOFFILE = \"END OF FILE\"                            049300\n        MOVE 1 TO W77-EOF.                                        049400",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CargaAccTasklet implements Tasklet {\n\n    private static final String FIN_ARCHIVO = \"END OF FILE\";   // ACCI-ENDOFFILE del trailer\n    private final SaldoAccRepository saldos;\n    private final FlatFileItemReader<RegistroAcc> accReader;   // ARCH-ACC, 360 bytes, layout CBII\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution sc, ChunkContext ctx) throws Exception {\n        saldos.deleteAllInBatch();                             // OPEN OUTPUT / CLOSE / OPEN I-O: recrea vacío\n        accReader.open(new ExecutionContext());\n        try {\n            for (RegistroAcc r; (r = accReader.read()) != null; ) {\n                if (r.raw().startsWith(FIN_ARCHIVO)) break;   // trailer de CBII\n                var s = new SaldoAcc(r.numeroCuenta(),\n                        Pic.trunca(r.saldo(), 14, 2),          // 9(15)V99 a 9(14)V99\n                        r.signoSaldo());\n                if (!saldos.existsById(s.getCuenta())) {\n                    saldos.save(s);                            // WRITE ... INVALID KEY NEXT SENTENCE\n                } else {\n                    sc.incrementFilterCount(1);                // duplicado: gana el primero, sin aviso en el fuente\n                }\n            }\n        } finally {\n            accReader.close();\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El ACC se copia a un indexado cuya única llave es el número de cuenta; si la cuenta se repite, el <code>WRITE</code> falla por llave duplicada y el fuente lo ignora con <code>NEXT SENTENCE</code>, de modo que gana el primer registro. El fin de datos lo marca un trailer cuyo texto inicial es END OF FILE, que se lee a través de una segunda vista del mismo buffer. En Java la carga es un <code>Tasklet</code> transaccional que reproduce ambas reglas y cuenta los duplicados como filtrados para que queden en la bitácora del step.",
+          "reglas": [
+            "RN-S151-862"
+          ],
+          "riesgo": "La llave de ACC2 es solo el número de cuenta, aunque el registro ACC trae sucursal y moneda. Una misma cuenta en dos monedas se queda con el primer saldo leído y la conciliación del segundo se hace contra un saldo que no le corresponde."
+        },
+        {
+          "id": "s3",
+          "titulo": "Cuentas INTEL compiladas en una tabla de ocho posiciones",
+          "linea_ini": 1140,
+          "linea_fin": 1153,
+          "origen_codigo": " 01  WKS-CUENTAS-INTELLIMATCH.                                    015610\n     02  FILLER     PIC X(12) VALUE \"010886300050\".               015615\n     02  FILLER     PIC X(12) VALUE \"000186400090\".               015620\n     02  FILLER     PIC X(12) VALUE \"004855000020\".               015625\n     02  FILLER     PIC X(12) VALUE \"012133900050\".               015630\n     02  FILLER     PIC X(12) VALUE \"012586500030\".               015635\n     02  FILLER     PIC X(12) VALUE \"025433900080\".               015640\n     02  FILLER     PIC X(12) VALUE \"025971300050\".               015645\n     02  FILLER     PIC X(12) VALUE \"012133900130\".               015650\n 01 WKS-TABLA-CUENTAS-INTEL REDEFINES WKS-CUENTAS-INTELLIMATCH.   015710\n    03 WKS-TAB-CTAINTEL OCCURS 8 TIMES.                           015720\n       05 WKS-CTA-INTEL           PIC 9(11).                      015730\n       05 WKS-IND-ENCONTRE        PIC 9(01).                      015740",
+          "java_codigo": "# application.yml  (cuentas que hoy están en WKS-CUENTAS-INTELLIMATCH)\np168:\n  cuentas-intel:\n    - \"01088630005\"\n    - \"00018640009\"\n    - \"00485500002\"\n    - \"01213390005\"\n    - \"01258650003\"\n    - \"02543390008\"\n    - \"02597130005\"\n    - \"01213390013\"\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p168\")\n@Validated\npublic record P168Properties(@NotEmpty List<@Pattern(regexp = \"\\\\d{11}\") String> cuentasIntel) {\n\n    /** W88-CTA-INTEL: la cuenta pertenece al conjunto INTEL. */\n    public boolean esIntel(String cuenta) { return cuentasIntel.contains(cuenta); }\n}\n\n/** WKS-IND-ENCONTRE(n): qué cuentas INTEL aparecieron en el AHR del día. */\n@Component @StepScope\npublic class SeguimientoIntel {\n    private final Set<String> vistas = new HashSet<>();\n    public void marca(String cuenta) { vistas.add(cuenta); }                     // 20160-MARCA-CTA\n    public List<String> faltantes(P168Properties p) {\n        return p.cuentasIntel().stream().filter(c -> !vistas.contains(c)).toList();\n    }\n}",
+          "racional": "Cada <code>FILLER</code> de 12 caracteres se redefine como una cuenta de 11 dígitos más un indicador de encontrada de un dígito que arranca en 0; por eso la cuenta efectiva es la cadena sin su último carácter. La lista se mueve a <code>application.yml</code> para poder agregar o retirar cuentas sin recompilar, y el indicador se separa en un componente de estado propio del step, que es lo que el fuente hace al marcar la posición correspondiente.",
+          "reglas": [
+            "RN-S151-865"
+          ],
+          "riesgo": "El conjunto INTEL está limitado a ocho cuentas por el OCCURS y los PERFORM VARYING hasta 8; agregar una novena exige modificar el programa."
+        }
+      ]
+    },
+    {
+      "titulo": "Conciliación cuenta por cuenta y saldos INTEL",
+      "origen": {
+        "archivo": "COBOL_P168.txt",
+        "contexto": "PROCEDURE DIVISION · 20100-LEE-ARCH-AHR / 20200-LEE-ACC2 / 20300-CALCULA-SDOINI"
+      },
+      "java": {
+        "archivo": "ConciliacionAhrProcessor.java · EncabezadoIntelFactory.java",
+        "contexto": "ItemProcessor @StepScope · JPA de solo lectura"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Corte por cuenta y comparación de saldo y signo",
+          "linea_ini": 1605,
+          "linea_fin": 1677,
+          "origen_codigo": "     IF AHRST-ACCT-NBR = WKS-CUENTA-ANT                           050900\n        MOVE AHRST-ACCT-NBR       TO      WKS-CUENTA-T            051000\n        MOVE AHRST-LDGR-AMT       TO      WKS-SALDO-T             051100\n        MOVE AHRST-LDGR-AMT-SIGN  TO      WKS-SSDO-T              051200\n        IF W88-CTA-INTEL                                          051210\n           PERFORM 20150-GRAB-DET-INT                             051220\n        ELSE                                                      051288\n           NEXT SENTENCE                                          051290\n     ELSE                                                         051300\n        MOVE 0 TO W77-ACC, W77-CTA-INTEL                          051400\n        PERFORM 20200-LEE-ACC2                                    051500\n        MOVE AHRST-ACCT-NBR TO WKS-CUENTA-ANT, W77-CTA-INTEL      051600\n        IF W77-ACC = 0                                            051700\n           IF WKS-SALDO-T = ACC-SALDO AND                         051800\n              WKS-SSDO-T  = ACC-SSDO                              051900\n              MOVE AHRST-ACCT-NBR       TO      WKS-CUENTA-T      051950\n              MOVE AHRST-LDGR-AMT       TO      WKS-SALDO-T       052000\n              MOVE AHRST-LDGR-AMT-SIGN  TO      WKS-SSDO-T        052050\n           ELSE                                                   052100\n              ADD 1 TO W77-IND                                    052200\n              MOVE WKS-CUENTA-T   TO    WKS-CTA-AHR               052300\n              MOVE WKS-SALDO-T    TO    WKS-SDO-AHR               052400\n              MOVE WKS-SSDO-T     TO    WKS-SSDO-AHR              052500\n              MOVE ACC-SALDO      TO    WKS-SDO-ACC               052600\n              MOVE ACC-SSDO       TO    WKS-SSDO-ACC              052700\n              PERFORM 20170-GRABA-CTAS                            052710\n        ELSE                                                      052800\n           ADD 1 TO W77-IND                                       052900\n           MOVE WKS-CUENTA-T   TO    WKS-CTA-AHR                  053000\n           MOVE WKS-SALDO-T    TO    WKS-SDO-AHR                  053100\n           MOVE WKS-SSDO-T     TO    WKS-SSDO-AHR                 053200\n           MOVE 0              TO    WKS-SDO-ACC                  053300\n           MOVE SPACES         TO    WKS-SSDO-ACC                 053400\n           PERFORM 20170-GRABA-CTAS                               053410\n    READ ARCH-AHR AT END MOVE 1 TO W77-EOF.                       053600",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ConciliacionAhrProcessor implements ItemProcessor<MovimientoAhr, DiferenciaSaldo> {\n\n    private final SaldoAccRepository acc;          // ARCH-ACC2\n    private String cuentaAnterior;                 // WKS-CUENTA-ANT\n    private MovimientoAhr ultimo;                  // WKS-CUENTA-T, WKS-SALDO-T, WKS-SSDO-T\n\n    /** El AHR llega ordenado por cuenta; el saldo que se compara es el del último movimiento. */\n    @Override\n    public DiferenciaSaldo process(MovimientoAhr m) {\n        if (m.cuenta().equals(cuentaAnterior)) {\n            ultimo = m;\n            return null;\n        }\n        DiferenciaSaldo dif = (cuentaAnterior == null) ? null : comparaCierre();\n        cuentaAnterior = m.cuenta();\n        ultimo = m;\n        return dif;                                // se escribe en ARCH-CTAS (upsert)\n    }\n\n    private DiferenciaSaldo comparaCierre() {\n        BigDecimal saldoAhr = Pic.trunca(ultimo.saldoMayor(), 14, 2);     // WKS-SALDO-T 9(14)V99\n        return acc.findById(cuentaAnterior)\n                .map(a -> (saldoAhr.compareTo(a.getSaldo()) == 0\n                           && ultimo.signoSaldoMayor() == a.getSigno().charAt(0))\n                        ? null                                             // cuenta cuadrada\n                        : new DiferenciaSaldo(cuentaAnterior, saldoAhr, a.getSaldo(),\n                                              ultimo.signoSaldoMayor(), a.getSigno().charAt(0)))\n                .orElseGet(() -> new DiferenciaSaldo(cuentaAnterior, saldoAhr,\n                                              BigDecimal.ZERO.setScale(2),\n                                              ultimo.signoSaldoMayor(), ' '));   // no existe en ACC\n    }\n    // Al fin del archivo NO se compara la última cuenta: el fuente no tiene ese cierre.\n}",
+          "racional": "La conciliación es un corte de control sobre el AHR ordenado por cuenta: mientras la cuenta no cambia solo se recuerda el último saldo de mayor, y al cambiar se busca la cuenta anterior en ACC y se compara importe y signo. Si no cuadra, o si la cuenta no existe en ACC, se graba una diferencia con ambos saldos. La transpilación reproduce la ausencia de comparación al final del archivo para no alterar el resultado, y lo deja anotado para que el SME decida si debe corregirse. Las ramas de las cuentas INTEL se omitieron del extracto y se tratan en los segmentos siguientes.",
+          "reglas": [
+            "RN-S151-862"
+          ],
+          "riesgo": "Después del último READ no hay comparación de cierre: la última cuenta del AHR solo se concilia si el archivo trae un registro final (por ejemplo un trailer) que provoque el cambio de cuenta."
+        },
+        {
+          "id": "s5",
+          "titulo": "Saldo y naturaleza de cierre de la cuenta INTEL",
+          "linea_ini": 1723,
+          "linea_fin": 1739,
+          "origen_codigo": "     MOVE ZERO               TO W77-ACC.                          054050\n     MOVE WKS-CUENTA-ANT  TO      ACC-CUENTA                      054100\n     READ ARCH-ACC2                                               054200\n          INVALID KEY MOVE 1 TO W77-ACC.                          054300\n     IF W88-CTA-INTEL                                             054310\n        IF W77-ACC = 0                                            054315\n           MOVE W77-CTA-INTEL TO A00-R00-INTE-NUM-CTA             054320\n           MOVE ACC-SALDO     TO A00-R00-INTE-SDO-CIERRE          054325\n           IF ACC-SSDO = \"+\"                                      054326\n              MOVE \"C\"        TO A00-R00-INTE-NAT-CIERRE          054328\n           ELSE                                                   054330\n              MOVE \"D\"        TO A00-R00-INTE-NAT-CIERRE          054332\n        ELSE                                                      054335\n           MOVE W77-CTA-INTEL TO A00-R00-INTE-NUM-CTA             054340\n           MOVE \"C\"           TO A00-R00-INTE-NAT-CIERRE          054345\n           MOVE 0             TO A00-R00-INTE-SDO-CIERRE.         054350",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EncabezadoIntelFactory {\n\n    private final SaldoAccRepository acc;\n    private final P168Properties props;\n\n    /** 20200-LEE-ACC2, rama INTEL: saldo y naturaleza de cierre a partir de ACC. */\n    public CierreIntel cierre(String cuenta) {\n        return acc.findById(cuenta)\n                .map(a -> new CierreIntel(cuenta, a.getSaldo(),\n                        \"+\".equals(a.getSigno()) ? 'C' : 'D'))    // \"+\" acreedora; cualquier otro, deudora\n                .orElseGet(() -> new CierreIntel(cuenta,\n                        BigDecimal.ZERO.setScale(2), 'C'));      // sin ACC: cierre cero y acreedora\n    }\n}\n\npublic record CierreIntel(String cuenta, BigDecimal saldoCierre, char naturalezaCierre) {}",
+          "racional": "Para las cuentas INTEL la misma lectura de ACC llena el encabezado del archivo de envío: el saldo de cierre es el de ACC y la naturaleza es acreedora solo si el signo es <code>+</code>; un signo vacío o inesperado se toma como deudor. Si la cuenta no está en ACC se reporta cierre cero con naturaleza acreedora. Se separa en una fábrica pequeña porque el fuente invoca esta lógica desde cinco puntos distintos.",
+          "reglas": [
+            "RN-S151-866"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Reconstrucción del saldo de apertura con signo y naturaleza",
+          "linea_ini": 1743,
+          "linea_fin": 1766,
+          "origen_codigo": "     IF AHRST-LDGR-AMT-SIGN = \"+\"                                 054415\n        IF AHRST-DR-CR-IND = \"C\"                                  054420\n           COMPUTE W77-SDO-INTEL = AHRST-LDGR-AMT - AHRST-TXN-AMT 054425\n           MOVE W77-SDO-INTEL TO A00-R00-INTE-SDO-APERTURA        054430\n           IF AHRST-TXN-AMT > AHRST-LDGR-AMT                      054432\n              MOVE \"D\"           TO A00-R00-INTE-NAT              054434\n           ELSE                                                   054436\n              MOVE \"C\"           TO A00-R00-INTE-NAT              054438\n        ELSE                                                      054440\n           COMPUTE W77-SDO-INTEL = AHRST-LDGR-AMT + AHRST-TXN-AMT 054445\n            MOVE W77-SDO-INTEL   TO A00-R00-INTE-SDO-APERTURA     054455\n           MOVE \"C\"              TO A00-R00-INTE-NAT              054465\n     ELSE                                                         054466\n        IF AHRST-DR-CR-IND = \"C\"                                  054467\n           COMPUTE W77-SDO-INTEL = AHRST-LDGR-AMT + AHRST-TXN-AMT 054468\n           MOVE W77-SDO-INTEL TO A00-R00-INTE-SDO-APERTURA        054470\n           MOVE \"D\"           TO A00-R00-INTE-NAT                 054474\n        ELSE                                                      054484\n           COMPUTE W77-SDO-INTEL = AHRST-LDGR-AMT - AHRST-TXN-AMT 054486\n           MOVE W77-SDO-INTEL TO A00-R00-INTE-SDO-APERTURA        054488\n           IF AHRST-TXN-AMT > AHRST-LDGR-AMT                      054490\n              MOVE \"C\"           TO A00-R00-INTE-NAT              054492\n           ELSE                                                   054494\n              MOVE \"D\"           TO A00-R00-INTE-NAT.             054496",
+          "java_codigo": "/** 20300-CALCULA-SDOINI. El resultado se guarda sin signo y la naturaleza indica el lado. */\npublic final class SaldoAperturaIntel {\n\n    public static Apertura calcula(MovimientoAhr m) {\n        BigDecimal mayor = m.saldoMayor();               // AHRST-LDGR-AMT 9(15)V99\n        BigDecimal txn   = m.importe();                  // AHRST-TXN-AMT  9(15)V99\n        boolean acreedor = m.signoSaldoMayor() == '+';\n        boolean abono    = m.cargoAbono() == 'C';        // AHRST-DR-CR-IND\n\n        BigDecimal saldo; char nat;\n        if (acreedor) {\n            if (abono) { saldo = mayor.subtract(txn); nat = txn.compareTo(mayor) > 0 ? 'D' : 'C'; }\n            else       { saldo = mayor.add(txn);      nat = 'C'; }\n        } else {\n            if (abono) { saldo = mayor.add(txn);      nat = 'D'; }\n            else       { saldo = mayor.subtract(txn); nat = txn.compareTo(mayor) > 0 ? 'C' : 'D'; }\n        }\n        // W77-SDO-INTEL S9(14)V99 se mueve a A00-R00-INTE-SDO-APERTURA 9(14)V99: se pierde el signo.\n        return new Apertura(Pic.trunca(saldo.abs(), 14, 2), nat);\n    }\n\n    public record Apertura(BigDecimal saldo, char naturaleza) {}\n}",
+          "racional": "El saldo de apertura se obtiene deshaciendo el primer movimiento del día sobre el saldo de mayor: un abono se resta y un cargo se suma cuando el saldo es acreedor, y al revés cuando es deudor. Si el importe excede al saldo, el resultado cruza de lado y la naturaleza se invierte. El campo intermedio tiene signo pero el de salida no, por lo que en Java se toma el valor absoluto de forma explícita. Las sumas y restas de importes con escala 2 son exactas en <code>BigDecimal</code>.",
+          "reglas": [
+            "RN-S151-863"
+          ],
+          "riesgo": "Los importes de origen son 9(15)V99 y el intermedio S9(14)V99; un saldo o una suma de quince enteros perdería el dígito alto. El caso de importe exactamente igual al saldo produce apertura cero con la naturaleza original."
+        }
+      ]
+    },
+    {
+      "titulo": "Salidas: reporte de diferencias y envío INTELAR",
+      "origen": {
+        "archivo": "COBOL_P168.txt",
+        "contexto": "PROCEDURE DIVISION · 30300-GRABA-DET1 / 20400-VERI-CTAS-FALTAN / 20190 / 10050"
+      },
+      "java": {
+        "archivo": "ReporteDiferenciasWriter.java · EnvioIntelarService.java",
+        "contexto": "ItemWriter · Spring Integration (adaptador de transferencia)"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Cálculo de la diferencia considerando signos",
+          "linea_ini": 1848,
+          "linea_fin": 1865,
+          "origen_codigo": "    MOVE WKS-SDO-AHR              TO      WLI-SDO-AHR             060300\n    MOVE WKS-SSDO-AHR             TO      WLI-SSDO-AHR            060400\n    MOVE WKS-SDO-ACC              TO      WLI-SDO-ACC             060500\n    MOVE WKS-SSDO-ACC             TO      WLI-SSDO-ACC            060600\n    IF WKS-SSDO-AHR          = WKS-SSDO-ACC                       060605\n       IF WKS-SDO-AHR          > WKS-SDO-ACC                      060610\n          COMPUTE WKS-SALDO-T = WKS-SDO-AHR          -            060615\n                                WKS-SDO-ACC                       060620\n          MOVE WKS-SALDO-T        TO      WLI-DIFERENCIA          060625\n       ELSE                                                       060630\n          COMPUTE WKS-SALDO-T = WKS-SDO-ACC          -            060635\n                                WKS-SDO-AHR                       060640\n          MOVE WKS-SALDO-T        TO      WLI-DIFERENCIA          060645\n    ELSE                                                          060650\n       COMPUTE WKS-SALDO-T = WKS-SDO-ACC          +               060655\n                             WKS-SDO-AHR                          060660\n       MOVE WKS-SALDO-T   TO      WLI-DIFERENCIA.                 060665\n    WRITE V00-R00-SDOS FROM WLI-REP-COMPSDO AFTER 2.              060700",
+          "java_codigo": "/** 30300-GRABA-DET1: magnitud del descuadre que se imprime en AUDSDOS. */\npublic static BigDecimal diferencia(DiferenciaSaldo d) {\n    BigDecimal ahr = d.saldoAhr(), acc = d.saldoAcc();\n    BigDecimal dif = (d.signoAhr() == d.signoAcc())\n            ? ahr.subtract(acc).abs()        // mismo lado: mayor menos menor\n            : ahr.add(acc);                  // lados opuestos: suma de magnitudes\n    return Pic.trunca(dif, 14, 2);           // WKS-SALDO-T 9(14)V99, COMPUTE sin ON SIZE ERROR\n}\n\n@Component\n@RequiredArgsConstructor\npublic class ReporteDiferenciasWriter implements ItemWriter<CuentaConMovimientos> {\n    private final ReporteAudsdos reporte;    // V00-REP-SDOS, salto de hoja a las 47 líneas\n    @Override public void write(Chunk<? extends CuentaConMovimientos> chunk) {\n        for (var c : chunk) {\n            reporte.renglonCuenta(c.diferencia(), diferencia(c.diferencia()));\n            c.movimientos().forEach(reporte::renglonMovimiento);   // 30500-GRABA-DET2\n        }\n    }\n}",
+          "racional": "Cuando los dos saldos están del mismo lado, la diferencia es la resta del mayor menos el menor; cuando están en lados opuestos es la suma, porque el descuadre abarca ambos. La rama de igualdad de signos con <code>IF ... &gt;</code> equivale a un valor absoluto. Una cuenta que no existe en ACC llega con signo en blanco, así que siempre cae en la rama de suma, que con saldo ACC cero da el saldo AHR. El reporte imprime después del renglón de la cuenta todos sus movimientos del AHR.",
+          "reglas": [
+            "RN-S151-864"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Cuentas INTEL faltantes y envío por INTELARSND",
+          "linea_ini": 1706,
+          "linea_fin": 1777,
+          "origen_codigo": " 20190-ENVIA-INTELAR.                                             053866\n*====================                                             053868\n     UNSTRING WKS-TIT-ARCH-INTEL DELIMITED BY \".\"                 053869\n         INTO WKS-INTE-ARCHIVO.                                   053870\n     CALL \"INTELARSND IN ADMONXFERS\" USING  WKS-INTE-ARCHIVO      053871\n                                     GIVING W77-INTE-SNT.         053872\n     IF W77-INTE-SNT NOT = 0                                      053876\n        MOVE \"E\"                       TO TIPO-LJ                 053878\n        MOVE 020901                    TO CODIGO-LJ               053880\n        STRING \"ERROR EN EL ENVIO POR INTELAR DEL ARCHIVO \"       053882\n               WKS-INTE-ARCHIVO                                   053884\n        DELIMITED BY SIZE                                         053886\n        INTO TEXTO-LJ                                             053888\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ.      053890\n     IF WKS-IND-ENCONTRE(W77-IND2) = 0                            054520\n        MOVE WKS-CTA-INTEL(W77-IND2) TO WKS-CUENTA-ANT,           054530\n                                        W77-CTA-INTEL             054535\n        PERFORM 20200-LEE-ACC2                                    054540\n        MOVE A00-R00-INTE-SDO-CIERRE TO A00-R00-INTE-SDO-APERTURA 054550\n        MOVE A00-R00-INTE-NAT-CIERRE TO A00-R00-INTE-NAT          054560\n        WRITE REG-ARCH-INTEL FROM A00-R00-HDR-INTE                054570\n        WRITE A01-REG-ARCH-INT      FROM A00-R00-HDR-INTE.        054575",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class EnvioIntelarService {\n\n    private final EncabezadoIntelFactory encabezados;\n    private final SeguimientoIntel seguimiento;\n    private final P168Properties props;\n    private final MessageChannel intelarOut;      // reemplaza INTELARSND IN ADMONXFERS\n\n    /** 20400-VERI-CTAS-FALTAN: las cuentas INTEL sin movimientos se envían con apertura = cierre. */\n    public void completaFaltantes(ArchivoIntel archivo) {\n        for (String cuenta : seguimiento.faltantes(props)) {\n            var c = encabezados.cierre(cuenta);\n            archivo.encabezado(cuenta, c.saldoCierre(), c.naturalezaCierre(),   // apertura\n                                       c.saldoCierre(), c.naturalezaCierre());  // cierre\n        }\n    }\n\n    /** 20190-ENVIA-INTELAR: el título hasta el primer punto es el nombre que recibe el canal. */\n    public void envia(ArchivoIntel archivo) {\n        String nombre = archivo.titulo().split(\"\\\\.\", 2)[0];\n        boolean ok = intelarOut.send(MessageBuilder.withPayload(archivo.path())\n                .setHeader(\"intelar.nombre\", nombre).build());\n        if (!ok) {\n            throw new EnvioIntelarException(\"ERROR EN EL ENVIO POR INTELAR DEL ARCHIVO \" + nombre);\n        }\n    }\n}",
+          "racional": "Las cuentas INTEL que no tuvieron movimientos en el AHR se agregan al archivo solo con su encabezado, usando el saldo de cierre también como apertura, para que el receptor siempre reciba las ocho. El envío se hace con la librería de transferencias pasando el título del archivo hasta el primer punto. En Java el envío es un canal de Spring Integration con su adaptador de transferencia; a diferencia del fuente, que solo registra el error y continúa, se propone fallar el step, con la decisión final pendiente del SME.",
+          "reglas": [
+            "RN-S151-865",
+            "RN-S151-866"
+          ],
+          "riesgo": "En el fuente un error de INTELARSND solo deja mensaje en bitácora; el paso termina bien y el archivo INTEL no llega al destino."
+        },
+        {
+          "id": "s9",
+          "titulo": "WFL dinámico para la transferencia del archivo INTEL",
+          "linea_ini": 1326,
+          "linea_fin": 1526,
+          "origen_codigo": " 01 WKS-TIT-WFL.                                                  031705\n    02 FILLER                  PIC X(15) VALUE \"BEGIN JOB; RUN \". 031710\n    02 WKS-START-PROG             PIC X(47).                      031715\n    02 FILLER                     PIC X(02) VALUE \" (\".           031720\n    02 FILLER                     PIC X(01) VALUE QUOTES.         031725\n    02 FILLER                     PIC X(01) VALUE \"S\".            031730\n    02 WKS-START-SIS              PIC 9(03) VALUE 500.            031735\n    02 FILLER                     PIC X(04) VALUE \"INTE\".         031740\n    02 FILLER                     PIC X(01) VALUE \"/\".            031745\n    02 WKS-START-FEC              PIC X(08).                      031750\n    02 FILLER                     PIC X(01) VALUE \"/\".            031755\n    02 WKS-START-NUM              PIC 9(02) VALUE 1.              031760\n    02 FILLER                     PIC X(01) VALUE QUOTES.         031765\n    02 FILLER                     PIC X(12) VALUE \") ; END JOB.\". 031770\n     MOVE \"S006P940\"         TO WKS-CTLVERS-LIBRERIA.             044920\n     CALL \"DAME_TIT IN CTRLVERS\"                                  044925\n           USING WKS-CTLVERS-LIBRERIA, WKS-CTLVERS-TITULO         044930\n           GIVING WKS-CTLVERS-STATUS.                             044935\n     IF WKS-CTLVERS-STATUS < 0                                    044945\n        MOVE \"(S006)S006/OBJECT/P940/CTRLFTP/25MTP001 ON XFER\"    044950\n             TO WKS-START-PROG                                    044955\n     ELSE                                                         044960\n        STRING WKS-CTLVERS-TITULO DELIMITED BY SIZE               044965\n                INTO WKS-START-PROG.                              044970\n     CALL SYSTEM WFL USING WKS-TIT-WFL.                           044990",
+          "java_codigo": "# application.yml\np168:\n  transferencia:\n    programa-default: \"(S006)S006/OBJECT/P940/CTRLFTP/25MTP001 ON XFER\"   # si CTLVERS falla\n    prefijo-sistema: \"S500\"          # WKS-START-SIS VALUE 500, aunque el paso es de S151\n    sufijo-archivo: \"INTE\"\n    consecutivo: 1\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class TransferenciaIntelTasklet implements Tasklet {\n\n    private final CatalogoVersiones ctlvers;      // DAME_TIT IN CTRLVERS\n    private final TransferenciaPort ctrlftp;      // S006P940 CTRLFTP\n    private final P168Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution sc, ChunkContext ctx) {\n        var t = props.transferencia();\n        String programa = ctlvers.titulo(\"S006P940\").orElse(t.programaDefault());\n        LocalDate fecha = (LocalDate) ctx.getStepContext().getJobExecutionContext().get(\"fechaProceso\");\n        String parametro = \"%s%s/%s/%02d\".formatted(t.prefijoSistema(), t.sufijoArchivo(),\n                fecha.format(DateTimeFormatter.BASIC_ISO_DATE), t.consecutivo());\n        ctrlftp.ejecuta(programa, parametro);     // antes: CALL SYSTEM WFL \"BEGIN JOB; RUN ... ; END JOB.\"\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al terminar, P168 arma en memoria un WFL de una línea que ejecuta el controlador de transferencias de S006 con el parámetro S500INTE, la fecha y el consecutivo 01, y lo lanza con <code>CALL SYSTEM WFL</code>. Ni el resultado del WFL ni el estado de la tarea se revisan. En Java se sustituye por un puerto explícito hacia el servicio de transferencia, con el título del programa resuelto por el catálogo de versiones y un valor por omisión en <code>application.yml</code>, igual que en el fuente.",
+          "reglas": [],
+          "riesgo": "El prefijo S500 está compilado en un programa de S151 y el resultado del WFL lanzado no se verifica."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Última cuenta del AHR sin conciliar",
+      "detalle": "La comparación de saldos solo ocurre al cambiar de cuenta en 20100-LEE-ARCH-AHR (líneas 1605-1677) y no hay cierre después del fin de archivo; la última cuenta solo se concilia si el AHR trae un registro final que fuerce el cambio."
+    },
+    {
+      "titulo": "Truncamiento de saldos",
+      "detalle": "Los saldos de origen son 9(15)V99; WKS-SALDO-T y ACC-SALDO son 9(14)V99 y WKS-SDO-AHR, que va al archivo de diferencias y al reporte, es 9(12)V99 (línea 199). Saldos grandes se comparan o reportan sin sus dígitos altos."
+    },
+    {
+      "titulo": "Duplicados de ACC descartados en silencio",
+      "detalle": "ARCH-ACC2 usa solo el número de cuenta como llave y el WRITE con llave repetida se ignora (líneas 1565-1566). Una cuenta con más de un registro en ACC se concilia contra el primero."
+    },
+    {
+      "titulo": "Errores de envío no detienen el paso",
+      "detalle": "Un error de INTELARSND (líneas 1712-1719) solo se registra, y el WFL de transferencia lanzado con CALL SYSTEM WFL (línea 1526) no se verifica."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Ocho cuentas INTEL (líneas 1141-1148), el título por omisión del controlador de transferencias, el prefijo S500 del parámetro del WFL, el pack CMEMP de los archivos de trabajo y el CSI 10 del título del reporte (línea 1495) están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si el AHR de CBII trae un registro final (trailer AHRST-REC-TRAILER) que actúe como centinela; de lo contrario la última cuenta nunca se concilia.",
+    "En 30100-LEE-AHR (líneas 1818-1825) después del AT END de ARCH-CTAS2 el programa vuelve a ejecutar 30300-GRABA-DET1 con el último registro leído; confirmar en una corrida real si la última cuenta descuadrada se imprime dos veces.",
+    "Confirmar si el envío INTELAR fallido debe abortar el paso, como propone la versión Java, o mantener el comportamiento actual.",
+    "La razón de que el parámetro del WFL lleve prefijo S500 en un programa de S151 no está documentada en el fuente.",
+    "Validar con SME si las ocho cuentas INTEL siguen vigentes."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-862",
+    "RN-S151-863",
+    "RN-S151-864",
+    "RN-S151-865",
+    "RN-S151-866",
+    "RN-S500-377",
+    "RN-S500-378",
+    "RN-S500-379",
+    "RN-S500-380",
+    "RN-S500-381"
+  ]
+}

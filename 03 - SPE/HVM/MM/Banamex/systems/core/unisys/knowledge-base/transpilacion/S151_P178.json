@@ -1,0 +1,236 @@
+{
+  "slug": "S151_P178",
+  "sistema": "S151",
+  "programa": "P178",
+  "nombre": "Verificación de Saldos contra el sistema origen",
+  "funcion": "Paso batch de S151 que se ejecuta por sistema origen (parámetro W77-PARAM-SISTEMA) después de P025; compara la posición diaria en B70 contra los saldos del archivo SDOENT del sistema origen y corrige B70 cuando difieren.",
+  "resumen": "P178 espera a que el control mensual de LIB-CONTROL indique que P025 terminó, marca su propio inicio y abre la base de saldos de S151 en actualización. Ordena el archivo de saldos del sistema origen y acumula por producto, instrumento y moneda el importe del concepto 2 en una tabla en memoria de 25 por 15 por 19. Después recorre la posición B70 del CSI y la fecha de proceso: imprime el reporte de posición, compara el saldo actual contra la tabla y, si no coincide, reemplaza el saldo de B70 por el del sistema origen y hace STORE. Para S500 y S555 escribe además un archivo de saldos separado por comas y lo envía por INTELAR.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.saldos.verificacion",
+  "secciones": [
+    {
+      "titulo": "Arranque condicionado al estatus de P025",
+      "origen": {
+        "archivo": "COBOL_P178.txt",
+        "contexto": "100000-INI · 1001105-VALIDA-STABDSDO"
+      },
+      "java": {
+        "archivo": "EsperaP025Tasklet.java · VerificacionSaldosJobConfig.java",
+        "contexto": "Tasklet · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Lectura del estatus STABDSAL y espera de 15 minutos",
+          "linea_ini": 3123,
+          "linea_fin": 3155,
+          "origen_codigo": "     IF WKS-B03-STABDSAL < 3                                      081800\n        MOVE SPACES       TO      WLI-ENCAB-52, TEXTO-LJ          081851\n        MOVE \"I\"            TO      TIPO-LJ                       081900\n        MOVE 020601         TO      CODIGO-LJ                     082000\n        STRING \"NO HA TERMINADO P025 DETENGO PROCESO 15 MINS: \",  082100\n                         WKS-B03-STABDSAL                         082200\n        DELIMITED BY SIZE INTO TEXTO-LJ                           082300\n        MOVE TIPO-LJ        TO      WLI-TIPO-LJ                   082351\n        MOVE TEXTO-LJ       TO      WLI-TEXTO-LJ                  082371\n        PERFORM  000-030-IMPRIME-MENSAJE                          082391\n        PERFORM 999999-DESPLIEGA                                  082400\n        WAIT (900)                                                082500\n     ELSE                                                         082600\n     IF WKS-B03-STABDSAL = 99                                     082700\n        NEXT SENTENCE                                             082800\n     ELSE                                                         082900\n     IF WKS-B03-STABDSAL > 4                                      083000\n**** JCNS INI - ALTA DISPONIBILIDAD * IBM 21-01-15                083004\n        IF WKS-B03-STABDSAL = 5                                   083008\n           MOVE 99        TO WKS-B03-STABDSAL                     083012\n        ELSE                                                      083016\n**** JCNS FIN - ALTA DISPONIBILIDAD * IBM 21-01-15                083020\n           MOVE SPACES       TO      WLI-ENCAB-52, TEXTO-LJ       083051\n           MOVE \"E\"            TO      TIPO-LJ                    083100\n           MOVE 020701         TO      CODIGO-LJ                  083200\n           STRING \"ERROR YA SE EJECUTO ESTE PROCESO : \",          083300\n                            WKS-B03-STABDSAL                      083400\n           DELIMITED BY SIZE INTO TEXTO-LJ                        083500\n           MOVE TIPO-LJ        TO      WLI-TIPO-LJ                083551\n           MOVE TEXTO-LJ       TO      WLI-TEXTO-LJ               083571\n           PERFORM  000-030-IMPRIME-MENSAJE                       083591\n           PERFORM 999999-DESPLIEGA                               083600\n           SET MYSELF(STATUS)  TO  -1.                            083700",
+          "java_codigo": "/** Valores de WKS-B03-STABDSAL que usa P178. */\nenum EstatusSaldos {\n    PENDIENTE_P025,   // < 3: P025 no ha terminado\n    LISTO,            // 3: P025 terminó\n    EN_PROCESO,       // 4: P178 ya inició (reinicio tras falla)\n    OMITIR,           // 99, o 5 convertido a 99 (alta disponibilidad, IBM 2015)\n    YA_EJECUTADO;     // > 5\n\n    static EstatusSaldos of(int v) {\n        if (v < 3) return PENDIENTE_P025;\n        if (v == 3) return LISTO;\n        if (v == 4) return EN_PROCESO;\n        if (v == 5 || v == 99) return OMITIR;\n        return YA_EJECUTADO;\n    }\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass EsperaP025Tasklet implements Tasklet {\n    private final ControlSistemaClient control;          // CONSISMEN IN LIB-CONTROL, función 1\n    private final VerificacionProperties props;          // p178.espera-p025: PT15M\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;   // W77-PARAM-SISTEMA\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws InterruptedException {\n        EstatusSaldos e = EstatusSaldos.of(control.estatusSaldos(sistema));\n        switch (e) {\n            case PENDIENTE_P025 -> {\n                log.info(\"NO HA TERMINADO P025 DETENGO PROCESO 15 MINS\");\n                Thread.sleep(props.esperaP025().toMillis());   // WAIT (900)\n                return RepeatStatus.CONTINUABLE;               // vuelve a consultar\n            }\n            case YA_EJECUTADO -> throw new ProcesoAbortadoException(\"ERROR YA SE EJECUTO ESTE PROCESO\");\n            default -> {\n                c.getStepExecution().getJobExecution().getExecutionContext().put(\"estatus\", e.name());\n                return RepeatStatus.FINISHED;\n            }\n        }\n    }\n}",
+          "racional": "El párrafo se ejecuta en un <code>PERFORM ... UNTIL STABDSAL = 3 OR 4 OR 99</code>: mientras P025 no termine, duerme 900 segundos y vuelve a preguntar. En Spring Batch un <code>Tasklet</code> que devuelve <code>CONTINUABLE</code> reproduce ese sondeo dentro del mismo step, y la espera pasa a <code>application.yml</code>. En la plataforma destino lo natural es reemplazar el sondeo por una dependencia entre jobs en el orquestador, pero se conserva la semántica para la demostración. El ajuste de alta disponibilidad de 2015 convierte el estatus 5, que P178 deja al terminar, en 99, de modo que una segunda corrida se omite sin error.",
+          "reglas": [
+            "RN-S151-391"
+          ],
+          "riesgo": "La rama que convertía el estatus a 99 para el sistema 408 está comentada (líneas 3121-3122). Un estatus mayor a 5 registra el error y ejecuta SET MYSELF(STATUS) TO -1; si esa instrucción no terminara la tarea, el PERFORM UNTIL no tendría condición de salida."
+        },
+        {
+          "id": "s2",
+          "titulo": "Bifurcación por estatus y marca de inicio en LIB-CONTROL",
+          "linea_ini": 2976,
+          "linea_fin": 2992,
+          "origen_codigo": "     PERFORM 1001105-VALIDA-STABDSDO UNTIL WKS-B03-STABDSAL = 3 OR076300\n                                                              4 OR076400\n                                                             99   076500\n     IF WKS-B03-STABDSAL = 99                                     076700\n        MOVE 2                     TO W77-EOF                     076800\n     ELSE                                                         076900\n        PERFORM 1500000-CARGA-CONCEPTO-SDOS                       077000\n        PERFORM 1520000-CARGA-REL-SALDOS                          077100\n        OPEN INPUT  A01-SDOENT                                    077200\n        PERFORM 1001000-ABRE-LISTADOS                             077300\n     PERFORM 5000000-LEE-SDOS UNTIL A02-R00-TIPO-REG OF A01-SDOENT077500\n                                    = 81                          077600\n     MOVE ZEROS                TO W77-STATUS                      077700\n     MOVE W77-PARAM-SISTEMA    TO WKS-B03F09-SISTEMA              077800\n     MOVE 9                    TO WKS-B03F09-FUNCION              077900\n     MOVE 4                    TO WKS-B03F09-STABDSAL             078000",
+          "java_codigo": "@Bean\nJob verificacionSaldos(JobRepository repo, Step esperaP025, Step marcaInicio,\n                       Step cargaSaldosOrigen, Step verificaPosicion, Step envioIntelar,\n                       Step marcaFin) {\n    JobExecutionDecider omitir = (job, step) ->\n            \"OMITIR\".equals(job.getExecutionContext().getString(\"estatus\"))\n                    ? new FlowExecutionStatus(\"OMITIR\") : new FlowExecutionStatus(\"CONTINUAR\");\n\n    return new JobBuilder(\"S151P178\", repo)\n            .start(esperaP025)\n            .next(omitir).on(\"OMITIR\").end()                     // W77-EOF = 2: no procesa, no marca fin\n            .from(omitir).on(\"CONTINUAR\")\n                .to(marcaInicio)                                  // CONSISMEN función 9, STABDSAL = 4\n                .next(cargaSaldosOrigen)                          // SORT A02 (210000 / 220000)\n                .next(verificaPosicion)                           // 200010 / 200011\n                .next(envioIntelar)                               // solo S500 y S555\n                .next(marcaFin)                                   // 999999-FIN, STABDSAL = 5\n            .end()\n            .build();\n}",
+          "racional": "El fuente decide con <code>W77-EOF</code>: si el estatus es 99 lo pone en 2 y el ciclo principal nunca corre, ni se marca el fin. En otro caso carga conceptos, abre archivos y marca el estatus 4 antes de procesar. En Spring Batch esa decisión es un <code>JobExecutionDecider</code> y cada bloque es un step con reinicio propio. El ELSE abarca hasta el punto de la línea 3006, así que la marca de inicio y su validación solo ocurren cuando el proceso sí corre. El estatus 4 permite que una corrida abortada vuelva a entrar sin esperar a P025.",
+          "reglas": [
+            "RN-S151-391"
+          ],
+          "riesgo": "Si la actualización del estatus 4 falla, el programa despliega el error y ejecuta SET MYSELF(STATUS) TO -1, pero ya abrió A01-SDOENT y los listados."
+        }
+      ]
+    },
+    {
+      "titulo": "Acumulación de saldos del sistema origen",
+      "origen": {
+        "archivo": "COBOL_P178.txt",
+        "contexto": "WORKING-STORAGE · 210000-ORDENA-REGSDOS"
+      },
+      "java": {
+        "archivo": "TablaPosicion.java · SaldoOrigenProcessor.java",
+        "contexto": "@StepScope · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Tabla de posición 25 x 15 x 19 y mapas de índice",
+          "linea_ini": 2641,
+          "linea_fin": 2656,
+          "origen_codigo": " 01 WKS-TAB-CON-SDOS.                                             060900\n    02 WKS-REL-SDOS OCCURS 5000 TIMES.                            061000\n       03 WKS-SDO-INDICE           PIC 9(02) COMP.                061100\n 01 WKS-TAB-RELPROD.                                              061205\n    05 WKS-POS-PROD OCCURS 9999 TIMES PIC 9(04) COMP.             061208\n 01 WKS-TAB-RELINS.                                               061210\n    05 WKS-POS-INST OCCURS 9999 TIMES PIC 9(04) COMP.             061211\n 01 WKS-TAB-RELMON.                                               061213\n    05 WKS-POS-MON  OCCURS 9999 TIMES PIC 9(04) COMP.             061214\n 01  WKS-TABLA-POSICION.                                          061220\n     03 WKS-TABPOS-PROD       OCCURS 25  TIMES.                   061223\n        05 WKS-TABPOS-INST    OCCURS 15  TIMES.                   061226\n           07 WKS-TABPOS-MON  OCCURS 19  TIMES.                   061229\n              09 WKS-TAB-IMP  PIC S9(15)V9(02) COMP.              061232",
+          "java_codigo": "/** WKS-TABLA-POSICION + WKS-TAB-RELPROD/RELINS/RELMON. */\n@Component\n@StepScope\npublic class TablaPosicion {\n\n    public static final int MAX_PROD = 25, MAX_INST = 15, MAX_MON = 19;   // OCCURS 25 / 15 / 19\n\n    /** Llave natural en lugar de índices asignados por orden de llegada. */\n    public record Llave(int producto, int instrumento, int moneda) {}\n\n    private final Map<Llave, BigDecimal> importes = new HashMap<>();   // WKS-TAB-IMP S9(15)V9(02)\n    private final Set<Integer> productos = new LinkedHashSet<>();\n    private final Set<Integer> instrumentos = new LinkedHashSet<>();\n    private final Set<Integer> monedas = new LinkedHashSet<>();\n\n    public void suma(Llave k, BigDecimal importe) {\n        registra(productos, k.producto(), MAX_PROD);\n        registra(instrumentos, k.instrumento(), MAX_INST);\n        registra(monedas, k.moneda(), MAX_MON);\n        importes.merge(k, importe.setScale(2), BigDecimal::add);         // suma exacta, escala 2\n    }\n\n    public Optional<BigDecimal> importe(Llave k) { return Optional.ofNullable(importes.get(k)); }\n\n    /** WKS-POS-PROD/INST/MON > 0: la dimensión apareció en SDOENT aunque no en esta combinación. */\n    public boolean conIndice(Llave k) {\n        return productos.contains(k.producto()) && instrumentos.contains(k.instrumento())\n                && monedas.contains(k.moneda());\n    }\n\n    /** El COBOL no valida el tope al asignar índice; aquí se falla en lugar de salirse del arreglo. */\n    private static void registra(Set<Integer> s, int v, int max) {\n        if (s.add(v) && s.size() > max) throw new CapacidadTablaException(v, max);\n    }\n}",
+          "racional": "El programa asigna a cada producto, instrumento y moneda un índice consecutivo según el orden en que aparece, y con esos índices direcciona una tabla fija de tres dimensiones con importes <code>S9(15)V9(02) COMP</code>. En Java basta un <code>Map</code> con la llave natural y un <code>BigDecimal</code> de escala 2. Se mantienen los topes de 25, 15 y 19 como validación explícita, porque 210200-MUEVE-DATOS-APL incrementa los contadores sin revisar el límite antes de usar el índice.",
+          "reglas": [
+            "RN-S151-398"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Filtro de registros de saldo para el SORT",
+          "linea_ini": 3513,
+          "linea_fin": 3522,
+          "origen_codigo": " 210100-PROCESA.                                                  110700\n     IF A02-R00-TIPO-REG OF A01-SDOENT = 81                       110800\n        IF (W77-PARAM-SISTEMA = 500 OR 555) AND                   111060\n           A02-R01-PRD OF A01-SDOENT = 1 AND                      111065\n           A02-R01-INS OF A01-SDOENT = 3                          111070\n           PERFORM 210200-MUEVE-DATOS-APL                         111080\n           MOVE CORR A02-R00-SALDOS OF A01-SDOENT TO              111085\n                     A02-R00-SALDOS OF A02-SORT                   111090\n           RELEASE A02-R00-SALDOS    OF A02-SORT.                 111100\n     PERFORM 5000000-LEE-SDOS.                                    111200",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass FiltroSaldosOrigen implements ItemProcessor<RegistroSdoEnt, RegistroSdoEnt> {\n\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;\n    private final VerificacionProperties props;   // p178.sistemas-producto-1-3: [500, 555]\n\n    /** 210100-PROCESA: solo tipo 81 y, hoy, solo S500/S555 producto 1 instrumento 3. */\n    @Override\n    public RegistroSdoEnt process(RegistroSdoEnt r) {\n        if (r.tipoRegistro() != 81) return null;\n        boolean seleccionado = props.sistemasProducto13().contains(sistema)\n                && r.producto() == 1 && r.instrumento() == 3;\n        return seleccionado ? r : null;               // null = no se hace RELEASE\n    }\n}",
+          "racional": "El procedimiento de entrada del SORT lee todo el archivo, pero solo hace <code>RELEASE</code> de los registros tipo 81 que cumplen la condición de sistema, producto e instrumento. En Spring Batch el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> y el ordenamiento por contrato, producto, instrumento y moneda se resuelve con un <code>ORDER BY</code> en el lector o con un step de ordenamiento previo. La lista de sistemas pasa a configuración.",
+          "reglas": [
+            "RN-S151-392"
+          ],
+          "riesgo": "Los IF están anidados sin ELSE: para cualquier sistema distinto de 500 y 555 no se libera ningún registro al SORT, y las ramas de moneda para S084 y S087 en 210200-MUEVE-DATOS-APL nunca se ejecutan."
+        },
+        {
+          "id": "s5",
+          "titulo": "Moneda por sistema, índices y suma del concepto 2",
+          "linea_ini": 3524,
+          "linea_fin": 3581,
+          "origen_codigo": " 210200-MUEVE-DATOS-APL.                                          111350\n*=======================                                          111351\n     IF (W77-PARAM-SISTEMA = 500 OR 555)                          111355\n        MOVE A02-R01-MONEDA  OF A01-SDOENT TO W77-MONEDA          111356\n     ELSE                                                         111357\n     IF W77-PARAM-SISTEMA = 87                                    111358\n        MOVE A02-R01-MON     OF A01-SDOENT TO W77-MONEDA          111360\n     ELSE                                                         111362\n     IF W77-PARAM-SISTEMA = 84 AND                                111376\n        A02-R01-PRD OF A02-R01-REG-SAL OF A01-SDOENT = 84  AND    111377\n        ( A02-R01-INS OF A02-R01-REG-SAL OF A01-SDOENT = 15 OR 17)111378\n        MOVE 3                             TO W77-MONEDA          111380\n     ELSE                                                         111382\n     IF W77-PARAM-SISTEMA = 84                                    111384\n        MOVE A02-R01-MONS084 OF A01-SDOENT TO W77-MONEDA          111386\n     ELSE                                                         111388\n        MOVE 1                              TO W77-MONEDA.        111390\n     IF A02-R01-PRD OF A01-SDOENT > 0 AND < 10000                 111392\n        IF WKS-POS-PROD(A02-R01-PRD OF A01-SDOENT) > 0            111393\n           MOVE WKS-POS-PROD(A02-R01-PRD OF A01-SDOENT)           111394\n                                   TO W77-IND-PROD                111395\n        ELSE                                                      111396\n           ADD 1                   TO W77-TOT-PROD                111397\n           MOVE W77-TOT-PROD       TO W77-IND-PROD                111400\n                          WKS-POS-PROD(A02-R01-PRD OF A01-SDOENT).111405\n     IF A02-R01-INS OF A01-SDOENT > 0 AND < 10000                 111415\n        IF WKS-POS-INST(A02-R01-INS OF A01-SDOENT) > 0            111420\n           MOVE WKS-POS-INST(A02-R01-INS OF A01-SDOENT)           111425\n                                   TO W77-IND-INST                111427\n        ELSE                                                      111430\n           ADD 1                   TO W77-TOT-INST                111435\n           MOVE W77-TOT-INST       TO W77-IND-INST                111440\n                          WKS-POS-INST(A02-R01-INS OF A01-SDOENT).111445\n     IF W77-MONEDA  > 0 AND < 10000                               111455\n        IF WKS-POS-MON(W77-MONEDA) > 0                            111460\n           MOVE WKS-POS-MON(W77-MONEDA) TO W77-IND-MON            111465\n        ELSE                                                      111470\n           ADD 1                   TO W77-TOT-MON                 111475\n           MOVE W77-TOT-MON        TO WKS-POS-MON(W77-MONEDA)     111478\n                                      W77-IND-MON.                111480\n     MOVE ZERO                     TO W77-SALIDA.                 111486\n     PERFORM 210300-BUSCA-IMPORTE VARYING W77-IND-IMP FROM 1 BY 1 111487\n*                                  UNTIL   W77-IND-IMP > 13   OR  111488\n                                  UNTIL   W77-IND-IMP > 30   OR   111489\n                                          W77-SALIDA > 0.         111490\n     IF W77-SALIDA > 0                                            111500\n      COMPUTE WKS-TAB-IMP(W77-IND-PROD,W77-IND-INST,W77-IND-MON) =111510\n              WKS-TAB-IMP(W77-IND-PROD, W77-IND-INST, W77-IND-MON)111515\n              + A02-R01-IMPT OF A02-R01-REG-SAL                   111520\n                             OF A01-SDOENT(W77-SALIDA).           111524\n 210300-BUSCA-IMPORTE.                                            111530\n     IF A02-R01-CVESDO OF A02-R01-REG-SAL                         111535\n        OF A01-SDOENT(W77-IND-IMP) = 2                            111540\n        MOVE W77-IND-IMP           TO W77-SALIDA.                 111545",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass SaldoOrigenProcessor implements ItemProcessor<RegistroSdoEnt, RegistroSdoEnt> {\n\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;\n    private final TablaPosicion tabla;\n\n    /** 210200-MUEVE-DATOS-APL. Cada sistema origen guarda la moneda en un campo distinto. */\n    int moneda(RegistroSdoEnt r) {\n        return switch (sistema) {\n            case 500, 555 -> r.moneda();\n            case 87       -> r.mon();\n            case 84       -> (r.producto() == 84 && (r.instrumento() == 15 || r.instrumento() == 17))\n                             ? 3 : r.monS084();\n            default       -> 1;\n        };\n    }\n\n    @Override\n    public RegistroSdoEnt process(RegistroSdoEnt r) {\n        // 210300-BUSCA-IMPORTE: primer renglón de los 30 con CVESDO = 2\n        r.saldos().stream().limit(30)\n                .filter(s -> s.claveSaldo() == 2)\n                .findFirst()\n                .ifPresent(s -> tabla.suma(\n                        new TablaPosicion.Llave(r.producto(), r.instrumento(), moneda(r)),\n                        s.importe()));                 // COMPUTE sin ROUNDED: suma exacta en escala 2\n        return r;\n    }\n}",
+          "racional": "Solo se acumula el importe del concepto de saldo 2, el primero que aparece entre los 30 renglones del registro; el tope anterior de 13 quedó comentado. El <code>COMPUTE</code> suma importes con dos decimales, así que no hay redondeo que traducir. La regla de moneda por sistema (S084 producto 84 instrumentos 15 y 17 forzados a moneda 3, S087 con su propio campo y moneda 1 para el resto) se conserva aunque hoy no se alcance, porque así se documenta lo que el fuente pretende.",
+          "reglas": [
+            "RN-S151-392",
+            "RN-S151-398"
+          ],
+          "riesgo": "Los índices no se reinician por registro: si la moneda (o el producto o el instrumento) vale 0, el IF de las líneas 3542-3566 no actualiza el índice y el importe se suma a la celda del registro anterior. Si ningún renglón trae CVESDO = 2, el registro no aporta nada y no queda rastro."
+        }
+      ]
+    },
+    {
+      "titulo": "Verificación de B70, corrección y envío a S500",
+      "origen": {
+        "archivo": "COBOL_P178.txt",
+        "contexto": "200000-PROCESA · 200011 · 200030 · 200034 · 900000-CHECA-STATUS"
+      },
+      "java": {
+        "archivo": "VerificaPosicionProcessor.java · PosicionRepository.java · EnvioIntelarTasklet.java",
+        "contexto": "ItemProcessor · JPA @Transactional · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Recorrido de B70 con LOCK y escritura solo si hubo diferencia",
+          "linea_ini": 3337,
+          "linea_fin": 3349,
+          "origen_codigo": " 200011-PROCESO-POSICIONNEXT.                                     096400\n     MOVE ZERO                     TO W77-DIFERENCIAS.            096500\n     IF W77-EOF-MOVTOSEM = 0                                      096600\n        PERFORM 200020-IMPRIME-POSICION                           096700\n        PERFORM 200030-IMPRIME-B70 VARYING W77-D FROM 1 BY 1      096800\n                                   UNTIL W77-D > 9                096900\n        IF W77-DIFERENCIAS = 0                                    096910\n           FREE S151B70POSICION                                   096920\n             ON EXCEPTION NEXT SENTENCE                           096930\n        ELSE                                                      096940\n           STORE S151B70POSICION                                  096950\n              ON EXCEPTION                                        096960\n                 PERFORM 900000-CHECA-STATUS.                     096970",
+          "java_codigo": "@Bean\nStep verificaPosicion(JobRepository repo, PlatformTransactionManager tx,\n                      JpaCursorItemReader<Posicion> lectorB70,      // LOCK FIRST/NEXT B70SXPOSICION\n                      VerificaPosicionProcessor procesador,\n                      PosicionCorregidaWriter escritor) {\n    return new StepBuilder(\"verificaPosicion\", repo)\n            .<Posicion, Posicion>chunk(500, tx)\n            .reader(lectorB70)       // WHERE csi = :csi AND fecha = :fechaProceso\n            .processor(procesador)   // devuelve null si no hay diferencia (FREE)\n            .writer(escritor)        // merge() solo de las posiciones corregidas (STORE)\n            .build();\n}\n\n@Component\nclass PosicionCorregidaWriter implements ItemWriter<Posicion> {\n    @PersistenceContext private EntityManager em;\n\n    @Override\n    @Transactional\n    public void write(Chunk<? extends Posicion> chunk) {\n        chunk.forEach(em::merge);\n    }\n}",
+          "racional": "Cada posición B70 se bloquea al leerla y, terminada la comparación, se libera con <code>FREE</code> si no cambió o se graba con <code>STORE</code> si se corrigió. En JPA el bloqueo explícito se sustituye por la transacción del chunk y el filtrado con <code>null</code> evita escrituras innecesarias, que es la misma optimización del fuente. Si el volumen lo exige, el lector puede usar <code>LockModeType.PESSIMISTIC_WRITE</code> para conservar la exclusión que daba <code>LOCK</code>.",
+          "reglas": [
+            "RN-S151-399"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Comparación exacta del saldo actual y corrección a favor del origen",
+          "linea_ini": 3437,
+          "linea_fin": 3461,
+          "origen_codigo": "     IF W88-GRABA-SDO                                             105410\n        MOVE WKS-FECHA-DDMMAAAA   TO      WKS-FECHA-PRO           105415\n        MOVE B70-SDO-KEYPRD       TO      WKS-PROD-PRO            105430\n        MOVE B70-SDO-KEYINS       TO      WKS-INST-PRO            105435\n        MOVE B70-SDO-KEYMON       TO      WKS-MON-PRO             105440\n        MOVE B70-SDO-SD(1)        TO      WKS-SDOANT-PRO          105445\n        MOVE B70-SDO-SD(2)        TO      WKS-SDOACT-PRO          105450\n        PERFORM 200034-COMPARA-SDOS                               105455\n        IF W88-GRABA-500                                          105458\n           WRITE REG-SDOS    FROM    WKS-DET-SDOS.                105459\n 200034-COMPARA-SDOS.                                             105461\n     IF WKS-PROD-PRO > 0  AND                                     105463\n        WKS-INST-PRO > 0  AND                                     105465\n        WKS-MON-PRO  > 0                                          105467\n        MOVE WKS-POS-PROD(WKS-PROD-PRO) TO W77-IND-PROD           105470\n        MOVE WKS-POS-INST(WKS-INST-PRO) TO W77-IND-INST           105472\n        MOVE WKS-POS-MON (WKS-MON-PRO ) TO W77-IND-MON            105474\n        IF W77-IND-PROD > 0 AND < 26 AND                          105477\n           W77-IND-INST > 0 AND < 16 AND                          105487\n           W77-IND-MON  > 0 AND < 20                              105497\n           IF WKS-SDOACT-PRO NOT =                                105510\n              WKS-TAB-IMP(W77-IND-PROD, W77-IND-INST, W77-IND-MON)105520\n           MOVE WKS-TAB-IMP(W77-IND-PROD,W77-IND-INST,W77-IND-MON)105522\n                                   TO B70-SDO-SD(2)               105524\n           MOVE 1                  TO W77-DIFERENCIAS.            105530",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass VerificaPosicionProcessor implements ItemProcessor<Posicion, Posicion> {\n\n    private final TablaPosicion tabla;\n    private final SaldosCsvWriter csv;                  // E01-SDOS, solo S500 y S555\n\n    @Override\n    public Posicion process(Posicion b70) {\n        // WKS-SDOACT-PRO es PIC 9(14)V99 sin signo: el COBOL compara el valor absoluto\n        BigDecimal saldoActualSinSigno = b70.saldo(2).abs();\n        boolean diferencia = false;\n\n        if (b70.producto() > 0 && b70.instrumento() > 0 && b70.moneda() > 0) {\n            var k = new TablaPosicion.Llave(b70.producto(), b70.instrumento(), b70.moneda());\n            if (tabla.conIndice(k)) {      // 200034: cada dimensión ya apareció en SDOENT y su índice es < 26, < 16, < 20\n                BigDecimal origen = tabla.importe(k).orElse(BigDecimal.ZERO.setScale(2));\n                if (saldoActualSinSigno.compareTo(origen) != 0) {   // NOT =, sin tolerancia\n                    b70.saldo(2, origen);                          // el sistema origen manda\n                    diferencia = true;\n                }\n            }\n        }\n        // el renglón del archivo lleva el saldo de B70 anterior a la corrección y sin signo\n        csv.escribe(b70.fecha(), b70.producto(), b70.instrumento(), b70.moneda(),\n                    b70.saldo(1).abs(), saldoActualSinSigno);\n        return diferencia ? b70 : null;\n    }\n}",
+          "racional": "200030-IMPRIME-B70 avanza <code>W77-D</code> de dos en dos y la comparación solo ocurre en la primera vuelta (<code>W88-GRABA-SDO</code>, W77-D = 1). En ella se copia el saldo anterior y el actual a un área de trabajo y se compara el actual contra la tabla del sistema origen con igualdad exacta. Si difieren, el saldo de B70 se reemplaza por el del origen y se marca la diferencia. La traducción reproduce dos detalles del fuente que cambian resultados: la comparación usa el área <code>PIC 9(14)V99</code> sin signo, y el archivo para S500 se escribe después de comparar pero con los valores tomados antes de la corrección.",
+          "reglas": [
+            "RN-S151-395",
+            "RN-S151-396",
+            "RN-S151-398",
+            "RN-S151-400"
+          ],
+          "riesgo": "Como WKS-SDOACT-PRO no tiene signo, un saldo de B70 de -100.00 contra un origen de 100.00 se considera igual y no se corrige, y un saldo negativo correcto se reporta como diferencia y se reescribe. Una posición cuyo producto, instrumento y moneda sí aparecieron en SDOENT, pero no en esa combinación, se compara contra la celda vacía y su saldo se pone en cero."
+        },
+        {
+          "id": "s8",
+          "titulo": "Nombre del archivo INTELAR y renglón de saldos separado por comas",
+          "linea_ini": 1183,
+          "linea_fin": 1205,
+          "origen_codigo": " 01 WKS-SDOS-INTELAR.                                             006999\n    02 FILLER          PIC X(24) VALUE \"S151/FILE/INTS/15104S09/\".007000\n    02 WKS-INTE-CSI     PIC 9(02).                                007001\n    02 FILLER           PIC X(01) VALUE \"/\".                      007002\n    02 WKS-INTE-LETRA   PIC X(01).                                007003\n    02 FILLER           PIC X(03)  VALUE \"ST2\".                   007004\n    02 WKS-INTE-MM      PIC 9(02).                                007005\n    02 WKS-INTE-DD      PIC 9(02).                                007006\n    02 FILLER           PIC X(14) VALUE \"/TXT ON CMEMP.\".         007007\n 77 W77-INTE-SNT                          PIC S9(11) BINARY.      007008\n 01 WKS-ERRNUM-INTELAR                    PIC 9(02).              007009\n 01 WKS-DET-SDOS.                                                 007010\n    03 WKS-FECHA-PRO                      PIC 9(08).              007011\n    03 FILLER                             PIC X VALUE \",\".        007015\n    03 WKS-PROD-PRO                       PIC 9(04).              007030\n    03 FILLER                             PIC X VALUE \",\".        007035\n    03 WKS-INST-PRO                       PIC 9(02).              007040\n    03 FILLER                             PIC X VALUE \",\".        007045\n    03 WKS-MON-PRO                        PIC 9(02).              007050\n    03 FILLER                             PIC X VALUE \",\".        007055\n    03 WKS-SDOANT-PRO                     PIC 9(14)V99.           007060\n    03 FILLER                             PIC X VALUE \",\".        007065\n    03 WKS-SDOACT-PRO                     PIC 9(14)V99.           007070",
+          "java_codigo": "# application.yml\np178:\n  intelar:\n    ruta: \"S151/FILE/INTS/15104S09/{csi}/{letra}ST2{mm}{dd}/TXT\"   # ON CMEMP\n    letra-por-csi: { \"10\": V, \"12\": V, default: M }\n\n// ---------------------------------------------------------------------------\n/** WKS-DET-SDOS: 53 bytes, campos de ancho fijo separados por coma. */\nrecord RenglonSaldo(LocalDate fecha, int producto, int instrumento, int moneda,\n                    BigDecimal saldoAnterior, BigDecimal saldoActual) {\n\n    private static final DateTimeFormatter DDMMAAAA = DateTimeFormatter.ofPattern(\"ddMMuuuu\");\n\n    String formatea() {\n        return String.join(\",\",\n                fecha.format(DDMMAAAA),                                   // 9(08)\n                \"%04d\".formatted(producto), \"%02d\".formatted(instrumento),\n                \"%02d\".formatted(moneda),\n                Fixed.sinPunto(saldoAnterior, 14, 2),                     // 9(14)V99: 16 dígitos, punto implícito\n                Fixed.sinPunto(saldoActual, 14, 2));\n    }\n}",
+          "racional": "El archivo que recibe S500 no es un CSV con decimales: cada campo es de ancho fijo con ceros a la izquierda, los importes llevan el punto decimal implícito y la fecha va en DDMMAAAA (se llena desde <code>WKS-FECHA-DDMMAAAA</code>). La traducción conserva ese formato byte a byte para no romper al consumidor. La ruta con el CSI, la letra de plaza y el día va a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-400"
+          ],
+          "riesgo": "WKS-INTE-CSI se llena con el CSI antes de normalizar 12 a 10 (líneas 2832-2841), así que con CSI 12 el nombre lleva 12 y la letra V."
+        },
+        {
+          "id": "s9",
+          "titulo": "Envío por INTELAR con error que solo se registra",
+          "linea_ini": 3287,
+          "linea_fin": 3320,
+          "origen_codigo": "     IF W88-GRABA-500                                             094210\n        OPEN OUTPUT E01-SDOS.                                     094220\n     PERFORM 200010-PROCESO-POSICION.                             094300\n     PERFORM 200011-PROCESO-POSICIONNEXT UNTIL                    094400\n                                         W77-EOF-MOVTOSEM = 1.    094500\n     IF W88-GRABA-500                                             094510\n        CLOSE E01-SDOS WITH SAVE                                  094520\n*       CALL SYSTEM WFL USING WKS-TIT-WFL                         094620\n*       UNSTRING WKS-TIT-SDOS DELIMITED BY \" \"                    094622\n*                             INTO WKS-FILE-ORI                   094624\n*       UNSTRING WKS-SDOS-INTELAR DELIMITED BY \" \"                094626\n*                             INTO WKS-FILE-DEST                  094628\n*       CALL SYSTEM WFL USING WKS-WFL-COPY                        094630\n*       MOVE WKS-FILE-DEST    TO WKS-SDOS-INTELAR                 094632\n*       WAIT(60)                                                  094634\n        PERFORM 200005-ENVIO-POR-INTELAR.                         094639\n     GO TO 200100-EXIT.                                           094700\n 200005-ENVIO-POR-INTELAR.                                        094905\n*======================                                           094910\n     CALL \"INTELARSND IN ADMONXFERS\" USING  WKS-SDOS-INTELAR      094915\n                                     GIVING W77-INTE-SNT.         094920\n     IF W77-INTE-SNT NOT = 0                                      094925\n        MOVE \"E\"                       TO TIPO-LJ                 094930\n        MOVE 020901                    TO CODIGO-LJ               094935\n        MOVE W77-INTE-SNT              TO WKS-ERRNUM-INTELAR      094940\n        STRING \"ERROR # \" WKS-ERRNUM-INTELAR                      094945\n               \" EN EL ENVIO POR INTELAR DEL ARCHIVO \"            094950\n               WKS-SDOS-INTELAR                                   094955\n        DELIMITED BY SIZE                                         094960\n        INTO TEXTO-LJ                                             094965\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ.      094970",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass EnvioIntelarTasklet implements Tasklet {\n\n    private final TransferenciaArchivos transferencia;   // INTELARSND IN ADMONXFERS -> SFTP / MFT\n    private final VerificacionProperties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        Path archivo = ctx.getStepContext().getJobExecutionContext().get(\"archivoSaldos\") instanceof String s\n                ? Path.of(s) : null;\n        if (archivo == null) return RepeatStatus.FINISHED;          // sistema distinto de 500/555\n        int rc = transferencia.envia(archivo, props.intelar().destino());\n        if (rc != 0) {\n            log.error(\"ERROR # {} EN EL ENVIO POR INTELAR DEL ARCHIVO {}\", rc, archivo);\n            if (props.intelar().fallarSiError()) {                 // false = comportamiento actual\n                throw new EnvioFallidoException(rc, archivo);\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El archivo se abre antes de recorrer B70 y se envía al cerrarlo. El copiado previo por WFL quedó comentado y se sustituyó por la llamada a INTELAR. Un código distinto de cero solo deja un mensaje en el log LJ y el programa termina normal; la traducción mantiene ese comportamiento por defecto y deja una propiedad para convertirlo en falla del step.",
+          "reglas": [
+            "RN-S151-400"
+          ],
+          "riesgo": "Un envío fallido no detiene el job ni cambia el estatus en LIB-CONTROL: S500 puede quedarse sin el archivo del día sin que el operador lo note fuera del log."
+        },
+        {
+          "id": "s10",
+          "titulo": "Errores de DMSII que solo se registran",
+          "linea_ini": 4488,
+          "linea_fin": 4506,
+          "origen_codigo": " 900000-CHECA-STATUS SECTION.                                     176700\n 900010-CHECA.                                                    176800\n     MOVE DMSTATUS(DMCATEGORY)            TO WKS-ERR-DMSII        176900\n     MOVE DMSTATUS(DMERRORTYPE)           TO WKS-TIPOERR-DMSII    177000\n     MOVE DMSTATUS(DMSTRUCTURE)           TO WKS-STRUCTU-DMSII    177100\n     IF WKS-ERR-DMSII > ZEROS                                     177200\n        MOVE SPACES       TO      WLI-ENCAB-52, TEXTO-LJ          177251\n        MOVE \"E\"          TO      TIPO-LJ                         177300\n        MOVE  010101      TO      CODIGO-LJ                       177400\n        STRING \"BASE DATOS : \", WKS-NOM-BDERR-DMSII               177500\n               \"ERROR EN BD: \", WKS-LEY-ERR-DMSII(WKS-ERR-DMSII)  177600\n                           \" \"  WKS-ERR-DMSII                     177700\n               \"TIPO       : \", WKS-TIPOERR-DMSII                 177800\n               \"ESTRUCTURA : \", WKS-STRUCTU-DMSII                 177900\n        DELIMITED BY SIZE INTO TEXTO-LJ                           178000\n        MOVE TIPO-LJ        TO      WLI-TIPO-LJ                   178051\n        MOVE TEXTO-LJ       TO      WLI-TEXTO-LJ                  178071\n        PERFORM  000-030-IMPRIME-MENSAJE                          178091\n        PERFORM 999999-DESPLIEGA.                                 178100",
+          "java_codigo": "@Component\nclass ErroresBaseDatos {\n\n    /**\n     * 900000-CHECA-STATUS registra categoría, tipo y estructura y regresa.\n     * En Java un error de persistencia se propaga y el chunk se revierte;\n     * solo NOTFOUND, que el COBOL trata como fin de datos, se convierte en vacío.\n     */\n    <T> Optional<T> leer(Supplier<T> acceso) {\n        try {\n            return Optional.ofNullable(acceso.get());\n        } catch (EmptyResultDataAccessException e) {\n            return Optional.empty();                         // DMSTATUS(NOTFOUND)\n        } catch (DataAccessException e) {\n            log.error(\"BASE DATOS: {} ERROR EN BD: {}\", e.getClass().getSimpleName(), e.getMessage());\n            throw e;                                         // cambio deliberado frente al COBOL\n        }\n    }\n}",
+          "racional": "Toda excepción de DMSII en P178 termina en este párrafo, que arma el mensaje y lo despliega, pero no detiene el programa. Mantenerlo así en Java implicaría tragar excepciones de JPA, lo que ocultaría fallas de <code>STORE</code> sobre saldos. Se propone un cambio deliberado: el error se propaga, el chunk se revierte y el step queda en FAILED con reinicio. NOTFOUND se sigue tratando como fin de datos.",
+          "reglas": [],
+          "riesgo": "Un STORE fallido sobre B70 deja la posición sin corregir y el proceso termina con estatus 5 como si todo hubiera salido bien."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Solo S500 y S555 alimentan la comparación",
+      "detalle": "En 210100-PROCESA (líneas 3514-3521) el RELEASE al SORT exige sistema 500 o 555 con producto 1 e instrumento 3. Para S084, S087 o S408 la tabla queda vacía, ninguna posición obtiene índice y 200034-COMPARA-SDOS no compara nada: el programa imprime el reporte y termina con estatus 5 sin haber verificado saldos. Hay que confirmar con qué sistemas se ejecuta hoy P178."
+    },
+    {
+      "titulo": "Comparación sin signo",
+      "detalle": "WKS-SDOACT-PRO es PIC 9(14)V99 sin signo (línea 1205) y es el operando de la comparación contra WKS-TAB-IMP, que sí tiene signo. Diferencias de signo pasan sin corrección y saldos negativos correctos se reescriben."
+    },
+    {
+      "titulo": "Archivo a S500 con el saldo previo a la corrección",
+      "detalle": "El renglón de E01-SDOS se escribe con los valores copiados de B70 antes de 200034-COMPARA-SDOS (líneas 3442-3446), por lo que S500 recibe el saldo de S151 sin corregir y sin signo."
+    },
+    {
+      "titulo": "Errores de base de datos y de envío no detienen el proceso",
+      "detalle": "900000-CHECA-STATUS solo despliega el error (líneas 4488-4506) y el fallo de INTELAR solo se registra (líneas 3311-3320). El estatus final 5 se escribe de todos modos."
+    },
+    {
+      "titulo": "Índices sin tope al construir la tabla",
+      "detalle": "210200-MUEVE-DATOS-APL incrementa W77-TOT-PROD, W77-TOT-INST y W77-TOT-MON sin compararlos contra 25, 15 y 19 antes del COMPUTE (líneas 3547-3575). El tope solo se revisa al comparar."
+    },
+    {
+      "titulo": "Hardcodes por sistema",
+      "detalle": "Los conceptos válidos de S084 y S408 en 1520000-CARGA-REL-SALDOS, el sistema 500 para cerrar R01-REPMES, la ruta INTELAR y la regla de CSI 10 o 12 están compilados. Se trasladan a configuración."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con qué valores de W77-PARAM-SISTEMA se ejecuta P178 en producción. Si se usa con S084 o S408, el anidamiento de 210100-PROCESA dejaría la tabla vacía; RN-S151-392 asume que esos sistemas sí se procesan.",
+    "RN-S151-391 dice que STABDSAL = 99 finaliza con error; en el fuente 99 (y 5, convertido a 99) omite el proceso sin error y sin escribir estatus final (líneas 2980-2981 y 3141-3142).",
+    "Confirmar que SET MYSELF(STATUS) TO -1 termina la tarea en MCP; de lo contrario el ciclo de 1001105-VALIDA-STABDSDO no tiene salida con estatus mayor a 5.",
+    "El layout de B70SXPOSICION y B71SXPOSDIAAD1 viene de la DASDL de S151BD11SDOS151, que no está en el fuente; se asumió que B70-SDO-SD tiene signo.",
+    "En 1520000-CARGA-REL-SALDOS los índices 311 y 314 de S084 se asignan dos veces (líneas 3244-3247). No cambia el resultado, pero sugiere una edición incompleta.",
+    "WKS-TABLA-POSICION no tiene cláusula VALUE ni se inicializa en el fuente revisado; se asumió que el compilador la deja en ceros, que es lo que hace la traducción con BigDecimal.ZERO.",
+    "Validar con el SME si S500 espera en E01-SDOS el saldo de S151 antes o después de la corrección."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-391",
+    "RN-S151-392",
+    "RN-S151-393",
+    "RN-S151-394",
+    "RN-S151-395",
+    "RN-S151-396",
+    "RN-S151-397",
+    "RN-S151-398",
+    "RN-S151-399",
+    "RN-S151-400",
+    "RN-S500-506",
+    "RN-S500-507",
+    "RN-S500-508",
+    "RN-S500-509"
+  ]
+}

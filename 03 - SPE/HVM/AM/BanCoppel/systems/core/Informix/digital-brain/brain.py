@@ -299,6 +299,140 @@ class BCOPBrain:
         ).fetchall()
         return self._rows(rows)
 
+    # ── Dependencias SP ↔ Tabla de BD ─────────────────────────────────────────
+
+    def table_refs(self, sp_name: str) -> list[dict]:
+        """
+        Tablas de BD que usa un SP (SELECT/INSERT/UPDATE/DELETE).
+        Acepta ID canónico (db:sp_name) o nombre corto.
+        Retorna lista ordenada por ref_db, ref_table.
+
+        Ejemplo:
+            brain.table_refs('cargo_ref')
+            brain.table_refs('bdisac:sp_sac_wu_guardarespuesta_pay_web')
+        """
+        full_id = self._resolve_id(sp_name)
+        rows = self._db().execute('''
+            SELECT ref_table, ref_db, access_type, operations, is_cross_db, line_first
+            FROM sp_table_refs
+            WHERE sp_id = ?
+            ORDER BY is_cross_db, ref_db, ref_table
+        ''', (full_id,)).fetchall()
+        if not rows:
+            # fallback: buscar por sp_name corto
+            rows = self._db().execute('''
+                SELECT ref_table, ref_db, access_type, operations, is_cross_db, line_first,
+                       sp_id, sp_db
+                FROM sp_table_refs
+                WHERE sp_name = ?
+                ORDER BY is_cross_db, ref_db, ref_table
+            ''', (sp_name.lower(),)).fetchall()
+        result = self._rows(rows)
+        for r in result:
+            r['operations'] = self._json_field(r, 'operations')
+        return result
+
+    def sps_for_table(self, table_name: str,
+                      ref_db: str = None,
+                      access_type: str = None) -> list[dict]:
+        """
+        SPs que referencian una tabla de BD.
+        Enriquece con fan_in y biz del SP.
+
+        Args:
+            table_name:  nombre exacto de la tabla (e.g. 'si_credito_sv')
+            ref_db:      filtrar por base de datos que contiene la tabla (opcional)
+            access_type: 'R' | 'W' | 'RW'  (opcional)
+
+        Ejemplo:
+            brain.sps_for_table('si_credito_sv')
+            brain.sps_for_table('si_credito_sv', ref_db='bdinteg', access_type='W')
+        """
+        filters = ['tr.ref_table = ?']
+        params: list = [table_name.lower()]
+        if ref_db:
+            filters.append('tr.ref_db = ?')
+            params.append(ref_db.lower())
+        if access_type:
+            filters.append('tr.access_type = ?')
+            params.append(access_type.upper())
+        where = ' AND '.join(filters)
+        rows = self._db().execute(f'''
+            SELECT tr.sp_id, tr.sp_name, tr.sp_db, tr.ref_db,
+                   tr.access_type, tr.operations, tr.is_cross_db,
+                   s.fan_in, s.biz, s.domain, s.is_soul
+            FROM sp_table_refs tr
+            LEFT JOIN sps s ON tr.sp_id = s.id
+            WHERE {where}
+            ORDER BY s.fan_in DESC NULLS LAST, tr.sp_name
+        ''', params).fetchall()
+        result = self._rows(rows)
+        for r in result:
+            r['operations'] = self._json_field(r, 'operations')
+        return result
+
+    def table_map(self, sp_names: list[str]) -> dict[str, list[dict]]:
+        """
+        Dado un listado de nombres de SP (cortos o canónicos), retorna
+        un dict  {sp_id: [tabla_refs]}.
+
+        Ideal para correlacionar la lista de SPs de un Excel contra sus tablas.
+
+        Ejemplo:
+            brain.table_map(['cargo_ref', 'abono_ref', 'sp_consulta_saldo'])
+        """
+        result: dict[str, list[dict]] = {}
+        for name in sp_names:
+            refs = self.table_refs(name)
+            key  = self._resolve_id(name)
+            result[key] = refs
+        return result
+
+    def tables_overview(self) -> dict:
+        """
+        Vista panorámica de las tablas referenciadas en todo Informix:
+        conteo total, tablas más accedidas, bases de datos más involucradas.
+        """
+        db = self._db()
+        try:
+            total_refs  = db.execute('SELECT COUNT(*) FROM sp_table_refs').fetchone()[0]
+        except Exception:
+            return {'error': 'sp_table_refs no disponible — ejecuta generators/extract-table-refs.py'}
+        total_sps   = db.execute('SELECT COUNT(DISTINCT sp_id) FROM sp_table_refs').fetchone()[0]
+        total_tbls  = db.execute(
+            "SELECT COUNT(DISTINCT ref_db||':'||ref_table) FROM sp_table_refs"
+        ).fetchone()[0]
+        cross_db    = db.execute(
+            'SELECT COUNT(*) FROM sp_table_refs WHERE is_cross_db=1'
+        ).fetchone()[0]
+
+        top_tables = db.execute('''
+            SELECT ref_db, ref_table, access_type,
+                   COUNT(DISTINCT sp_id) as n_sps
+            FROM sp_table_refs
+            GROUP BY ref_db, ref_table, access_type
+            ORDER BY n_sps DESC
+            LIMIT 20
+        ''').fetchall()
+
+        top_dbs = db.execute('''
+            SELECT ref_db, COUNT(DISTINCT ref_table) as n_tables,
+                   COUNT(DISTINCT sp_id) as n_sps
+            FROM sp_table_refs
+            GROUP BY ref_db
+            ORDER BY n_sps DESC
+            LIMIT 15
+        ''').fetchall()
+
+        return {
+            'total_refs':    total_refs,
+            'sps_with_refs': total_sps,
+            'unique_tables': total_tbls,
+            'cross_db_refs': cross_db,
+            'top_tables':    self._rows(top_tables),
+            'top_dbs':       self._rows(top_dbs),
+        }
+
     # ── Análisis de impacto ────────────────────────────────────────────────────
 
     def impact_of(self, sp_name: str) -> dict:

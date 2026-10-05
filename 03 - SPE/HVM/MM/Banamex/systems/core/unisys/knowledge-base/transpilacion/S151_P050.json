@@ -1,0 +1,279 @@
+{
+  "slug": "S151_P050",
+  "sistema": "S151",
+  "programa": "P050",
+  "nombre": "Servidor de Saldos Concentrados ADSALDO",
+  "funcion": "Task COMS en línea de S151 (PROGRAM-ID P050ADSALDOS) que corre todo el día, atiende consultas y actualizaciones de saldos concentrados sobre S151BD02ADSALDO y genera por horario las cápsulas ACCIVAL hacia P052.",
+  "resumen": "Al arrancar resuelve títulos de librerías con CTLVERS, inicializa LIB-L006, determina el nodo (CSI) y la fecha de proceso hábil con LOCSUP, y graba el registro de control B92 en una transacción DMSII. Después entra a un ciclo de espera COMS: cada mensaje se despacha en 240-MANEJA-MSG por el código de función del texto hacia consultas de saldos globales, por sucursal y por cliente, conceptos de caja, depósitos S333, SAR y sincronización entre hosts, y siempre termina en 800-RESPONDE. En días hábiles y por horario arma la cápsula ACCIVAL a partir del log LOG1S151, filtrando por función, origen, una lista fija de cuentas y la naturaleza contable de cada clave de transacción.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Data JPA",
+  "paquete_java": "mx.banamex.s151.saldos.concentrados",
+  "secciones": [
+    {
+      "titulo": "Arranque del servidor — librerías, nodo y fecha de proceso",
+      "origen": {
+        "archivo": "COBOL_P050.txt",
+        "contexto": "PROCEDURE DIVISION · 100-PRINCIPIA"
+      },
+      "java": {
+        "archivo": "P050StartupRunner.java · NodoProperties.java · FechaProcesoService.java",
+        "contexto": "ApplicationRunner · @ConfigurationProperties · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Resolución de título de LIB-L006 con fallback compilado e inicialización FUNCION 10",
+          "linea_ini": 9349,
+          "linea_fin": 9362,
+          "origen_codigo": "     MOVE \"S151L006\"                    TO WKS-CTLVERS-LIBRERIA   216502\n     CALL \"DAME_TIT IN CTLVERS\"                                   216504\n          USING  WKS-CTLVERS-LIBRERIA, WKS-CTLVERS-TITULO         216506\n          GIVING WKS-CTLVERS-STATUS.                              216508\n     IF WKS-CTLVERS-STATUS = 0                                    216512\n        CHANGE ATTRIBUTE TITLE OF \"LIB-L006\" TO                   216514\n                                       WKS-CTLVERS-TITULO         216516\n     ELSE                                                         216518\n     CHANGE ATTRIBUTE TITLE OF \"LIB-L006\" TO                      216520\n            \"(S151)S151/OBJECT/L006/TESORERIA ON CMEMP.\".         216522\n     MOVE 10    TO WKS-L006-SDOS-FUNCION                          216524\n     CALL \"SALDOS IN LIB-L006\" USING WKS-L006-SDOS                216526\n                              GIVING WKS-151-RESULT.              216528",
+          "java_codigo": "# application.yml\np050:\n  librerias:\n    l006-fallback: \"(S151)S151/OBJECT/L006/TESORERIA ON CMEMP.\"   # solo referencia histórica\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass P050StartupRunner implements ApplicationRunner {\n\n    private final SaldosTesoreriaClient l006;     // antes: SALDOS IN LIB-L006\n\n    @Override\n    public void run(ApplicationArguments args) {\n        // DAME_TIT IN CTLVERS deja de existir: el endpoint de L006 llega por configuración\n        // y Spring falla al arrancar si no está definido, en lugar de usar un título fijo.\n        int resultado = l006.saldos(SaldosRequest.funcion(10));   // FUNCION 10 = inicializa contexto\n        if (resultado != 0) {\n            // El fuente guarda el resultado en WKS-151-RESULT y no lo revisa.\n            log.warn(\"SALDOS IN LIB-L006 FUNCION 10 devolvió {}\", resultado);\n        }\n    }\n}",
+          "racional": "El programa pide a <code>CTLVERS</code> el título vigente de la librería S151L006 y, si falla, usa un título compilado. Después invoca <code>SALDOS IN LIB-L006</code> con <code>FUNCION 10</code> para inicializar el contexto de saldos. Aunque el ELSE no tiene punto propio, el literal termina en <code>CMEMP.\".</code> y ese punto cierra el IF, por lo que la inicialización corre en ambos casos. En Java la ubicación del servicio es una propiedad de <code>application.yml</code> y el fallback compilado desaparece; el resultado de la inicialización se registra porque el fuente no lo valida.",
+          "reglas": [
+            "RN-S151-298",
+            "RN-S151-300"
+          ],
+          "riesgo": "WKS-151-RESULT de la FUNCION 10 no se evalúa: si la inicialización de LIB-L006 falla, el servidor sigue arrancando."
+        },
+        {
+          "id": "s2",
+          "titulo": "CSI del nodo, sustituciones 10 a 04 y 32 a 12, y corrección de FECCON",
+          "linea_ini": 9401,
+          "linea_fin": 9437,
+          "origen_codigo": "     MOVE WKS-NUMCSI              TO 77-CSI-ENV                   220508\n                                     WKS-ACCI-CSI.                220510\n     IF WKS-NUMCSI = 10                                           220512\n        MOVE 04                   TO 77-CSI-ENV                   220514\n        MOVE 1                    TO WKS-TIT-IDCSI                220515\n     ELSE                                                         220516\n        MOVE 2                    TO WKS-TIT-IDCSI                220517\n        IF WKS-NUMCSI = 32                                        220518\n           MOVE 12                TO 77-CSI-ENV.                  220520\n     MOVE WKS-NUMCSI      TO      WKS-B01-CSI                     220600\n     MOVE 500             TO      WKS-B01-SISTEMA                 220700\n     MOVE 01              TO      WKS-B01-FUNCION.                220800\n     CALL \"CONSISDIA IN S151LIBCONTROL\" USING WKS-S151B01SISDIA   220900\n                                        GIVING WKS-151-RESULT.    221000\n     IF WKS-151-RESULT > 0                                        221200\n        STRING \"ERROR AL CONSULTAR S151LIBCONTROL PARA OBTENER\",  221300\n               \"NOMBRE DE LA BASE DIARIA, ERROR  : \" ,            221400\n               WKS-ERROR(WKS-151-RESULT)                          221500\n               DELIMITED BY SIZE INTO TEXTO-LJ                    221600\n        MOVE \"O\"          TO      TIPO-LJ                         221700\n        MOVE 020901       TO      CODIGO-LJ                       221800\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ       221900\n        SET MYSELF(STATUS) TO -1.                                 222000\n     IF WKS-NUMCSI = 4 OR 10      AND                             222150\n        WKS-B01-FECCON < W77-FECPRO-MAQUINA                       222152\n        MOVE W77-FECPRO-MAQUINA   TO WKS-B01-FECCON.              222154\n     MOVE WKS-B01-NOMBDSEM        TO WKS-NOMB-BASE.               222200\n     MOVE WKS-B01-NOMPACMOV       TO WKS-PACK-LOG1.               222300\n     MOVE WKS-B01-NOMPACDES       TO WKS-S500-PACK.               222303\n     MOVE WKS-B01-FECCON          TO WKS-LOG1-FECHA               222304\n                                     WKS-S500-FECHA               222305\n     MOVE W77-FECPRO-MAQUINA      TO WKS-B01-FECCON               222306\n     MOVE WKS-B01-FECCON          TO W77-FCH-S500.                222307",
+          "java_codigo": "# application.yml  (antes: literales en 100-PRINCIPIA)\np050:\n  nodo:\n    csi-envio-override: { \"10\": 4, \"32\": 12 }   # 77-CSI-ENV\n    id-titulo: { \"10\": 1, default: 2 }          # WKS-TIT-IDCSI\n    corrige-feccon-csi: [4, 10]\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p050.nodo\")\nrecord NodoProperties(Map<String, Integer> csiEnvioOverride,\n                      Map<String, Integer> idTitulo,\n                      Set<Integer> corrigeFecconCsi) {\n\n    int csiEnvio(int csi) { return csiEnvioOverride.getOrDefault(String.valueOf(csi), csi); }\n}\n\n@Service\n@RequiredArgsConstructor\nclass ContextoNodoService {\n\n    private final NodoProperties props;\n    private final ControlS151Client control;   // CONSISDIA IN S151LIBCONTROL\n\n    ContextoNodo resuelve(int csi, LocalDate fechaMaquina) {\n        SistemaDia sis500 = control.consisdia(csi, 500, 1)\n                .orElseThrow(() -> new ArranqueFallidoException(\n                        \"ERROR AL CONSULTAR S151LIBCONTROL PARA OBTENER NOMBRE DE LA BASE DIARIA\"));\n\n        // IF WKS-NUMCSI = 4 OR 10 AND FECCON < MAQUINA se evalúa como\n        // (CSI = 4) OR (CSI = 10 AND FECCON < MAQUINA): AND precede a OR.\n        LocalDate feccon = sis500.fecCon();\n        if (csi == 4 || (csi == 10 && feccon.isBefore(fechaMaquina))) {\n            feccon = fechaMaquina;\n        }\n        return new ContextoNodo(csi, props.csiEnvio(csi),\n                sis500.nombreBaseSemanal(), sis500.packMovimientos(),\n                feccon,            // WKS-LOG1-FECHA y WKS-S500-FECHA\n                fechaMaquina);     // W77-FCH-S500: el fuente la sobrescribe con la fecha máquina\n    }\n}",
+          "racional": "El nodo propio (<code>WKS-NUMCSI</code>) determina el CSI de envío <code>77-CSI-ENV</code>: en Valle de México (10) se fija en 04 y el nodo 32 se trata como 12; para el resto se usa el propio CSI. Ambas sustituciones son literales en el código y pasan a <code>application.yml</code>. La fecha contable de S500 se obtiene con <code>CONSISDIA</code> y se corrige con la fecha máquina. La condición COBOL abreviada <code>4 OR 10 AND ...</code> se traduce respetando la precedencia real: AND se evalúa antes que OR, de modo que en Monterrey la fecha se reemplaza siempre y en Valle solo cuando está atrasada. Después del MOVE a los campos de log, la línea 9436 vuelve a mover la fecha máquina a <code>WKS-B01-FECCON</code> sin condición.",
+          "reglas": [
+            "RN-S151-285",
+            "RN-S151-297"
+          ],
+          "riesgo": "Por la precedencia de AND sobre OR, en CSI 4 la FECCON se reemplaza por la fecha máquina aunque sea posterior; RN-S151-297 describe una condición simétrica para 4 y 10 que el código no implementa. Además, si CONSISDIA falla solo se pone MYSELF(STATUS) en -1 y el párrafo continúa."
+        },
+        {
+          "id": "s3",
+          "titulo": "Día hábil con THECALENDAR función 18 y siguiente hábil con función 13",
+          "linea_ini": 9502,
+          "linea_fin": 9522,
+          "origen_codigo": "     OPEN UPDATE S151BD02ADSALDO ON EXCEPTION                     228300\n          PERFORM 900-TRUENE.                                     228400\n     MOVE WS-FECHA-AMD TO WS-FECHA1 WS-FECHA3.                    229500\n     MOVE ZEROS        TO WS-FECHA2.                              229600\n     MOVE 18           TO WS-FUNCION.                             229700\n     MOVE 13 TO WS-FORMATO     .                                  229802\n     CALL \"THECALENDAR IN LOCSUP\" USING                           229900\n          WS-FUNCION, WS-FECHA1, WS-FECHA2, WS-FORMATO.           230000\n     MOVE WS-FECHA1-NUM TO WKS-DIA-HABIL                          230100\n     IF WKS-DIA-HABIL = 0                                         230300\n        MOVE WS-FECHA-AMD         TO WS-FECHA1                    230400\n        MOVE \"00000001\"           TO WS-FECHA2                    230500\n        MOVE 13                   TO WS-FUNCION                   230600\n        MOVE 13 TO WS-FORMATO                                     230702\n        CALL \"THECALENDAR IN LOCSUP\" USING                        230800\n             WS-FUNCION, WS-FECHA1, WS-FECHA2, WS-FORMATO         230900\n        MOVE WS-FECHA1            TO WKS-FECHA-PROCESO-HABIL      231000\n     ELSE                                                         231100\n        MOVE WS-FECHA-AMD         TO WKS-FECHA-PROCESO-HABIL.     231200",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass FechaProcesoService {\n\n    private final CalendarioBancario calendario;   // reemplaza THECALENDAR IN LOCSUP\n\n    /**\n     * FUN 18 devuelve 1 si la fecha es hábil y 0 si no lo es\n     * (88 DIA-HABIL VALUE 1). Con 0 se pide el siguiente hábil (FUN 13, +1).\n     */\n    LocalDate fechaProcesoHabil(LocalDate hoy) {\n        return calendario.esHabil(hoy)\n                ? hoy\n                : calendario.sumaDiasHabiles(hoy, 1);\n    }\n}",
+          "racional": "Con la base ya abierta en UPDATE, el programa pregunta a LOCSUP si la fecha del día es hábil. La librería devuelve el resultado en <code>WS-FECHA1-NUM</code>; el 88-level <code>DIA-HABIL VALUE 1</code> confirma que 1 significa hábil y 0 inhábil. Con 0 se calcula el siguiente día hábil con la función 13 y desplazamiento de un día. En Java el calendario bancario es un servicio con dos métodos explícitos, lo que elimina la convención numérica que confunde a las dos reglas del brain.",
+          "reglas": [
+            "RN-S151-281",
+            "RN-S151-282"
+          ],
+          "riesgo": "La función 18 en este párrafo corre para cualquier CSI; la restricción a CSI 10 y 4 que menciona RN-S151-281 aplica a 110-CALCULA-FECPRO (función 17), no a este bloque."
+        },
+        {
+          "id": "s4",
+          "titulo": "Registro de control B92 dentro de una transacción DMSII",
+          "linea_ini": 9542,
+          "linea_fin": 9554,
+          "origen_codigo": "     LOCK S151BD02ADSALDO ON EXCEPTION                            233200\n          PERFORM 900-TRUENE.                                     233300\n     MOVE B92-CTR-CSI   TO WS-CSI-BD.                             233400\n     IF WS-CSI-BD = 4                                             233600\n        MOVE \"M\"        TO WKS-TCP-CSI  WKS-TCP2-CSI              233700\n     ELSE                                                         233800\n        MOVE \"V\"        TO WKS-TCP-CSI  WKS-TCP2-CSI.             233900\n     MOVE WS-FECHA-AMD  TO B92-CTR-FECHA.                         234000\n     BEGIN-TRANSACTION NO-AUDIT S151B91REINICIO.                  234100\n     STORE S151BD02ADSALDO ON EXCEPTION                           234200\n           PERFORM 900-TRUENE.                                    234300\n     END-TRANSACTION AUDIT S151B91REINICIO.                       234400",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass ControlAdSaldoService {\n\n    private final ControlAdSaldoRepository control;   // S151BD02ADSALDO, registro B92-CTR\n    private final P050Properties props;\n\n    /** LOCK + BEGIN-TRANSACTION + STORE + END-TRANSACTION AUDIT. */\n    @Transactional\n    ControlAdSaldo marcaInicio(LocalDate fechaProceso) {\n        ControlAdSaldo ctr = control.findForUpdate()                    // LOCK S151BD02ADSALDO\n                .orElseThrow(() -> new ArranqueFallidoException(\"900-TRUENE\"));\n        // \"M\" solo para CSI 4; cualquier otro CSI se marca como \"V\"\n        char nodoTcp = props.nodo().csiMonterrey() == ctr.getCsi() ? 'M' : 'V';\n        ctr.setFecha(fechaProceso);                                     // B92-CTR-FECHA\n        return ctr.withNodoTcp(nodoTcp);                                // STORE en el commit\n    }\n}",
+          "racional": "El registro de control de ADSALDO se bloquea, se le asigna la fecha y se guarda entre <code>BEGIN-TRANSACTION</code> y <code>END-TRANSACTION AUDIT</code>. En Java es un método <code>@Transactional</code> con lectura <code>FOR UPDATE</code>; el commit de JPA sustituye al STORE y a la auditoría de S151B91REINICIO. Cualquier excepción de DMSII lleva a <code>900-TRUENE</code>, que aquí se vuelve una excepción que detiene el arranque.",
+          "reglas": [],
+          "riesgo": "La marca de nodo TCP solo distingue Monterrey: cualquier CSI distinto de 4, incluido Guadalajara, se marca como V."
+        }
+      ]
+    },
+    {
+      "titulo": "Ciclo COMS y despachador de funciones",
+      "origen": {
+        "archivo": "COBOL_P050.txt",
+        "contexto": "PROCEDURE DIVISION · 200-ACEPTA-MSG / 240-MANEJA-MSG"
+      },
+      "java": {
+        "archivo": "AdSaldoMessageHandler.java · VentanaEnvioScheduler.java",
+        "contexto": "@Service · Map<Integer, FuncionSaldos> · @Scheduled"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Refresco de fecha y día hábil en cada vuelta del ciclo",
+          "linea_ini": 9988,
+          "linea_fin": 10014,
+          "origen_codigo": "     ACCEPT WS-HORA-MAQUINA FROM TIME.                            257600\n     IF (WS-HORA-MAQUINA < WS-HORA-NEXT AND                       257700\n         WS-HORA-MAQUINA NOT > WS-HORA-PARARENVIO) OR             257800\n         NOT DIA-HABIL                                            257810\n*         ACCEPT WS-FECHA-MDA FROM    TODAYS-DATE                 257900\n*INICIA CODIGO DE RENOVACION CRONOS 2000                          257901\n        PERFORM A2K-ACCEPT-TODAYS-DATE THRU                       257902\n                A2K-ACCEPT-TODAYS-DATE-EXIT.                      257903\n     MOVE A2K-FEC-MDCA-001 TO WS-FECHA-MDA                        257904\n*TERMINA CODIGO DE RENOVACION CRONOS 2000                         257905\n     MOVE WS-FECHA-MDA-AA  TO WS-FECHA-AMD-AA                     258000\n     MOVE WS-FECHA-MDA-MM  TO WS-FECHA-AMD-MM                     258100\n     MOVE WS-FECHA-MDA-DD  TO WS-FECHA-AMD-DD                     258200\n     MOVE WS-FECHA-AMD     TO WS-FECHA1 WS-FECHA3                 258300\n                              WKS-FECHA-MAQUINA-AMD               258310\n     MOVE ZEROS            TO WS-FECHA2                           258400\n     MOVE 18               TO WS-FUNCION                          258500\n*         MOVE 3                TO WS-FORMATO                     258600\n*INICIA CODIGO DE RENOVACION CRONOS 2000                          258601\n     MOVE 13 TO WS-FORMATO                                        258602\n*TERMINA CODIGO DE RENOVACION CRONOS 2000                         258603\n     CALL \"THECALENDAR IN LOCSUP\" USING                           258700\n          WS-FUNCION, WS-FECHA1, WS-FECHA2, WS-FORMATO.           258800\n     MOVE WS-FECHA1-NUM    TO WS-DIA-HABIL.                       258810\n     IF WS-HORA-MAQUINA     NOT < WS-HORA-NEXT                    258900\n        AND WS-HORA-MAQUINA NOT > WS-HORA-PARARENVIO              259000\n        MOVE WS-FECHA1-NUM TO WS-DIA-HABIL.                       259100",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass VentanaEnvioScheduler {\n\n    private final FechaProcesoService fechas;\n    private final CalendarioBancario calendario;\n    private final Clock clock;\n    private volatile boolean diaHabil;        // WS-DIA-HABIL / 88 DIA-HABIL\n\n    /** Antes corría en cada vuelta de ESPERACOMS (timeout de 60 s). */\n    @Scheduled(fixedDelayString = \"${p050.ciclo.espera:PT60S}\")\n    void refrescaCalendario() {\n        LocalDate hoy = LocalDate.now(clock);   // la fecha se toma siempre, sin la condición\n        diaHabil = calendario.esHabil(hoy);     // FUN 18\n    }\n}",
+          "racional": "Antes de leer el mensaje, el ciclo toma la hora y vuelve a consultar si el día es hábil. El IF de la línea 9989 parece controlar todo el bloque, pero el punto que cierra la sentencia está al final del <code>PERFORM A2K-ACCEPT-TODAYS-DATE</code> de la renovación CRONOS 2000: solo esa lectura de fecha es condicional y los MOVE y la llamada a THECALENDAR se ejecutan siempre, con el último valor de <code>A2K-FEC-MDCA-001</code>. Las líneas 10012-10014 repiten un MOVE que ya se hizo. En Java el refresco del calendario es una tarea programada que siempre toma la fecha actual del <code>Clock</code>.",
+          "reglas": [],
+          "riesgo": "Cuando la condición de la línea 9989 es falsa, la fecha que se envía a THECALENDAR es la de la última vez que se leyó; si el servidor cruza la medianoche en ese estado, DIA-HABIL puede calcularse sobre el día anterior."
+        },
+        {
+          "id": "s6",
+          "titulo": "Despachador por código de función a tabla de handlers",
+          "linea_ini": 10202,
+          "linea_fin": 10308,
+          "origen_codigo": " 240-MANEJA-MSG.                                                  332000\n*---------------                                                  332100\n     IF WS-HDR-RES = 2                                            332200\n        PERFORM 245-GRABA-LOGSALDOS.                              332300\n     MOVE 1         TO WS-PTR.                                    332400\n     MOVE ZEROS     TO WS-ERROR WS-DIALOGO.                       332500\n     MOVE SPACES    TO WS-FORMATOS.                               332600\n     IF DISP-ACT                                                  332700\n        DISPLAY \"CLAVE      \" WS-TXT-FUN                          332800\n        DISPLAY \"WS-TXT-MSG \"WS-TXT-MSG.                          332900\n     IF WS-TXT-FUN  = 1                                           333000\n        IF WS-HDR-RES = 2                                         333100\n           PERFORM 205-VERIFICA-SAR                               333200\n           PERFORM 210-VERIFICA-DIALOGO                           333300\n        ELSE                                                      333400\n           PERFORM 300-GLOBALES                                   333500\n     ELSE IF WS-TXT-FUN =  2                                      333600\n        PERFORM 400-SUCURSAL                                      333700\n     ELSE IF WS-TXT-FUN =  3                                      333800\n        PERFORM 500-CLIENTE                                       333900\n     ELSE IF WS-TXT-FUN =  4                                      334000\n        PERFORM 900-CNC-ELIMINA                                   334100\n     ELSE IF WS-TXT-FUN =  5                                      334200\n        PERFORM 1000-CNC-CAPTURA                                  334300\n     ELSE IF WS-TXT-FUN = 6                                       334400\n        PERFORM 1100-CNC-CSI                                      334500\n     ELSE IF WS-TXT-FUN = 7                                       334600\n        PERFORM 1200-CNC-SUC                                      334700\n     ELSE IF WS-TXT-FUN = 8                                       334800\n        PERFORM 1500-CONSULTA-SUC                                 334900\n     ELSE IF WS-TXT-FUN = 9                                       335000\n        PERFORM 1800-CONSULTA-SAR                                 335100\n     ELSE IF WS-TXT-FUN = 10                                      335200\n        PERFORM 3000-CONS-APOR-IMSS-ISTE                          335300\n     ELSE IF WS-TXT-FUN = 11                                      335400\n        PERFORM 4000-CONS-APOR-INFO                               335500\n     ELSE IF WS-TXT-FUN = 12                                      335600\n        PERFORM 10000-CONS-FECHVALOR                              335700\n     ELSE IF WS-TXT-FUN = 13                                      335800\n        PERFORM 11000-CONS-SDOANT-SAR                             335900\n     ELSE IF WS-TXT-FUN = 14                                      336000\n        PERFORM 12000-CONS-CANC-FECHVALOR                         336100\n     ELSE IF WS-TXT-FUN = 16                                      336105\n             PERFORM 16000-CONSACT-TESO                           336110\n     ELSE IF WS-TXT-FUN = 17                                      336115\n             PERFORM 17000-CONS-MOVTOS                            336120\n     ELSE IF WS-TXT-FUN = 18                                      336200\n        PERFORM 5000-CONS-SDO-BXICO                               336300\n     ELSE IF WS-TXT-FUN = 25                                      336400\n        NEXT SENTENCE                                             336500\n     ELSE IF WS-TXT-FUN = 30                                      336700\n        PERFORM 13000-CONSULTA-TOTCHEQT                           336800\n     ELSE IF WS-TXT-FUN = 31                                      336900\n        PERFORM 14000-CONSULTA-FALTCHEQT                          337000\n     ELSE IF WS-TXT-FUN =  41                                     337100\n        PERFORM 600-TOTAL-CSI                                     337200\n     ELSE IF WS-TXT-FUN =  42                                     337300\n        PERFORM 650-CONFIRMA-CSI                                  337400\n     ELSE IF WS-TXT-FUN =  51 THEN                                337500\n*                       recibe datos enviados desde otro Host     337600\n        PERFORM SALDOS-RECIBE                                     337700\n     ELSE IF WS-TXT-FUN =  52 THEN                                337800\n*                       recibe confirmacion                       337900\n        PERFORM SALDOS-CONFIRMACION                               338000\n*       PERFORM 700-TOTAL-SUC                                     338100\n     ELSE IF WS-TXT-FUN = 61                                      338200\n        PERFORM 1300-ENVIA-CONCEPTOS                              338300\n     ELSE IF WS-TXT-FUN = 62                                      338400\n        PERFORM 1400-CONFIRMA-CONCEPTOS                           338500\n     ELSE IF WS-TXT-FUN = 65                                      338600\n        PERFORM 1700-RECIBO-S151YS333                             338700\n     ELSE IF WS-TXT-FUN = 66                                      338800\n        PERFORM 1710-CONFIRMO-S151YS333                           338900\n     ELSE IF WS-TXT-FUN = 67                                      339000\n        PERFORM 2000-RECIBO-APORT                                 339100\n     ELSE IF WS-TXT-FUN = 68                                      339200\n        PERFORM 2010-CONFIRMO-APORT                               339300\n     ELSE IF WS-TXT-FUN = 69                                      339400\n        PERFORM 6000-RECIBO-CNC-ELIMINACION                       339500\n     ELSE IF WS-TXT-FUN = 70                                      339600\n        PERFORM 6100-CONFIRMO-ELIMINACIONES                       339700\n     ELSE IF WS-TXT-FUN = 71                                      339800\n        PERFORM 6200-CONFIRMO-ERROR-ELIM                          339900\n     ELSE IF WS-TXT-FUN = 72                                      340000\n        NEXT SENTENCE                                             340100\n*       PERFORM 7500-RECIBO-RECIMP                                340200\n     ELSE IF WS-TXT-FUN = 73                                      340300\n        NEXT SENTENCE                                             340400\n     ELSE IF WS-TXT-FUN = 74                                      340600\n        PERFORM 9500-RECIBO-FECHVAL                               340700\n     ELSE IF WS-TXT-FUN = 75                                      340800\n        PERFORM 9600-CONFIRMO-FECHVAL                             340900\n     ELSE IF WS-TXT-FUN = 76                                      341000\n        PERFORM 9800-RECIBO-CANC-FECHVAL                          341100\n     ELSE IF WS-TXT-FUN = 77                                      341200\n        PERFORM 9900-CONFIRMO-CANC-FECHVAL                        341300\n     ELSE IF WS-TXT-FUN = 78                                      341400\n        PERFORM 6300-CONFIRMO-ERROR-SDOCERO                       341500\n     ELSE IF WS-TXT-FUN = 91                                      341600\n        PERFORM 6300-CONFIRMO-ERROR-SDOCERO                       341700\n     ELSE IF WS-TXT-FUN = 92                                      341800\n        PERFORM 21000-PARAMETROS                                  341900\n     ELSE IF WS-TXT-FUN = 93                                      342000\n        PERFORM 22000-BUSCA-MOVS                                  342100\n     ELSE                                                         342200\n        MOVE 1 TO WS-ERROR.                                       342300\n     PERFORM 800-RESPONDE.                                        342400",
+          "java_codigo": "/** Cada PERFORM del IF anidado se vuelve una implementación registrada por código. */\npublic interface FuncionSaldos {\n    int codigo();\n    void atiende(MensajeComs msg, Respuesta resp);\n}\n\n@Service\n@RequiredArgsConstructor\nclass AdSaldoMessageHandler {\n\n    private static final Set<Integer> SIN_ACCION = Set.of(25, 72, 73);   // NEXT SENTENCE en el fuente\n    private final List<FuncionSaldos> funciones;   // 300-GLOBALES, 400-SUCURSAL, ... 22000-BUSCA-MOVS\n    private final LogSaldosWriter logSaldos;       // 245-GRABA-LOGSALDOS\n    private final ConcentracionTotales concentra;  // 205-VERIFICA-SAR + 210-VERIFICA-DIALOGO\n    private Map<Integer, FuncionSaldos> porCodigo;\n\n    @PostConstruct\n    void indexa() {\n        porCodigo = funciones.stream()\n                .collect(Collectors.toUnmodifiableMap(FuncionSaldos::codigo, f -> f));\n    }\n\n    Respuesta maneja(MensajeComs msg) {\n        if (msg.hdrRes() == 2) logSaldos.graba(msg);\n        var resp = Respuesta.nueva();                  // WS-ERROR = 0, WS-FORMATOS = SPACES\n        int fun = msg.funcion();                       // WS-TXT-FUN\n        if (fun == 1 && msg.hdrRes() == 2) {\n            concentra.verificaSarYDialogo();           // función 1 como respuesta: concentra\n        } else if (!SIN_ACCION.contains(fun)) {\n            Optional.ofNullable(porCodigo.get(fun))\n                    .ifPresentOrElse(f -> f.atiende(msg, resp),\n                                     () -> resp.error(1));   // MOVE 1 TO WS-ERROR\n        }\n        return resp;                                   // PERFORM 800-RESPONDE\n    }\n}",
+          "racional": "El despachador es una cadena de <code>ELSE IF</code> sobre <code>WS-TXT-FUN</code> que llega hasta el código 93, aunque solo hay unas cuarenta funciones declaradas. En Java cada rama es un bean que implementa <code>FuncionSaldos</code> y el despacho se resuelve en un mapa, sin depender del orden de evaluación. Los códigos 25, 72 y 73 se conservan como aceptados sin acción, igual que el <code>NEXT SENTENCE</code> del fuente, y cualquier código no listado responde con error 1. La función 1 tiene doble sentido: con <code>WS-HDR-RES = 2</code> concentra totales y en otro caso consulta saldos globales. Las funciones 78 y 91 comparten el mismo handler.",
+          "reglas": [
+            "RN-S151-294"
+          ],
+          "riesgo": "Los códigos 25, 72 y 73 se aceptan sin hacer nada y aun así generan respuesta; 72 tenía un PERFORM 7500-RECIBO-RECIMP que quedó comentado."
+        }
+      ]
+    },
+    {
+      "titulo": "Consulta de saldos globales — catálogo de sistemas y escala MXN",
+      "origen": {
+        "archivo": "COBOL_P050.txt",
+        "contexto": "PROCEDURE DIVISION · 250-VALIDA-SISTEMA / 330 / 340"
+      },
+      "java": {
+        "archivo": "SaldosGlobalesService.java · SistemaFinanciero.java",
+        "contexto": "@Service · enum · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Validación de sistema y descripción compilada a enum",
+          "linea_ini": 10322,
+          "linea_fin": 10346,
+          "origen_codigo": " 250-VALIDA-SISTEMA.                                              343800\n    MOVE 0 TO WS-DECIM.                                           343900\n    MOVE 3 TO WS-OPCION.                                          344000\n    CALL \"JUSTIFIER IN LOCSUP\"                                    344100\n         USING WS-DE-SISTEMA-X, WS-OPCION, WS-DECIM.              344200\n    IF WS-OPCION > 0 OR WS-DE-SISTEMA < 1 OR WS-DE-SISTEMA > 999  344300\n       MOVE 4 TO WS-ERROR                                         344400\n    ELSE IF WS-DE-SISTEMA = 1                                     344500\n       MOVE \"SISTEMA DE CHEQUES           \" TO WS-DESCRIPCION     344600\n    ELSE IF WS-DE-SISTEMA = 87                                    344700\n       MOVE \"SISTEMA DE INVERSIONES       \" TO WS-DESCRIPCION     344800\n    ELSE IF WS-DE-SISTEMA = 264                                   344900\n       MOVE \"SIST. TRANSFERENCIA DE FONDOS\" TO WS-DESCRIPCION     345000\n    ELSE IF WS-DE-SISTEMA = 400                                   345100\n       MOVE \"SISTEMA DE CARTERA           \" TO WS-DESCRIPCION     345200\n    ELSE IF WS-DE-SISTEMA = 66                                    345300\n       MOVE \"SISTEMA DE CUENTA MAESTRA    \" TO WS-DESCRIPCION     345400\n    ELSE IF WS-DE-SISTEMA = 151                                   345500\n       MOVE \"SISTEMA LINEAS SERV/CREDITO  \" TO WS-DESCRIPCION     345600\n    ELSE IF WS-DE-SISTEMA = 500                                   345700\n       MOVE \"SISTEMA DE AHORROS           \" TO WS-DESCRIPCION     345800\n    ELSE IF WS-DE-SISTEMA = 600                                   345900\n       MOVE \"SISTEMA DE P. HIPOTECARIOS   \" TO WS-DESCRIPCION     346000\n    ELSE                                                          346100\n       MOVE \"SISTEMA NO CALIFICADO        \" TO WS-DESCRIPCION.    346200",
+          "java_codigo": "/** Antes: cadena de IF en 250-VALIDA-SISTEMA. Agregar un sistema ya no requiere recompilar P050 si se lee de catálogo. */\npublic enum SistemaFinanciero {\n    CHEQUES(1, \"SISTEMA DE CHEQUES\"),\n    CUENTA_MAESTRA(66, \"SISTEMA DE CUENTA MAESTRA\"),\n    INVERSIONES(87, \"SISTEMA DE INVERSIONES\"),\n    LINEAS(151, \"SISTEMA LINEAS SERV/CREDITO\"),\n    TRANSFERENCIA_FONDOS(264, \"SIST. TRANSFERENCIA DE FONDOS\"),\n    CARTERA(400, \"SISTEMA DE CARTERA\"),\n    AHORROS(500, \"SISTEMA DE AHORROS\"),\n    HIPOTECARIOS(600, \"SISTEMA DE P. HIPOTECARIOS\");\n\n    private final int codigo;\n    private final String descripcion;\n    SistemaFinanciero(int codigo, String descripcion) { this.codigo = codigo; this.descripcion = descripcion; }\n\n    /** Rango 1..999 válido aunque no esté en la lista: se describe como NO CALIFICADO. */\n    static String describe(int codigo) {\n        if (codigo < 1 || codigo > 999) throw new ErrorFuncion(4);   // MOVE 4 TO WS-ERROR\n        return Arrays.stream(values()).filter(s -> s.codigo == codigo)\n                .map(s -> s.descripcion).findFirst()\n                .orElse(\"SISTEMA NO CALIFICADO\");\n    }\n}",
+          "racional": "El programa justifica el texto del sistema con <code>JUSTIFIER</code>, valida que esté entre 1 y 999 y le asigna una descripción fija para ocho códigos. Un código válido que no está en la lista no es error: se responde como SISTEMA NO CALIFICADO y la consulta continúa. El enum conserva exactamente esos ocho valores; si se migra a un catálogo, el comportamiento para códigos no listados debe mantenerse.",
+          "reglas": [
+            "RN-S151-284"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Búsqueda del sistema en 20 posiciones y escala MXN ÷1000 sin ROUNDED",
+          "linea_ini": 10474,
+          "linea_fin": 10500,
+          "origen_codigo": " 330-ASIGNA-SISTEMA.                                              359400\n    ADD 1 TO WS-IND-BUS.                                          359500\n    IF WS-IND-BUS > 20                                            359600\n       MOVE 20 TO WS-IND-SIS                                      359700\n    ELSE                                                          359800\n       IF B01-GLO-SISTEMA(WS-IND-BUS) > ZEROS                     359900\n          IF B01-GLO-SISTEMA(WS-IND-BUS) = WS-DE-SISTEMA          360000\n             MOVE WS-IND-BUS TO WS-IND-SIS.                       360100\n 340-RESTO-CAMPOS.                                                360200\n    IF WS-DE-MONEDA = 1                                           360300\n       COMPUTE WS-VARIACION = B01-GLO-ACTUAL(WS-IND-SIS) / 1000   360400\n    ELSE                                                          360500\n       COMPUTE WS-VARIACION = B01-GLO-ACTUAL(WS-IND-SIS).         360600\n    MOVE WS-VARIACION  TO WS-DS-GLOB-ACT(WS-IND).                 360700\n    IF WS-DE-MONEDA = 1                                           360800\n       COMPUTE WS-VARIACION = B01-GLO-ANTES (WS-IND-SIS) / 1000   360900\n    ELSE                                                          361000\n       COMPUTE WS-VARIACION = B01-GLO-ANTES (WS-IND-SIS).         361100\n    MOVE WS-VARIACION  TO WS-DS-GLOB-ANT(WS-IND).                 361200\n    MOVE WS-VARIACION  TO 77-VAR.                                 361300\n    IF WS-DE-MONEDA = 1                                           361400\n       COMPUTE WS-VARIACION = (B01-GLO-ACTUAL(WS-IND-SIS) -       361500\n               B01-GLO-ANTES (WS-IND-SIS)) / 1000                 361600\n    ELSE                                                          361700\n       COMPUTE WS-VARIACION = (B01-GLO-ACTUAL(WS-IND-SIS) -       361800\n               B01-GLO-ANTES (WS-IND-SIS)).                       361900\n    MOVE WS-VARIACION TO WS-DS-GLOB-VAR(WS-IND).                  362000",
+          "java_codigo": "@Service\nclass SaldosGlobalesService {\n\n    private static final int POSICIONES = 20;                       // B01-GLO-SISTEMA(1..20)\n    private static final BigDecimal MIL = BigDecimal.valueOf(1000);  // p050.escala-mxn\n\n    /** 330-ASIGNA-SISTEMA: si el sistema no está en las 20 posiciones, el fuente usa la 20. */\n    static int posicion(SaldoGlobal g, int sistema) {\n        for (int i = 1; i <= POSICIONES; i++) {\n            if (g.sistema(i) > 0 && g.sistema(i) == sistema) return i;\n        }\n        return POSICIONES;   // comportamiento del fuente, ver riesgo\n    }\n\n    /** 340-RESTO-CAMPOS: WS-VARIACION es PIC S9(10) y el COMPUTE no lleva ROUNDED. */\n    static RenglonGlobal resto(SaldoGlobal g, int i, int moneda) {\n        BigDecimal actual = escala(g.actual(i), moneda);\n        BigDecimal antes  = escala(g.antes(i), moneda);\n        BigDecimal varia  = escala(g.actual(i).subtract(g.antes(i)), moneda);\n        return new RenglonGlobal(actual, antes, varia);\n    }\n\n    private static BigDecimal escala(BigDecimal v, int moneda) {\n        BigDecimal r = (moneda == 1) ? v.divide(MIL, 0, RoundingMode.DOWN) : v.setScale(0, RoundingMode.DOWN);\n        return r;   // los campos editados ZZZZ,ZZZ,ZZZ no tienen signo: el formateador debe decidirlo\n    }\n}",
+          "racional": "El arreglo del registro global tiene 20 posiciones de sistema; 330-ASIGNA-SISTEMA busca la que coincide con el sistema pedido. Los saldos MXN (moneda 1) se guardan en milésimas y se dividen entre 1000 para presentarlos; el resto de monedas se muestran tal cual. El <code>COMPUTE</code> no tiene <code>ROUNDED</code> y el receptor <code>WS-VARIACION</code> es <code>PIC S9(10)</code> sin decimales, así que el resultado se trunca a pesos enteros: en Java es <code>RoundingMode.DOWN</code> con escala 0. El factor 1000 pasa a propiedad.",
+          "reglas": [
+            "RN-S151-283",
+            "RN-S151-293",
+            "RN-S151-295"
+          ],
+          "riesgo": "Si el sistema no aparece en las 20 posiciones, WS-IND-SIS queda en 20 y se presentan los saldos de la posición 20, que pertenecen a otro sistema. Además WS-DS-GLOB-ANT y WS-DS-GLOB-ACT son PIC ZZZZ,ZZZ,ZZZ sin signo: un saldo negativo se muestra como positivo."
+        }
+      ]
+    },
+    {
+      "titulo": "Cápsulas ACCIVAL para SECORE — selección de movimientos",
+      "origen": {
+        "archivo": "COBOL_P050.txt",
+        "contexto": "PROCEDURE DIVISION · 146-CAT-NUMDIAS / 9966-ARMA-SIG / 9979-MUEVE-IMP-ACCIVAL"
+      },
+      "java": {
+        "archivo": "CapsulaAccivalProcessor.java · CapsulaProperties.java",
+        "contexto": "ItemProcessor · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s9",
+          "titulo": "Días de retroceso desde catálogo 802 con fallback de 180",
+          "linea_ini": 9879,
+          "linea_fin": 9900,
+          "origen_codigo": " 146-CAT-NUMDIAS.                                                 249750\n*================                                                 249752\n     MOVE 802                      TO WKS-EL710-CAT.              249754\n     MOVE 2                        TO WKS-EL710-BUSQUEDA.         249756\n     MOVE 500                      TO WKS-EL710-LLAVE1            249758\n     MOVE 98                       TO WKS-EL710-LLAVE2.           249760\n     MOVE 151                      TO W77-L710-SISTEMA.           249762\n     MOVE 50                       TO W77-L710-PROGRAMA.          249764\n     MOVE 20                       TO WKS-EL710-CLAVE.            249766\n     MOVE 1                        TO WKS-EL710-REGISTROS.        249768\n     MOVE ZERO                     TO WKS-EL710-LLAVE3            249770\n                                      WKS-EL710-LLAVE4            249772\n                                      WKS-EL710-LLAVE5            249774\n                                      WKS-EL710-LLAVE6            249776\n                                      WKS-EL710-FECINI            249778\n                                      WKS-EL710-NIVINI            249780\n                                      WKS-EL710-FEC-VIG.          249782\n     PERFORM 142-DAME-NUMCAT.                                     249784\n     IF W77-L710-RESULT = 0                                       249785\n        MOVE WKS-SL710-DAT(3)      TO W77-NUMDIAS                 249786\n     ELSE                                                         249787\n        MOVE 180                   TO W77-NUMDIAS.                249788",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\nclass CatalogoNumDias {\n\n    private final CatalogoEstructuraClient s080;   // L710_CONSUL_DETALLE IN ESTRUCTURA\n    @Value(\"${p050.capsula.num-dias-default:180}\") private int numDiasDefault;\n\n    /** Catálogo 802, búsqueda 2, llaves 500 y 98, solicitado por sistema 151 programa 50. */\n    int numDias() {\n        return s080.consultaDetalle(802, 2, List.of(500, 98), 151, 50)\n                .map(det -> det.dato(3))          // WKS-SL710-DAT(3)\n                .orElse(numDiasDefault);          // MOVE 180 TO W77-NUMDIAS\n    }\n}",
+          "racional": "El número de días se lee del catálogo 802 de S080 con llaves 500 y 98; si la consulta no devuelve 0 se usa 180. El valor alimenta <code>W77-NUMDIAS</code>, que en 9965-ARMA-CAP determina cuántas veces se ejecuta 9978-CALCULA-FECHA al preparar la cápsula. El 180 compilado pasa a propiedad con el mismo valor por defecto.",
+          "reglas": [
+            "RN-S151-288"
+          ],
+          "riesgo": "Con el fallback, 9978-CALCULA-FECHA se ejecuta 180 veces, con una llamada a LOCSUP en cada una, en cada generación de cápsula."
+        },
+        {
+          "id": "s10",
+          "titulo": "Filtro de movimientos: función 1, origen 1 o 3 y ocho cuentas fijas",
+          "linea_ini": 15555,
+          "linea_fin": 15569,
+          "origen_codigo": "  9966-ARMA-SIG.                                                  797900\n*                                                                 797902\n    IF  A00-R01-FUNCION       = 1           AND                   797988\n       (A00-R01-ORIGEN = 1 OR 3 )           AND                   797989\n      ((A00-R01-MDA-SUC = 870 AND A00-R01-MDA-CTA = 547001 ) OR   797990\n       (A00-R01-MDA-SUC = 233 AND A00-R01-MDA-CTA = 1214305) OR   797991\n       (A00-R01-MDA-SUC = 233 AND A00-R01-MDA-CTA = 1214402) OR   797992\n       (A00-R01-MDA-SUC = 233 AND A00-R01-MDA-CTA = 1318526) OR   797993\n       (A00-R01-MDA-SUC = 100 AND A00-R01-MDA-CTA = 1106712) OR   797994\n       (A00-R01-MDA-SUC = 233 AND A00-R01-MDA-CTA = 6063135) OR   797995\n       (A00-R01-MDA-SUC = 87  AND A00-R01-MDA-CTA = 2109145) OR   797996\n       (A00-R01-MDA-SUC = 87  AND A00-R01-MDA-CTA = 2046127)   )  797997\n       PERFORM 9977-MUEVE-INF-ACCIVAL                             798003\n       PERFORM 9979-MUEVE-IMP-ACCIVAL VARYING W77-IND FROM 1 BY 1 798004\n          UNTIL W77-IND > 5 OR A00-R01-CVETRAN(W77-IND) = 0.      798008",
+          "java_codigo": "# application.yml  (antes: ocho pares sucursal/cuenta en el IF de 9966-ARMA-SIG)\np050:\n  capsula:\n    origenes: [1, 3]\n    cuentas:\n      - { sucursal: 870, cuenta: \"547001\" }\n      - { sucursal: 233, cuenta: \"1214305\" }\n      - { sucursal: 233, cuenta: \"1214402\" }\n      - { sucursal: 233, cuenta: \"1318526\" }\n      - { sucursal: 100, cuenta: \"1106712\" }\n      - { sucursal: 233, cuenta: \"6063135\" }\n      - { sucursal: 87,  cuenta: \"2109145\" }\n      - { sucursal: 87,  cuenta: \"2046127\" }\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass CapsulaAccivalProcessor implements ItemProcessor<MovimientoLog, List<RegistroAccival>> {\n\n    private final CapsulaProperties props;\n\n    @Override\n    public List<RegistroAccival> process(MovimientoLog m) {\n        boolean entra = m.funcion() == 1\n                && props.origenes().contains(m.origen())\n                && props.cuentas().contains(new CuentaMadre(m.mdaSuc(), m.mdaCta()));\n        if (!entra) return null;                       // se filtra; la llave del log avanza igual\n        var base = RegistroAccival.desde(m);           // 9977-MUEVE-INF-ACCIVAL\n        return m.claves().stream()                     // hasta 5 CVETRAN, termina en la primera en 0\n                .takeWhile(c -> c.cvetran() != 0)\n                .limit(5)\n                .map(c -> clasifica(base, c))\n                .flatMap(Optional::stream)\n                .toList();\n    }",
+          "racional": "Un movimiento del log entra a la cápsula solo si es función 1, su origen es 1 o 3 y la cuenta madre está en una lista fija de ocho pares sucursal y cuenta. La lista y los orígenes se mueven a <code>application.yml</code>; las cuentas se manejan como <code>String</code> para conservar ceros. Por cada movimiento que pasa se recorren hasta cinco claves de transacción y la primera en cero corta el recorrido, que en Java es <code>takeWhile</code> con <code>limit(5)</code>.",
+          "reglas": [
+            "RN-S151-290"
+          ],
+          "riesgo": "El código acepta origen 1 o 3; RN-S151-290 y el comentario MRA 031 hablan de origen 1 o 2. Además la selección se limita a ocho cuentas compiladas que ninguna regla del brain menciona."
+        },
+        {
+          "id": "s11",
+          "titulo": "Naturaleza contable por clave y tratamiento de claves 731 a 746",
+          "linea_ini": 15609,
+          "linea_fin": 15622,
+          "origen_codigo": " 9979-MUEVE-IMP-ACCIVAL.                                          798539\n*=======================                                          798540\n   MOVE A00-R01-CVETRAN(W77-IND)   TO W77-CLAVE.                  798542\n   IF W77-CLAVE = 1009                                            798544\n      NEXT SENTENCE                                               798546\n   ELSE                                                           798562\n   IF WKS-TAB-NATCON(W77-CLAVE) = 1 OR 2                          798607\n      MOVE WKS-TAB-NATCON(W77-CLAVE)    TO A00-ACCI-NATURALEZA    798617\n      PERFORM 9992-GRABA-ACCIVAL                                  798622\n   ELSE                                                           798627\n   IF A00-R01-CVETRAN(W77-IND) > 730 AND                          798632\n      A00-R01-CVETRAN(W77-IND) < 747                              798634\n      MOVE 2                            TO A00-ACCI-NATURALEZA    798637\n      PERFORM 9992-GRABA-ACCIVAL.                                 798642",
+          "java_codigo": "    private final NaturalezaContable naturalezas;   // WKS-TAB-NATCON, cargada desde catálogo S080\n\n    /** 9979-MUEVE-IMP-ACCIVAL + 9992-GRABA-ACCIVAL. */\n    private Optional<RegistroAccival> clasifica(RegistroAccival base, ClaveImporte c) {\n        int clave = c.cvetran();\n        if (clave == 1009) return Optional.empty();                      // excluida sin aviso\n        OptionalInt nat = naturalezas.de(clave);                          // 1 = cargo, 2 = abono\n        if (nat.isPresent() && (nat.getAsInt() == 1 || nat.getAsInt() == 2)) {\n            return Optional.of(base.con(clave, nat.getAsInt(), c.importe()));\n        }\n        if (clave > 730 && clave < 747) {\n            // abono forzado: el importe viaja como leyenda y el campo importe va en cero\n            return Optional.of(base.conLeyenda(clave, 2, c.importe()));\n        }\n        return Optional.empty();\n    }\n}",
+          "racional": "La naturaleza de cada clave sale de la tabla <code>WKS-TAB-NATCON</code>, cargada al arranque desde el catálogo de S080. Si vale 1 o 2 el importe se graba con esa naturaleza; las claves 731 a 746 sin naturaleza se fuerzan a abono y su importe se mueve a la leyenda con importe cero; la clave 1009 se descarta. En Java la tabla es un servicio que devuelve <code>OptionalInt</code>, lo que obliga a tratar la clave sin naturaleza en lugar de leer un cero implícito.",
+          "reglas": [
+            "RN-S151-289",
+            "RN-S151-291"
+          ],
+          "riesgo": "El código graba cargos (naturaleza 1) y abonos (naturaleza 2); no aplica el filtro de solo abonos de MRA 032 que describe RN-S151-289. WKS-TAB-NATCON tiene OCCURS 6000, así que una clave mayor a 6000 sale del rango de la tabla."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Filtros SECORE distintos a los documentados",
+      "detalle": "En 9966-ARMA-SIG (líneas 15557-15566) el origen aceptado es 1 o 3, no 1 o 2, y en 9979-MUEVE-IMP-ACCIVAL (líneas 15615-15617) se graban naturalezas 1 y 2. Ninguno de los dos coincide con MRA 031 y MRA 032 ni con RN-S151-289 y RN-S151-290. La selección además depende de ocho cuentas compiladas."
+    },
+    {
+      "titulo": "Ventana de envío declarada y no usada",
+      "detalle": "WS-HORA-INI-ENV (08000000) y WS-HORA-TER-ENV (14050000), en las líneas 9010-9011, no se referencian en la PROCEDURE DIVISION. La ventana efectiva sale de WS-HORA-NEXT, que arranca en 07300000 (línea 9555), WS-HORA-PARARENVIO con VALUE 14000000 (línea 6380) y WKS-CORTE-X-HORA con VALUE 14550000 (línea 5587)."
+    },
+    {
+      "titulo": "Truncamiento y pérdida de signo en saldos globales",
+      "detalle": "340-RESTO-CAMPOS divide entre 1000 sin ROUNDED hacia un PIC S9(10) entero y mueve el resultado a campos editados sin signo (ZZZZ,ZZZ,ZZZ). Los centavos se pierden y un saldo negativo se presenta como positivo; solo la variación lleva signo."
+    },
+    {
+      "titulo": "Sistema no encontrado toma la posición 20",
+      "detalle": "330-ASIGNA-SISTEMA asigna WS-IND-SIS = 20 cuando el sistema pedido no aparece en las 20 posiciones, y 340-RESTO-CAMPOS presenta los saldos de esa posición si son mayores a cero."
+    },
+    {
+      "titulo": "Precedencia de AND sobre OR en la corrección de FECCON",
+      "detalle": "La condición de la línea 9427 se evalúa como CSI = 4 OR (CSI = 10 AND FECCON < fecha máquina). En Monterrey la fecha se reemplaza siempre."
+    },
+    {
+      "titulo": "Punto final desplazado por la renovación CRONOS 2000",
+      "detalle": "En 200-ACEPTA-MSG (líneas 9989-9996) el IF solo controla el PERFORM A2K-ACCEPT-TODAYS-DATE; el resto del bloque se ejecuta siempre con la última fecha leída."
+    },
+    {
+      "titulo": "Hardcodes de títulos, nodos y catálogos",
+      "detalle": "Títulos de librería de respaldo (L006, L001, LIBEST), sustituciones de CSI 10 a 04 y 32 a 12, el factor 1000, los 180 días por defecto y la lista de cuentas de la cápsula están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-282 dice que WKS-DIA-HABIL distinto de 0 significa inhábil; el fuente (líneas 9512-9522 y el 88 DIA-HABIL VALUE 1 de la línea 6386) indica lo contrario, coincidiendo con RN-S151-281. Corregir la redacción de RN-S151-282 en el brain.",
+    "RN-S151-286 describe una ventana 08:00 a 14:05 que corresponde a variables declaradas pero no usadas; confirmar con SME cuál es la ventana operativa real (07:30, 14:00 o 14:55).",
+    "RN-S151-288 interpreta el catálogo 802 llave 98 como umbral de dormancia; en P050 el valor solo determina cuántos días se retrocede W77-FEC-ULTMOV en 9965-ARMA-CAP. Validar el significado de negocio.",
+    "RN-S151-294 habla de 93 funciones; el despachador tiene alrededor de cuarenta códigos y 93 es el código más alto.",
+    "RN-S151-285 marca como no confirmados ALF y GAM; 270-VALIDA-CSI (líneas 10369-10372) sí los acepta (ALF como 33 y GAM como 35), aunque 320-MUEVE-GLOB los presenta como ERR.",
+    "Confirmar con SME el origen de la sustitución CSI 32 a 12 y si las ocho cuentas de la cápsula SECORE siguen vigentes.",
+    "El dispatcher se tradujo como servicio síncrono por mensaje; definir con arquitectura si el transporte COMS se reemplaza por REST, MQ o Kafka."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-281",
+    "RN-S151-282",
+    "RN-S151-283",
+    "RN-S151-284",
+    "RN-S151-285",
+    "RN-S151-286",
+    "RN-S151-287",
+    "RN-S151-288",
+    "RN-S151-289",
+    "RN-S151-290",
+    "RN-S151-291",
+    "RN-S151-292",
+    "RN-S151-293",
+    "RN-S151-294",
+    "RN-S151-295",
+    "RN-S151-296",
+    "RN-S151-297",
+    "RN-S151-298",
+    "RN-S151-299",
+    "RN-S151-300",
+    "RN-S500-914",
+    "RN-S500-915",
+    "RN-S500-401",
+    "RN-S500-402",
+    "RN-S500-403",
+    "RN-S500-404"
+  ]
+}

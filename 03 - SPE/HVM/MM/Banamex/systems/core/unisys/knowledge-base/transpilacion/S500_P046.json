@@ -1,0 +1,145 @@
+{
+  "slug": "S500_P046",
+  "sistema": "S500",
+  "programa": "P046",
+  "nombre": "Driver en Línea de Revocaciones y Cancelaciones",
+  "funcion": "Programa ALGOL en línea de S500 que habilita su entrada COMS y cede el control al procedimiento ENVIA_CANCELACIONES de la librería de revocaciones L046, que queda atendiendo mientras el programa vive.",
+  "resumen": "P046 no tiene lógica de negocio propia. Resuelve con CTLVERS el título de la librería S500L046REVO y, si la consulta falla, usa un título fijo en el pack CAPTACION. Activa opciones de volcado de memoria para diagnóstico, nombra su listado con la marca de tiempo del sistema, habilita la entrada COMS en modo ONLINE y llama a ENVIA_CANCELACIONES pasándole los encabezados COMS y los eventos de entrada y de tarea del DCI. El programa termina cuando ese procedimiento regresa.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.asincrono.revocaciones",
+  "secciones": [
+    {
+      "titulo": "Enlace con COMS, CTLVERS y la librería de revocaciones",
+      "origen": {
+        "archivo": "S500_SOURCE_P046.txt",
+        "contexto": "Bloque principal · declaraciones LIBRARY · DAME_TIT"
+      },
+      "java": {
+        "archivo": "RevocacionesConfig.java · CancelacionesPort.java · P046Properties.java",
+        "contexto": "@Configuration · interfaz de puerto · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Encabezados COMS y funciones importadas de CTLVERS",
+          "linea_ini": 3,
+          "linea_fin": 16,
+          "origen_codigo": "     EBCDIC ARRAY E_MSG[0:70];                                          10000300\n     INPUTHEADER     COMSINHDR;                                         10000400\n     OUTPUTHEADER    COMSOUTHDR;                                        10000500\n     LIBRARY CTLVER (LIBACCESS = BYFUNCTION,                            10000700\n             FUNCTIONNAME = \"CTLVERS\");                                 10000800\n             INTEGER PROCEDURE DAME_TIT(ID,TITULO);                     10000900\n     EBCDIC  ARRAY ID,TITULO[0];                                        10001100\n     LIBRARY CTLVER;                                                    10001300\n             INTEGER PROCEDURE CHECAME(ID,VERSION);                     10001400\n             EBCDIC ARRAY ID,VERSION[0];                                10001500\n             LIBRARY CTLVER;                                            10001600",
+          "java_codigo": "/** CTLVERS: catálogo de versiones que traduce un identificador lógico al título del objeto vigente. */\npublic interface CatalogoVersiones {\n    Optional<String> titulo(String idLogico);      // DAME_TIT(ID, TITULO) < 0 -> Optional.empty()\n    boolean checaVersion(String id, String version);  // CHECAME: declarado en P046 pero no se usa\n}\n\n/** INPUTHEADER / OUTPUTHEADER de COMS: en Java, canales de entrada y salida del adaptador COMS. */\n@Configuration\npublic class RevocacionesConfig {\n    @Bean MessageChannel comsEntrada() { return new QueueChannel(); }        // COMSINHDR\n    @Bean MessageChannel comsSalida()  { return new DirectChannel(); }       // COMSOUTHDR\n}",
+          "racional": "El programa declara los encabezados de entrada y salida de COMS y dos funciones de la librería de control de versiones, enlazadas por nombre de función. En Java los encabezados COMS se convierten en canales de Spring Integration que expone el adaptador de mensajería y CTLVERS en una interfaz que devuelve el título vigente o vacío. <code>CHECAME</code> se declara pero el programa nunca la invoca; se conserva en la interfaz solo como referencia.",
+          "reglas": [
+            "RN-S500-641"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Firma de ENVIA_CANCELACIONES importada de TIME_OUT",
+          "linea_ini": 18,
+          "linea_fin": 24,
+          "origen_codigo": "     LIBRARY TIME_OUT;                                                  10001800\n     PROCEDURE ENVIA_CANCELACIONES(COMS_IN,COMS_OUT,IN_EV,TSK_EV);      10002000\n               INPUTHEADER  COMS_IN;                                    10002100\n               OUTPUTHEADER COMS_OUT;                                   10002200\n               EVENT   IN_EV, TSK_EV;                                   10002300\n               LIBRARY TIME_OUT;                                        10002400",
+          "java_codigo": "/**\n * Contrato de la librería TIME_OUT (S500L046REVO). Es la misma firma que exporta L093:\n * encabezados COMS de entrada y salida y dos eventos que despiertan al procedimiento.\n */\npublic interface CancelacionesPort {\n    /** Bloquea hasta que COMS ordena terminar (en L093, RECEIVE con resultado 99). */\n    void enviaCancelaciones(MessageChannel comsEntrada, MessageChannel comsSalida);\n}",
+          "racional": "<code>ENVIA_CANCELACIONES</code> se importa de una librería declarada con el nombre interno TIME_OUT, cuyo título real se asigna en tiempo de ejecución. La firma recibe los dos encabezados COMS y los eventos de entrada y de tarea, que en Java dejan de ser parámetros porque el propio canal notifica la llegada de mensajes. Se modela como un puerto para que la implementación pueda ser el servicio Java equivalente a la librería o, durante la convivencia, un adaptador hacia el mainframe.",
+          "reglas": [
+            "RN-S500-641"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Título de la librería por CTLVERS con valor fijo de respaldo",
+          "linea_ini": 26,
+          "linea_fin": 35,
+          "origen_codigo": "     EBCDIC  VALUE ARRAY EVA_TIMEOUT(\"S500L046REVO\");                   10002600\n     EBCDIC  ARRAY       EA_TIT[0:71];                                  10002700\n     IF DAME_TIT(EVA_TIMEOUT,EA_TIT) < 0 THEN                           10002900\n        REPLACE TIME_OUT.TITLE BY                                       10003000\n             \"(S500)S500/OBJECT/L046/REVOCA/25MTP002 ON CAPTACION\"      10003100\n     ELSE                                                               10003200\n        REPLACE TIME_OUT.TITLE BY EA_TIT FOR 72;                        10003300\n     DELINKLIBRARY(CTLVER);                                             10003500",
+          "java_codigo": "# application.yml\np046:\n  libreria-revocaciones:\n    id-logico: \"S500L046REVO\"\n    titulo-respaldo: \"(S500)S500/OBJECT/L046/REVOCA/25MTP002 ON CAPTACION\"\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\nclass ResolucionLibreria {\n\n    private final CatalogoVersiones ctlvers;\n    private final P046Properties props;\n\n    /** IF DAME_TIT(...) < 0 THEN título fijo ELSE título del catálogo (72 caracteres). */\n    String tituloLibreria() {\n        var lib = props.libreriaRevocaciones();\n        return ctlvers.titulo(lib.idLogico())\n                .map(t -> t.length() > 72 ? t.substring(0, 72) : t)\n                .orElseGet(() -> {\n                    log.warn(\"CTLVERS sin título para {}; se usa respaldo {}\", lib.idLogico(), lib.tituloRespaldo());\n                    return lib.tituloRespaldo();\n                });\n    }\n}",
+          "racional": "El título del objeto de la librería se pide al catálogo de versiones con el identificador S500L046REVO; si la función devuelve un valor negativo se usa un título fijo con versión 25MTP002 en el pack CAPTACION. Ambos valores son hardcodes y pasan a <code>application.yml</code>. En el fuente el respaldo se aplica en silencio; en Java se deja un aviso en bitácora para que operación sepa que corre una versión fija y no la vigente.",
+          "reglas": [
+            "RN-S500-641"
+          ],
+          "riesgo": "Si CTLVERS falla, P046 enlaza sin aviso la versión 25MTP002 compilada en el fuente, que puede no ser la vigente."
+        }
+      ]
+    },
+    {
+      "titulo": "Atributos de la tarea y arranque en línea",
+      "origen": {
+        "archivo": "S500_SOURCE_P046.txt",
+        "contexto": "Bloque principal · MYSELF.OPTIONS / BDNAME · ENABLE"
+      },
+      "java": {
+        "archivo": "P046Application.java · application.yml",
+        "contexto": "Spring Boot · ApplicationRunner · logging"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Opciones de volcado para diagnóstico",
+          "linea_ini": 37,
+          "linea_fin": 40,
+          "origen_codigo": "     MYSELF.OPTIONS:=* & 1 [VALUE(BDBASE):1]                            10003700\n                       & 1 [VALUE(FAULT) :1]                            10003800\n                       & 1 [VALUE(DSED)  :1]                            10003900\n                       & 1 [VALUE(ARRAYS):1];                           10004000",
+          "java_codigo": "# application.yml  (equivalente de BDBASE, FAULT, DSED y ARRAYS: evidencia ante falla)\nserver:\n  shutdown: graceful\nmanagement:\n  endpoints.web.exposure.include: health,info,threaddump,heapdump\n  endpoint.heapdump.enabled: false      # deshabilitado: el buzón contiene mensajes de cancelación\nlogging:\n  level:\n    mx.banamex.s500.asincrono: INFO\n\n# JVM: -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/dumps/s500-p046 (ruta cifrada y con acceso restringido)",
+          "racional": "El programa activa cuatro opciones de la tarea que generan volcados de memoria y de arreglos cuando ocurre una falla. En una aplicación Java el equivalente es la combinación de volcado de heap ante error, volcado de hilos por el endpoint de administración y trazas de log. Como el proceso maneja mensajes de cancelación, el volcado de heap por endpoint se deja deshabilitado y el automático se dirige a una ruta protegida.",
+          "reglas": [
+            "RN-S500-642"
+          ],
+          "riesgo": "Los volcados que activa P046 incluyen el contenido de los arreglos de la tarea y de la librería enlazada, que pueden contener datos de las operaciones a cancelar."
+        },
+        {
+          "id": "s5",
+          "titulo": "Nombre del listado con marca de tiempo",
+          "linea_ini": 42,
+          "linea_fin": 44,
+          "origen_codigo": "     REPLACE E_MSG BY                                                   10004200\n             \"S500/LIST/P046/1000/R000/\",TIME(15).[15:48],\".\";          10004300\n     REPLACE MYSELF.BDNAME BY E_MSG;                                    10004400",
+          "java_codigo": "@Component\nclass NombreListado implements ApplicationListener<ApplicationStartingEvent> {\n\n    /** S500/LIST/P046/1000/R000/{TIME(15)}. : un listado por ejecución. */\n    @Override\n    public void onApplicationEvent(ApplicationStartingEvent e) {\n        String sello = DateTimeFormatter.ofPattern(\"yyyyMMddHHmmssSSS\")\n                .withZone(ZoneId.of(\"America/Mexico_City\"))\n                .format(Instant.now());\n        System.setProperty(\"LOG_FILE\", \"logs/s500/p046/1000/r000/\" + sello + \".log\");   // MYSELF.BDNAME\n    }\n}",
+          "racional": "El nombre del listado de la tarea se arma con un prefijo fijo y la marca de tiempo de <code>TIME(15)</code>, de modo que cada ejecución en línea deja su propio listado. En Java se traduce a un archivo de log por arranque, con el nombre fijado antes de que se inicialice el sistema de logging. El segmento 1000/R000 del prefijo es un valor compilado cuyo significado no se explica en el fuente.",
+          "reglas": [
+            "RN-S500-642"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Habilitación ONLINE de COMS y cesión del control",
+          "linea_ini": 46,
+          "linea_fin": 51,
+          "origen_codigo": "     ENABLE(COMSINHDR,\"ONLINE\");                                        10004600\n     ENVIA_CANCELACIONES                                                10004800\n    (COMSINHDR,COMSOUTHDR,MYSELF.DCIINPUTEVENT,MYSELF.DCITASKEVENT);    10004900\n   END.                                                                 10005100",
+          "java_codigo": "@SpringBootApplication\n@EnableConfigurationProperties(P046Properties.class)\npublic class P046Application {\n    public static void main(String[] args) { SpringApplication.run(P046Application.class, args); }\n\n    /** ENABLE(COMSINHDR,\"ONLINE\") y llamada a ENVIA_CANCELACIONES; al regresar, END. */\n    @Bean\n    ApplicationRunner arranque(CancelacionesPort cancelaciones, ComsAdapter coms,\n                               MessageChannel comsEntrada, MessageChannel comsSalida,\n                               ConfigurableApplicationContext ctx) {\n        return args -> {\n            coms.habilita(\"ONLINE\");\n            cancelaciones.enviaCancelaciones(comsEntrada, comsSalida);   // bloquea hasta la orden de fin\n            ctx.close();\n        };\n    }\n}",
+          "racional": "Después de preparar la tarea, P046 habilita su entrada COMS en modo ONLINE y llama a ENVIA_CANCELACIONES con los eventos de entrada y de tarea del DCI, de modo que la librería despierte con cada mensaje o evento. Toda la vida del programa transcurre dentro de esa llamada. En Spring Boot el equivalente es un <code>ApplicationRunner</code> que habilita el adaptador, entrega el control al servicio y cierra el contexto cuando este regresa.",
+          "reglas": [
+            "RN-S500-641"
+          ],
+          "riesgo": "P046 no revisa el resultado del ENABLE ni maneja excepciones de la librería; si ENVIA_CANCELACIONES falla, el programa termina sin mensaje propio."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Versión de respaldo compilada",
+      "detalle": "Si DAME_TIT falla (línea 29), se enlaza sin aviso el título fijo (S500)S500/OBJECT/L046/REVOCA/25MTP002 ON CAPTACION (línea 31)."
+    },
+    {
+      "titulo": "Volcados con datos operativos",
+      "detalle": "Las opciones BDBASE, FAULT, DSED y ARRAYS (líneas 37-40) generan volcados que pueden incluir el contenido de los mensajes de cancelación."
+    },
+    {
+      "titulo": "Sin manejo de errores",
+      "detalle": "No se verifica el ENABLE de COMS (línea 46) ni el regreso de ENVIA_CANCELACIONES (líneas 48-49)."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Identificador S500L046REVO, título de respaldo con versión 25MTP002 y pack CAPTACION, y prefijo del listado S500/LIST/P046/1000/R000."
+    }
+  ],
+  "pendientes_revision": [
+    "P046 enlaza la librería L046/REVOCA, cuyo fuente no forma parte de este componente. La interfaz se tomó de la declaración de ENVIA_CANCELACIONES (líneas 20-24), que coincide con la que exporta L093; confirmar con SME que L046 implementa el mismo comportamiento de buzón.",
+    "El fuente tiene 51 líneas sin lógica de negocio; por eso se entregan seis segmentos pequeños en dos secciones.",
+    "Confirmar el significado del segmento 1000/R000 en el título del listado.",
+    "El inventario clasifica a P046 como A2 Validador-Actualizador; por su función es un driver de arranque y la traducción lo trata como tal."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-641",
+    "RN-S500-642"
+  ]
+}

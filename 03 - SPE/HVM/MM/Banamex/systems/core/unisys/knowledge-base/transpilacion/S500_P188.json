@@ -1,0 +1,193 @@
+{
+  "slug": "S500_P188",
+  "sistema": "S500",
+  "programa": "P188",
+  "nombre": "Generador de Reporte de Detalle Batch",
+  "funcion": "Utilitario de S500 escrito en 2013 que P187 u otro sistema arranca con un TASKSTRING de 30 posiciones para imprimir el detalle de un archivo de salida de aplicación, filtrado por tipo de reporte, y al terminar eliminar el archivo de control de P187.",
+  "resumen": "Recibe en el TASKSTRING sistema-cliente, nodo, secuencia, fecha y registro. Si el sistema-cliente es 999999999999 lo invocó P187 y lee el archivo de control (S500)S500/FILE/P187/nn/IMPDET/aaaammdd/ssss; si no, toma tipo de reporte y buzón de S500B07PARCHIVOS. Con el indicador de reporte (1 todo, 2 aplicados, 3 rechazados, 4 local) filtra los registros de detalle del archivo de salida, los ordena por sucursal y caja con SORT y genera con REPORT WRITER un listado de 40 líneas por página con cortes y totales por sucursal y caja. Al final cierra el listado, ejecuta SYSTEM/FORZA sobre S500/LIST/P187 y, cuando lo invocó P187, purga el archivo de control y copia el archivo de salida a APLXDISP.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JasperReports",
+  "paquete_java": "mx.banamex.s500.reportes.detalle",
+  "secciones": [
+    {
+      "titulo": "Parámetros de invocación, origen del pedido y destino del listado",
+      "origen": {
+        "archivo": "S500_SOURCE_P188.txt",
+        "contexto": "WORKING-STORAGE · 40000000-INICIO · 50000000-CREA-REPDETALLE"
+      },
+      "java": {
+        "archivo": "PedidoDetalle.java · TipoReporte.java · DestinoListadoProperties.java",
+        "contexto": "record · enum · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "TASKSTRING posicional a parámetros del job",
+          "linea_ini": 273,
+          "linea_fin": 799,
+          "origen_codigo": " 01 WKS-WFL-PARAM.\n   02 WKS-WFL-SISCTE PIC 9(12).\n   02 WKS-WFL-NODO   PIC 9(02).\n   02 WKS-WFL-SEC    PIC 9(04).\n   02 WKS-WFL-FEC    PIC 9(08).\n   02 WKS-WFL-REG    PIC 9(04).\n    MOVE ATTRIBUTE TASKSTRING OF MYSELF TO WKS-WFL-PARAM.\n    MOVE WKS-WFL-NODO TO WS-A04-CSI\n    MOVE WKS-WFL-FEC  TO WS-A04-FEC\n    MOVE WKS-WFL-REG  TO WS-A04-SEC",
+          "java_codigo": "/** WKS-WFL-PARAM: 30 posiciones en ATTRIBUTE TASKSTRING OF MYSELF. */\npublic record PedidoDetalle(String sistemaCliente,   // 9(12): \"999999999999\" = invocado por P187\n                            int nodo,                // 9(02)\n                            int secuencia,           // 9(04)\n                            LocalDate fechaProceso,  // 9(08) AAAAMMDD\n                            int registro) {          // 9(04)\n\n    public static final String INVOCADO_POR_P187 = \"999999999999\";\n\n    static PedidoDetalle parse(String taskString) {\n        var s = String.format(\"%-30s\", taskString);\n        return new PedidoDetalle(s.substring(0, 12),\n                Integer.parseInt(s.substring(12, 14)),\n                Integer.parseInt(s.substring(14, 18)),\n                LocalDate.parse(s.substring(18, 26), DateTimeFormatter.BASIC_ISO_DATE),\n                Integer.parseInt(s.substring(26, 30)));\n    }\n\n    boolean invocadoPorP187() { return INVOCADO_POR_P187.equals(sistemaCliente); }\n\n    JobParameters toJobParameters() {\n        return new JobParametersBuilder()\n                .addString(\"sistemaCliente\", sistemaCliente)\n                .addLong(\"nodo\", (long) nodo)\n                .addLocalDate(\"fechaProceso\", fechaProceso)\n                .addLong(\"registro\", (long) registro)\n                .toJobParameters();\n    }\n}",
+          "racional": "El programa no tiene parámetros formales: el llamador deja una cadena de 30 posiciones en el atributo <code>TASKSTRING</code> y P188 la mueve sobre una estructura de cinco campos. En Spring Batch esos campos son <code>JobParameters</code> tipados, y el parseo posicional queda en un solo método. El sistema-cliente se conserva como texto porque el valor 999999999999 es una marca, no un número, y la fecha AAAAMMDD se convierte a <code>LocalDate</code>.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Archivo de control de P187 o catálogo B07 y tipo de reporte",
+          "linea_ini": 803,
+          "linea_fin": 842,
+          "origen_codigo": "  IF WKS-WFL-SISCTE = 999999999999\n     MOVE \"P187\"      TO WS-A04-PASO WS-TIT-PASO\n     CHANGE ATTRIBUTE TITLE OF  A04-PROCDET TO WS-TIT-A04\n     IF ATTRIBUTE RESIDENT OF A04-PROCDET IS= VALUE TRUE\n        PERFORM 50000000-OPEN-ARCHCTRL\n     ELSE\n        STRING \"ERROR: NO EXISTE ARCHIVO DE CONTROL \"\n        \"PARA  SIST/CTE: \", WKS-WFL-SISCTE,\n        \" FECHA: \",         WKS-WFL-FEC ,\n        \" NODO: \",  WKS-WFL-NODO , \" SEC: \", WKS-WFL-REG\n        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        MOVE 1 TO WKS-FIN\n  ELSE\n     PERFORM 50000000-LEE-B07P\n     MOVE B07P-LISTADOS   TO A04-DET-INDI\n     MOVE \"P188\"          TO WS-A04-PASO WS-TIT-PASO.\n  IF WKS-FIN = 0\n     IF A04-DET-INDI = 1\n        MOVE \"(1=TODO)\" TO WKS-TIT-LEY\n     ELSE\n     IF A04-DET-INDI = 2\n        MOVE \"(2=APLICADOS)\" TO WKS-TIT-LEY\n     ELSE\n     IF A04-DET-INDI = 3\n        MOVE \"(3=RECHAZADO)\" TO WKS-TIT-LEY\n     ELSE\n     IF A04-DET-INDI = 4\n        MOVE \"(4=TODO-LOCAL)\" TO WKS-TIT-LEY\n     ELSE\n        STRING \"ERROR: INDICADOR NO ESPECIFICA TIPO DE REPORTE \",\n        \"DE DETALLE : \", A04-DET-INDI, \"SE ASIGNA POR DEFAULT \",\n        \"'TODO' AL REPORTE \"\n        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        MOVE \"(1=TODO)\" TO WKS-TIT-LEY\n        MOVE 1          TO A04-DET-INDI\n   ELSE\n     STOP RUN.",
+          "java_codigo": "public enum TipoReporte {\n    TODO(1), APLICADOS(2), RECHAZADOS(3), TODO_LOCAL(4);\n    final int codigo;\n    TipoReporte(int c) { codigo = c; }\n\n    static TipoReporte of(int c) {\n        return Arrays.stream(values()).filter(t -> t.codigo == c).findFirst().orElseGet(() -> {\n            log.warn(\"INDICADOR NO ESPECIFICA TIPO DE REPORTE DE DETALLE: {}; SE ASIGNA TODO\", c);\n            return TODO;\n        });\n    }\n}\n\n@Component\n@RequiredArgsConstructor\npublic class OrigenPedidoTasklet implements Tasklet {\n\n    private final ArchivoControlP187Repository controlP187;   // (S500)S500/FILE/P187/nn/IMPDET/...\n    private final CatalogoArchivosRepository b07;              // S500B07PARCHIVOS\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var p = pedido(ctx);\n        ControlDetalle control = p.invocadoPorP187()\n                ? controlP187.busca(p.nodo(), p.fechaProceso(), p.registro())\n                      .orElseThrow(() -> new ProcesoAbortadoException(\n                          \"ERROR: NO EXISTE ARCHIVO DE CONTROL PARA SIST/CTE: \" + p.sistemaCliente()))\n                : ControlDetalle.desdeCatalogo(b07.busca(p.sistemaCliente(), p.registro(), p.nodo()));\n        publica(ctx, control, TipoReporte.of(control.indicador()));\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "P188 sirve a dos llamadores. Si lo invocó P187, lee un archivo de control cuyo nombre arma con nodo, fecha y registro; si lo invocó otro sistema, toma el tipo de reporte y el buzón del catálogo S500B07PARCHIVOS. El indicador decide qué registros se imprimen y, si no es 1 a 4, el fuente avisa y usa TODO; ese respaldo se conserva. En Java la ausencia del archivo de control se traduce en una excepción que marca el job como fallido.",
+          "reglas": [
+            "RN-S500-761"
+          ],
+          "riesgo": "Si no existe el archivo de control de P187 el fuente solo escribe el mensaje y hace STOP RUN (líneas 815 y 841-842), que termina de forma normal: P187 y el WFL no se enteran de que no hubo reporte."
+        },
+        {
+          "id": "s3",
+          "titulo": "Títulos del control y del listado, con nodo por hostname",
+          "linea_ini": 282,
+          "linea_fin": 927,
+          "origen_codigo": "  01 WS-TIT-A04.\n     03 FILLER                    PIC X(16)\n        VALUE \"(S500)S500/FILE/\".\n     03 WS-A04-PASO               PIC X(04) VALUE \"P187\".\n     03 FILLER                    PIC X(01) VALUE \"/\".\n     03 WS-A04-CSI                PIC 9(02).\n     03 FILLER                    PIC X(08) VALUE \"/IMPDET/\".\n     03 WS-A04-FEC                PIC 9(08).\n     03 WS-A04-FECX               REDEFINES WS-A04-FEC.\n        05 WS-A04-AA              PIC 9(04).\n        05 WS-A04-MM              PIC 9(02).\n        05 WS-A04-DD              PIC 9(02).\n     03 FILLER                    PIC X(01) VALUE \"/\".\n     03 WS-A04-SEC                PIC 9(04).\n     03 WS-A04-PUNTO              PIC X(01) VALUE \".\".\n  01  WS-TIT-REPORTES.\n      03 FILLER                    PIC X(01) VALUE \"S\".\n      03 WS-TIT-SIST-ORIG          PIC X(03) VALUE \"500\".\n      03 FILLER                    PIC X(06) VALUE \"/LIST/\".\n      03 WS-TIT-PASO               PIC X(04) VALUE \"P187\".\n      03 FILLER                    PIC X(01) VALUE \"/\".\n      03 WS-TIT-CE-NODO            PIC 99    VALUE 04.\n      03 WS-TIT-CE-SBNODO          PIC 99    VALUE ZEROS.\n      03 FILLER                    PIC X(02) VALUE \"/R\".\n      03 WS-TIT-SECUENC            PIC 9(03) VALUE ZEROS.\n      03 FILLER                    PIC X(01) VALUE \"/\".\n      03 WS-TIT-CE-FEC             PIC 9(06).\n      03 FILLER                    PIC X     VALUE \"/\".\n      03 WS-TIT-CE-MIX             PIC 9(07).\n      03 FILLER                    PIC X(02) VALUE \"/0\".\n      03 FILLER                    PIC X(02) VALUE \"04\".\n      03 WS-TIT-MNE-TIPO           PIC X(01) VALUE SPACES.\n      03 WS-TIT-MNE-SISCTE         PIC X(03) VALUE SPACES.\n      03 WS-TIT-CE-NAME            PIC X(07) VALUE \"DETALLE\".\n      03 WS-TIT-MNE-NODO           PIC X(02) VALUE SPACES.\n      03 FILLER                    PIC X     VALUE \".\".\n    PERFORM 0000-CALL-HOSTNAME.\n    IF WS-DH-HOSTNAME-VDM\n       MOVE 10 TO WS-TIT-CE-NODO\n    ELSE\n       MOVE 04 TO WS-TIT-CE-NODO.",
+          "java_codigo": "# application.yml\np188:\n  control-p187: \"(S500)S500/FILE/P187/{csi}/IMPDET/{fecha:yyyyMMdd}/{sec}.\"\n  listado: \"S{sistema}/LIST/{paso}/{nodo}00/R{secuencia}/{fecha:yyMMdd}/{mix}/004{tipo}{siscte}DETALLE{nodoMne}.\"\n  nodo-por-host:\n    vdm: 10                   # WS-DH-HOSTNAME-VDM\n    default: 4\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p188\")\npublic record DestinoListadoProperties(String controlP187, String listado,\n                                       Map<String, Integer> nodoPorHost) {\n\n    /** El listado sale en el nodo del sistema que invoca, no en uno fijo. */\n    int nodoListado(String hostname, Predicate<String> esVdm) {\n        return esVdm.test(hostname) ? nodoPorHost.get(\"vdm\") : nodoPorHost.get(\"default\");\n    }\n}",
+          "racional": "El nombre del archivo de control y el del listado se arman con <code>FILLER</code> fijos y campos que se rellenan en ejecución. El nodo del listado depende del hostname de la máquina: 10 en Valle de México y 04 en cualquier otro, lo que hace que el reporte quede en el disco del sistema que llamó. En Java ambos nombres pasan a plantillas en <code>application.yml</code> y la regla de nodo por hostname a un mapa. La fecha del listado es de 6 posiciones (AAMMDD) porque <code>WS-TIT-CE-FEC</code> es <code>PIC 9(06)</code>; el patrón <code>yyMMdd</code> lo hace explícito.",
+          "reglas": [
+            "RN-S500-761"
+          ],
+          "riesgo": "Cualquier host que no sea el de Valle de México se trata como nodo 04 (Monterrey); un tercer centro de cómputo dejaría los listados en el nodo equivocado."
+        }
+      ]
+    },
+    {
+      "titulo": "Filtro, ordenamiento y detalle del reporte",
+      "origen": {
+        "archivo": "S500_SOURCE_P188.txt",
+        "contexto": "80009000-PRIMER-SORT · 50000050-ORDEN-SAL · 50000100 · REPORT SECTION"
+      },
+      "java": {
+        "archivo": "DetalleReporteProcessor.java · ReporteDetalleJobConfig.java · detalle.jrxml",
+        "contexto": "ItemProcessor · JdbcCursorItemReader ORDER BY · JasperReports"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Selección de detalles por tipo de reporte y cifras globales",
+          "linea_ini": 1282,
+          "linea_fin": 1304,
+          "origen_codigo": " 80009200-PROC-SALIDA.\n     IF A01-S-DET-TREG = 2\n        PERFORM 80009200-SUMA-TOTALES\n        IF A04-DET-INDI = 1 OR\n          (A04-DET-INDI = 2 AND  A01-S-DET-STATUS = 1) OR\n          (A04-DET-INDI = 3 AND  A01-S-DET-STATUS = 2) OR\n          (A04-DET-INDI = 4 AND (A01-S-DET-STATUS = 1  OR\n                                 A01-S-DET-STATUS = 2 ))\n        RELEASE REG-A01-S-SAL.\n     PERFORM 80009200-LEE-SALIDA.\n 80009200-SUMA-TOTALES.\n     ADD 1 TO WKS-R1-TOTPROC.\n     IF A01-S-DET-STATUS = 1\n        ADD 1 TO WKS-R1-TOTOK\n     ELSE IF A01-S-DET-STATUS = 2\n        ADD 1 TO WKS-R1-TOTRECH\n     ELSE IF A01-S-DET-STATUS = 3\n        ADD 1 TO WKS-R1-TOTFORAN.",
+          "java_codigo": "@Component\n@StepScope\npublic class DetalleReporteProcessor implements ItemProcessor<RegistroSalida, DetalleSalida> {\n\n    @Value(\"#{jobExecutionContext['tipoReporte']}\") private TipoReporte tipo;\n    private final CifrasGlobales cifras = new CifrasGlobales();   // WKS-R1-TOTPROC/TOTOK/TOTRECH/TOTFORAN\n\n    @Override\n    public DetalleSalida process(RegistroSalida r) {\n        if (!(r instanceof DetalleSalida d)) {\n            return null;                       // solo A01-S-DET-TREG = 2; header y trailer fuera\n        }\n        cifras.cuenta(d.status());             // se cuenta todo detalle, se imprima o no\n        boolean imprime = switch (tipo) {\n            case TODO       -> true;\n            case APLICADOS  -> d.status() == 1;\n            case RECHAZADOS -> d.status() == 2;\n            case TODO_LOCAL -> d.status() == 1 || d.status() == 2;   // excluye foráneos (3)\n        };\n        return imprime ? d : null;             // RELEASE REG-A01-S-SAL\n    }\n}",
+          "racional": "El procedimiento de entrada del <code>SORT</code> lee el archivo de salida, cuenta todos los detalles por estatus para las cifras globales y solo libera al ordenamiento los que corresponden al tipo de reporte. En Spring Batch eso es un <code>ItemProcessor</code> que filtra con <code>null</code>, y el <code>switch</code> sobre el <code>enum</code> deja claro que el tipo 4 incluye aplicados y rechazados pero no foráneos. Los registros de encabezado y trailer no pasan al reporte.",
+          "reglas": [],
+          "riesgo": "Las cifras globales se cargan del archivo de control en 50000000-ARMA-NOMARCH (líneas 1040-1045), donde también se calcula TOTNOPROCE, y después el procedimiento del SORT las pone en cero y las recuenta (líneas 1267-1269). El total de no procesados queda calculado con el TOTPROC anterior al recuento."
+        },
+        {
+          "id": "s5",
+          "titulo": "SORT con memoria y disco calculados a consulta ordenada",
+          "linea_ini": 1087,
+          "linea_fin": 1115,
+          "origen_codigo": "     SORT A01-SALSORT ON ASCENDING KEY A01-S-DET-TREG\n                                       A01-S-DET-SUCORIG\n                                       A01-S-DET-CAJORIG\n     INPUT PROCEDURE 80009000-PRIMER-SORT\n     GIVING A01-SALORD SAVE\n     MEMORY SIZE IS W77-MEMORY-SIZE WORDS\n     DISK   SIZE IS W77-DISK-SIZE   WORDS.\n 70000000-CALCULA-ESPACIO.\n     IF W77-FRAMESIZE = 8\n          COMPUTE WS-CALC-WORD = W77-MAXRECSIZE / 6\n          IF WS-WORD-RES   >   ZEROS\n              COMPUTE W77-MAXRECSIZE = WS-WORD-ENT + 1\n          ELSE\n              COMPUTE W77-MAXRECSIZE = WS-WORD-ENT.\n     COMPUTE W77-MEMORY-65K = 66000 * W77-MAXRECSIZE.\n     COMPUTE W77-MEMORY-SIZE ROUNDED\n          = (W77-MAXRECSIZE + 3) * (W77-LASTRECORD / 16)\n          + 1500.\n     IF W77-MEMORY-SIZE > 258435000\n          MOVE 258435000   TO W77-MEMORY-SIZE\n     ELSE\n          IF W77-MEMORY-SIZE < 400000\n                MOVE W77-MEMORY-65K TO W77-MEMORY-SIZE.\n     COMPUTE W77-DISK-SIZE ROUNDED\n           =  (W77-MAXRECSIZE + 3) * W77-LASTRECORD * 3.5 .",
+          "java_codigo": "@Bean\n@StepScope\nJdbcCursorItemReader<RegistroSalida> salidaOrdenada(DataSource ds,\n        @Value(\"#{jobExecutionContext['archivoSalida']}\") String archivo) {\n    // SORT A01-SALSORT ON ASCENDING KEY TREG, SUCORIG, CAJORIG: el orden lo resuelve la base.\n    // Ya no se calculan MEMORY SIZE ni DISK SIZE (70000000-CALCULA-ESPACIO).\n    return new JdbcCursorItemReaderBuilder<RegistroSalida>()\n            .name(\"salidaOrdenada\")\n            .dataSource(ds)\n            .sql(\"\"\"\n                 SELECT * FROM salida_aplicacion\n                  WHERE archivo = ?\n                  ORDER BY tipo_registro, sucursal_origen, caja_origen, secuencia\n                 \"\"\")\n            .preparedStatementSetter(ps -> ps.setString(1, archivo))\n            .rowMapper(new RegistroSalidaRowMapper())\n            .build();\n}",
+          "racional": "El fuente ordena con <code>SORT</code> por tipo de registro, sucursal y caja, y antes calcula a mano cuánta memoria y disco pedirle al ordenamiento a partir del tamaño de registro, el número de registros y un factor de 3.5, con topes fijos. En la plataforma destino el archivo de salida se carga a una tabla y el orden lo da la consulta, lo que elimina el cálculo de espacio. Se agrega la secuencia como último criterio porque el <code>SORT</code> de Unisys no garantiza estabilidad y así el orden queda determinista.",
+          "reglas": [],
+          "riesgo": "El orden de los detalles dentro de una misma sucursal y caja no está definido en el fuente; si el área usuaria espera el orden del archivo original, el criterio de desempate debe confirmarse."
+        },
+        {
+          "id": "s6",
+          "titulo": "Normalización de códigos y totales por sucursal y caja",
+          "linea_ini": 1163,
+          "linea_fin": 1214,
+          "origen_codigo": " 50000070-TOT-SUCCAJA.\n*=====================\n     GENERATE R04-SUC-CAJ-TOTAL.\n     ADD 41 TO LINE-COUNTER OF REPORTE-DETA.\n     MOVE 0                 TO WKS-SUCCAJ-TOTREG\n                               WKS-SUCCAJ-TOTOK\n                               WKS-SUCCAJ-TOTRECH\n                               WKS-SUCCAJ-TOTFORAN.\n     MOVE A01-O-DET-SUCORIG TO WKS-SUCU-ANT.\n     MOVE A01-O-DET-CAJORIG TO WKS-CAJA-ANT.\n 50000100-VAL-DETALLE.\n*=====================\n  IF A01-O-DET-TMDO = 0 OR A01-O-DET-TMDO = 1\n  OR A01-O-DET-TMDO = 2\n     ADD 1 TO A01-O-DET-TMDO.\n  IF A01-O-DET-TMDO < 1 OR A01-O-DET-TMDO > 3\n     MOVE 4 TO A01-O-DET-TMDO.\n   IF A01-O-DET-TMOV < 1 OR > 3\n      MOVE 4 TO A01-O-DET-TMOV.\n   IF A01-O-DET-STATUS < 1 OR > 3\n      MOVE 4 TO A01-O-DET-STATUS.\n 50000100-ADD-TOT-SUCCAJ.\n*=====================\n   ADD 1 TO WKS-SUCCAJ-TOTREG.\n   IF A01-O-DET-STATUS = 1\n      ADD 1 TO WKS-SUCCAJ-TOTOK\n   ELSE\n   IF A01-O-DET-STATUS = 2\n      ADD 1 TO WKS-SUCCAJ-TOTRECH\n   ELSE\n   IF A01-O-DET-STATUS = 3\n      ADD 1 TO WKS-SUCCAJ-TOTFORAN.",
+          "java_codigo": "/** 50000100-VAL-DETALLE: deja cada código en 1..3 o en 4 = no reconocido, para indexar las leyendas. */\nstatic DetalleImpreso normaliza(DetalleSalida d) {\n    int modo = d.modoAcceso();\n    if (modo == 0 || modo == 1 || modo == 2) modo++;          // 0..2 se desplaza a 1..3\n    if (modo < 1 || modo > 3) modo = 4;                       // ver riesgo: un 3 original queda en 3\n    int tipoMov = (d.tipoMov() < 1 || d.tipoMov() > 3) ? 4 : d.tipoMov();\n    int status  = (d.status()  < 1 || d.status()  > 3) ? 4 : d.status();\n    return new DetalleImpreso(d, modo, tipoMov, status);\n}\n\n/** 50000070 y 50000100-ADD-TOT-SUCCAJ: corte por sucursal y caja con salto de página. */\n@Component\n@StepScope\nclass TotalesSucursalCaja {\n    private SucursalCaja actual;\n    private final Map<Integer, Long> porStatus = new HashMap<>();\n    private long registros;\n\n    void acumula(DetalleImpreso d, ReporteDetalle reporte) {\n        var sc = new SucursalCaja(d.sucursal(), d.caja());\n        if (actual != null && !sc.equals(actual)) {\n            reporte.totalSucursalCaja(actual, registros, porStatus);   // GENERATE R04-SUC-CAJ-TOTAL\n            reporte.saltoDePagina();                                   // ADD 41 TO LINE-COUNTER\n            registros = 0; porStatus.clear();\n        }\n        actual = sc;\n        registros++;\n        porStatus.merge(d.status(), 1L, Long::sum);   // 1 aplicados, 2 rechazados, 3 foráneos\n    }\n}",
+          "racional": "Antes de imprimir, el programa ajusta los códigos de modo de acceso, tipo de movimiento y estatus para que sirvan de índice a las tablas de leyendas, con 4 como valor de no reconocido. Cada cambio de sucursal o caja emite el renglón de totales y fuerza salto de página sumando 41 al contador de líneas. En Java el ajuste es una función pura y el corte de control vive en un componente con <code>@StepScope</code>; el salto de página se expresa como un grupo de JasperReports con <code>isStartNewPage</code>.",
+          "reglas": [],
+          "riesgo": "La regla de modo de acceso suma 1 a los valores 0, 1 y 2, pero deja un 3 original en 3: los modos 2 y 3 del archivo se imprimen con la misma leyenda."
+        },
+        {
+          "id": "s7",
+          "titulo": "Renglón de detalle del REPORT WRITER a banda de JasperReports",
+          "linea_ini": 679,
+          "linea_fin": 696,
+          "origen_codigo": " 01 R04-DET-PROC             TYPE DETAIL.\n    02 LINE PLUS 1.\n       03 COLUMN  001     PIC X(04) SOURCE\n                          WS-TAB-TIP-MDOACC(A01-O-DET-TMDO).\n       03 COLUMN  006     PIC X(04) SOURCE A01-O-DET-SUCCTA.\n       03 COLUMN  010     PIC X(12) SOURCE A01-O-DET-CTO.\n       03 COLUMN  024     PIC X(12) SOURCE A01-O-DET-REF.\n       03 COLUMN  039     PIC X(08) SOURCE A01-O-DET-AUT.\n       03 COLUMN  050     PIC X(08) SOURCE A01-O-DET-SEC.\n       03 COLUMN  061     PIC X(04) SOURCE A01-O-DET-CVETX.\n       03 COLUMN  069     PIC $ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99\n                                    SOURCE A01-O-DET-IMPORTE.\n       03 COLUMN  095     PIC X(04) SOURCE\n                          WS-TAB-TIP-MOV(A01-O-DET-TMOV).\n       03 COLUMN  100     PIC X(04) SOURCE\n                          WS-TAB-TIP-STATUS(A01-O-DET-STATUS).\n       03 COLUMN  109     PIC X(04) SOURCE A01-O-DET-CVERECH.\n       03 COLUMN  114     PIC X(46) SOURCE A01-O-DET-DESCRECH.",
+          "java_codigo": "<!-- detalle.jrxml: banda detail equivalente a R04-DET-PROC (columnas del REPORT WRITER) -->\n<band height=\"12\">\n  <textField><reportElement x=\"0\"   width=\"28\"/><textFieldExpression>$F{leyendaModoAcceso}</textFieldExpression></textField>\n  <textField><reportElement x=\"35\"  width=\"28\"/><textFieldExpression>$F{sucursalCuenta}</textFieldExpression></textField>\n  <textField><reportElement x=\"63\"  width=\"84\"/><textFieldExpression>$F{contrato}</textFieldExpression></textField>\n  <textField><reportElement x=\"161\" width=\"84\"/><textFieldExpression>$F{referencia}</textFieldExpression></textField>\n  <textField><reportElement x=\"266\" width=\"56\"/><textFieldExpression>$F{autorizacion}</textFieldExpression></textField>\n  <textField><reportElement x=\"343\" width=\"56\"/><textFieldExpression>$F{secuencia}</textFieldExpression></textField>\n  <textField><reportElement x=\"420\" width=\"28\"/><textFieldExpression>$F{claveTransaccion}</textFieldExpression></textField>\n  <!-- PIC $ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99: importe 9(14)V99 como BigDecimal, sin redondeo -->\n  <textField pattern=\"$#,##0.00\"><reportElement x=\"476\" width=\"150\"/>\n    <textFieldExpression>$F{importe}</textFieldExpression></textField>\n  <textField><reportElement x=\"658\" width=\"28\"/><textFieldExpression>$F{leyendaTipoMov}</textFieldExpression></textField>\n  <textField><reportElement x=\"693\" width=\"28\"/><textFieldExpression>$F{leyendaStatus}</textFieldExpression></textField>\n  <textField><reportElement x=\"756\" width=\"28\"/><textFieldExpression>$F{claveRechazo}</textFieldExpression></textField>\n  <textField><reportElement x=\"791\" width=\"322\"/><textFieldExpression>$F{descripcionRechazo}</textFieldExpression></textField>\n</band>",
+          "racional": "El reporte usa la sección <code>REPORT</code> de COBOL con renglones posicionados por columna y leyendas tomadas de tablas por índice. El arquetipo A3 lo traslada a JasperReports: cada <code>COLUMN</code> se vuelve un <code>textField</code> en la misma posición relativa y la edición <code>$ZZ,ZZZ,ZZZ,ZZZ,ZZ9.99</code> se reproduce con un patrón de formato sobre un <code>BigDecimal</code> de escala 2, sin conversión a <code>double</code>. Contrato y referencia se imprimen como texto para conservar ceros a la izquierda.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Cierre del listado y handshake con P187",
+      "origen": {
+        "archivo": "S500_SOURCE_P188.txt",
+        "contexto": "60000000-FIN · 50000000-UPDATE-ARCHCTRL · 50000000-RENOM-ARCH-SALIDA"
+      },
+      "java": {
+        "archivo": "CierreDetalleTasklet.java · PublicaSalidaTasklet.java",
+        "contexto": "Tasklet · JobExecutionListener"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Purga del archivo de control como señal a P187",
+          "linea_ini": 1048,
+          "linea_fin": 1066,
+          "origen_codigo": " 60000000-FIN.\n*=============\n    MOVE SPACES  TO WS-TASKSTRING\n    MOVE \"P187\"  TO WS-TASKSTRING\n    SET MYSELF (TASKSTRING) TO WS-TASKSTRING.\n    WAIT (60).\n 50000000-UPDATE-ARCHCTRL.\n*=========================\n    IF SW-GENERA-REP = 1\n       CLOSE R04-DETALLE WITH SAVE\n       WAIT (60)\n       CALL SYSTEM WFL USING WKS-WFL-SYSTEMF\n*\n       IF WKS-WFL-SISCTE = 999999999999\n          OPEN I-O A04-PROCDET\n          CLOSE A04-PROCDET  WITH PURGE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CierreDetalleTasklet implements Tasklet {\n\n    private final ImpresionService impresion;               // RUN SYSTEM/FORZA(\"S500/LIST/P187\")\n    private final ArchivoControlP187Repository controlP187;\n    private final ApplicationEventPublisher eventos;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var p = pedido(ctx);\n        if (reporteGenerado(ctx)) {                         // SW-GENERA-REP = 1\n            impresion.liberaListados(\"S500/LIST/P187\");      // antes: CLOSE WITH SAVE + WAIT(60) + WFL\n            if (p.invocadoPorP187()) {\n                controlP187.elimina(p.nodo(), p.fechaProceso(), p.registro());   // CLOSE ... WITH PURGE\n            }\n        }\n        // TASKSTRING := \"P187\" + WAIT(60): aviso explícito en lugar de esperar a que lo lean\n        eventos.publishEvent(new DetalleTerminado(p, \"P187\"));\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La coordinación con P187 es por efecto lateral: P188 cierra el listado, espera 60 segundos, ejecuta un WFL que corre SYSTEM/FORZA sobre los listados de P187 y, si lo llamó P187, abre y cierra con <code>PURGE</code> el archivo de control, cuya desaparición es la señal de que el detalle ya se generó. Al final deja <code>P187</code> en su <code>TASKSTRING</code> y espera otros 60 segundos. En Java esa señal se vuelve un evento explícito y la purga del control queda dentro del mismo step, sin esperas fijas.",
+          "reglas": [
+            "RN-S500-760"
+          ],
+          "riesgo": "RN-S500-760 dice que se elimina S500/LIST/P187; en el fuente S500/LIST/P187 es el argumento de SYSTEM/FORZA (líneas 325-340) y lo que se purga es el archivo de control (S500)S500/FILE/P187/.../IMPDET/... (líneas 1064-1066). El resultado del CALL SYSTEM WFL no se revisa."
+        },
+        {
+          "id": "s9",
+          "titulo": "Copia del archivo de salida a APLXDISP con WFL",
+          "linea_ini": 575,
+          "linea_fin": 978,
+          "origen_codigo": " 01  WKS-START-WFL USAGE DISPLAY.\n     03 FILLER                    PIC  X(16)  VALUE\n                               \"BEGIN JOB LOTE; \".\n     03 FILLER                    PIC  X(25)  VALUE\n        \"JOBSUMMARY=UNCONDITIONAL;\".\n     03 FILLER                    PIC  X(06)  VALUE\n        \" COPY \".\n     03 WKS-NOM-SISORIG           PIC  X(06) VALUE \"(S500)\".\n     03 WKS-NOM-ORIG              PIC  X(53).\n     03 FILLER                    PIC  X(04)  VALUE\n        \" AS \".\n     03 WKS-NOM-DEST              PIC  X(68).\n     03 WKS-NOM-DEST-R REDEFINES WKS-NOM-DEST.\n        05  WKS-NOM-DEST-USER     PIC  X(06).\n        05  WKS-NOM-DEST-APL      PIC  X(09).\n        05  WKS-NOM-DEST-RESTO    PIC  X(53).\n 50000000-RENOM-ARCH-SALIDA.\n*===========================\n  IF WKS-WFL-SISCTE = 999999999999\n     MOVE SPACES TO   WKS-NOM-ORIG\n                      WKS-NOM-DEST\n     MOVE WKS-SAL-SINUSER     TO  WKS-NOMGEN\n     MOVE WKS-NOMGEN-SINPACK  TO  WKS-NOM-ORIG\n                                  WKS-NOM-DEST-RESTO\n     MOVE \"(S500)\"            TO  WKS-NOM-DEST-USER\n     MOVE \"APLXDISP/\"         TO  WKS-NOM-DEST-APL\n     CALL SYSTEM WFL USING WKS-START-WFL.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PublicaSalidaTasklet implements Tasklet {\n\n    private final AlmacenArchivos almacen;\n    private final P188Properties props;   // publicacion.prefijo: \"(S500)APLXDISP/\"\n\n    /** 50000000-RENOM-ARCH-SALIDA: solo cuando lo invocó P187. */\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var p = pedido(ctx);\n        if (p.invocadoPorP187()) {\n            String origen = archivoSalidaSinUsuario(ctx);                 // WKS-SAL-SINUSER sin pack\n            String destino = props.publicacion().prefijo() + origen;\n            almacen.copia(\"(S500)\" + origen, destino);                     // COPY ... AS ...\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Cuando el pedido viene de P187, el archivo de salida ya reportado se copia al directorio <code>APLXDISP</code> con un WFL armado en memoria (<code>BEGIN JOB LOTE ... COPY ... AS ...</code>). En la plataforma destino la copia se hace con la API de almacenamiento y el prefijo de destino pasa a configuración. El bloque comentado de las líneas 980 a 983 muestra que antes se intentó renombrar el archivo en lugar de copiarlo.",
+          "reglas": [
+            "RN-S500-761"
+          ],
+          "riesgo": "WKS-NOM-ORIG es X(53) y WKS-NOM-DEST-RESTO también: un nombre de archivo más largo se trunca en la copia. El resultado del WFL de copia no se revisa."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Terminación normal sin reporte",
+      "detalle": "Sin archivo de control de P187, el programa escribe un mensaje y termina con STOP RUN (líneas 809-815 y 841-842); el WFL no ve error."
+    },
+    {
+      "titulo": "Señalización por esperas fijas",
+      "detalle": "La coordinación con P187 depende de dos WAIT (60) (líneas 1053 y 1061), de un TASKSTRING y de la purga del archivo de control, sin confirmación de que P187 la haya leído."
+    },
+    {
+      "titulo": "Mapeo de modo de acceso",
+      "detalle": "50000100-VAL-DETALLE (líneas 1180-1184) suma 1 a los valores 0 a 2 y deja el 3 sin cambio, por lo que 2 y 3 se imprimen igual."
+    },
+    {
+      "titulo": "Cifras de control inconsistentes",
+      "detalle": "TOTNOPROCE se calcula con los totales del archivo de control (línea 1045) antes de que el SORT recuente TOTPROC (líneas 1267-1269 y 1297)."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Plantilla de nombre con fecha fija 20131009 y buzón 50099E01 (líneas 905-906 y 995), nodo 10 o 04 por hostname, pack CAPTACION, prefijo APLXDISP, límites de memoria del SORT y página de 40 líneas están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Revisar la redacción de RN-S500-760: el fuente purga el archivo de control IMPDET y ejecuta SYSTEM/FORZA sobre S500/LIST/P187; confirmar qué hace SYSTEM/FORZA.",
+    "Confirmar si el modo de acceso del archivo de salida puede valer 3; si sí, el mapeo actual lo confunde con el 2.",
+    "Validar el criterio de desempate dentro de sucursal y caja para que el reporte Java coincida con el actual.",
+    "La plantilla de nombre de las líneas 905-906 trae la fecha 20131009 y el sistema 000000000500; los MOVE siguientes sustituyen las partes variables vía REDEFINES, pero conviene confirmar que ningún tramo de la plantilla queda sin sobrescribir."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-394",
+    "RN-S500-760",
+    "RN-S500-761"
+  ]
+}

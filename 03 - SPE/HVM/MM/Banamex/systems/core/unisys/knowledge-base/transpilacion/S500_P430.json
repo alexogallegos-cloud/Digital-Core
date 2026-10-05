@@ -1,0 +1,200 @@
+{
+  "slug": "S500_P430",
+  "sistema": "S500",
+  "programa": "P430",
+  "nombre": "Fusión de Archivos Gerenciales de Monterrey y Valle de México",
+  "funcion": "Paso batch mensual de S500 (S500P430) que solo corre en cierre de mes y une los archivos X/GERENCIAL de Monterrey y de Valle de México en una cinta de 90 posiciones, con un listado de cifras de control por plaza.",
+  "resumen": "P430 obtiene la fecha de proceso de S500B02CONTROL, o del valor de la tarea si se le pasa, y termina de forma anormal si no es fin de mes. Escribe un header propio en la cinta y lee primero el archivo de Monterrey y después el de Valle de México, ambos de 60 posiciones con registros binarios. Valida que la fecha de cada header sea la de proceso, convierte cada detalle de saldo (tipo 2) o de movimiento (tipo 3) a formato DISPLAY, traduce cinco claves de transacción antiguas a las vigentes y comprueba que el trailer de cada archivo cuadre en registros e importe. Al final escribe un trailer consolidado con totales y conteos de clientes con y sin número de cliente.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.gerencial.fusion",
+  "secciones": [
+    {
+      "titulo": "Estructuras de datos — registro gerencial con cuatro vistas y títulos de archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P430.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "RegistroGerencial.java · P430Properties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "REG-GERENCIAL: control, saldo, movimiento y trailer sobre el mismo buffer",
+          "linea_ini": 287,
+          "linea_fin": 334,
+          "origen_codigo": " 01  REG-GERENCIAL.\n     02 GER-TIPO-REG              PIC 9(01).\n     02 GER-CONTROL.\n        03 GER-NUM-SISTEMA        PIC X(04).\n        03 GER-NOM-SISTEMA        PIC X(19).\n        03 GER-FEC-PROCESO        PIC 9(08)       COMP.\n        03 GER-FEC-OPE            PIC 9(08)       COMP.\n        03 FILLER                 PIC X(28).\n     02 GER-INFORMACION REDEFINES GER-CONTROL.\n        03 GER-NUM-CTA            PIC 9(12)       COMP.\n        03 GER-NUM-CTE            PIC 9(12)       COMP.\n        03 GER-FEC-ULMOV          PIC 9(08)       COMP.\n        03 GER-MONEDA             PIC 9(02)       COMP.\n        03 GER-PERSONA            PIC 9(02)       COMP.\n        03 GER-SDO-ACTUAL         PIC 9(12)V99    COMP.\n        03 GER-SDO-PROM           PIC 9(12)V99    COMP.\n        03 GER-TASA               PIC 9(03)V9(03) COMP.\n        03 GER-SUC                PIC 9(04)       COMP.\n        03 FILLER                 PIC X(22).\n     02 GER-MOVIMIENTOS REDEFINES GER-CONTROL.\n         03 GER-MOV-CONTRATO  PIC 9(12) COMP.\n         03 GER-MOV-FECHA     PIC 9(08) COMP.\n         03 GER-MOV-FECVAL    PIC 9(08) COMP.\n         03 GER-MOV-SUCTRANS  PIC 9(04) COMP.\n         03 GER-MOV-SUCPROM   PIC 9(04) COMP.\n         03 GER-MOV-CVETRAN   PIC 9(04) COMP.\n         03 GER-MOV-IMPORTE   PIC 9(12)V99 COMP.\n         03 GER-MOV-MONEDA    PIC 9(02) COMP.\n         03 GER-MOV-INTCAN    PIC 9(12)V99 COMP.\n         03 GER-MOV-TIPDEP    PIC 9(02) COMP.\n         03 FILLER            PIC X(23).\n     02 GER-TRAILLER REDEFINES GER-CONTROL.\n        03 GER-NUM-REG            PIC 9(10)       COMP.\n        03 GER-IMPO-PROM          PIC 9(16)V99    COMP.\n        03 FILLER                 PIC 9(45).",
+          "java_codigo": "/** REG-GERENCIAL de entrada (60 bytes, campos COMP). El tipo está en GER-TIPO-REG. */\npublic sealed interface RegistroGerencial\n        permits RegistroGerencial.Header, RegistroGerencial.Saldo,\n                RegistroGerencial.Movimiento, RegistroGerencial.Trailer {\n\n    /** Tipo 1: GER-CONTROL. */\n    record Header(String numSistema, String nomSistema,          // X(04), X(19)\n                  LocalDate fechaProceso, LocalDate fechaOperacion) implements RegistroGerencial {}\n\n    /** Tipo 2: GER-INFORMACION (el comentario del fuente lo llama movimiento, pero el layout es de saldo). */\n    record Saldo(String cuenta, String cliente,                  // 9(12) COMP como String\n                 LocalDate fechaUltimoMov, int moneda, int persona,\n                 BigDecimal saldoActual, BigDecimal saldoPromedio,   // 9(12)V99 -> escala 2\n                 BigDecimal tasa,                                    // 9(03)V9(03) -> escala 3\n                 int sucursal) implements RegistroGerencial {\n        boolean tieneCliente() { return !cliente.chars().allMatch(ch -> ch == '0'); }\n    }\n\n    /** Tipo 3: GER-MOVIMIENTOS. */\n    record Movimiento(String contrato, LocalDate fecha, LocalDate fechaValor,\n                      int sucTransaccion, int sucPromotora, int claveTransaccion,\n                      BigDecimal importe, int moneda,\n                      BigDecimal interesCancelacion,                  // 9(12)V99\n                      int tipoDeposito) implements RegistroGerencial {}\n\n    /** Tipo 4: GER-TRAILLER. */\n    record Trailer(long numRegistros, BigDecimal importe) implements RegistroGerencial {}   // 9(10), 9(16)V99\n}",
+          "racional": "El archivo de entrada usa un registro con cuatro interpretaciones según el tipo: control, saldo, movimiento y trailer, todas superpuestas con <code>REDEFINES</code> y con campos numéricos <code>COMP</code>. Se modelan como una <code>sealed interface</code> con cuatro <code>record</code>. Los importes son <code>BigDecimal</code> de escala 2, la tasa de escala 3, y cuenta, cliente y contrato se conservan como <code>String</code>. La salida usa el mismo esquema pero en DISPLAY de 90 posiciones, así que el writer solo cambia el formato, no la estructura.",
+          "reglas": [
+            "RN-S500-762"
+          ],
+          "riesgo": "La salida D-GER-NOM-SISTEMA mide 20 posiciones y la entrada 19; además el trailer de entrada declara un FILLER numérico PIC 9(45), cuyo contenido no se valida."
+        },
+        {
+          "id": "s2",
+          "titulo": "Títulos de los dos archivos gerenciales y de la cinta fusionada",
+          "linea_ini": 253,
+          "linea_fin": 279,
+          "origen_codigo": "**************************************************************\n* TITULO PARA SOLICITAR EL ARCHIVO DE MTY.\n***************************************************************\n 01  TIT-ARCH-MTY.\n     02  FILLER     PIC X(29) VALUE\n                    \"S500/FILE/X/GERENCIA/MTY/COR/\".\n     02  FECHA-GER  PIC 9(6).\n     02  FILLER     PIC X     VALUE \".\".\n**************************************************************\n* TITULO PARA SOLICITAREL ARCHIVO DE VALLE.\n***************************************************************\n 01  TIT-ARCH-VDM.\n     02  FILLER     PIC X(29) VALUE\n                    \"S500/FILE/X/GERENCIA/VDM/COR/\".\n     02  FECHA-GER1 PIC 9(6).\n     02  FILLER     PIC X     VALUE \".\".\n**************************************************************\n* TITULO PARA EL ARCHIVO FUSIONADO DE AHOPRROS.\n***************************************************************\n 01  TIT-ARCH-FUS.\n     02  FILLER     PIC X(27) VALUE\n                    \"S500/FILE/INTS/50003S02/10/\".\n     02  FECHA-GER2 PIC 9(8).\n     02  FILLER     PIC X(09) VALUE\n                     \"/AHOSDOS.\".",
+          "java_codigo": "# application.yml\np430:\n  entradas:                      # orden significativo: primero MTY, luego VDM\n    - plaza: MTY\n      ruta: \"S500/FILE/X/GERENCIA/MTY/COR/{aammdd}.\"\n    - plaza: VDM\n      ruta: \"S500/FILE/X/GERENCIA/VDM/COR/{aammdd}.\"\n  salida: \"S500/FILE/INTS/50003S02/10/{aaaammdd}/AHOSDOS.\"\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p430\")\npublic record P430Properties(List<Entrada> entradas, String salida) {\n    public record Entrada(String plaza, String ruta) {}\n\n    /** FECHA-GER y FECHA-GER1 son 9(6): reciben la fecha de proceso sin siglo. FECHA-GER2 es 9(8). */\n    public String resuelve(String plantilla, LocalDate fecha) {\n        return plantilla.replace(\"{aammdd}\", fecha.format(DateTimeFormatter.ofPattern(\"yyMMdd\")))\n                        .replace(\"{aaaammdd}\", fecha.format(DateTimeFormatter.BASIC_ISO_DATE));\n    }\n}",
+          "racional": "Los títulos fijan la ruta de cada plaza y la de la cinta fusionada, que se identifica como archivo de saldos de ahorros (AHOSDOS) en la interfaz 50003S02. Las entradas llevan la fecha de seis dígitos y la salida la de ocho, por eso la plantilla admite los dos formatos. Las rutas y el nodo 10 pasan a <code>application.yml</code>, y la lista conserva el orden Monterrey y luego Valle, del que dependen las etiquetas del reporte.",
+          "reglas": [
+            "RN-S500-762"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso — solo en cierre de mes y lectura secuencial de las dos plazas",
+      "origen": {
+        "archivo": "S500_SOURCE_P430.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20002000 / 50000000"
+      },
+      "java": {
+        "archivo": "FusionGerencialJobConfig.java · CierreMesDecider.java",
+        "contexto": "Job · JobExecutionDecider · MultiResourceItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal a definición de Job",
+          "linea_ini": 514,
+          "linea_fin": 527,
+          "origen_codigo": " 00000000-INICIO SECTION.\n 00000000-PRINCIPAL.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WS-VAL-FEC.\n     MOVE 2             TO W77-USO-LIBLJ.\n     MOVE \"P430\"        TO WS-0101-PASO-MSG B91-IDPROG.\n     MOVE \"25MTP005\"    TO WS-0101-MTP-MSG  W77-S000-MY-VERSION.\n     MOVE \"S500P430\"    TO W77-S000-MY-ID.\n     PERFORM 10000000-LIBRERIAS THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN      THRU 20000000-EXIT.\n     PERFORM 50000000-PROCESOS  THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO    THRU 70000000-EXIT.\n     STOP RUN.",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P430Properties.class)\npublic class FusionGerencialJobConfig {\n\n    /** 00000000-PRINCIPAL. La fecha puede venir como parámetro, igual que TASKVALUE. */\n    @Bean\n    Job fusionGerencial(JobRepository repo, Step validaVersion, CierreMesDecider cierreMes,\n                        Step fusiona) {\n        return new JobBuilder(\"S500P430\", repo)\n                .start(validaVersion)                          // 10000000-LIBRERIAS\n                .next(cierreMes).on(\"NO_ES_CIERRE\").end()      // en el fuente: DMTERMINATE\n                .from(cierreMes).on(\"CIERRE\").to(fusiona)      // 50000000-PROCESOS\n                .end()\n                .build();\n    }\n}",
+          "racional": "La rutina principal lee el valor de la tarea como posible fecha forzada y ejecuta cuatro bloques en secuencia. En Spring Batch el valor de la tarea se vuelve un parámetro opcional del job y la decisión de cierre de mes se separa en un <code>JobExecutionDecider</code>, para que un día que no es fin de mes termine como ejecución omitida y no como falla.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Fecha de proceso y validación de fin de mes",
+          "linea_ini": 607,
+          "linea_fin": 688,
+          "origen_codigo": " 20002000-FECHA-PRO.\n  PERFORM 90000002-B02CONTROL-FIND\n  IF WS-STATUS-BASE > 0\n    IF WS-STATUS-BASE = 1\n       MOVE \"ERROR REG. DE CONTROL VACIO    \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n     PERFORM 20002100-PROY-FEC  THRU  20002100-EXIT\n     IF WS-MENSUAL = 1\n        NEXT SENTENCE\n     ELSE\n       MOVE \"HOY NO ES MENSUAL            \"   TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n 20002100-PROY-FEC.\n    IF WS-VAL-FEC > 0\n       MOVE WS-VAL-FEC              TO    WS-S006-FECHA1\n       MOVE 1                       TO    WS-S006-FECHA2\n       MOVE 13                      TO    WS-S006-FORMATO\n       MOVE 13                      TO    WS-S006-FUNCION\n       PERFORM 40000000-CALL-FECPRO THRU  40000000-EXIT\n       MOVE WS-S006-FECHA1          TO    WS-FEC-CALCULADA-AMD1\n    ELSE\n       MOVE B02-FECHA-LINEA         TO    WS-FEC-CALCULADA-AMD.\n    PERFORM 20002110-DIAPRO     THRU 20002110-EXIT.\n 20002100-EXIT.\n    EXIT.\n******************************************************************\n* PROYECTO LA FECHA LINEA UN DIA HACIA ATRAS PARA OBTENER LA\n* FECHA DE PROCESO, PUES AL CORRER ESTE PASO LAS FECHAS YA FUERON\n* PROYECTADAS AL SIGUIENTE DIA.\n******************************************************************\n 20002110-DIAPRO.\n       MOVE B02-FECHA-LINEA      TO    WS-S006-FECHA1\n       MOVE 1                    TO    WS-S006-FECHA2\n       MOVE 12                   TO    WS-S006-FORMATO\n       MOVE 15                   TO    WS-S006-FUNCION\n       PERFORM 40000000-CALL-FECPRO    THRU  40000000-EXIT.\n       IF WS-VAL-FEC > 0\n          MOVE WS-VAL-FEC        TO    WS-FECHA-PRO\n          IF WS-PRO-MM NOT = WS-CALCULADA-MM1\n             MOVE 1                 TO    WS-MENSUAL.\n       IF WS-VAL-FEC = 0\n          MOVE WS-S006-FECHA1    TO    WS-FECHA-PRO\n          IF WS-PRO-MM NOT = WS-CALCULADA-MM\n             MOVE 1                 TO    WS-MENSUAL.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CierreMesDecider implements JobExecutionDecider {\n\n    private final ControlCaptacionRepository b02;   // S500B02CONTROL\n    private final CalendarioBancario locsup;\n\n    /** 20002000-FECHA-PRO + 20002100-PROY-FEC + 20002110-DIAPRO. */\n    @Override\n    public FlowExecutionStatus decide(JobExecution je, StepExecution se) {\n        LocalDate fechaLinea = b02.findFechaLinea()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));\n        LocalDate forzada = je.getJobParameters().getLocalDate(\"fecha\");   // WS-VAL-FEC\n\n        LocalDate fechaProceso;\n        LocalDate siguiente;\n        if (forzada != null) {\n            fechaProceso = forzada;\n            siguiente = locsup.sumaDias(forzada, 1);          // función 13, formato 13\n        } else {\n            fechaProceso = locsup.retrocede(fechaLinea, 1);   // función 15, formato 12\n            siguiente = fechaLinea;\n        }\n        je.getExecutionContext().put(\"fechaProceso\", fechaProceso);\n        boolean cierre = fechaProceso.getMonthValue() != siguiente.getMonthValue();\n        return new FlowExecutionStatus(cierre ? \"CIERRE\" : \"NO_ES_CIERRE\");\n    }\n}",
+          "racional": "La fecha de proceso sale de retroceder un día la fecha de línea, porque cuando corre el paso las fechas ya se proyectaron al día siguiente; si la tarea trae una fecha, se usa esa y se calcula el día siguiente. Es cierre de mes cuando el día siguiente cae en otro mes. Si no lo es, el fuente termina con <code>DMTERMINATE</code>. En Java el cálculo queda en el decider con el calendario bancario inyectado y el resultado se publica en el contexto del job para las rutas y la validación de headers.",
+          "reglas": [],
+          "riesgo": "Fuera de cierre de mes el paso termina con DMTERMINATE (línea 626), es decir, como falla. El WFL o el operador deben distinguir ese aborto esperado de un error real."
+        },
+        {
+          "id": "s5",
+          "titulo": "Lectura de MTY y después de VDM, con despacho por tipo de registro",
+          "linea_ini": 777,
+          "linea_fin": 841,
+          "origen_codigo": " 50000000-PROCESOS.\n   PERFORM 50001000-REPORTE THRU 50001000-EXIT.\n   PERFORM 50002000-LEOMTY  THRU 50002000-EXIT UNTIL WS-1VEZ = 1.\n   PERFORM 50003000-LEOVDM  THRU 50003000-EXIT UNTIL WS-2VEZ = 1.\n   PERFORM 50005000-FINAL   THRU 50005000-EXIT.\n 50004000-CHECO-ARC.\n     IF GER-TIPO-REG = 1\n        PERFORM 50004100-HEADER     THRU 50004100-EXIT.\n     IF (GER-TIPO-REG = 2) OR (GER-TIPO-REG = 3)\n        PERFORM 50004300-DETALLE    THRU 50004300-EXIT .\n     IF GER-TIPO-REG = 4\n        PERFORM 50004500-TRAILER    THRU 50004500-EXIT.",
+          "java_codigo": "@Bean\nStep fusiona(JobRepository repo, PlatformTransactionManager tx, P430Properties props, ResourceLoader rl,\n             @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fecha,\n             FusionGerencialProcessor procesador, FlatFileItemWriter<SalidaGerencial> cinta,\n             EncabezadoYTrailerListener extremos) {\n\n    Resource[] entradas = props.entradas().stream()\n            .map(e -> rl.getResource(props.resuelve(e.ruta(), fecha)))\n            .toArray(Resource[]::new);\n\n    return new StepBuilder(\"fusionGerencial\", repo)\n            .<RegistroGerencial, SalidaGerencial>chunk(100, tx)        // BLOCK CONTAINS 100 RECORDS\n            .reader(new MultiResourceItemReaderBuilder<RegistroGerencial>()\n                    .name(\"gerencialMtyVdm\").resources(entradas)\n                    .comparator((a, b) -> 0)                            // conserva el orden MTY, VDM\n                    .delegate(lectorBinarioGerencial())                 // registros de 60 bytes con COMP\n                    .build())\n            .processor(procesador)\n            .writer(cinta)\n            .listener(extremos)       // 50001000-REPORTE escribe el header; 50005000-FINAL el trailer\n            .build();\n}\n\n/** 50004000-CHECO-ARC dentro del procesador. */\npublic SalidaGerencial process(RegistroGerencial r) {\n    return switch (r) {\n        case RegistroGerencial.Header h     -> { validaHeader(h); yield null; }   // no se copia\n        case RegistroGerencial.Saldo s      -> detalle(s);\n        case RegistroGerencial.Movimiento m -> detalle(m);\n        case RegistroGerencial.Trailer t    -> { validaTrailer(t); yield null; } // no se copia\n    };\n}",
+          "racional": "El proceso principal escribe el encabezado de la cinta, recorre completo el archivo de Monterrey, después el de Valle, y escribe el trailer final. Cada registro leído se despacha por su tipo. Es el patrón del arquetipo A1: un <code>MultiResourceItemReader</code> con las dos plazas en orden, sin reordenar, y un procesador con <code>switch</code> exhaustivo sobre la <code>sealed interface</code>. Los headers y trailers de entrada solo se validan; la cinta lleva un header y un trailer propios que se escriben desde un listener del step.",
+          "reglas": [
+            "RN-S500-762"
+          ],
+          "riesgo": "Un registro con tipo distinto de 1 a 4 se ignora sin aviso: no se copia, no se cuenta y no participa en el cuadre."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de fusión — header, detalle, conversión de claves y trailer",
+      "origen": {
+        "archivo": "S500_SOURCE_P430.txt",
+        "contexto": "PROCEDURE DIVISION · 50004100 / 50004300 / 50004310 / 50004500 / 50005000"
+      },
+      "java": {
+        "archivo": "FusionGerencialProcessor.java · ConversionClaves.java · TotalesPlaza.java",
+        "contexto": "ItemProcessor @StepScope · mapa de claves"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Header de cada plaza: fecha de operación igual a la de proceso",
+          "linea_ini": 848,
+          "linea_fin": 863,
+          "origen_codigo": " 50004100-HEADER.\n      IF WS-4VEZ = 0\n         MOVE \"MTY\"                           TO WS-TIPO\n         MOVE 1                               TO WS-4VEZ\n      ELSE\n         MOVE \"VDM\"                           TO WS-TIPO.\n      IF GER-FEC-OPE = WS-FECHA-PRO\n         NEXT SENTENCE\n      ELSE\n         STRING \"FEC EXT DIF FEC INT ARC.    \",  WS-TIPO\n         DELIMITED BY SIZE INTO                  WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CALL SYSTEM DMTERMINATE.\n      MOVE 0  TO WS-GER-SDO-PROM WS-NUM-GERE.",
+          "java_codigo": "@Component\n@StepScope\npublic class FusionGerencialProcessor implements ItemProcessor<RegistroGerencial, SalidaGerencial> {\n\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n    private int headersVistos;                     // WS-4VEZ\n    private TotalesPlaza plaza;                    // WS-NUM-GERE, WS-GER-SDO-PROM\n\n    /** 50004100-HEADER: el primer header se asume de MTY y el segundo de VDM. */\n    private void validaHeader(RegistroGerencial.Header h) {\n        String etiqueta = (headersVistos++ == 0) ? \"MTY\" : \"VDM\";\n        if (!h.fechaOperacion().equals(fechaProceso)) {\n            throw new ProcesoAbortadoException(\"FEC EXT DIF FEC INT ARC.    \" + etiqueta);   // DMTERMINATE\n        }\n        plaza = TotalesPlaza.nueva(etiqueta);      // MOVE 0 TO WS-GER-SDO-PROM WS-NUM-GERE\n    }",
+          "racional": "Cada header de entrada debe traer como fecha de operación la fecha de proceso calculada; si no, el paso aborta. La plaza no se toma del archivo sino del orden de llegada: el primer header es Monterrey y el segundo Valle de México. El header también reinicia los acumuladores de la plaza. En Java esas variables viven en un procesador con <code>@StepScope</code> y el aborto es una excepción que deja el step en FAILED.",
+          "reglas": [
+            "RN-S500-762"
+          ],
+          "riesgo": "La etiqueta MTY o VDM depende del orden de lectura. Si el archivo de Monterrey llega sin header, los mensajes y el reporte rotularán como MTY al de Valle."
+        },
+        {
+          "id": "s7",
+          "titulo": "Detalle: acumulación por tipo y conversión a DISPLAY",
+          "linea_ini": 869,
+          "linea_fin": 916,
+          "origen_codigo": "* EL TIPO DE REG = 2 ES MOV.  3 = SALDO.\n******************************************************************\n 50004300-DETALLE.\n     ADD 1 TO WS-NUM-GERE\n              WS-NUM-GERE-TOT.\n     IF GER-TIPO-REG = 2\n        IF GER-NUM-CTE = 0\n            ADD 1                   TO  WS-CTES-NO\n            ADD GER-SDO-ACTUAL      TO  WS-GER-SDO-PROM\n                                        WS-GER-SDO-PROM-TOT\n                                        IM-CTES-NO\n        ELSE\n            ADD 1                   TO  WS-CTES-SI\n            ADD GER-SDO-ACTUAL      TO  WS-GER-SDO-PROM\n                                        WS-GER-SDO-PROM-TOT\n                                        IM-CTES-SI\n     ELSE\n            ADD GER-MOV-IMPORTE     TO  WS-GER-SDO-PROM\n                                        WS-GER-SDO-PROM-TOT.\n     IF GER-TIPO-REG = 2\n        MOVE      GER-TIPO-REG      TO      D-GER-TIPO-REG\n        MOVE      GER-NUM-CTA       TO      D-GER-NUM-CTA\n        MOVE      GER-NUM-CTE       TO      D-GER-NUM-CTE\n        MOVE      GER-SDO-ACTUAL    TO      D-GER-SDO-ACTUAL\n     ELSE\n     IF GER-TIPO-REG = 3\n        MOVE      GER-TIPO-REG      TO      D-GER-TIPO-REG\n        MOVE      GER-MOV-CONTRATO  TO      D-GER-MOV-CONTRATO\n        PERFORM 50004310-CONCVE     THRU    50004310-EXIT\n        MOVE      GER-MOV-CVETRAN   TO      D-GER-MOV-CVETRAN\n        MOVE      GER-MOV-IMPORTE   TO      D-GER-MOV-IMPORTE\n     WRITE REG-GER-TAPE     FROM  D-REG-GERENCIAL.",
+          "java_codigo": "    /** 50004300-DETALLE. Un solo acumulador suma saldos (tipo 2) e importes de movimiento (tipo 3). */\n    private SalidaGerencial detalle(RegistroGerencial r) {\n        plaza.cuentaRegistro();                                    // WS-NUM-GERE y WS-NUM-GERE-TOT\n        return switch (r) {\n            case RegistroGerencial.Saldo s -> {\n                plaza.sumaImporte(s.saldoActual());                // WS-GER-SDO-PROM: suma el saldo actual\n                plaza.sumaCliente(s.tieneCliente(), s.saldoActual());   // CTES-SI / CTES-NO\n                yield SalidaGerencial.saldo(s);                    // D-GER-INFORMACION, DISPLAY\n            }\n            case RegistroGerencial.Movimiento m -> {\n                plaza.sumaImporte(m.importe());\n                yield SalidaGerencial.movimiento(m, ConversionClaves.convierte(m.claveTransaccion()));\n            }\n            default -> throw new IllegalStateException();\n        };\n    }\n\n/** Acumuladores con la capacidad del fuente: S9(19)V99 por plaza; la cinta solo admite 9(16)V99. */\nrecord TotalesPlaza(String etiqueta, long registros, BigDecimal importe) { /* ... */ }",
+          "racional": "Cada detalle cuenta como registro de la plaza y del total. Para los registros tipo 2 se suma el saldo actual y se clasifica el cliente según tenga o no número de cliente; para los tipo 3 se suma el importe del movimiento, todo en el mismo acumulador. El comentario del párrafo dice que el tipo 2 es movimiento y el 3 saldo, pero el código hace lo contrario y la traducción sigue al código. En Java la salida en DISPLAY la arma un método de fábrica por tipo, y las sumas son exactas entre importes de escala 2.",
+          "reglas": [
+            "RN-S500-762"
+          ],
+          "riesgo": "El acumulador que se compara contra el trailer mezcla saldos y movimientos (líneas 878-888). El cuadre funciona porque el trailer se generó con la misma regla, pero la cifra no representa ni un saldo ni un flujo."
+        },
+        {
+          "id": "s8",
+          "titulo": "Traducción de claves de transacción antiguas a las vigentes",
+          "linea_ini": 921,
+          "linea_fin": 940,
+          "origen_codigo": "******************************************************************\n* CONVIERTO LA CLAVE ANTERIOR DEL ARCHIVO AL LA CVE ACTUAL.\n******************************************************************\n 50004310-CONCVE.\n    IF GER-MOV-CVETRAN  = 181\n       MOVE 1022                    TO GER-MOV-CVETRAN\n    ELSE\n      IF GER-MOV-CVETRAN  = 280 OR 281 OR 282 OR 283\n         MOVE 3000                  TO GER-MOV-CVETRAN\n      ELSE\n         IF GER-MOV-CVETRAN  = 381\n            MOVE 2093               TO GER-MOV-CVETRAN\n         ELSE\n            IF GER-MOV-CVETRAN  = 602\n               MOVE 1               TO GER-MOV-CVETRAN\n            ELSE\n               IF GER-MOV-CVETRAN  = 603\n                  MOVE 2            TO GER-MOV-CVETRAN\n               ELSE\n                  NEXT SENTENCE.",
+          "java_codigo": "/** 50004310-CONCVE: catálogo de equivalencias, antes compilado como IF anidados. */\npublic final class ConversionClaves {\n\n    private static final Map<Integer, Integer> EQUIVALENCIAS = Map.of(\n            181, 1022,\n            280, 3000, 281, 3000, 282, 3000, 283, 3000,\n            381, 2093,\n            602, 1,\n            603, 2);\n\n    public static int convierte(int claveAnterior) {\n        return EQUIVALENCIAS.getOrDefault(claveAnterior, claveAnterior);   // NEXT SENTENCE: sin cambio\n    }\n}\n\n# application.yml (opcional, si el SME confirma que el catálogo puede cambiar)\np430:\n  conversion-claves: {181: 1022, 280: 3000, 281: 3000, 282: 3000, 283: 3000, 381: 2093, 602: 1, 603: 2}",
+          "racional": "Los movimientos traen en algunos casos claves de transacción del catálogo anterior y el programa las traduce antes de escribir la cinta: 181 a 1022, de 280 a 283 a 3000, 381 a 2093, 602 a 1 y 603 a 2; cualquier otra pasa igual. Los cinco niveles de <code>IF</code> anidados se sustituyen por un mapa inmutable, que hace visible el catálogo completo y se puede llevar a configuración si el SME confirma que cambia.",
+          "reglas": [],
+          "riesgo": "Las claves destino 1 y 2 son atípicas frente al resto del catálogo de cuatro dígitos; conviene confirmar que el receptor las interpreta correctamente."
+        },
+        {
+          "id": "s9",
+          "titulo": "Cuadre del trailer por plaza y trailer consolidado",
+          "linea_ini": 947,
+          "linea_fin": 989,
+          "origen_codigo": " 50004500-TRAILER.\n     IF WS-5VEZ = 0\n         MOVE \"MTY\"                           TO WS-TIPO\n         MOVE 1                               TO WS-5VEZ\n      ELSE\n         MOVE \"VDM\"                           TO WS-TIPO.\n     IF (WS-NUM-GERE     = GER-NUM-REG) AND\n        (WS-GER-SDO-PROM = GER-IMPO-PROM)\n        NEXT SENTENCE\n     ELSE\n        STRING \"TRAILER DIF. A TOTAL ARCH.  \",  WS-TIPO\n        DELIMITED BY SIZE INTO                  WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n 50005000-FINAL.\n     MOVE 4                   TO  D-GER-TIPO-REG.\n     MOVE WS-NUM-GERE-TOT     TO  D-GER-NUM-REG.\n     MOVE WS-GER-SDO-PROM-TOT TO  D-GER-IMPO-PROM.\n     MOVE WS-CTES-SI          TO  D-GER-NUME-CTESI.\n     MOVE IM-CTES-SI          TO  D-GER-IMPO-CTESI.\n     MOVE WS-CTES-NO          TO  D-GER-NUME-CTENO.\n     MOVE IM-CTES-NO          TO  D-GER-IMPO-CTENO.\n     WRITE REG-GER-TAPE     FROM  D-REG-GERENCIAL.",
+          "java_codigo": "    /** 50004500-TRAILER: registros e importe de la plaza contra su trailer. */\n    private void validaTrailer(RegistroGerencial.Trailer t) {\n        String etiqueta = (trailersVistos++ == 0) ? \"MTY\" : \"VDM\";   // WS-5VEZ\n        boolean cuadra = plaza.registros() == t.numRegistros()\n                && plaza.importe().compareTo(t.importe()) == 0;\n        if (!cuadra) {\n            throw new ProcesoAbortadoException(\"TRAILER DIF. A TOTAL ARCH.  \" + etiqueta);\n        }\n        reporte.renglon(etiqueta, plaza);                           // WS-DET-GEREN en IMPRESION-CSI\n    }\n\n/** 50005000-FINAL: trailer de la cinta con los totales de las dos plazas. */\n@Component\nclass EncabezadoYTrailerListener implements StepExecutionListener {\n    @Override\n    public ExitStatus afterStep(StepExecution se) {\n        var tot = TotalesFusion.de(se);\n        cinta.escribe(SalidaGerencial.trailer(\n                tot.registros(),                                  // 9(10)\n                Campos.sinSigno9v2(tot.importe(), 16),            // 9(16)V99: falla si no cabe o es negativo\n                tot.clientesConNumero(), tot.importeConNumero(),\n                tot.clientesSinNumero(), tot.importeSinNumero()));\n        return se.getExitStatus();\n    }\n}",
+          "racional": "Al llegar el trailer de cada plaza se compara el número de registros y el importe acumulado contra lo que declara el archivo; cualquier diferencia aborta el paso, a diferencia de otros concentradores de S500 donde esa validación está desactivada. Al final se escribe un trailer tipo 4 con los totales de ambas plazas y los conteos de clientes con y sin número. En Java la validación vive en el procesador y el trailer consolidado en el <code>afterStep</code> del listener.",
+          "reglas": [
+            "RN-S500-762"
+          ],
+          "riesgo": "El total WS-GER-SDO-PROM-TOT es S9(19)V99 y se mueve a D-GER-IMPO-PROM 9(16)V99 sin signo (línea 983); el conteo WS-NUM-GERE-TOT es 9(7) frente a 9(10) en el trailer, así que más de 9,999,999 registros desbordarían el contador."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Aborto como control de flujo",
+      "detalle": "Cuando no es cierre de mes el paso termina con DMTERMINATE (líneas 624-626). Un aborto esperado se confunde con una falla en la bitácora del WFL."
+    },
+    {
+      "titulo": "Comentario contradictorio sobre los tipos de registro",
+      "detalle": "El comentario de la línea 869 dice que el tipo 2 es movimiento y el 3 saldo; el código y los layouts (líneas 299-326) hacen lo contrario. La traducción sigue al código."
+    },
+    {
+      "titulo": "Capacidades de contadores y totales",
+      "detalle": "WS-NUM-GERE y WS-NUM-GERE-TOT son 9(7) BINARY (líneas 138-139) y el trailer los recibe en 9(10); el total S9(19)V99 se mueve a 9(16)V99 sin signo (línea 983)."
+    },
+    {
+      "titulo": "Plaza deducida por orden",
+      "detalle": "Las etiquetas MTY y VDM de mensajes y reporte dependen de WS-4VEZ y WS-5VEZ, no del contenido del archivo."
+    },
+    {
+      "titulo": "LOW-VALUES en la cinta de salida",
+      "detalle": "Antes de cada registro se mueve LOW-VALUES a D-REG-GERENCIAL (líneas 802 y 917); los campos y FILLER no asignados viajan con ceros binarios en lugar de espacios, lo que puede afectar al receptor ETL."
+    },
+    {
+      "titulo": "Valores fijos",
+      "detalle": "Rutas de MTY, VDM y de la interfaz 50003S02, el sistema S500 y el nombre SISTEMA CAPTACION del header, y el catálogo de conversión de claves están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-763 afirma que P430 conserva el CSI de procedencia (WS-CSI) en cada registro; en el fuente WS-CSI solo se declara (línea 131) y ningún párrafo lo usa, y la cinta no lleva un campo de CSI. La plaza solo se distingue en el reporte impreso. Revisar la regla en el brain.",
+    "RN-S500-762 indica que la cinta se envía a ETL; el título de salida (línea 276) apunta a la interfaz INTS/50003S02 con nombre AHOSDOS. Confirmar con SME el destino real.",
+    "Confirmar el significado del campo GER-PERSONA y de GER-TIPDEP para documentar la salida.",
+    "Confirmar si las equivalencias de claves 602 a 1 y 603 a 2 siguen vigentes."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-762",
+    "RN-S500-763"
+  ]
+}

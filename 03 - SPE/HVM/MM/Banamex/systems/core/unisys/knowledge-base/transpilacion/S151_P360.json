@@ -1,0 +1,229 @@
+{
+  "slug": "S151_P360",
+  "sistema": "S151",
+  "programa": "P360",
+  "nombre": "Integración de Estructuras de Saldos GL",
+  "funcion": "Paso batch de S151 que, después de la extracción P330, carga en la base de saldos S151BD11SDOSnnn los seis archivos planos de las estructuras B20, B21, B70, B71, B72 y B80 y emite un listado de control.",
+  "resumen": "P360 recibe por parámetro el número de sistema y el pack donde P330 dejó los archivos extraídos. Resuelve con la librería de control el nombre físico de la base de saldos del sistema, la abre en actualización y, para cada una de las seis estructuras, ordena el archivo plano con SORT, lo recorre creando y guardando un registro DMSII por renglón, y al final lo purga. Cualquier error al guardar termina la base con DMTERMINATE. Al terminar imprime un listado con el número de registros integrados por estructura y un importe de control por estructura.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration",
+  "paquete_java": "mx.banamex.s151.saldos.integracion",
+  "secciones": [
+    {
+      "titulo": "Parámetros de corrida y apertura de la base de saldos",
+      "origen": {
+        "archivo": "COBOL_P360.txt",
+        "contexto": "PROCEDURE DIVISION USING WKS-PARAMETROS · 00-0100 / 01-0110 / 01-0130"
+      },
+      "java": {
+        "archivo": "IntegracionSaldosJobConfig.java · BaseSaldosResolver.java · P360Properties.java",
+        "contexto": "Spring Integration file adapter · Spring Batch Job · DataSource routing"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro sistema y pack, y secuencia fija de seis estructuras",
+          "origen_codigo": " 01  WKS-PARAMETROS.                                              042700\n     03 WKS-PARAM-SIS-NOMPACK.                                    042800\n        05 WKS-PARAM-SIS           PIC 9(03).                     042900\n        05 WKS-NOMBRE-PACK         PIC X(12).                     043000\n  PROCEDURE DIVISION USING WKS-PARAMETROS.                        059100\n 00-0000-INICIO SECTION.                                          059400\n 00-0100-CTL-PROCESO.                                             059800\n     MOVE WKS-NOMBRE-PACK         TO  WKS-B20-PACK, WKS-B21-PACK, 060100\n                                      WKS-B70-PACK, WKS-B71-PACK, 060200\n                                      WKS-B72-PACK, WKS-B80-PACK. 060300\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      060500\n        \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".          060600\n     PERFORM 01-0000-VERIFICACION.                                062200\n     PERFORM 02-0000-PROC-STRUCTURE-B20.                          062300\n     PERFORM 03-0000-PROC-STRUCTURE-B21.                          062400\n     PERFORM 04-0000-PROC-STRUCTURE-B70.                          062500\n     PERFORM 05-0000-PROC-STRUCTURE-B71.                          062600\n     PERFORM 06-0000-PROC-STRUCTURE-B72.                          062700\n     PERFORM 07-0000-PROC-STRUCTURE-B80.                          062800\n     PERFORM 09-0000-PROC-IMPRESION.                              062900\n     PERFORM 10-0000-PROC-TERMINA.                                063000\n                                                                  063100\n     STOP RUN.                                                    063200",
+          "java_codigo": "/** WKS-PARAMETROS: sistema PIC 9(03) y pack X(12), recibidos al invocar el programa. */\npublic record ParametrosIntegracion(int sistema, String pack) {\n    JobParameters toJobParameters(LocalDate fechaProceso) {\n        return new JobParametersBuilder()\n                .addLong(\"sistema\", (long) sistema)\n                .addString(\"pack\", pack)\n                .addLocalDate(\"fechaProceso\", fechaProceso)\n                .toJobParameters();\n    }\n}\n\n@Configuration\npublic class IntegracionSaldosJobConfig {\n\n    /** 00-0100-CTL-PROCESO: verificación, seis estructuras en orden fijo, listado y cierre. */\n    @Bean\n    Job integracionSaldos(JobRepository repo, Step verificacion,\n                          Step b20, Step b21, Step b70, Step b71, Step b72, Step b80,\n                          Step listadoControl) {\n        return new JobBuilder(\"S151P360\", repo)\n                .start(verificacion)            // 01-0000-VERIFICACION\n                .next(b20).next(b21).next(b70)  // 02 .. 04\n                .next(b71).next(b72).next(b80)  // 05 .. 07\n                .next(listadoControl)           // 09-0000-PROC-IMPRESION\n                .build();                       // 10-0000-PROC-TERMINA: cierre de recursos por Spring\n    }\n\n    /** Disparo por llegada de archivos: reemplaza la invocación con parámetros desde el WFL. */\n    @Bean\n    IntegrationFlow llegadaExtraccion(JobLauncher launcher, Job integracionSaldos, P360Properties p) {\n        return IntegrationFlow.from(Files.inboundAdapter(new File(p.directorioExtraccion()))\n                        .patternFilter(\"*.done\"), e -> e.poller(Pollers.fixedDelay(60_000)))\n                .transform(File.class, f -> new JobLaunchRequest(integracionSaldos,\n                        ParametrosIntegracion.desdeMarca(f).toJobParameters(p.fechaProceso())))\n                .handle(new JobLaunchingGateway(launcher))\n                .get();\n    }\n}",
+          "racional": "P360 es un solo binario que sirve a cualquier instancia de S151: el número de sistema y el pack llegan como parámetro y se propagan a los títulos de los seis archivos y al nombre de la base. En Spring Batch esos datos son parámetros del job, lo que permite reejecutar una instancia sin afectar otras. La secuencia de seis pasos se conserva tal cual, porque cada estructura se integra completa antes de la siguiente. El disparo, que hoy hace el WFL después de P330, se modela con un adaptador de archivos de Spring Integration, propio del arquetipo A4.",
+          "reglas": [
+            "RN-S151-735",
+            "RN-S151-749"
+          ],
+          "riesgo": "La ruta de la librería de mensajes \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\" está fija en el programa; pasa a configuración.",
+          "linea_ini": 1291,
+          "linea_fin": 1496
+        },
+        {
+          "id": "s2",
+          "titulo": "Librería de control y origen de la fecha de proceso",
+          "origen_codigo": "     MOVE \"S151L001CTL\"            TO WKS-LIBID.                  068000\n     CALL \"DAME_TIT IN CTLVER\" USING  WKS-LIBID, WKS-NOMBLIB      068100\n                               GIVING W77-ERR-CTLVER.             068200\n     IF W77-ERR-CTLVER = 0                                        068300\n        CHANGE ATTRIBUTE TITLE OF \"LIB-CONTROL\" TO WKS-NOMBLIB    068400\n     ELSE                                                         068500\n        CHANGE ATTRIBUTE TITLE OF \"LIB-CONTROL\" TO                068600\n               \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP\".         068700\n                                                                  068800\n     MOVE WKS-PARAM-SIS            TO WKS-B01-SISTEMA.            068900\n                                                                  069000\n     MOVE 1                        TO WKS-B01-FUNCION.            069100\n                                                                  069200\n     MOVE WKS-NUMCSI               TO WKS-B01-CSI.                069300\n                                                                  069400\n     IF ATTRIBUTE VALUE OF MYSELF = 0                             069500\n        CALL \"CONSISDIA IN LIB-CONTROL\"                           069600\n              USING  WKS-S151B01SISDIA                            069700\n              GIVING W77-RESULT-LIBCON                            069800\n        MOVE WKS-B01-FECPRO               TO WKS-FECHA-PROCESO    069900\n     ELSE                                                         070000\n        MOVE ATTRIBUTE VALUE OF MYSELF    TO WKS-FECHA-PROCESO.   070100",
+          "java_codigo": "# application.yml\np360:\n  libreria-control-default: \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP\"   # respaldo si CTLVERS falla\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class FechaProcesoResolver {\n\n    private final ControlSistemasClient control;   // CONSISDIA IN LIB-CONTROL (S151B01SISDIA)\n\n    /**\n     * Si la tarea trae VALUE distinto de cero, ese valor es la fecha de proceso;\n     * si no, se consulta el control diario del sistema.\n     */\n    public LocalDate resuelve(int sistema, int csi, OptionalLong valueTarea) {\n        if (valueTarea.isPresent() && valueTarea.getAsLong() != 0) {\n            return LocalDate.parse(String.valueOf(valueTarea.getAsLong()),\n                    DateTimeFormatter.BASIC_ISO_DATE);           // AAAAMMDD\n        }\n        var r = control.consultaSistemaDia(sistema, csi);\n        if (r.result() != 0) {\n            // El fuente no revisa W77-RESULT-LIBCON aquí; en Java se falla explícitamente.\n            throw new ControlSistemaException(\"CONSISDIA RESULT \" + r.result());\n        }\n        return r.fechaProceso();\n    }\n}",
+          "racional": "La librería de control se localiza por CTLVERS y, si no responde, se usa una ruta fija de respaldo, que pasa a <code>application.yml</code>. La fecha de proceso tiene dos orígenes: el valor numérico con que se lanza la tarea, que permite forzar una fecha, o el control diario del sistema en S151B01SISDIA. La traducción conserva los dos orígenes y agrega la verificación del resultado de la consulta, que el fuente omite.",
+          "reglas": [
+            "RN-S151-736"
+          ],
+          "riesgo": "El resultado de CONSISDIA (W77-RESULT-LIBCON) no se revisa: si la consulta falla, WKS-FECHA-PROCESO queda con lo que haya en WKS-B01-FECPRO.",
+          "linea_ini": 1545,
+          "linea_fin": 1566
+        },
+        {
+          "id": "s3",
+          "titulo": "Nombre físico de la base por sistema y validaciones de control",
+          "origen_codigo": " 01-0130-ABRE-SALDOS.                                             070400\n     MOVE WKS-PARAM-SIS            TO WKS-B04-SISTEMA             070700\n     MOVE 1                        TO WKS-B04-FUNCION             070800\n     CALL \"B04SISTEM IN LIB-CONTROL\" USING WKS-B04SISTEMA         070900\n                                     GIVING W77-RESULT-LIBCON.    071000\n                                                                  071100\n     IF W77-RESULT-LIBCON = 0                                     071200\n      IF WKS-B04-ESTATUS = 3                                      071300\n       MOVE LOW-VALUES             TO WKS-NULOS                   071800\n       MOVE WKS-PARAM-SIS          TO WKS-B03-SISTEMA             071900\n       MOVE 1                      TO WKS-B03-FUNCION             072000\n       CALL \"CONSISMEN IN  LIB-CONTROL\" USING WKS-S151B03SISMEN   072100\n                                        GIVING W77-RESULT-LIBCON  072200\n       IF W77-RESULT-LIBCON = 0                                   072300\n         IF WKS-B03-TIPBD = 1 OR 2 OR 5 OR 6                      072400\n            MOVE WKS-B03-NOMBDSAL   TO WKS-BD-SALDOS              072500\n            IF WKS-BD-SALDOS = WKS-BLANCOS OR                     072600\n               WKS-BD-SALDOS = WKS-NULOS                          072700\n               MOVE \"NO EXISTE EN NOMB. DE BD SALDOS\" TO TEXTO-LJ 072800\n               CHANGE ATTRIBUTE STATUS OF MYSELF TO -1            073300\n            ELSE                                                  073400\n              CHANGE ATTRIBUTE TITLE OF SALDOS TO WKS-NOMBD-SALDOS073500\n              OPEN UPDATE SALDOS                                  073600\n                   ON EXCEPTION                                   073700\n                      PERFORM 900000-CHE-STA                      073800\n                      CHANGE ATTRIBUTE STATUS OF MYSELF TO -1     073900\n         ELSE                                                     074000\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1                074600\n       ELSE                                                       074700\n          IF W77-RESULT-LIBCON = 1                                074800\n             CHANGE ATTRIBUTE STATUS OF MYSELF TO -1              075500\n          ELSE                                                    075600\n             CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.             076300",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class BaseSaldosResolver {\n\n    private final ControlSistemasClient control;     // B04SISTEM / CONSISMEN IN LIB-CONTROL\n    private final Map<String, DataSource> bases;     // una por base S151BD11SDOSnnn\n\n    /** 01-0130-ABRE-SALDOS: devuelve la base de saldos del sistema o falla con el motivo. */\n    public DataSource resuelve(int sistema) {\n        var b04 = control.sistema(sistema);\n        if (b04.result() != 0 || b04.estatus() != 3) {\n            // En el fuente esta rama no existe: no hay mensaje ni baja de la tarea.\n            throw new BaseSaldosException(\"SISTEMA \" + sistema + \" NO DISPONIBLE EN B04\");\n        }\n        var b03 = control.sistemaMensual(sistema);\n        if (b03.result() == 1) throw new BaseSaldosException(\"NO EXITE EL NUMERO DE SISTEMA EN BASE MENSUAL\");\n        if (b03.result() != 0) throw new BaseSaldosException(\"ERROR EN BASE DE CONTROL\");\n        if (!Set.of(1, 2, 5, 6).contains(b03.tipoBd()))\n            throw new BaseSaldosException(\"EL SISTEMA NO UTILIZA BASE DE SALDOS\");\n        String nombre = b03.nombreBdSaldos();\n        if (nombre == null || nombre.isBlank())\n            throw new BaseSaldosException(\"NO EXISTE EN NOMB. DE BD SALDOS\");\n        return Optional.ofNullable(bases.get(nombre))\n                .orElseThrow(() -> new BaseSaldosException(\"BASE \" + nombre + \" NO CONFIGURADA\"));\n    }\n}",
+          "racional": "El nombre de la base de saldos no está en el programa: se obtiene del catálogo mensual de sistemas, y solo los tipos de base 1, 2, 5 y 6 tienen base de saldos. Cada condición de error del fuente baja la tarea con <code>STATUS -1</code> y un mensaje al operador; en Java cada una es una excepción con el mismo texto, que deja el step de verificación en FAILED antes de tocar datos. La selección de la base física se hace con un mapa de <code>DataSource</code> por nombre.",
+          "reglas": [
+            "RN-S151-737",
+            "RN-S151-738",
+            "RN-S151-739"
+          ],
+          "riesgo": "Si B04SISTEM devuelve error o el estatus del sistema no es 3, ninguna rama del IF lo atiende: no hay mensaje, la base no se abre y el programa sigue a la integración.",
+          "linea_ini": 1569,
+          "linea_fin": 1628
+        }
+      ]
+    },
+    {
+      "titulo": "Integración de cada estructura: ordenar, crear y guardar",
+      "origen": {
+        "archivo": "COBOL_P360.txt",
+        "contexto": "FILE SECTION REG-B72POSCONTA · 02-0100 / 02-0150 / 06-0150"
+      },
+      "java": {
+        "archivo": "PosicionContableRecord.java · EstructuraStepFactory.java",
+        "contexto": "record · ItemReader binario · JdbcBatchItemWriter · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Registro B72 de posición contable con importes con signo",
+          "origen_codigo": " 01  REG-B72POSCONTA.                                             020500\n     03 R72-SDO-KEYPOS.                                           020600\n        05 R72-SDO-KEYCSI          PIC 9(04) COMP.                020700\n        05 R72-SDO-KEYFEC          PIC 9(08) COMP.                020800\n        05 R72-SDO-KEYBCO          PIC 9(04) COMP.                020900\n        05 R72-SDO-KEYMON          PIC 9(04) COMP.                021000\n        05 R72-SDO-KEYFID          PIC 9(04) COMP.                021100\n        05 R72-SDO-KEYPRD          PIC 9(04) COMP.                021200\n        05 R72-SDO-KEYINS          PIC 9(04) COMP.                021300\n        05 R72-SDO-KEYCTA          PIC 9(12) COMP.                021400\n        05 R72-SDO-KEYCVEC         PIC 9(06) COMP.                021500\n        05 R72-SDO-KEYSEC          PIC 9(02) COMP.                021600\n     03 R72-SDO-NATCTA             PIC 9(02) COMP.                021700\n     03 R72-SDO-SDOANT             PIC S9(15)V9(02) COMP.         021800\n     03 R72-SDO-CARGOS             PIC S9(15)V9(02) COMP.         021900\n     03 R72-SDO-ABONOS             PIC S9(15)V9(02) COMP.         022000\n     03 R72-SDO-SDOACT             PIC S9(15)V9(02) COMP.         022100",
+          "java_codigo": "/** REG-B72POSCONTA: llave de 10 campos y cuatro importes S9(15)V9(02) COMP. */\npublic record PosicionContableRecord(\n        int csi, LocalDate fecha, int banco, int moneda, int fideicomiso,\n        int producto, int instrumento,\n        String cuenta,              // 9(12): como String para conservar ceros\n        String claveContable,       // 9(06)\n        int secuencia,              // 9(02)\n        int naturalezaCuenta,       // 9(02)\n        BigDecimal saldoAnterior,   // S9(15)V9(02) escala 2, con signo\n        BigDecimal cargos,\n        BigDecimal abonos,\n        BigDecimal saldoActual) {\n\n    /** Los campos COMP de Unisys se decodifican con un lector binario propio. */\n    static PosicionContableRecord decode(UnisysBinaryReader r) {\n        return new PosicionContableRecord(r.comp(4), r.fechaAmd(r.comp(8)), r.comp(4),\n                r.comp(4), r.comp(4), r.comp(4), r.comp(4),\n                r.compAsString(12), r.compAsString(6), r.comp(2), r.comp(2),\n                r.compDecimal(15, 2), r.compDecimal(15, 2),\n                r.compDecimal(15, 2), r.compDecimal(15, 2));\n    }\n}",
+          "racional": "B72 es la estructura de posición contable: por centro, fecha, banco, moneda, fideicomiso, producto, instrumento, cuenta, clave contable y secuencia guarda saldo anterior, cargos, abonos y saldo actual. Los importes son <code>S9(15)V9(02)</code> con signo y pasan a <code>BigDecimal</code> con escala 2. Como todo el registro está en formato <code>COMP</code> de Unisys, el archivo no es texto: el lector Java necesita un decodificador binario explícito, que es parte del trabajo de migración de este intercambio.",
+          "reglas": [
+            "RN-S151-744"
+          ],
+          "linea_ini": 220,
+          "linea_fin": 236
+        },
+        {
+          "id": "s5",
+          "titulo": "Orden previo con SORT y recorrido del archivo",
+          "origen_codigo": " 02-0100-PROCESO-B20.                                             081800\n     SET R20SDOMENCON(TITLE) TO WS-TITLE-B20SDOMENCON.            082100\n     SORT A20-SORT ON ASCENDING KEY                               082400\n                        A20-R20-AM,                               082500\n                        A20-R20-CON                               082600\n                        A20-R20-PRD,                              082700\n                        A20-R20-INS,                              082800\n                        A20-R20-MON                               082900\n                        USING  R20SDOMENCON                       083000\n                        GIVING R20SDOMENCON                       083100\n                        MEMORY SIZE 30 MODULES                    083200\n                        DISK   SIZE 90 MODULES.                   083300\n     MOVE 0               TO       WS-EOF-B20.                    083600\n     OPEN INPUT R20SDOMENCON.                                     083800\n     READ R20SDOMENCON INTO REG-B20SDOMENCON                      084000\n          AT END                                                  084100\n             MOVE 1                TO WS-EOF-B20.                 084200\n     PERFORM 02-0150-INTEGRA-SDOMENCON UNTIL WS-EOF-B20 = 1.      084500\n     PERFORM 02-0500-FIN-SDOMENCON.                               084600\n     GO TO 02-0900-EXIT.                                          084800",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EstructuraStepFactory {\n\n    private final JobRepository repo;\n    private final PlatformTransactionManager tx;\n\n    /** Un step por estructura: ordenar, leer, guardar y purgar el archivo plano. */\n    public <T> Step paso(EstructuraSaldos<T> e) {\n        return new StepBuilder(\"integra\" + e.nombre(), repo)\n                .<T, T>chunk(1_000, tx)\n                .reader(new SortedRecordReader<>(e.archivo(), e.decoder(), e.ordenNatural()))\n                .writer(e.writer())                       // CREATE + STORE\n                .listener(new PurgaArchivoListener(e.archivo()))   // CLOSE ... WITH PURGE\n                .listener(new TotalesControlListener(e))\n                .build();\n    }\n}\n\n// B20: orden AM, CON, PRD, INS, MON; equivale a SORT A20-SORT ... USING / GIVING R20SDOMENCON.\nstatic final Comparator<SaldoMensualContrato> ORDEN_B20 =\n        Comparator.comparingInt(SaldoMensualContrato::anioMes)\n                  .thenComparing(SaldoMensualContrato::contrato)\n                  .thenComparingInt(SaldoMensualContrato::producto)\n                  .thenComparingInt(SaldoMensualContrato::instrumento)\n                  .thenComparingInt(SaldoMensualContrato::moneda);",
+          "racional": "Cada estructura sigue el mismo patrón: titula el archivo con sistema y pack, lo ordena sobre sí mismo por la llave de la estructura, lo lee hasta fin y lo purga. El orden importa porque la carga en DMSII por llave ascendente es más eficiente y deja la base en el mismo estado que hoy. En Java el patrón se factoriza en una fábrica de steps parametrizada por estructura, con un lector que ordena antes de entregar y un listener que borra el archivo solo si el step terminó bien.",
+          "reglas": [
+            "RN-S151-740",
+            "RN-S151-749"
+          ],
+          "riesgo": "El archivo se purga al terminar su estructura aunque una estructura posterior falle; un reproceso exige volver a correr P330.",
+          "linea_ini": 1683,
+          "linea_fin": 1713
+        },
+        {
+          "id": "s6",
+          "titulo": "CREATE y STORE por registro con terminación ante error",
+          "origen_codigo": " 02-0150-INTEGRA-SDOMENCON.                                       085100\n     CREATE S151B20SDOMENCON.                                     085500\n     MOVE R20-SDO-KEYAM            TO B20-SDO-KEYAM.              085600\n     MOVE R20-SDO-KEYCON           TO B20-SDO-KEYCON.             085700\n     MOVE R20-SDO-KEYPRD           TO B20-SDO-KEYPRD.             085800\n     MOVE R20-SDO-KEYINS           TO B20-SDO-KEYINS.             085900\n     MOVE R20-SDO-KEYMON           TO B20-SDO-KEYMON.             086000\n     MOVE R20-SDO-SUCPRO           TO B20-SDO-SUCPRO.             086100\n     MOVE R20-SDO-STAMOV           TO B20-SDO-STAMOV.             086200\n     MOVE R20-SDO-APUIMP           TO B20-SDO-APUIMP.             086300\n     PERFORM 02-0200-MUEVE-SALDO VARYING W77-C                    086400\n                     FROM 1 BY 1 UNTIL W77-C > 10.                086500\n     STORE S151B20SDOMENCON                                       086600\n           ON EXCEPTION                                           086700\n              MOVE \"I\"             TO TIPO-LJ                     086800\n              MOVE 010105          TO CODIGO-LJ                   086900\n              MOVE \" >> ERROR AL ESCRIBIR S151B20SDOMENCON. << \"  087000\n                                   TO TEXTO-LJ                    087100\n              CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,            087200\n                                          MENSAJE-LJ              087300\n              CALL SYSTEM DMTERMINATE.                            087400\n                                                                  087500\n     ADD 1                         TO WS-INTEGRADOS-B20.          087600\n     ADD R20-SDO-SD(2)             TO WS-TOTALB20SDOSD2.          087700\n                                                                  087800\n     READ R20SDOMENCON INTO REG-B20SDOMENCON                      087900\n          AT END                                                  088000\n             MOVE 1                TO WS-EOF-B20.                 088100\n 02-0200-MUEVE-SALDO.                                             088400\n     MOVE R20-SDO-CNTMOV(W77-C)    TO B20-SDO-CNTMOV(W77-C).      088700\n     MOVE R20-SDO-SD(W77-C)        TO B20-SDO-SD(W77-C).          088800\n 02-0500-FIN-SDOMENCON.                                           089100\n     CLOSE R20SDOMENCON WITH PURGE.                               089400",
+          "java_codigo": "@Bean\nJdbcBatchItemWriter<SaldoMensualContrato> writerB20(DataSource saldos) {\n    return new JdbcBatchItemWriterBuilder<SaldoMensualContrato>()\n            .dataSource(saldos)\n            .sql(\"\"\"\n                INSERT INTO s151b20sdomencon\n                  (key_am, key_con, key_prd, key_ins, key_mon, suc_pro, sta_mov, apu_imp,\n                   cnt_mov_01, sd_01, /* ... */ cnt_mov_10, sd_10)\n                VALUES (:anioMes, :contrato, :producto, :instrumento, :moneda, :sucursal,\n                        :estatusMov, :apuntadorImp, :cnt01, :sd01, /* ... */ :cnt10, :sd10)\n                \"\"\")\n            .itemSqlParameterSourceProvider(SaldoMensualContrato::parametros)  // 10 pares CNTMOV/SD\n            .assertUpdates(true)\n            .build();\n}\n\n// STORE ... ON EXCEPTION -> CALL SYSTEM DMTERMINATE.\n// Spring Batch: la excepción revierte el chunk y deja el step en FAILED; no hay skip ni retry,\n// para conservar la semántica de \"todo o nada\" por estructura que el operador espera.",
+          "racional": "Por cada renglón se crea el registro DMSII, se copian la llave, los datos y los diez pares de contador de movimientos y saldo, y se guarda. Si el <code>STORE</code> falla, el programa avisa al operador y termina la base con <code>DMTERMINATE</code>. En Java la escritura es un <code>JdbcBatchItemWriter</code> por chunk dentro de una transacción; una excepción revierte el chunk y detiene el step sin reintentos, que es lo más cercano al comportamiento actual. A diferencia de DMSII, el reinicio de Spring Batch permite retomar desde el último chunk confirmado.",
+          "reglas": [
+            "RN-S151-740",
+            "RN-S151-746"
+          ],
+          "riesgo": "No hay BEGIN-TRANSACTION ni punto de reinicio: si el STORE falla a mitad de una estructura, la base queda con las estructuras anteriores completas, la actual parcial y las siguientes vacías.",
+          "linea_ini": 1716,
+          "linea_fin": 1759
+        },
+        {
+          "id": "s7",
+          "titulo": "Integración de B72 y acumulado de saldo actual",
+          "origen_codigo": " 06-0150-INTEGRA-POSCONTA.                                        119200\n     CREATE S151B72POSCONTA.                                      119600\n     MOVE R72-SDO-KEYCSI           TO B72-SDO-KEYCSI.             119700\n     MOVE R72-SDO-KEYSEC           TO B72-SDO-KEYSEC.             120600\n     MOVE R72-SDO-NATCTA           TO B72-SDO-NATCTA.             120700\n     MOVE R72-SDO-SDOANT           TO B72-SDO-SDOANT.             120800\n     MOVE R72-SDO-CARGOS           TO B72-SDO-CARGOS.             120900\n     MOVE R72-SDO-ABONOS           TO B72-SDO-ABONOS.             121000\n     MOVE R72-SDO-SDOACT           TO B72-SDO-SDOACT.             121100\n     STORE S151B72POSCONTA                                        121200\n           ON EXCEPTION                                           121300\n              MOVE \"I\"             TO TIPO-LJ                     121400\n              MOVE 010105          TO CODIGO-LJ                   121500\n              MOVE \" >> ERROR AL ESCRIBIR S151B72POSCONTA. << \"   121600\n                                   TO TEXTO-LJ                    121700\n              CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,            121800\n                                          MENSAJE-LJ              121900\n              CALL SYSTEM DMTERMINATE.                            122000\n                                                                  122100\n     ADD 1                         TO WS-INTEGRADOS-B72.          122200\n     ADD R72-SDO-SDOACT            TO WS-TOTALB72SDOACT.          122300\n                                                                  122400\n     READ R72POSCONTA INTO REG-B72POSCONTA                        122500\n          AT END                                                  122600\n             MOVE 1                TO WS-EOF-B72.                 122700",
+          "java_codigo": "@Component\n@StepScope\npublic class TotalesControlListener implements ItemWriteListener<PosicionContableRecord> {\n\n    private long integrados;                                   // WS-INTEGRADOS-B72\n    private BigDecimal totalSaldoActual = BigDecimal.ZERO.setScale(2);   // WS-TOTALB72SDOACT\n\n    @Override\n    public void afterWrite(Chunk<? extends PosicionContableRecord> chunk) {\n        for (var r : chunk) {\n            integrados++;\n            totalSaldoActual = totalSaldoActual.add(r.saldoActual());     // suma con signo\n        }\n    }\n\n    @AfterStep\n    ExitStatus publica(StepExecution se) {\n        se.getExecutionContext().putLong(\"integradosB72\", integrados);\n        se.getExecutionContext().put(\"totalB72SdoAct\", totalSaldoActual);\n        return se.getExitStatus();\n    }\n}",
+          "racional": "B72 se integra con el mismo patrón, copiando la llave de diez campos, la naturaleza de la cuenta y los cuatro importes. Después de cada <code>STORE</code> se cuenta el registro y se suma su saldo actual al total de control que aparece en el listado. En Java el conteo y la suma se hacen en un listener de escritura, solo sobre registros efectivamente confirmados, y la suma respeta el signo de cada importe.",
+          "reglas": [
+            "RN-S151-744",
+            "RN-S151-746"
+          ],
+          "riesgo": "R72-SDO-SDOACT es S9(15)V9(02) con signo, pero WS-TOTALB72SDOACT es PIC 9(18)V9(02) sin signo: cada ADD guarda el valor absoluto del resultado. Con saldos acreedores o negativos, el total de control del listado no corresponde a la suma real. Lo mismo ocurre con los totales de B20, B21, B70 y B71.",
+          "linea_ini": 2057,
+          "linea_fin": 2092
+        }
+      ]
+    },
+    {
+      "titulo": "Listado de control y conversión de fechas Y2K",
+      "origen": {
+        "archivo": "COBOL_P360.txt",
+        "contexto": "09-0100-PROCESO-IMPRESION · COPY S151/CRONOS2K/CPY/PD"
+      },
+      "java": {
+        "archivo": "ListadoControlTasklet.java · FechasY2k.java",
+        "contexto": "Tasklet · JasperReports · java.time"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Totales por estructura en el listado de integración",
+          "origen_codigo": " 77  WS-TOTALB20SDOSD2             PIC 9(18)V9(02).               030200\n 77  WS-TOTALB21SDOSD2             PIC 9(18)V9(02).               030300\n 77  WS-TOTALB70SDOSD2             PIC 9(18)V9(02).               030400\n 77  WS-TOTALB71SDOSD2             PIC 9(18)V9(02).               030500\n 77  WS-TOTALB72SDOACT             PIC 9(18)V9(02).               030600\n 09-0100-PROCESO-IMPRESION.                                       132400\n     IF WS-LINEAS > 55                                            132700\n        PERFORM 09-0200-ENCABEZADOS.                              132800\n     MOVE WS-INTEGRADOS-B20        TO TOTB20SDOMENCON.            133100\n     MOVE WS-TOTALB20SDOSD2        TO TOTALB20SDOSD2.             133200\n     MOVE WS-INTEGRADOS-B21        TO TOTB21SDMENCON1.            133300\n     MOVE WS-TOTALB21SDOSD2        TO TOTALB21SDOSD2.             133400\n     MOVE WS-INTEGRADOS-B70        TO TOTB70POSICION.             133500\n     MOVE WS-TOTALB70SDOSD2        TO TOTALB70SDOSD2.             133600\n     MOVE WS-INTEGRADOS-B71        TO TOTB71POSDIAAD1.            133700\n     MOVE WS-TOTALB71SDOSD2        TO TOTALB71SDOSD2.             133800\n     MOVE WS-INTEGRADOS-B72        TO TOTB72POSCONTA.             133900\n     MOVE WS-TOTALB72SDOACT        TO TOTALB72SDOACT.             134000\n     MOVE WS-INTEGRADOS-B80        TO TOTB80EDOCTA.               134100\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO1  AFTER 15.          134200\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO2  AFTER 3.           134300\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO3  AFTER 3.           134400\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO4  AFTER 3.           134500\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO5  AFTER 3.           134600\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO6  AFTER 3.           134700\n     ADD 30       TO      WS-LINEAS.                              134800",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ListadoControlTasklet implements Tasklet {\n\n    private final ReporteIntegracion reporte;   // JasperReports: 001INTEGRACION\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var job = ctx.getStepContext().getStepExecution().getJobExecution();\n        var totales = Stream.of(\"B20\", \"B21\", \"B70\", \"B71\", \"B72\", \"B80\")\n                .map(e -> new TotalEstructura(e,\n                        sumaLong(job, \"integrados\" + e),\n                        sumaDecimal(job, \"total\" + e)))      // B80 no lleva importe\n                .toList();\n        reporte.genera(job.getJobParameters(), totales);\n        return RepeatStatus.FINISHED;\n    }\n}\n\n/** Los acumuladores se tipan como BigDecimal con signo y escala 2; no hay PIC sin signo que pierda el signo. */\npublic record TotalEstructura(String estructura, long registros, BigDecimal importe) {}",
+          "racional": "El listado final reporta, por estructura, el número de registros integrados y un importe de control: el segundo saldo del arreglo para B20, B21, B70 y B71, el saldo actual para B72 y solo el conteo para B80. En Java los totales viajan en el <code>ExecutionContext</code> de cada step y un tasklet final los entrega al reporte. Los acumuladores se definen con signo, lo que corrige la pérdida de signo del original y debe comunicarse a quien concilia contra este listado.",
+          "reglas": [
+            "RN-S151-741",
+            "RN-S151-742",
+            "RN-S151-743",
+            "RN-S151-745",
+            "RN-S151-747"
+          ],
+          "riesgo": "Solo se suma el saldo de la posición 2 de cada arreglo (R20-SDO-SD(2), etc.); el fuente no explica por qué esa posición y no otra.",
+          "linea_ini": 486,
+          "linea_fin": 2229
+        },
+        {
+          "id": "s9",
+          "titulo": "Siglo por pivote 50 en la conversión de fechas",
+          "origen_codigo": "  01  A2K-BASE-YEAR     PIC 9(02) VALUE 50.                       028500\n A2K-CONV-AMD-TO-CAMD.                                            003500\n         MOVE ZEROES TO A2K-FEC-CAMD-001.                         003600\n         MOVE A2K-FEC-AMD-AA-001 TO A2K-FEC-YEAR-AA.              003700\n         IF A2K-FEC-AMD-001 = 0                                   003720\n            MOVE ZEROES TO A2K-FEC-CAMD-001                       003740\n         ELSE                                                     003741\n          IF A2K-FEC-AMD-001 = 999999                             003742\n             MOVE 99999999 TO A2K-FEC-CAMD-001                    003743\n         ELSE                                                     003760\n         PERFORM A2K-OBTAIN-CENTURY THRU                          003800\n                 A2K-OBTAIN-CENTURY-EXIT                          003900\n         MOVE A2K-FEC-YEAR-CC TO A2K-FEC-CAMD-CC-001              004000\n         MOVE A2K-FEC-AMD-AA-001 TO A2K-FEC-CAMD-AA-001           004100\n         MOVE A2K-FEC-AMD-MM-001 TO A2K-FEC-CAMD-MM-001           004200\n         MOVE A2K-FEC-AMD-DD-001 TO A2K-FEC-CAMD-DD-001.          004300\n A2K-OBTAIN-CENTURY.                                              018500\n      IF A2K-FEC-YEAR-AA < A2K-BASE-YEAR                          018600\n          MOVE 20 TO A2K-FEC-YEAR-CC                              018700\n      ELSE                                                        018800\n          MOVE 19 TO A2K-FEC-YEAR-CC.                             018900",
+          "java_codigo": "public final class FechasY2k {\n\n    /** A2K-BASE-YEAR VALUE 50: AA < 50 es 20AA, AA >= 50 es 19AA. */\n    public static final int PIVOTE = 50;\n\n    private static final DateTimeFormatter AAMMDD = new DateTimeFormatterBuilder()\n            .appendValueReduced(ChronoField.YEAR, 2, 2, 1950)   // 50..99 -> 1950..1999, 00..49 -> 2000..2049\n            .appendPattern(\"MMdd\")\n            .toFormatter();\n\n    /** A2K-CONV-AMD-TO-CAMD: 0 se conserva como \"sin fecha\" y 999999 como fecha máxima. */\n    public static Optional<LocalDate> deAammdd(int aammdd) {\n        if (aammdd == 0)      return Optional.empty();\n        if (aammdd == 999999) return Optional.of(LocalDate.MAX);       // 99999999 en el original\n        return Optional.of(LocalDate.parse(\"%06d\".formatted(aammdd), AAMMDD));\n    }\n\n    private FechasY2k() {}\n}",
+          "racional": "El copybook CRONOS2K resuelve el siglo de una fecha de dos dígitos con un pivote fijo: los años menores que 50 son del siglo 21 y los demás del siglo 20. En Java el pivote queda explícito con <code>appendValueReduced</code> y base 1950. Se conservan los dos valores especiales del original: cero como ausencia de fecha y 999999 como fecha máxima. En P360 la conversión solo se usa para el encabezado del listado, no para los datos que se integran.",
+          "reglas": [
+            "RN-S151-748"
+          ],
+          "riesgo": "El pivote 50 dejará de funcionar para fechas de dos dígitos a partir de 2050; conviene eliminar los formatos AAMMDD en la migración.",
+          "linea_ini": 469,
+          "linea_fin": 2480
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Totales de control sin signo",
+      "detalle": "Los acumuladores WS-TOTALB20SDOSD2 a WS-TOTALB72SDOACT (líneas 486-490) son PIC 9(18)V9(02) sin signo, mientras los importes de origen son S9(13)V9(02) y S9(15)V9(02) con signo. Cada ADD guarda el valor absoluto, así que el listado de control puede no cuadrar con la base."
+    },
+    {
+      "titulo": "Error de B04 sin tratamiento",
+      "detalle": "En 01-0130-ABRE-SALDOS, los IF de B04SISTEM (W77-RESULT-LIBCON = 0) y de estatus 3 no tienen rama ELSE. Si fallan, no hay mensaje ni baja de la tarea y la base de saldos no se abre."
+    },
+    {
+      "titulo": "Integración no atómica entre estructuras",
+      "detalle": "No hay transacción ni punto de reinicio: un error en una estructura deja las anteriores integradas, la actual parcial y los archivos planos de las anteriores ya purgados."
+    },
+    {
+      "titulo": "Fecha de proceso sin validar",
+      "detalle": "El resultado de CONSISDIA no se revisa (líneas 1560-1564) y un VALUE de tarea distinto de cero se toma como fecha sin validación."
+    },
+    {
+      "titulo": "Hardcodes de rutas",
+      "detalle": "Ruta de la librería de mensajes en S000, ruta de respaldo de LIB-CONTROL en CMEMP y la plantilla de títulos S{sistema}/FILE/EXTR/... están compiladas. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si la base S151BD11SDOSnnn se inicializa vacía antes de P360 (por ejemplo, con una reorganización en el WFL); el programa solo hace CREATE y STORE y un registro duplicado terminaría la corrida.",
+    "Confirmar por qué el importe de control de B20, B21, B70 y B71 es el saldo de la posición 2 del arreglo.",
+    "Confirmar si operación concilia contra los totales del listado; con importes negativos, el total actual es un valor absoluto acumulado.",
+    "RN-S151-737 afirma que un estatus de B04 distinto de 3 o un error de B04SISTEM terminan el proceso con status -1; en 01-0130-ABRE-SALDOS esos dos IF no tienen rama ELSE y el programa continúa sin abrir la base. Corregir la regla o el fuente.",
+    "RN-S151-746 afirma que DMTERMINATE deshace todos los STORE previos de la ejecución; el fuente no tiene BEGIN-TRANSACTION ni END-TRANSACTION, así que la reversión depende de la configuración de auditoría de S151BD11SDOSnnn. Confirmar con el DBA antes de dar la integración por atómica.",
+    "RN-S151-747 describe los totales de importe del listado como sumas; los acumuladores son PIC 9(18)V9(02) sin signo y guardan el valor absoluto en cada ADD, por lo que no son la suma real con importes negativos.",
+    "RN-S151-749 atribuye el orden B20 a B80 a una jerarquía de dependencia entre estructuras; el fuente no muestra dependencia de datos entre ellas, solo una secuencia fija."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-735",
+    "RN-S151-736",
+    "RN-S151-737",
+    "RN-S151-738",
+    "RN-S151-739",
+    "RN-S151-740",
+    "RN-S151-741",
+    "RN-S151-742",
+    "RN-S151-743",
+    "RN-S151-744",
+    "RN-S151-745",
+    "RN-S151-746",
+    "RN-S151-747",
+    "RN-S151-748",
+    "RN-S151-749"
+  ]
+}

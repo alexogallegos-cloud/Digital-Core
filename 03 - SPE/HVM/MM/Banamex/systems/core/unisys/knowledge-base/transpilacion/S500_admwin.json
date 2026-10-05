@@ -1,0 +1,151 @@
+{
+  "slug": "S500_admwin",
+  "sistema": "S500",
+  "programa": "admwin",
+  "nombre": "Conmutación de mensajes COMS del administrador de ventanas",
+  "funcion": "Copybook compartido (COPY \"S500/24MTP001\") que P010 y P020 usan para desencapsular los mensajes que llegan a través del paso servidor de ADMWIN y re-encapsular sus respuestas hacia ese paso.",
+  "resumen": "admwin declara un par de mensajes COMS, uno vivo y uno de retención, y tres párrafos que el anfitrión ejecuta: al iniciar fija el CSI del nodo según el nombre del equipo; después de cada RECEIVE, si el mensaje viene del paso servidor 70, extrae el mensaje real de la carga; antes de cada SEND, si se cumplen las marcas de línea y el código de resultado, guarda la respuesta y la envuelve en una cabecera nueva dirigida al paso 70. No accede a archivos ni a DMSII y no contiene reglas de negocio; es transporte de mensajes con una treintena de literales de configuración.",
+  "arquetipo": "L",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration (transformadores de mensaje)",
+  "paquete_java": "mx.banamex.s500.coms.admwin",
+  "secciones": [
+    {
+      "titulo": "Estructura del sobre COMS",
+      "origen": {
+        "archivo": "S500_SOURCE_COPY_ADMWIN.txt",
+        "contexto": "Sección de datos del copybook · COMS-MENSAJES OCCURS 2"
+      },
+      "java": {
+        "archivo": "SobreComs.java · DireccionAmp.java",
+        "contexto": "record inmutable"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Par de mensajes COMS (vivo y retenido) a un record de sobre",
+          "linea_ini": 1,
+          "linea_fin": 59,
+          "origen_codigo": "*ADMWIN-----------------------------------------------------------\n 01 MYSELF-USERCODE.\n    02 FILLER                        PC X(01) VA \"S\".\n    02 MYSELF-USERCOD-999            PC 9(03) VA 500.\n 77 COMS-HDR-CSI                     PC 9(02).\n 77 COMS-AMP-PASSER                  PC 9(02) VA 70.\n 77 COMS-AMP-PASACT                  PC 9(02).\n 01 COMS-MENSAJES.\n    02 COMS-MENSAJES-OC              OC 2 TIMES.\n       03 COMS-MENSAJE.\n          04 COMS-HDR-PRE            PC X(01).\n          04 COMS-HDR-APLDES         PC X(01).\n          04 COMS-HDR-CSIDES         PC 9(02).\n          04 COMS-HDR-LSN1           PC X(01).\n          04 COMS-HDR-LSN2           PC X(01).\n          04 COMS-HDR-STATIP         PC X(01).\n          04 COMS-HDR-STASUC         PC X(04).\n          04 COMS-HDR-STAPRI         PC X(01).\n          04 COMS-HDR-STACAJ         PC X(02).\n          04 COMS-HDR-CSIORI         PC 9(02).\n          04 COMS-HDR-COMORI         PC X(02).\n          04 COMS-HDR-NIVSEG         PC X(02).\n          04 COMS-HDR-APLORI         PC X(01).\n          04 COMS-HDR-RESULT         PC 9(02).\n          04 COMS-AMP-DES0           PC 9(01).\n          04 COMS-AMP-DESSIS         PC 9(03).\n          04 COMS-AMP-DESPAS         PC 9(02).\n          04 COMS-AMP-ORI0           PC 9(01).\n          04 COMS-AMP-ORISIS         PC 9(03).\n          04 COMS-AMP-ORIPAS         PC 9(02).\n          04 COMS-SA0-DESAPL         PC 9(04).\n          04 COMS-SA0-DIRECCION      PC 9(01).\n          04 COMS-SA0-LONG           PC 9(04).\n          04 COMS-SA0-TIMEOUT        PC 9(05).\n          04 COMS-SA0-CODRES         PC 9(02).\n          04 COMS-SA2-ID             PC 9(03).\n          04 COMS-SA2-SUCURSAL       PC 9(04).\n          04 COMS-SA2-FECHA          PC 9(06).\n          04 COMS-SA2-HORA           PC 9(06).\n          04 COMS-SA2-MODALIDAD      PC 9(02).\n          04 COMS-SA2-OPERADOR       PC X(10).\n          04 COMS-SA2-VERDAT         PC X(01).\n          04 COMS-APL-DATOS          PC X(2875).",
+          "java_codigo": "/** COMS-MENSAJE: cabecera de 125 posiciones + carga X(2875). Se modela una sola vez. */\npublic record SobreComs(\n        HeaderComs hdr,          // PRE, APLDES, CSIDES, LSN1, LSNSUB, LSN2, STATIP..SEGURIDAD\n        DireccionAmp amp,        // DES0, DESSIS, DESPAS, ORI0, ORISIS, ORIPAS\n        TransporteSa0 sa0,       // DESAPL..CODRES, incluye LONG y TIMEOUT\n        ContextoSa2 sa2,         // ID..VERDAT: sucursal, caja, autorización, fecha, operador\n        byte[] datos) {          // COMS-APL-DATOS X(2875)\n\n    public static final int LONG_CABECERA = 125;      // el ADD 125 del SEND\n    public static final int LONG_DATOS = 2875;\n\n    public SobreComs {\n        if (datos.length > LONG_DATOS) {\n            throw new IllegalArgumentException(\"Carga mayor a \" + LONG_DATOS + \": \" + datos.length);\n        }\n        datos = datos.clone();\n    }\n}\n\npublic record DireccionAmp(int destino0, int sistemaDestino, int pasoDestino,\n                           int origen0, int sistemaOrigen, int pasoOrigen) {}\n\n// COMS-MENSAJES-OC OCCURS 2 no se traduce como arreglo: la ocurrencia (2) era solo un área de\n// retención para el intercambio. En Java el sobre externo y el interno son dos objetos distintos.",
+          "racional": "El copybook declara dos ocurrencias de la misma estructura de mensaje COMS: la (1) es el buffer que COMS llena y vacía, la (2) un área de retención que solo el copybook escribe. Cada mensaje tiene cuatro bloques de cabecera (enrutamiento, direcciones AMP de sistema y paso, sobre de transporte SA0 y contexto de operación SA2) y una carga de 2875 posiciones. En Java se modela un único <code>record</code> inmutable y el par de ocurrencias desaparece: envolver o desenvolver produce un objeto nuevo en lugar de copiar sobre el buffer vivo. La validación del tamaño de la carga, que el fuente no tiene, evita truncamientos silenciosos.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Arranque y recepción",
+      "origen": {
+        "archivo": "S500_SOURCE_COPY_ADMWIN.txt",
+        "contexto": "000-ADMWIN-INICIO · 000-ADMWIN-RECEIVE"
+      },
+      "java": {
+        "archivo": "AdmwinProperties.java · AdmwinEnvelope.java",
+        "contexto": "@ConfigurationProperties · transformador de entrada"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "CSI del nodo según el nombre del equipo",
+          "linea_ini": 62,
+          "linea_fin": 67,
+          "origen_codigo": "*ADMWIN-----------------------------------------------------------\n 000-ADMWIN-INICIO.\n     IF WS-DH-NOM-EQUIPO = \"VDMBETA.  \" OR \"CVDMBET.  \"\n        MOVE 10 TO COMS-HDR-CSI\n     ELSE\n        MOVE 32 TO COMS-HDR-CSI.",
+          "java_codigo": "# application.yml\ns500:\n  admwin:\n    csi-por-host:\n      \"VDMBETA.  \": 10          # nombres X(10) con espacios finales significativos\n      \"CVDMBET.  \": 10\n    csi-default: 32\n    paso-servidor: 70           # COMS-AMP-PASSER VALUE 70\n\n@ConfigurationProperties(\"s500.admwin\")\npublic record AdmwinProperties(Map<String, Integer> csiPorHost, int csiDefault, int pasoServidor) {\n\n    /** 000-ADMWIN-INICIO: cualquier host no listado cae en el CSI por defecto. */\n    public int csiDelNodo(String nombreEquipo) {\n        return csiPorHost.getOrDefault(nombreEquipo, csiDefault);\n    }\n}",
+          "racional": "Al arrancar, el programa anfitrión ejecuta este párrafo para fijar el CSI propio: 10 si el equipo se llama exactamente VDMBETA o CVDMBET y 32 en cualquier otro caso. Son nombres de infraestructura escritos en el código de la aplicación, y un equipo nuevo recibe el valor 32 sin aviso. En Java el mapa de hosts a CSI y el valor por defecto se vuelven propiedades. Se conserva la comparación exacta con los espacios finales para no cambiar el resultado.",
+          "reglas": [],
+          "riesgo": "El clon de estos párrafos dentro de P080 compara solo contra \"VDMBETA.  \" (P080 línea 8449), así que en el equipo CVDMBET P080 usaría el CSI 32 mientras P010 y P020 usan 10."
+        },
+        {
+          "id": "s3",
+          "titulo": "RECEIVE: desencapsular el mensaje que llega del paso servidor",
+          "linea_ini": 68,
+          "linea_fin": 72,
+          "origen_codigo": " 000-ADMWIN-RECEIVE.\n     IF COMS-AMP-ORIPAS(1) = COMS-AMP-PASSER\n        MOVE COMS-MENSAJE(1)       TO COMS-MENSAJE(2)\n        MOVE LOW-VALUES            TO COMS-MENSAJE(1)\n        MOVE COMS-APL-DATOS(2)     TO COMS-MENSAJE(1).",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class AdmwinEnvelope {\n    private final AdmwinProperties props;\n    private final SobreComsCodec codec;          // parse/format posicional de 3000 posiciones\n\n    /**\n     * 000-ADMWIN-RECEIVE. Si el sobre viene del paso servidor (70), el mensaje real viaja\n     * en la carga y se promueve; si no, el mensaje se procesa tal cual.\n     */\n    public SobreComs alRecibir(SobreComs recibido) {\n        if (recibido.amp().pasoOrigen() != props.pasoServidor()) {\n            return recibido;                                    // no hay ELSE en el fuente\n        }\n        // MOVE COMS-APL-DATOS(2) TO COMS-MENSAJE(1): las primeras 125 posiciones de la carga\n        // son la cabecera del mensaje anidado; las 125 finales del buffer quedan en espacios.\n        byte[] interno = Arrays.copyOf(recibido.datos(), SobreComs.LONG_CABECERA + SobreComs.LONG_DATOS);\n        Arrays.fill(interno, recibido.datos().length, interno.length, (byte) 0x40);  // espacio EBCDIC\n        return codec.parse(interno);\n    }\n}",
+          "racional": "Cuando el mensaje recibido viene del paso servidor de ADMWIN, el mensaje verdadero viaja dentro de la carga. El copybook guarda el sobre en la ocurrencia (2), limpia la (1) y mueve la carga retenida sobre el mensaje completo: las primeras 125 posiciones se reinterpretan como cabecera y el resto como datos, y como la carga es 125 posiciones más corta, el final queda relleno de espacios. En Java el desencapsulado es una función que devuelve un sobre nuevo y deja explícito ese relleno.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Re-encapsulado de la respuesta",
+      "origen": {
+        "archivo": "S500_SOURCE_COPY_ADMWIN.txt",
+        "contexto": "000-ADMWIN-SEND"
+      },
+      "java": {
+        "archivo": "AdmwinEnvelope.java",
+        "contexto": "transformador de salida · builder"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Condición del SEND con precedencia AND/OR sin paréntesis",
+          "linea_ini": 73,
+          "linea_fin": 75,
+          "origen_codigo": " 000-ADMWIN-SEND.\n     IF  COMS-HDR-LSN1(1) = @F0@ AND COMS-HDR-LSN2(1) = @0F@\n     AND COMS-HDR-RESULT(1) = 01 OR 03 OR 07",
+          "java_codigo": "/**\n * Condición de 000-ADMWIN-SEND tal como la evalúa COBOL:\n *   (LSN1 = F0 AND LSN2 = 0F AND RESULT = 01) OR RESULT = 03 OR RESULT = 07\n * La indentación sugiere que LSN1/LSN2 aplican a los tres códigos; no es así.\n */\nstatic boolean debeReencapsular(SobreComs m, boolean corregirPrecedencia) {\n    HeaderComs h = m.hdr();\n    boolean marcasLsn = h.lsn1() == (byte) 0xF0 && h.lsn2() == (byte) 0x0F;\n    int r = h.resultado();\n    if (corregirPrecedencia) {\n        return marcasLsn && (r == 1 || r == 3 || r == 7);      // intención aparente\n    }\n    return (marcasLsn && r == 1) || r == 3 || r == 7;           // comportamiento actual (AS-IS)\n}\n// s500.admwin.corregir-precedencia: false hasta que el SME confirme la intención.",
+          "racional": "La condición escribe <code>RESULT = 01 OR 03 OR 07</code> después de dos <code>AND</code> y sin paréntesis. COBOL expande la relación abreviada en tres condiciones y da más precedencia al <code>AND</code>, de modo que la verificación de los indicadores LSN1 y LSN2 solo aplica cuando el resultado es 01; con 03 o 07 el mensaje se re-encapsula siempre. La traducción reproduce el comportamiento actual por defecto y deja la versión corregida detrás de una propiedad, porque cambiarla altera el ruteo de mensajes en producción.",
+          "reglas": [],
+          "riesgo": "Con RESULT 03 o 07 las respuestas se envuelven y se dirigen al paso servidor 70 aunque no traigan las marcas de línea F0 y 0F. El mismo defecto está en el clon de P080."
+        },
+        {
+          "id": "s5",
+          "titulo": "SEND: cabecera nueva dirigida al paso servidor",
+          "linea_ini": 76,
+          "linea_fin": 100,
+          "origen_codigo": "        MOVE COMS-MENSAJE(1)       TO COMS-MENSAJE(2)\n        MOVE LOW-VALUES            TO COMS-MENSAJE(1)\n        MOVE \"F\"                   TO COMS-HDR-PRE(1)\n        MOVE \"0\"                   TO COMS-HDR-APLDES(1)\n        MOVE COMS-HDR-CSIORI(2)    TO COMS-HDR-CSIDES(1)\n        MOVE @F0@                  TO COMS-HDR-LSN1(1)\n        MOVE COMS-HDR-LSNSUB(2)    TO COMS-HDR-LSNSUB(1)\n        MOVE @0F@                  TO COMS-HDR-LSN2(1)\n        MOVE COMS-HDR-STATIP(2)    TO COMS-HDR-STATIP(1)\n        MOVE COMS-HDR-STASUC(2)    TO COMS-HDR-STASUC(1)\n        MOVE COMS-HDR-STAPRI(2)    TO COMS-HDR-STAPRI(1)\n        MOVE COMS-HDR-STACAJ(2)    TO COMS-HDR-STACAJ(1)\n        MOVE COMS-HDR-CSI          TO COMS-HDR-CSIORI(1)\n        MOVE \"10\"                  TO COMS-HDR-COMORI(1)\n        MOVE \"00\"                  TO COMS-HDR-NIVSEG(1)\n        MOVE \"0\"                   TO COMS-HDR-APLORI(1)\n        MOVE 02                    TO COMS-HDR-RESULT(1)\n        MOVE \"00000\"               TO COMS-HDR-SCREEN(1)\n        MOVE \"000000\"              TO COMS-HDR-SEGURIDAD(1)\n        MOVE 0                     TO COMS-AMP-DES0(1)\n        MOVE 500                   TO COMS-AMP-DESSIS(1)\n        MOVE COMS-AMP-PASSER       TO COMS-AMP-DESPAS(1)\n        MOVE 0                     TO COMS-AMP-ORI0(1)\n        MOVE 500                   TO COMS-AMP-ORISIS(1)\n        MOVE COMS-AMP-PASACT       TO COMS-AMP-ORIPAS(1)",
+          "java_codigo": "    /** 000-ADMWIN-SEND, primera mitad: HDR y AMP del sobre externo. */\n    public SobreComs alEnviar(SobreComs respuesta, int csiNodo, int pasoActivo, int longTexto) {\n        if (!debeReencapsular(respuesta, props.corregirPrecedencia())) return respuesta;\n\n        HeaderComs r = respuesta.hdr();\n        HeaderComs hdr = HeaderComs.builder()\n                .pre('F').aplDestino('0')\n                .csiDestino(r.csiOrigen())                 // la respuesta regresa al CSI que la originó\n                .lsn1((byte) 0xF0).lsnSub(r.lsnSub()).lsn2((byte) 0x0F)\n                .estacion(r.tipoEstacion(), r.sucursal(), r.prioridad(), r.caja())   // se arrastra la estación\n                .csiOrigen(csiNodo)                        // el 10 o 32 de 000-ADMWIN-INICIO\n                .comunicadorOrigen(\"10\").nivelSeguridad(\"00\").aplOrigen('0')\n                .resultado(2).pantalla(\"00000\").seguridad(\"000000\")\n                .build();\n        DireccionAmp amp = new DireccionAmp(0, props.sistema(), props.pasoServidor(),   // 500 -> paso 70\n                                            0, props.sistema(), pasoActivo);           // desde el paso 10/20/80\n        return envuelve(hdr, amp, respuesta, longTexto);\n    }",
+          "racional": "Si la condición se cumple, el copybook guarda la respuesta en la ocurrencia (2), limpia la (1) y arma una cabecera nueva desde cero. La respuesta se dirige al CSI de donde vino el mensaje y conserva la subsesión y la identidad de la estación (tipo, sucursal, prioridad y caja); el CSI de origen es el del nodo y la dirección AMP va del paso activo del anfitrión (10, 20 u 80) al paso servidor 70 del sistema 500. En Java es un <code>builder</code> sobre el sobre original. Los literales de transporte se agrupan en propiedades.",
+          "reglas": []
+        },
+        {
+          "id": "s6",
+          "titulo": "SEND: sobre SA0 y SA2 con datos neutralizados y carga truncable",
+          "linea_ini": 101,
+          "linea_fin": 126,
+          "origen_codigo": "        MOVE 0500                  TO COMS-SA0-DESAPL(1)\n        MOVE 01                    TO COMS-SA0-DESCOD(1)\n        MOVE 002                   TO COMS-SA0-DESSUB(1)\n        MOVE 0500                  TO COMS-SA0-ORIAPL(1)\n        MOVE 01                    TO COMS-SA0-ORICOD(1)\n        MOVE 002                   TO COMS-SA0-ORISUB(1)\n        MOVE 2                     TO COMS-SA0-DIRECCION(1)\n        ADD  125                   TO COMS-OUT-TEXT-LENGTH\n        MOVE COMS-OUT-TEXT-LENGTH  TO COMS-SA0-LONG(1)\n        MOVE 00090                 TO COMS-SA0-TIMEOUT(1)\n        MOVE 00                    TO COMS-SA0-CODRES(1)\n        MOVE 000                   TO COMS-SA2-ID(1)\n        MOVE \"B\"                   TO COMS-SA2-VERSION(1)\n        MOVE 0                     TO COMS-SA2-CLASE(1)\n        MOVE 1                     TO COMS-SA2-ESTADO(1)\n        MOVE 1                     TO COMS-SA2-MODO(1)\n        MOVE COMS-HDR-STASUC(2)    TO COMS-SA2-SUCURSAL(1)\n        MOVE COMS-HDR-STAPRI(2)    TO COMS-SA2-TIPO(1)\n        MOVE COMS-HDR-STACAJ(2)    TO COMS-SA2-CAJA(1)\n        MOVE 00000001              TO COMS-SA2-AUTO(1)\n        MOVE 000000                TO COMS-SA2-FECHA(1)\n        MOVE 000000                TO COMS-SA2-HORA(1)\n        MOVE 01                    TO COMS-SA2-MODALIDAD(1)\n        MOVE \"0000000000\"          TO COMS-SA2-OPERADOR(1)\n        MOVE \"B\"                   TO COMS-SA2-VERDAT(1)\n        MOVE COMS-MENSAJE(2)       TO COMS-APL-DATOS(1).",
+          "java_codigo": "    private SobreComs envuelve(HeaderComs hdr, DireccionAmp amp, SobreComs respuesta, int longTexto) {\n        // ADD 125 TO COMS-OUT-TEXT-LENGTH: acumula sobre lo que dejó el anfitrión. Aquí se calcula.\n        int longitud = longTexto + SobreComs.LONG_CABECERA;\n        var sa0 = new TransporteSa0(500, 1, 2, 500, 1, 2, /*direccion*/ 2, longitud,\n                                    /*timeout*/ 90, /*codRes*/ 0);\n        var r = respuesta.hdr();\n        var sa2 = new ContextoSa2(0, 'B', 0, 1, 1,\n                Integer.parseInt(r.sucursal()), r.prioridad(), r.caja(),\n                1L,                       // autorización fija 00000001\n                null, null,               // fecha y hora en ceros en el fuente: sin dato real\n                1, \"0000000000\", 'B');    // operador en ceros\n        byte[] carga = codec.format(respuesta);                       // 3000 posiciones\n        if (carga.length > SobreComs.LONG_DATOS && !esRelleno(carga, SobreComs.LONG_DATOS)) {\n            throw new MensajeTruncadoException(carga.length);           // el fuente corta en silencio\n        }\n        return new SobreComs(hdr, amp, sa0, sa2, Arrays.copyOf(carga, SobreComs.LONG_DATOS));\n    }",
+          "racional": "La segunda mitad completa el sobre de transporte con códigos fijos de aplicación 0500, código 01 y subcódigo 002, dirección 2, un tiempo de espera de 90 y la longitud del texto más 125. El contexto SA2 repite sucursal, tipo y caja de la estación, pero pone en ceros fecha, hora y operador y fija la autorización en 1. Por último, la respuesta retenida de unas 3000 posiciones se mueve a la carga de 2875, lo que corta las últimas 125. En Java la longitud se calcula en lugar de sumarse sobre una variable externa y el corte se detecta: si las posiciones que se perderían no son relleno, se lanza una excepción.",
+          "reglas": [],
+          "riesgo": "El ADD 125 acumula sobre COMS-OUT-TEXT-LENGTH (línea 108); si el anfitrión no la reasigna antes de cada SEND, la longitud crece 125 por envío. El MOVE de la línea 126 descarta en silencio las últimas 125 posiciones del mensaje."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Precedencia AND/OR en la condición del SEND",
+      "detalle": "IF ... AND ... AND COMS-HDR-RESULT(1) = 01 OR 03 OR 07 (líneas 74-75) se evalúa como (marcas LSN y 01) OR 03 OR 07: con 03 o 07 se re-encapsula sin validar las marcas de línea."
+    },
+    {
+      "titulo": "Truncamiento silencioso de la respuesta",
+      "detalle": "MOVE COMS-MENSAJE(2) TO COMS-APL-DATOS(1) (línea 126) copia unas 3000 posiciones en 2875 y descarta las últimas 125."
+    },
+    {
+      "titulo": "Longitud acumulativa",
+      "detalle": "ADD 125 TO COMS-OUT-TEXT-LENGTH (línea 108) depende de que el anfitrión reasigne la longitud antes de cada envío; el copybook no lo verifica."
+    },
+    {
+      "titulo": "Trazabilidad perdida en el sobre",
+      "detalle": "Fecha, hora y operador del bloque SA2 se envían en ceros y la autorización fija en 1 (líneas 120-124)."
+    },
+    {
+      "titulo": "Clon divergente en P080",
+      "detalle": "P080 no usa el COPY y replica los párrafos inline; su INICIO solo reconoce VDMBETA (P080 línea 8449) y su SEND mueve CSIDES(2) en lugar de CSIORI(2) a CSIDES(1) (P080 línea 8467)."
+    },
+    {
+      "titulo": "Hardcodes de infraestructura",
+      "detalle": "Nombres de equipo, CSI 10 y 32, paso servidor 70, sistema 500, comunicador 10, códigos SA0 01 y 002, timeout 90 y versión B. Se trasladan a configuración."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si la condición del SEND debía exigir las marcas LSN para los tres códigos de resultado; hasta entonces se conserva el comportamiento actual.",
+    "Identificar qué componente es el paso servidor 70 de ADMWIN (no hay un P070 en el corpus) para definir el destino equivalente en el broker.",
+    "Determinar el tamaño en caracteres de los campos 9(02) COMP de la cabecera; la aritmética de 125 posiciones supone uno por campo.",
+    "Decidir cuál de las dos variantes (copybook o clon de P080) es la vigente para el ruteo de la respuesta antes de consolidarlas en un solo componente Java.",
+    "MYSELF-USERCODE (líneas 2-4) se declara y, según el pseudocódigo, no se usa en ningún programa; confirmar antes de descartarlo."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

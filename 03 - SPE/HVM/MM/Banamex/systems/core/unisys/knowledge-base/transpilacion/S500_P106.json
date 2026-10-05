@@ -1,0 +1,228 @@
+{
+  "slug": "S500_P106",
+  "sistema": "S500",
+  "programa": "P106",
+  "nombre": "Consulta de Rechazos y Aviso de Cancelaciones al S016",
+  "funcion": "Programa batch de Captación S500 (PROGRAM-ID MOD-ARCH) que según su parámetro consulta los archivos de rechazos, log o incidentes para un criterio de búsqueda, o procesa hasta tres archivos de contratos cancelados avisando cada cancelación al S016 y devolviendo al WFL un TASKVALUE de 50 si hubo rechazos.",
+  "resumen": "Recibe por parámetro la fecha AAMMDD, la opción de archivo (1 a 6), el tipo de búsqueda, un secuencial y la clave a buscar. Las opciones 1 a 4 recorren rechazos, log o incidentes y arman el reporte de transacciones encontradas. Las opciones 5 y 6 leen los archivos CANCELADOS 01 a 03 de la fecha: validan el header contra la fecha y el CSI, y por cada detalle la opción 5 invoca S016L428 para dejar la cuenta en estatus 31, mientras la opción 6 sólo marca el resultado 99. Cada detalle procesado se agrega a un archivo de reinicio que permite reanudar en el contrato siguiente; al final ese archivo se usa para imprimir el reporte de aceptados y rechazados y se purga.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.cancelaciones",
+  "secciones": [
+    {
+      "titulo": "Parámetros, layouts de cancelados y reinicio, y datos por CSI",
+      "origen": {
+        "archivo": "S500_SOURCE_P106.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE · 0000000-ARMA-TITULOS"
+      },
+      "java": {
+        "archivo": "P106Parametros.java · RegistroCancelado.java · RegistroReinicio.java · P106Properties.java",
+        "contexto": "record · sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro WKS-IN-PARAM con clave de búsqueda redefinida",
+          "linea_ini": 1263,
+          "linea_fin": 1285,
+          "origen_codigo": " 01 WKS-IN-PARAM.\n    02 WKS-IN-FECH                    PIC 9(06).\n    02 WKS-IN-FILE                    PIC 9(01).\n    02 WKS-IN-OPC                     PIC 9(01).\n    02 WKS-IN-SEC                     PIC 9(03).\n    02 WKS-IN-FIND                    PIC 9(16).\n    02 WKS-RD-AUTORI REDEFINES WKS-IN-FIND.\n       06 WKS-IN-FILL                 PIC 9(08).\n       06 WKS-IN-AUTOR                PIC 9(08).\n    02 WKS-RD-CTA-CTO REDEFINES WKS-IN-FIND.\n       06 WKS-IN-SUC                  PIC 9(04).\n       06 WKS-IN-CTA                  PIC 9(12).",
+          "java_codigo": "/** PROCEDURE DIVISION USING WKS-IN-PARAM: 27 posiciones recibidas del WFL. */\npublic record P106Parametros(\n        LocalDate fecha,          // WKS-IN-FECH 9(06) AAMMDD\n        Opcion opcion,            // WKS-IN-FILE 9(01)\n        int tipoBusqueda,         // WKS-IN-OPC: 1 tarjeta, 2 sucursal y cuenta, 3 autorización o contrato\n        int secuencial,           // WKS-IN-SEC (OnDemand)\n        String claveBusqueda) {   // WKS-IN-FIND 9(16): String para conservar ceros\n\n    public enum Opcion { RECHAZOS, LOG, INCIDENTES, INCIDENTE_4, CANCELADOS_AVISA, CANCELADOS_CONTINGENCIA }\n\n    /** REDEFINES WKS-RD-AUTORI: 8 de relleno + autorización 9(08). */\n    public String autorizacion() { return claveBusqueda.substring(8, 16); }\n    /** REDEFINES WKS-RD-CTA-CTO: sucursal 9(04) + cuenta 9(12). */\n    public String sucursal()     { return claveBusqueda.substring(0, 4); }\n    public String cuenta()       { return claveBusqueda.substring(4, 16); }\n\n    public static P106Parametros parse(String p, int pivoteSiglo) {\n        var aammdd = p.substring(0, 6);\n        int aa = Integer.parseInt(aammdd.substring(0, 2));\n        int anio = (aa >= pivoteSiglo ? 1900 : 2000) + aa;          // pivote explícito: p106.pivote-siglo\n        var fecha = LocalDate.of(anio, Integer.parseInt(aammdd.substring(2, 4)),\n                                 Integer.parseInt(aammdd.substring(4, 6)));\n        int op = p.charAt(6) - '0';\n        if (op < 1 || op > 6) throw new OpcionInvalidaException(op);   // \"OPCION n INVALIDA\"\n        return new P106Parametros(fecha, Opcion.values()[op - 1], p.charAt(7) - '0',\n                Integer.parseInt(p.substring(8, 11)), p.substring(11, 27));\n    }\n}",
+          "racional": "El parámetro es un bloque de texto con tres interpretaciones de la clave de búsqueda según su tipo: tarjeta de 16 posiciones, sucursal más cuenta, o autorización alineada a la derecha. En Java se recibe como <code>JobParameter</code> y se expone con métodos de acceso para cada vista, sin duplicar el dato. La fecha de seis dígitos se convierte a <code>LocalDate</code> con el pivote de siglo explícito en configuración. Claves y cuentas se conservan como <code>String</code>.",
+          "reglas": [
+            "RN-S500-645"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Archivo de cancelados (header, detalle, trailer) y registro de reinicio",
+          "linea_ini": 1175,
+          "linea_fin": 283,
+          "origen_codigo": " 01 WKS-I10-REG-CANCEL.\n    02 WKS-I10-REG-HEADER.\n       03 WKS-I10-TPOREG-H    PIC 9(01).\n       03 WKS-I10-SISORI-H    PIC X(04).\n       03 WKS-I10-SISDES-H    PIC X(04).\n       03 WKS-I10-FECREA-H    PIC 9(08).\n       03 WKS-I10-HOCREA-H    PIC 9(06).\n       03 WKS-I10-FECONT-H.\n          04 WKS-I10-SIG      PIC 9(02).\n          04 WKS-110-FECH     PIC 9(06).\n       03 WKS-I10-CSIORI-H    PIC 9(02).\n       03 WKS-I10-CSIDES-H    PIC 9(02).\n       03 WKS-I10-FILLER-H    PIC X(105).\n    02 WKS-I10-REG-DET REDEFINES WKS-I10-REG-HEADER.\n       03 WKS-I10-TPOREG-D3   PIC 9(01).\n       03 WKS-I10-PRODUC-D3   PIC 9(04).\n       03 WKS-I10-INSTRU-D3   PIC 9(04).\n       03 WKS-I10-MONEDA-D3   PIC 9(02).\n       03 WKS-I10-CONTRA-D3   PIC 9(12).\n       03 WKS-I10-CLIENT-D3   PIC 9(12).\n       03 WKS-I10-FILLER-D3   PIC X(105).\n    02 WKS-I10-REG-TRAIL REDEFINES WKS-I10-REG-HEADER.\n       03 WKS-I10-TPOREG-T     PIC 9(01).\n       03 WKS-I10-NUMGLB-T     PIC 9(08).\n       03 WKS-I10-FILLER-T     PIC X(131).\n     01  I02-R00-REINICIO.\n         02 I02-FD-R00-FECHA  PIC 9(06).\n         02 I02-FD-R00-CTO    PIC 9(12).\n         02 I02-FD-R00-SEC    PIC 9(02).\n         02 I02-FD-PRODUC     PIC 9(04).\n         02 I02-FD-INSTRU     PIC 9(04).\n         02 I02-FD-MONEDA     PIC 9(02).\n         02 I02-FD-CLIENT     PIC 9(12).\n         02 I02-FD-RESULT     PIC 9(02).\n         02 I02-FD-MENSAJE    PIC X(60).",
+          "java_codigo": "/** WKS-I10-REG-CANCEL: 140 bytes, tres vistas REDEFINES discriminadas por el primer dígito. */\npublic sealed interface RegistroCancelado\n        permits RegistroCancelado.Header, RegistroCancelado.Detalle, RegistroCancelado.Trailer {\n\n    record Header(String sisOrigen, String sisDestino, LocalDateTime creacion,\n                  int siglo, String fechaContableAammdd,   // WKS-I10-SIG + WKS-110-FECH\n                  int csiOrigen, int csiDestino) implements RegistroCancelado {}\n\n    record Detalle(int producto, int instrumento, int moneda,\n                   String contrato, String cliente) implements RegistroCancelado {}   // 9(12) como String\n\n    record Trailer(long totalGlobal) implements RegistroCancelado {}\n\n    static RegistroCancelado parse(String r) {\n        return switch (r.charAt(0)) {\n            case '1' -> Fixed.headerCancelado(r);\n            case '3' -> new Detalle(Fixed.entero(r, 1, 4), Fixed.entero(r, 5, 4), Fixed.entero(r, 9, 2),\n                                    r.substring(11, 23), r.substring(23, 35));\n            default  -> new Trailer(Fixed.entero(r, 1, 8));   // cualquier otro tipo se lee como trailer\n        };\n    }\n}\n\n/** I02-R00-REINICIO (104 bytes): un renglón por detalle procesado o por archivo faltante. */\npublic record RegistroReinicio(String fechaAammdd, String contrato, int secuenciaArchivo,\n                               int producto, int instrumento, int moneda, String cliente,\n                               int resultadoS016,       // 0 aceptado, >0 rechazado, 99 contingencia\n                               String mensaje) {}       // no vacío: archivo no residente o vacío",
+          "racional": "El archivo de cancelados que produce P130 tiene un header con fecha contable y CSI, detalles con producto, instrumento, moneda, contrato y cliente, y un trailer con el total. Las tres vistas se modelan como <code>record</code> dentro de una <code>sealed interface</code>. El registro de reinicio funciona a la vez como punto de reanudación y como fuente del reporte final, por eso guarda el resultado del S016 y un mensaje para los archivos faltantes.",
+          "reglas": [
+            "RN-S500-646",
+            "RN-S500-647"
+          ],
+          "riesgo": "El campo de fecha del header se llama WKS-110-FECH (con el dígito uno) mientras el resto usa el prefijo WKS-I10; funciona porque es un nombre distinto declarado en el mismo grupo, pero es fácil confundirlo al mantener el código."
+        },
+        {
+          "id": "s3",
+          "titulo": "CSI por nombre de host y sucursal impresa en el reporte",
+          "linea_ini": 1627,
+          "linea_fin": 2585,
+          "origen_codigo": " IF WKS-HOSTNAME = \"VDMALFA.  \" OR\n    WKS-HOSTNAME = \"ACYPGAMA. \" OR\n    WKS-HOSTNAME = \"ACYPOMEGA.\" OR\n    WKS-HOSTNAME = \"VDMBETA.  \"\n   MOVE 10 TO TIT-CSI-RECH TIT-CSI-REP TIT-CSI-INC\n              WKS-TIT-CSID-I10 TIT-CSI-REP W77-MY-CSI\n              WKS-TIT-R-NODO\n ELSE\n   MOVE 04 TO TIT-CSI-RECH TIT-CSI-REP TIT-CSI-INC\n              WKS-TIT-CSID-I10 TIT-CSI-REP W77-MY-CSI\n              WKS-TIT-R-NODO.\n  IF W77-MY-CSI = 4\n     MOVE 3667                     TO WLI-R00-L04-SUC\n     MOVE \"CYSAU MTY CTROL PROD\"   TO WLI-R00-L05-NBSUC\n  ELSE\n     MOVE 3084                     TO WLI-R00-L04-SUC\n     MOVE \"PYCP JARDINES\"          TO WLI-R00-L05-NBSUC.",
+          "java_codigo": "# application.yml\np106:\n  pivote-siglo: 50\n  csi:\n    hosts-csi-10: [ \"VDMALFA\", \"ACYPGAMA\", \"ACYPOMEGA\", \"VDMBETA\" ]   # el resto usa 04\n  reporte:\n    plaza:\n      \"4\":  { sucursal: 3667, nombre: \"CYSAU MTY CTROL PROD\" }\n      \"10\": { sucursal: 3084, nombre: \"PYCP JARDINES\" }\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p106\")\npublic record P106Properties(int pivoteSiglo, Csi csi, Reporte reporte) {\n    public record Csi(Set<String> hostsCsi10) {}\n    public record Reporte(Map<String, Plaza> plaza) {}\n    public record Plaza(int sucursal, String nombre) {}\n\n    /** 0000000-ARMA-TITULOS: el CSI forma parte de todos los títulos de archivo. */\n    public int csiDe(String hostname) {\n        return csi.hostsCsi10().contains(hostname.replace(\".\", \"\").trim()) ? 10 : 4;\n    }\n}",
+          "racional": "El programa obtiene su CSI comparando el nombre del host contra cuatro valores fijos y con ese número arma los títulos de rechazos, incidentes, cancelados y reinicio, y elige la sucursal y el nombre de plaza que se imprimen en el encabezado del reporte. Los dos mapeos se trasladan a <code>application.yml</code>. Cualquier host que no esté en la lista cae en CSI 04, igual que en el fuente.",
+          "reglas": [
+            "RN-S500-649",
+            "RN-S500-650"
+          ],
+          "riesgo": "Un host nuevo o renombrado que no esté en la lista se trata en silencio como CSI 04 y busca los archivos de cancelados de esa plaza."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y reanudación",
+      "origen": {
+        "archivo": "S500_SOURCE_P106.txt",
+        "contexto": "PROCEDURE DIVISION · 000-0000-CONTROLA / 001-VALIDA-INICIO / 001-LEE-REINICIO"
+      },
+      "java": {
+        "archivo": "P106JobConfig.java · ReinicioTasklet.java",
+        "contexto": "Job · JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Despacho por opción y código de salida hacia el WFL",
+          "linea_ini": 1559,
+          "linea_fin": 1607,
+          "origen_codigo": "   PERFORM  0000000-ARMA-TITULOS\n   IF WKS-IN-FILE = 1\n      PERFORM  000-LEE-RECHAZOS UNTIL TIT-SEQ-RECH = 14\n   ELSE\n   IF WKS-IN-FILE = 2\n      PERFORM  000-LEE-LOG\n   ELSE\n   IF WKS-IN-FILE = 3 OR WKS-IN-FILE = 4\n      PERFORM 000-LEE-INCIDENTE UNTIL TIT-SEQ-INC = 4\n   ELSE\n   IF WKS-IN-FILE = 5 OR WKS-IN-FILE = 6\n      PERFORM 001-VALIDA-INICIO\n      PERFORM 001-PROCESA-CANCELADOS UNTIL WKS-TIT-CPY-I10 > 3\n      PERFORM 001-GENERA-REPORT\n      PERFORM 001-ENCIENDE-INC\n   ELSE\n     STRING  \"OPCION \" WKS-IN-FILE \" INVALIDA, USE 1 A 5  \"\n     DELIMITED BY SIZE INTO TEXTO-LJ\n     PERFORM 70000050-CALL-LJ-MSG .\n   IF WKS-IN-FILE = 1 OR 2 OR 3 OR 4\n      PERFORM  0000100-FIN.\n   IF WKS-IN-FILE = 5 OR 6\n      SET MYSELF (TASKVALUE)     TO   W77-ENC-INC.\n   STOP RUN.",
+          "java_codigo": "@Configuration\npublic class P106JobConfig {\n\n    @Bean\n    Job p106(JobRepository repo, OpcionDecider decider, Step consultaRechazos, Step consultaLog,\n             Step consultaIncidentes, Step reinicio, Step procesaCancelados, Step reporteCancelados,\n             IncidenteExitListener incidente) {\n        return new JobBuilder(\"S500P106\", repo)\n                .listener(incidente)                                  // SET MYSELF (TASKVALUE) TO W77-ENC-INC\n                .start(decider)\n                    .on(\"RECHAZOS\").to(consultaRechazos)              // hasta TIT-SEQ-RECH = 14\n                .from(decider).on(\"LOG\").to(consultaLog)\n                .from(decider).on(\"INCIDENTES*\").to(consultaIncidentes)  // opciones 3 y 4\n                .from(decider).on(\"CANCELADOS*\").to(reinicio)          // opciones 5 y 6\n                    .next(procesaCancelados)                          // archivos 01 a 03\n                    .next(reporteCancelados)\n                .end()\n                .build();\n    }\n}\n\n/** El WFL lee el TASKVALUE; en la plataforma destino se publica como ExitStatus del job. */\n@Component\nclass IncidenteExitListener implements JobExecutionListener {\n    @Override\n    public void afterJob(JobExecution je) {\n        long rechazos = je.getExecutionContext().getLong(\"rechazos\", 0L);\n        if (rechazos > 0) je.setExitStatus(new ExitStatus(\"INCIDENTE_50\"));   // 001-ENCIENDE-INC\n    }\n}",
+          "racional": "La rutina principal elige entre tres consultas y el procesamiento de cancelados según la opción, y sólo en las opciones 5 y 6 devuelve al WFL un TASKVALUE, que vale 50 cuando hubo al menos un rechazo. Con Spring Batch el despacho es un <code>JobExecutionDecider</code> y la señal al orquestador es el <code>ExitStatus</code> del job, que el flujo (Spring Cloud Data Flow o el planificador que sustituya al WFL) puede evaluar para disparar la ruta de atención.",
+          "reglas": [
+            "RN-S500-651"
+          ],
+          "riesgo": "El mensaje de opción inválida dice USE 1 A 5 aunque la opción 6 es válida, y una opción inválida no cambia el TASKVALUE ni marca error: el paso termina normal."
+        },
+        {
+          "id": "s5",
+          "titulo": "Lectura del último registro de reinicio",
+          "linea_ini": 2221,
+          "linea_fin": 2269,
+          "origen_codigo": " 001-LEE-ULTIMO-REG.\n*=======================\n   READ  I02-REINICIO     INTO  I02-R00-REINICIO AT END\n      MOVE 1     TO WKS-FIN-REINICIO.\n 001-VALIDA-INICIO.\n*=======================\n    CHANGE ATTRIBUTE TITLE OF I02-REINICIO TO  WKS-TIT-REINICIO\n    MOVE 0 TO WKS-SI-HAY-REINICIO\n    IF ATTRIBUTE RESIDENT OF I02-REINICIO IS = VA TRUE\n       MOVE 0 TO WKS-FIN-REINICIO\n       PERFORM 001-LEE-REINICIO\n       MOVE 1 TO WKS-SI-HAY-REINICIO\n    ELSE\n       MOVE 1 TO WKS-TIT-CPY-I10.\n 001-LEE-REINICIO.\n    OPEN  INPUT I02-REINICIO\n    PERFORM 001-LEE-ULTIMO-REG UNTIL WKS-FIN-REINICIO = 1\n    MOVE  I02-FD-R00-SEC   TO WKS-TIT-CPY-I10\n    MOVE  I02-FD-R00-FECHA TO WKS-TIT-FEC-I10\n    MOVE  0 TO WKS-FIN-REINICIO.\n    CLOSE I02-REINICIO.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ReinicioTasklet implements Tasklet {\n\n    private final ReinicioRepository reinicio;   // I02-REINICIO\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        var ultimo = reinicio.ultimo();            // READ ... UNTIL AT END: se queda con el último\n        if (ultimo.isPresent()) {\n            ec.putInt(\"secuenciaArchivo\", ultimo.get().secuenciaArchivo());   // WKS-TIT-CPY-I10\n            ec.putString(\"fechaArchivo\", ultimo.get().fechaAammdd());        // WKS-TIT-FEC-I10\n            ec.putString(\"contratoReinicio\", ultimo.get().contrato());       // WKS-SI-HAY-REINICIO = 1\n        } else {\n            ec.putInt(\"secuenciaArchivo\", 1);\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Si existe el archivo de reinicio, el programa lo lee completo para quedarse con el último renglón y de ahí toma el número de archivo de cancelados, la fecha y el contrato donde se quedó. Si no existe, empieza en el archivo 01. En Spring Batch esta información se coloca en el <code>ExecutionContext</code>; además, el propio mecanismo de reinicio del framework puede sustituir al archivo, pero se conserva para no cambiar el reporte que se arma a partir de él.",
+          "reglas": [
+            "RN-S500-647"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Procesamiento de cancelados y aviso al S016",
+      "origen": {
+        "archivo": "S500_SOURCE_P106.txt",
+        "contexto": "PROCEDURE DIVISION · 001-PROCESA-CANCELADOS / 001-LEE-CANCELADOS / 001-AVISA-CANC-S016 / 001-LLENA-VARIABLES / 002-WRITE-REINICIO"
+      },
+      "java": {
+        "archivo": "CanceladosReader.java · CanceladoProcessor.java · S016CancelacionClient.java · ReinicioWriter.java",
+        "contexto": "MultiResourceItemReader · ItemProcessor · @Service · ItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Archivos 01 a 03 con aviso si no son residentes",
+          "linea_ini": 2273,
+          "linea_fin": 2307,
+          "origen_codigo": " 001-PROCESA-CANCELADOS.\n*=======================\n MOVE 0 TO W77-EOF\n MOVE 70 TO W77-R12-NLIN\n MOVE SPACE TO I02-FD-MENSAJE\n SET I02-CANCELADOS (TITLE)   TO WKS-TIT-CANCEL.\n IF ATTRIBUTE RESIDENT OF I02-CANCELADOS IS = VALUE TRUE\n    OPEN INPUT I02-CANCELADOS\n    PERFORM 001-LEE-CANCELADOS UNTIL W77-EOF = 1\n    ADD  1 TO WKS-TIT-CPY-I10\n    MOVE 0 TO W77-SI-DETALLE\n    CLOSE I02-CANCELADOS WITH SAVE\n ELSE\n    STRING \" ARCHIVO \" WKS-TIT-CANCEL \" NO RESIDENTE\"\n    DELIMITED BY SIZE INTO I02-FD-MENSAJE\n    ADD 1 TO WKS-TIT-CPY-I10\n    PERFORM 002-WRITE-REINICIO.",
+          "java_codigo": "@Bean\n@StepScope\nMultiResourceItemReader<RegistroCancelado> canceladosReader(\n        @Value(\"#{jobExecutionContext['secuenciaArchivo']}\") Integer desde,\n        P106Rutas rutas, ReinicioWriter reinicio, CanceladoLineReader delegado) {\n\n    var existentes = new ArrayList<Resource>();\n    for (int sec = desde; sec <= 3; sec++) {                 // UNTIL WKS-TIT-CPY-I10 > 3\n        Resource r = rutas.cancelados(sec);                  // S500/FILE/CANCELADOS/{csi}/{fecha}/{sec}.\n        if (r.exists()) {\n            existentes.add(r);\n        } else {\n            reinicio.anotaMensaje(\" ARCHIVO \" + r.getFilename() + \" NO RESIDENTE\", sec + 1);\n        }\n    }\n    return new MultiResourceItemReaderBuilder<RegistroCancelado>()\n            .name(\"cancelados\")\n            .resources(existentes.toArray(Resource[]::new))\n            .comparator((a, b) -> 0)                         // conservar el orden 01, 02, 03\n            .delegate(delegado)\n            .build();\n}",
+          "racional": "El programa procesa hasta tres archivos de cancelados de la fecha, empezando en el que indique el reinicio. Antes de abrir cada uno revisa que sea residente; si falta, no aborta: deja un renglón con el mensaje en el archivo de reinicio, que después aparece en el reporte. Un <code>MultiResourceItemReader</code> con la lista de archivos presentes reproduce el recorrido, y el aviso de archivo faltante se escribe por el mismo canal que usa el fuente.",
+          "reglas": [
+            "RN-S500-652"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Salto hasta el contrato de reinicio, validación de header y detalle",
+          "linea_ini": 2345,
+          "linea_fin": 2421,
+          "origen_codigo": " 001-LEE-CANCELADOS.\n*===================\n  READ I02-CANCELADOS INTO WKS-I10-REG-CANCEL\n                      AT END MOVE 1 TO W77-EOF.\n  IF WKS-SI-HAY-REINICIO = 1\n     IF I02-FD-R00-CTO = WKS-I10-CONTRA-D3\n        MOVE 0 TO WKS-SI-HAY-REINICIO\n         EXIT PERFORM\n     ELSE\n        EXIT PERFORM\n  ELSE\n      NEXT SENTENCE.\n  IF W77-EOF = 0 AND WKS-I10-TPOREG-H = 1\n     IF WKS-110-FECH     = WKS-IN-FECH AND\n        WKS-I10-CSIORI-H = WKS-TIT-CSID-I10\n          NEXT SENTENCE\n     ELSE\n        PERFORM 001-ENCA-REP12\n        STRING \"ERROR EN HEADER: \" WKS-TIT-CANCEL\n        DELIMITED BY SIZE INTO TEXTO-LJ\n        WRITE R02-L00-CANC    FROM TEXTO-LJ AFTER 2\n        MOVE 1 TO  W77-EOF\n  ELSE\n  IF W77-EOF = 0 AND WKS-I10-TPOREG-D3 = 3\n    MOVE 1 TO W77-SI-DETALLE\n    IF WKS-IN-FILE = 5\n     PERFORM 001-AVISA-CANC-S016\n     PERFORM 002-WRITE-REINICIO\n    ELSE\n    IF WKS-IN-FILE = 6\n      MOVE 99 TO WS-S016-0701-RESULT\n      PERFORM 002-WRITE-REINICIO\n    ELSE\n      NEXT SENTENCE\n  ELSE\n     PERFORM 001-VALIDA-DET.",
+          "java_codigo": "@Component\n@StepScope\npublic class CanceladoProcessor implements ItemProcessor<RegistroCancelado, ResultadoCancelacion> {\n\n    @Value(\"#{jobExecutionContext['contratoReinicio']}\") private String contratoReinicio;\n    @Value(\"#{jobParameters['opcion']}\")                  private String opcion;\n    private final P106Parametros params;\n    private final int miCsi;\n    private final S016CancelacionClient s016;\n    private final ReinicioWriter reinicio;\n    @Value(\"#{jobExecutionContext['secuenciaArchivo']}\") private int secuencia;\n    private boolean huboDetalle;                                // se reinicia al abrir cada archivo\n\n    @Override\n    public ResultadoCancelacion process(RegistroCancelado reg) {\n        if (contratoReinicio != null) {                         // WKS-SI-HAY-REINICIO = 1\n            if (reg instanceof RegistroCancelado.Detalle d && d.contrato().equals(contratoReinicio)) {\n                contratoReinicio = null;                        // el propio contrato ya se avisó\n            }\n            return null;                                        // EXIT PERFORM: se salta\n        }\n        return switch (reg) {\n            case RegistroCancelado.Header h -> {\n                if (!h.fechaContableAammdd().equals(params.fecha().format(AAMMDD)) || h.csiOrigen() != miCsi) {\n                    throw new HeaderInvalidoException(\"ERROR EN HEADER\");   // W77-EOF = 1: deja el archivo\n                }\n                yield null;\n            }\n            case RegistroCancelado.Detalle d -> {\n                huboDetalle = true;                                           // W77-SI-DETALLE = 1\n                yield \"CANCELADOS_AVISA\".equals(opcion)\n                        ? ResultadoCancelacion.de(d, s016.avisa(d))          // 001-AVISA-CANC-S016\n                        : ResultadoCancelacion.de(d, 99);                    // opción 6: contingencia\n            }\n            case RegistroCancelado.Trailer t -> {                             // 001-VALIDA-DET\n                if (!huboDetalle) reinicio.anotaMensaje(\" ARCHIVO ... VACIO \", secuencia);\n                yield null;\n            }\n        };\n    }\n\n    private static final DateTimeFormatter AAMMDD = DateTimeFormatter.ofPattern(\"yyMMdd\");\n}\n// HeaderInvalidoException se registra con SkipPolicy por archivo: el reader pasa al siguiente.",
+          "racional": "Mientras haya un contrato de reinicio pendiente, todos los registros se saltan hasta encontrarlo, incluido el header. Sin reinicio, el header debe traer la fecha de la corrida y el CSI propio; si no, se imprime ERROR EN HEADER y se abandona ese archivo sin aplicar nada. Cada detalle se avisa al S016 en la opción 5 o se marca con resultado 99 en la opción 6, que es la ruta de contingencia. La validación de header se traduce como excepción que el step trata por archivo, de modo que los demás archivos siguen procesándose como en el original.",
+          "reglas": [
+            "RN-S500-646",
+            "RN-S500-647",
+            "RN-S500-648"
+          ],
+          "riesgo": "Mientras se busca el contrato de reinicio no se valida ningún header, y si el contrato no aparece en el archivo indicado, el archivo completo se salta sin aviso. La fecha del header se compara sin el siglo (WKS-I10-SIG no participa)."
+        },
+        {
+          "id": "s8",
+          "titulo": "Aviso de cancelación al S016 con estatus 31",
+          "linea_ini": 2443,
+          "linea_fin": 2467,
+          "origen_codigo": " 001-AVISA-CANC-S016.\n*====================\n* MOVE ZEROS  TO WS-S016-0701-ENTRADA WS-S016-0701-RESULT.\n MOVE WKS-I10-PRODUC-D3  TO WS-S016-0701-CTA-NUMPROD-E.\n MOVE WKS-I10-INSTRU-D3  TO WS-S016-0701-CTA-CVEINST-E.\n MOVE 0                  TO WS-S016-0701-CTA-NUMPREF-E.\n MOVE WKS-I10-CONTRA-D3  TO WS-S016-0701-CTA-NUM-E    .\n MOVE 03                 TO WS-S016-0701-CTR-OPCION-E .\n MOVE 31                 TO WS-S016-0701-CTA-CVESTATUS-E.\n MOVE 0                  TO WS-S016-0701-MDA-CVESTATUS-E.\n PERFORM 20000016-L428-B04CTAB08MDA.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class S016CancelacionClient {\n\n    private static final int OPCION_CONTROL = 3;        // WS-S016-0701-CTR-OPCION-E\n    private static final int ESTATUS_CANCELADA = 31;    // WS-S016-0701-CTA-CVESTATUS-E\n    private final S016L428Port l428;                    // S016L428 B04CTAB08MDA\n\n    /** 001-AVISA-CANC-S016: devuelve el resultado que se guarda en el reinicio (0 = aceptado). */\n    public int avisa(RegistroCancelado.Detalle d) {\n        var entrada = new CancelacionCuentaRequest(      // objeto nuevo en cada llamada\n                d.producto(), d.instrumento(),\n                0,                                       // NUMPREF (sucursal) siempre 0\n                d.contrato(), OPCION_CONTROL, ESTATUS_CANCELADA,\n                0);                                      // MDA-CVESTATUS\n        return l428.b04CtaB08Mda(entrada).resultado();\n    }\n}",
+          "racional": "Por cada contrato cancelado se llena la entrada de la rutina de S016 con producto, instrumento y contrato, sucursal en cero, opción de control 03 y estatus de cuenta 31, y se invoca L428. El resultado no se evalúa aquí: se guarda en el reinicio y se cuenta después en el reporte. En Java la entrada se construye como objeto nuevo en cada llamada, lo que evita arrastrar valores de la llamada anterior.",
+          "reglas": [
+            "RN-S500-644"
+          ],
+          "riesgo": "La limpieza de WS-S016-0701-ENTRADA está comentada (línea 2447): cualquier campo de la entrada que no se mueve explícitamente conserva el valor de la llamada anterior o del retorno de L428."
+        },
+        {
+          "id": "s9",
+          "titulo": "Conteo de aceptados y rechazos y señal de incidente",
+          "linea_ini": 2485,
+          "linea_fin": 2339,
+          "origen_codigo": " 001-LLENA-VARIABLES.\n*==========================\n MOVE SPACES TO WLI-R12-L12-DETALLE\n MOVE 0      TO WLI-R12-L12-CTE\n IF I02-FD-RESULT > 0  AND I02-FD-MENSAJE = SPACES\n    ADD 1                 TO  W77-REPCAN-RCHZ.\n IF I02-FD-RESULT = 0  AND I02-FD-MENSAJE = SPACES\n    ADD 1                 TO  W77-REPCAN-ACEPT.\n MOVE I02-FD-CLIENT   TO WLI-R12-L12-CTE\n MOVE I02-FD-PRODUC   TO WLI-R12-L12-PROD\n MOVE I02-FD-INSTRU   TO WLI-R12-L12-INST\n MOVE I02-FD-MONEDA   TO WLI-R12-L12-MONEDA\n MOVE I02-FD-R00-CTO  TO WLI-R12-L12-CTO\n MOVE I02-FD-RESULT   TO WLI-R12-L12-RSLT.\n COMPUTE W77-REPCAN-TOTAL=W77-REPCAN-RCHZ + W77-REPCAN-ACEPT\n MOVE    W77-REPCAN-TOTAL TO WLI-R12-L01-TOTAL.\n PERFORM 001-ESC-REPCANCEL.\n 001-ENCIENDE-INC.\n*===================\n IF W77-REPCAN-RCHZ > 0\n   MOVE 50 TO W77-ENC-INC.",
+          "java_codigo": "@Component\n@StepScope\npublic class ReporteCanceladosProcessor implements ItemProcessor<RegistroReinicio, LineaReporteCancelados> {\n\n    private long rechazados, aceptados;                 // W77-REPCAN-RCHZ / W77-REPCAN-ACEPT\n\n    @Override\n    public LineaReporteCancelados process(RegistroReinicio r) {\n        boolean esMensaje = !r.mensaje().isBlank();     // archivo no residente o vacío\n        if (!esMensaje) {\n            if (r.resultadoS016() > 0) rechazados++; else aceptados++;\n        }\n        return esMensaje ? LineaReporteCancelados.mensaje(r.mensaje())\n                         : LineaReporteCancelados.detalle(r, aceptados + rechazados);\n    }\n\n    @AfterStep\n    ExitStatus publica(StepExecution se) {\n        se.getJobExecution().getExecutionContext().putLong(\"rechazos\", rechazados);   // 001-ENCIENDE-INC\n        return se.getExitStatus();\n    }\n}",
+          "racional": "El reporte se arma releyendo el archivo de reinicio: los renglones con mensaje se imprimen como aviso y no cuentan; los demás cuentan como rechazados si el resultado del S016 es mayor que cero y como aceptados si es cero. En la opción 6 todos los detalles llevan 99, por lo que todos cuentan como rechazados y encienden el incidente. El total de rechazos se publica en el contexto del job, donde el listener lo convierte en la señal 50 hacia el orquestador.",
+          "reglas": [
+            "RN-S500-650",
+            "RN-S500-651"
+          ]
+        },
+        {
+          "id": "s10",
+          "titulo": "Escritura del registro de reinicio por cada detalle",
+          "linea_ini": 2635,
+          "linea_fin": 2667,
+          "origen_codigo": " 002-WRITE-REINICIO.\n*=======================\n IF ATTRIBUTE RESIDENT OF I02-REINICIO IS = VA TRUE\n  OPEN EXTEND I02-REINICIO\n ELSE\n  OPEN OUTPUT I02-REINICIO.\n  MOVE WKS-IN-FECH         TO I02-FD-R00-FECHA.\n  MOVE WKS-I10-CONTRA-D3   TO I02-FD-R00-CTO.\n  MOVE WKS-TIT-CPY-I10     TO I02-FD-R00-SEC.\n  MOVE WKS-I10-PRODUC-D3   TO I02-FD-PRODUC.\n  MOVE WKS-I10-INSTRU-D3   TO I02-FD-INSTRU.\n  MOVE WKS-I10-MONEDA-D3   TO I02-FD-MONEDA.\n  MOVE WKS-I10-CLIENT-D3   TO I02-FD-CLIENT.\n  MOVE WS-S016-0701-RESULT TO I02-FD-RESULT.\n  WRITE I02-R00-REINICIO.\n*  PERFORM 004-CIERRA-REINICIO.\n  CLOSE I02-REINICIO WITH SAVE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ReinicioWriter implements ItemWriter<ResultadoCancelacion> {\n\n    private final ReinicioRepository reinicio;   // OPEN EXTEND / OPEN OUTPUT + WRITE + CLOSE WITH SAVE\n    @Value(\"#{jobParameters['fecha']}\") private String fechaAammdd;\n    @Value(\"#{jobExecutionContext['secuenciaArchivo']}\") private int secuencia;\n\n    @Override\n    @Transactional\n    public void write(Chunk<? extends ResultadoCancelacion> chunk) {\n        for (var r : chunk) {\n            reinicio.agrega(new RegistroReinicio(fechaAammdd, r.contrato(), secuencia,\n                    r.producto(), r.instrumento(), r.moneda(), r.cliente(), r.resultado(), \"\"));\n        }\n    }\n\n    /** Renglón de aviso (archivo no residente o vacío): el fuente reutiliza el último detalle leído. */\n    public void anotaMensaje(String mensaje, int secuenciaSiguiente) {\n        reinicio.agrega(new RegistroReinicio(fechaAammdd, \"\", secuenciaSiguiente, 0, 0, 0, \"\", 0, mensaje));\n    }\n}",
+          "racional": "Cada detalle procesado se agrega al archivo de reinicio, que se abre en modo extensión y se cierra con <code>SAVE</code> después de cada escritura; así, si el programa cae, el último renglón indica dónde continuar. En Java el registro se guarda en una tabla o archivo de control dentro de la transacción del chunk. Para los renglones de aviso se escriben producto, contrato y cliente vacíos en lugar de los del último detalle, que es lo que hace el fuente al no limpiar esos campos.",
+          "reglas": [
+            "RN-S500-647"
+          ],
+          "riesgo": "En el aviso de archivo no residente o vacío, 002-WRITE-REINICIO graba el contrato del último detalle leído y la secuencia ya incrementada; al reanudar, se buscaría ese contrato en el archivo siguiente."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Reanudación que puede saltar un archivo completo",
+      "detalle": "001-LEE-CANCELADOS salta registros hasta encontrar el contrato del último reinicio (líneas 2355-2369). Si el último renglón de reinicio es un aviso de archivo faltante o vacío, guarda el contrato del detalle anterior con la secuencia siguiente (líneas 2301-2307 y 2647-2651), y ese contrato no estará en el archivo siguiente: todo el archivo se saltaría sin avisar al S016."
+    },
+    {
+      "titulo": "Entrada a S016L428 sin limpiar",
+      "detalle": "El MOVE ZEROS de WS-S016-0701-ENTRADA está comentado (línea 2447); los campos no asignados explícitamente arrastran valores de la llamada anterior."
+    },
+    {
+      "titulo": "Header inválido sin abortar",
+      "detalle": "Un header con fecha o CSI distintos (líneas 2375-2393) sólo imprime ERROR EN HEADER y cierra ese archivo; la corrida continúa con el siguiente y no enciende el incidente si no hubo rechazos."
+    },
+    {
+      "titulo": "Hardcodes de hosts y plazas",
+      "detalle": "Los cuatro hosts que definen CSI 10 (líneas 1627-1633), las sucursales 3667 y 3084 con sus nombres (líneas 2575-2585) y el título de LIBLJ están compilados. Se trasladan a application.yml."
+    },
+    {
+      "titulo": "Comparación de fecha sin siglo",
+      "detalle": "El header se valida con WKS-110-FECH de seis dígitos contra WKS-IN-FECH; el campo de siglo WKS-I10-SIG no se usa."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME si el escenario de reanudación tras un archivo no residente o vacío ocurre en producción; por el código, el contrato guardado no corresponde al archivo de la secuencia siguiente.",
+    "Confirmar los valores de resultado que devuelve S016L428 (20000016-L428-B04CTAB08MDA, en el COPY S500/INC/PRO/25MTP004 no inlineado) y si alguno distinto de cero debería contarse como aceptado.",
+    "El pseudocódigo atribuye a P106 la regla RN-S500-643, que no está en las reglas del inventario para este componente; no se usó.",
+    "Las DECLARATIVES (líneas 1477-1497) declaran INTERRUPT-BY-PGM sin instrucciones y el ATTACH está comentado (línea 1617); confirmar que no se espera manejo de HI.",
+    "Confirmar el pivote de siglo para WKS-IN-FECH (AAMMDD); se dejó configurable con 50 por coherencia con CRONOS2K.",
+    "No se transcribieron las consultas de rechazos, log e incidentes (opciones 1 a 4)."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-643",
+    "RN-S500-644",
+    "RN-S500-645",
+    "RN-S500-646",
+    "RN-S500-647",
+    "RN-S500-648",
+    "RN-S500-649",
+    "RN-S500-650",
+    "RN-S500-651",
+    "RN-S500-652"
+  ]
+}

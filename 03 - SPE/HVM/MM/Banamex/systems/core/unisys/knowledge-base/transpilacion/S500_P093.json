@@ -1,0 +1,122 @@
+{
+  "slug": "S500_P093",
+  "sistema": "S500",
+  "programa": "P093",
+  "nombre": "Arranque en Línea del Envío Asíncrono de Cancelaciones (instancia L093)",
+  "funcion": "Segunda instancia del wrapper ALGOL de arranque en línea: igual que P091, cede el control a ENVIA_CANCELACIONES de TIME_OUT, pero resuelve la versión de la librería con el identificador L093ASIN y deja su volcado en S500/LIST/P093.",
+  "resumen": "P093 es una copia de P091 con tres diferencias de configuración: la versión de compilación (06.001.06000 contra 99.01.00), el identificador con el que pide a CTRLVERS el título de TIME_OUT (usercode.L093ASIN) y el prefijo del archivo de volcado (S500/LIST/P093). El resto es idéntico: obtiene el CSI con SOPORTECOMS, activa las opciones de volcado, habilita COMS en modo ONLINE, desliga las librerías auxiliares y llama a ENVIA_CANCELACIONES con sus encabezados y eventos. La directiva $SET TADS aparece en la línea 2 pero está comentada.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s500.cancelaciones.arranque",
+  "secciones": [
+    {
+      "titulo": "Diferencias de configuración respecto a P091",
+      "origen": {
+        "archivo": "S500_SOURCE_P093_ASINCRONO.txt",
+        "contexto": "Directivas · PROCEDURE INICIA"
+      },
+      "java": {
+        "archivo": "application-l093.yml · ArranqueProperties.java",
+        "contexto": "perfil de Spring · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Versión de compilación y directiva TADS comentada",
+          "linea_ini": 1,
+          "linea_fin": 3,
+          "origen_codigo": "$ SET VERSION 06.001.06000\n%$ SET TADS\nBEGIN",
+          "java_codigo": "# application-l093.yml  (perfil de la instancia L093)\narranque:\n  version: \"06.001.06000\"     # $ SET VERSION 06.001.06000\n  modo-depuracion: false      # %$ SET TADS: la directiva está comentada\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"arranque\")\npublic record ArranqueProperties(String version, boolean modoDepuracion,\n                                 String sufijoLibreria, String prefijoVolcado) {}",
+          "racional": "La primera diferencia con P091 está en las directivas de compilación: otra versión y una línea <code>$ SET TADS</code> precedida por <code>%</code>, que en ALGOL de MCP es comentario. Por eso el programa no se compila en modo de depuración TADS. En Java ambas cosas son propiedades de un perfil de Spring; la versión pasa a ser la del artefacto desplegado.",
+          "reglas": [],
+          "riesgo": "La documentación existente atribuye a P093 el modo TADS activo; el fuente lo desmiente."
+        },
+        {
+          "id": "s2",
+          "titulo": "Identificador L093ASIN para el título de TIME_OUT",
+          "linea_ini": 16,
+          "linea_fin": 37,
+          "origen_codigo": "PROCEDURE INICIA;\n    BEGIN\n    EBCDIC ARRAY E_MSG, TITULO[0:71], AUX[0:20];\n    EBCDIC VALUE ARRAY MY_ID(\"18MTP002\");\n    REPLACE AUX BY MYSELF.USERCODE;\n    REPLACE E_MSG BY AUX UNTIL = \".\",\"L093ASIN\",48\"00\";\n    IF DAME_TIT(E_MSG,TITULO) < 0 THEN\n        DISPLAY(\"ERROR AL LLAMAR A CONTROL DE VERSIONES\")\n    ELSE\n        REPLACE TIME_OUT.TITLE BY TITULO FOR 72;",
+          "java_codigo": "# application-l093.yml\narranque:\n  sufijo-libreria: \"L093ASIN\"   # P091 usa L091ASIN\n\n// ---------------------------------------------------------------------------\nString resuelveVersionTimeOut(String usercode) {\n    return ctlvers.dameTitulo(usercode + \".\" + props.sufijoLibreria())   // DAME_TIT(E_MSG, TITULO)\n            .orElseGet(() -> {\n                log.warn(\"ERROR AL LLAMAR A CONTROL DE VERSIONES\");\n                return props.tituloTimeOutPorDefecto();\n            });\n}",
+          "racional": "El arranque pide a control de versiones el título de la librería TIME_OUT con el identificador usercode.L093ASIN, lo que permite que esta instancia use una versión de la librería distinta de la de P091. En Java el sufijo es una propiedad del perfil y el método es el mismo para las dos instancias. <code>MY_ID</code> se declara con 18MTP002 pero no se usa, por eso no tiene equivalente.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Prefijo propio del archivo de volcado",
+          "linea_ini": 39,
+          "linea_fin": 46,
+          "origen_codigo": "    CSIID(E_MSG);\n    MYSELF.OPTIONS:=* & 1 [VALUE(BDBASE):1]\n                      & 1 [VALUE(FAULT) :1]\n                      & 1 [VALUE(DSED)  :1]\n                      & 1 [VALUE(ARRAYS):1];\n    REPLACE TITULO BY \"S500/LIST/P093/\",E_MSG FOR 2,\n        \"00/R000/\",TIME(15).[15:48],\".\";\n    REPLACE MYSELF.BDNAME BY TITULO;",
+          "java_codigo": "# application-l093.yml\narranque:\n  prefijo-volcado: \"S500/LIST/P093\"   # P091: S500/LIST/P091\n\n// ---------------------------------------------------------------------------\nPath rutaVolcado(int csi, LocalTime arranque) {   // {prefijo}/{csi}00/R000/{hora}.\n    return Path.of(props.prefijoVolcado(), \"%02d00\".formatted(csi), \"R000\",\n                   arranque.format(DateTimeFormatter.ofPattern(\"HHmmss\")));\n}",
+          "racional": "Las opciones de volcado son las mismas que en P091; cambia solo el prefijo del archivo que se asigna a BDNAME. Con el prefijo en el perfil, el mismo componente genera la ruta de cada instancia y los volcados de ambas no se mezclan.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Arranque COMS y cesión del control (idéntico a P091)",
+      "origen": {
+        "archivo": "S500_SOURCE_P093_ASINCRONO.txt",
+        "contexto": "Bloque externo · PROCEDURE INICIA · cuerpo principal"
+      },
+      "java": {
+        "archivo": "ArranqueCancelacionesRunner.java",
+        "contexto": "ApplicationRunner compartido con P091"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Encabezados COMS y librería TIME_OUT ligada por título",
+          "linea_ini": 5,
+          "linea_fin": 14,
+          "origen_codigo": "INPUTHEADER     COMSINHDR;\nOUTPUTHEADER    COMSOUTHDR;\nLIBRARY TIME_OUT(LIBACCESS = BYTITLE);\nPROCEDURE ENVIA_CANCELACIONES(COMS_IN,COMS_OUT,IN_EV,TSK_EV);\n    INPUTHEADER  COMS_IN;\n    OUTPUTHEADER COMS_OUT;\n    EVENT        IN_EV, TSK_EV;\n    LIBRARY TIME_OUT;",
+          "java_codigo": "/** Mismo puerto que P091: la lógica real vive en TIME_OUT (L091). */\npublic interface EnvioCancelacionesPort {\n    void enviaCancelaciones(ComsCanal canal);   // ENVIA_CANCELACIONES(COMS_IN, COMS_OUT, IN_EV, TSK_EV)\n}",
+          "racional": "La declaración de los encabezados de entrada y salida y del procedimiento externo es idéntica a la de P091. Las dos instancias comparten el mismo puerto en Java, de modo que solo hay una implementación del servicio heredero de L091.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "ENABLE ONLINE y liberación de librerías auxiliares",
+          "linea_ini": 47,
+          "linea_fin": 50,
+          "origen_codigo": "    ENABLE(COMSINHDR,\"ONLINE\");\n    DELINKLIBRARY(CTLVER);\n    DELINKLIBRARY(SHELL);\n    END INICIA;",
+          "java_codigo": "@Bean\nIntegrationFlow cancelacionesEnLinea(ComsInboundAdapter coms) {   // ENABLE(COMSINHDR, \"ONLINE\")\n    return IntegrationFlow.from(coms).channel(\"cancelaciones.entrada\").get();\n}\n// DELINKLIBRARY(CTLVER) / DELINKLIBRARY(SHELL): los clientes de arranque no se vuelven a usar.",
+          "racional": "Al final del procedimiento de inicio se habilita el encabezado COMS en modo ONLINE y se desligan las librerías de control de versiones y SOPORTECOMS. En Java la habilitación es el arranque del adaptador de entrada; el desligado no requiere código porque los clientes de arranque simplemente dejan de usarse.",
+          "reglas": []
+        },
+        {
+          "id": "s6",
+          "titulo": "Cuerpo principal con la llamada bloqueante",
+          "linea_ini": 52,
+          "linea_fin": 57,
+          "origen_codigo": "INICIA;\nENVIA_CANCELACIONES\n    (COMSINHDR,COMSOUTHDR,MYSELF.DCIINPUTEVENT,MYSELF.DCITASKEVENT);\nEND.",
+          "java_codigo": "@Component\n@Profile(\"l093\")\n@RequiredArgsConstructor\npublic class ArranqueCancelacionesRunner implements ApplicationRunner {\n\n    private final EnvioCancelacionesPort envio;\n    private final ComsCanal canal;\n\n    @Override\n    public void run(ApplicationArguments args) {\n        inicia();                              // INICIA;\n        envio.enviaCancelaciones(canal);       // no regresa mientras el servicio esté activo\n    }\n}",
+          "racional": "El cuerpo principal llama al procedimiento de inicio y después cede el control a la librería hasta que termina. Se traduce con el mismo <code>ApplicationRunner</code> de P091 activado con el perfil <code>l093</code>, lo que elimina la duplicación de código entre las dos instancias.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Código duplicado entre P091 y P093",
+      "detalle": "Los dos programas difieren solo en literales. Cualquier corrección al arranque debe hacerse dos veces; en Java se recomienda un solo componente con dos perfiles de configuración."
+    },
+    {
+      "titulo": "Falla de control de versiones sin aborto",
+      "detalle": "Si DAME_TIT regresa un valor negativo (línea 34), la tarea muestra un aviso y sigue con el título de TIME_OUT compilado, que puede no ser el de la instancia L093."
+    },
+    {
+      "titulo": "Directiva de depuración comentada",
+      "detalle": "La línea 2 contiene %$ SET TADS: el signo % convierte la directiva en comentario, por lo que P093 no se compila con soporte TADS aunque la documentación del brain diga lo contrario."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario no asigna reglas del brain a P093. RN-S500-776 describe a P091 y P093 juntos y afirma que P093 activa $SET TADS; en el fuente la directiva está comentada (línea 2). Corregir la regla y asignarla también a P093.",
+    "Confirmar qué distingue operativamente a la instancia L093ASIN de L091ASIN (por ejemplo, otro conjunto de terminales o una ventana COMS distinta); el fuente no lo dice.",
+    "MY_ID vale 18MTP002 (línea 19) y no se usa; confirmar si debería validarse la versión del propio programa como en otros pasos de S500."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

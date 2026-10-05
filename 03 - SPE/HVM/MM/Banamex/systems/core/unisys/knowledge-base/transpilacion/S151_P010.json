@@ -1,0 +1,295 @@
+{
+  "slug": "S151_P010",
+  "sistema": "S151",
+  "programa": "P010",
+  "nombre": "LINEA, hub online de consultas de movimientos",
+  "funcion": "Programa online persistente de S151 registrado en COMS que recibe pantallas de consulta y administración de unos 30 sistemas contables, valida seguridad y fechas, y delega la consulta a la librería LIB-CONS del sistema destino.",
+  "resumen": "LINEA espera eventos de COMS con ESPERACOMS y, cuando llega un mensaje, lo recibe en un buffer de 1920 bytes cuyo header trae el código de resultado que decide si se procesa, se rechaza o se reenvía a otro nodo CSI. Por cada pantalla (11 a 30 de consulta y 81 a 88 de administración) separa los campos con UNSTRING, valida numéricos con JUSTIFIER de LOCSUP, aplica la validación de entidad y facultad cuando la seguridad está activa, y llama a S151LIB030 en la librería LIB-CONS del sistema. Registra cada operación en la bitácora de S151L010 y responde por COMS. No genera asientos contables. Las interrupciones del operador (HI) encienden el monitor, activan o desactivan la seguridad, recargan catálogos y terminan el programa.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s151.consultas.linea",
+  "secciones": [
+    {
+      "titulo": "Mensaje COMS y ciclo de atención",
+      "origen": {
+        "archivo": "COBOL_P010.txt",
+        "contexto": "WORKING-STORAGE WKS-MSG · 200000-PROC · 600000-REC-MSG"
+      },
+      "java": {
+        "archivo": "ComsMessage.java · LineaGateway.java",
+        "contexto": "record · enum · @ServiceActivator"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Buffer WKS-MSG con header de ruteo a record y enum de resultado",
+          "linea_ini": 346,
+          "linea_fin": 388,
+          "origen_codigo": " 01  WKS-MSG                       PIC X(1920) WITH LOWER-BOUNDS. 003500\n 01  WKS-MSG-R                     REDEFINES WKS-MSG.             003600\n     02 WKS-MSG-HEADER.                                           003700\n        03 WKS-MSGHDR-PREFIJO      PIC X(01).                     003800\n        03 WKS-MSGHDR-APL-DES      PIC X(01).                     003900\n        03 WKS-MSGHDR-CCR-DES      PIC 9(02).                     004000\n        03 WKS-MSGHDR-LST-ORG      PIC 9(04).                     004100\n        03 WKS-MSGHDR-LST-ORG-R    REDEFINES                      004200\n           WKS-MSGHDR-LST-ORG      PIC 9(08) COMP.                004300\n        03 WKS-MSGHDR-STATION.                                    004400\n           04 WKS-MSGHDR-TPO       PIC X(01).                     004500\n           04 WKS-MSGHDR-SUC       PIC 9(04).                     004600\n           04 WKS-MSGHDR-CJAL      PIC X(03).                     004610\n           04 WKS-MSGHDR-CJAL-R    REDEFINES WKS-MSGHDR-CJAL.     004615\n              05 WKS-MSGHDR-PRIV   PIC X(01).                     004700\n              05 WKS-MSGHDR-CAJ    PIC 9(02).                     004800\n        03 WKS-MSGHDR-CCR-ORG      PIC 9(02).                     004900\n        03 WKS-MSGHDR-COP-ORG      PIC 9(02).                     005000\n        03 WKS-MSGHDR-FAC          PIC 9(02).                     005100\n        03 WKS-MSGHDR-FAC-R        REDEFINES                      005200\n           WKS-MSGHDR-FAC          PIC X(02).                     005300\n        03 WKS-MSGHDR-APL-ORG      PIC X(01).                     005400\n        03 WKS-MSGHDR-RES          PIC 9(02).                     005500\n           88 W88-MSGRES-APL       VALUE 2, 4.                    005600\n           88 W88-MSGRES-RED       VALUE 11, 12.                  005700\n           88 W88-MSGRES-REDFOR    VALUE 12.                      005800\n           88 W88-MSGRES-MAS       VALUE 3.                       005900\n           88 W88-MSGRES-TER       VALUE 1.                       006000\n           88 W88-MSGRES-ERR       VALUE 31, 32, 33.              006100\n           88 W88-MSGRES-NOEXIAPL  VALUE 32.                      006200\n        03 WKS-MSGHDR-MASC         PIC X(5).                      006300\n        03 WKS-MSGHDR-MASC-R       REDEFINES WKS-MSGHDR-MASC.     006400\n           04 WKS-MSGHDR-MASC-1ER  PIC 9(03).                     006500\n           04 WKS-MSGHDR-MASC-2DO  PIC 9(02).                     006600\n        03 WKS-MSGHDR-PWR          PIC X(6).                      006700\n     02 WKS-TEXTO                  PIC X(1884).                   006800\n     02 WKS-TEXTO-R                REDEFINES WKS-TEXTO.           006900\n        03 WKS-MSGTRAN-CODDES      PIC 9(06).                     007000\n        03 WKS-MSGTRAN-CODORI      PIC 9(06).                     007100\n        03 WKS-MSG-TEXTO           PIC X(1872).                   007200\n     02 WKS-TEXTO-TABLA            REDEFINES                      007300\n        WKS-TEXTO                  OCCURS 1884 TIMES.             007400\n        03 WKS-MSGREM-TEXTO-CHAR   PIC X(01).                     007500",
+          "java_codigo": "/** WKS-MSG: 1920 bytes = header de 36 posiciones + WKS-TEXTO X(1884). */\npublic record ComsMessage(Header header, String texto) {\n\n    public record Header(char prefijo, char aplDestino,\n                         int csiDestino,            // WKS-MSGHDR-CCR-DES 9(02)\n                         int lstOrigen,             // 9(04), REDEFINES binario 9(08) COMP\n                         Estacion estacion,\n                         int csiOrigen,             // WKS-MSGHDR-CCR-ORG 9(02)\n                         int copOrigen, String facultad,\n                         char aplOrigen,\n                         int resultado,             // WKS-MSGHDR-RES 9(02)\n                         String mascara,            // X(5): 3 dígitos de sistema + 2 de pantalla\n                         String pwr) {\n        public ResultadoHeader tipo() { return ResultadoHeader.of(resultado); }\n    }\n\n    /** TPO X + sucursal 9(04) + privilegio X + caja 9(02). La sucursal se conserva con ceros. */\n    public record Estacion(char tipo, String sucursal, char privilegio, String caja) {}\n}\n\n/** Niveles 88 de WKS-MSGHDR-RES. */\npublic enum ResultadoHeader {\n    TERMINAL(1), APLICACION(2, 4), MAESTRO(3), RED(11, 12),\n    NO_EXISTE_APLICACION(32), ERROR(31, 33), OTRO;\n\n    private final Set<Integer> valores;\n    ResultadoHeader(Integer... v) { this.valores = Set.of(v); }\n\n    static ResultadoHeader of(int r) {\n        return Arrays.stream(values()).filter(t -> t.valores.contains(r)).findFirst().orElse(OTRO);\n    }\n}",
+          "racional": "El header de COMS se lee por posición y cada <code>REDEFINES</code> se vuelve un tipo propio: la estación se separa en sucursal, privilegio y caja, y el resultado se interpreta con un <code>enum</code> que reproduce los niveles 88. En COBOL el valor 32 pertenece a la vez a <code>W88-MSGRES-ERR</code> y a <code>W88-MSGRES-NOEXIAPL</code>; como 200000-PROC pregunta primero por NOEXIAPL, el enum lo separa en su propia constante para conservar ese orden de evaluación. La sucursal y la caja se guardan como <code>String</code> para no perder ceros a la izquierda.",
+          "reglas": [
+            "RN-S151-241"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Despacho por resultado del header y mensajes de rechazo",
+          "linea_ini": 11469,
+          "linea_fin": 11505,
+          "origen_codigo": " 200000-PROC.                                                     145800\n     MOVE \"I\" TO TIPO-LJ.                                         145900\n     MOVE 050110 TO CODIGO-LJ.                                    146000\n     PERFORM 210000-INIC-VAR.                                     146100\n     PERFORM 600000-RECEIVE-MSG.                                  146200\n     IF W77-FIN = ZEROS                                           146300\n        IF W88-MSGRES-APL OR W88-MSGRES-RED OR W88-MSGRES-MAS OR  146400\n           W88-MSGRES-TER                                         146500\n           PERFORM 300000-PROCESA-MSG                             146600\n           PERFORM 600000-SEND-MSG                                146700\n        ELSE                                                      146800\n        IF W88-MSGRES-NOEXIAPL                                    146900\n           MOVE 29                 TO W77-RES-MSG                 147000\n           MOVE SPACES             TO WKS-SAL-ERRDATOS            147100\n           MOVE WKS-ELE-MSG(W77-RES-MSG)                          147200\n                                   TO WKS-SAL-ERRLEY              147300\n           MOVE 1867               TO W77-LONG-MSG                147400\n           MOVE WKS-SAL-TEXTO      TO WKS-DATOS-RES               147500\n           PERFORM 600000-SEND-MSG                                147600\n        ELSE                                                      147700\n        IF W88-MSGRES-ERR                                         147800\n           MOVE 30                 TO W77-RES-MSG                 147900\n           MOVE SPACES             TO WKS-SAL-ERRDATOS            148000\n           MOVE WKS-ELE-MSG(W77-RES-MSG)                          148100\n                                   TO WKS-SAL-ERRLEY              148200\n           MOVE 1867               TO W77-LONG-MSG                148300\n           MOVE WKS-SAL-TEXTO      TO WKS-DATOS-RES               148400\n           PERFORM 600000-SEND-MSG                                148500\n        ELSE                                                      148600\n           MOVE 31                 TO W77-RES-MSG                 148700\n           MOVE SPACES             TO WKS-SAL-ERRDATOS            148800\n           MOVE WKS-ELE-MSG(W77-RES-MSG)                          148900\n                                   TO WKS-SAL-ERRLEY              149000\n           MOVE 1867               TO W77-LONG-MSG                149100\n           MOVE WKS-SAL-TEXTO      TO WKS-DATOS-RES               149200\n           PERFORM 600000-SEND-MSG.                               149300\n     GO TO 299999-EXIT.                                           149400",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class LineaGateway {\n\n    private final PantallaDispatcher pantallas;      // 300000-PROCESA-MSG\n    private final CatalogoMensajes mensajes;         // WKS-ELE-MSG(n)\n\n    /** 200000-PROC: una iteración del ciclo por cada mensaje recibido de COMS. */\n    @ServiceActivator(inputChannel = \"comsEntrada\", outputChannel = \"comsSalida\")\n    public ComsRespuesta atiende(ComsMessage msg) {\n        return switch (msg.header().tipo()) {\n            case APLICACION, RED, MAESTRO, TERMINAL -> pantallas.procesa(msg);\n            case NO_EXISTE_APLICACION -> rechazo(msg, 29);\n            case ERROR                -> rechazo(msg, 30);\n            case OTRO                 -> rechazo(msg, 31);\n        };\n    }\n\n    private ComsRespuesta rechazo(ComsMessage msg, int codigo) {\n        // MOVE 1867 TO W77-LONG-MSG: la respuesta de error ocupa el área de texto completa\n        return ComsRespuesta.error(msg.header(), mensajes.texto(codigo), 1867);\n    }\n}",
+          "racional": "Cada vuelta de <code>PERFORM 200000-PROCESO UNTIL W77-FIN = 1</code> atiende un mensaje. En Spring Integration el ciclo infinito lo da el adaptador de entrada y el párrafo queda como un <code>@ServiceActivator</code> sin estado entre mensajes, lo que permite escalar horizontalmente. Los tres rechazos solo difieren en el número de mensaje (29, 30 y 31), por eso se factorizan en un método. El <code>switch</code> sobre el enum es exhaustivo, igual que la cadena de IF anidados.",
+          "reglas": [
+            "RN-S151-241",
+            "RN-S151-257"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Espera de eventos COMS y fin por interrupción del operador",
+          "linea_ini": 17103,
+          "linea_fin": 17138,
+          "origen_codigo": " 600000-REC-MSG.                                                  667500\n     MOVE ZERO TO W77-CONTROL.                                    667600\n     CALL \"ESPERACOMS OF SOPORTECOMS\"                             667700\n           USING  W77-ESPERACOMS-TIEMPO                           667800\n           GIVING W77-ESPERACOMS-TIPO-EVENTO.                     667900\n     IF W88-POR-MSG OR W88-POR-EVENTO                             668100\n        NEXT SENTENCE                                             668200\n     ELSE                                                         668300\n        IF W88-POR-ACCEPT                                         668400\n           ACCEPT WKS-SCRATCH                                     668500\n           MOVE 1                  TO W77-CONTROL                 668600\n        ELSE                                                      668700\n        IF W88-POR-HI                                             668800\n           IF W88-HI-FIN-NORMAL OR W88-HI-FIN-EMERGENCIA          668900\n              MOVE 1               TO W77-FIN                     669000\n                                      W77-CONTROL                 669100\n              PERFORM 999999-FIN                                  669200\n           ELSE                                                   669300\n              MOVE 1               TO W77-CONTROL                 669400\n              MOVE ZERO            TO W77-HI-INTERRUPT            669500\n        ELSE                                                      669600\n        IF W88-POR-TIMEOUT                                        669700\n           MOVE 1                  TO W77-CONTROL                 669800\n        ELSE                                                      669900\n           MOVE W77-ESPERACOMS-TIPO-EVENTO TO                     670000\n                WKS-ESPERACOMS-TIPO-EVENTO                        670100\n           STRING \"EVENTO DESCONOCIDO \"WKS-ESPERACOMS-TIPO-EVENTO 670200\n           DELIMITED BY SIZE INTO TEXTO-LJ                        670300\n           MOVE \"I\"                TO TIPO-LJ                     670400\n           PERFORM 800000-DISPLAY                                 670500\n           MOVE 1        TO W77-CONTROL.                          670600\n     IF W77-CONTROL = ZEROS                                       670700\n        RECEIVE CS-COMS-IN MESSAGE INTO WKS-MSG                   670800\n        NO DATA                                                   670900\n           NEXT SENTENCE.                                         671000",
+          "java_codigo": "@Configuration\npublic class ComsIntegrationConfig {\n\n    /** ESPERACOMS + RECEIVE CS-COMS-IN: el adaptador entrega solo eventos de tipo mensaje. */\n    @Bean\n    IntegrationFlow entradaComs(ComsInboundAdapter coms, LineaGateway gateway) {\n        return IntegrationFlow.from(coms, c -> c.poller(Pollers.fixedDelay(Duration.ZERO)))\n                .filter(ComsEvento.class, ComsEvento::esMensaje)      // ACCEPT, TIMEOUT y HI no generan respuesta\n                .transform(ComsEvento::mensaje)\n                .handle(gateway, \"atiende\")\n                .channel(\"comsSalida\")\n                .get();\n    }\n}\n\n/** HI 4 (fin normal) y HI 6 (emergencia) pasan a ser el apagado ordenado del contenedor. */\n@Component\n@RequiredArgsConstructor\nclass ComsLifecycle implements SmartLifecycle {\n    private final ComsAdministracion coms;\n    private volatile boolean activo;\n\n    @Override public void start() { coms.habilitaPrograma(); activo = true; }   // 140000-ALTA-COMS\n    @Override public void stop()  { coms.deshabilitaPrograma(); activo = false; } // 999999-FIN: SMCOMS \"DISABLE PROGRAM\"\n    @Override public boolean isRunning() { return activo; }\n}",
+          "racional": "600000-REC-MSG combina espera, filtrado de eventos y recepción. Los eventos que no son mensaje (ACCEPT, timeout, otras HI) solo ponen <code>W77-CONTROL = 1</code> y regresan a esperar; en Java eso es un <code>filter</code> en el flujo de entrada. La terminación por HI 4 o HI 6 llama a 999999-FIN, que deshabilita el programa en COMS; su equivalente es el <code>stop()</code> de un <code>SmartLifecycle</code>, de modo que un apagado del pod o del servicio produce la misma baja ordenada.",
+          "reglas": [
+            "RN-S151-257",
+            "RN-S151-261"
+          ],
+          "riesgo": "Tras HI 4 o HI 6 el párrafo deja W77-CONTROL = 1 y vuelve a 600000-REC-MSG (líneas 17232-17233), por lo que el ciclo no sale por W77-FIN sino cuando COMS devuelve el estatus 99 que ejecuta STOP RUN (línea 17146). Además 999999-FIN se invoca de nuevo desde 000000-INIPGM si el ciclo llegara a terminar."
+        }
+      ]
+    },
+    {
+      "titulo": "Seguridad: interruptor HI, entidad, facultad y clave de supervisor",
+      "origen": {
+        "archivo": "COBOL_P010.txt",
+        "contexto": "DECLARATIVES · 300000-PROC-PANTALLAS · 300010-CHECA-ENTIDAD · 310081-PANTALLA-81"
+      },
+      "java": {
+        "archivo": "SeguridadProperties.java · AutorizacionService.java",
+        "contexto": "@RefreshScope · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "HI 41, 42 y 43: activar, desactivar y consultar la validación de seguridad",
+          "linea_ini": 10656,
+          "linea_fin": 10676,
+          "origen_codigo": "     IF W88-HI-ALTA-SEGURIDAD                                     078900\n        MOVE 010132                            TO CODIGO-LJ       079000\n        MOVE \"VALIDA SEGURIDAD\"                TO TEXTO-LJ        079100\n        MOVE 1                                 TO W77-VALIDA-SEG  079200\n        PERFORM 800000-DISPLAY                                    079300\n     ELSE                                                         079400\n     IF W88-HI-BAJA-SEGURIDAD                                     079500\n        MOVE 010132                            TO CODIGO-LJ       079600\n        MOVE \"NO VALIDA SEGURIDAD\"             TO TEXTO-LJ        079700\n        MOVE 2                                 TO W77-VALIDA-SEG  079800\n        PERFORM 800000-DISPLAY                                    079900\n     ELSE                                                         080000\n     IF W88-HI-ESTATUS-SEGURIDAD                                  080100\n        IF W88-VALIDA-SEG                                         080110\n           MOVE \"VALIDANDO SEGURIDAD\"             TO TEXTO-LJ     080120\n           MOVE 010132                            TO CODIGO-LJ    080200\n           PERFORM 800000-DISPLAY                                 080400\n        ELSE                                                      080410\n          MOVE \"SIN VALIDAR SEGURIDAD\"           TO TEXTO-LJ      080420\n          MOVE 010132                            TO CODIGO-LJ     080430\n          PERFORM 800000-DISPLAY                                  080440",
+          "java_codigo": "# application.yml\nlinea:\n  seguridad:\n    validar: true        # W77-VALIDA-SEG: 1 = valida, 2 = no valida\n\n// ---------------------------------------------------------------------------\n@RefreshScope\n@ConfigurationProperties(\"linea.seguridad\")\npublic record SeguridadProperties(boolean validar) {}\n\n/** Reemplaza HI 41/42/43 por un endpoint de Actuator protegido y auditado. */\n@Component\n@Endpoint(id = \"seguridad-linea\")\n@RequiredArgsConstructor\nclass SeguridadEndpoint {\n    private final ConfigToggle toggle;\n    private final Auditoria auditoria;\n\n    @ReadOperation\n    public String estatus() {                                     // HI 43\n        return toggle.validar() ? \"VALIDANDO SEGURIDAD\" : \"SIN VALIDAR SEGURIDAD\";\n    }\n\n    @WriteOperation\n    public void cambia(boolean validar, @Selector String usuario) { // HI 41 / HI 42\n        auditoria.registra(\"linea.seguridad.validar\", toggle.validar(), validar, usuario);\n        toggle.validar(validar);\n    }\n}",
+          "racional": "La interrupción del operador cambia en caliente <code>W77-VALIDA-SEG</code> y deja una línea en el log LJ. En la arquitectura destino ese interruptor es una propiedad refrescable expuesta por un endpoint de Actuator que exige rol administrativo y registra quién lo movió, porque el brain documenta que apagar la seguridad en producción está penado. Se conserva el texto de estatus de HI 43.",
+          "reglas": [
+            "RN-S151-246"
+          ],
+          "riesgo": "Con HI 42 se omiten tanto 300010-CHECA-ENTIDAD como 420210-CHECA-SEGURIDAD para todas las pantallas, sin reinicio y sin más rastro que el mensaje del log LJ."
+        },
+        {
+          "id": "s5",
+          "titulo": "Compuertas de seguridad y armado del registro de bitácora",
+          "linea_ini": 11997,
+          "linea_fin": 12011,
+          "origen_codigo": "     IF W88-VALIDA-SEG AND WKS-MSGHDR-RES NOT = 2                 156900\n        PERFORM 300010-CHECA-ENTIDAD.                             157000\n     IF W88-VALIDA-SEG AND (WKS-MSGHDR-RES NOT = 2) AND           157200\n        W77-RES-MSG = ZEROS                                       157300\n        PERFORM 420210-CHECA-SEGURIDAD.                           157400\n     MOVE SPACES                  TO WKS-BIT-MSG-ANT              157600\n                                     WKS-BIT-MSG-POST.            157700\n     MOVE WS-FAC-ELEM2(1)         TO WKS-BIT-NOMINA   .           157900\n     MOVE WKS-MSGHDR-STATION      TO WKS-BIT-ESTACION  .          158000\n     MOVE WKS-MSGHDR-MASC         TO WKS-BIT-CVE-PANTALLA.        158100\n     MOVE \"S151\"                  TO WKS-BIT-SISTEMA  .           158200\n     MOVE W77-CVE-RESOL           TO WKS-BIT-CVE-RESULT.          158300",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class AutorizacionService {\n\n    private final SeguridadProperties seguridad;\n    private final EntidadService entidades;          // 300010-CHECA-ENTIDAD\n    private final FacultadClient facultades;         // 420210-CHECA-SEGURIDAD -> VALIDA_FACULTAD\n\n    public Autorizacion autoriza(Peticion p, ComsMessage.Header h) {\n        boolean local = h.resultado() != 2;          // un mensaje reenviado (RES = 2) ya se validó en el nodo origen\n        Autorizacion a = Autorizacion.noEvaluada();\n        if (seguridad.validar() && local) {\n            a = entidades.checa(p, h);\n        }\n        if (seguridad.validar() && local && p.sinError()) {\n            a = a.con(facultades.valida(p.claveTransaccion(), h));\n        }\n        return a;\n    }\n}\n\n/** WKS-REG-BITACORA, parte común a todas las pantallas. */\npublic record Bitacora(String nomina, String estacion, String clavePantalla,\n                       String sistema,                 // \"S151\" fijo\n                       int claveResultado,             // W77-CVE-RESOL\n                       String antes, String despues) {}",
+          "racional": "Las dos validaciones se ejecutan solo si la seguridad está activa y el mensaje no viene reenviado desde otro nodo. La segunda, contra el sistema de seguridad, además exige que la primera no haya dejado error. El registro de bitácora toma la nómina del usuario, la estación y la máscara de pantalla, y guarda la clave de resolución de la entidad. El literal <code>S151</code> se deja como constante porque identifica al propio sistema.",
+          "reglas": [
+            "RN-S151-244",
+            "RN-S151-245",
+            "RN-S151-259"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Facultad por sucursal: bloqueo de P17 y acceso cruzado",
+          "linea_ini": 12139,
+          "linea_fin": 12190,
+          "origen_codigo": " 300010-CHECA-ENTIDAD.                                            171100\n*=====================                                            171200\n     MOVE ZERO                     TO W77-SALIDA                  171300\n                                      W77-ENTIDAD.                171400\n     MOVE WKS-TAB-INDSIS(WKS-MSGHDR-SUC) TO W77-IND1.             171500\n     MOVE W77-IND1                       TO W77-SUCURSAL.         171600\n     IF W88-SUC-0001-999                                          171700\n        PERFORM 300012-BUSCA-SISTEMA VARYING W77-IND2 FROM 1 BY 1 171800\n                                     UNTIL   W77-IND2 > 30   OR   171900\n                                             W77-SALIDA = 1       172000\n     ELSE                                                         172100\n     IF W88-SUC-1000-1999                                         172200\n        COMPUTE W77-IND1 = W77-IND1 - 999                         172300\n        PERFORM 300013-BUSCA1-SISTEMA VARYING W77-IND2 FROM 1 BY 1172400\n                                      UNTIL   W77-IND2 > 30   OR  172500\n                                              W77-SALIDA = 1      172600\n     ELSE                                                         172700\n     IF W88-SUC-2000-2999                                         172800\n        COMPUTE W77-IND1 = W77-IND1 - 1999                        172900\n        PERFORM 300014-BUSCA2-SISTEMA VARYING W77-IND2 FROM 1 BY 1173000\n                                      UNTIL   W77-IND2 > 30   OR  173100\n                                              W77-SALIDA = 1      173200\n     ELSE                                                         173300\n     IF W88-SUC-3000-3999                                         173400\n        COMPUTE W77-IND1 = W77-IND1 - 2999                        173500\n        PERFORM 300015-BUSCA3-SISTEMA VARYING W77-IND2 FROM 1 BY 1173600\n                                      UNTIL   W77-IND2 > 30   OR  173700\n                                              W77-SALIDA = 1      173800\n     ELSE                                                         173900\n     IF W88-SUC-4000-4999                                         174000\n        COMPUTE W77-IND1 = W77-IND1 - 3999                        174100\n        PERFORM 300016-BUSCA4-SISTEMA VARYING W77-IND2 FROM 1 BY 1174200\n                                      UNTIL   W77-IND2 > 30   OR  174300\n                                              W77-SALIDA = 1.     174400\n    MOVE ZERO                      TO W77-CVE-RESOL.              174500\n    IF W77-FACULTAD = 1                                           174600\n      IF WKS-PAN-ENTNUMPAN = 17                                   174700\n         MOVE 3                    TO W77-CVE-RESOL               174800\n         MOVE 87                   TO W77-RES-MSG                 174900\n      ELSE                                                        175000\n      IF W77-SUC-CAPTURA = WKS-MSGHDR-SUC                         175100\n         MOVE 1                    TO W77-CVE-RESOL               175200\n      ELSE                                                        175300\n         MOVE 3                    TO W77-CVE-RESOL               175400\n         MOVE 87                   TO W77-RES-MSG                 175500\n    ELSE                                                          175600\n    IF W77-FACULTAD = 2                                           175700\n       MOVE 1                       TO W77-CVE-RESOL              175800\n    ELSE                                                          175900\n    IF W77-FACULTAD = 3                                           176000\n       MOVE 3                       TO W77-CVE-RESOL              176100\n       MOVE 87                      TO W77-RES-MSG.               176200",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class EntidadService {\n\n    private final EntidadSucursalRepository entidades;   // WKS-TAB..WKS-TAB4: 5 bloques de 999 x 30\n\n    public Autorizacion checa(Peticion p, ComsMessage.Header h) {\n        String sucursalTerminal = h.estacion().sucursal();\n        int facultad = entidades.facultad(sucursalTerminal, p.sistema())   // 300012..300016-BUSCA\n                                .orElse(0);                                // no encontrado: W77-FACULTAD queda en 0\n        return switch (facultad) {\n            case 1 -> (p.pantalla() == 17)\n                        ? Autorizacion.denegada(87)                      // P17 Totales Nacionales\n                        : p.sucursalCaptura().equals(sucursalTerminal)\n                            ? Autorizacion.autorizada()\n                            : Autorizacion.denegada(87);\n            case 2 -> Autorizacion.autorizada();                         // acceso a cualquier sucursal\n            case 3 -> Autorizacion.denegada(87);\n            default -> Autorizacion.noEvaluada();                        // W77-CVE-RESOL = 0, sin error\n        };\n    }\n}",
+          "racional": "El COBOL parte la tabla de entidades en cinco arreglos de 999 posiciones porque el índice de sucursal no cabía en uno solo; en Java es una consulta por llave sucursal y sistema contra un repositorio JPA o una caché cargada al arranque. La regla de facultad se traduce literal: facultad 1 solo ve su propia sucursal y nunca la pantalla 17, facultad 2 ve todas y facultad 3 se rechaza con el mensaje 87. Cualquier otro valor deja la resolución en 0 sin error, igual que el fuente.",
+          "reglas": [
+            "RN-S151-244",
+            "RN-S151-247",
+            "RN-S151-262"
+          ],
+          "riesgo": "Si la sucursal o el sistema no están en el catálogo, W77-FACULTAD queda en 0, no se asigna el error 87 y la petición continúa a 420210-CHECA-SEGURIDAD. La validación de entidad no niega por omisión."
+        },
+        {
+          "id": "s7",
+          "titulo": "Pantalla 81: transacción válida y clave de supervisor",
+          "linea_ini": 14201,
+          "linea_fin": 14222,
+          "origen_codigo": "     MOVE WKS-ENT-P81TRA           TO W77-CVE-TRA                 377300\n     IF NOT W88-CVE-TRA                                           377400\n        MOVE 36                    TO W77-RES-MSG.                377500\n     IF W77-RES-MSG = 0                                           377600\n        MOVE WKS-APU-SIS(WKS-ENT-P81SIS) TO W77-I                 377700\n        IF W77-I = ZERO                                           377800\n           IF W88-CVE-ALTA                                        377900\n              MOVE ZEROS           TO W77-RES-MSG                 378000\n           ELSE                                                   378100\n              MOVE 40              TO W77-RES-MSG.                378200\n     MOVE WKS-ENT-P81CSI-A         TO WKS-CSI-ALFA                378300\n     PERFORM 420070-VALIDA-NUM-CSI                                378400\n     MOVE WKS-CSI-NUME             TO WKS-ENT-P81CSI.             378500\n     MOVE WKS-ENT-P81SUP           TO W77-NUM-SUP                 378600\n     PERFORM 420100-VALIDA-CVE-SUP.                               378700\n     IF W88-NUM-SUPACT AND W88-CVE-TRA                            378800\n        NEXT SENTENCE                                             378900\n     ELSE                                                         379000\n     IF W88-CVE-CONS AND W88-NUM-SUPCONS                          379100\n        NEXT SENTENCE                                             379200\n     ELSE                                                         379300\n        MOVE 98                    TO W77-RES-MSG.                379400",
+          "java_codigo": "# application.yml  (las claves dejan de estar compiladas en niveles 88)\nlinea:\n  supervisores:\n    actualizan: ${LINEA_SUP_ACTUALIZAN}   # W88-NUM-SUPACT, desde el gestor de secretos\n    consultan:  ${LINEA_SUP_CONSULTAN}    # W88-NUM-SUPCONS\n\n// ---------------------------------------------------------------------------\nenum Transaccion { ALTA, BAJA, CAMB, CONS }       // W88-CVE-TRA\n\n@Component\n@RequiredArgsConstructor\nclass ClaveSupervisorValidator {\n    private final SupervisoresProperties sup;\n\n    private final CsiValidator csi;                // 420070-VALIDA-NUM-CSI\n\n    /** 310081-PANTALLA-81. Se respeta el orden del COBOL: cada paso puede sobrescribir el código anterior. */\n    int valida(String trx, int apuntadorSistema, String csiCapturado, String claveSup) {\n        int codigo = 0;\n        Optional<Transaccion> t = Transaccion.parse(trx);\n        if (t.isEmpty()) codigo = 36;\n        if (codigo == 0 && apuntadorSistema == 0) {\n            codigo = (t.get() == Transaccion.ALTA) ? 0 : 40;\n        }\n        codigo = csi.valida(csiCapturado, codigo);\n        if (!sup.todas().contains(claveSup)) codigo = 35;                // 420100-VALIDA-CVE-SUP\n        boolean actualiza = t.isPresent() && sup.actualizan().contains(claveSup);\n        boolean consulta  = t.filter(x -> x == Transaccion.CONS).isPresent()\n                            && sup.consultan().contains(claveSup);\n        if (!actualiza && !consulta) codigo = 98;\n        return codigo;\n    }\n}",
+          "racional": "La autorización de las pantallas de administración depende de dos listas de claves de supervisor declaradas como valores de niveles 88 en WORKING-STORAGE (líneas 10305 a 10313). En Java esas listas salen del código y se leen de un gestor de secretos; idealmente se sustituyen por roles del IdP. La traducción conserva el orden exacto de los IF porque cada uno puede sobrescribir el código anterior: transacción, existencia del sistema, CSI, clave en la lista general y, al final, la combinación de clave y transacción.",
+          "reglas": [
+            "RN-S151-272"
+          ],
+          "riesgo": "Los códigos 36 (transacción inválida) y 35 (clave no reconocida) nunca llegan al usuario: en ambos casos la condición final es falsa y el 98 los sobrescribe, porque las listas de actualización y consulta son subconjuntos de la lista general."
+        }
+      ]
+    },
+    {
+      "titulo": "Validación de estatus, fechas y ruteo entre nodos CSI",
+      "origen": {
+        "archivo": "COBOL_P010.txt",
+        "contexto": "400000-VERIFICA-TIPO-ESQUEMA · 420120-VALIDA-NUM-FEC · 420030-VALIDA-NUM-SUC"
+      },
+      "java": {
+        "archivo": "EsquemaSistemaValidator.java · FechaConsultaValidator.java · RuteoCsiService.java",
+        "contexto": "@Component · Spring Integration router"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Estatus del sistema antes de llamar a su librería de consulta",
+          "linea_ini": 16028,
+          "linea_fin": 16041,
+          "origen_codigo": " 400000-VERIFICA-TIPO-ESQUEMA.                                    560000\n     IF W77-I > ZEROS AND  W77-I < 500                            560100\n        IF WKS-TAB-STASIS(W77-I) = 3                              560200\n           IF WKS-STA-EXPGM(W77-I) = 2                            560300\n              PERFORM 410000-CALL-LIBXSIS                         560400\n           ELSE                                                   560500\n              MOVE 41              TO W77-RES-MSG                 560600\n        ELSE                                                      560700\n        IF WKS-TAB-STASIS(W77-I) = 2 OR 1                         560800\n           MOVE 40              TO W77-RES-MSG                    560900\n        ELSE                                                      561000\n           MOVE 26                 TO W77-RES-MSG                 561100\n     ELSE                                                         561200\n        MOVE 40                    TO W77-RES-MSG.                561300",
+          "java_codigo": "@Component\nclass EsquemaSistemaValidator {\n\n    /** 400000-VERIFICA-TIPO-ESQUEMA: 0 = se puede llamar a la librería de consulta. */\n    int valida(int apuntador, SistemaCatalogo s) {\n        if (apuntador <= 0 || apuntador >= 500) return 40;\n        return switch (s.estatus()) {                          // WKS-TAB-STASIS desde B04SISTEM\n            case 3    -> s.tipoExpgm() == 2 ? 0 : 41;          // 410000-CALL-LIBXSIS\n            case 1, 2 -> 40;\n            default   -> 26;\n        };\n    }\n}",
+          "racional": "Solo un sistema con estatus 3 y librería de consulta de tipo 2 llega a la llamada de consulta; estatus 1 o 2 regresa el mensaje 40 y cualquier otro el 26. El tope de 500 corresponde al tamaño de la tabla en memoria y en Java se valida igual para no cambiar los códigos de respuesta.",
+          "reglas": [
+            "RN-S151-243"
+          ],
+          "riesgo": "El fuente no trata el estatus 5 en este párrafo: cae en la rama final y responde 26."
+        },
+        {
+          "id": "s9",
+          "titulo": "Fecha de consulta contra FECCON, FECPRO y las diez fechas archivadas",
+          "linea_ini": 16464,
+          "linea_fin": 16484,
+          "origen_codigo": " 420120-VALIDA-NUM-FEC.                                           603600\n     MOVE 3                        TO WKS-FUNCION                 603700\n     MOVE 0                        TO WKS-FORMATO                 603800\n     CALL \"JUSTIFIER IN LOCSUP\"                                   603900\n           USING WKS-FEC-ALFA,WKS-FUNCION,WKS-FORMATO.            604000\n     IF WKS-FUNCION > ZEROS OR WKS-FEC-NUME = ZEROS               604100\n        MOVE WKS-TAB-FECCON(W77-I) TO WKS-FEC-NUME.               604200\n     IF WKS-PAN-ENTNUMPAN < 30                                    604300\n        IF (WKS-FEC-NUME = WKS-TAB-FECCON(W77-I)) OR              604400\n           (WKS-FEC-NUME = WKS-TAB-FECPRO(W77-I))                 604500\n           NEXT SENTENCE                                          604600\n        ELSE                                                      604700\n           PERFORM 420122-VALIDA-FEC VARYING W77-K FROM 1 BY 1    604800\n                                     UNTIL W77-K > 10           OR604900\n                                    WKS-TAB-FECPROC(W77-I W77-K) =605000\n                                    ZEROS.                        605100\n 420122-VALIDA-FEC.                                               605200\n     MOVE 19                       TO W77-RES-MSG.                605300\n     IF WKS-FEC-NUME = WKS-TAB-FECPROC(W77-I W77-K)               605400\n        MOVE 11                    TO W77-K                       605500\n        MOVE ZEROS                 TO W77-RES-MSG.                605600",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass FechaConsultaValidator {\n\n    /** 420120-VALIDA-NUM-FEC + 420122-VALIDA-FEC. Devuelve la fecha efectiva y el código. */\n    Resultado valida(String fechaCapturada, int pantalla, FechasSistema f) {\n        // JUSTIFIER IN LOCSUP función 3: no numérico o cero se reemplaza por FECCON, sin error\n        String fecha = Numerico.esValido(fechaCapturada) && !Numerico.esCero(fechaCapturada)\n                ? fechaCapturada : f.feccon();\n        if (pantalla >= 30) {\n            return new Resultado(fecha, 0);                      // pantallas 30 en adelante no validan pertenencia\n        }\n        if (fecha.equals(f.feccon()) || fecha.equals(f.fecpro())) {\n            return new Resultado(fecha, 0);\n        }\n        List<String> archivadas = f.fechasArchivadas().stream()   // FECPROC(1..10), hasta el primer cero\n                .takeWhile(d -> !Numerico.esCero(d)).toList();\n        if (archivadas.isEmpty()) {\n            return new Resultado(fecha, 0);   // comportamiento actual: sin fechas archivadas no se asigna el 19\n        }\n        return new Resultado(fecha, archivadas.contains(fecha) ? 0 : 19);\n    }\n\n    record Resultado(String fecha, int codigo) {}\n}",
+          "racional": "La fecha se compara como texto numérico, igual que en el COBOL, para no introducir una conversión a <code>LocalDate</code> que el programa no hace en este punto. La búsqueda en las diez fechas archivadas se detiene en el primer cero, lo que reproduce la condición <code>UNTIL W77-K &gt; 10 OR ... = ZEROS</code>. El caso de fecha vacía se conserva tal cual: se sustituye por FECCON sin avisar al usuario.",
+          "reglas": [
+            "RN-S151-254",
+            "RN-S151-242",
+            "RN-S151-250"
+          ],
+          "riesgo": "Si no hay ninguna fecha archivada (FECPROC(1) = 0), el PERFORM VARYING no ejecuta ni una vuelta y no se asigna el 19, por lo que una fecha que no es FECCON ni FECPRO pasa como válida. La traducción conserva ese comportamiento de forma explícita para que el SME decida si se corrige."
+        },
+        {
+          "id": "s10",
+          "titulo": "Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema",
+          "linea_ini": 16226,
+          "linea_fin": 16273,
+          "origen_codigo": " 420030-VALIDA-NUM-SUC.                                           579800\n     MOVE 3                        TO WKS-FUNCION                 579900\n     MOVE 0                        TO WKS-FORMATO                 580000\n     CALL \"JUSTIFIER IN LOCSUP\"                                   580100\n          USING WKS-SUC-ALFA,WKS-FUNCION,WKS-FORMATO.             580200\n     IF WKS-FUNCION > ZEROS                                       580300\n        MOVE WKS-MSGHDR-SUC        TO WKS-SUC-NUME.               580400\n     IF W77-CAMB-CSI = ZEROS                                      580500\n     IF WKS-SUC-NUME > ZEROS                                      580600\n        IF WKS-SIS-NUME = 1 OR 66                                 580700\n            MOVE 99              TO W77-RES-MSG                   580800\n            IF WKS-MSGHDR-RES = 2                                 580900\n               MOVE 3            TO WKS-MSGHDR-RES                581000\n               MOVE WKS-MSGHDR-CCR-ORG TO WKS-MSGHDR-CCR-DES      581100\n            ELSE                                                  581200\n               NEXT SENTENCE                                      581300\n        ELSE                                                      581400\n        IF WKS-MSGHDR-RES NOT = 2                                 581500\n           IF WKS-TAB-MODSIS(W77-I) = ZEROS                       581600\n              IF (WKS-PAN-ENTNUMPAN > 12 AND < 17) OR             581700\n                 (WKS-PAN-ENTNUMPAN > 18 AND < 27) OR             581800\n                 (WKS-PAN-ENTNUMPAN = 11)                         581900\n                 NEXT SENTENCE                                    582000\n              ELSE                                                582100\n              IF WKS-NUM-CSI(WKS-SUC-NUME) = ZEROS                582200\n                 MOVE 45           TO W77-RES-MSG                 582300\n              ELSE                                                582400\n              IF WKS-SIS-NUME =  264                              582500\n*                 OR 501                                          582600\n                 NEXT SENTENCE                                    582700\n              ELSE                                                582800\n              IF WKS-NUM-CSI(WKS-SUC-NUME) NOT =                  582900\n                 WKS-MSGHDR-CCR-DES                               583000\n                 MOVE 2                      TO WKS-MSGHDR-RES    583100\n                 MOVE WKS-MSGHDR-CCR-DES     TO WKS-MSGHDR-CCR-ORG583200\n                 MOVE WKS-NUM-CSI(WKS-SUC-NUME) TO                583300\n                      WKS-MSGHDR-CCR-DES                          583400\n              ELSE                                                583500\n                 NEXT SENTENCE                                    583600\n           ELSE                                                   583700\n           IF (WKS-TAB-CSIRES(W77-I) > ZEROS)                     583800\n              IF WKS-TAB-CSIRES(W77-I) = WKS-MSGHDR-CCR-DES       583900\n                 NEXT SENTENCE                                    584000\n              ELSE                                                584100\n                 MOVE 2               TO WKS-MSGHDR-RES           584200\n                 MOVE WKS-MSGHDR-CCR-DES TO WKS-MSGHDR-CCR-ORG    584300\n                 MOVE WKS-TAB-CSIRES(W77-I)                       584400\n                                         TO WKS-MSGHDR-CCR-DES.   584500",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass RuteoCsiService {\n\n    private final RuteoProperties props;   // linea.ruteo.sistemas-sin-sucursal: [1, 66]\n                                           // linea.ruteo.sistemas-siempre-locales: [264]\n    private final CatalogoSucursales sucursales;   // WKS-NUM-CSI(sucursal)\n\n    /** 420030-VALIDA-NUM-SUC: decide si se atiende aquí o se reenvía a otro CSI. */\n    Ruteo decide(Peticion p, ComsMessage.Header h, SistemaCatalogo s, boolean csiYaCambiado) {\n        if (csiYaCambiado || p.sucursal() == 0) return Ruteo.local();\n        if (props.sistemasSinSucursal().contains(p.sistema())) {\n            return h.resultado() == 2 ? Ruteo.regresaAlOrigen(99)      // RES = 3, CCR-DES = CCR-ORG\n                                      : Ruteo.error(99);\n        }\n        if (h.resultado() == 2) return Ruteo.local();                  // ya viene reenviado\n        if (s.modoSistema() == 0) {\n            if (Pantallas.noRuteables(p.pantalla())) return Ruteo.local(); // 11, 13-16, 19-26\n            int csi = sucursales.csiDe(p.sucursal());\n            if (csi == 0) return Ruteo.error(45);\n            if (props.sistemasSiempreLocales().contains(p.sistema())) return Ruteo.local();\n            return csi != h.csiDestino() ? Ruteo.reenvia(csi) : Ruteo.local();   // RES = 2\n        }\n        int csiRestringido = s.csiRestringido();                       // WKS-TAB-CSIRES (RESCSI de B03)\n        return (csiRestringido > 0 && csiRestringido != h.csiDestino())\n                ? Ruteo.reenvia(csiRestringido) : Ruteo.local();\n    }\n}",
+          "racional": "Este párrafo concentra la topología distribuida: si la sucursal pertenece a otro nodo, o el sistema está restringido a un CSI, se marca <code>RES = 2</code>, se guarda el CSI actual como origen y se pone el CSI destino. En la arquitectura destino es un router de Spring Integration que publica en el canal del nodo correspondiente. Las excepciones por número de sistema (1 y 66 sin sucursal, 264 siempre local) dejan de estar en el código y se declaran en <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-255",
+            "RN-S151-256",
+            "RN-S151-270",
+            "RN-S151-251"
+          ],
+          "riesgo": "El sistema 501 aparece comentado junto al 264 (línea 16254); si volviera a requerir trato local habría que recompilar. Cuando JUSTIFIER falla, la sucursal se sustituye por la del terminal (línea 16232) y la petición se rutea con ella sin avisar."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Claves de supervisor en el fuente",
+      "detalle": "Las claves que autorizan las pantallas de administración 81 a 88 están compiladas como valores de los niveles 88 W88-NUM-SUP, W88-NUM-SUPACT y W88-NUM-SUPCONS (líneas 10305-10313). Cualquier persona con acceso al fuente o al listado de compilación las conoce, y cambiarlas exige recompilar. No se reproducen en esta página a propósito."
+    },
+    {
+      "titulo": "Validación de entidad que no niega por omisión",
+      "detalle": "En 300010-CHECA-ENTIDAD, si la combinación sucursal y sistema no está en el catálogo, la facultad queda en 0 y no se asigna el error 87 (líneas 12173-12190). La petición sigue y solo la detiene 420210-CHECA-SEGURIDAD."
+    },
+    {
+      "titulo": "Seguridad desactivable en caliente",
+      "detalle": "HI 42 desactiva todas las validaciones de entidad y facultad sin reinicio (líneas 10662-10666). El brain indica que existen controles administrativos, pero el programa no exige ninguna autorización adicional."
+    },
+    {
+      "titulo": "Fechas de consulta aceptadas sin validar",
+      "detalle": "En 420120-VALIDA-NUM-FEC una fecha no numérica o en cero se reemplaza por FECCON (líneas 16469-16470), y si no hay fechas archivadas el error 19 nunca se asigna."
+    },
+    {
+      "titulo": "Ruteo y librerías por número de sistema compilados",
+      "detalle": "410000-CALL-LIBXSIS tiene una cadena de 25 IF con el número de sistema y el nombre de librería LIB-CONSnnnn fijos (líneas 16049-16186), con los sistemas 43 y 501 comentados. Los sistemas 1, 66 y 264, la sucursal 859 de la pantalla 24 y el CSI 32 tienen tratamiento especial en código."
+    },
+    {
+      "titulo": "Contenido del mensaje en el log",
+      "detalle": "Ante un error de RECEIVE el programa escribe en el log LJ el header completo y WKS-TEXTO (líneas 17160-17167), que puede incluir números de cuenta capturados por el usuario."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-243 dice que se enrutan los sistemas con STASIS 3 o 5; en 400000-VERIFICA-TIPO-ESQUEMA solo el 3 llega a la librería y el 5 responde con el mensaje 26. Confirmar si el 5 se atiende por otra ruta.",
+    "RN-S151-255 dice que con RES = 2 el mensaje se cambia a RES = 3; en el fuente ese cambio solo ocurre para los sistemas 1 y 66 con sucursal capturada (líneas 16235-16239). El ruteo normal pone RES = 2. Revisar la redacción de la regla.",
+    "RN-S151-272 describe la clave de supervisor como un campo que no debe ser cero ni no numérico; en el fuente es pertenencia a una lista fija de claves (líneas 10305-10313). Revisar la regla.",
+    "Confirmar con el SME de COMS si tras DISABLE PROGRAM el RECEIVE devuelve siempre el estatus 99, que es lo que hoy termina el programa.",
+    "No se revisó 420300-CALL-FACULTAD ni el detalle de cada pantalla 11 a 30; la traducción de las pantallas queda fuera de esta demostración.",
+    "Confirmar el significado del tope de 500 en 400000-VERIFICA-TIPO-ESQUEMA frente a los 9999 sistemas que recorre 700000-ALTA-LIBS-CONS en la inicialización."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-241",
+    "RN-S151-242",
+    "RN-S151-243",
+    "RN-S151-244",
+    "RN-S151-245",
+    "RN-S151-246",
+    "RN-S151-247",
+    "RN-S151-248",
+    "RN-S151-249",
+    "RN-S151-250",
+    "RN-S151-251",
+    "RN-S151-252",
+    "RN-S151-253",
+    "RN-S151-254",
+    "RN-S151-255",
+    "RN-S151-256",
+    "RN-S151-257",
+    "RN-S151-258",
+    "RN-S151-259",
+    "RN-S151-260",
+    "RN-S151-261",
+    "RN-S151-262",
+    "RN-S151-263",
+    "RN-S151-264",
+    "RN-S151-265",
+    "RN-S151-266",
+    "RN-S151-267",
+    "RN-S151-268",
+    "RN-S151-269",
+    "RN-S151-270",
+    "RN-S151-271",
+    "RN-S151-272",
+    "RN-S500-912",
+    "RN-S500-913",
+    "RN-S500-914",
+    "RN-S500-915",
+    "RN-S500-916",
+    "RN-S500-917",
+    "RN-S500-918",
+    "RN-S500-919",
+    "RN-S500-922",
+    "RN-S500-930",
+    "RN-S500-933",
+    "RN-S500-203",
+    "RN-S500-204",
+    "RN-S500-205",
+    "RN-S500-206",
+    "RN-S500-207",
+    "RN-S500-208",
+    "RN-S500-209",
+    "RN-S500-210",
+    "RN-S500-211",
+    "RN-S500-212",
+    "RN-S500-213",
+    "RN-S500-214",
+    "RN-S500-215",
+    "RN-S500-216",
+    "RN-S500-217",
+    "RN-S500-234",
+    "RN-S500-235",
+    "RN-S500-236",
+    "RN-S500-237",
+    "RN-S500-238",
+    "RN-S500-239",
+    "RN-S500-240",
+    "RN-S500-911"
+  ]
+}

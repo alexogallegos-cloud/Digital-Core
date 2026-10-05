@@ -1,0 +1,264 @@
+{
+  "slug": "S151_P131",
+  "sistema": "S151",
+  "programa": "P131",
+  "nombre": "Traductor Contable del Archivo Agrupado al Paquete Contable S254",
+  "funcion": "Paso batch de la cadena contable de S151 que corre después de P130: traduce cada movimiento del archivo AGRUPADO a asientos de cargo y abono del PAQUETECONTABLE que consume S254 (PeopleSoft GL) y emite los reportes de cuadre.",
+  "resumen": "Lee el archivo AGRUPADO que deja P130 (header, detalles con clave 5 u 80 a 89 y trailer) y, para cada detalle, resuelve contra catálogos KEYEDIOII la unidad de negocio, la moneda alfa, el producto alfa, el departamento y el par de cuentas cargo y abono. Escribe el registro traducido en AGRUPCONT y dos registros de 90 bytes en PAQUETECONTABLE (naturaleza 1 y 2) más uno en PARES; los movimientos con clave distinta de 05 van además a CUADREESPECIAL. Al final compara registros e importe contra el trailer y aborta si difieren, ordena el paquete para las interfaces de S254 y genera los reportes de cuadre contable, doble registro FOBAPROA y pares. Para los sistemas con Full Suite repite el proceso sobre AGRUPADOFS con registros de 126 bytes.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.contabilidad.traductor",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — REG-PAQUETECONTABLE (90 bytes)",
+      "origen": {
+        "archivo": "COBOL_P131.txt",
+        "contexto": "FILE SECTION · FD PAQUETECONTABLE"
+      },
+      "java": {
+        "archivo": "PaqueteContableRecord.java",
+        "contexto": "record · FlatFileItemWriter de ancho fijo"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro del paquete contable a record inmutable",
+          "linea_ini": 444,
+          "linea_fin": 471,
+          "origen_codigo": " FD PAQUETECONTABLE                                               020700\n    VALUE OF MAXRECSIZE     IS 90                                 020750\n    BLOCK CONTAINS         720 RECORDS     .                      020800\n 01 REG-PAQUETECONTABLE                    .                      020850\n    02 RP-CVE-REG             PIC X(02)    .                      020900\n    02 RP-UNINEG              PIC X(05)    .                      020950\n    02 RP-LIBCON              PIC X(10)    .                      021000\n    02 RP-FEC-CONT            PIC X(10)    .                      021050\n    02 RP-IDASIEN                          .                      021100\n       03 RP-IDASIEN-SIST     PIC X(04)    .                      021150\n       03 RP-IDASIEN-CSI      PIC X(03)    .                      021200\n       03 RP-IDASIEN-VERS     PIC X(01)    .                      021250\n       03 RP-IDASIEN-RESTO    PIC X(02)    .                      021300\n    02 RP-MONOPER             PIC 9(03)    .                      021350\n    02 RP-MONALFA             PIC X(03)    .                      021400\n    02 RP-DEPTO               PIC X(10)    .                      021450\n    02 RP-DEPTO-R REDEFINES RP-DEPTO       .                      021500\n       03 RP-DEPTO-1P         PIC 9(04)    .                      021550\n       03 RP-XXXXX            PIC X(06)    .                      021600\n    02 RP-PRODALFA            PIC X(06)    .                      021650\n    02 RP-INTERCOMPANY        PIC X(05)    .                      021700\n    02 RP-CTAALFA             PIC X(06)    .                      021750\n    02 RP-CTAALFA-R REDEFINES RP-CTAALFA   .                      021800\n       03 RP-CUENTA           PIC X(04)    .                      021850\n       03 RP-XX               PIC X(02)    .                      021900\n    02 RP-NATURALEZA          PIC 9(01)    .                      021950\n    02 RP-IMPORTE             PIC 9(15)V99 .                      022000\n    02 RP-IND-PROD            PIC 9(02)    .                      022050",
+          "java_codigo": "/** REG-PAQUETECONTABLE: contrato de 90 bytes con S254. Un movimiento produce dos registros. */\npublic record PaqueteContableRecord(\n        String cveReg,          // X(02)  \"01\" normal; otra clave va también a CUADREESPECIAL\n        String unidadNegocio,   // X(05)  UNINEG (catálogo COPC/COPCN o \"BNMEX\" de desvío)\n        String libroContable,   // X(10)  siempre \"CONTABLE  \" (20440-MUEVE-MONEDAS)\n        String fechaContable,   // X(10)  AAAA-MM-DD ya formateada\n        IdAsiento idAsiento,    // X(04)+X(03)+X(01)+X(02)\n        int monedaOperativa,    // 9(03)\n        String monedaAlfa,      // X(03)  \"***\" si no hay equivalencia\n        String departamento,    // X(10); RP-DEPTO-1P lo reinterpreta como 9(04) en los reportes\n        String productoAlfa,    // X(06)\n        String intercompany,    // X(05)\n        String cuentaAlfa,      // X(06); RP-CUENTA = primeras 4 posiciones\n        Naturaleza naturaleza,  // 9(01)  1 = cargo, 2 = abono\n        BigDecimal importe,     // 9(15)V99 sin signo -> escala 2, siempre >= 0\n        int indProducto) {      // 9(02)\n\n    public enum Naturaleza { CARGO(1), ABONO(2);\n        final int codigo; Naturaleza(int c) { codigo = c; } }\n\n    public record IdAsiento(String sistema, String csi, String version, String resto) {}\n\n    public PaqueteContableRecord {\n        if (importe.signum() < 0 || importe.scale() != 2)\n            throw new IllegalArgumentException(\"RP-IMPORTE es 9(15)V99 sin signo\");\n    }\n\n    /** Columnas fijas para el FormatterLineAggregator del writer. */\n    public static final String FORMATO =\n        \"%-2s%-5s%-10s%-10s%-10s%03d%-3s%-10s%-6s%-5s%-6s%1d%017d%02d\";\n}",
+          "racional": "El paquete es un registro plano de 90 bytes que S254 lee por posición, así que la traducción conserva el ancho exacto de cada campo en un <code>FormatterLineAggregator</code>. El importe <code>PIC 9(15)V99</code> sin signo pasa a <code>BigDecimal</code> de escala 2 y se valida no negativo, porque la naturaleza (1 cargo, 2 abono) y no el signo es la que distingue el movimiento. Los dos <code>REDEFINES</code> (<code>RP-DEPTO-1P</code> y <code>RP-CUENTA</code>) solo se usan como vistas parciales en reportes; en Java son métodos derivados y no campos. El paquete no lleva SETID ni TIPTRA: esos valores viven en el registro traducido AGRUPCONT.",
+          "reglas": [
+            "RN-S151-102"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del programa y lectura del AGRUPADO",
+      "origen": {
+        "archivo": "COBOL_P131.txt",
+        "contexto": "PROCEDURE DIVISION · 00000 / 20400 / 20410"
+      },
+      "java": {
+        "archivo": "TraductorContableJobConfig.java · ClaveRegistroValidator.java",
+        "contexto": "Spring Batch Job · Step · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Rutina principal a Job con flujo condicional Full Suite",
+          "linea_ini": 3984,
+          "linea_fin": 4051,
+          "origen_codigo": " 00000-PROGRAMA-PRINCIPAL .                                       113800\n* *************************                                       113850\n* INI VML                                                         113910\n     ATTACH HI-INTERRUPT TO ATTRIBUTE EXCEPTIONEVENT OF MYSELF.   113920\n     ALLOW INTERRUPT.                                             113930\n* FIN VML                                                         113940\n     PERFORM 10000-INICIO                                        .113950\n**** JCNS INI - ALTA DISPONIBILIDAD * IBM 06-02-15                113955\n     IF(W77-SISTEMA-PARAM = 203 OR 804)                           113960\n                          AND ATTRIBUTE VALUE OF MYSELF = 0       113965\n           PERFORM 11000-VERIFICA-B05                          .  113970\n**** JCNS FIN - ALTA DISPONIBILIDAD * IBM 06-02-15                113975\n* INI VML                                                         113980\n*    IF(W77-SISTEMA-PARAM = 404 OR 804)                           113985\n*          PERFORM 80800-VERIFICA-B05-FFS                      .  113990\n* FIN VML                                                         113995\n     MOVE W77-SISTEMA-PARAM TO WKS-SIS-TEM                        113998\n     PERFORM 12000-CARGA-CATALOGOS                               .114000\n     PERFORM 17100-VALIDA-HEADER                                 .114050\n     PERFORM 17200-VALIDA-TRAILER                                .114100\n     PERFORM 17900-OBTEN-TIT940                                  .114150\n     PERFORM 20000-PROCESA-ARCHIVO-AGRUPADO                      .114200\n     PERFORM 25000-ORDENA-PAQCONTABLE-S254                       .114215\n     PERFORM 40000-GENERA-INTERFASES-S254  UNTIL W77-EOF > ZERO  .114230\n     PERFORM 22000-CIERRA-ARCHIVOS                               .114245\n     PERFORM 50000-INTERFASES-VACIAS-S254                         114260\n                      VARYING W77-J FROM 1 BY 1 UNTIL W77-J > 99 .114275\n     IF W88-SIST-INT-FFS                                          114290\n        PERFORM 17105-LIMPIA-MARCAS-FFS                           114305\n                      VARYING W77-J FROM 1 BY 1 UNTIL W77-J > 99  114320\n        PERFORM 17110-VALIDA-HEADERFS                             114335\n        PERFORM 17210-VALIDA-TRAILERFS                            114350\n        PERFORM 20010-PROCESA-ARCHIVO-AGRUPAFS                    114365\n        PERFORM 25010-ORDENA-PAQCONTABLE-FFS                      114380\n        MOVE 1                TO WKS-COUNT-AF                     114385\n        PERFORM 40010-GENERA-INTERFASES-FFS                       114395\n                UNTIL W77-EOFFS > ZERO                            114410\n        PERFORM 22010-CIERRA-ARCHIVOSFS                           114425\n        PERFORM 50010-INTERFASES-VACIAS-FFS                       114440\n                      VARYING W77-J FROM 1 BY 1 UNTIL W77-J > 99. 114455\n*LRA-SOFTTEK-ARCHIVO ALFA VS FFS DIFERENCIA CARGOS - ABONOS       114470\n     IF W88-S804 OR W88-S404                                      114500\n         PERFORM 59999-VAL-DIF-ALFA-VS-FSS.                       114515\n* INI VML quito punto en la linea anterior                        114545\n*       PERFORM 80600-ACTUALIZA-CONTROL-FFS.                      114560\n* FIN VML                                                         114575\n     PERFORM 60000-ORDENA-PAQCONTABLE-REPO                       .114580\n     PERFORM 60100-REPORTE-CONTABLE                              .114590\n     PERFORM 70000-ORDENA-CUADREESPECIAL                         .114600\n     PERFORM 60100-REPORTE-CONTABLE                              .114650\n     PERFORM 62000-ORDENA-ERRORDRFOB                             .114700\n     PERFORM 62100-REPORTE-ERRORDRFOB                            .114750\n     PERFORM 71000-ORDENA-PARES                                  .114800\n     PERFORM 71100-REPORTE-PARES                                 .114850\n     PERFORM 60300-CIERRA-KEYEDIOII                               114900\n**** JCNS INI - ALTA DISPONIBILIDAD * IBM 06-02-15                114905\n     IF(W77-SISTEMA-PARAM = 203 OR 804)                           114910\n                          AND ATTRIBUTE VALUE OF MYSELF = 0       114915\n           PERFORM 11200-ACTUALIZA-B05                          . 114920\n**** JCNS FIN - ALTA DISPONIBILIDAD * IBM 06-02-15                114925\n     CHANGE  ATTRIBUTE VALUE OF MYSELF  TO WKS-FECHA-PROCESO     .114950\n* INI VML                                                         114960\n     DISALLOW INTERRUPT.                                          114970\n* FIN VML                                                         114980\n     STOP RUN                                                    .115000",
+          "java_codigo": "@Configuration\npublic class TraductorContableJobConfig {\n\n    @Bean\n    Job traductorContable(JobRepository repo, Step cargaCatalogos, Step validaHeaderTrailer,\n                          Step traduceAgrupado, Step interfacesS254, Step traduceAgrupadoFs,\n                          Step interfacesFfs, Step difAlfaVsFfs, Step reportes,\n                          SistemaDecider sistema) {\n        return new JobBuilder(\"S151P131\", repo)\n            .start(cargaCatalogos)                 // 12000-CARGA-CATALOGOS (L700/L710)\n            .next(validaHeaderTrailer)             // 17100 / 17200 / 17900\n            .next(traduceAgrupado)                 // 20000 + 21000-VALIDA-TOTALES-TRAILER\n            .next(interfacesS254)                  // 25000 sort + 40000 + 50000 vacías\n            .next(sistema).on(\"FFS\").to(traduceAgrupadoFs)   // W88-SIST-INT-FFS\n                .next(interfacesFfs)\n                .next(difAlfaVsFfs)                // sólo W88-S804 OR W88-S404\n                .next(reportes)\n            .from(sistema).on(\"*\").to(reportes)    // 60000..71100: contable, especial, FOBAPROA, pares\n            .end()\n            .build();\n    }\n}\n// La marca de alta disponibilidad (11000-VERIFICA-B05 / 11200-ACTUALIZA-B05 para 203 y 804)\n// se modela como JobExecutionListener; CHANGE ATTRIBUTE VALUE OF MYSELF desaparece.",
+          "racional": "La rutina principal es una secuencia de <code>PERFORM</code> con una rama para los sistemas Full Suite (<code>W88-SIST-INT-FFS</code>). Cada bloque pasa a un <code>Step</code> y la rama se resuelve con un <code>JobExecutionDecider</code> que lee el sistema del parámetro del job, de modo que el reinicio queda por paso en el <code>JobRepository</code>. El manejo de interrupciones (<code>ATTACH HI-INTERRUPT</code>) y el uso de <code>ATTRIBUTE VALUE OF MYSELF</code> como semáforo de alta disponibilidad son mecanismos de MCP que se sustituyen por un listener del job.",
+          "reglas": [],
+          "riesgo": "22000-CIERRA-ARCHIVOS se ejecuta dentro de 20000-PROCESA-ARCHIVO-AGRUPADO y otra vez en la línea 4009; y la llamada a 80600-ACTUALIZA-CONTROL-FFS está comentada. Hay que confirmar que el segundo cierre no tiene efecto en MCP antes de replicar el orden."
+        },
+        {
+          "id": "s3",
+          "titulo": "Lectura de cada movimiento y los siete pasos de traducción",
+          "linea_ini": 6050,
+          "linea_fin": 6069,
+          "origen_codigo": " 20400-LEE-ARCHIVO-AGRUPADO .                                     204450\n* ***************************                                     204500\n     READ AGRUPADO INTO A00-R01-AGRU-REGMOV AT END                204600\n                                               MOVE 1 TO W77-EOF .204650\n     IF W77-EOF   =   ZERO                                        204700\n        IF A00-R01-AGRU-CVE-REG   NOT =   9                       204750\n           COMPUTE W77-TOTREG = W77-TOTREG + 1                    204800\n           COMPUTE W77-TOTIMP = W77-TOTIMP + A00-R01-AGRU-IMPORTE 204850\n           PERFORM 20410-VALIDA-CLAVE-DE-REGISTRO                 204900\n           PERFORM 20420-CAMBIA-FORMATO-DE-FECHA                  204950\n           PERFORM 20430-OBTEN-UNIDAD-DE-NEGOCIO                  205000\n           PERFORM 20440-MUEVE-MONEDAS                            205050\n           PERFORM 20450-VALIDA-PRODUCTO                          205100\n           PERFORM 20460-VALIDA-SUCURSAL-DESVIO                   205150\n           PERFORM 20470-VALIDA-CLAVE-O-PRODUCTO                  205200\n        ELSE                                                      205250\n           NEXT SENTENCE                                          205300\n     ELSE                                                         205350\n        PERFORM 20610-GRABA-TRAILER                              .205400",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class TraductorProcessor implements ItemProcessor<AgrupadoRecord, MovimientoTraducido> {\n\n    private final ClaveRegistroValidator claves;\n    private final UnidadNegocioResolver unidades;\n    private final MonedaAlfaResolver monedas;\n    private final ProductoAlfaResolver productos;\n    private final DepartamentoResolver departamentos;\n    private final ParesContablesResolver pares;\n    private final TotalesAgrupado totales;            // W77-TOTREG / W77-TOTIMP\n\n    @Override\n    public MovimientoTraducido process(AgrupadoRecord r) {\n        if (r.cveReg() == 9) {\n            return null;                              // trailer: no se traduce ni se acumula\n        }\n        totales.suma(r.importe());                    // COMPUTE W77-TOTREG / W77-TOTIMP\n        var t = new MovimientoTraducido(r);\n        t.cveReg(claves.valida(r));                   // 20410\n        t.fechaContable(r.fecha());                   // 20420: AAAAMMDD -> AAAA-MM-DD\n        unidades.resuelve(r, t);                      // 20430\n        monedas.resuelve(r, t);                       // 20440\n        productos.resuelve(r, t);                     // 20450\n        departamentos.resuelve(r, t);                 // 20460\n        pares.resuelve(r, t);                         // 20470: guía o CXEV/COCO, cuenta final\n        return t;\n    }\n}\n// AT END -> 20610-GRABA-TRAILER: se escribe en el footerCallback del writer de AGRUPCONT.",
+          "racional": "El párrafo es el cuerpo del ciclo de lectura: acumula registros e importe para el cuadre final y aplica en orden los siete pasos de traducción. En Spring Batch el ciclo lo da el <code>chunk</code> y cada paso es un componente inyectado al <code>ItemProcessor</code>, lo que permite probarlos por separado. Devolver <code>null</code> filtra el trailer igual que el <code>NEXT SENTENCE</code>. El trailer de salida, que COBOL escribe en la rama <code>AT END</code>, se emite en el <code>FlatFileFooterCallback</code> con los totales del step.",
+          "reglas": [
+            "RN-S151-091"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Validación de la clave de registro",
+          "linea_ini": 6094,
+          "linea_fin": 6112,
+          "origen_codigo": " 20410-VALIDA-CLAVE-DE-REGISTRO .                                 205500\n* ===============================                                 205550\n*    LA CLAVE DE REGISTRO DEBE SER 5 PARA PROCESO NORMAL Y SOLO SE205650\n*    PERMITIRA DE LA 80 A LA 89 PARA PROCESOS ESPECIALES.         205700\n     IF A00-R01-AGRU-CVE-REG   =   5       OR                     205800\n       (A00-R01-AGRU-CVE-REG   >   79     AND                     205850\n        A00-R01-AGRU-CVE-REG   <   90)                            205900\n        MOVE A00-R01-AGRU-CVE-REG TO A01-TRAD-CVE-REG             206000\n     ELSE                                                         206100\n        STRING \" CLAVE DE REGISTRO INVALIDA \" A00-R01-AGRU-CVE-REG206200\n               \". NUMERO DE REGISTRO \"        W77-NUM-REG         206250\n               DELIMITED SIZE INTO TEXTO-LJ                       206300\n        PERFORM 90500-ERROR-FATAL                                .206400",
+          "java_codigo": "@Component\npublic class ClaveRegistroValidator {\n\n    /** 5 = proceso normal; 80 a 89 = procesos especiales. Cualquier otra aborta el día. */\n    public String valida(AgrupadoRecord r) {\n        int cve = r.cveReg();                               // PIC 9(002)\n        if (cve == 5 || (cve > 79 && cve < 90)) {\n            return \"%02d\".formatted(cve);                   // MOVE 9(02) a X(02): \"05\", \"80\"..\"89\"\n        }\n        throw new ErrorFatalException(                      // 90500-ERROR-FATAL: STOP RUN\n            \" CLAVE DE REGISTRO INVALIDA %02d. NUMERO DE REGISTRO %d\"\n                .formatted(cve, r.numeroRegistro()));\n    }\n}",
+          "racional": "La clave numérica de dos dígitos se convierte a texto con ceros a la izquierda, que es lo que hace el <code>MOVE</code> de <code>PIC 9(002)</code> a <code>PIC X(002)</code>; de esa forma el <code>\"05\"</code> que se compara más adelante en 20510 sigue funcionando. El error fatal del COBOL cierra archivos y termina con <code>STOP RUN</code>; en Java es una excepción no recuperable que deja el step en FAILED sin escribir el paquete parcial.",
+          "reglas": [
+            "RN-S151-092"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de traducción — unidad de negocio, moneda, departamento e identidad del asiento",
+      "origen": {
+        "archivo": "COBOL_P131.txt",
+        "contexto": "PROCEDURE DIVISION · 20431 / 20436 / 20440 / 20460 / 20500"
+      },
+      "java": {
+        "archivo": "UnidadNegocioResolver.java · MonedaAlfaResolver.java · DepartamentoResolver.java · AsientoIdentidad.java",
+        "contexto": "@Service · Spring Data JPA de solo lectura · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Unidad de negocio por libro y moneda (COPC)",
+          "linea_ini": 6181,
+          "linea_fin": 6199,
+          "origen_codigo": " 20431-UNI-NEG-DIF403.                                            207800\n* --------------------                                            207850\n     MOVE A00-R01-AGRU-LIBRO TO A01-TRAD-LIBRO                    207950\n                                COPC-LIBRO                        208000\n                                W77-LIBRO-OPE           .         208050\n     PERFORM 20433-VALIDA-MONEDA                        .         208150\n     MOVE WKS-AUX-MONEDA     TO COPC-MON-OPER           .         208200\n     MOVE ZERO TO W77-BAND-DREG   W77-IND-CENT          .         208250\n     READ ARCH-CONV-OPE-CON KEY IS KEY-COPC INVALID KEY           208350\n          PERFORM 20435-OBTEN-UNI-DE-NEGO-DESVIO                  208400\n          EXIT PERFORM                                  .         208450\n     MOVE COPC-UNI-NEG       TO A01-TRAD-UNINEG         .         208500\n     MOVE COPC-DEPTO         TO W77-DEPTO               .         208550\n     MOVE ZEROS              TO A01-TRAD-LIBDESV        .         208600\n     MOVE COPC-IND-2FOBA     TO W77-BAND-DREG           .         208650\n     MOVE COPC-IND-CENT      TO W77-IND-CENT            .         208700",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class UnidadNegocioResolver {\n\n    private final ConvOpeContRepository copc;      // ARCH-CONV-OPE-CON, llave libro + moneda\n    private final ConvOpeContAreaRepository copcn; // ARCH-CONV-OPEN-CON, exclusivo del 403\n    private final MonedaValidator monedas;         // 20433-VALIDA-MONEDA\n    private final P131Properties props;\n\n    @Transactional(readOnly = true)\n    public void resuelve(AgrupadoRecord r, MovimientoTraducido t) {\n        if (props.sistema() == 403) { resuelve403(r, t); return; }      // 20432-UNID-NEG-403\n        t.libro(r.libro());\n        int moneda = monedas.valida(r);              // aborta si la moneda no está en catálogo\n        t.marcas(0, 0);                              // W77-BAND-DREG, W77-IND-CENT\n        copc.findById(new CopcId(r.libro(), moneda))\n            .ifPresentOrElse(c -> {\n                t.unidadNegocio(c.unidadNegocio());\n                t.departamentoCatalogo(c.departamento());     // W77-DEPTO\n                t.libroDesvio(0);\n                t.marcas(c.indDobleFobaproa(), c.indCentraliza());\n            }, () -> resuelveDesvio(t));                   // 20435-OBTEN-UNI-DE-NEGO-DESVIO\n    }",
+          "racional": "La lectura con <code>INVALID KEY</code> sobre un archivo indexado es una búsqueda por llave primaria: en Java es <code>findById</code> sobre un repositorio de solo lectura y la rama <code>INVALID KEY</code> es el <code>orElse</code>. Las banderas de doble registro FOBAPROA y de centralización se inicializan en cero antes de la lectura, igual que el <code>MOVE ZERO</code> de la línea 6190, para que un movimiento no herede las del anterior.",
+          "reglas": [
+            "RN-S151-093"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Desvío a libro de desvío y fallback BNMEX / 907",
+          "linea_ini": 6356,
+          "linea_fin": 6371,
+          "origen_codigo": "  20436-LIB-DESVIO.                                               212200\n* =================                                               212250\n     MOVE WKS-LIBRO-DESVIO TO A01-TRAD-LIBDESV                    212350\n                              COPC-LIBRO                .         212400\n     MOVE 1                TO COPC-MON-OPER             .         212450\n     READ ARCH-CONV-OPE-CON KEY IS KEY-COPC INVALID KEY           212550\n          MOVE \"BNMEX\"  TO A01-TRAD-UNINEG                        212600\n          MOVE 907      TO W77-DEPTO                              212650\n          EXIT PERFORM                                  .         212700\n     MOVE COPC-UNI-NEG   TO A01-TRAD-UNINEG             .         212800\n     MOVE COPC-DEPTO     TO W77-DEPTO                   .         212850\n     MOVE COPC-IND-2FOBA TO W77-BAND-DREG               .         212900\n     MOVE COPC-IND-CENT  TO W77-IND-CENT                .         212950",
+          "java_codigo": "    /** 20436-LIB-DESVIO: segundo intento con el libro de desvío y moneda 1. */\n    private void resuelveDesvio(MovimientoTraducido t) {\n        int libroDesvio = props.libroDesvio();                 // WKS-LIBRO-DESVIO (13900-CARGA-DESVIOS)\n        t.libroDesvio(libroDesvio);\n        copc.findById(new CopcId(libroDesvio, 1))\n            .ifPresentOrElse(c -> {\n                t.unidadNegocio(c.unidadNegocio());\n                t.departamentoCatalogo(c.departamento());\n                t.marcas(c.indDobleFobaproa(), c.indCentraliza());\n            }, () -> {\n                // Último recurso: movimiento no clasificado.\n                t.unidadNegocio(props.desvio().unidadNegocio());    // \"BNMEX\"\n                t.departamentoCatalogo(props.desvio().departamento()); // 907\n                log.warn(\"Sin COPC para libro {} ni libro de desvío {}: se asigna {}/{}\",\n                         t.libro(), libroDesvio, props.desvio().unidadNegocio(),\n                         props.desvio().departamento());\n            });\n    }\n}\n\n# application.yml\np131:\n  desvio:\n    unidad-negocio: BNMEX\n    departamento: 907",
+          "racional": "Si no existe la combinación libro y moneda, el programa reintenta con el libro de desvío y moneda 1, y si tampoco existe asigna la unidad <code>BNMEX</code> con departamento 907. Ese par está escrito en el código en cuatro párrafos (normal, FS, 403 y 403 FS); se mueve a <code>application.yml</code> y se registra en bitácora cada vez que se usa, porque es un movimiento que llega a S254 sin clasificar. Las banderas quedan en cero en el último recurso, igual que en el fuente.",
+          "reglas": [
+            "RN-S151-093"
+          ],
+          "riesgo": "En el fallback final la moneda de búsqueda se forzó a 1 pero el registro conserva su moneda original, y las banderas de doble registro y centralización quedan en cero: un movimiento en dólares sin catálogo cae en BNMEX/907 sin doble registro FOBAPROA."
+        },
+        {
+          "id": "s7",
+          "titulo": "Libro contable fijo y moneda alfa con marca de desvío",
+          "linea_ini": 6422,
+          "linea_fin": 6438,
+          "origen_codigo": " 20440-MUEVE-MONEDAS .                                            213850\n* ====================                                            213900\n*    SE BUSCA, EN EL CATALOGO CONVERSION DE MONEDA OPERATIVA A MO-214000\n*    NEDA ALFA (PARAMETRICO 385), LA MONEDA ALFA.                 214050\n     MOVE \"CONTABLE  \"        TO A01-TRAD-LIBCON                 .214150\n     MOVE A00-R01-AGRU-MONEDA TO A01-TRAD-MONOPER                .214250\n     IF WKS-MONEDA-ALFA(A01-TRAD-MONOPER)   NOT =   SPACES        214350\n        MOVE WKS-MONEDA-ALFA(A01-TRAD-MONOPER) TO A01-TRAD-MONALFA214450\n     ELSE                                                         214550\n        MOVE \"***\"  TO A01-TRAD-MONALFA                          .214650",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class MonedaAlfaResolver {\n\n    private final MonedaAlfaCatalogo catalogo385;   // WKS-MONEDA-ALFA, cargada en 14700-CARGA-CONV-MONALFA\n    private final P131Properties props;\n\n    public void resuelve(AgrupadoRecord r, MovimientoTraducido t) {\n        t.libroContable(props.libroContable());            // \"CONTABLE  \" (X(10), con relleno)\n        t.monedaOperativa(r.moneda());\n        t.monedaAlfa(catalogo385.alfa(r.moneda())          // Optional<String>\n                .filter(a -> !a.isBlank())\n                .orElse(props.monedaDesvio()));            // \"***\"\n    }\n}\n\n# application.yml\np131:\n  libro-contable: \"CONTABLE  \"\n  moneda-desvio: \"***\"",
+          "racional": "El libro contable se fija siempre a <code>CONTABLE</code> con relleno a 10 posiciones, y la moneda alfa sale de la tabla en memoria del paramétrico 385. Los dos valores constantes pasan a propiedades. La tabla, que COBOL indexa directamente con la moneda, se vuelve un servicio con <code>Optional</code>, de modo que una moneda fuera de rango no provoca un subíndice inválido.",
+          "reglas": [
+            "RN-S151-095"
+          ],
+          "riesgo": "La marca <code>***</code> sólo puede salir si la moneda existe en WKS-DES-MONEDA pero no en WKS-MONEDA-ALFA: la validación 20433 que corre antes, dentro de 20430, ya aborta el proceso cuando la moneda no está en catálogo o no está entre 1 y 99."
+        },
+        {
+          "id": "s8",
+          "titulo": "Departamento: centralizadora, catálogo o sucursal",
+          "linea_ini": 6733,
+          "linea_fin": 6751,
+          "origen_codigo": " 20460-VALIDA-SUCURSAL-DESVIO .                                   221700\n* =============================                                   221750\n     IF A00-R01-AGRU-CENTRA-D   >   ZERO                          221850\n        MOVE A00-R01-AGRU-SUC        TO   A01-TRAD-SIRH           221950\n        MOVE A00-R01-AGRU-CENTRA-D   TO   A01-TRAD-CENTRAL-DES    222000\n                                          A01-TRAD-DEPTO          222050\n        EXIT PERFORM                                              222100\n     ELSE                                                         222200\n        MOVE A00-R01-AGRU-SUC      TO A01-TRAD-SIRH               222300\n        MOVE A00-R01-AGRU-CENTRA-D TO A01-TRAD-CENTRAL-DES        222350\n        IF W77-IND-CENT   =   2                                   222450\n           MOVE W77-DEPTO TO A01-TRAD-DEPTO                       222500\n        ELSE                                                      222550\n           MOVE A00-R01-AGRU-SUC TO A01-TRAD-DEPTO .              222600",
+          "java_codigo": "@Component\npublic class DepartamentoResolver {\n\n    private static final int CENTRALIZA = 2;           // valor de COPC-IND-CENT / COPCN-IND-CENT\n\n    public void resuelve(AgrupadoRecord r, MovimientoTraducido t) {\n        t.sirh(r.sucursal());                          // A01-TRAD-SIRH\n        t.centralDesvio(r.centralizadora());           // A01-TRAD-CENTRAL-DES\n        String depto;\n        if (r.centralizadora() > 0) {\n            depto = String.valueOf(r.centralizadora());          // centralizadora explícita\n        } else if (t.indCentraliza() == CENTRALIZA) {\n            depto = String.valueOf(t.departamentoCatalogo());    // W77-DEPTO del COPC/COPCN\n        } else {\n            depto = String.valueOf(r.sucursal());                // sucursal del movimiento\n        }\n        t.departamento(Fixed.numeroEnAlfa(depto, 4, 10));   // 9(004) en X(010): \"0123      \"\n    }\n}",
+          "racional": "La prioridad es la centralizadora que trae el propio movimiento, luego el departamento del catálogo cuando éste indica centralización y al final la sucursal. El <code>EXIT PERFORM</code> de la primera rama solo corta el párrafo, por lo que en Java basta un <code>if</code> encadenado. El <code>MOVE</code> de un <code>PIC 9(004)</code> a <code>PIC X(010)</code> deja cuatro dígitos con ceros a la izquierda y seis espacios; <code>Fixed.numeroEnAlfa</code> reproduce ese formato para que el sort y los reportes por <code>RP-DEPTO-1P</code> sigan cuadrando.",
+          "reglas": [
+            "RN-S151-107"
+          ]
+        },
+        {
+          "id": "s9",
+          "titulo": "Identidad del asiento, SETID y campo FIDEICOMISO",
+          "linea_ini": 7361,
+          "linea_fin": 7383,
+          "origen_codigo": " 20500-MUEVE-RESTO-TRADUCIDO .                                    238200\n* ----------------------------                                    238250\n     MOVE WKS-SISTEMA-PARAM   TO TRAD-IDASIEN-SIST      .         238350\n     MOVE W77-CSI             TO TRAD-IDASIEN-CSI       .         238400\n     MOVE 1                   TO TRAD-IDASIEN-VERS      .         238450\n     MOVE SPACES              TO TRAD-IDASIEN-RESTO     .         238500\n     MOVE 10                  TO A01-TRAD-TIPTRA        .         238550\n     MOVE \"BNMEX\"             TO A01-TRAD-SETID         .         238600\n     MOVE A00-R01-AGRU-TM-ESQ TO A01-TRAD-ESQCON        .         238650\n*    MOVE A00-R01-AGRU-FIDEICOMISO TO A01-TRAD-FIDEICOMISO        238700\n     MOVE A00-R01-AGRU-AREA        TO A01-TRAD-FIDEICOMISO.       238750\n     MOVE ZEROS               TO A01-TRAD-CVEEVEN                 238800\n                                 A01-TRAD-ESQ-DES       .         238850\n     IF W77-SISTEMA-PARAM   =    84   OR   =    87   OR           238950\n                            =    403  OR   =    500               239000\n        PERFORM 20600-OBTIENE-INTERCOMPANY                        239050\n     ELSE                                                         239100\n        MOVE SPACES TO A01-TRAD-INTERC-ALFA                       239150\n        MOVE ZERO   TO A01-TRAD-INTERC-NUM              .         239200\n     PERFORM 20525-MUEVE-DE-TRAD-A-PQT                  .         239300",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class AsientoIdentidad {\n\n    private final P131Properties props;\n    private final IntercompanyRepository inte;            // ARCH-INTE\n\n    public void completa(AgrupadoRecord r, MovimientoTraducido t) {\n        t.idAsiento(new IdAsiento(\n                Fixed.izq(String.valueOf(props.sistema()), 4),   // WKS-SISTEMA-PARAM\n                Fixed.izq(props.csi(), 3),                        // W77-CSI\n                props.asiento().version(),                        // 1\n                \"  \"));                                           // RESTO = SPACES\n        t.tipoTransaccion(props.asiento().tipoTransaccion());     // 10\n        t.setId(props.asiento().setId());                         // \"BNMEX\"\n        t.esquemaContable(r.tmEsquema());\n        // Línea 7371 comentada: el campo nominal FIDEICOMISO recibe el ÁREA.\n        t.fideicomiso(r.area());                                  // 9(004) -> 9(006)\n        t.claveEvento(0); t.esquemaDesvio(0);\n\n        if (props.sistemasIntercompany().contains(props.sistema())) {     // 84, 87, 403, 500\n            t.intercompanyNum(r.intercompany());\n            t.intercompanyAlfa(inte.findById(r.intercompany())\n                    .map(Intercompany::unidadNegocio).orElse(\"     \"));   // 20600\n        } else {\n            t.intercompanyAlfa(\"     \");\n            t.intercompanyNum(\"00000\");\n        }\n    }\n}\n\n# application.yml\np131:\n  asiento: { version: \"1\", tipo-transaccion: 10, set-id: BNMEX }\n  sistemas-intercompany: [84, 87, 403, 500]",
+          "racional": "El párrafo arma la identidad del asiento con tres constantes escritas en el código: versión 1, tipo de transacción 10 y SETID <code>BNMEX</code>. Las tres pasan a <code>application.yml</code> porque el SETID es el dato que cambiaría en una separación de entidades y hoy obliga a recompilar. La lista de sistemas con intercompany también se externaliza. Se conserva el comportamiento actual de mover el área al campo FIDEICOMISO, con un comentario explícito, en lugar de corregirlo en silencio.",
+          "reglas": [
+            "RN-S151-110",
+            "RN-S151-112",
+            "RN-S151-105"
+          ],
+          "riesgo": "La instrucción que movía el fideicomiso está comentada (línea 7371) y la activa mueve el área: el registro traducido AGRUPCONT lleva el área en la posición del fideicomiso."
+        }
+      ]
+    },
+    {
+      "titulo": "Escritura del paquete y cuadre contra el trailer",
+      "origen": {
+        "archivo": "COBOL_P131.txt",
+        "contexto": "PROCEDURE DIVISION · 20510 / 21000"
+      },
+      "java": {
+        "archivo": "PaqueteContableWriter.java · CuadreTrailerTasklet.java",
+        "contexto": "ItemWriter compuesto · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s10",
+          "titulo": "Un movimiento, dos registros de naturaleza contraria y un par",
+          "linea_ini": 7429,
+          "linea_fin": 7449,
+          "origen_codigo": " 20510-GRABA-PAQUETECONTABLE .                                    239850\n* ----------------------------                                    239900\n     IF A01-TRAD-CVE-REG   =   \"05\"                               240000\n        MOVE \"01\" TO RP-CVE-REG                                   240050\n     ELSE                                                         240100\n        PERFORM 20590-GRABA-CUADREESPECIAL                        240150\n        MOVE A01-TRAD-CVE-REG   TO RP-CVE-REG                   . 240200\n     PERFORM 20525-MUEVE-DE-TRAD-A-PQT                          . 240300\n     MOVE 1                     TO RP-NATURALEZA                . 240350\n     MOVE A01-TRAD-CTACARGO     TO RP-CTAALFA    PARES-CTACARGO . 240400\n     MOVE A01-TRAD-IMPCARGO     TO RP-IMPORTE                   . 240450\n     WRITE REG-PAQUETECONTABLE                                  . 240500\n     MOVE 2                     TO RP-NATURALEZA                . 240600\n     MOVE A01-TRAD-UNINEG       TO RP-UNINEG                    . 240650\n     MOVE A01-TRAD-CTAABONO     TO RP-CTAALFA    PARES-CTAABONO . 240700\n     MOVE A01-TRAD-IMPABONO     TO RP-IMPORTE    PARES-IMPORTE  . 240750\n     WRITE REG-PAQUETECONTABLE                                  . 240800\n     WRITE REG-PARES                                            . 240850",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PaqueteContableWriter implements ItemWriter<MovimientoTraducido> {\n\n    private final FlatFileItemWriter<PaqueteContableRecord> paquete;    // PAQUETECONTABLE\n    private final FlatFileItemWriter<ParesRecord> pares;                // PARES (74 bytes)\n    private final FlatFileItemWriter<CuadreEspecialRecord> especial;    // CUADREESPECIAL\n\n    @Override\n    public void write(Chunk<? extends MovimientoTraducido> chunk) throws Exception {\n        var regs = new ArrayList<PaqueteContableRecord>();\n        var prs = new ArrayList<ParesRecord>();\n        var esp = new ArrayList<CuadreEspecialRecord>();\n        for (var t : chunk) {\n            String cve;\n            if (\"05\".equals(t.cveReg())) {\n                cve = \"01\";                                  // proceso normal\n            } else {\n                esp.addAll(CuadreEspecialRecord.de(t));      // 20590: claves 80..89\n                cve = t.cveReg();\n            }\n            regs.add(t.aPaquete(cve, CARGO, t.cuentaCargo(), t.importeCargo()));\n            regs.add(t.aPaquete(cve, ABONO, t.cuentaAbono(), t.importeAbono()));\n            prs.add(ParesRecord.de(t));                      // cargo + abono + importe del abono\n        }\n        paquete.write(new Chunk<>(regs));\n        pares.write(new Chunk<>(prs));\n        especial.write(new Chunk<>(esp));\n    }\n}",
+          "racional": "Cada movimiento traducido produce un registro de cargo y uno de abono con el mismo importe, y un registro de pares. La clave 05 se normaliza a 01 y las claves de procesos especiales conservan su valor y se copian además a CUADREESPECIAL. Como un registro de entrada genera varias salidas en distintos archivos, la escritura vive en un <code>ItemWriter</code> propio que delega en tres <code>FlatFileItemWriter</code> del mismo step, así todo el chunk se confirma o se revierte junto. Los movimientos con doble registro FOBAPROA (<code>W77-BAND-DREG = 2</code>) siguen otra ruta, 20540 y 20550, que no se muestra aquí.",
+          "reglas": [
+            "RN-S151-102"
+          ]
+        },
+        {
+          "id": "s11",
+          "titulo": "Cuadre de registros e importe contra el trailer del AGRUPADO",
+          "linea_ini": 7826,
+          "linea_fin": 7853,
+          "origen_codigo": " 21000-VALIDA-TOTALES-TRAILER .                                   251650\n* *****************************                                   251700\n     IF W77-TOTREG-TR NOT = W77-TOTREG                            251800\n        STRING \" ARCHIVO : \" WKS-TIT-AGRUPADO                     251850\n               \" TOTAL DE REGISTROS DEL TRAILER  \" W77-TOTREG-TR  251900\n               \" DIFERENTE DEL TOTAL DE REGISTROS DEL P131 \"      251950\n               W77-TOTREG                                         252000\n               DELIMITED SIZE INTO TEXTO-LJ                       252050\n        PERFORM 90500-ERROR-FATAL .                               252100\n     IF W77-TOTIMP-TR NOT = W77-TOTIMP                            252200\n        COMPUTE W77-TOTIMP-DIF =  W77-TOTIMP-TR - W77-TOTIMP      252300\n        MOVE W77-TOTIMP-TR  TO WKS-TOTIMP-TR                      252400\n        MOVE W77-TOTIMP     TO WKS-TOTIMP                         252450\n        MOVE W77-TOTIMP-DIF TO WKS-TOTIMP-DIF                     252500\n        STRING \" ARCHIVO : \" WKS-TIT-AGRUPADO  DELIMITED \"  \"     252600\n               \". TOTAL DE IMPORTE TRAILER  \" WKS-TOTIMP-TR       252650\n               \" DIFERENTE DEL TOTAL DE IMPORTE DEL PROGRAMA  \"   252700\n               WKS-TOTIMP                                         252750\n               \" DIFERENCIA                                   \"   252800\n               WKS-TOTIMP-DIF                                     252850\n               DELIMITED SIZE INTO TEXTO-LJ                       252900\n        PERFORM 90500-ERROR-FATAL .                               253000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CuadreTrailerTasklet implements Tasklet {\n\n    private final TotalesAgrupado acumulado;        // W77-TOTREG, W77-TOTIMP (9(15)V99)\n    private final TrailerAgrupado trailer;          // W77-TOTREG-TR, W77-TOTIMP-TR leídos en 17200\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        String archivo = trailer.titulo();          // WKS-TIT-AGRUPADO\n        if (trailer.registros() != acumulado.registros()) {\n            throw new ErrorFatalException((\" ARCHIVO : %s TOTAL DE REGISTROS DEL TRAILER  %d\"\n                    + \" DIFERENTE DEL TOTAL DE REGISTROS DEL P131 %d\")\n                    .formatted(archivo, trailer.registros(), acumulado.registros()));\n        }\n        if (trailer.importe().compareTo(acumulado.importe()) != 0) {\n            BigDecimal dif = trailer.importe().subtract(acumulado.importe());   // escala 2, exacta\n            throw new ErrorFatalException((\" ARCHIVO : %s. TOTAL DE IMPORTE TRAILER  %s\"\n                    + \" DIFERENTE DEL TOTAL DE IMPORTE DEL PROGRAMA  %s DIFERENCIA %s\")\n                    .formatted(archivo, trailer.importe(), acumulado.importe(), dif));\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "A diferencia de otros concentradores, P131 sí aborta cuando el trailer no cuadra: primero por número de registros y después por importe, informando la diferencia. Se traduce como un <code>Tasklet</code> posterior al step de traducción y la comparación de importes usa <code>compareTo</code> para no depender de la escala. La resta entre importes de escala 2 es exacta y no requiere modo de redondeo.",
+          "reglas": [
+            "RN-S151-109"
+          ],
+          "riesgo": "W77-TOTIMP-DIF es PIC 9(15)V99 sin signo (línea 3562): cuando el trailer trae menos importe que lo acumulado, el mensaje muestra la diferencia en valor absoluto y no indica el sentido del descuadre. La versión Java conserva el signo."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "SETID, versión y tipo de transacción compilados",
+      "detalle": "En 20500-MUEVE-RESTO-TRADUCIDO (líneas 7366-7369) y su gemelo FS (7392-7393) el SETID BNMEX, la versión 1 y el tipo de transacción 10 están escritos en el código; el mismo SETID aparece también en desvíos, compensación directa y en las interfaces S254 y FFS (líneas 10806 y 10843). Cualquier cambio de entidad obliga a recompilar y a reprobar contra S254."
+    },
+    {
+      "titulo": "Fallback silencioso a BNMEX / 907",
+      "detalle": "Cuando no existe COPC ni para el libro original ni para el libro de desvío, el movimiento se asigna a BNMEX con departamento 907 sin aviso ni archivo de rechazo (líneas 6363-6366 y equivalentes 6380, 6397, 6413). El movimiento llega a S254 como no clasificado."
+    },
+    {
+      "titulo": "Campo FIDEICOMISO con el área",
+      "detalle": "La línea 7371 que movía el fideicomiso está comentada y la 7372 mueve el área al campo A01-TRAD-FIDEICOMISO del registro traducido. El nombre del campo no corresponde a su contenido."
+    },
+    {
+      "titulo": "Detalle FS escrito con el layout del trailer",
+      "detalle": "En la ruta Full Suite, 20490-GRABA-ARCHIVO-TRADUCIDFS (línea 7345) y los párrafos de doble registro FS (7595-7607 y 7656-7669) escriben AGRUPCONTFS desde A03-TRAILER-TRADFS en lugar de A01-REGDET-TRADFS. Si alguien consume AGRUPCONTFS, recibe registros con clave 09 en lugar de los detalles traducidos."
+    },
+    {
+      "titulo": "Marca de moneda prácticamente inalcanzable",
+      "detalle": "La moneda alfa *** solo se asigna si la moneda existe en WKS-DES-MONEDA pero no en WKS-MONEDA-ALFA; una moneda inexistente ya abortó el proceso en 20433-VALIDA-MONEDA. Las pruebas de equivalencia deben cubrir ese caso específico."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-112 dice que el campo FIDEICOMISO está en el PAQUETECONTABLE; el layout REG-PAQUETECONTABLE (líneas 447-471) no tiene ese campo. El área se mueve a A01-TRAD-FIDEICOMISO del archivo traducido AGRUPCONT. Revisar la redacción de la regla.",
+    "RN-S151-110 ubica SETID y TIPTRA en el asiento; en el fuente viven en el registro traducido A01-TRAD y no en REG-PAQUETECONTABLE, que solo lleva IDASIEN. Confirmar qué archivo los consume en S254.",
+    "Confirmar si AGRUPCONTFS tiene algún consumidor: en el fuente sus detalles se escriben desde A03-TRAILER-TRADFS (línea 7345), lo que parece un defecto.",
+    "Confirmar la semántica de EXIT PERFORM dentro de párrafos invocados con PERFORM simple en el compilador COBOL85 de MCP (líneas 6194, 6366, 6741, 7790); se tradujo como salida del párrafo.",
+    "Confirmar si el doble PERFORM 22000-CIERRA-ARCHIVOS (dentro de 20000 y en la línea 4009) es inocuo en MCP.",
+    "Las rutas de producto alfa (PNPA/PNPB), pares contables (ARCH-CAT y CXEV/SIUN/COCO), cuenta final (CCFI/CCFIN) y doble registro FOBAPROA no se incluyen en esta demostración; requieren su propio segmento antes de migrar."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-091",
+    "RN-S151-092",
+    "RN-S151-093",
+    "RN-S151-094",
+    "RN-S151-095",
+    "RN-S151-096",
+    "RN-S151-097",
+    "RN-S151-098",
+    "RN-S151-099",
+    "RN-S151-100",
+    "RN-S151-101",
+    "RN-S151-102",
+    "RN-S151-103",
+    "RN-S151-104",
+    "RN-S151-105",
+    "RN-S151-106",
+    "RN-S151-107",
+    "RN-S151-108",
+    "RN-S151-109",
+    "RN-S151-110",
+    "RN-S151-111",
+    "RN-S151-112",
+    "RN-S500-738",
+    "RN-S500-739",
+    "RN-S500-740",
+    "RN-S500-741",
+    "RN-S500-742"
+  ]
+}

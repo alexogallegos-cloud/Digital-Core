@@ -1,0 +1,183 @@
+{
+  "slug": "S151_P194",
+  "sistema": "S151",
+  "programa": "P194",
+  "nombre": "Depurador de Directorios en Disco",
+  "funcion": "Paso batch de mantenimiento de S151 que lee la lista de directorios a depurar y borra, mediante la librería BORRA, los archivos anteriores a la fecha de retención calculada.",
+  "resumen": "P194 enlaza sus librerías por CTLVERS, obtiene el CSI y el nombre del equipo, y consulta el control diario S151B01SISDIA para tomar la fecha de proceso (o la toma del VALUE de la tarea). Con LOCSUP proyecta la fecha hacia atrás y la convierte a formato juliano; en producción calcula cuatro fechas de 1 a 4 días atrás y en los equipos de prueba una sola fecha desplazada cuatro días más. Por cada renglón del archivo S151/FILE/I10/DEPURAR/DIRECTORIOS separa usuario, directorio, pack, CSI y días, arma el título del directorio y, si el CSI coincide con el del equipo o el equipo es el CSI 32, llama a REMUEVE_ARCHIVOS con la fecha de retención.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.mantenimiento.depuracion",
+  "secciones": [
+    {
+      "titulo": "Estructura del archivo de control de depuración",
+      "origen": {
+        "archivo": "COBOL_P194.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "DirectorioADepurar.java · DirectorioLineMapper.java",
+        "contexto": "record · LineMapper"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Renglón de 80 bytes separado por puntos",
+          "linea_ini": 24,
+          "linea_fin": 675,
+          "origen_codigo": " FD  A01-DIR-INPUT                                                001500\n*    VALUE OF DEPENDENTSPECS IS TRUE                              001600\n     VALUE OF MAXRECSIZE     IS  80                               001610\n              FRAMESIZE      IS  8                                001660\n              TITLE \"S151/FILE/I10/DEPURAR/DIRECTORIOS/007.\"      001700\n     BLOCK  CONTAINS 100 RECORDS.                                 001800\n 01 A01-REG-DIR                    PIC X(80).                     002000\n 01  WKS-USER                      PIC X(04).                     005720\n 01  WKS-DIR                       PIC X(30).                     005730\n 01  WKS-PACK                      PIC X(17).                     005740\n 01  WKS-CSI                       PIC X(02).                     005750\n 01  WKS-CSI-NUM REDEFINES WKS-CSI PIC 9(02).                     005760\n 01  WKS-DIAS                      PIC X(02).                     005770\n 01  WKS-DIAS-NUM REDEFINES WKS-DIAS PIC 9(02).                   005780",
+          "java_codigo": "/** Un renglón de S151/FILE/I10/DEPURAR/DIRECTORIOS: usuario.directorio.pack.csi.dias */\npublic record DirectorioADepurar(String usuario,     // WKS-USER X(04)\n                                 String directorio,  // WKS-DIR  X(30)\n                                 String pack,        // WKS-PACK X(17)\n                                 int csi,            // WKS-CSI  X(02) REDEFINES 9(02)\n                                 String dias) {      // WKS-DIAS X(02): P194 no lo usa (ver segmento s6)\n}\n\n@Component\npublic class DirectorioLineMapper implements LineMapper<DirectorioADepurar> {\n\n    @Override\n    public DirectorioADepurar mapLine(String linea, int numero) {\n        String[] p = linea.split(\"\\\\.\", -1);                    // UNSTRING ... DELIMITED BY \".\"\n        if (p.length < 5) {\n            throw new FlatFileParseException(\"Renglón sin cinco campos\", linea, numero);\n        }\n        return new DirectorioADepurar(corta(p[0], 4), corta(p[1], 30), corta(p[2], 17),\n                                      Integer.parseInt(p[3].strip()), corta(p[4], 2));\n    }\n\n    /** UNSTRING a un campo alfanumérico trunca por la derecha al tamaño del receptor. */\n    private static String corta(String s, int n) { return s.length() > n ? s.substring(0, n) : s; }\n}",
+          "racional": "El archivo de control es de texto con cinco campos separados por punto. El fuente los separa con <code>UNSTRING</code> en receptores de tamaño fijo, que truncan sin aviso si el valor es más largo; el mapeador Java reproduce ese truncamiento de forma explícita y, a diferencia del fuente, rechaza un renglón con menos campos en lugar de procesar campos vacíos. El CSI se lee con una redefinición numérica de dos posiciones, por eso se convierte a entero.",
+          "reglas": [
+            "RN-S151-911"
+          ],
+          "riesgo": "Un directorio de más de 30 caracteres o un pack de más de 17 se truncan al separar el renglón y el borrado se haría sobre un título distinto al declarado."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job, fecha base y ventana por ambiente",
+      "origen": {
+        "archivo": "COBOL_P194.txt",
+        "contexto": "PROCEDURE DIVISION · 0000-INICIA / 0100-LIBRERIAS / 0150-CALCULA-FECHA-ATRAS"
+      },
+      "java": {
+        "archivo": "DepuracionJobConfig.java · FechasRetencionTasklet.java · CalendarioBancario.java",
+        "contexto": "Spring Batch Job · Tasklet · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Rutina principal y validación contra el control diario",
+          "linea_ini": 693,
+          "linea_fin": 742,
+          "origen_codigo": "  0000-INICIA.                                                    006900\n     PERFORM 0100-LIBRERIAS.                                      007000\n     OPEN INPUT A01-DIR-INPUT.                                    007100\n     MOVE ZERO                        TO W77-FIN.                 007200\n     READ A01-DIR-INPUT AT END MOVE 1 TO W77-FIN.                 007300\n     PERFORM 0200-LLAMA-BORRADO UNTIL W77-FIN = 1.                007400\n     STOP RUN.                                                    007600\n     MOVE ZERO                     TO W77-RESULT-LIBCON.          010700\n     MOVE 01                       TO WKS-B01-FUNCION             010800\n     MOVE 500                      TO WKS-B01-SISTEMA             010900\n     CALL \"CONSISDIA IN S151L001\"  USING  WKS-S151B01SISDIA       011000\n                                   GIVING W77-RESULT-LIBCON.      011100\n     IF W77-RESULT-LIBCON = 0                                     011200\n        NEXT SENTENCE                                             011300\n     ELSE                                                         011400\n        CHANGE ATTRIBUTE STATUS OF MYSELF    TO -1.               011500",
+          "java_codigo": "@Configuration\npublic class DepuracionJobConfig {\n\n    @Bean\n    Job depuraDirectorios(JobRepository repo, Step fechasRetencion, Step depura) {\n        return new JobBuilder(\"S151P194\", repo)\n                .start(fechasRetencion)        // 0100-LIBRERIAS + 0150-CALCULA-FECHA-ATRAS\n                .next(depura)                  // 0200-LLAMA-BORRADO por renglón\n                .build();\n    }\n\n    @Bean\n    Step depura(JobRepository repo, PlatformTransactionManager tx,\n                FlatFileItemReader<DirectorioADepurar> directorios,\n                DepuracionProcessor processor, ItemWriter<SolicitudBorrado> borrado) {\n        return new StepBuilder(\"depura\", repo)\n                .<DirectorioADepurar, SolicitudBorrado>chunk(1, tx)   // un directorio por transacción\n                .reader(directorios)\n                .processor(processor)\n                .writer(borrado)\n                .build();\n    }\n}\n\n/** CONSISDIA función 1 con sistema 500; cualquier resultado distinto de 0 termina la tarea. */\nstatic void validaControl(ControlSistemaPort control, HostInfo host) {\n    if (control.consultaSistemaDia(500, host.csi(), 1).resultado() != 0) {\n        throw new ProcesoAbortadoException(\"CONSISDIA S500 distinto de 0\");   // STATUS = -1, sin mensaje\n    }\n}",
+          "racional": "El programa enlaza librerías, abre el archivo de control y llama a la depuración por cada renglón hasta el fin. Se traduce a un job de dos steps: uno que calcula las fechas de retención y otro orientado a registros con chunk de uno, para que cada borrado quede como un ítem independiente en el <code>JobRepository</code>. La consulta al control diario se hace para el sistema 500 aunque el programa es de S151; si no regresa 0, el fuente termina la tarea con <code>STATUS -1</code> sin dejar mensaje, y en Java se lanza una excepción con texto.",
+          "reglas": [],
+          "riesgo": "La terminación por CONSISDIA no deja mensaje en bitácora; en operación solo se ve la tarea terminada con error."
+        },
+        {
+          "id": "s3",
+          "titulo": "Fecha base y fechas de retención por tipo de equipo",
+          "linea_ini": 753,
+          "linea_fin": 793,
+          "origen_codigo": "     IF ATTRIBUTE VALUE OF MYSELF > 0                             013600\n        MOVE ATTRIBUTE VALUE OF MYSELF TO WKS-FECHA               013700\n     ELSE                                                         013900\n        MOVE WKS-B01-FECPRO           TO WKS-FECHA                014000\n                                         WKS-FECHA1.              014001\n     PERFORM   0150-CALCULA-FECHA-ATRAS.                          015200\n     IF WKS-NOMEQUIPO = \"ACYPBETA. \" OR \"VDMBETA.  \" OR           015220\n                        \"ACYPGAMA. \" OR \"MONALFA.  \" OR           015240\n                        \"ACYPOMEGA.\" OR \"VDMKAPPA. \" OR           015260\n                        \"ACYPDELTA.\"                              015280\n        MOVE 1                         TO W77-EQUIPO-PRUEBAS      015290\n        MOVE WKS-FECHAOUT              TO WKS-FECHA               015300\n        COMPUTE WKS-FECHA              =  WKS-FECHA - 4           015400\n        MOVE WKS-FECHAJA               TO WKS-FECHAJAA            015500\n        MOVE WKS-FECHAJDD              TO WKS-FECHAJDDD           015600\n        MOVE WKS-FECHA-JULIANA         TO WKS-REM-FECHA           015700\n     ELSE                                                         015710\n        MOVE WKS-FECHAOUT              TO WKS-FECHA               015720\n        MOVE WKS-FECHAJA               TO WKS-FECHAJAA            015722\n        MOVE WKS-FECHAJDD              TO WKS-FECHAJDDD           015724\n        MOVE WKS-FECHA-JULIANA         TO WKS-FECHA-1             015730\n        PERFORM   0150-CALCULA-FECHA-ATRAS                        015734\n        MOVE WKS-FECHAOUT              TO WKS-FECHA               015740\n        MOVE WKS-FECHAJA               TO WKS-FECHAJAA            015742\n        MOVE WKS-FECHAJDD              TO WKS-FECHAJDDD           015744\n        MOVE WKS-FECHA-JULIANA         TO WKS-FECHA-2             015750\n        PERFORM   0150-CALCULA-FECHA-ATRAS                        015753\n        MOVE WKS-FECHAOUT              TO WKS-FECHA               015754\n        MOVE WKS-FECHAJA               TO WKS-FECHAJAA            015760\n        MOVE WKS-FECHAJDD              TO WKS-FECHAJDDD           015762\n        MOVE WKS-FECHA-JULIANA         TO WKS-FECHA-3             015764\n        PERFORM   0150-CALCULA-FECHA-ATRAS                        015772\n        MOVE WKS-FECHAOUT              TO WKS-FECHA               015774\n        MOVE WKS-FECHAJA               TO WKS-FECHAJAA            015780\n        MOVE WKS-FECHAJDD              TO WKS-FECHAJDDD           015785\n        MOVE WKS-FECHA-JULIANA         TO WKS-FECHA-4.            015790",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechasRetencionTasklet implements Tasklet {\n\n    private final CalendarioBancario calendario;      // THECALENDAR IN LOCSUP\n    private final P194Properties props;               // equipos-prueba: [ACYPBETA, VDMBETA, ...]\n    private final HostInfo host;                      // CSIID IN SOPORTECOMS\n\n    @Override\n    public RepeatStatus execute(StepContribution sc, ChunkContext ctx) {\n        LocalDate base = fechaBase(ctx);                              // VALUE de la tarea o WKS-B01-FECPRO\n        boolean pruebas = props.equiposPrueba().contains(host.nombreEquipo());\n        var fechas = new ArrayList<LocalDate>();\n        LocalDate f = calendario.retrocede(base, 1);                  // primer 0150-CALCULA-FECHA-ATRAS\n        if (pruebas) {\n            fechas.add(f.minusDays(4));                               // COMPUTE WKS-FECHA = WKS-FECHA - 4\n        } else {\n            for (int i = 0; i < 4; i++) {                             // WKS-FECHA-1 .. WKS-FECHA-4\n                fechas.add(f);\n                f = calendario.retrocede(f, 1);\n            }\n        }\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"pruebas\", pruebas);\n        ec.put(\"fechasRetencion\", fechas);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha base es la del VALUE de la tarea si viene informada y, si no, la fecha de proceso del control. En producción se calculan cuatro fechas, cada una un día anterior a la previa, porque la proyección de LOCSUP modifica <code>WKS-FECHA1</code> en sitio. En los equipos de prueba, listados por nombre en el código, se usa una sola fecha: la de un día atrás menos cuatro días aplicados directamente sobre el día juliano. En Java la resta se hace sobre <code>LocalDate</code>, que cruza correctamente el cambio de año, y la lista de equipos de prueba pasa a configuración.",
+          "reglas": [
+            "RN-S151-912",
+            "RN-S151-913"
+          ],
+          "riesgo": "Si la fecha llega por VALUE solo se mueve a WKS-FECHA y no a WKS-FECHA1, que es la que recibe THECALENDAR (líneas 753-757); el cálculo de retención no usa la fecha forzada. Además, en equipos de prueba la resta de 4 sobre el formato AAAA0DDD produce una fecha juliana inválida en los primeros cuatro días de enero."
+        },
+        {
+          "id": "s4",
+          "titulo": "Proyección de un día hacia atrás y conversión a juliano",
+          "linea_ini": 797,
+          "linea_fin": 812,
+          "origen_codigo": "     MOVE 15                          TO W77-FUNCION   .          015806\n     MOVE \"00000001\"                  TO WKS-FECHA2    .          015807\n     MOVE 13                          TO W77-FORMATO   .          015808\n     CALL \"THECALENDAR IN LOCSUP\"     USING W77-FUNCION,          015809\n                                            WKS-FECHA1 ,          015810\n                                            WKS-FECHA2 ,          015811\n                                            W77-FORMATO.          015812\n     MOVE WKS-FECHA1                  TO WKS-FECHAIN   .          015814\n     MOVE 5                           TO WKS-FORMIN    .          015818\n     MOVE 6                           TO WKS-FORMOUT   .          015820\n     CALL \"VALY_CAMBIAFORM IN LOCSUP\" USING WKS-FECHAIN           015824\n                                            WKS-FECHAOUT          015826\n                                            WKS-FORMIN            015828\n                                            WKS-FORMOUT           015830\n                                     GIVING W77-RESULT.           015832",
+          "java_codigo": "@Service\npublic class CalendarioBancario {\n\n    private final LocsupPort locsup;   // adaptador mientras conviva el mainframe; luego, calendario propio\n\n    public CalendarioBancario(LocsupPort locsup) { this.locsup = locsup; }\n\n    /** THECALENDAR función 15, formato 13, desplazamiento \"00000001\". */\n    public LocalDate retrocede(LocalDate desde, int dias) {\n        return locsup.theCalendar(15, desde, dias, 13);\n    }\n\n    /** VALY_CAMBIAFORM entrega AAAA0DDD (formato 6); el programa lo reacomoda a AAAADDD para BORRA. */\n    public static long aJulianoBorra(LocalDate f) {\n        return f.getYear() * 1_000L + f.getDayOfYear();      // WKS-FECHA-JULIANA 9(07): AAAADDD\n    }\n}",
+          "racional": "Cada llamada retrocede la fecha un día con el calendario de LOCSUP y la convierte del formato 5 al 6. El layout <code>WKS-FECHAR</code> (año, un dígito en cero y día del año) indica que el formato 6 es juliano de ocho posiciones, y el programa lo reacomoda a siete dígitos para la librería de borrado. Se mantiene un adaptador hacia LOCSUP porque no se sabe si la función 15 cuenta días naturales o hábiles; la conversión a juliano sí se escribe en Java porque su formato se deduce del fuente.",
+          "reglas": [
+            "RN-S151-913"
+          ],
+          "riesgo": "El resultado de VALY_CAMBIAFORM (W77-RESULT) no se revisa; una conversión fallida dejaría una fecha de remoción incorrecta."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de depuración: título, retención y alcance por CSI",
+      "origen": {
+        "archivo": "COBOL_P194.txt",
+        "contexto": "PROCEDURE DIVISION · 0200-LLAMA-BORRADO"
+      },
+      "java": {
+        "archivo": "DepuracionProcessor.java · BorradoWriter.java",
+        "contexto": "ItemProcessor · ItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Título del directorio en formato ClearPath MCP",
+          "linea_ini": 816,
+          "linea_fin": 828,
+          "origen_codigo": "     UNSTRING A01-REG-DIR DELIMITED BY WKS-PUNTO INTO WKS-USER    016001\n                          DELIMITER IN WKS-PUNTO ,    WKS-DIR     016002\n                          DELIMITER IN WKS-PUNTO ,    WKS-PACK    016003\n                          DELIMITER IN WKS-PUNTO ,    WKS-CSI     016004\n                          DELIMITER IN WKS-PUNTO ,    WKS-DIAS.   016005\n     STRING   \"(\"         DELIMITED BY SIZE,                      016006\n              WKS-USER    DELIMITED BY SIZE,                      016007\n              \")\"         DELIMITED BY SIZE,                      016008\n              WKS-DIR     DELIMITED BY SIZE,                      016009\n              \" ON \"      DELIMITED BY SIZE,                      016010\n              WKS-PACK    DELIMITED BY SIZE,                      016011\n              \".\"         DELIMITED BY SIZE                       016012\n     INTO WKS-DIRECTORIO.                                         016013",
+          "java_codigo": "/** (USUARIO)DIRECTORIO ON PACK.  Con DELIMITED BY SIZE los campos conservan sus espacios de relleno. */\nstatic String tituloMcp(DirectorioADepurar d) {\n    return \"(\" + rellena(d.usuario(), 4) + \")\" + rellena(d.directorio(), 30)\n         + \" ON \" + rellena(d.pack(), 17) + \".\";\n}\n\nprivate static String rellena(String s, int n) {\n    return String.format(\"%-\" + n + \"s\", s);          // PIC X(n): relleno con espacios a la derecha\n}",
+          "racional": "El título se arma concatenando usuario entre paréntesis, directorio, la palabra ON y el pack, terminado en punto. Como el <code>STRING</code> usa <code>DELIMITED BY SIZE</code>, cada campo entra con su longitud completa y espacios de relleno; la versión Java los conserva para entregar a la librería de borrado exactamente el mismo texto. Si se reemplaza la librería por un borrado sobre otro almacenamiento, este método es el punto donde se traduce el título a una ruta.",
+          "reglas": [
+            "RN-S151-911",
+            "RN-S151-915"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Selección de la fecha de retención: lo que el código hace realmente",
+          "linea_ini": 830,
+          "linea_fin": 844,
+          "origen_codigo": "     IF W88-EQUIPO-PRODUCCION                                     016018\n        MOVE 1                   TO WKS-DIAS-NUM                  016020\n        IF WKS-DIAS-NUM = 1                                       016021\n           MOVE WKS-FECHA-1      TO WKS-REM-FECHA                 016022\n        ELSE                                                      016023\n        IF WKS-DIAS-NUM = 2                                       016025\n           MOVE WKS-FECHA-2      TO WKS-REM-FECHA                 016030\n        ELSE                                                      016035\n        IF WKS-DIAS-NUM = 3                                       016040\n           MOVE WKS-FECHA-3      TO WKS-REM-FECHA                 016045\n        ELSE                                                      016050\n        IF WKS-DIAS-NUM = 4                                       016055\n           MOVE WKS-FECHA-4      TO WKS-REM-FECHA                 016060\n        ELSE                                                      016065\n           MOVE WKS-FECHA-1      TO WKS-REM-FECHA.                016070",
+          "java_codigo": "@Component\n@StepScope\npublic class DepuracionProcessor implements ItemProcessor<DirectorioADepurar, SolicitudBorrado> {\n\n    @Value(\"#{jobExecutionContext['pruebas']}\")          private boolean pruebas;\n    @Value(\"#{jobExecutionContext['fechasRetencion']}\") private List<LocalDate> fechas;\n    @Value(\"#{@hostInfo.csi()}\")                         private int csiEquipo;\n\n    @Override\n    public SolicitudBorrado process(DirectorioADepurar d) {\n        // Producción: WKS-DIAS-NUM se fuerza a 1 y la cadena IF 1..4 siempre elige WKS-FECHA-1.\n        // Pruebas: la cadena completa está dentro del IF de producción y no se evalúa;\n        //          queda la fecha única calculada al inicio. Los días del archivo no se usan nunca.\n        LocalDate remocion = fechas.get(0);    // producción: WKS-FECHA-1; pruebas: fecha única\n        if (csiEquipo != d.csi() && csiEquipo != 32) {\n            return null;                                   // otro CSI: no se depura\n        }\n        return new SolicitudBorrado(tituloMcp(d), CalendarioBancario.aJulianoBorra(remocion));\n    }\n}",
+          "racional": "El <code>IF W88-EQUIPO-PRODUCCION</code> no termina hasta el punto de la línea 844, así que la elección por días queda dentro de la rama de producción, justo después de forzar los días a 1. El resultado es que en producción siempre se usa la fecha de un día atrás y en los equipos de prueba la fecha única desplazada cuatro días; el valor de días del archivo no interviene en ningún caso. La traducción conserva ese comportamiento y lo deja escrito en el comentario, para que el cambio de regla, si se decide, sea explícito.",
+          "reglas": [
+            "RN-S151-912",
+            "RN-S151-913"
+          ],
+          "riesgo": "El comentario del programa (líneas 9-11) y las reglas del brain dicen que en pruebas se respetan los días del archivo; el código no lo hace. Las fechas WKS-FECHA-2 a WKS-FECHA-4 se calculan pero nunca se usan."
+        },
+        {
+          "id": "s7",
+          "titulo": "Alcance por CSI y llamada a REMUEVE_ARCHIVOS",
+          "linea_ini": 846,
+          "linea_fin": 854,
+          "origen_codigo": "     IF WKS-NUMCSI = WKS-CSI-NUM OR                               016100\n        WKS-NUMCSI = 32                                           016200\n        MOVE ZERO                TO      W77-RESULT               016400\n        DISPLAY WKS-DIRECTORIO                                    016450\n        CALL  \"REMUEVE_ARCHIVOS IN BORRA\"                         016500\n        USING  WKS-DIRECTORIO                                     016600\n               WKS-REM-FECHA                                      016700\n        GIVING W77-RESULT.                                        016800\n     READ A01-DIR-INPUT AT END MOVE 1 TO W77-FIN.                 016900",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class BorradoWriter implements ItemWriter<SolicitudBorrado> {\n\n    private final BorraPort borra;                 // REMUEVE_ARCHIVOS IN BORRA (S151L194)\n\n    @Override\n    public void write(Chunk<? extends SolicitudBorrado> chunk) {\n        for (var s : chunk) {\n            log.info(\"Depurando {} anteriores a {}\", s.titulo(), s.fechaJuliana());   // DISPLAY WKS-DIRECTORIO\n            int resultado = borra.remueveArchivos(s.titulo(), s.fechaJuliana());\n            if (resultado != 0) {\n                // El fuente ignora W77-RESULT; aquí se registra y se marca el ítem como fallido.\n                throw new BorradoFallidoException(s.titulo(), resultado);\n            }\n        }\n    }\n}",
+          "racional": "Un directorio solo se depura si su CSI coincide con el del equipo o si el equipo es el CSI 32, que tiene alcance global. Ese filtro está en el procesador del segmento anterior; el writer hace la llamada a la librería de borrado con el título y la fecha juliana. El fuente no revisa el resultado de la librería y sigue con el siguiente renglón; en Java se propone registrar el error y marcar el ítem fallido, con una política de <code>skip</code> si se quiere conservar la continuidad.",
+          "reglas": [
+            "RN-S151-914",
+            "RN-S151-911"
+          ],
+          "riesgo": "El CSI 32 puede borrar directorios de cualquier CSI y el resultado de REMUEVE_ARCHIVOS no se verifica: un borrado fallido o excesivo no deja rastro más allá del DISPLAY."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Días de retención del archivo ignorados",
+      "detalle": "En 0200-LLAMA-BORRADO (líneas 830-844) la selección por días está dentro del IF de producción, después de forzar los días a 1. En pruebas se usa una fecha fija de cinco días atrás. El campo de días del archivo de control no tiene efecto."
+    },
+    {
+      "titulo": "Fecha forzada sin efecto",
+      "detalle": "Cuando la tarea recibe VALUE, la fecha se mueve a WKS-FECHA pero no a WKS-FECHA1 (líneas 753-757), que es la entrada de THECALENDAR. La retención se calcula con el contenido previo de WKS-FECHA1."
+    },
+    {
+      "titulo": "Borrado sin verificación",
+      "detalle": "No se revisa el resultado de REMUEVE_ARCHIVOS (línea 850) ni de VALY_CAMBIAFORM (línea 808). El CSI 32 tiene alcance sobre todos los directorios del archivo."
+    },
+    {
+      "titulo": "Fecha juliana inválida en pruebas",
+      "detalle": "La resta de 4 sobre AAAA0DDD (línea 767) no considera el cambio de año."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Lista de siete equipos de prueba (líneas 761-764), CSI global 32, sistema 500 en la consulta a CONSISDIA, título por omisión de S151L001 en CMEMP y título del archivo de control en el FD."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-912 y RN-S151-913 describen que en pruebas se respetan los días del archivo y que la fecha se elige según días 1 a 4; el código hace otra cosa (ver segmento s6). Validar con SME cuál es el comportamiento deseado y corregir la regla o el programa.",
+    "Confirmar por qué P194, programa de S151, consulta CONSISDIA con sistema 500 (línea 736).",
+    "Confirmar si THECALENDAR función 15 con formato 13 retrocede días naturales o hábiles, y el formato exacto 5 y 6 de VALY_CAMBIAFORM.",
+    "Confirmar qué valor tiene WKS-FECHA1 cuando la fecha llega por VALUE de la tarea.",
+    "RN-S151-912 menciona la variable W88-EQUIPO-PRODUCCION; en el fuente W77-EQUIPO-PRUEBAS no tiene VALUE inicial y solo se asigna en la rama de pruebas."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-911",
+    "RN-S151-912",
+    "RN-S151-913",
+    "RN-S151-914",
+    "RN-S151-915"
+  ]
+}

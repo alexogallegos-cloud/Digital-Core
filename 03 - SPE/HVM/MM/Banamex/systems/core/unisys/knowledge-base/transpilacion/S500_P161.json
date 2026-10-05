@@ -1,0 +1,182 @@
+{
+  "slug": "S500_P161",
+  "sistema": "S500",
+  "programa": "P161",
+  "nombre": "Archivo de Movimientos Aplicados para S111",
+  "funcion": "Paso batch de S500 que, si S111 no está dado de baja en el control B02, genera el archivo DEPINICIAL con las altas, bloqueos, cambios de producto, cancelaciones y registros TEF del día para el sistema S111.",
+  "resumen": "P161 abre en consulta las bases de captación y de tarjetas, lee el control B02 y, salvo que el indicador de baja de S111 esté encendido, calcula la fecha de lote como el día hábil anterior a la fecha de línea, o usa la fecha recibida en el TASKVALUE si es válida. Escribe un header y recorre todos los contratos de B03: para los de producto 66 instrumento 11 clasifica el movimiento del día en alta, bloqueo, cambio de producto o cancelación, obtiene la tarjeta con la librería L040 y escribe un detalle por cada clasificación que cumple; para los 66 instrumento 17 no migrados escribe las altas del día con la tarjeta armada desde B03. Después recorre B04PTEF y escribe los TEF con medio de entrega 81 actualizados ese día. Cierra con un trailer que lleva el número de detalles.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration",
+  "paquete_java": "mx.banamex.s500.s111.movimientos",
+  "secciones": [
+    {
+      "titulo": "Arranque, interruptor de S111 y fecha de lote",
+      "origen": {
+        "archivo": "S500_SOURCE_P161.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-PRINCIPAL / 10000000-INICIO / 10010400 / 10010500 / 10010600"
+      },
+      "java": {
+        "archivo": "MovimientosS111JobConfig.java · FechaLoteTasklet.java · P161Properties.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal e interruptor de baja de S111",
+          "origen_codigo": " 00000000-INICIA SECTION.\n 00000000-PRINCIPAL.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF\n       TO  WKS-PARAM-FECHA-CAMD\n     MOVE 2             TO W77-USO-LIBLJ.\n     MOVE \"P161\"        TO WS-0101-PASO-MSG B91-IDPROG.\n     MOVE \"S500P161\"    TO  W77-S000-MY-ID.\n     MOVE \"25MTP008\"    TO  W77-S000-MY-VERSION WS-0101-MTP-MSG.\n     PERFORM                      10000000-INICIO\n     PERFORM                      20000000-PROCESO\n     PERFORM                      60000000-FIN\n     STOP RUN.\n 10000000-INICIO.\n     MOVE ZEROS                   TO  WKS-AREAS-BASES WS-1VEZ\n     PERFORM                      10000010-LIBRERIAS\n     PERFORM                      10010100-CHECO-VER\n     PERFORM                      10010300-ABRO-BASE\n     PERFORM                      10010400-VALIDA-BASE.\n     IF WS-B02-DECOM-S111 = 0\n        PERFORM                      10010500-PROYHABANT\n        PERFORM                      10010600-ABRO-ARCH-S111.",
+          "java_codigo": "@Configuration\npublic class MovimientosS111JobConfig {\n\n    /** B02-USO-FUTURO-05 (WS-B02-DECOM-S111) distinto de 0: S111 dado de baja, no se genera archivo. */\n    @Bean\n    JobExecutionDecider s111Activo() {\n        return (job, step) -> new FlowExecutionStatus(\n                job.getExecutionContext().getInt(\"decomS111\") == 0 ? \"ACTIVO\" : \"BAJA\");\n    }\n\n    @Bean\n    Job movimientosS111(JobRepository repo, Step controlB02, Step fechaLote, Step genera) {\n        return new JobBuilder(\"S500P161\", repo)\n                .start(controlB02)                       // 10010300-ABRO-BASE + 10010400-VALIDA-BASE\n                .next(s111Activo())\n                    .on(\"ACTIVO\").to(fechaLote)          // 10010500 + 10010600\n                        .next(genera)                    // 20100000-PROCESO-ARCHIVO\n                .from(s111Activo())\n                    .on(\"BAJA\").end(\"COMPLETED\")         // el original termina sin mensaje\n                .end()\n                .build();\n    }\n}\n// TASKVALUE (fecha CCAAMMDD opcional) pasa como parámetro \"fecha\" del job.",
+          "racional": "La rutina principal lee una fecha opcional del <code>TASKVALUE</code> y ejecuta inicio, proceso y fin. Todo el trabajo útil depende de un campo del control B02 que indica si S111 ya fue dado de baja; si está encendido, el programa abre y cierra las bases sin generar archivo. En Spring Batch esa condición es un <code>JobExecutionDecider</code> que termina el job en estado completado, y la fecha del <code>TASKVALUE</code> se vuelve un parámetro del job.",
+          "reglas": [
+            "RN-S500-521"
+          ],
+          "riesgo": "Con S111 dado de baja el job termina sin aviso al operador; el mensaje de fin solo se emite cuando WS-B02-DECOM-S111 es cero.",
+          "linea_ini": 192,
+          "linea_fin": 222
+        },
+        {
+          "id": "s2",
+          "titulo": "Fecha de lote: día hábil anterior o fecha forzada con validación",
+          "origen_codigo": " 10010400-VALIDA-BASE.\n     SET S500B02CONTROL           TO  BEGINNING\n     PERFORM 90000002-B02CONTROL-FIND\n     IF WS-DB-ERROR\n        IF WS-DB-NOTFOUND\n        ELSE\n     IF WS-DB-ERROR\n        PERFORM 70000050-MENSAJE\n        PERFORM 99000000-LLAMA-DMTERMINATE.\n     MOVE B02-NUM-CSI             TO  WKS-B02-NUM-CSI\n     MOVE B02-FECHA-LINEA         TO  WKS-B02-FECHA-LINEA\n     MOVE B02-FECHA-LOTE          TO  WKS-B02-FECHA-LOTE\n     MOVE B02-USO-FUTURO-05       TO  WS-B02-DECOM-S111.\n 10010500-PROYHABANT.\n     MOVE WKS-B02-FECHA-LINEA     TO  WKS-INP-FECHA1\n     MOVE 01                      TO  WKS-INP-FECHA2\n     MOVE 13                      TO  WKS-INP-FORMATO\n     MOVE 15                      TO  WKS-INP-FUNCION\n     PERFORM                      70000100-LLAMA-FECHAS\n     MOVE WKS-OUT-FECHA1          TO  WKS-I01-FECH-PROYECTADA    .\n 10010600-ABRO-ARCH-S111.\n     MOVE ZEROS                   TO  WKS-ETIQ-S111-FECHA\n     IF WKS-PARAM-FECHA-CAMD      >   20070830\n        IF WKS-PARAM-FECHA-CAMD   <   WKS-I01-FECH-PROYECTADA\n           MOVE WKS-PARAM-FECHA-CAMD\n                                  TO  WKS-I01-FECH-PROYECTADA\n        ELSE\n           STRING \"FECHA ERRONEA, ES MAYOR A LA FECHA LINEA \"\n                  \" FECHA PARAM: \"    WKS-PARAM-FECHA-CAMD\n                  \" FECHA LINEA: \"    WKS-B02-FECHA-LINEA\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           PERFORM 99000000-LLAMA-DMTERMINATE\n     ELSE\n        STRING \"FECHA MENOR A 20070901, CONSIDERO FECHA LINEA\"\n               \" FECHA PARAM: \"       WKS-PARAM-FECHA-CAMD\n               \" FECHA LINEA: \"       WKS-B02-FECHA-LINEA\n        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n     MOVE WKS-I01-FECH-PROYECTADA TO  WKS-ETIQ-S111-FECHA\n                                      WKS-B02-FECHA-LOTE\n     MOVE WKS-B02-NUM-CSI         TO  WKS-ETIQ-S111-CSI\n     OPEN OUTPUT I01-S111-APLICADOS                              .",
+          "java_codigo": "# application.yml\np161:\n  fecha-minima-parametro: 2007-08-30          # WKS-PARAM-FECHA-CAMD > 20070830\n  salida: \"(S500)S500/FILE/S111/{csi}/DEPINICIAL/{fecha}.\"\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class FechaLoteTasklet implements Tasklet {\n\n    private final CalendarioBancario calendario;   // LOCSUP función 15, formato 13\n    private final P161Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        LocalDate fechaLinea = (LocalDate) ec.get(\"fechaLinea\");            // B02-FECHA-LINEA\n        LocalDate proyectada = calendario.habilAnterior(fechaLinea, 1);   // 10010500-PROYHABANT\n\n        var param = Optional.ofNullable(ctx.getStepContext().getJobParameters().get(\"fecha\"))\n                .map(Object::toString).filter(s -> !s.isBlank())\n                .map(s -> LocalDate.parse(s, DateTimeFormatter.BASIC_ISO_DATE));\n        LocalDate lote = proyectada;\n        if (param.isPresent() && param.get().isAfter(props.fechaMinimaParametro())) {\n            if (!param.get().isBefore(proyectada)) {\n                throw new ProcesoAbortadoException(\"FECHA ERRONEA, ES MAYOR A LA FECHA LINEA \"\n                        + \" FECHA PARAM: \" + param.get() + \" FECHA LINEA: \" + fechaLinea);   // DMTERMINATE\n            }\n            lote = param.get();\n        }\n        ec.put(\"fechaLote\", lote);          // reemplaza a WKS-B02-FECHA-LOTE en todas las comparaciones\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de lote que decide qué movimientos son del día no es la de B02: es el día hábil anterior a la fecha de línea, o la fecha del parámetro si es posterior al 30 de agosto de 2007 y anterior a la proyectada; una fecha igual o posterior aborta el proceso. El programa sobrescribe <code>WKS-B02-FECHA-LOTE</code> con ese valor y lo usa en todas las comparaciones. En Java la fecha mínima y la plantilla del título pasan a <code>application.yml</code> y el resultado se publica como <code>fechaLote</code>. El título del archivo recibe la fecha en seis dígitos, sin siglo.",
+          "reglas": [],
+          "riesgo": "Un parámetro igual a la fecha proyectada se rechaza por la comparación estricta (menor que), aunque el mensaje dice que la fecha es mayor a la fecha de línea.",
+          "linea_ini": 271,
+          "linea_fin": 331
+        }
+      ]
+    },
+    {
+      "titulo": "Formato del archivo DEPINICIAL",
+      "origen": {
+        "archivo": "S500_SOURCE_P161.txt",
+        "contexto": "FD I01-S111-APLICADOS · WKS-ETIQ-S111-APLICADOS · 20101000-GENERA-HEADER"
+      },
+      "java": {
+        "archivo": "RegistroS111.java",
+        "contexto": "sealed interface · record"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Registro de 40 posiciones con cuatro vistas",
+          "origen_codigo": " 01  I01-REG-S111-APLICADO.\n     02 I01-S111-TIP-REG          PIC  9(002).\n     02 I01-S111-HEADER.\n        03 I01-S111-HDR-FECHA     PIC  9(008).\n        03 I01-S111-HDR-SIS-ORI   PIC  X(004).\n        03 I01-S111-HDR-SIS-DES   PIC  X(004).\n        03 I01-S111-HDR-CSI-ORI   PIC  9(002).\n        03 FILLER                 PIC  X(020).\n     02 I01-S111-DETALLE REDEFINES I01-S111-HEADER.\n        03 I01-S111-DET-TARJETA   PIC  9(016).\n        03 I01-S111-DET-CONTRATO  PIC  9(012).\n        03 I01-S111-DET-SUC-PROM  PIC  9(004).\n        03 FILLER                 PIC  X(006).\n     02 I01-S111-DET-TEF REDEFINES I01-S111-HEADER.\n        03 I01-S111-DET-TAR-TEF   PIC  9(016).\n        03 I01-S111-DET-NUM-TEF   PIC  9(016).\n        03 FILLER                 PIC  X(006).\n     02 I01-S111-TRAILER REDEFINES I01-S111-HEADER.\n        03 I01-S111-TRL-NUM-REG   PIC  9(008).\n        03 FILLER                 PIC  X(030).\n 01  WKS-ETIQ-S111-APLICADOS.\n     02 FILLER                    PIC  X(021)     VALUE\n        \"(S500)S500/FILE/S111/\".\n     02 WKS-ETIQ-S111-CSI         PIC  9(002).\n     02 FILLER                    PIC  X(012)     VALUE\n        \"/DEPINICIAL/\".\n     02 WKS-ETIQ-S111-FECHA       PIC  9(006).\n     02 FILLER                    PIC  X(001)     VALUE \".\".\n 20101000-GENERA-HEADER.\n     MOVE SPACES                  TO  I01-REG-S111-APLICADO\n     MOVE ZEROS                   TO  I01-S111-TIP-REG\n     MOVE WKS-I01-FECH-PROYECTADA TO  I01-S111-HDR-FECHA\n     MOVE \"S500\"                  TO  I01-S111-HDR-SIS-ORI\n     MOVE \"S111\"                  TO  I01-S111-HDR-SIS-DES\n     MOVE WKS-B02-NUM-CSI         TO  I01-S111-HDR-CSI-ORI\n     WRITE I01-REG-S111-APLICADO                                 .",
+          "java_codigo": "/** I01-REG-S111-APLICADO: 40 posiciones; el tipo de registro decide la vista. */\npublic sealed interface RegistroS111 {\n\n    /** Tipo 00. */\n    record Header(LocalDate fecha, String sistemaOrigen, String sistemaDestino, int csiOrigen)\n            implements RegistroS111 {}\n\n    /** Tipos 01 alta, 02 bloqueo, 03 cambio de producto, 04 cancelación, 05 alta 66/17. */\n    record Movimiento(TipoMovimiento tipo, String tarjeta,      // 9(016)\n                      String contrato,                          // 9(012)\n                      String sucursalPromotora) implements RegistroS111 {}   // 9(004)\n\n    /** Tipo 06: tarjeta y número de TEF de B04PTEF. */\n    record Tef(String tarjeta, String numeroTef) implements RegistroS111 {}\n\n    /** Tipo 99: número de registros de detalle. */\n    record Trailer(long detalles) implements RegistroS111 {}\n\n    enum TipoMovimiento { ALTA(1), BLOQUEO(2), CAMBIO_PRODUCTO(3), CANCELACION(4), ALTA_66_17(5);\n        final int codigo; TipoMovimiento(int c) { codigo = c; } }\n\n    static String encode(RegistroS111 r) {\n        return switch (r) {\n            case Header h     -> \"00\" + Fixed.aaaammdd(h.fecha()) + h.sistemaOrigen()\n                                      + h.sistemaDestino() + \"%02d\".formatted(h.csiOrigen()) + \" \".repeat(20);\n            case Movimiento m -> \"%02d\".formatted(m.tipo().codigo) + m.tarjeta() + m.contrato()\n                                      + m.sucursalPromotora() + \" \".repeat(6);\n            case Tef t        -> \"06\" + t.tarjeta() + t.numeroTef() + \" \".repeat(6);\n            case Trailer t    -> \"99\" + \"%08d\".formatted(t.detalles()) + \" \".repeat(30);\n        };\n    }\n}",
+          "racional": "El archivo para S111 usa un registro de 40 posiciones con cuatro vistas por <code>REDEFINES</code>: header con fecha, sistemas y centro de origen; detalle con tarjeta, contrato y sucursal promotora; detalle TEF con tarjeta y número de TEF; y trailer con el conteo. En Java cada vista es un <code>record</code> de una <code>sealed interface</code> y la codificación usa un <code>switch</code> exhaustivo. Tarjeta, contrato y sucursal se conservan como <code>String</code> para no perder ceros a la izquierda. El header lleva tipo 00, distinto de la convención 01 de otros archivos de S500.",
+          "reglas": [
+            "RN-S500-522"
+          ],
+          "linea_ini": 63,
+          "linea_fin": 372
+        }
+      ]
+    },
+    {
+      "titulo": "Selección de movimientos del día y escritura",
+      "origen": {
+        "archivo": "S500_SOURCE_P161.txt",
+        "contexto": "20102000 / 20102010 / 20102011 / 20102012 / 20102013 / 30005000 / 20100000 / 60000000"
+      },
+      "java": {
+        "archivo": "ContratoS111Processor.java · TefS111Processor.java · MovimientosS111Writer.java",
+        "contexto": "ItemProcessor · ClassifierCompositeItemProcessor · Spring Integration outbound"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Barrido de B03 por producto e instrumento",
+          "origen_codigo": " 20102000-BUSCA-TARJETAS.\n     PERFORM                      90000003-B03CONTRATOS-FINDN\n     IF WS-DB-ERROR\n        MOVE 1                    TO  WKS-B03-FIN-VA\n     ELSE\n        ADD  1                    TO  WKS-B03-REG-LEIDOS\n        IF B03-NUM-PRODUCTO       =   66\n       AND B03-NUM-INSTRUM        =   11\n           MOVE B03-NUM-CONTRATO  TO  WS-NUM-CONTRATO\n           PERFORM 90000006-B06SXCTO-FIND\n           IF WS-DB-NOTERROR\n              PERFORM 20102010-GENERA-DETALLE\n           ELSE\n              STRING \"EL CONTRATO: <\" WS-NUM-CONTRATO\n                     \"> NO EXISTE EN B06\"\n              DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n              PERFORM 70000050-MENSAJE\n        ELSE\n        IF (B03-NUM-PRODUCTO     =  66   AND\n            B03-NUM-INSTRUM      =  17   AND\n            B03-MIGR-S111    NOT =  1)\n            PERFORM 20102013-VALIDA-66-17.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ContratoS111Processor implements ItemProcessor<ContratoB03, List<RegistroS111>> {\n\n    private final HistoricoB06Repository b06;\n    private final ClasificadorMovimientos clasificador;   // 20102010-GENERA-DETALLE\n    private final AltaCuentaMaestra1717 alta6617;          // 20102013-VALIDA-66-17\n\n    @Override\n    public List<RegistroS111> process(ContratoB03 c) {\n        if (c.producto() == 66 && c.instrumento() == 11) {\n            return b06.findByContrato(c.numContrato())\n                    .map(h -> clasificador.clasifica(c, h))\n                    .orElseGet(() -> {\n                        log.warn(\"EL CONTRATO: <{}> NO EXISTE EN B06\", c.numContrato());\n                        return List.of();\n                    });\n        }\n        if (c.producto() == 66 && c.instrumento() == 17 && !c.migradoS111()) {\n            return alta6617.evalua(c);\n        }\n        return List.of();\n    }\n}\n\n// El reader recorre S500B03CONTRATOS completo. Cualquier error de base distinto de\n// \"no encontrado\" debe fallar el step; el original lo trata como fin de lectura (ver riesgo).",
+          "racional": "El programa recorre todos los contratos de captación y solo atiende dos combinaciones: producto 66 instrumento 11, que exige histórico B06 para clasificar el movimiento, y producto 66 instrumento 17 aún no migrado a S111. En Java un procesador devuelve una lista de registros por contrato, porque un mismo contrato puede producir varios. La ausencia de B06 se registra como aviso y el contrato se omite, igual que en el fuente.",
+          "reglas": [],
+          "riesgo": "IF WS-DB-ERROR marca fin de B03 ante cualquier error de base, no solo ante fin de dataset. Una falla de DMSII a mitad del barrido produce un archivo truncado con trailer consistente, que S111 no puede distinguir de uno completo. Lo mismo ocurre en el barrido de B04PTEF.",
+          "linea_ini": 377,
+          "linea_fin": 399
+        },
+        {
+          "id": "s5",
+          "titulo": "Clasificación del movimiento: cuatro condiciones independientes",
+          "origen_codigo": " 20102010-GENERA-DETALLE.\n     MOVE ZEROS                   TO  I01-S111-TIP-REG\n     IF B03-FEC-APERTURA  = WKS-B02-FECHA-LOTE\n        MOVE 01                   TO  I01-S111-TIP-REG\n        PERFORM                   20102011-BUSCA-TARJETA         .\n     IF B06-FEC-BLOQUEO   =   WKS-B02-FECHA-LOTE              AND\n        B03-STATUS        =   1                               AND\n        B03-TIPO-BLOQUEO  =   85\n        MOVE 02                   TO  I01-S111-TIP-REG\n        PERFORM                   20102011-BUSCA-TARJETA         .\n     IF B03-FEC-CAMBPROD  =   WKS-B02-FECHA-LOTE              AND\n        B03-STATUS        =   ZEROS\n        MOVE 03                   TO  I01-S111-TIP-REG\n        PERFORM                   20102011-BUSCA-TARJETA         .\n     IF (B03-STATUS       = 2 OR 3 OR 4)                      AND\n        B06-FEC-CANCEL    =   WKS-B02-FECHA-LOTE              AND\n        B03-RESTRICCIONES = ZEROS\n        MOVE 04                   TO  I01-S111-TIP-REG\n        PERFORM                   20102011-BUSCA-TARJETA         .",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ClasificadorMovimientos {\n\n    @Value(\"#{jobExecutionContext['fechaLote']}\") private LocalDate lote;\n    private final TarjetaResolver tarjetas;   // 20102011-BUSCA-TARJETA (L040)\n\n    /** Cada IF del fuente es independiente: un contrato puede generar varios registros el mismo día. */\n    public List<RegistroS111> clasifica(ContratoB03 c, HistoricoB06 h) {\n        var tipos = new ArrayList<TipoMovimiento>(4);\n        if (lote.equals(c.fechaApertura()))                                       tipos.add(ALTA);\n        if (lote.equals(h.fechaBloqueo()) && c.status() == 1 && c.tipoBloqueo() == 85) tipos.add(BLOQUEO);\n        if (lote.equals(c.fechaCambioProducto()) && c.status() == 0)              tipos.add(CAMBIO_PRODUCTO);\n        if (Set.of(2, 3, 4).contains(c.status()) && lote.equals(h.fechaCancelacion())\n                && c.restricciones() == 0)                                        tipos.add(CANCELACION);\n\n        return tipos.stream()\n                .flatMap(t -> tarjetas.de(c.numContrato())\n                        .map(tar -> new RegistroS111.Movimiento(t, tar, c.numContrato(), c.sucursalPromotora()))\n                        .stream())\n                .map(RegistroS111.class::cast)\n                .toList();\n    }\n}",
+          "racional": "Para los contratos 66/11 hay cuatro movimientos posibles en la fecha de lote: alta si abrió ese día, bloqueo si el histórico registra bloqueo ese día con estatus 1 y tipo de bloqueo 85, cambio de producto si ocurrió ese día con estatus 0, y cancelación si el estatus es 2, 3 o 4, el histórico registra la cancelación ese día y no hay restricciones. Cada condición termina en punto, así que son independientes y un contrato puede generar más de un registro. En Java las cuatro condiciones se evalúan por separado y producen una lista, con lo que esa propiedad queda explícita.",
+          "reglas": [],
+          "riesgo": "El estatus 1 con bloqueo tipo 85 es el único bloqueo que se informa; otros tipos de bloqueo del mismo día no llegan a S111. El valor 85 está compilado.",
+          "linea_ini": 404,
+          "linea_fin": 426
+        },
+        {
+          "id": "s6",
+          "titulo": "Tarjeta por librería L040 y armado directo para 66/17",
+          "origen_codigo": " 20102011-BUSCA-TARJETA.\n     MOVE WS-NUM-CONTRATO         TO  WS-S500-L040-02-CTO-I\n     PERFORM                      20000500-S500L040-DA-TARJETA\n     IF W88-S500-L040-RS-OK\n        PERFORM                   20102012-GRABA-DETALLE\n     ELSE\n        STRING \"NO SE ENCONTRO LA TARJETA DEL\"\n               \" CONTRATO: \"          WS-NUM-CONTRATO\n        DELIMITED BY SIZE INTO        WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n 20102012-GRABA-DETALLE.\n     ADD  1                       TO  WKS-I01-REG-DETALLE\n     MOVE WS-S500-L040-02-TARJ-S  TO  I01-S111-DET-TARJETA\n     MOVE WS-NUM-CONTRATO         TO  I01-S111-DET-CONTRATO\n     MOVE B03-SUC-PROMOTORA       TO  I01-S111-DET-SUC-PROM\n     WRITE I01-REG-S111-APLICADO                                 .\n 20102013-VALIDA-66-17.\n    MOVE ZEROS                   TO  I01-S111-TIP-REG.\n    IF B03-FEC-APERTURA  = WKS-B02-FECHA-LOTE\n       PERFORM     20102014-GRABA-66-17.\n 20102014-GRABA-66-17.\n    ADD  1                       TO  WKS-I01-REG-DETALLE.\n    MOVE 05                      TO  I01-S111-TIP-REG.\n    MOVE B03-MED-ACC-BIN         TO  WS-ACC-BIN.\n    MOVE B03-MED-ACC-SER         TO  WS-NUM-TARJ.\n    MOVE WS-TARJETA-PP           TO  I01-S111-DET-TARJETA.\n    MOVE B03-NUM-CONTRATO        TO  I01-S111-DET-CONTRATO.\n    MOVE B03-SUC-PROMOTORA       TO  I01-S111-DET-SUC-PROM.\n    WRITE I01-REG-S111-APLICADO.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class TarjetaResolver {\n    private final TarjetasClient l040;   // S500L040 DA-TARJETA, expuesto como servicio\n\n    /** 20102011: si L040 no devuelve tarjeta, el movimiento se omite con aviso. */\n    Optional<String> de(String contrato) {\n        var r = l040.daTarjeta(contrato);\n        if (!r.ok()) {\n            log.warn(\"NO SE ENCONTRO LA TARJETA DEL CONTRATO: {}\", contrato);\n            return Optional.empty();\n        }\n        return Optional.of(r.tarjeta());          // 9(016)\n    }\n}\n\n@Component\n@StepScope\npublic class AltaCuentaMaestra1717 {\n    @Value(\"#{jobExecutionContext['fechaLote']}\") private LocalDate lote;\n\n    /** 20102013 / 20102014: alta del día; la tarjeta se arma con BIN (6) y serie (10) de B03. */\n    List<RegistroS111> evalua(ContratoB03 c) {\n        if (!lote.equals(c.fechaApertura())) return List.of();\n        String tarjeta = \"%06d\".formatted(c.medioAccesoBin()) + \"%010d\".formatted(c.medioAccesoSerie());\n        return List.of(new RegistroS111.Movimiento(ALTA_66_17, tarjeta, c.numContrato(),\n                c.sucursalPromotora()));\n    }\n}",
+          "racional": "Para los movimientos de 66/11 la tarjeta se obtiene de la librería L040 a partir del contrato; si no aparece, el movimiento se omite y solo se avisa al operador. Para las altas de 66/17 no se consulta la librería: la tarjeta se compone con el BIN de seis dígitos y la serie de diez dígitos guardados en B03. En Java L040 se expone como un servicio cliente y la composición se hace con formato de ceros a la izquierda, equivalente al <code>REDEFINES</code> de <code>WS-TARJETA-PP</code>.",
+          "reglas": [],
+          "riesgo": "Un movimiento sin tarjeta en L040 se pierde: no llega a S111 ni queda en un archivo de rechazos, solo en el mensaje al operador.",
+          "linea_ini": 431,
+          "linea_fin": 469
+        },
+        {
+          "id": "s7",
+          "titulo": "Registros TEF de B04PTEF con medio de entrega 81",
+          "origen_codigo": " 30005000-BARRE-B04TEF.\n   PERFORM                      90400004-B04PTEF-FINDN.\n   IF WS-DB-ERROR\n      MOVE 1                    TO  WKS-B04-FIN-VA\n   ELSE\n   ADD 1  TO  WKS-B03-REG-LEIDOS\n   IF B04P-MDE     = 81   AND\n      B04P-FEC-ACT = WKS-B02-FECHA-LOTE\n      ADD  1                       TO  WKS-I01-REG-DETALLE\n      MOVE 06                      TO  I01-S111-TIP-REG\n      MOVE B04P-TARJETA            TO  I01-S111-DET-TAR-TEF\n      MOVE B04P-NUM-TEF            TO  I01-S111-DET-NUM-TEF\n      WRITE I01-REG-S111-APLICADO.",
+          "java_codigo": "# application.yml\np161:\n  tef:\n    medio-entrega: 81                # B04P-MDE = 81\n\n// ---------------------------------------------------------------------------\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class TefS111Processor implements ItemProcessor<TefB04, RegistroS111> {\n\n    @Value(\"#{jobExecutionContext['fechaLote']}\") private LocalDate lote;\n    private final P161Properties props;\n\n    @Override\n    public RegistroS111 process(TefB04 t) {\n        return (t.medioEntrega() == props.tef().medioEntrega() && lote.equals(t.fechaActualizacion()))\n                ? new RegistroS111.Tef(t.tarjeta(), t.numeroTef())\n                : null;\n    }\n}\n// El step de TEF corre después del de contratos y escribe al mismo archivo (mismo writer,\n// ExecutionContext compartido para el conteo de detalles).",
+          "racional": "Después de los contratos, el programa recorre completo el dataset de TEF de la base de tarjetas y escribe un registro tipo 06 por cada TEF con medio de entrega 81 actualizado en la fecha de lote. El valor 81 pasa a <code>application.yml</code>. En Spring Batch es un segundo step con su propio lector y procesador que escribe al mismo archivo, lo que conserva el orden del original: primero contratos y luego TEF.",
+          "reglas": [],
+          "riesgo": "Los registros leídos de B04PTEF se suman al contador WKS-B03-REG-LEIDOS; la cifra del mensaje final mezcla lecturas de las dos bases.",
+          "linea_ini": 471,
+          "linea_fin": 485
+        },
+        {
+          "id": "s8",
+          "titulo": "Header, barridos, trailer y entrega del archivo",
+          "origen_codigo": " 20000000-PROCESO.\n     IF WS-B02-DECOM-S111 = 0\n        PERFORM                      20100000-PROCESO-ARCHIVO.\n 20100000-PROCESO-ARCHIVO.\n     PERFORM                      20101000-GENERA-HEADER\n     SET S500B03CONTRATOS         TO  BEGINNING\n     PERFORM                      20102000-BUSCA-TARJETAS\n                          UNTIL       W88-B03-FIN\n     SET S500B04PTEF              TO  BEGINNING.\n     MOVE SPACES                  TO  I01-REG-S111-APLICADO.\n     PERFORM                      30005000-BARRE-B04TEF\n                          UNTIL       W88-B04-FIN.\n     MOVE SPACES                  TO  I01-REG-S111-APLICADO\n     MOVE 99                      TO  I01-S111-TIP-REG\n     MOVE WKS-I01-REG-DETALLE     TO  I01-S111-TRL-NUM-REG\n     WRITE I01-REG-S111-APLICADO                                 .\n 60000000-FIN.\n     IF ATTRIBUTE OPEN OF I01-S111-APLICADOS = VALUE TRUE\n        CLOSE        I01-S111-APLICADOS  WITH SAVE.\n     CLOSE        S500BD01CAPTACION\n     CLOSE        S500BD04TARJETAS\n        ADD  2                       TO  WKS-I01-REG-DETALLE\n        STRING \"REG LEIDOS EN B03 Y B04P: \" WKS-B03-REG-LEIDOS\n               \" REG GRABADOS: \"     WKS-I01-REG-DETALLE\n               \" EN EL ARCHIVO: \"    WKS-ETIQ-S111-APLICADOS\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG",
+          "java_codigo": "@Bean\nStep genera(JobRepository repo, PlatformTransactionManager tx,\n            Step contratos, Step tef, Tasklet entregaS111) {\n    // Header en el callback del writer, luego contratos, luego TEF y al final trailer y entrega.\n    return new StepBuilder(\"generaDepInicial\", repo)\n            .flow(new FlowBuilder<Flow>(\"depInicial\").start(contratos).next(tef).build())\n            .build();\n}\n\n@Bean\nFlatFileFooterCallback trailerS111(@Value(\"#{jobExecutionContext['detalles']}\") Long detalles) {\n    return w -> w.write(RegistroS111.encode(new RegistroS111.Trailer(detalles)));   // tipo 99\n}\n\n/** CLOSE ... WITH SAVE y publicación: Spring Integration deja el archivo donde S111 lo recoge. */\n@Bean\nIntegrationFlow entregaS111(P161Properties p) {\n    return IntegrationFlow.from(\"depInicialListo\")\n            .handle(Files.outboundAdapter(new File(p.directorioS111()))\n                    .fileNameGenerator(m -> (String) m.getHeaders().get(\"titulo\"))\n                    .temporaryFileSuffix(\".writing\"))          // publicación atómica\n            .get();\n}",
+          "racional": "La generación escribe el header, recorre B03 y luego B04PTEF, y cierra con un trailer tipo 99 que lleva el número de detalles, sin contar header ni trailer. El mensaje final suma dos a ese contador para reportar el total de renglones del archivo. En Java la secuencia es un flujo de dos steps sobre el mismo archivo con el trailer en el pie, y la entrega a S111 se hace con un adaptador de salida de Spring Integration con sufijo temporal, de modo que S111 solo vea el archivo cuando esté completo.",
+          "reglas": [
+            "RN-S500-523"
+          ],
+          "linea_ini": 336,
+          "linea_fin": 504
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Errores de base tratados como fin de archivo",
+      "detalle": "En 20102000-BUSCA-TARJETAS (línea 380) y 30005000-BARRE-B04TEF (línea 475), cualquier WS-DB-ERROR termina el barrido sin mensaje. Un error DMSII produce un archivo truncado con trailer coherente."
+    },
+    {
+      "titulo": "Movimientos perdidos sin rastro",
+      "detalle": "Los contratos 66/11 sin B06 o sin tarjeta en L040 solo generan un mensaje al operador; no hay archivo de rechazos ni conteo en el trailer."
+    },
+    {
+      "titulo": "Baja de S111 silenciosa",
+      "detalle": "Con B02-USO-FUTURO-05 distinto de cero el programa no genera archivo ni emite mensaje de fin; un valor espurio en ese campo de uso futuro detendría el envío a S111 sin aviso."
+    },
+    {
+      "titulo": "Fecha sin siglo en el título",
+      "detalle": "WKS-ETIQ-S111-FECHA es PIC 9(006) y recibe la fecha de 8 dígitos; el nombre del archivo lleva AAMMDD."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Productos 66/11 y 66/17, tipo de bloqueo 85, estatus 2, 3 y 4, medio de entrega 81, la fecha mínima 20070830 y la ruta (S500)S500/FILE/S111/ están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar que B02-USO-FUTURO-05 es el indicador oficial de baja de S111 (el nombre del campo es genérico).",
+    "Confirmar si LOCSUP devuelve su código de resultado en WS-S006-FUNCION; 70000100-LLAMA-FECHAS aborta si ese campo queda mayor que cero después de la llamada.",
+    "Confirmar con S111 si espera más de un registro por contrato cuando coinciden alta, bloqueo, cambio de producto o cancelación el mismo día.",
+    "Los paragrafos de acceso a base (90000003, 90000006, 90400004) y la librería L040 vienen de copybooks y librerías que no están en el fuente.",
+    "RN-S500-521 habla de altas, bloqueos y desbloqueos como contraparte de las prealtas de P176; el fuente genera altas, bloqueos (tipo 85), cambios de producto, cancelaciones, altas 66/17 y TEF, no tiene un caso de desbloqueo y no lee ningún archivo de P176.",
+    "RN-S500-522 dice que el registro preserva la correspondencia de campos con la solicitud original de S111; el fuente arma cada detalle desde B03, B06, B04PTEF y la librería L040, sin leer la solicitud."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-521",
+    "RN-S500-522",
+    "RN-S500-523"
+  ]
+}

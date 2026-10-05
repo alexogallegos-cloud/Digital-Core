@@ -117,10 +117,18 @@ def upsert_batch(vectors: list[dict]):
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main():
+    import sys
     print("── Indexación en Pinecone ──────────────────────────────────────────")
     print(f"  Documentos : {DOCUMENTS_DIR}")
     print(f"  Índice     : {PINECONE_INDEX_NAME}")
     print(f"  Dimensión  : {EMBEDDING_DIMENSION}\n")
+
+    if "--clear" in sys.argv:
+        print("  Limpiando índice (--clear) — borrando todos los vectores previos...")
+        index.delete(delete_all=True)
+        time.sleep(5)
+        stats = index.describe_index_stats()
+        print(f"  ✓  Índice limpio. Vectores restantes: {stats.get('total_vector_count', 0)}\n")
 
     if not DOCUMENTS_DIR.exists():
         print("✗  Carpeta 'documents/' no encontrada. Ejecuta primero: python 01-prepare-docs.py")
@@ -148,7 +156,6 @@ def main():
     est_tokens = sum(len(c["text"]) // 4 for c in all_chunks)
     est_cost   = est_tokens / 1_000_000 * 0.02  # $0.02/1M tokens Titan v2
     print(f"  Costo estimado de embedding: ${est_cost:.4f} USD (~${est_cost*17:.2f} MXN)")
-    import sys
     auto_yes = "--yes" in sys.argv or not sys.stdin.isatty()
     if not auto_yes:
         resp = input("  ¿Continuar? [s/N] ").strip().lower()

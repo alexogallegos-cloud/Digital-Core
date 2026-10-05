@@ -1,0 +1,873 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>S500 · P335 → Java · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #C1272D;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · S500 P335</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Reporteador</div>
+  <h1><span class="cw">S500 · P335</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">P335 abre S500BD01CAPTACION en modo de consulta y, si el CSI de control es 10, recorre B39CTASCPE en orden de grupo y subgrupo. Por cada cuenta vigente (estatus 0 o 1) escribe un detalle con saldo promedio, tasas, cheques, productos, comisión más IVA e ISR, y acumula esos importes por subgrupo, grupo y total general. En cada corte de grupo escribe los registros de datos de sucursal, datos del cliente, resumen CPE, encabezados y totales con comisiones e IVA a 10 y 15 por ciento tomados de B37. El archivo intermedio ARCHED1 se ordena por grupo, cliente y tipo de registro y se depura a los tipos válidos para producir ARCHEDO.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="S500_P330.html">← S500 · P330</a><a href="../cobol-java.html">Inventario</a><a href="S500_P400.html">S500 · P400 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">S500 · P335 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">1,034 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Paso batch mensual de S500 (S500P335) que, solo en el CSI 10, genera el estado de cuenta de las Cuentas Productivas Especiales de Banca Corporativa para el mes anterior a la fecha de línea.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#bd93f9">Reporteador</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">0 de 6 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch · JasperReports</div></div>
+  </div>
+  <div class="sec-hdr">1 · Estructuras de datos — registro de 360 posiciones y tipos válidos</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P400.txt (contiene P335-EDOCTA)</span><span class="fname">FILE SECTION · WORKING-STORAGE</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Sobre de 360 bytes con llave de ordenamiento y catálogo de tipos · L30–116"> <span class="kw">FD</span>  <span class="var">ARCHED1</span>
+     VA <span class="kw">OF</span>  <span class="var">AREASIZE</span>  <span class="num">10000</span>
+     <span class="var">BLOCK</span>  <span class="var">CONTAINS</span>  <span class="num">100</span> <span class="var">RECORDS</span>
+     <span class="kw">RECORD</span> <span class="var">CONTAINS</span>  <span class="num">360</span> <span class="var">CHARACTERS</span>
+     <span class="kw">VALUE</span> <span class="kw">OF</span> <span class="var">TITLE</span>   <span class="kw">IS</span>  <span class="var">WS-ETIQ-EDOCT1</span>.
+ <span class="num">01</span>  <span class="var">REG-ARCHED1</span>.
+     <span class="num">05</span> <span class="var">ED1-TIP-REG</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).
+     <span class="num">05</span> <span class="var">ED1-NUM-GPO</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">10</span>).
+     <span class="num">05</span> <span class="var">ED1-NUM-CTE</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).
+     <span class="num">05</span> <span class="var">ED1-ARCHED1</span>       <span class="kw">PIC</span> X(<span class="num">340</span>).
+<span class="cmt">      *&gt; ⋯ 8 líneas omitidas</span>
+ SD  <span class="var">SORTED1</span>
+     <span class="var">BLOCK</span>  <span class="var">CONTAINS</span>  <span class="num">100</span> <span class="var">RECORDS</span>
+     <span class="kw">RECORD</span> <span class="var">CONTAINS</span>  <span class="num">360</span> <span class="var">CHARACTERS</span>.
+ <span class="num">01</span>  <span class="var">REG-SORTED1</span>.
+     <span class="num">05</span> <span class="var">SD1-TIP-REG</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).
+     <span class="num">05</span> <span class="var">SD1-NUM-GPO</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">10</span>).
+     <span class="num">05</span> <span class="var">SD1-NUM-CTE</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).
+     <span class="num">05</span> <span class="var">SD1-SORTED1</span>       <span class="kw">PIC</span> X(<span class="num">340</span>).
+<span class="cmt">      *&gt; ⋯ 57 líneas omitidas</span>
+ <span class="num">77</span>  <span class="var">WB-TIP-REG-VAL</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).
+     <span class="num">88</span> <span class="var">TIP-REG-VAL</span>       <span class="kw">VALUE</span> <span class="num">000000</span>, <span class="num">100000</span>, <span class="num">100001</span>, <span class="num">700000</span>,
+                                <span class="num">701000</span>, <span class="num">701100</span>, <span class="num">701110</span>, <span class="num">701111</span>,
+                                <span class="num">701119</span>, <span class="num">701190</span>, <span class="num">709000</span>, <span class="num">990000</span>.</span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Detalle de cuenta y total de grupo: campos sin signo y signo aparte · L236–280"><span class="cmt">*                 701111</span>
+      <span class="num">05</span> <span class="var">RDC-NUM-CTE-CTA</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">12</span>).
+      <span class="num">05</span> <span class="var">RDC-NOM-CTE-CTA</span>                  <span class="kw">PIC</span>  X(<span class="num">55</span>).
+      <span class="num">05</span> <span class="var">RDC-SUC-CTA</span>                      <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>).
+      <span class="num">05</span> <span class="var">RDC-NUM-CTA</span>                      <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">12</span>)      .
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+      <span class="num">05</span> <span class="var">RDC-SDOPROM-CTA</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">12</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RDC-TASA-PROD</span>                    <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">02</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RDC-TASA-ADIC</span>                    <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">02</span>)<span class="var">V99</span>.
+      <span class="num">05</span> <span class="var">RDC-CHEQUES-TOT</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)   .
+      <span class="num">05</span> <span class="var">RDC-CHEQUES-EXE</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)   .
+      <span class="num">05</span> <span class="var">RDC-PROD-PERIODO</span>                 <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span> .
+      <span class="num">05</span> <span class="var">RDC-COMISION</span>                     <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span> .
+      <span class="num">05</span> <span class="var">RDC-PROD-NETOS</span>                   <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span> .
+      <span class="num">05</span> <span class="var">RDC-SIGNO</span>                        <span class="kw">PIC</span>  X(<span class="num">01</span>).
+      <span class="num">05</span> <span class="var">RDC-TASA-ISR</span>                     <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">02</span>)<span class="var">V99</span> .
+      <span class="num">05</span> <span class="var">RDC-SDO-ISR</span>                      <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span> .
+<span class="cmt">      *&gt; ⋯ 12 líneas omitidas</span>
+ <span class="num">01</span> <span class="var">REGISTRO-TOT-GRUPO</span>.
+      <span class="num">05</span> <span class="var">RTG-TIPO-REG</span>                     <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)      .
+<span class="cmt">*                 701190</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+      <span class="num">05</span> <span class="var">RTG-SDOPROM-CTA</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">12</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-CHEQUES-TOT</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)      .
+      <span class="num">05</span> <span class="var">RTG-CHEQUES-EXE</span>                  <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)      .
+      <span class="num">05</span> <span class="var">RTG-PROD-PERIODO</span>                 <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-COMISION</span>                     <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-PROD-NETOS</span>                   <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-SIGNO</span>                        <span class="kw">PIC</span>  X(<span class="num">01</span>).
+      <span class="num">05</span> <span class="var">RTG-SDO-ISR</span>                      <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-TOT-CHQ-GIR-10P</span>              <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-IVA-CHQ-GIR-10P</span>              <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-TOT-CHQ-GIR-15P</span>              <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .
+      <span class="num">05</span> <span class="var">RTG-IVA-CHQ-GIR-15P</span>              <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>   .</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>EdoCtaRecord.java · DetalleCuenta.java · TotalGrupo.java</span><span class="fname">sealed interface · record · BigDecimal</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** REG-ARCHED1 / REG-SORTED1: llave de 20 posiciones + carga útil de 340. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">SobreEdoCta</span>(<span class="kw">int</span> tipoReg,          <span class="cmt">// ED1-TIP-REG 9(06)</span>
+                          <span class="kw">long</span> numGrupo,        <span class="cmt">// ED1-NUM-GPO 9(10)</span>
+                          <span class="kw">int</span> numCliente,       <span class="cmt">// ED1-NUM-CTE 9(04): 0 encabezados, 9998 total grupo, 9999 total general</span>
+                          <span class="type">EdoCtaRecord</span> carga)   <span class="cmt">// ED1-ARCHED1 X(340)</span>
+        <span class="kw">implements</span> <span class="type">Comparable</span>&lt;<span class="type">SobreEdoCta</span>&gt; {
+
+<span class="cmt">    /** SORT ... ON ASCENDING KEY SD1-NUM-GPO SD1-NUM-CTE SD1-TIP-REG */</span>
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="type">Comparator</span>&lt;<span class="type">SobreEdoCta</span>&gt; ORDEN =
+            <span class="type">Comparator</span>.comparingLong(<span class="type">SobreEdoCta</span>::numGrupo)
+                      .thenComparingInt(<span class="type">SobreEdoCta</span>::numCliente)
+                      .thenComparingInt(<span class="type">SobreEdoCta</span>::tipoReg);
+
+    <span class="ann">@Override</span> <span class="kw">public</span> <span class="kw">int</span> compareTo(<span class="type">SobreEdoCta</span> o) { <span class="kw">return</span> ORDEN.compare(<span class="kw">this</span>, o); }
+}
+
+<span class="cmt">/** 88 TIP-REG-VAL: solo estos tipos pasan a ARCHEDO. */</span>
+<span class="kw">public</span> <span class="kw">enum</span> <span class="type">TipoRegistro</span> {
+    HEADER(<span class="num">0</span>), DATOS_SUCURSAL(<span class="num">100000</span>), DATOS_CLIENTE(<span class="num">100001</span>), RESUMEN_CPE(<span class="num">700000</span>),
+    HDR_SUPERGRUPO(<span class="num">701000</span>), HDR_GRUPO(<span class="num">701100</span>), HDR_CLIENTE(<span class="num">701110</span>), DETALLE_CUENTA(<span class="num">701111</span>),
+    TOTAL_CLIENTE(<span class="num">701119</span>), TOTAL_GRUPO(<span class="num">701190</span>), TOTAL_GENERAL(<span class="num">709000</span>), TRAILER(<span class="num">990000</span>);
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="kw">int</span> codigo;
+    <span class="type">TipoRegistro</span>(<span class="kw">int</span> codigo) { <span class="kw">this</span>.codigo = codigo; }
+
+    <span class="kw">public</span> <span class="kw">static</span> <span class="type">Optional</span>&lt;<span class="type">TipoRegistro</span>&gt; de(<span class="kw">int</span> codigo) {
+        <span class="kw">return</span> <span class="type">Arrays</span>.stream(values()).filter(t -&gt; t.codigo == codigo).findFirst();
+    }
+}</span>
+<span class="seg java-seg" data-jid="j2"><span class="cmt">/** 701111 REGISTRO-DET-CUENTAS. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">DetalleCuenta</span>(<span class="type">String</span> numClienteCta,     <span class="cmt">// 9(12) como String</span>
+                            <span class="type">String</span> nombre,            <span class="cmt">// X(55)</span>
+                            <span class="type">String</span> sucursal,          <span class="cmt">// 9(04)</span>
+                            <span class="type">String</span> numCuenta,         <span class="cmt">// 9(12)</span>
+                            <span class="type">BigDecimal</span> saldoPromedio, <span class="cmt">// 9(12)V99</span>
+                            <span class="type">BigDecimal</span> tasaProducto,  <span class="cmt">// 9(02)V99</span>
+                            <span class="type">BigDecimal</span> tasaAdicional, <span class="cmt">// 9(02)V99 sin signo</span>
+                            <span class="kw">int</span> chequesTotales, <span class="kw">int</span> chequesExentos,   <span class="cmt">// 9(06)</span>
+                            <span class="type">BigDecimal</span> productoPeriodo,              <span class="cmt">// 9(08)V99</span>
+                            <span class="type">BigDecimal</span> comision,                     <span class="cmt">// 9(08)V99, incluye IVA</span>
+                            <span class="type">BigDecimal</span> productoNeto,                 <span class="cmt">// 9(08)V99 en valor absoluto</span>
+                            <span class="kw">char</span> signo,                              <span class="cmt">// &#x27; &#x27; o &#x27;-&#x27;</span>
+                            <span class="type">BigDecimal</span> tasaIsr, <span class="type">BigDecimal</span> saldoIsr) <span class="kw">implements</span> <span class="type">EdoCtaRecord</span> {}
+
+<span class="cmt">/** 701190 REGISTRO-TOT-GRUPO: agrega comisiones e IVA a 10 y 15 por ciento. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">TotalGrupo</span>(<span class="type">BigDecimal</span> saldoPromedio,     <span class="cmt">// 9(12)V99</span>
+                         <span class="kw">int</span> chequesTotales, <span class="kw">int</span> chequesExentos,
+                         <span class="type">BigDecimal</span> productoPeriodo, <span class="type">BigDecimal</span> comision,
+                         <span class="type">BigDecimal</span> productoNeto, <span class="kw">char</span> signo,
+                         <span class="type">BigDecimal</span> saldoIsr,
+                         <span class="type">BigDecimal</span> comision10, <span class="type">BigDecimal</span> iva10,     <span class="cmt">// 9(08)V99</span>
+                         <span class="type">BigDecimal</span> comision15, <span class="type">BigDecimal</span> iva15) <span class="kw">implements</span> <span class="type">EdoCtaRecord</span> {
+
+<span class="cmt">    /** Los campos 9(08)V99 aceptan hasta 99,999,999.99; COBOL pierde los dígitos altos sin aviso. */</span>
+    <span class="kw">static</span> <span class="type">BigDecimal</span> campo8v2(<span class="type">BigDecimal</span> v) {
+        <span class="type">BigDecimal</span> abs = v.abs().setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.DOWN);
+        <span class="kw">if</span> (abs.compareTo(<span class="kw">new</span> <span class="type">BigDecimal</span>(<span class="str">&quot;99999999.99&quot;</span>)) &gt; <span class="num">0</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">CampoDesbordadoException</span>(v);
+        <span class="kw">return</span> abs;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Control del paso, periodo del estado de cuenta y corte de control</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P400.txt (contiene P335-EDOCTA)</span><span class="fname">PROCEDURE DIVISION · 000 / 122 / 132 / 200</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s3" data-jid="j3" title="El paso solo trabaja en el CSI 10 · L396–419"> <span class="num">000</span>-<span class="var">CONTROL-PROGRAMA</span> <span class="kw">SECTION</span>.
+ <span class="num">000</span>-<span class="var">CONTROL-PROGR</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">PERFORM</span> <span class="num">100</span>-<span class="var">INICIA</span>.
+     <span class="kw">IF</span> <span class="var">B02-NUM-CSI</span> = <span class="num">10</span>
+        <span class="kw">PERFORM</span> <span class="num">200</span>-<span class="var">GENERA-EDOCTA</span> <span class="kw">UNTIL</span> <span class="var">EOF-B39</span>
+        <span class="kw">PERFORM</span> <span class="num">300</span>-<span class="var">TERMINA</span>
+        <span class="kw">PERFORM</span> <span class="num">400</span>-<span class="var">CLASIFICA-EDOCTA</span> <span class="kw">THRU</span>
+                <span class="num">400</span>-<span class="var">CLASIF-EXIT</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">PERFORM</span> <span class="num">330</span>-<span class="var">CIERRA-BASE</span>.
+     <span class="kw">STOP</span> <span class="kw">RUN</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">100</span>-<span class="var">INICIA</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="num">11</span> <span class="kw">TO</span> <span class="var">WS-STATUS-BASE</span>
+     <span class="kw">PERFORM</span> <span class="num">120</span>-<span class="var">ABRE-BASE</span> <span class="kw">UNTIL</span> <span class="var">WS-DB-NOTERROR</span>
+     <span class="kw">PERFORM</span> <span class="num">10000006</span>-<span class="var">LOCSUP</span>
+     <span class="kw">PERFORM</span> <span class="num">122</span>-<span class="var">OBTEN-B02CONTROL</span>
+     <span class="kw">IF</span> <span class="var">B02-NUM-CSI</span> = <span class="num">10</span>
+        <span class="kw">PERFORM</span> <span class="num">110</span>-<span class="var">CHECA-VERSION</span>
+        <span class="kw">PERFORM</span> <span class="num">140</span>-<span class="var">GRABA-REG-HEADER</span>
+        <span class="kw">PERFORM</span> <span class="num">160</span>-<span class="var">B39SXGPOSBGMDA-FINDN</span>.</span>
+<span class="seg" data-cid="s4" data-jid="j4" title="Periodo: mes anterior a la fecha de línea, con regla de bisiesto simplificada · L472–501">     <span class="kw">IF</span> <span class="var">B02-NUM-CSI</span> = <span class="num">10</span>
+        <span class="kw">MOVE</span> <span class="var">B02-FECHA-LINEA</span> <span class="kw">TO</span>  <span class="var">WS-FECHA-PROCER</span>
+        <span class="kw">IF</span> <span class="var">WS-FEC-PROCE-MM</span> = <span class="num">01</span>
+           <span class="kw">MOVE</span>  <span class="num">12</span> <span class="kw">TO</span> <span class="var">WS-FEC-PROCE-MM</span>
+           <span class="kw">MOVE</span> <span class="var">WS-NUM-DIAS</span> (<span class="var">WS-FEC-PROCE-MM</span>) <span class="kw">TO</span> <span class="var">WS-FEC-PROCE-DD</span>
+           <span class="kw">COMPUTE</span> <span class="var">WS-FEC-PROCE-AA</span> = <span class="var">WS-FEC-PROCE-AA</span> - <span class="num">1</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">COMPUTE</span> <span class="var">WS-FEC-PROCE-MM</span> = <span class="var">WS-FEC-PROCE-MM</span> - <span class="num">1</span>
+           <span class="kw">MOVE</span> <span class="var">WS-NUM-DIAS</span> (<span class="var">WS-FEC-PROCE-MM</span>) <span class="kw">TO</span> <span class="var">WS-FEC-PROCE-DD</span>.
+     <span class="kw">IF</span> <span class="var">B02-NUM-CSI</span>  = <span class="num">10</span>
+        <span class="kw">MOVE</span> <span class="var">WS-FECHA-PROCER</span>     <span class="kw">TO</span> <span class="var">WS-FEC-INI-COMPLETO</span>
+                                    <span class="var">WS-FEC-FIN-COMPLETO</span>
+        <span class="kw">PERFORM</span> <span class="num">132</span>-<span class="var">ESTABLECE-FECHAS</span>
+        <span class="kw">MOVE</span> <span class="var">WS-FEC-FIN-COMPLETO</span> <span class="kw">TO</span> <span class="var">WS-ETIQ-FECHA-EDOCTA</span>
+                                    <span class="var">WS-ETIQ-FECHA-EDOCT1</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">OPEN</span> <span class="kw">OUTPUT</span> <span class="var">ARCHED1</span>.
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+ <span class="num">132</span>-<span class="var">ESTABLECE-FECHAS</span>.
+<span class="cmt">*---------------------</span>
+     <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WS-FEC-INI-DD</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-NUM-DIAS</span> (<span class="var">WS-FEC-INI-MM</span>) <span class="kw">TO</span> <span class="var">WS-FEC-FIN-DD</span>
+     <span class="kw">DIVIDE</span>     <span class="var">WS-FEC-INI-AA</span>   <span class="kw">BY</span>   <span class="num">4</span>
+     <span class="kw">GIVING</span>     <span class="var">WS-RESUL</span>
+     <span class="kw">REMAINDER</span>  <span class="var">WS-RESIDUO</span>
+     <span class="kw">IF</span> <span class="var">WS-RESIDUO</span> = <span class="num">0</span>
+        <span class="kw">IF</span> <span class="var">WS-FEC-INI-MM</span> = <span class="num">02</span>
+           <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WS-FEC-FIN-DD</span>.</span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Corte de control por grupo y subgrupo sobre B39 · L530–582"> <span class="num">200</span>-<span class="var">GENERA-EDOCTA</span>.
+<span class="cmt">*------------------</span>
+     <span class="kw">IF</span> <span class="var">PRIM-VEZ</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>           <span class="kw">TO</span> <span class="var">WB-PRIM-VEZ</span>
+        <span class="kw">MOVE</span> <span class="var">B39-GRUPO</span>   <span class="kw">TO</span> <span class="var">WS-GPO-ANT</span>
+                            <span class="var">WS-GRUPO</span>
+        <span class="kw">MOVE</span> <span class="var">B39-SUB-GPO</span> <span class="kw">TO</span> <span class="var">WS-SGP-ANT</span>
+                            <span class="var">WS-SUBGPO</span>.
+<span class="cmt">      *&gt; ⋯ 6 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">EOF-B39</span>
+        <span class="kw">IF</span> <span class="var">B39-GRUPO</span>   <span class="kw">NOT</span> = <span class="var">WS-GPO-ANT</span>
+           <span class="kw">IF</span> <span class="var">WS-CTAS-STAT-OKGP</span> &gt; <span class="num">0</span>
+              <span class="kw">MOVE</span> <span class="kw">ZEROS</span> <span class="kw">TO</span> <span class="var">WS-CTAS-STAT-OKGP</span>
+                            <span class="var">WS-CTAS-STAT-OKSG</span>
+              <span class="kw">PERFORM</span> <span class="num">205</span>-<span class="var">CAMBIO-GRUPO</span>
+           <span class="kw">ELSE</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+        <span class="kw">IF</span> <span class="var">B39-SUB-GPO</span> <span class="kw">NOT</span> = <span class="var">WS-SGP-ANT</span>
+           <span class="kw">IF</span> <span class="var">WS-CTAS-STAT-OKSG</span> &gt; <span class="num">0</span>
+              <span class="kw">MOVE</span> <span class="kw">ZEROS</span> <span class="kw">TO</span> <span class="var">WS-CTAS-STAT-OKSG</span>
+              <span class="kw">PERFORM</span> <span class="num">207</span>-<span class="var">CAMBIO-SUBGPO</span>.
+<span class="cmt">      *&gt; ⋯ 10 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">EOF-B39</span>
+        <span class="kw">MOVE</span> <span class="var">B39-GRUPO</span>   <span class="kw">TO</span> <span class="var">WS-GPO-ANT</span>
+        <span class="kw">MOVE</span> <span class="var">B39-SUB-GPO</span> <span class="kw">TO</span> <span class="var">WS-SGP-ANT</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">IF</span> <span class="var">B39-STATUS</span> = <span class="num">0</span> <span class="kw">OR</span> <span class="num">1</span>
+           <span class="kw">ADD</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WS-CTAS-STAT-OKSG</span>
+                    <span class="var">WS-CTAS-STAT-OKGP</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+           <span class="kw">MOVE</span> <span class="var">B39-TPO-PERS</span> <span class="kw">TO</span> <span class="var">WS-TIPO-PERSONA-PAGO-ANT</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+           <span class="kw">PERFORM</span> <span class="num">250</span>-<span class="var">GRABA-POR-CTA</span>.
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">EOF-B39</span>
+        <span class="kw">PERFORM</span> <span class="num">160</span>-<span class="var">B39SXGPOSBGMDA-FINDN</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>EdoCtaCpeJobConfig.java · PeriodoEdoCta.java · CorteGrupoProcessor.java</span><span class="fname">Job · JobExecutionDecider · ItemProcessor con estado</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j3"><span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">EdoCtaCpeJobConfig</span> {
+
+<span class="cmt">    /** 000-CONTROL-PROGR: si B02-NUM-CSI no es el CSI de CPE, cierra la base y termina sin archivos. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">Job</span> edoCtaCpe(<span class="type">JobRepository</span> repo, <span class="type">Step</span> validaVersion, <span class="type">Step</span> generaArched1, <span class="type">Step</span> clasificaArchedo,
+                  <span class="type">CsiCpeDecider</span> csi) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">JobBuilder</span>(<span class="str">&quot;S500P335&quot;</span>, repo)
+                .start(validaVersion)
+                .next(csi).on(<span class="str">&quot;NO_APLICA&quot;</span>).end()               <span class="cmt">// ELSE PERFORM 330-CIERRA-BASE</span>
+                .from(csi).on(<span class="str">&quot;CPE&quot;</span>).to(generaArched1)         <span class="cmt">// 200-GENERA-EDOCTA UNTIL EOF-B39 + 300-TERMINA</span>
+                .next(clasificaArchedo)                         <span class="cmt">// 400-CLASIFICA-EDOCTA</span>
+                .end()
+                .build();
+    }
+}
+
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">CsiCpeDecider</span> <span class="kw">implements</span> <span class="type">JobExecutionDecider</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlCaptacionRepository</span> b02;   <span class="cmt">// OPEN INQUIRY: solo lectura</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P335Properties</span> props;             <span class="cmt">// p335.csi-cpe: 10</span>
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">FlowExecutionStatus</span> decide(<span class="type">JobExecution</span> je, <span class="type">StepExecution</span> se) {
+        <span class="kw">return</span> b02.findCsi() == props.csiCpe() ? <span class="kw">new</span> <span class="type">FlowExecutionStatus</span>(<span class="str">&quot;CPE&quot;</span>)
+                                               : <span class="kw">new</span> <span class="type">FlowExecutionStatus</span>(<span class="str">&quot;NO_APLICA&quot;</span>);
+    }
+}</span>
+<span class="seg java-seg" data-jid="j4"><span class="cmt">/** 122-OBTEN-B02CONTROL + 132-ESTABLECE-FECHAS. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">PeriodoEdoCta</span>(<span class="type">LocalDate</span> inicio, <span class="type">LocalDate</span> fin) {
+
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="type">DateTimeFormatter</span> ETIQUETA = <span class="type">DateTimeFormatter</span>.ofPattern(<span class="str">&quot;yyMMdd&quot;</span>);
+
+<span class="cmt">    /** B02-FECHA-LINEA viene como AAAAMMDD (9(08)); el estado de cuenta es del mes anterior completo. */</span>
+    <span class="kw">public</span> <span class="kw">static</span> <span class="type">PeriodoEdoCta</span> mesAnterior(<span class="type">LocalDate</span> fechaLinea) {
+        <span class="type">YearMonth</span> mes = <span class="type">YearMonth</span>.from(fechaLinea).minusMonths(<span class="num">1</span>);
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">PeriodoEdoCta</span>(mes.atDay(<span class="num">1</span>), mes.atEndOfMonth());
+    }
+
+<span class="cmt">    /** WS-ETIQ-FECHA-EDOCTA es 9(06): el MOVE desde 9(08) deja AAMMDD. */</span>
+    <span class="kw">public</span> <span class="type">String</span> sufijoArchivo() { <span class="kw">return</span> fin.format(ETIQUETA); }
+}
+
+# application.yml
+p335:
+  csi-cpe: <span class="num">10</span>
+  archivo-intermedio: <span class="str">&quot;S500/FILE/S051/12/12/{aammdd}.&quot;</span>
+  archivo-final:      <span class="str">&quot;S500/FILE/S050/12/12/{aammdd}.&quot;</span></span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>
+<span class="ann">@StepScope</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">CorteGrupoProcessor</span> <span class="kw">implements</span> <span class="type">ItemProcessor</span>&lt;<span class="type">CuentaCpe</span>, <span class="type">List</span>&lt;<span class="type">SobreEdoCta</span>&gt;&gt; {
+
+    <span class="kw">private</span> <span class="type">Long</span> grupoAnt;                    <span class="cmt">// WS-GPO-ANT</span>
+    <span class="kw">private</span> <span class="type">Integer</span> subgrupoAnt;              <span class="cmt">// WS-SGP-ANT</span>
+    <span class="kw">private</span> <span class="kw">int</span> cuentasOkGrupo, cuentasOkSubgrupo;   <span class="cmt">// WS-CTAS-STAT-OKGP / OKSG</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Acumuladores</span> acum = <span class="kw">new</span> <span class="type">Acumuladores</span>();   <span class="cmt">// WKS-ACUM-ARCHED1</span>
+
+<span class="cmt">    /** 200-GENERA-EDOCTA: lectura de B39 por el set B39SXGPOSBGMDA (grupo, subgrupo, modalidad). */</span>
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">List</span>&lt;<span class="type">SobreEdoCta</span>&gt; process(<span class="type">CuentaCpe</span> c) {
+        <span class="type">List</span>&lt;<span class="type">SobreEdoCta</span>&gt; salida = <span class="kw">new</span> <span class="type">ArrayList</span>&lt;&gt;();
+        <span class="kw">if</span> (grupoAnt == <span class="kw">null</span>) { grupoAnt = c.grupo(); subgrupoAnt = c.subgrupo(); }
+
+        <span class="kw">if</span> (c.grupo() != grupoAnt) {
+            <span class="kw">if</span> (cuentasOkGrupo &gt; <span class="num">0</span>) {                         <span class="cmt">// un grupo sin cuentas vigentes no se reporta</span>
+                cuentasOkGrupo = cuentasOkSubgrupo = <span class="num">0</span>;
+                salida.addAll(cierraGrupo(grupoAnt, subgrupoAnt));   <span class="cmt">// 205-CAMBIO-GRUPO</span>
+            }
+        } <span class="kw">else</span> <span class="kw">if</span> (c.subgrupo() != subgrupoAnt &amp;&amp; cuentasOkSubgrupo &gt; <span class="num">0</span>) {
+            cuentasOkSubgrupo = <span class="num">0</span>;
+            salida.addAll(cierraSubgrupo(grupoAnt, subgrupoAnt));    <span class="cmt">// 207-CAMBIO-SUBGPO</span>
+        }
+        grupoAnt = c.grupo();
+        subgrupoAnt = c.subgrupo();
+        <span class="kw">if</span> (c.status() == <span class="num">0</span> || c.status() == <span class="num">1</span>) {             <span class="cmt">// solo cuentas vigentes</span>
+            cuentasOkGrupo++; cuentasOkSubgrupo++;
+            salida.add(detalle(c));                           <span class="cmt">// 250-GRABA-POR-CTA</span>
+        }
+        <span class="kw">return</span> salida;
+    }
+    <span class="cmt">// 300-TERMINA: un StepExecutionListener.afterStep cierra el último grupo y escribe el trailer.</span>
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Reglas de cálculo, valores fijos y generación de ARCHEDO</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P400.txt (contiene P335-EDOCTA)</span><span class="fname">PROCEDURE DIVISION · 230 / 250 / 400 / 420</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s6" data-jid="j6" title="Detalle por cuenta: producto del periodo, comisión con IVA e ISR · L804–873">     <span class="kw">MOVE</span> <span class="num">701111</span>                  <span class="kw">TO</span> <span class="var">RDC-TIPO-REG</span>
+                                     <span class="var">ED1-TIP-REG</span>
+     <span class="kw">MOVE</span> <span class="var">B39-SUB-GPO</span>             <span class="kw">TO</span> <span class="var">RDC-NUM-CTE-CTA</span>
+     <span class="kw">MOVE</span> <span class="var">B39-NOMBRE</span>              <span class="kw">TO</span> <span class="var">RDC-NOM-CTE-CTA</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">B39-NUM-MDA</span>             <span class="kw">TO</span> <span class="var">WKS-MDA</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-MDA-SUC</span>             <span class="kw">TO</span> <span class="var">RDC-SUC-CTA</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-MDA-CTA</span>             <span class="kw">TO</span> <span class="var">RDC-NUM-CTA</span>
+     <span class="kw">MOVE</span> <span class="var">B39-SDO-PROMEDIO</span>        <span class="kw">TO</span> <span class="var">RDC-SDOPROM-CTA</span>
+     <span class="kw">ADD</span>  <span class="var">B39-SDO-PROMEDIO</span>        <span class="kw">TO</span> <span class="var">WKS-SPROM-X-CTE</span>
+                                     <span class="var">WKS-SPROM-X-GPO</span>
+                                     <span class="var">WKS-SPROM-X-GRL</span>
+     <span class="kw">MOVE</span> <span class="var">B39-TASA-NTA-500</span>        <span class="kw">TO</span> <span class="var">RDC-TASA-PROD</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+  <span class="kw">IF</span> <span class="var">WS-TIPO-PERSONA-PAGO</span> = <span class="num">4</span>
+      <span class="kw">MOVE</span>  <span class="var">B39-TASA-BRT-152</span>      <span class="kw">TO</span> <span class="var">RDC-TASA-ADIC</span>
+  <span class="kw">ELSE</span>
+      <span class="kw">COMPUTE</span> <span class="var">RDC-TASA-ADIC</span> =         <span class="var">B39-TASA-NTA-500</span>
+                                    - <span class="var">B39-TASA-NTA-152</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="var">B39-CHQS-GIRADO</span>         <span class="kw">TO</span> <span class="var">RDC-CHEQUES-TOT</span>
+     <span class="kw">ADD</span>  <span class="var">B39-CHQS-GIRADO</span>         <span class="kw">TO</span> <span class="var">WKS-CHEQS-X-CTE</span>
+                                     <span class="var">WKS-CHEQS-X-GPO</span>
+                                     <span class="var">WKS-CHEQS-X-GRL</span>
+     <span class="kw">MOVE</span> <span class="var">B39-CHQS-EXENTO</span>         <span class="kw">TO</span> <span class="var">RDC-CHEQUES-EXE</span>
+     <span class="kw">ADD</span>  <span class="var">B39-CHQS-EXENTO</span>         <span class="kw">TO</span> <span class="var">WKS-EXENT-X-CTE</span>
+                                     <span class="var">WKS-EXENT-X-GPO</span>
+                                     <span class="var">WKS-EXENT-X-GRL</span>
+     <span class="kw">COMPUTE</span> <span class="var">RDC-PROD-PERIODO</span> =      <span class="var">B39-REND-PAG-152</span>
+                                   + <span class="var">B39-ISR-RET-152</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">ADD</span> <span class="var">RDC-PROD-PERIODO</span>         <span class="kw">TO</span> <span class="var">WKS-PRODS-X-CTE</span>
+                                     <span class="var">WKS-PRODS-X-GPO</span>
+                                     <span class="var">WKS-PRODS-X-GRL</span>
+     <span class="kw">MOVE</span> <span class="var">B39-COM-COBRADA</span>         <span class="kw">TO</span> <span class="var">RDC-COMISION</span>
+     <span class="kw">ADD</span>  <span class="var">B39-IVA-COBRADO</span>         <span class="kw">TO</span> <span class="var">RDC-COMISION</span>
+     <span class="kw">ADD</span>  <span class="var">B39-COM-COBRADA</span>         <span class="kw">TO</span> <span class="var">WKS-COMIS-X-CTE</span>
+                                     <span class="var">WKS-COMIS-X-GPO</span>
+                                     <span class="var">WKS-COMIS-X-GRL</span>
+     <span class="kw">ADD</span>  <span class="var">B39-IVA-COBRADO</span>         <span class="kw">TO</span> <span class="var">WKS-COMIS-X-CTE</span>
+                                     <span class="var">WKS-COMIS-X-GPO</span>
+                                     <span class="var">WKS-COMIS-X-GRL</span>
+<span class="cmt">      *&gt; ⋯ 5 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">B39-REND-PAG-152</span>        <span class="kw">TO</span> <span class="var">RDC-PROD-NETOS</span>
+     <span class="kw">ADD</span>  <span class="var">B39-REND-PAG-152</span>        <span class="kw">TO</span> <span class="var">WKS-PNETO-X-CTE</span>
+                                     <span class="var">WKS-PNETO-X-GPO</span>
+                                     <span class="var">WKS-PNETO-X-GRL</span>
+     <span class="kw">MOVE</span> <span class="kw">SPACES</span>                  <span class="kw">TO</span> <span class="var">RDC-SIGNO</span>
+     <span class="kw">IF</span> <span class="var">B39-REND-PAG-152</span> &lt; <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;-&quot;</span>                  <span class="kw">TO</span> <span class="var">RDC-SIGNO</span>.
+<span class="cmt">      *&gt; ⋯ 5 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">B39-TASA-ISR-152</span>        <span class="kw">TO</span> <span class="var">RDC-TASA-ISR</span>.
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">B39-ISR-RET-152</span>         <span class="kw">TO</span> <span class="var">RDC-SDO-ISR</span>.
+<span class="cmt">      *&gt; ⋯ 3 líneas omitidas</span>
+     <span class="kw">ADD</span>     <span class="var">RDC-SDO-ISR</span>          <span class="kw">TO</span> <span class="var">WKS-SDISR-X-CTE</span>
+                                     <span class="var">WKS-SDISR-X-GPO</span>
+                                     <span class="var">WKS-SDISR-X-GRL</span></span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Datos de sucursal fijos y tasa del grupo según tipo de persona · L643–704">     <span class="kw">ADD</span>                      <span class="num">1</span>                <span class="kw">TO</span> <span class="var">WS-CLIENTES</span>
+                                                  <span class="var">WS-REGISTROS</span>
+     <span class="kw">MOVE</span>                    <span class="num">100000</span>            <span class="kw">TO</span> <span class="var">REL-TIPO-REG</span>
+                                                  <span class="var">ED1-TIP-REG</span>
+     <span class="kw">MOVE</span>                         <span class="num">0</span>            <span class="kw">TO</span> <span class="var">REL-SUC-NUM</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;VENUSTIANO CARRANZA #63 3ER. PISO&quot;</span>  <span class="kw">TO</span> <span class="var">REL-SUC-DOM</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;BANCA CORPORATIVA       &quot;</span>           <span class="kw">TO</span> <span class="var">REL-SUC-NOM</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;CENTRO  &quot;</span>                           <span class="kw">TO</span> <span class="var">REL-SUC-COL</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;MEXICO  &quot;</span>                           <span class="kw">TO</span> <span class="var">REL-SUC-POB</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;DISTRITO FEDERAL&quot;</span>                   <span class="kw">TO</span> <span class="var">REL-SUC-EDO</span>
+     <span class="kw">MOVE</span> <span class="num">06000</span>                                <span class="kw">TO</span> <span class="var">REL-SUC-CODPOS</span>
+     <span class="kw">MOVE</span> <span class="kw">SPACES</span>                               <span class="kw">TO</span> <span class="var">REL-SUC-CRZP</span>
+     <span class="kw">MOVE</span> <span class="kw">ZEROES</span>                               <span class="kw">TO</span> <span class="var">REL-SUC-CENREP</span>
+     <span class="kw">MOVE</span> <span class="var">B37-GRUPO</span>                            <span class="kw">TO</span> <span class="var">ED1-NUM-GPO</span>
+     <span class="kw">MOVE</span> <span class="kw">ZEROS</span>                                <span class="kw">TO</span> <span class="var">ED1-NUM-CTE</span>
+     <span class="kw">MOVE</span> <span class="var">REGISTRO-DATOS-SEL</span>                   <span class="kw">TO</span> <span class="var">ED1-ARCHED1</span>
+     <span class="kw">PERFORM</span> <span class="num">350</span>-<span class="var">GRABA-ARCHED1</span> <span class="kw">THRU</span> <span class="num">350</span>-<span class="var">GRABA-EXIT</span>.
+<span class="cmt">      *&gt; ⋯ 32 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="num">700000</span>                  <span class="kw">TO</span> <span class="var">RCP-TIPO-REG</span>
+                                     <span class="var">ED1-TIP-REG</span>
+     <span class="kw">MOVE</span> <span class="var">WS-FEC-INI-COMPLETO</span>     <span class="kw">TO</span> <span class="var">RCP-FECHA-INI</span>
+     <span class="kw">MOVE</span> <span class="var">WS-FEC-FIN-COMPLETO</span>     <span class="kw">TO</span> <span class="var">RCP-FECHA-FIN</span>
+     <span class="kw">MOVE</span> <span class="var">B37-SDO-PROMEDIO</span>        <span class="kw">TO</span> <span class="var">RCP-SDO-PROM-GRUPO</span>
+<span class="cmt">*STF-JATL-INC00318628663-INC0046798403-INI</span>
+  <span class="kw">IF</span> <span class="var">WS-GRUPO-B37</span>  <span class="kw">IS</span> <span class="var">EQUAL</span> <span class="kw">TO</span>  <span class="var">WS-GRUPO</span>  <span class="kw">AND</span>  <span class="var">WS-SUBGPO</span> &gt; <span class="num">0</span>
+     <span class="kw">IF</span> <span class="var">WS-TIPO-PERSONA</span> = <span class="num">2</span> <span class="kw">AND</span> <span class="var">WS-TIPO-PERSONA-PAGO-ANT</span> = <span class="num">4</span>
+        <span class="kw">MOVE</span> <span class="var">B37-TASA-BRT-GPO</span>       <span class="kw">TO</span>  <span class="var">RCP-TASA-GRUPO</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="var">B37-TASA-NTA-GPO</span>       <span class="kw">TO</span>  <span class="var">RCP-TASA-GRUPO</span>
+  <span class="kw">ELSE</span>
+     <span class="kw">MOVE</span> <span class="var">B37-TASA-NTA-GPO</span>        <span class="kw">TO</span> <span class="var">RCP-TASA-GRUPO</span>.</span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Total de grupo con comisiones e IVA al 10 y 15 por ciento · L750–799">     <span class="kw">MOVE</span> <span class="num">701190</span>             <span class="kw">TO</span> <span class="var">RTG-TIPO-REG</span>
+                                <span class="var">ED1-TIP-REG</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-SPROM-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTG-SDOPROM-CTA</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-CHEQS-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTG-CHEQUES-TOT</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-EXENT-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTG-CHEQUES-EXE</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PRODS-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTG-PROD-PERIODO</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-COMIS-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTG-COMISION</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PNETO-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTG-PROD-NETOS</span>
+     <span class="kw">MOVE</span> <span class="kw">SPACES</span>             <span class="kw">TO</span> <span class="var">RTG-SIGNO</span>
+     <span class="kw">IF</span> <span class="var">WKS-PNETO-X-GPO</span> &lt; <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;-&quot;</span>             <span class="kw">TO</span> <span class="var">RTG-SIGNO</span>.
+     <span class="kw">MOVE</span> <span class="var">B37-ISR-RETENIDO</span>   <span class="kw">TO</span> <span class="var">RTG-SDO-ISR</span>
+     <span class="kw">MOVE</span> <span class="var">B37-COMIS-10</span>       <span class="kw">TO</span> <span class="var">RTG-TOT-CHQ-GIR-10P</span>
+     <span class="kw">ADD</span>  <span class="var">B37-COMIS-10</span>       <span class="kw">TO</span> <span class="var">WKS-CHQ-GIR-10P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-IVA-10</span>         <span class="kw">TO</span> <span class="var">RTG-IVA-CHQ-GIR-10P</span>
+     <span class="kw">ADD</span>  <span class="var">B37-IVA-10</span>         <span class="kw">TO</span> <span class="var">WKS-IVA-GIR-10P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-COMIS-15</span>       <span class="kw">TO</span> <span class="var">RTG-TOT-CHQ-GIR-15P</span>
+     <span class="kw">ADD</span>  <span class="var">B37-COMIS-15</span>       <span class="kw">TO</span> <span class="var">WKS-CHQ-GIR-15P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-IVA-15</span>         <span class="kw">TO</span> <span class="var">RTG-IVA-CHQ-GIR-15P</span>
+     <span class="kw">ADD</span>  <span class="var">B37-IVA-15</span>         <span class="kw">TO</span> <span class="var">WKS-IVA-GIR-15P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-GRUPO</span>          <span class="kw">TO</span> <span class="var">ED1-NUM-GPO</span>
+     <span class="kw">MOVE</span> <span class="num">9998</span>               <span class="kw">TO</span> <span class="var">ED1-NUM-CTE</span>
+     <span class="kw">MOVE</span> <span class="var">REGISTRO-TOT-GRUPO</span> <span class="kw">TO</span> <span class="var">ED1-ARCHED1</span>
+     <span class="kw">ADD</span>  <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">WS-REGISTROS</span>
+     <span class="kw">PERFORM</span> <span class="num">350</span>-<span class="var">GRABA-ARCHED1</span> <span class="kw">THRU</span> <span class="num">350</span>-<span class="var">GRABA-EXIT</span>.
+<span class="cmt">      *&gt; ⋯ 4 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="num">709000</span>             <span class="kw">TO</span> <span class="var">RTR-TIPO-REG</span>
+                                <span class="var">ED1-TIP-REG</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-SPROM-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTR-SDOPROM-CTA</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-CHEQS-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTR-CHEQUES-TOT</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-EXENT-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTR-CHEQUES-EXE</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PRODS-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTR-PROD-PERIODO</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-COMIS-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTR-COMISION</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PNETO-X-GPO</span>    <span class="kw">TO</span> <span class="var">RTR-PROD-NETOS</span>
+     <span class="kw">MOVE</span> <span class="kw">SPACES</span>             <span class="kw">TO</span> <span class="var">RTR-SIGNO</span>
+     <span class="kw">IF</span> <span class="var">WKS-PNETO-X-GPO</span> &lt; <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;-&quot;</span>             <span class="kw">TO</span> <span class="var">RTR-SIGNO</span>.
+     <span class="kw">MOVE</span> <span class="var">B37-ISR-RETENIDO</span>   <span class="kw">TO</span> <span class="var">RTR-SDO-ISR</span>
+     <span class="kw">MOVE</span> <span class="var">B37-COMIS-10</span>       <span class="kw">TO</span> <span class="var">RTR-TOT-CHQ-GIR-10P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-IVA-10</span>         <span class="kw">TO</span> <span class="var">RTR-IVA-CHQ-GIR-10P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-COMIS-15</span>       <span class="kw">TO</span> <span class="var">RTR-TOT-CHQ-GIR-15P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-IVA-15</span>         <span class="kw">TO</span> <span class="var">RTR-IVA-CHQ-GIR-15P</span>
+     <span class="kw">MOVE</span> <span class="var">B37-GRUPO</span>          <span class="kw">TO</span> <span class="var">ED1-NUM-GPO</span>
+     <span class="kw">MOVE</span> <span class="num">9999</span>               <span class="kw">TO</span> <span class="var">ED1-NUM-CTE</span>
+     <span class="kw">ADD</span>  <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">WS-REGISTROS</span>
+     <span class="kw">MOVE</span> <span class="var">REGISTRO-TOTAL-GENERAL</span> <span class="kw">TO</span> <span class="var">ED1-ARCHED1</span>
+     <span class="kw">PERFORM</span> <span class="num">350</span>-<span class="var">GRABA-ARCHED1</span> <span class="kw">THRU</span> <span class="num">350</span>-<span class="var">GRABA-EXIT</span>.</span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Ordenamiento de ARCHED1 y depuración de tipos hacia ARCHEDO · L984–1033">     <span class="kw">COMPUTE</span> <span class="var">WS-SORT-ESPACIO</span> = (<span class="var">WS-LASTRECORD</span> + <span class="num">10</span>) * <span class="num">60</span> * <span class="num">3.5</span>
+     <span class="kw">COMPUTE</span> <span class="var">WS-AREA-ESPACIO</span> =
+                       ((<span class="var">WS-LASTRECORD</span> / <span class="num">16</span>) * <span class="num">63</span>) + <span class="num">1500</span>.
+     <span class="kw">IF</span> <span class="var">WS-AREA-ESPACIO</span> &lt; <span class="num">400000</span>
+        <span class="kw">MOVE</span> <span class="num">400000</span> <span class="kw">TO</span> <span class="var">WS-AREA-ESPACIO</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS-AREA-ESPACIO</span> &gt; <span class="num">258435000</span>
+        <span class="kw">MOVE</span> <span class="num">25843500</span> <span class="kw">TO</span> <span class="var">WS-AREA-ESPACIO</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-SORT-ESPACIO</span>   <span class="kw">TO</span> <span class="var">WS-MSG-N-14</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-AREA-ESPACIO</span>   <span class="kw">TO</span> <span class="var">WS-MSG-N-12</span>.
+     <span class="kw">STRING</span> <span class="str">&quot;DISK-SIZE =&quot;</span> <span class="var">WS-MSG-N-14</span>
+            <span class="str">&quot;, MEMORY-SIZE =&quot;</span> <span class="var">WS-MSG-N-12</span>
+            <span class="str">&quot;, PARA SORT ARCHED1 &quot;</span>
+            <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">WS-0101-TEXT-MSG</span>
+     <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>.
+     <span class="kw">SORT</span> <span class="var">SORTED1</span> <span class="kw">ON</span> <span class="kw">ASCENDING</span> <span class="kw">KEY</span> <span class="var">SD1-NUM-GPO</span>
+                                   <span class="var">SD1-NUM-CTE</span>
+                                   <span class="var">SD1-TIP-REG</span>
+          <span class="kw">USING</span>  <span class="var">ARCHED1</span>
+          <span class="kw">OUTPUT</span> <span class="kw">PROCEDURE</span> <span class="num">410</span>-<span class="var">GENERO-ARCHEDO</span>
+          <span class="var">MEMORY</span> <span class="kw">SIZE</span> <span class="var">WS-AREA-ESPACIO</span> <span class="var">WORDS</span>
+          <span class="var">DISK</span>   <span class="kw">SIZE</span> <span class="var">WS-SORT-ESPACIO</span> <span class="var">WORDS</span>.
+<span class="cmt">      *&gt; ⋯ 3 líneas omitidas</span>
+ <span class="num">410</span>-<span class="var">GENERO-ARCHEDO</span> <span class="kw">SECTION</span>.
+ <span class="num">410</span>-<span class="var">GENERO-ARCHEC</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">OPEN</span> <span class="kw">OUTPUT</span> <span class="var">ARCHEDO</span>
+     <span class="kw">PERFORM</span> <span class="num">420</span>-<span class="var">GENERA-ARCHEDO</span> <span class="kw">UNTIL</span> <span class="var">FIN-SORTED1</span>
+     <span class="kw">CLOSE</span> <span class="var">ARCHEDO</span> <span class="var">SAVE</span>.
+<span class="cmt">      *&gt; ⋯ 3 líneas omitidas</span>
+ <span class="num">420</span>-<span class="var">GENERA-ARCHEDO</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">RETURN</span> <span class="var">SORTED1</span> <span class="kw">AT</span> <span class="kw">END</span>
+            <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WB-FIN-SORTED1</span>.
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">FIN-SORTED1</span>
+        <span class="kw">MOVE</span> <span class="var">REG-SORTED1</span>  <span class="kw">TO</span> <span class="var">REGISTRO-SORTED1</span>
+        <span class="kw">MOVE</span> <span class="var">RS1-TIP-REG2</span> <span class="kw">TO</span> <span class="var">WB-TIP-REG-VAL</span>
+        <span class="kw">IF</span> <span class="var">TIP-REG-VAL</span>
+           <span class="kw">WRITE</span> <span class="var">REG-ARCHEDO</span> <span class="kw">FROM</span> <span class="var">SD1-SORTED1</span> <span class="kw">INVALID</span> <span class="kw">KEY</span>
+                 <span class="kw">STRING</span> <span class="str">&quot;ERROR AL WRITE ARCHEDO &quot;</span>
+                         <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">WS-0101-TEXT-MSG</span>
+                 <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+                 <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> - <span class="num">1</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>DetalleCuentaMapper.java · RegistrosGrupo.java · ClasificaEdoCtaStep.java</span><span class="fname">mapper · ClassifierCompositeItemWriter · ordenamiento</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j6"><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">DetalleCuentaMapper</span> {
+
+<span class="cmt">    /** 250-GRABA-POR-CTA. */</span>
+    <span class="kw">public</span> <span class="type">DetalleCuenta</span> mapea(<span class="type">CuentaCpe</span> b39, <span class="kw">int</span> tipoPersonaPago, <span class="type">Acumuladores</span> acum) {
+        <span class="kw">var</span> mda = <span class="type">Mda</span>.parte(b39.numMda());           <span class="cmt">// WKS-MDA-R: sucursal 9(04) + cuenta 9(08)</span>
+
+        <span class="cmt">// INC00318628663: para tipo de persona 4 la tasa adicional es la bruta del 152</span>
+        <span class="type">BigDecimal</span> tasaAdic = (tipoPersonaPago == <span class="num">4</span>)
+                ? b39.tasaBruta152()
+                : b39.tasaNeta500().subtract(b39.tasaNeta152());
+        tasaAdic = tasaAdic.abs().setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.DOWN);   <span class="cmt">// 9(02)V99 sin signo, COMPUTE sin ROUNDED</span>
+
+        <span class="type">BigDecimal</span> producto = b39.rendPagado152().add(b39.isrRetenido152());   <span class="cmt">// rendimiento bruto</span>
+        <span class="type">BigDecimal</span> comision = b39.comisionCobrada().add(b39.ivaCobrado());     <span class="cmt">// comisión con IVA</span>
+        <span class="type">BigDecimal</span> neto     = b39.rendPagado152();                             <span class="cmt">// producto neto = rendimiento pagado</span>
+
+        acum.suma(b39.saldoPromedio(), b39.chequesGirados(), b39.chequesExentos(),
+                  producto, comision, neto, b39.isrRetenido152());   <span class="cmt">// CTE, GPO y GRL a la vez</span>
+
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">DetalleCuenta</span>(<span class="type">String</span>.valueOf(b39.subgrupo()), b39.nombre(),
+                mda.sucursal(), mda.cuenta(), b39.saldoPromedio(),
+                b39.tasaNeta500(), tasaAdic, b39.chequesGirados(), b39.chequesExentos(),
+                <span class="type">TotalGrupo</span>.campo8v2(producto), <span class="type">TotalGrupo</span>.campo8v2(comision), <span class="type">TotalGrupo</span>.campo8v2(neto),
+                neto.signum() &lt; <span class="num">0</span> ? <span class="str">&#x27;-&#x27;</span> : <span class="str">&#x27; &#x27;</span>,
+                b39.tasaIsr152(), <span class="type">TotalGrupo</span>.campo8v2(b39.isrRetenido152()));
+    }
+}</span>
+<span class="seg java-seg" data-jid="j7"># application.yml  (antes compilado en <span class="num">230</span>-GRABA-POR-GRUPO)
+p335:
+  sucursal-corporativa:
+    numero: <span class="num">0</span>
+    nombre: <span class="str">&quot;BANCA CORPORATIVA&quot;</span>
+    domicilio: <span class="str">&quot;VENUSTIANO CARRANZA #63 3ER. PISO&quot;</span>
+    colonia: <span class="str">&quot;CENTRO&quot;</span>
+    poblacion: <span class="str">&quot;MEXICO&quot;</span>
+    estado: <span class="str">&quot;DISTRITO FEDERAL&quot;</span>
+    codigo-postal: <span class="str">&quot;06000&quot;</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">RegistrosGrupo</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P335Properties</span> props;
+
+<span class="cmt">    /** 100000 REGISTRO-DATOS-SEL: igual para todos los grupos. */</span>
+    <span class="type">SobreEdoCta</span> datosSucursal(<span class="kw">long</span> grupo) {
+        <span class="kw">var</span> s = props.sucursalCorporativa();
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">SobreEdoCta</span>(<span class="num">100000</span>, grupo, <span class="num">0</span>, <span class="kw">new</span> <span class="type">DatosSucursal</span>(s.numero(), s.domicilio(), s.nombre(),
+                s.colonia(), s.poblacion(), s.estado(), s.codigoPostal()));
+    }
+
+<span class="cmt">    /** 700000: INC00318628663, persona tipo 2 cuyo último pago fue de tipo 4 usa la tasa bruta. */</span>
+    <span class="type">BigDecimal</span> tasaGrupo(<span class="type">Grupo</span> b37, <span class="kw">long</span> grupoActual, <span class="kw">int</span> subgrupoActual, <span class="kw">int</span> tipoPersonaPagoAnt) {
+        <span class="kw">boolean</span> mismoGrupo = b37.grupo() == grupoActual &amp;&amp; subgrupoActual &gt; <span class="num">0</span>;
+        <span class="kw">if</span> (mismoGrupo &amp;&amp; b37.tipoPersona() == <span class="num">2</span> &amp;&amp; tipoPersonaPagoAnt == <span class="num">4</span>) {
+            <span class="kw">return</span> b37.tasaBrutaGrupo();
+        }
+        <span class="kw">return</span> b37.tasaNetaGrupo();
+    }
+}</span>
+<span class="seg java-seg" data-jid="j8"><span class="cmt">    /** 701190 y 709000: totales del grupo; los importes fiscales vienen ya calculados en B37. */</span>
+    <span class="type">List</span>&lt;<span class="type">SobreEdoCta</span>&gt; totales(<span class="type">Grupo</span> b37, <span class="type">Acumuladores</span>.<span class="type">Nivel</span> gpo, <span class="type">Acumuladores</span> acum) {
+        <span class="kw">char</span> signo = gpo.productoNeto().signum() &lt; <span class="num">0</span> ? <span class="str">&#x27;-&#x27;</span> : <span class="str">&#x27; &#x27;</span>;
+        <span class="kw">var</span> total = <span class="kw">new</span> <span class="type">TotalGrupo</span>(gpo.saldoPromedio(), gpo.cheques(), gpo.exentos(),
+                <span class="type">TotalGrupo</span>.campo8v2(gpo.productos()), <span class="type">TotalGrupo</span>.campo8v2(gpo.comisiones()),
+                <span class="type">TotalGrupo</span>.campo8v2(gpo.productoNeto()), signo,
+                b37.isrRetenido(),                  <span class="cmt">// del grupo, no la suma de B39</span>
+                b37.comision10(), b37.iva10(),
+                b37.comision15(), b37.iva15());
+        acum.sumaTasas(b37.comision10(), b37.iva10(), b37.comision15(), b37.iva15());   <span class="cmt">// WKS-*-GIR-10P/15P</span>
+
+        <span class="kw">return</span> <span class="type">List</span>.of(
+            <span class="kw">new</span> <span class="type">SobreEdoCta</span>(<span class="num">701190</span>, b37.grupo(), <span class="num">9998</span>, total),                         <span class="cmt">// al final del grupo</span>
+            <span class="kw">new</span> <span class="type">SobreEdoCta</span>(<span class="num">709000</span>, b37.grupo(), <span class="num">9999</span>, <span class="type">TotalGeneral</span>.espejoDe(total))); <span class="cmt">// mismo contenido</span>
+    }</span>
+<span class="seg java-seg" data-jid="j9"><span class="ann">@Bean</span>
+<span class="type">Step</span> clasificaArchedo(<span class="type">JobRepository</span> repo, <span class="type">PlatformTransactionManager</span> tx,
+                      <span class="type">ItemReader</span>&lt;<span class="type">SobreEdoCta</span>&gt; arched1Ordenado,   <span class="cmt">// ARCHED1 ordenado con SobreEdoCta.compareTo</span>
+                      <span class="type">ClassifierCompositeItemWriter</span>&lt;<span class="type">SobreEdoCta</span>&gt; archedo) {
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">StepBuilder</span>(<span class="str">&quot;clasificaArchedo&quot;</span>, repo)
+            .&lt;<span class="type">SobreEdoCta</span>, <span class="type">SobreEdoCta</span>&gt;chunk(<span class="num">100</span>, tx)             <span class="cmt">// BLOCK CONTAINS 100 RECORDS</span>
+            .reader(arched1Ordenado)
+            .processor(s -&gt; <span class="type">TipoRegistro</span>.de(s.carga().tipoReg())  <span class="cmt">// RS1-TIP-REG2: tipo dentro de la carga</span>
+                                        .map(t -&gt; s).orElse(<span class="kw">null</span>)) <span class="cmt">// TIP-REG-VAL: otros tipos se descartan</span>
+            .writer(archedo)
+            .build();
+}
+
+<span class="cmt">/** Cada tipo se formatea con su layout; ARCHEDO recibe solo la carga útil de 340 posiciones. */</span>
+<span class="ann">@Bean</span>
+<span class="type">ClassifierCompositeItemWriter</span>&lt;<span class="type">SobreEdoCta</span>&gt; archedo(<span class="type">Map</span>&lt;<span class="type">TipoRegistro</span>, <span class="type">FlatFileItemWriter</span>&lt;<span class="type">SobreEdoCta</span>&gt;&gt; porTipo) {
+    <span class="kw">var</span> w = <span class="kw">new</span> <span class="type">ClassifierCompositeItemWriter</span>&lt;<span class="type">SobreEdoCta</span>&gt;();
+    w.setClassifier(s -&gt; porTipo.get(<span class="type">TipoRegistro</span>.de(s.carga().tipoReg()).orElseThrow()));
+    <span class="kw">return</span> w;
+}
+<span class="cmt">// Los cálculos de DISK SIZE y MEMORY SIZE del SORT no tienen equivalente: el ordenamiento</span>
+<span class="cmt">// se hace con un ordenamiento externo o en base de datos según el volumen.</span></span></pre></div>
+</div>
+  
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Fuente intercambiado en el inventario</b><p>El archivo registrado para P335 (S500_SOURCE_P335.txt) contiene el programa S500P400, y S500_SOURCE_P400.txt contiene P335-EDOCTA (PROGRAM-ID en la línea 14). Este borrador cita líneas de S500_SOURCE_P400.txt, que es la ruta que ahora registra el inventario para S500_P335.</p></div><div class="risk"><b>Truncamiento de totales</b><p>Los acumuladores WKS-*-X-GPO son 9(12)V99 (líneas 136-142) y se mueven a campos 9(08)V99 de los registros 701190 y 709000 (líneas 272-280 y 288-296). Grupos con productos, comisiones o producto neto de 100 millones o más se reportarían sin los dígitos altos.</p></div><div class="risk"><b>Pérdida de signo en tasa adicional</b><p>RDC-TASA-ADIC (línea 244) es 9(02)V99 sin signo y recibe la resta B39-TASA-NTA-500 menos B39-TASA-NTA-152 (líneas 822-823). Una diferencia negativa se reporta como positiva.</p></div><div class="risk"><b>Tope de memoria del SORT con un dígito menos</b><p>En 400-CLASIFIC-EDOCT (líneas 990-991) el límite superior se compara contra 258435000 pero se asigna 25843500. Si el archivo crece, el SORT recibe diez veces menos memoria de la prevista.</p></div><div class="risk"><b>Errores de escritura no detienen el paso</b><p>350-GRABA-ARCHED1 y 420-GENERA-ARCHEDO solo ponen el estatus de la tarea en -1 ante un error de WRITE (líneas 972 y 1033); el programa sigue escribiendo y el estado de cuenta podría quedar incompleto.</p></div><div class="risk"><b>Valores fijos</b><p>CSI 10, nodos 12/12 de las rutas S050 y S051 y el domicilio de Banca Corporativa (líneas 648-653) están compilados. Se trasladan a application.yml.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Confirmar que la corrección de rutas entre S500_P335 y S500_P400 en _inventario.json quede reflejada también en el brain y en el pseudocódigo de P400.</li><li>Confirmar la escala de los campos B39 y B37 (copybook S500/INC/WOR/25MTP002 no incluido) para validar dónde hay truncamiento real al mover a 9(08)V99.</li><li>WS-REGISTROS no cuenta el registro 100001 (línea 687 comentada) ni el trailer; confirmar si el receptor del archivo valida ese total.</li><li>Confirmar con SME el significado de los tipos de persona 2 y 4 en la excepción de tasa del incidente INC00318628663.</li><li>Confirmar el efecto de MOVE LOW-VALUES sobre los acumuladores numéricos WKS-ACUM-X-CTE y WKS-ACUM-X-GPO (líneas 594-595 y 608) en el compilador MCP; en Java se reinician en cero.</li></ul>
+  <div class="pn"><a href="S500_P330.html">← S500 · P330</a><a href="../cobol-java.html">Inventario</a><a href="S500_P400.html">S500 · P400 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · Banamex · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Sobre de 360 bytes con llave de ordenamiento y catálogo de tipos", "cobol": " FD  ARCHED1\n     VA OF  AREASIZE  10000\n     BLOCK  CONTAINS  100 RECORDS\n     RECORD CONTAINS  360 CHARACTERS\n     VALUE OF TITLE   IS  WS-ETIQ-EDOCT1.\n 01  REG-ARCHED1.\n     05 ED1-TIP-REG       PIC 9(06).\n     05 ED1-NUM-GPO       PIC 9(10).\n     05 ED1-NUM-CTE       PIC 9(04).\n     05 ED1-ARCHED1       PIC X(340).\n      *> ⋯ 8 líneas omitidas\n SD  SORTED1\n     BLOCK  CONTAINS  100 RECORDS\n     RECORD CONTAINS  360 CHARACTERS.\n 01  REG-SORTED1.\n     05 SD1-TIP-REG       PIC 9(06).\n     05 SD1-NUM-GPO       PIC 9(10).\n     05 SD1-NUM-CTE       PIC 9(04).\n     05 SD1-SORTED1       PIC X(340).\n      *> ⋯ 57 líneas omitidas\n 77  WB-TIP-REG-VAL       PIC 9(06).\n     88 TIP-REG-VAL       VALUE 000000, 100000, 100001, 700000,\n                                701000, 701100, 701110, 701111,\n                                701119, 701190, 709000, 990000.", "java": "/** REG-ARCHED1 / REG-SORTED1: llave de 20 posiciones + carga útil de 340. */\npublic record SobreEdoCta(int tipoReg,          // ED1-TIP-REG 9(06)\n                          long numGrupo,        // ED1-NUM-GPO 9(10)\n                          int numCliente,       // ED1-NUM-CTE 9(04): 0 encabezados, 9998 total grupo, 9999 total general\n                          EdoCtaRecord carga)   // ED1-ARCHED1 X(340)\n        implements Comparable<SobreEdoCta> {\n\n    /** SORT ... ON ASCENDING KEY SD1-NUM-GPO SD1-NUM-CTE SD1-TIP-REG */\n    private static final Comparator<SobreEdoCta> ORDEN =\n            Comparator.comparingLong(SobreEdoCta::numGrupo)\n                      .thenComparingInt(SobreEdoCta::numCliente)\n                      .thenComparingInt(SobreEdoCta::tipoReg);\n\n    @Override public int compareTo(SobreEdoCta o) { return ORDEN.compare(this, o); }\n}\n\n/** 88 TIP-REG-VAL: solo estos tipos pasan a ARCHEDO. */\npublic enum TipoRegistro {\n    HEADER(0), DATOS_SUCURSAL(100000), DATOS_CLIENTE(100001), RESUMEN_CPE(700000),\n    HDR_SUPERGRUPO(701000), HDR_GRUPO(701100), HDR_CLIENTE(701110), DETALLE_CUENTA(701111),\n    TOTAL_CLIENTE(701119), TOTAL_GRUPO(701190), TOTAL_GENERAL(709000), TRAILER(990000);\n\n    private final int codigo;\n    TipoRegistro(int codigo) { this.codigo = codigo; }\n\n    public static Optional<TipoRegistro> de(int codigo) {\n        return Arrays.stream(values()).filter(t -> t.codigo == codigo).findFirst();\n    }\n}", "rationale": "Cada registro de ARCHED1 lleva una llave de 20 posiciones (tipo, grupo y cliente) delante de una carga útil de 340 que cambia de forma según el tipo. El orden final del estado de cuenta depende por completo de esa llave, incluido el truco de usar 9998 y 9999 como número de cliente para que los totales queden al final de cada grupo. En Java la llave es un <code>record</code> comparable con el mismo orden del <code>SORT</code>, y la condición 88 de tipos válidos se vuelve un <code>enum</code>; un tipo que no esté en el catálogo produce <code>Optional.empty()</code> y se descarta, igual que en el fuente.", "risk": "", "rules": [], "lines": "L30–116", "verified": true, "score": 100}, "s2": {"title": "Detalle de cuenta y total de grupo: campos sin signo y signo aparte", "cobol": "*                 701111\n      05 RDC-NUM-CTE-CTA                  PIC  9(12).\n      05 RDC-NOM-CTE-CTA                  PIC  X(55).\n      05 RDC-SUC-CTA                      PIC  9(04).\n      05 RDC-NUM-CTA                      PIC  9(12)      .\n      *> ⋯ 1 línea omitida\n      05 RDC-SDOPROM-CTA                  PIC  9(12)V99   .\n      05 RDC-TASA-PROD                    PIC  9(02)V99   .\n      05 RDC-TASA-ADIC                    PIC  9(02)V99.\n      05 RDC-CHEQUES-TOT                  PIC  9(06)   .\n      05 RDC-CHEQUES-EXE                  PIC  9(06)   .\n      05 RDC-PROD-PERIODO                 PIC  9(08)V99 .\n      05 RDC-COMISION                     PIC  9(08)V99 .\n      05 RDC-PROD-NETOS                   PIC  9(08)V99 .\n      05 RDC-SIGNO                        PIC  X(01).\n      05 RDC-TASA-ISR                     PIC  9(02)V99 .\n      05 RDC-SDO-ISR                      PIC  9(08)V99 .\n      *> ⋯ 12 líneas omitidas\n 01 REGISTRO-TOT-GRUPO.\n      05 RTG-TIPO-REG                     PIC  9(06)      .\n*                 701190\n      *> ⋯ 1 línea omitida\n      05 RTG-SDOPROM-CTA                  PIC  9(12)V99   .\n      05 RTG-CHEQUES-TOT                  PIC  9(06)      .\n      05 RTG-CHEQUES-EXE                  PIC  9(06)      .\n      05 RTG-PROD-PERIODO                 PIC  9(08)V99   .\n      05 RTG-COMISION                     PIC  9(08)V99   .\n      05 RTG-PROD-NETOS                   PIC  9(08)V99   .\n      05 RTG-SIGNO                        PIC  X(01).\n      05 RTG-SDO-ISR                      PIC  9(08)V99   .\n      05 RTG-TOT-CHQ-GIR-10P              PIC  9(08)V99   .\n      05 RTG-IVA-CHQ-GIR-10P              PIC  9(08)V99   .\n      05 RTG-TOT-CHQ-GIR-15P              PIC  9(08)V99   .\n      05 RTG-IVA-CHQ-GIR-15P              PIC  9(08)V99   .", "java": "/** 701111 REGISTRO-DET-CUENTAS. */\npublic record DetalleCuenta(String numClienteCta,     // 9(12) como String\n                            String nombre,            // X(55)\n                            String sucursal,          // 9(04)\n                            String numCuenta,         // 9(12)\n                            BigDecimal saldoPromedio, // 9(12)V99\n                            BigDecimal tasaProducto,  // 9(02)V99\n                            BigDecimal tasaAdicional, // 9(02)V99 sin signo\n                            int chequesTotales, int chequesExentos,   // 9(06)\n                            BigDecimal productoPeriodo,              // 9(08)V99\n                            BigDecimal comision,                     // 9(08)V99, incluye IVA\n                            BigDecimal productoNeto,                 // 9(08)V99 en valor absoluto\n                            char signo,                              // ' ' o '-'\n                            BigDecimal tasaIsr, BigDecimal saldoIsr) implements EdoCtaRecord {}\n\n/** 701190 REGISTRO-TOT-GRUPO: agrega comisiones e IVA a 10 y 15 por ciento. */\npublic record TotalGrupo(BigDecimal saldoPromedio,     // 9(12)V99\n                         int chequesTotales, int chequesExentos,\n                         BigDecimal productoPeriodo, BigDecimal comision,\n                         BigDecimal productoNeto, char signo,\n                         BigDecimal saldoIsr,\n                         BigDecimal comision10, BigDecimal iva10,     // 9(08)V99\n                         BigDecimal comision15, BigDecimal iva15) implements EdoCtaRecord {\n\n    /** Los campos 9(08)V99 aceptan hasta 99,999,999.99; COBOL pierde los dígitos altos sin aviso. */\n    static BigDecimal campo8v2(BigDecimal v) {\n        BigDecimal abs = v.abs().setScale(2, RoundingMode.DOWN);\n        if (abs.compareTo(new BigDecimal(\"99999999.99\")) > 0) throw new CampoDesbordadoException(v);\n        return abs;\n    }\n}", "rationale": "Los importes del estado de cuenta se escriben sin signo y el signo del producto neto viaja en un campo <code>X(01)</code> aparte, que el programa llena con un guion cuando el valor es negativo. En Java cada tipo de registro es un <code>record</code> de la <code>sealed interface</code>, los importes son <code>BigDecimal</code> de escala 2 y el valor absoluto se hace explícito. Se cita el detalle y el total de grupo porque son los que llevan las reglas fiscales; las dos líneas comentadas con la versión anterior del saldo promedio se omiten. Los saldos promedio crecieron a <code>9(12)V99</code>, pero productos, comisiones e ISR siguen en <code>9(08)V99</code>, de modo que un total de grupo grande se truncaría.", "risk": "Los acumuladores de grupo son 9(12)V99 y se mueven a campos 9(08)V99 del total de grupo y del total general: un grupo con productos o comisiones de 100 millones o más se reportaría truncado.", "rules": [], "lines": "L236–280", "verified": true, "score": 100}, "s3": {"title": "El paso solo trabaja en el CSI 10", "cobol": " 000-CONTROL-PROGRAMA SECTION.\n 000-CONTROL-PROGR.\n      *> ⋯ 1 línea omitida\n     PERFORM 100-INICIA.\n     IF B02-NUM-CSI = 10\n        PERFORM 200-GENERA-EDOCTA UNTIL EOF-B39\n        PERFORM 300-TERMINA\n        PERFORM 400-CLASIFICA-EDOCTA THRU\n                400-CLASIF-EXIT\n     ELSE\n        PERFORM 330-CIERRA-BASE.\n     STOP RUN.\n      *> ⋯ 1 línea omitida\n 100-INICIA.\n      *> ⋯ 1 línea omitida\n     MOVE 11 TO WS-STATUS-BASE\n     PERFORM 120-ABRE-BASE UNTIL WS-DB-NOTERROR\n     PERFORM 10000006-LOCSUP\n     PERFORM 122-OBTEN-B02CONTROL\n     IF B02-NUM-CSI = 10\n        PERFORM 110-CHECA-VERSION\n        PERFORM 140-GRABA-REG-HEADER\n        PERFORM 160-B39SXGPOSBGMDA-FINDN.", "java": "@Configuration\npublic class EdoCtaCpeJobConfig {\n\n    /** 000-CONTROL-PROGR: si B02-NUM-CSI no es el CSI de CPE, cierra la base y termina sin archivos. */\n    @Bean\n    Job edoCtaCpe(JobRepository repo, Step validaVersion, Step generaArched1, Step clasificaArchedo,\n                  CsiCpeDecider csi) {\n        return new JobBuilder(\"S500P335\", repo)\n                .start(validaVersion)\n                .next(csi).on(\"NO_APLICA\").end()               // ELSE PERFORM 330-CIERRA-BASE\n                .from(csi).on(\"CPE\").to(generaArched1)         // 200-GENERA-EDOCTA UNTIL EOF-B39 + 300-TERMINA\n                .next(clasificaArchedo)                         // 400-CLASIFICA-EDOCTA\n                .end()\n                .build();\n    }\n}\n\n@Component\n@RequiredArgsConstructor\nclass CsiCpeDecider implements JobExecutionDecider {\n    private final ControlCaptacionRepository b02;   // OPEN INQUIRY: solo lectura\n    private final P335Properties props;             // p335.csi-cpe: 10\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution je, StepExecution se) {\n        return b02.findCsi() == props.csiCpe() ? new FlowExecutionStatus(\"CPE\")\n                                               : new FlowExecutionStatus(\"NO_APLICA\");\n    }\n}", "rationale": "Toda la ejecución depende de que el CSI de la base sea 10, que corresponde a Banca Corporativa; en cualquier otro CSI el programa abre la base, la cierra y termina. La validación aparece tres veces en el fuente. En Spring Batch se concentra en un <code>JobExecutionDecider</code> que bifurca el flujo, y el valor 10 pasa a <code>application.yml</code>. La base se consulta en modo de solo lectura, así que el repositorio no necesita transacción de escritura.", "risk": "", "rules": [], "lines": "L396–419", "verified": true, "score": 100}, "s4": {"title": "Periodo: mes anterior a la fecha de línea, con regla de bisiesto simplificada", "cobol": "     IF B02-NUM-CSI = 10\n        MOVE B02-FECHA-LINEA TO  WS-FECHA-PROCER\n        IF WS-FEC-PROCE-MM = 01\n           MOVE  12 TO WS-FEC-PROCE-MM\n           MOVE WS-NUM-DIAS (WS-FEC-PROCE-MM) TO WS-FEC-PROCE-DD\n           COMPUTE WS-FEC-PROCE-AA = WS-FEC-PROCE-AA - 1\n        ELSE\n           COMPUTE WS-FEC-PROCE-MM = WS-FEC-PROCE-MM - 1\n           MOVE WS-NUM-DIAS (WS-FEC-PROCE-MM) TO WS-FEC-PROCE-DD.\n     IF B02-NUM-CSI  = 10\n        MOVE WS-FECHA-PROCER     TO WS-FEC-INI-COMPLETO\n                                    WS-FEC-FIN-COMPLETO\n        PERFORM 132-ESTABLECE-FECHAS\n        MOVE WS-FEC-FIN-COMPLETO TO WS-ETIQ-FECHA-EDOCTA\n                                    WS-ETIQ-FECHA-EDOCT1\n      *> ⋯ 1 línea omitida\n        OPEN OUTPUT ARCHED1.\n      *> ⋯ 2 líneas omitidas\n 132-ESTABLECE-FECHAS.\n*---------------------\n     MOVE 1 TO WS-FEC-INI-DD.\n     MOVE WS-NUM-DIAS (WS-FEC-INI-MM) TO WS-FEC-FIN-DD\n     DIVIDE     WS-FEC-INI-AA   BY   4\n     GIVING     WS-RESUL\n     REMAINDER  WS-RESIDUO\n     IF WS-RESIDUO = 0\n        IF WS-FEC-INI-MM = 02\n           ADD 1 TO WS-FEC-FIN-DD.", "java": "/** 122-OBTEN-B02CONTROL + 132-ESTABLECE-FECHAS. */\npublic record PeriodoEdoCta(LocalDate inicio, LocalDate fin) {\n\n    private static final DateTimeFormatter ETIQUETA = DateTimeFormatter.ofPattern(\"yyMMdd\");\n\n    /** B02-FECHA-LINEA viene como AAAAMMDD (9(08)); el estado de cuenta es del mes anterior completo. */\n    public static PeriodoEdoCta mesAnterior(LocalDate fechaLinea) {\n        YearMonth mes = YearMonth.from(fechaLinea).minusMonths(1);\n        return new PeriodoEdoCta(mes.atDay(1), mes.atEndOfMonth());\n    }\n\n    /** WS-ETIQ-FECHA-EDOCTA es 9(06): el MOVE desde 9(08) deja AAMMDD. */\n    public String sufijoArchivo() { return fin.format(ETIQUETA); }\n}\n\n# application.yml\np335:\n  csi-cpe: 10\n  archivo-intermedio: \"S500/FILE/S051/12/12/{aammdd}.\"\n  archivo-final:      \"S500/FILE/S050/12/12/{aammdd}.\"", "rationale": "El programa retrocede un mes sobre la fecha de línea, fija el día 1 como inicio y el último día del mes como fin usando una tabla de días por mes. Para febrero suma un día cuando el año es divisible entre 4. <code>YearMonth</code> resuelve lo mismo con el calendario gregoriano completo, que coincide con la regla del fuente en todos los años entre 1901 y 2099. La fecha final, truncada a seis dígitos, forma el nombre de los dos archivos; las rutas con los nodos 12/12 se trasladan a <code>application.yml</code>.", "risk": "La regla de bisiesto solo divide entre 4; no considera los siglos. No afecta hasta el año 2100, pero la versión Java no debe replicarla a mano.", "rules": [], "lines": "L472–501", "verified": true, "score": 100}, "s5": {"title": "Corte de control por grupo y subgrupo sobre B39", "cobol": " 200-GENERA-EDOCTA.\n*------------------\n     IF PRIM-VEZ\n        MOVE 1           TO WB-PRIM-VEZ\n        MOVE B39-GRUPO   TO WS-GPO-ANT\n                            WS-GRUPO\n        MOVE B39-SUB-GPO TO WS-SGP-ANT\n                            WS-SUBGPO.\n      *> ⋯ 6 líneas omitidas\n     IF NOT EOF-B39\n        IF B39-GRUPO   NOT = WS-GPO-ANT\n           IF WS-CTAS-STAT-OKGP > 0\n              MOVE ZEROS TO WS-CTAS-STAT-OKGP\n                            WS-CTAS-STAT-OKSG\n              PERFORM 205-CAMBIO-GRUPO\n           ELSE\n              NEXT SENTENCE\n        ELSE\n        IF B39-SUB-GPO NOT = WS-SGP-ANT\n           IF WS-CTAS-STAT-OKSG > 0\n              MOVE ZEROS TO WS-CTAS-STAT-OKSG\n              PERFORM 207-CAMBIO-SUBGPO.\n      *> ⋯ 10 líneas omitidas\n     IF NOT EOF-B39\n        MOVE B39-GRUPO   TO WS-GPO-ANT\n        MOVE B39-SUB-GPO TO WS-SGP-ANT\n      *> ⋯ 1 línea omitida\n        IF B39-STATUS = 0 OR 1\n           ADD 1 TO WS-CTAS-STAT-OKSG\n                    WS-CTAS-STAT-OKGP\n      *> ⋯ 1 línea omitida\n           MOVE B39-TPO-PERS TO WS-TIPO-PERSONA-PAGO-ANT\n      *> ⋯ 1 línea omitida\n           PERFORM 250-GRABA-POR-CTA.\n     IF NOT EOF-B39\n        PERFORM 160-B39SXGPOSBGMDA-FINDN.", "java": "@Component\n@StepScope\npublic class CorteGrupoProcessor implements ItemProcessor<CuentaCpe, List<SobreEdoCta>> {\n\n    private Long grupoAnt;                    // WS-GPO-ANT\n    private Integer subgrupoAnt;              // WS-SGP-ANT\n    private int cuentasOkGrupo, cuentasOkSubgrupo;   // WS-CTAS-STAT-OKGP / OKSG\n    private final Acumuladores acum = new Acumuladores();   // WKS-ACUM-ARCHED1\n\n    /** 200-GENERA-EDOCTA: lectura de B39 por el set B39SXGPOSBGMDA (grupo, subgrupo, modalidad). */\n    @Override\n    public List<SobreEdoCta> process(CuentaCpe c) {\n        List<SobreEdoCta> salida = new ArrayList<>();\n        if (grupoAnt == null) { grupoAnt = c.grupo(); subgrupoAnt = c.subgrupo(); }\n\n        if (c.grupo() != grupoAnt) {\n            if (cuentasOkGrupo > 0) {                         // un grupo sin cuentas vigentes no se reporta\n                cuentasOkGrupo = cuentasOkSubgrupo = 0;\n                salida.addAll(cierraGrupo(grupoAnt, subgrupoAnt));   // 205-CAMBIO-GRUPO\n            }\n        } else if (c.subgrupo() != subgrupoAnt && cuentasOkSubgrupo > 0) {\n            cuentasOkSubgrupo = 0;\n            salida.addAll(cierraSubgrupo(grupoAnt, subgrupoAnt));    // 207-CAMBIO-SUBGPO\n        }\n        grupoAnt = c.grupo();\n        subgrupoAnt = c.subgrupo();\n        if (c.status() == 0 || c.status() == 1) {             // solo cuentas vigentes\n            cuentasOkGrupo++; cuentasOkSubgrupo++;\n            salida.add(detalle(c));                           // 250-GRABA-POR-CTA\n        }\n        return salida;\n    }\n    // 300-TERMINA: un StepExecutionListener.afterStep cierra el último grupo y escribe el trailer.\n}", "rationale": "Es un corte de control clásico sobre un recorrido ordenado. Un grupo o subgrupo solo genera registros si tuvo al menos una cuenta con estatus 0 o 1. El procesador conserva el grupo y subgrupo anteriores como estado del step y devuelve una lista de registros por cada cuenta leída, porque un cambio de grupo produce de golpe los encabezados y totales del grupo que termina. Se omiten del extracto las líneas comentadas de la antigua validación contra B03 y de la marca de tipo de persona, que se trata en el segmento siguiente.", "risk": "Si cambia el grupo pero el grupo anterior no tuvo cuentas vigentes, no se evalúa el cambio de subgrupo en esa lectura (la rama es NEXT SENTENCE); sus acumuladores tampoco se reinician hasta el siguiente corte efectivo.", "rules": [], "lines": "L530–582", "verified": true, "score": 100}, "s6": {"title": "Detalle por cuenta: producto del periodo, comisión con IVA e ISR", "cobol": "     MOVE 701111                  TO RDC-TIPO-REG\n                                     ED1-TIP-REG\n     MOVE B39-SUB-GPO             TO RDC-NUM-CTE-CTA\n     MOVE B39-NOMBRE              TO RDC-NOM-CTE-CTA\n      *> ⋯ 2 líneas omitidas\n     MOVE B39-NUM-MDA             TO WKS-MDA\n     MOVE WKS-MDA-SUC             TO RDC-SUC-CTA\n     MOVE WKS-MDA-CTA             TO RDC-NUM-CTA\n     MOVE B39-SDO-PROMEDIO        TO RDC-SDOPROM-CTA\n     ADD  B39-SDO-PROMEDIO        TO WKS-SPROM-X-CTE\n                                     WKS-SPROM-X-GPO\n                                     WKS-SPROM-X-GRL\n     MOVE B39-TASA-NTA-500        TO RDC-TASA-PROD\n      *> ⋯ 1 línea omitida\n  IF WS-TIPO-PERSONA-PAGO = 4\n      MOVE  B39-TASA-BRT-152      TO RDC-TASA-ADIC\n  ELSE\n      COMPUTE RDC-TASA-ADIC =         B39-TASA-NTA-500\n                                    - B39-TASA-NTA-152.\n      *> ⋯ 1 línea omitida\n     MOVE B39-CHQS-GIRADO         TO RDC-CHEQUES-TOT\n     ADD  B39-CHQS-GIRADO         TO WKS-CHEQS-X-CTE\n                                     WKS-CHEQS-X-GPO\n                                     WKS-CHEQS-X-GRL\n     MOVE B39-CHQS-EXENTO         TO RDC-CHEQUES-EXE\n     ADD  B39-CHQS-EXENTO         TO WKS-EXENT-X-CTE\n                                     WKS-EXENT-X-GPO\n                                     WKS-EXENT-X-GRL\n     COMPUTE RDC-PROD-PERIODO =      B39-REND-PAG-152\n                                   + B39-ISR-RET-152\n      *> ⋯ 1 línea omitida\n     ADD RDC-PROD-PERIODO         TO WKS-PRODS-X-CTE\n                                     WKS-PRODS-X-GPO\n                                     WKS-PRODS-X-GRL\n     MOVE B39-COM-COBRADA         TO RDC-COMISION\n     ADD  B39-IVA-COBRADO         TO RDC-COMISION\n     ADD  B39-COM-COBRADA         TO WKS-COMIS-X-CTE\n                                     WKS-COMIS-X-GPO\n                                     WKS-COMIS-X-GRL\n     ADD  B39-IVA-COBRADO         TO WKS-COMIS-X-CTE\n                                     WKS-COMIS-X-GPO\n                                     WKS-COMIS-X-GRL\n      *> ⋯ 5 líneas omitidas\n     MOVE B39-REND-PAG-152        TO RDC-PROD-NETOS\n     ADD  B39-REND-PAG-152        TO WKS-PNETO-X-CTE\n                                     WKS-PNETO-X-GPO\n                                     WKS-PNETO-X-GRL\n     MOVE SPACES                  TO RDC-SIGNO\n     IF B39-REND-PAG-152 < 0\n        MOVE \"-\"                  TO RDC-SIGNO.\n      *> ⋯ 5 líneas omitidas\n     MOVE B39-TASA-ISR-152        TO RDC-TASA-ISR.\n      *> ⋯ 2 líneas omitidas\n     MOVE B39-ISR-RET-152         TO RDC-SDO-ISR.\n      *> ⋯ 3 líneas omitidas\n     ADD     RDC-SDO-ISR          TO WKS-SDISR-X-CTE\n                                     WKS-SDISR-X-GPO\n                                     WKS-SDISR-X-GRL", "java": "@Component\npublic class DetalleCuentaMapper {\n\n    /** 250-GRABA-POR-CTA. */\n    public DetalleCuenta mapea(CuentaCpe b39, int tipoPersonaPago, Acumuladores acum) {\n        var mda = Mda.parte(b39.numMda());           // WKS-MDA-R: sucursal 9(04) + cuenta 9(08)\n\n        // INC00318628663: para tipo de persona 4 la tasa adicional es la bruta del 152\n        BigDecimal tasaAdic = (tipoPersonaPago == 4)\n                ? b39.tasaBruta152()\n                : b39.tasaNeta500().subtract(b39.tasaNeta152());\n        tasaAdic = tasaAdic.abs().setScale(2, RoundingMode.DOWN);   // 9(02)V99 sin signo, COMPUTE sin ROUNDED\n\n        BigDecimal producto = b39.rendPagado152().add(b39.isrRetenido152());   // rendimiento bruto\n        BigDecimal comision = b39.comisionCobrada().add(b39.ivaCobrado());     // comisión con IVA\n        BigDecimal neto     = b39.rendPagado152();                             // producto neto = rendimiento pagado\n\n        acum.suma(b39.saldoPromedio(), b39.chequesGirados(), b39.chequesExentos(),\n                  producto, comision, neto, b39.isrRetenido152());   // CTE, GPO y GRL a la vez\n\n        return new DetalleCuenta(String.valueOf(b39.subgrupo()), b39.nombre(),\n                mda.sucursal(), mda.cuenta(), b39.saldoPromedio(),\n                b39.tasaNeta500(), tasaAdic, b39.chequesGirados(), b39.chequesExentos(),\n                TotalGrupo.campo8v2(producto), TotalGrupo.campo8v2(comision), TotalGrupo.campo8v2(neto),\n                neto.signum() < 0 ? '-' : ' ',\n                b39.tasaIsr152(), TotalGrupo.campo8v2(b39.isrRetenido152()));\n    }\n}", "rationale": "El detalle define la aritmética fiscal del estado de cuenta: el producto del periodo es el rendimiento pagado más el ISR retenido, la comisión se reporta con IVA incluido y el producto neto es el rendimiento pagado. Solo se usan los conceptos del 152; las sumas del 500 quedaron comentadas. Las tres sumas son exactas entre importes de escala 2. La tasa adicional es una resta guardada en un campo sin signo y sin <code>ROUNDED</code>, por eso el Java toma el valor absoluto y trunca con <code>RoundingMode.DOWN</code>. Cada importe se suma a la vez a los tres niveles de acumulación.", "risk": "RDC-TASA-ADIC es 9(02)V99 sin signo: si la tasa neta del 152 supera a la del 500, la diferencia negativa se reporta como positiva.", "rules": [], "lines": "L804–873", "verified": true, "score": 100}, "s7": {"title": "Datos de sucursal fijos y tasa del grupo según tipo de persona", "cobol": "     ADD                      1                TO WS-CLIENTES\n                                                  WS-REGISTROS\n     MOVE                    100000            TO REL-TIPO-REG\n                                                  ED1-TIP-REG\n     MOVE                         0            TO REL-SUC-NUM\n     MOVE \"VENUSTIANO CARRANZA #63 3ER. PISO\"  TO REL-SUC-DOM\n     MOVE \"BANCA CORPORATIVA       \"           TO REL-SUC-NOM\n     MOVE \"CENTRO  \"                           TO REL-SUC-COL\n     MOVE \"MEXICO  \"                           TO REL-SUC-POB\n     MOVE \"DISTRITO FEDERAL\"                   TO REL-SUC-EDO\n     MOVE 06000                                TO REL-SUC-CODPOS\n     MOVE SPACES                               TO REL-SUC-CRZP\n     MOVE ZEROES                               TO REL-SUC-CENREP\n     MOVE B37-GRUPO                            TO ED1-NUM-GPO\n     MOVE ZEROS                                TO ED1-NUM-CTE\n     MOVE REGISTRO-DATOS-SEL                   TO ED1-ARCHED1\n     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.\n      *> ⋯ 32 líneas omitidas\n     MOVE 700000                  TO RCP-TIPO-REG\n                                     ED1-TIP-REG\n     MOVE WS-FEC-INI-COMPLETO     TO RCP-FECHA-INI\n     MOVE WS-FEC-FIN-COMPLETO     TO RCP-FECHA-FIN\n     MOVE B37-SDO-PROMEDIO        TO RCP-SDO-PROM-GRUPO\n*STF-JATL-INC00318628663-INC0046798403-INI\n  IF WS-GRUPO-B37  IS EQUAL TO  WS-GRUPO  AND  WS-SUBGPO > 0\n     IF WS-TIPO-PERSONA = 2 AND WS-TIPO-PERSONA-PAGO-ANT = 4\n        MOVE B37-TASA-BRT-GPO       TO  RCP-TASA-GRUPO\n     ELSE\n        MOVE B37-TASA-NTA-GPO       TO  RCP-TASA-GRUPO\n  ELSE\n     MOVE B37-TASA-NTA-GPO        TO RCP-TASA-GRUPO.", "java": "# application.yml  (antes compilado en 230-GRABA-POR-GRUPO)\np335:\n  sucursal-corporativa:\n    numero: 0\n    nombre: \"BANCA CORPORATIVA\"\n    domicilio: \"VENUSTIANO CARRANZA #63 3ER. PISO\"\n    colonia: \"CENTRO\"\n    poblacion: \"MEXICO\"\n    estado: \"DISTRITO FEDERAL\"\n    codigo-postal: \"06000\"\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class RegistrosGrupo {\n\n    private final P335Properties props;\n\n    /** 100000 REGISTRO-DATOS-SEL: igual para todos los grupos. */\n    SobreEdoCta datosSucursal(long grupo) {\n        var s = props.sucursalCorporativa();\n        return new SobreEdoCta(100000, grupo, 0, new DatosSucursal(s.numero(), s.domicilio(), s.nombre(),\n                s.colonia(), s.poblacion(), s.estado(), s.codigoPostal()));\n    }\n\n    /** 700000: INC00318628663, persona tipo 2 cuyo último pago fue de tipo 4 usa la tasa bruta. */\n    BigDecimal tasaGrupo(Grupo b37, long grupoActual, int subgrupoActual, int tipoPersonaPagoAnt) {\n        boolean mismoGrupo = b37.grupo() == grupoActual && subgrupoActual > 0;\n        if (mismoGrupo && b37.tipoPersona() == 2 && tipoPersonaPagoAnt == 4) {\n            return b37.tasaBrutaGrupo();\n        }\n        return b37.tasaNetaGrupo();\n    }\n}", "rationale": "El registro de datos de sucursal lleva compilados la dirección de Banca Corporativa, la colonia, la población, el estado y el código postal; se trasladan a <code>application.yml</code> para que un cambio de domicilio no exija recompilar. La tasa del grupo en el resumen CPE tiene una excepción agregada por un incidente: cuando la persona del grupo es tipo 2 y la última cuenta vigente leída fue de tipo 4, se reporta la tasa bruta en lugar de la neta. En Java la excepción queda en un método con nombre y con las mismas tres condiciones del fuente.", "risk": "La excepción depende de WS-TIPO-PERSONA-PAGO-ANT, que guarda el tipo de la última cuenta vigente leída y no de todas las cuentas del grupo. Además, el domicilio dice DISTRITO FEDERAL, denominación que ya no es oficial.", "rules": [], "lines": "L643–704", "verified": true, "score": 100}, "s8": {"title": "Total de grupo con comisiones e IVA al 10 y 15 por ciento", "cobol": "     MOVE 701190             TO RTG-TIPO-REG\n                                ED1-TIP-REG\n     MOVE WKS-SPROM-X-GPO    TO RTG-SDOPROM-CTA\n     MOVE WKS-CHEQS-X-GPO    TO RTG-CHEQUES-TOT\n     MOVE WKS-EXENT-X-GPO    TO RTG-CHEQUES-EXE\n     MOVE WKS-PRODS-X-GPO    TO RTG-PROD-PERIODO\n     MOVE WKS-COMIS-X-GPO    TO RTG-COMISION\n     MOVE WKS-PNETO-X-GPO    TO RTG-PROD-NETOS\n     MOVE SPACES             TO RTG-SIGNO\n     IF WKS-PNETO-X-GPO < 0\n        MOVE \"-\"             TO RTG-SIGNO.\n     MOVE B37-ISR-RETENIDO   TO RTG-SDO-ISR\n     MOVE B37-COMIS-10       TO RTG-TOT-CHQ-GIR-10P\n     ADD  B37-COMIS-10       TO WKS-CHQ-GIR-10P\n     MOVE B37-IVA-10         TO RTG-IVA-CHQ-GIR-10P\n     ADD  B37-IVA-10         TO WKS-IVA-GIR-10P\n     MOVE B37-COMIS-15       TO RTG-TOT-CHQ-GIR-15P\n     ADD  B37-COMIS-15       TO WKS-CHQ-GIR-15P\n     MOVE B37-IVA-15         TO RTG-IVA-CHQ-GIR-15P\n     ADD  B37-IVA-15         TO WKS-IVA-GIR-15P\n     MOVE B37-GRUPO          TO ED1-NUM-GPO\n     MOVE 9998               TO ED1-NUM-CTE\n     MOVE REGISTRO-TOT-GRUPO TO ED1-ARCHED1\n     ADD  1                  TO WS-REGISTROS\n     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.\n      *> ⋯ 4 líneas omitidas\n     MOVE 709000             TO RTR-TIPO-REG\n                                ED1-TIP-REG\n     MOVE WKS-SPROM-X-GPO    TO RTR-SDOPROM-CTA\n     MOVE WKS-CHEQS-X-GPO    TO RTR-CHEQUES-TOT\n     MOVE WKS-EXENT-X-GPO    TO RTR-CHEQUES-EXE\n     MOVE WKS-PRODS-X-GPO    TO RTR-PROD-PERIODO\n     MOVE WKS-COMIS-X-GPO    TO RTR-COMISION\n     MOVE WKS-PNETO-X-GPO    TO RTR-PROD-NETOS\n     MOVE SPACES             TO RTR-SIGNO\n     IF WKS-PNETO-X-GPO < 0\n        MOVE \"-\"             TO RTR-SIGNO.\n     MOVE B37-ISR-RETENIDO   TO RTR-SDO-ISR\n     MOVE B37-COMIS-10       TO RTR-TOT-CHQ-GIR-10P\n     MOVE B37-IVA-10         TO RTR-IVA-CHQ-GIR-10P\n     MOVE B37-COMIS-15       TO RTR-TOT-CHQ-GIR-15P\n     MOVE B37-IVA-15         TO RTR-IVA-CHQ-GIR-15P\n     MOVE B37-GRUPO          TO ED1-NUM-GPO\n     MOVE 9999               TO ED1-NUM-CTE\n     ADD  1                  TO WS-REGISTROS\n     MOVE REGISTRO-TOTAL-GENERAL TO ED1-ARCHED1\n     PERFORM 350-GRABA-ARCHED1 THRU 350-GRABA-EXIT.", "java": "    /** 701190 y 709000: totales del grupo; los importes fiscales vienen ya calculados en B37. */\n    List<SobreEdoCta> totales(Grupo b37, Acumuladores.Nivel gpo, Acumuladores acum) {\n        char signo = gpo.productoNeto().signum() < 0 ? '-' : ' ';\n        var total = new TotalGrupo(gpo.saldoPromedio(), gpo.cheques(), gpo.exentos(),\n                TotalGrupo.campo8v2(gpo.productos()), TotalGrupo.campo8v2(gpo.comisiones()),\n                TotalGrupo.campo8v2(gpo.productoNeto()), signo,\n                b37.isrRetenido(),                  // del grupo, no la suma de B39\n                b37.comision10(), b37.iva10(),\n                b37.comision15(), b37.iva15());\n        acum.sumaTasas(b37.comision10(), b37.iva10(), b37.comision15(), b37.iva15());   // WKS-*-GIR-10P/15P\n\n        return List.of(\n            new SobreEdoCta(701190, b37.grupo(), 9998, total),                         // al final del grupo\n            new SobreEdoCta(709000, b37.grupo(), 9999, TotalGeneral.espejoDe(total))); // mismo contenido\n    }", "rationale": "El total del grupo combina dos fuentes: saldos, cheques, productos y comisiones salen de lo acumulado en las cuentas, mientras que el ISR retenido y las comisiones e IVA a 10 y 15 por ciento se copian tal cual de B37. P335 no calcula IVA. El registro 709000 repite el contenido del total de grupo, como indica el comentario del fuente, y los números de cliente 9998 y 9999 lo colocan al final del grupo tras el ordenamiento.", "risk": "El ISR del total de grupo sale de B37-ISR-RETENIDO mientras que el de los detalles sale de B39-ISR-RET-152; si las dos fuentes no cuadran, el estado de cuenta muestra un total distinto a la suma de sus renglones.", "rules": [], "lines": "L750–799", "verified": true, "score": 100}, "s9": {"title": "Ordenamiento de ARCHED1 y depuración de tipos hacia ARCHEDO", "cobol": "     COMPUTE WS-SORT-ESPACIO = (WS-LASTRECORD + 10) * 60 * 3.5\n     COMPUTE WS-AREA-ESPACIO =\n                       ((WS-LASTRECORD / 16) * 63) + 1500.\n     IF WS-AREA-ESPACIO < 400000\n        MOVE 400000 TO WS-AREA-ESPACIO\n     ELSE\n     IF WS-AREA-ESPACIO > 258435000\n        MOVE 25843500 TO WS-AREA-ESPACIO.\n     MOVE WS-SORT-ESPACIO   TO WS-MSG-N-14.\n     MOVE WS-AREA-ESPACIO   TO WS-MSG-N-12.\n     STRING \"DISK-SIZE =\" WS-MSG-N-14\n            \", MEMORY-SIZE =\" WS-MSG-N-12\n            \", PARA SORT ARCHED1 \"\n            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE.\n     SORT SORTED1 ON ASCENDING KEY SD1-NUM-GPO\n                                   SD1-NUM-CTE\n                                   SD1-TIP-REG\n          USING  ARCHED1\n          OUTPUT PROCEDURE 410-GENERO-ARCHEDO\n          MEMORY SIZE WS-AREA-ESPACIO WORDS\n          DISK   SIZE WS-SORT-ESPACIO WORDS.\n      *> ⋯ 3 líneas omitidas\n 410-GENERO-ARCHEDO SECTION.\n 410-GENERO-ARCHEC.\n      *> ⋯ 1 línea omitida\n     OPEN OUTPUT ARCHEDO\n     PERFORM 420-GENERA-ARCHEDO UNTIL FIN-SORTED1\n     CLOSE ARCHEDO SAVE.\n      *> ⋯ 3 líneas omitidas\n 420-GENERA-ARCHEDO.\n      *> ⋯ 1 línea omitida\n     RETURN SORTED1 AT END\n            MOVE 1 TO WB-FIN-SORTED1.\n      *> ⋯ 1 línea omitida\n     IF NOT FIN-SORTED1\n        MOVE REG-SORTED1  TO REGISTRO-SORTED1\n        MOVE RS1-TIP-REG2 TO WB-TIP-REG-VAL\n        IF TIP-REG-VAL\n           WRITE REG-ARCHEDO FROM SD1-SORTED1 INVALID KEY\n                 STRING \"ERROR AL WRITE ARCHEDO \"\n                         DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n                 PERFORM 70000050-MENSAJE\n                 CHANGE ATTRIBUTE STATUS OF MYSELF TO - 1.", "java": "@Bean\nStep clasificaArchedo(JobRepository repo, PlatformTransactionManager tx,\n                      ItemReader<SobreEdoCta> arched1Ordenado,   // ARCHED1 ordenado con SobreEdoCta.compareTo\n                      ClassifierCompositeItemWriter<SobreEdoCta> archedo) {\n    return new StepBuilder(\"clasificaArchedo\", repo)\n            .<SobreEdoCta, SobreEdoCta>chunk(100, tx)             // BLOCK CONTAINS 100 RECORDS\n            .reader(arched1Ordenado)\n            .processor(s -> TipoRegistro.de(s.carga().tipoReg())  // RS1-TIP-REG2: tipo dentro de la carga\n                                        .map(t -> s).orElse(null)) // TIP-REG-VAL: otros tipos se descartan\n            .writer(archedo)\n            .build();\n}\n\n/** Cada tipo se formatea con su layout; ARCHEDO recibe solo la carga útil de 340 posiciones. */\n@Bean\nClassifierCompositeItemWriter<SobreEdoCta> archedo(Map<TipoRegistro, FlatFileItemWriter<SobreEdoCta>> porTipo) {\n    var w = new ClassifierCompositeItemWriter<SobreEdoCta>();\n    w.setClassifier(s -> porTipo.get(TipoRegistro.de(s.carga().tipoReg()).orElseThrow()));\n    return w;\n}\n// Los cálculos de DISK SIZE y MEMORY SIZE del SORT no tienen equivalente: el ordenamiento\n// se hace con un ordenamiento externo o en base de datos según el volumen.", "rationale": "El ordenamiento usa la llave de 20 posiciones y la depuración usa el tipo que viene dentro de la carga útil, no el de la llave. El <code>WRITE ... FROM SD1-SORTED1</code> copia solo las 340 posiciones de la carga útil a un registro de 360, por lo que ARCHEDO no lleva la llave. En Java el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> para tipos fuera del catálogo y la escritura es un <code>ClassifierCompositeItemWriter</code> con un formato por tipo de registro, que es el patrón del arquetipo A3. El cálculo de memoria y disco para el SORT es propio de MCP y no se traslada.", "risk": "En la línea 990-991 el tope compara contra 258435000 pero asigna 25843500, una cifra diez veces menor. Un error de escritura del WRITE ARCHEDO solo marca el estatus de la tarea en -1 y el ciclo continúa.", "rules": [], "lines": "L984–1033", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

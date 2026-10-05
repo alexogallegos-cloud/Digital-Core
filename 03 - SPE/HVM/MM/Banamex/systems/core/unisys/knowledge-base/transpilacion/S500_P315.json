@@ -1,0 +1,178 @@
+{
+  "slug": "S500_P315",
+  "sistema": "S500",
+  "programa": "P315",
+  "nombre": "Capitalización Mensual de Ahorros y Archivo Artículo 61",
+  "funcion": "Paso batch mensual de S500 que recorre los contratos de Captación para enviar saldos de ahorro al archivo GERENCIA, listar capitalización y cancelaciones automáticas por nodo y generar el archivo regulatorio de cuentas en Artículo 61.",
+  "resumen": "Con la fecha de proceso (fecha línea de B02 menos un día) y los parámetros de B00, P315 recorre S500B04MOVIMIENTO y escribe en GERENCIA los movimientos desde el día primero del mes. Después recorre S500B03CONTRATOS: los contratos de ahorro (producto 500, instrumento 6) no cancelados van a GERENCIA con su saldo promedio de B06 y al listado de capitalización; los que tienen indicador de cancelación automática van al listado de cancelados. Todo contrato vigente con estatus de beneficencia 3, 6, 7 u 8 se escribe en FILE-ART61 con una leyenda de situación y, cuando cumple fecha y monto, con la fecha de traspaso a beneficencia: el primer viernes hábil del año siguiente. P315 no calcula intereses; lista el interés capitalizado que ya trae B03.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.ahorro.art61",
+  "secciones": [
+    {
+      "titulo": "Parámetros del Artículo 61 y fecha de traspaso",
+      "origen": {
+        "archivo": "S500_SOURCE_P315.txt",
+        "contexto": "20000200-FECHA-PRO · 20000410-FECHA-BENEF · 20000411 · 20000412"
+      },
+      "java": {
+        "archivo": "ParametrosArt61Tasklet.java · CalendarioBancario.java",
+        "contexto": "Tasklet · LocalDate · TemporalAdjusters"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Fecha Art. 61 y tope de 300 salarios desde B00",
+          "linea_ini": 939,
+          "linea_fin": 953,
+          "origen_codigo": "     PERFORM 90000000-B00CTRLPASO-FIND.\n     IF WS-STATUS-BASE > 0\n        MOVE \"NO EXISTE B00 EN BASE \"      TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     MOVE B00-FECH-ART61      TO WS-FEC-TRS-BENF.\n     MOVE B00-IMP-300SMDF     TO W77-IMP-300-SMVDF.\n*** Modificar el importe cuando cambie SMVDF (67.20 * 300)\n     IF W77-IMP-300-SMVDF > 0\n        NEXT SENTENCE\n     ELSE\n        MOVE 20187.00  TO W77-IMP-300-SMVDF.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ParametrosArt61Tasklet implements Tasklet {\n\n    private final ControlPasoRepository b00;      // S500B00CTRLPASO (solo lectura)\n    private final P315Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlPaso cp = b00.find()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"NO EXISTE B00 EN BASE\")); // DMTERMINATE\n\n        BigDecimal tope = cp.importe300Smdf();                                 // 9(10)V99\n        if (tope == null || tope.signum() <= 0) {\n            // El fuente compila 20187.00 como respaldo (línea 953).\n            tope = props.tope300SalariosRespaldo();\n            log.warn(\"B00-IMP-300SMDF en cero; se usa el respaldo {}\", tope);\n        }\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaTraspasoBenef\", cp.fechaArt61());                          // B00-FECH-ART61\n        ec.put(\"tope300Salarios\", tope);\n        return RepeatStatus.FINISHED;\n    }\n}\n\n# application.yml\np315:\n  tope-300-salarios-respaldo: 20187.00   # hardcode actual; revisar vigencia",
+          "racional": "La fecha de referencia para traspasar cuentas a beneficencia y el importe equivalente a 300 salarios mínimos se leen del registro de control B00, de modo que el área usuaria los actualiza sin recompilar. Si el importe viene en cero, el programa usa un respaldo compilado de 20 187.00. En Java el respaldo pasa a <code>application.yml</code>, se registra en bitácora cuando se usa y el importe se maneja como <code>BigDecimal</code> con escala 2.",
+          "reglas": [],
+          "riesgo": "El comentario dice 67.20 por 300, que da 20 160.00, pero el valor compilado es 20 187.00 (67.29 por 300). El respaldo está desactualizado respecto de cualquier referencia vigente y debe validarse con el área regulatoria."
+        },
+        {
+          "id": "s2",
+          "titulo": "Primer viernes hábil del año siguiente y fecha más 90 días",
+          "linea_ini": 1007,
+          "linea_fin": 1075,
+          "origen_codigo": " 20000410-FECHA-BENEF.\n     MOVE WS-FECHA-PRO      TO WS-FEC-1ER-VIE.\n     ADD  1                 TO WS-AA-1ER-VIE.\n     MOVE 1                 TO WS-MM-1ER-VIE.\n     MOVE 1                 TO WS-DD-1ER-VIE.\n     MOVE 0                 TO W77-FEC-OK.\n     PERFORM 20000411-1ER-VIER THRU 20000411-EXIT\n             UNTIL W77-FEC-OK = 1.\n     MOVE ZERO            TO W77-FEC-OK.\n     PERFORM 20000412-DIA-HAB-VIER THRU 20000412-EXIT\n             UNTIL W77-FEC-OK = 1.\n**LLAMADO PARA OBTENER LOS 36 MESES ATRAS PARA EL               **\n**EN BASE A LA FECHA 36 MESES 90 DIAS QUE DEJA EL P130          **\n**TRASPASO A BENEFICENCIA Y PINTAR PRIMER VIERNES HABIL.        **\n     IF WS-FEC-TRS-BENF > 0\n        MOVE WS-FEC-TRS-BENF        TO WS-S006-FECHA1\n        MOVE 0090                   TO WS-S006-FECHA2\n        MOVE 13                     TO WS-S006-FORMATO\n        MOVE 08                     TO WS-S006-FUNCION\n        PERFORM 40000000-CALL-FECHAS THRU  40000000-EXIT\n        MOVE WS-S006-FECHA1         TO WS-FEC-3600-ANT.\n 20000410-EXIT.\n     EXIT.\n 20000411-1ER-VIER.\n     MOVE WS-FEC-1ER-VIE         TO WS-S006-FECHA1.\n     MOVE 0                      TO WS-S006-FECHA2.\n     MOVE 12                     TO WS-S006-FORMATO.\n     MOVE 6                      TO WS-S006-FUNCION.\n     PERFORM 40000000-CALL-FECHAS THRU  40000000-EXIT.\n     IF WS-S006-FECHA1 = 5\n        MOVE 1   TO W77-FEC-OK\n     ELSE\n        ADD  1  TO WS-DD-1ER-VIE.\n 20000411-EXIT.\n     EXIT.\n 20000412-DIA-HAB-VIER.\n     IF W77-FEC-OK = 0\n        MOVE WS-FEC-1ER-VIE         TO WS-S006-FECHA1\n        MOVE 0                      TO WS-S006-FECHA2\n        MOVE 13                     TO WS-S006-FORMATO\n        MOVE 18                     TO WS-S006-FUNCION\n        PERFORM 40000000-CALL-FECHAS THRU  40000000-EXIT\n        IF WS-S006-FECHA1 = 1\n           MOVE 1  TO W77-FEC-OK\n        ELSE\n           ADD 7 TO WS-DD-1ER-VIE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass CalendarioArt61 {\n\n    private final CalendarioBancario calendario;   // reemplaza LOCSUP funciones 6, 8 y 18\n\n    /** 20000411 + 20000412: primer viernes del año siguiente que sea día hábil. */\n    LocalDate primerViernesHabilDelSiguienteAnio(LocalDate fechaProceso) {\n        LocalDate f = LocalDate.of(fechaProceso.getYear() + 1, 1, 1)\n                .with(TemporalAdjusters.nextOrSame(DayOfWeek.FRIDAY));   // LOCSUP fn 6 = 5 (viernes)\n        while (!calendario.esDiaHabil(f)) {                              // LOCSUP fn 18 = 1 (hábil)\n            f = f.plusWeeks(1);                                          // ADD 7 TO WS-DD-1ER-VIE\n        }\n        return f;\n    }\n\n    /** LOCSUP función 8 con 0090: fecha Art. 61 de B00 más 90 días. */\n    Optional<LocalDate> limiteTraspaso(LocalDate fechaArt61) {\n        return Optional.ofNullable(fechaArt61).map(f -> f.plusDays(90));\n    }\n}",
+          "racional": "El programa busca el primer viernes de enero del año siguiente avanzando día por día y preguntando a LOCSUP el día de la semana; luego, si ese viernes no es hábil, avanza una semana hasta encontrar uno que lo sea. <code>TemporalAdjusters.nextOrSame(FRIDAY)</code> reproduce la primera búsqueda y el calendario bancario la segunda. La fecha Art. 61 de B00 más 90 días es el límite contra el que se compara la fecha de beneficencia de cada contrato.",
+          "reglas": [],
+          "riesgo": "Si B00-FECH-ART61 viene en cero, WS-FEC-3600-ANT no se calcula y conserva su valor inicial, de modo que ningún contrato recibe fecha de traspaso. No se sabe si LOCSUP función 8 suma días naturales o hábiles."
+        }
+      ]
+    },
+    {
+      "titulo": "Recorrido de movimientos y contratos",
+      "origen": {
+        "archivo": "S500_SOURCE_P315.txt",
+        "contexto": "51000000-LEOMOV · 51100000-DET-GER · 52100000-ORDENO SECTION · 52111000-SEL"
+      },
+      "java": {
+        "archivo": "GerenciaJobConfig.java · SelectorContratos.java",
+        "contexto": "JpaPagingItemReader · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Movimientos del mes hacia el archivo GERENCIA",
+          "linea_ini": 1225,
+          "linea_fin": 1268,
+          "origen_codigo": " 51000000-LEOMOV.\n     PERFORM 90000004-B04SXFECCTOAUT-FINDN\n     IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 1\n        MOVE 1 TO WS-6VEZ\n        MOVE 0 TO WS-STATUS-BASE\n      ELSE\n        STRING \"ERROR AL HACER LOCK A B04 \",WS-STATUS-BASE\n        DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     IF  WS-6VEZ = 0\n          IF B04-STATUS-MOVTO = 1\n             NEXT SENTENCE\n          ELSE\n             IF (B04-FEC-MOVTO = WS-FECHA-PASO) OR\n                (B04-FEC-MOVTO > WS-FECHA-PASO)\n                PERFORM 51100000-DET-GER    THRU 51100000-EXIT.\n 51100000-DET-GER.\n    MOVE 3                          TO GER-TIPO-REG\n    MOVE B04-NUM-CONTRATO           TO GER-MOV-CONTRATO\n    MOVE B04-FEC-MOVTO              TO GER-MOV-FECHA\n    MOVE B04-FEC-VALOR              TO GER-MOV-FECVAL\n    MOVE B04-SUC-TRANSMITE          TO GER-MOV-SUCTRANS\n    MOVE B04-SUC-PROMOTORA          TO GER-MOV-SUCPROM\n    MOVE B04-CLAVE-MOVTO            TO GER-MOV-CVETRAN\n    MOVE B04-IMPORTE                TO GER-MOV-IMPORTE\n    MOVE B04-MONEDA                 TO GER-MOV-MONEDA\n    MOVE B04-INTS-CANCEL            TO GER-MOV-INTCAN\n    MOVE 0                          TO GER-MOV-TIPDEP\n    ADD  1                          TO WS-NUM\n    ADD  B04-IMPORTE                TO WS-TOT-SDOACT.\n    WRITE REG-GERENCIA INVALID KEY\n        MOVE \"ERROR AL GRABAR MOV. GER.\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Bean\nJpaPagingItemReader<Movimiento> movimientosDelMes(EntityManagerFactory emf,\n        @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fechaProceso) {\n    LocalDate desde = fechaProceso.withDayOfMonth(1);           // MOVE 01 TO WS-PASO-DD\n    return new JpaPagingItemReaderBuilder<Movimiento>()\n            .name(\"movimientosDelMes\")\n            .entityManagerFactory(emf)\n            .queryString(\"\"\"\n                select m from Movimiento m\n                 where m.status <> 1                            -- B04-STATUS-MOVTO = 1 se omite\n                   and m.fechaMovto >= :desde\n                 order by m.fechaMovto, m.contrato\n                \"\"\")\n            .parameterValues(Map.of(\"desde\", desde))\n            .pageSize(1000)\n            .build();\n}\n\n/** 51100000-DET-GER: registro tipo 3 y acumulado para el trailer. */\nGerenciaRegistro.Movimiento aGerencia(Movimiento m, TotalesGerencia tot) {\n    tot.suma(m.importe());                                       // WS-NUM y WS-TOT-SDOACT\n    return new GerenciaRegistro.Movimiento(m.contrato(), m.fechaMovto(), m.fechaValor(),\n            m.sucTransmite(), m.sucPromotora(), m.claveMovto(), m.importe(), m.moneda(),\n            m.interesesCancelados(), 0);                         // GER-MOV-TIPDEP fijo en 0\n}",
+          "racional": "El primer recorrido lee los movimientos por la llave de fecha, omite los de estatus 1 y escribe en GERENCIA, como registro tipo 3, los que tienen fecha igual o posterior al primer día del mes de proceso. El recorrido con <code>FINDN</code> sobre un conjunto ordenado se traduce a un lector paginado JPA con la misma condición. El importe se suma al total del trailer; es la misma variable que acumula después los saldos de los contratos.",
+          "reglas": [],
+          "riesgo": "El trailer de GERENCIA suma en un solo campo importes de movimientos y saldos actuales de contratos (WS-TOT-SDOACT en líneas 1264 y 1429), así que su total no corresponde a una magnitud contable única."
+        },
+        {
+          "id": "s4",
+          "titulo": "Selección de ahorro, cancelación automática y Artículo 61",
+          "linea_ini": 1365,
+          "linea_fin": 1408,
+          "origen_codigo": " 52111000-SEL.\n  PERFORM 90000003-B03CONTRATOS-FINDN\n  IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 1\n         PERFORM 52114000-TRAILER THRU 52114000-EXIT\n         MOVE 1 TO WS-2VEZ\n      ELSE\n         STRING \"ERROR AL HACER FINDN A B03 \",WS-STATUS-BASE\n         DELIMITED BY SIZE INTO             WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CALL SYSTEM DMTERMINATE.\n  IF WS-2VEZ = 0\n     IF  B03-NUM-PRODUCTO = 500 AND B03-NUM-INSTRUM = 6\n         IF B03-STATUS = 2\n            NEXT SENTENCE\n         ELSE\n           PERFORM 52112100-GERENCIAL  THRU 52112100-EXIT\n           MOVE 0                      TO   INV-INDCAN-S\n           MOVE 0                      TO   INV-CANCELO-S\n           MOVE 1                      TO   WS-BAN-SIAHO\n           PERFORM 52112200-LLENO-SORT THRU 52112200-EXIT\n     ELSE\n     IF B03-STA-CANCEL > 0\n        MOVE B03-STA-CANCEL            TO   INV-INDCAN-S\n        MOVE 1                         TO   WS-BAN-SICAN\n        IF (B03-STATUS = 0 OR 1 OR 5)  AND\n           B03-MIGR-S111 NOT = 1\n           MOVE 1                      TO   INV-CANCELO-S\n           PERFORM 52112200-LLENO-SORT THRU 52112200-EXIT\n        ELSE\n        IF (B03-STATUS = 4 ) AND (B03-SDO-ACTUAL = 0)  AND\n            B03-MIGR-S111 NOT = 1\n            MOVE 2                  TO   INV-CANCELO-S\n            PERFORM 52112200-LLENO-SORT THRU 52112200-EXIT\n        ELSE\n            NEXT SENTENCE\n     ELSE\n        NEXT SENTENCE.\n     IF WS-2VEZ = 0\n       IF B03-STATUS = 0 OR 1 OR 5\n         IF B03-STA-BENEF = 3 OR 6 OR 7 OR 8\n            PERFORM 52112300-LLENO-ART61 THRU 52112300-EXIT.",
+          "java_codigo": "public enum DestinoContrato { GERENCIA_Y_CAPITALIZACION, CANCELADO_SIN_MOV, CANCELADO_Y_SALDO_CERO, ART61 }\n\n@Component\n@RequiredArgsConstructor\nclass SelectorContratos implements ItemProcessor<Contrato, ContratoClasificado> {\n\n    private final P315Properties props;   // producto-ahorro: 500, instrumento-ahorro: 6\n\n    @Override\n    public ContratoClasificado process(Contrato c) {\n        var destinos = EnumSet.noneOf(DestinoContrato.class);\n\n        if (c.producto() == props.productoAhorro() && c.instrumento() == props.instrumentoAhorro()) {\n            if (c.status() != 2) {                                     // 2 = cancelado\n                destinos.add(DestinoContrato.GERENCIA_Y_CAPITALIZACION); // INV-INDCAN 0, CANCELO 0\n            }\n        } else if (c.staCancel() > 0 && !c.migradoS111()) {\n            if (Set.of(0, 1, 5).contains(c.status())) {\n                destinos.add(DestinoContrato.CANCELADO_SIN_MOV);           // INV-CANCELO-S = 1\n            } else if (c.status() == 4 && c.saldoActual().signum() == 0) {\n                destinos.add(DestinoContrato.CANCELADO_Y_SALDO_CERO);      // INV-CANCELO-S = 2\n            }\n        }\n        // Independiente de lo anterior: contratos vigentes en beneficencia.\n        if (Set.of(0, 1, 5).contains(c.status()) && Set.of(3, 6, 7, 8).contains(c.staBenef())) {\n            destinos.add(DestinoContrato.ART61);\n        }\n        return destinos.isEmpty() ? null : new ContratoClasificado(c, destinos);\n    }\n}",
+          "racional": "Esta es la decisión central del programa. Un contrato de ahorro (producto 500, instrumento 6) que no está cancelado se envía a GERENCIA y al listado de capitalización. Si no es de ahorro pero tiene indicador de cancelación automática y no viene migrado del S111, va al listado de cancelados con la leyenda que corresponde a su estatus. De forma independiente, cualquier contrato vigente con estatus de beneficencia 3, 6, 7 u 8 se escribe en el archivo de Artículo 61. Un <code>EnumSet</code> de destinos permite que el <code>ClassifierCompositeItemWriter</code> envíe el mismo contrato a más de una salida, como hace el original.",
+          "reglas": [],
+          "riesgo": "El producto 500 y el instrumento 6 están compilados; un producto de ahorro nuevo no entra a la capitalización ni a GERENCIA sin recompilar. Un contrato de ahorro con indicador de cancelación nunca aparece en el listado de cancelados porque la rama de ahorro tiene prioridad."
+        }
+      ]
+    },
+    {
+      "titulo": "Archivo regulatorio de Artículo 61",
+      "origen": {
+        "archivo": "S500_SOURCE_P315.txt",
+        "contexto": "WS-ART-REG · WKS-TAB-ART61 · 52112300-LLENO-ART61 · 52211460-VALIND"
+      },
+      "java": {
+        "archivo": "RegistroArt61.java · SituacionArt61.java · ClasificadorArt61.java",
+        "contexto": "record · enum · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Registro de 180 bytes y leyendas de situación",
+          "linea_ini": 346,
+          "linea_fin": 394,
+          "origen_codigo": " 01 WS-ART-REG.\n    02 WS-ART-TREG         PIC 9(02)       VALUE 03.\n    02 WS-ART-PROD         PIC 9(04).\n    02 WS-ART-INST         PIC 9(04).\n    02 WS-ART-MONE         PIC 9(02).\n    02 WS-ART-CONT         PIC 9(12).\n    02 WS-ART-CTE          PIC 9(12).\n    02 WS-ART-SUCP         PIC 9(04).\n    02 WS-ART-TPOP         PIC 9(02).\n    02 WS-ART-STA          PIC 9(02).\n    02 WS-ART-SECT         PIC 9(02).\n    02 WS-ART-INLC         PIC 9(01).\n    02 WS-ART-SDO          PIC 9(12)V99.\n    02 WS-ART-SDO-CONG     PIC 9(12)V99.\n    02 WS-ART-FEULTM       PIC 9(08).\n    02 WS-ART-FECTE        PIC 9(08).\n    02 WS-ART-FECAPE       PIC 9(08).\n    02 WS-ART-NOMBRE       PIC X(36).\n    02 WS-ART-STBENF       PIC 9(02).\n    02 WS-ART-LEYBENF      PIC X(27).\n    02 WS-ART-FECART61     PIC X(08).\n    02 WS-ART-FTRSBEN      PIC 9(08).\n    02 WS-ART-FTRSBEN-X REDEFINES WS-ART-FTRSBEN PIC X(08).\n    02 WS-ART-FILLER       PIC X(05).\n 01  WKS-TAB-ART61.\n     02 FILLER         PIC X(26) VALUE\n                       \"DENTRO DE ART.61          \".\n     02 FILLER         PIC X(26) VALUE\n                       \"ENTRADA ART.61            \".\n     02 FILLER         PIC X(26) VALUE\n                       \"ENTRADA ART.61 X DES-BLOQ \".\n     02 FILLER         PIC X(26) VALUE\n                       \"SALIDA ART.61 REACTIVACION\".\n     02 FILLER         PIC X(26) VALUE\n                       \"SALIDA ART.61 X BLOQUEO   \".\n     02 FILLER         PIC X(26) VALUE\n                       \"EN ART.61 C/SDO>300 SMVDF \".\n     02 FILLER         PIC X(26) VALUE\n                       \"                          \".",
+          "java_codigo": "/** WS-ART-REG: contrato en Artículo 61 (tipo 03). */\npublic record RegistroArt61(\n        int producto, int instrumento, int moneda,\n        String contrato, String cliente,          // 9(12) como String\n        int sucursalPromotora, int tipoPersona, int status, int sector, int indLineaCredito,\n        BigDecimal saldo,                         // 9(12)V99: saldo actual + protegido o bloqueado\n        BigDecimal saldoCongelado,                // B03-SDO-CONGBENE\n        LocalDate fecUltMov, LocalDate fecCliente, LocalDate fecApertura,\n        String nombre,\n        SituacionArt61 situacion,                 // WS-ART-STBENF + WS-ART-LEYBENF\n        String fechaArt61,                        // X(08): se copia tal cual de B03-FECH-BENEF\n        Optional<LocalDate> fechaTraspaso) {}     // vacío = espacios en WS-ART-FTRSBEN-X\n\n/** WKS-TAB-ART61, indexada por WS-ART-STBENF. */\npublic enum SituacionArt61 {\n    DENTRO(1, \"DENTRO DE ART.61\"),\n    ENTRADA(2, \"ENTRADA ART.61\"),\n    ENTRADA_POR_DESBLOQUEO(3, \"ENTRADA ART.61 X DES-BLOQ\"),\n    SALIDA_POR_REACTIVACION(4, \"SALIDA ART.61 REACTIVACION\"),\n    SALIDA_POR_BLOQUEO(5, \"SALIDA ART.61 X BLOQUEO\"),\n    CON_SALDO_MAYOR_300(6, \"EN ART.61 C/SDO>300 SMVDF\");   // definida, nunca asignada\n    final int codigo; final String leyenda;\n    SituacionArt61(int c, String l) { codigo = c; leyenda = l; }\n}",
+          "racional": "El archivo regulatorio lleva por contrato los datos de identificación, el saldo total, el saldo congelado para beneficencia, las fechas clave y una situación con su leyenda. La tabla de leyendas se convierte en un <code>enum</code> que conserva el código numérico que viaja en el archivo. La fecha de traspaso se modela como <code>Optional</code> porque el original la deja en espacios cuando no aplica.",
+          "reglas": [],
+          "riesgo": "WS-ART-SDO es PIC 9(12)V99 sin signo y recibe W77-SDO-TOT, que es S9(13)V99: un saldo total negativo pierde el signo y un saldo de 13 enteros pierde el dígito alto. La leyenda 6 (saldo mayor a 300 salarios) nunca se asigna."
+        },
+        {
+          "id": "s6",
+          "titulo": "Clasificación de la situación por estatus de beneficencia",
+          "linea_ini": 1466,
+          "linea_fin": 1508,
+          "origen_codigo": "     COMPUTE W77-SDO-TOT  = B03-SDO-ACTUAL + B03-SDOPROT-BLOQ.\n     MOVE 03                          TO WS-ART-TREG.\n     MOVE B03-NUM-PRODUCTO            TO WS-ART-PROD.\n     MOVE B03-NUM-INSTRUM             TO WS-ART-INST.\n     MOVE B03-MONEDA                  TO WS-ART-MONE.\n     MOVE B03-NUM-CONTRATO            TO WS-ART-CONT.\n     MOVE B03-NUM-CLIENTE             TO WS-ART-CTE.\n     MOVE B03-SUC-PROMOTORA           TO WS-ART-SUCP.\n     MOVE B03-TIPO-PERSONA            TO WS-ART-TPOP.\n     MOVE B03-STATUS                  TO WS-ART-STA.\n     MOVE B03-SECTOR                  TO WS-ART-SECT.\n     MOVE B03-IND-LINCREDIT           TO WS-ART-INLC.\n     MOVE W77-SDO-TOT                 TO WS-ART-SDO.\n     MOVE B03-SDO-CONGBENE            TO WS-ART-SDO-CONG.\n     MOVE B03-FEC-ULTMOV              TO WS-ART-FEULTM.\n     MOVE B06-FECH-XCTE               TO WS-ART-FECTE.\n     MOVE B03-FEC-APERTURA            TO WS-ART-FECAPE.\n     MOVE B03-NOMBRE                  TO WS-ART-NOMBRE.\n     MOVE B03-FECH-BENEF              TO WS-ART-FECART61.\n     MOVE B03-FECH-BENEF              TO WS-FECH-BENF.\n     IF B03-STA-BENEF = 7\n        MOVE 05   TO WS-ART-STBENF\n     ELSE\n     IF B03-STA-BENEF = 6\n        MOVE 04   TO WS-ART-STBENF\n     ELSE\n     IF B03-STA-BENEF = 8\n        MOVE 03   TO WS-ART-STBENF\n     ELSE\n     IF WS-MM-BENF = WS-PRO-MM  AND\n        WS-AA-BENF = WS-PRO-AA\n        MOVE 02   TO WS-ART-STBENF\n     ELSE\n        MOVE 01   TO WS-ART-STBENF.\n     IF WS-ART-STBENF > 0 AND < 8\n        MOVE WKS-TB-ART61(WS-ART-STBENF)\n          TO WS-ART-LEYBENF\n     ELSE\n        MOVE \"XXX \"  TO WS-ART-LEYBENF.",
+          "java_codigo": "@Component\nclass ClasificadorArt61 {\n\n    /** 52112300-LLENO-ART61: estatus de beneficencia de B03 a situación del archivo. */\n    SituacionArt61 situacion(Contrato c, LocalDate fechaProceso) {\n        return switch (c.staBenef()) {\n            case 7 -> SituacionArt61.SALIDA_POR_BLOQUEO;\n            case 6 -> SituacionArt61.SALIDA_POR_REACTIVACION;\n            case 8 -> SituacionArt61.ENTRADA_POR_DESBLOQUEO;\n            default -> YearMonth.from(c.fechaBenef()).equals(YearMonth.from(fechaProceso))\n                    ? SituacionArt61.ENTRADA     // entró en el mes de proceso\n                    : SituacionArt61.DENTRO;     // ya estaba en Artículo 61\n        };\n    }\n\n    /** W77-SDO-TOT = B03-SDO-ACTUAL + B03-SDOPROT-BLOQ. */\n    BigDecimal saldoTotal(Contrato c) {\n        return c.saldoActual().add(c.saldoProtegidoBloqueado());   // suma exacta, escala 2\n    }\n}",
+          "racional": "La situación se deriva del estatus de beneficencia del contrato: 7 es salida por bloqueo, 6 salida por reactivación y 8 entrada por desbloqueo. El estatus 3 se divide según la fecha de beneficencia: si cae en el mes y año de proceso es una entrada nueva, si no, el contrato ya estaba dentro. <code>YearMonth</code> expresa esa comparación de mes y año sin manipular dígitos. El saldo reportado suma el saldo actual y el saldo protegido o bloqueado.",
+          "reglas": []
+        },
+        {
+          "id": "s7",
+          "titulo": "Fecha de traspaso a beneficencia por plazo y monto",
+          "linea_ini": 1510,
+          "linea_fin": 1522,
+          "origen_codigo": "     MOVE \" \"  TO WS-ART-FTRSBEN-X.\n     IF WS-ART-STBENF < 4\n        IF WS-FECH-BENF > WS-FEC-3600-ANT\n           NEXT SENTENCE\n        ELSE\n        IF W77-SDO-TOT > W77-IMP-300-SMVDF\n           NEXT SENTENCE\n        ELSE\n        IF WS-AA-BENF = WS-AA-FEC3600\n           MOVE WS-FEC-1ER-VIE  TO WS-ART-FTRSBEN.\n     PERFORM 52112320-ESC-ART61  THRU 52112320-EXIT.",
+          "java_codigo": "    /** Solo situaciones 1 a 3, plazo cumplido, saldo dentro del tope y mismo año que el límite. */\n    Optional<LocalDate> fechaTraspaso(Contrato c, SituacionArt61 s, BigDecimal saldoTotal,\n                                      LocalDate limite90, BigDecimal tope300,\n                                      LocalDate primerViernesHabil) {\n        if (s.codigo >= 4) return Optional.empty();                    // salidas no se traspasan\n        if (c.fechaBenef().isAfter(limite90)) return Optional.empty(); // aún no cumple el plazo\n        if (saldoTotal.compareTo(tope300) > 0) return Optional.empty(); // excede 300 salarios\n        if (c.fechaBenef().getYear() != limite90.getYear()) return Optional.empty();\n        return Optional.of(primerViernesHabil);                        // WS-FEC-1ER-VIE\n    }",
+          "racional": "La fecha de traspaso solo se informa para contratos que siguen dentro del Artículo 61 (situaciones 1 a 3), cuya fecha de beneficencia no rebasa la fecha límite de B00 más 90 días, cuyo saldo total no excede el equivalente a 300 salarios y cuya fecha de beneficencia es del mismo año que esa fecha límite. En ese caso el traspaso se programa para el primer viernes hábil del año siguiente. Cada <code>return</code> temprano corresponde a un <code>NEXT SENTENCE</code> del original.",
+          "reglas": [],
+          "riesgo": "La condición de mismo año excluye contratos de años anteriores al límite que ya cumplieron plazo y monto; esos contratos quedan sin fecha de traspaso. Validar si es intencional."
+        },
+        {
+          "id": "s8",
+          "titulo": "Encabezado del listado de cancelados fuera del IF",
+          "linea_ini": 1940,
+          "linea_fin": 1957,
+          "origen_codigo": " 52211460-VALIND.\n    IF WS-9VEZ = 0\n       WRITE REG-CANCEL          FROM WS-CAN-TIPCAN BEFORE 2\n       WRITE REG-CANCEL          FROM WS-TIT-CAN    BEFORE 2.\n       ADD   4                   TO WS-LINEA1\n       MOVE  1                   TO WS-9VEZ.\n   IF INV-INDCAN-S = WS-INDCAN-ANT\n       IF INV-CANCELO-S = WS-CANCELO-ANT\n          WRITE REG-CANCEL       FROM WS-DET-CAN    BEFORE 1\n          ADD 1                  TO WS-LINEA1\n       ELSE\n          WRITE REG-CANCEL       FROM WS-BLANCOS    BEFORE 2\n          WRITE REG-CANCEL       FROM WS-CAN-TIPCAN BEFORE 2\n          WRITE REG-CANCEL       FROM WS-TIT-CAN    BEFORE 2\n          WRITE REG-CANCEL       FROM WS-DET-CAN    BEFORE 1\n          ADD 7                  TO WS-LINEA1\n          MOVE INV-CANCELO-S     TO WS-CANCELO-ANT",
+          "java_codigo": "/** 52211460-VALIND: encabezado de tipo de cancelación al cambiar indicador o tipo. */\nprivate boolean primeraVez = true;\nprivate Integer indCanAnterior, canceloAnterior;\n\nvoid imprime(LineaCancelado l, ReporteCancelados r) {\n    if (primeraVez) {\n        r.encabezadoTipo(l);                  // WS-CAN-TIPCAN + WS-TIT-CAN\n        primeraVez = false;\n    }\n    // En el fuente, ADD 4 TO WS-LINEA1 y MOVE 1 TO WS-9VEZ quedan fuera del IF por el punto\n    // de la línea 1943: el contador de líneas suma 4 en cada detalle. Se conserva como opción.\n    if (props.replicarContadorLineasOriginal()) {\n        r.sumaLineas(4);\n    }\n    boolean cambio = !Objects.equals(l.indCan(), indCanAnterior)\n                  || !Objects.equals(l.cancelo(), canceloAnterior);\n    if (cambio) {\n        r.blancos(2);\n        r.encabezadoTipo(l);\n    }\n    r.detalle(l);\n    indCanAnterior = l.indCan();\n    canceloAnterior = l.cancelo();\n}",
+          "racional": "El párrafo imprime un encabezado de tipo de cancelación la primera vez y cada vez que cambia el indicador de meses sin movimiento o el tipo de cancelación. El punto al final de la línea 1943 cierra el <code>IF WS-9VEZ = 0</code>, de modo que las dos sentencias siguientes se ejecutan en cada llamada aunque estén indentadas como parte del IF. En la práctica <code>WS-9VEZ</code> se reasigna sin efecto, pero el contador de líneas crece 4 de más por renglón y provoca saltos de página adelantados. La traducción usa el comportamiento corregido y deja el original detrás de una propiedad.",
+          "reglas": [],
+          "riesgo": "Defecto de puntuación COBOL: el listado de cancelados cambia de hoja mucho antes de lo previsto. No afecta datos, pero cualquier comparación página por página contra el original fallará si se corrige."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Respaldo de 300 salarios desactualizado",
+      "detalle": "Si B00-IMP-300SMDF viene en cero se usa 20 187.00 compilado (línea 953), y el comentario de la línea 949 menciona una base de 67.20 que no corresponde a ese importe. La regla de monto del Artículo 61 queda atada a un valor que nadie mantiene."
+    },
+    {
+      "titulo": "Pérdida de signo en el saldo regulatorio",
+      "detalle": "W77-SDO-TOT S9(13)V99 se mueve a WS-ART-SDO 9(12)V99 (línea 1480). Un saldo total negativo se reporta como positivo en el archivo de Artículo 61."
+    },
+    {
+      "titulo": "Trailer de GERENCIA mezclado",
+      "detalle": "WS-TOT-SDOACT acumula importes de movimientos (línea 1264) y saldos de contratos (línea 1429); el trailer no sirve como cifra de control de una sola magnitud."
+    },
+    {
+      "titulo": "Error de puntuación en el listado de cancelados",
+      "detalle": "El punto de la línea 1943 deja ADD 4 TO WS-LINEA1 fuera del IF y el contador de líneas crece en cada detalle."
+    },
+    {
+      "titulo": "Hardcodes de producto y estatus",
+      "detalle": "Producto 500, instrumento 6, estatus 0, 1, 2, 4 y 5 de contrato y estatus 3, 6, 7 y 8 de beneficencia están compilados en 52111000-SEL. Se trasladan a application.yml o a un catálogo."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si B00-IMP-300SMDF se mantiene con la unidad de referencia vigente para el Artículo 61 de la LIC; el fuente y sus comentarios hablan de salario mínimo del Distrito Federal.",
+    "Confirmar si LOCSUP función 8 con 0090 suma días naturales o hábiles a la fecha Art. 61.",
+    "Validar con el área regulatoria si la condición de mismo año (línea 1519) es intencional.",
+    "El nombre del componente habla de capitalización mensual, pero P315 no calcula intereses: lista B03-INTS-CAPIT tal como viene. Confirmar qué paso capitaliza.",
+    "El acceso a B06 se hace con 90000006-B06SXCTO-LOCK sobre una base abierta con OPEN INQUIRY (línea 894); el copybook S500/INC/PRO/25MTP002 que contiene ese párrafo no viene en el fuente para confirmar si en realidad es un FIND."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-382",
+    "RN-S500-383",
+    "RN-S500-384",
+    "RN-S500-385",
+    "RN-S500-386"
+  ]
+}

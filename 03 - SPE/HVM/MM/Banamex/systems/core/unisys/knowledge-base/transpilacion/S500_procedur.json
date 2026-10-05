@@ -1,0 +1,188 @@
+{
+  "slug": "S500_procedur",
+  "sistema": "S500",
+  "programa": "procedur",
+  "nombre": "Copybook compartido de PROCEDURE de captación",
+  "funcion": "Copybook de PROCEDURE que los programas en línea y batch de S500 incluyen por COPY; aporta enlace de librerías, contabilización hacia S151, utilerías de fecha y la capa de acceso a DMSII.",
+  "resumen": "Es la caja de herramientas común de captación: no tiene archivos ni base propios y opera sobre el área de trabajo del programa anfitrión. Liga unas cuarenta librerías de dominio resolviendo su versión en CTLVERS, envuelve sus llamadas con traza y medición de tiempos, y contiene el ensamblador CARGAMOV1, que convierte hasta 30 movimientos del programa en registros de cinco posiciones para la librería de contabilización REGISTRAS500 de S151, aplicando ruteo contable por clave de transacción. Completa el módulo una ventana de siglo para fechas de dos dígitos y varios cientos de párrafos de acceso DMSII de un solo verbo, cada uno aislado por compilación condicional.",
+  "arquetipo": "L",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.comun",
+  "secciones": [
+    {
+      "titulo": "Enlace de librerías y ensamblador de movimiento contable S151 (CARGAMOV1)",
+      "origen": {
+        "archivo": "S500_INC_PRO_CAN.txt",
+        "contexto": "10000016-L422 · 20000151-CARGAMOV1 · CARGAMOV1-CTES"
+      },
+      "java": {
+        "archivo": "LibreriaResolver.java · RegistroMovimientoS151Service.java · RuteoContableS151.java",
+        "contexto": "@Component · @Service · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Liga de librería por versión activa (CTLVERS) a un resolvedor reusable",
+          "linea_ini": 503,
+          "linea_fin": 522,
+          "origen_codigo": "$SET OMIT = NOT S016L422\n 10000016-L422.\n     MOVE ZEROS              TO S000-CTR-CVEERROR.\n     MOVE \"S016L422\"         TO S000-CTR-LIBID.\n     PERFORM 20000100-DAME-TIT-VERS.\n     IF S000-CTR-CVEERROR = 0\n        CHANGE ATTRIBUTE TITLE OF \"S016L422\"\n                               TO S000-CTR-NOMLIB\n     ELSE\n        MOVE S000-CTR-CVEERROR TO WS-MSG-N-02\n        STRING  \"ERROR EN CALL CTLVERS S016L422 \",\n                \" RESULT=\", WS-MSG-N-02\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n     MOVE 1 TO WKS-88-S016L422.\n$POP OMIT",
+          "java_codigo": "/** Familia 10000xxx-*: resuelve el TITLE vigente de una librería con DAME_TIT IN CTLVERS. */\n@Component\n@RequiredArgsConstructor\npublic class LibreriaResolver {\n\n    private final CtlversClient ctlvers;          // 20000100-DAME-TIT-VERS\n    private final Map<String, ServicioLigado> ligadas = new ConcurrentHashMap<>();\n\n    public ServicioLigado liga(String libId) {     // p. ej. \"S016L422\"\n        return ligadas.computeIfAbsent(libId, id -> {\n            ResultadoCtlvers r = ctlvers.dameTitulo(id);   // GIVING S000-CTR-CVEERROR\n            if (r.cveError() != 0) {\n                // COBOL solo emite el mensaje y aun así prende WKS-88-S016L422.\n                log.error(\"ERROR EN CALL CTLVERS {} RESULT={}\", id, r.cveError());\n                return ServicioLigado.noDisponible(id, r.cveError());\n            }\n            return ServicioLigado.de(id, r.titulo());       // CHANGE ATTRIBUTE TITLE\n        });\n    }\n}\n\n// application.yml: la versión por ambiente deja de vivir en CTLVERS\n// s500.librerias.S016L422.url: http://s016-comisiones/v1",
+          "racional": "Cada uno de los cerca de cuarenta párrafos <code>10000xxx-*</code> repite el mismo patrón: pide a <code>CTLVERS</code> el título de la versión activa de una librería, lo asigna con <code>CHANGE ATTRIBUTE TITLE</code> y prende una bandera 88 que indica que la librería está ligada. En Java el patrón se colapsa en un único <code>@Component</code> que resuelve y memoriza el enlace por identificador de librería; el destino concreto (URL del servicio o bean) pasa a <code>application.yml</code>. Los <code>$SET OMIT</code> que rodean cada párrafo son compilación condicional por programa y se sustituyen por la inyección de solo los clientes que cada servicio necesita.",
+          "reglas": [],
+          "riesgo": "La bandera WKS-88-S016L422 se pone en 1 también cuando CTLVERS devuelve error (línea 521 fuera del IF): el programa cree que la librería está ligada aunque el TITLE no se haya asignado. La versión Java devuelve un enlace marcado como no disponible."
+        },
+        {
+          "id": "s2",
+          "titulo": "Orquestación de CARGAMOV1 a servicio de contabilización",
+          "linea_ini": 3115,
+          "linea_fin": 3125,
+          "origen_codigo": "$SET OMIT = NOT S151REGISTRA\n 20000151-CARGAMOV1.\n     PERFORM 20000151-CARGAMOV1-INI.\n     PERFORM 20000151-CARGAMOV1-CTES.\n     MOVE 0 TO WS-S151-SW.\n     MOVE WS-S151-SALDO-INI TO WS-S151-SALDO-FIN.\n     PERFORM 20000151-CARGAMOV1-IMP\n             VARYING WS-S151-IND FROM 1 BY 1\n             UNTIL WS-S151-IND > 30 OR WS-S151-SW = 1.\n     PERFORM 20000151-CARGAMOV1-CALL.\n     PERFORM 20000151-CARGAMOV1-LIMPIA.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class RegistroMovimientoS151Service {\n\n    static final int MAX_MOVS = 30;               // WS-S151-01-CVES-I OCCURS 30 TIMES\n\n    private final RuteoContableS151 ruteo;        // 20000151-CARGAMOV1-CTES\n    private final AgrupadorMovimientos agrupador; // 20000151-CARGAMOV1-IMP\n    private final RegistraS500Client registra;    // 20000151-CARGAMOV1-CALL\n\n    /** 20000151-CARGAMOV1: arma el registro S151 y lo envía en bloques de hasta 5 movimientos. */\n    public void cargaMovimientos(EntradaS151 entrada) {\n        MovimientoS151 base = ruteo.aplica(MovimientoS151.vacio(), entrada);  // INI + CTES\n        var ctx = new ContextoSaldo(entrada.saldoIni());   // SALDO-FIN = SALDO-INI\n        var bloque = agrupador.nuevoBloque(base, ctx);\n        for (LineaS151 linea : entrada.lineas().subList(0, Math.min(MAX_MOVS, entrada.lineas().size()))) {\n            if (linea.cveTran() == 0) break;                // WS-S151-SW = 1\n            bloque = agrupador.agrega(bloque, linea, ctx, registra::envia);\n        }\n        registra.envia(bloque);                             // CALL final, aunque el bloque venga vacío\n        // CARGAMOV1-LIMPIA: no aplica, EntradaS151 es inmutable y se descarta.\n    }\n}",
+          "racional": "<code>20000151-CARGAMOV1</code> es la fachada que todos los programas de captación usan para contabilizar en S151: inicializa el registro, copia constantes y ruteo, recorre hasta 30 movimientos de entrada y hace la llamada final. En Java es un <code>@Service</code> con la misma firma lógica, que recibe un objeto de entrada inmutable en lugar del área compartida <code>WS-S151-INPUT</code>; por eso desaparece el párrafo de limpieza. El corte por <code>WS-S151-SW = 1</code> al encontrar una clave en cero se traduce en un <code>break</code>.",
+          "reglas": [],
+          "riesgo": "La llamada final a CARGAMOV1-CALL se ejecuta siempre, incluso si la primera clave de entrada es cero y no se colocó ningún movimiento."
+        },
+        {
+          "id": "s3",
+          "titulo": "Ruteo de sucursal y caja contable por clave de transacción",
+          "linea_ini": 3387,
+          "linea_fin": 3466,
+          "origen_codigo": "$SET OMIT = NOT LINEA\n     IF WS-S151-0101-CVETRAN-I(1) = 4159 OR 4160\n        MOVE 342          TO WS-S151-0101-SUCPROM.\n*    CON ESTAS CLAVES SE DEBE DE AFECTAR A RESULTADOS DE LA SUCUR-\n*    SAL 350 EN LUGAR DE LA PROMOTORA DE LA CUENTA ( ESTAS  CLAVES\n*    SERAN CARGADAS EN B17 PARA QUE SOLO LAS PUEDA  TRANSMITIR  LA\n*    SUCURSAL 350)\n     IF WS-S151-0101-CVETRAN-I(1) = 2136 OR 2137 OR 2138\n        MOVE WS-S151-0101-SUCTRAN-I       TO WS-S151-0101-SUCPROM.\n     IF WS-S151-0101-CVETRAN-I(1) = 4449\n                                  OR WS-CVE-ACNOMINAPORTA-PG\n        MOVE 859          TO WS-S151-0101-SUCPROM\n                             WS-S151-0101-SUCTRAN\n                             WS-S151-0101-SUCS028\n        MOVE 40           TO WS-S151-0101-CAJOPER\n                             WS-S151-0101-CAJTRAN\n                             WS-S151-0101-CAJS028.\n$POP OMIT\n     IF WS-S151-0101-CVETRAN-I(1) = 3002 OR 4001\n                                 OR 3018 OR 4016\n        IF WS03-88-PIM-CTAMAE          OR\n           WS03-88-PIM-CTAMAEOP        OR\n           WS03-88-PIM-CTAMAEDL        OR\n           MOVE  94        TO  WS-S151-0101-CAJS028\n           IF WS-S151-0101-NODORI = 10\n              MOVE 907     TO  WS-S151-0101-SUCS028\n           ELSE\n              MOVE 904     TO  WS-S151-0101-SUCS028\n        ELSE\n           MOVE  79        TO  WS-S151-0101-CAJS028\n           IF WS-S151-0101-NODORI = 10\n              MOVE 907     TO  WS-S151-0101-SUCS028\n           ELSE\n              MOVE 904     TO  WS-S151-0101-SUCS028.\n     IF WS-S151-0101-CVETRAN-I(1) = 3027\n        MOVE  55          TO  WS-S151-0101-CAJS028\n        IF WS-S151-0101-NODORI = 10\n           MOVE 907       TO  WS-S151-0101-SUCS028\n        ELSE\n           MOVE 904       TO  WS-S151-0101-SUCS028.\n     IF WS-S151-0101-CVETRAN-I(1) =   3047\n        MOVE 92                   TO  WS-S151-0101-CAJS028\n        MOVE 342                  TO  WS-S151-0101-SUCS028       .\n     IF WS-S151-0101-CVETRAN-I(1) =   1153\n        IF WS-GEN-MDA-BIN = 554492\n           MOVE 60                TO  WS-S151-0101-CAJS028\n           MOVE 7532              TO  WS-S151-0101-SUCS028       .\n     IF WS-S151-0101-CVETRAN-I(1) =   2534\n        MOVE 511                  TO  WS-S151-0101-SUCS028.",
+          "java_codigo": "# application.yml  (las sucursales y cajas contables dejan de estar compiladas)\ns151:\n  ruteo:\n    sucursal-nodo-10: 907          # SUCS028 cuando NODORI = 10\n    sucursal-otro-nodo: 904\n    por-clave:\n      \"4159\": { sucprom: 342 }      # el comentario del fuente habla de la sucursal 350\n      \"4160\": { sucprom: 342 }\n      \"4449\": { sucprom: 859, suctran: 859, sucs028: 859, cajoper: 40, cajtran: 40, cajs028: 40 }\n      \"3027\": { cajs028: 55, sucs028-por-nodo: true }\n      \"3047\": { cajs028: 92, sucs028: 342 }\n      \"2534\": { sucs028: 511 }\n    deposito-ventanilla:            # 3002, 4001, 3018, 4016\n      claves: [3002, 4001, 3018, 4016]\n      caja-perfil-pim: 94\n      caja-otro-perfil: 79\n    bin-evolucion: { clave: 1153, bin: 554492, cajs028: 60, sucs028: 7532 }\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class RuteoContableS151 {\n\n    private final RuteoProperties p;\n    private final ModoEjecucion modo;   // $SET OMIT = NOT LINEA\n\n    MovimientoS151 aplica(MovimientoS151 m, EntradaS151 in) {\n        int cve = in.lineas().get(0).cveTran();          // WS-S151-0101-CVETRAN-I(1)\n        if (modo.esLinea()) {\n            m = p.porClave(cve).map(r -> r.aplicaA(m)).orElse(m);   // 4159/4160, 4449\n            if (cve == 2136 || cve == 2137 || cve == 2138) m = m.withSucprom(in.sucTran());\n            if (cve == in.cveAcNominaPortaPg()) m = p.porClave(4449).orElseThrow().aplicaA(m);\n        }\n        if (p.depositoVentanilla().claves().contains(cve)) {\n            int caja = in.perfilPim().esCuentaMaestraOEquivalente()\n                    ? p.depositoVentanilla().cajaPerfilPim()        // 94\n                    : p.depositoVentanilla().cajaOtroPerfil();      // 79\n            m = m.withCajs028(caja).withSucs028(sucursalPorNodo(m.nodori()));\n        }\n        // 3027, 3047, 1153 + BIN 554492 y 2534: mismas reglas declarativas de p.porClave()\n        return m;\n    }\n\n    private int sucursalPorNodo(int nodori) {\n        return nodori == 10 ? p.sucursalNodo10() : p.sucursalOtroNodo();\n    }\n}",
+          "racional": "<code>CARGAMOV1-CTES</code> fija, según la primera clave de transacción del bloque, la sucursal promotora y la sucursal y caja contable (<code>SUCS028</code>/<code>CAJS028</code>) con las que S151 contabiliza. Son constantes literales con efecto contable directo, así que se trasladan a <code>application.yml</code> como una tabla declarativa y se versionan con control de cambios contable, en lugar de vivir en un copybook que se compila en cada programa. Los bloques bajo <code>$SET OMIT = NOT LINEA</code> solo existen en los programas en línea; en Java se expresan con un indicador de modo de ejecución explícito. El perfil PIM agrupa los quince indicadores 88 de cuenta maestra, Citi One, cuenta acceso, prepagada y similares en un solo método de dominio.",
+          "reglas": [],
+          "riesgo": "El comentario que sigue a las claves 4159 y 4160 dice que deben afectar resultados de la sucursal 350, pero el código mueve 342. Además, que el ruteo se decida solo por la clave de la posición 1 implica que todo el bloque de hasta 5 movimientos hereda la sucursal contable del primero."
+        }
+      ]
+    },
+    {
+      "titulo": "Agrupación, naturaleza y envío del movimiento a REGISTRAS500",
+      "origen": {
+        "archivo": "S500_INC_PRO_CAN.txt",
+        "contexto": "CARGAMOV1-IMP · ACUM-MOVS-XNAT · CHECA-SUMA-SDOINI · CARGAMOV1-CALL"
+      },
+      "java": {
+        "archivo": "AgrupadorMovimientos.java · NaturalezaMovimientos.java · RegistraS500Client.java",
+        "contexto": "@Component · repositorio de solo lectura B17 · Micrometer"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Agrupación de movimientos en bloques de cinco por llamada",
+          "linea_ini": 4152,
+          "linea_fin": 4254,
+          "origen_codigo": " 20000151-CARGAMOV1-IMP.\n     IF  WS-S151-0101-CVETRAN-I(WS-S151-IND) = 0\n         MOVE 1               TO WS-S151-SW\n     ELSE\n$SET OMIT = NOT LINEA\n     IF  WS-S151-0101-IMPORTE-I(WS-S151-IND) = 0\n     AND NOT (WS88-S151-0101-CVENOCONT-I(WS-S151-IND)\n         OR (WS-GEN-CVE-ADIC-S151 = 1 AND\n        WS-S151-0101-CVETRAN-I(WS-S151-IND) = WS17-CVE-ADIC-S151))\n     AND WS-S151-IND NOT = 1\n         NEXT SENTENCE\n     ELSE\n        PERFORM 20000151-ACUM-MOVS-XNAT\n        PERFORM 20000151-CLAVES-CORRESP\n$POP OMIT\n$SET OMIT = NOT BDB17R06\n        PERFORM 20000151-CHECA-SUMA-SDOINI\n$POP OMIT\n     IF WS-S151-0101-CVETRAN1 = 0\n        MOVE WS-S151-SALDO-INI        TO WS-S151-0101-SALDO-INI\n        ADD 1 TO W77-NUM-MOVS-ENV  W77-TOT-MOVS-ENV\n        MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND) TO\n             WS-S151-0101-CVETRAN1\n     ELSE\n     IF WS-S151-0101-CVETRAN2 = 0\n        ADD 1 TO W77-NUM-MOVS-ENV  W77-TOT-MOVS-ENV\n     ELSE\n        PERFORM 20000151-CARGAMOV1-CALL\n        PERFORM 20000151-CARGAMOV1-SUBCVE\n        MOVE WS-S151-SALDO-INI        TO WS-S151-0101-SALDO-INI\n        ADD 1 TO W77-NUM-MOVS-ENV  W77-TOT-MOVS-ENV\n        MOVE WS-S151-0101-REFS151 TO WS-S151-0101-REFS151-ANT\n        MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND ) TO\n             WS-S151-0101-CVETRAN1\n        MOVE WS-S151-0101-IMPORTE-I(WS-S151-IND) TO\n             WS-S151-0101-IMPORTE1.\n     MOVE WS-S151-SALDO-FIN TO WS-S151-SALDO-INI.",
+          "java_codigo": "@Component\npublic class AgrupadorMovimientos {\n\n    static final int POSICIONES = 5;   // CVETRAN1..CVETRAN5 del registro S151\n\n    private final NaturalezaMovimientos naturaleza;  // ACUM-MOVS-XNAT + CHECA-SUMA-SDOINI\n    private final ClavesCorresponsales corresp;      // 20000151-CLAVES-CORRESP\n    private final ModoEjecucion modo;\n\n    BloqueS151 agrega(BloqueS151 b, LineaS151 l, ContextoSaldo ctx, Consumer<BloqueS151> envia) {\n        boolean descartable = l.importe().signum() == 0\n                && !l.esNoContable()            // 88 CVENOCONT-I: 500-699, 889, 895-904, 914, 942-944\n                && !l.esClaveAdicional()\n                && l.indice() != 1;\n        if (modo.esLinea() && descartable) {\n            return b;                            // NEXT SENTENCE: no se coloca ni se acumula\n        }\n        if (modo.esLinea()) {\n            naturaleza.acumula(l);\n            l = corresp.heredaLeyenda(l, b.primeraLinea());\n        }\n        naturaleza.proyectaSaldo(l, ctx);        // solo con BDB17R06\n        BloqueS151 r;\n        if (b.lineas().isEmpty()) {\n            r = b.conSaldoIni(ctx.saldoIni()).mas(l);\n        } else if (b.lineas().size() < POSICIONES) {\n            r = b.mas(l);\n        } else {\n            envia.accept(b);                     // CARGAMOV1-CALL con el bloque lleno\n            r = b.siguiente()                    // SUBCVE + REFS151 -> REFS151-ANT\n                 .conSaldoIni(ctx.saldoIni())\n                 .mas(l);\n        }\n        ctx.cierraMovimiento();                  // SALDO-INI = SALDO-FIN\n        return r;\n    }\n}",
+          "racional": "El registro hacia S151 tiene cinco posiciones fijas de clave, importe, leyenda, indicador y esquema contable. <code>CARGAMOV1-IMP</code> coloca cada movimiento en la primera posición libre y, cuando las cinco están ocupadas, envía el bloque, limpia las posiciones y encadena la referencia S151 del bloque anterior en <code>REFS151-ANT</code>. En Java el bloque es un objeto inmutable con una lista acotada a cinco y el envío se inyecta como <code>Consumer</code>, lo que permite probar el agrupamiento sin llamar a S151. El saldo inicial de cada bloque es el saldo proyectado antes de su primer movimiento, igual que en el fuente.",
+          "reglas": [],
+          "riesgo": "En programas en línea, un movimiento con importe cero que no sea clave no contable ni adicional se descarta en silencio, salvo que ocupe la posición 1 de la entrada. En batch esa validación no se compila y el movimiento sí se envía."
+        },
+        {
+          "id": "s5",
+          "titulo": "Naturaleza del movimiento y proyección del saldo con el catálogo B17",
+          "linea_ini": 4272,
+          "linea_fin": 4309,
+          "origen_codigo": " 20000151-ACUM-MOVS-XNAT.\n      IF NOT WS-88-STORE-B17\n         MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND)\n                                  TO  WS-CLAVE-TRANS\n         PERFORM                  90000017-B17AXCLAVE-FIND\n         IF WS-DB-NOTERROR\n            IF B17-AFECTA-S052 = 1\n               ADD  1             TO  WS-NUM-MOVSCGO\n            ELSE\n*INI R3-2011-BENEII       (Beneficencia F2)               ABARBOSA\n               IF B17-AFECTA-S052 = 2             OR\n                 (B17-AFECTA-S052 = 0     AND\n                  B17-TIPO-MOV = 2 AND B17-PERMITE-ELIM = 1 AND\n                  (B17-POR-APLI = 1 OR B17-POR-TERMINAL(1) = 1 OR\n                                       B17-POR-TERMINAL(2) = 1))\n*FIN R3-2011-BENEII       (Beneficencia F2)               ABARBOSA\n                  ADD  1          TO  WS-NUM-MOVSABO\n               ELSE\n                  ADD  1          TO  WS-NUM-MOVSNC.\n$SET OMIT = NOT BDB17R06\n 20000151-CHECA-SUMA-SDOINI.\n     IF WS-S151-MANDA-SDOINI = 1\n        MOVE WS-S151-0101-CVETRAN-I(WS-S151-IND) TO\n             WS-CLAVE-TRANS\n        PERFORM 90000017-B17AXCLAVE-FIND\n        IF WS-DB-NOTERROR\n           IF B17-AFECTA-S052 = 1\n              SUBTRACT WS-S151-0101-IMPORTE-I(WS-S151-IND) FROM\n              WS-S151-SALDO-FIN\n           ELSE\n           IF B17-AFECTA-S052 = 2\n              ADD WS-S151-0101-IMPORTE-I(WS-S151-IND) TO\n              WS-S151-SALDO-FIN.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class NaturalezaMovimientos {\n\n    private final ClaveTransaccionRepository b17;   // S500B17CVESXFUN, set B17AXCLAVE\n    private final ContadoresNaturaleza cont;        // WS-NUM-MOVSCGO / MOVSABO / MOVSNC\n\n    /** 20000151-ACUM-MOVS-XNAT (P10-119 Migración Prepagada). */\n    void acumula(LineaS151 l) {\n        if (cont.storeB17()) return;                 // WS-88-STORE-B17\n        b17.findByClave(l.cveTran()).ifPresent(c -> {\n            if (c.afectaS052() == 1) {\n                cont.cargo();\n            } else if (c.afectaS052() == 2 || esAbonoBeneficencia(c)) {\n                cont.abono();\n            } else {\n                cont.noContable();\n            }\n        });\n    }\n\n    private static boolean esAbonoBeneficencia(ClaveB17 c) {   // R3-2011-BENEII\n        return c.afectaS052() == 0 && c.tipoMov() == 2 && c.permiteElim() == 1\n            && (c.porApli() == 1 || c.porTerminal(1) == 1 || c.porTerminal(2) == 1);\n    }\n\n    /** 20000151-CHECA-SUMA-SDOINI. Importe 9(14)V99 COMP, saldo S9(15)V99: escala 2, suma exacta. */\n    void proyectaSaldo(LineaS151 l, ContextoSaldo ctx) {\n        if (!ctx.mandaSaldoIni()) return;\n        b17.findByClave(l.cveTran()).ifPresent(c -> {\n            if (c.afectaS052() == 1)      ctx.restaFin(l.importe());   // cargo\n            else if (c.afectaS052() == 2) ctx.sumaFin(l.importe());    // abono\n        });\n    }\n}",
+          "racional": "Ambos párrafos consultan el catálogo de claves B17 para clasificar el movimiento: <code>B17-AFECTA-S052 = 1</code> es cargo y <code>= 2</code> es abono. El primero cuenta movimientos por naturaleza y el segundo proyecta el saldo final del contrato. El repositorio Java es de solo lectura sobre la tabla migrada de B17. Importe y saldo son <code>BigDecimal</code> de escala 2 (<code>9(14)V99 COMP</code> y <code>S9(15)V99</code> en el copybook de trabajo), y como solo se suman y restan no interviene redondeo. Si la clave no existe en B17 (<code>WS-DB-NOTERROR</code> falso) no se cuenta ni se ajusta el saldo, que es lo que expresa el <code>ifPresent</code>.",
+          "reglas": [],
+          "riesgo": "La regla de Beneficencia clasifica como abono claves con AFECTA-S052 = 0, pero CHECA-SUMA-SDOINI no las suma al saldo: el conteo de abonos y el saldo proyectado pueden no cuadrar para esas claves."
+        },
+        {
+          "id": "s6",
+          "titulo": "Llamada a REGISTRAS500 con contingencia y rechazos",
+          "linea_ini": 3832,
+          "linea_fin": 3858,
+          "origen_codigo": "$SET OMIT = NOT LINEA\n     IF WS-88-SIUSA-S151 AND WS-88-BASE-ORI              OR\n        (WS-88-ENVIAS151-TRANCTRL AND NOT WS-88-PREBATCH)\n        IF NOT WS-88-EN-CONTINGENCIA-S151\n           PERFORM 20000151-CARGAMOV1-INIL030\n$POP OMIT\n         CALL \"CARGAMOV1 IN REGISTRAS500\"\n               USING    WS-S151-0101-MOVIMIENTOS\n               GIVING   WS-S151-0101-STATUS\n           PERFORM 20000151-CARGAMOV1-FINL030.\n$SET OMIT = NOT LINEA\n     IF WS-88-EN-CONTINGENCIA-S151\n        PERFORM 00000000-GRABA-CONTING-S151.\n     MOVE 0       TO WS-S151-0101-CVEAVISO-I\n                     WS-S151-0101-CVEAVISO.\n     PERFORM 00000000-INICAMP-MOVSAD-S151.\n     IF WS-S151-0101-STATUS > 0\n        PERFORM 00000000-GRABA-RECHAZOS-S151.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class RegistraS500Client {\n\n    private final RegistraS500Port s151;            // CALL \"CARGAMOV1 IN REGISTRAS500\"\n    private final ContingenciaS151Repository conting;  // 00000000-GRABA-CONTING-S151\n    private final RechazoS151Repository rechazos;      // 00000000-GRABA-RECHAZOS-S151\n    private final EstadoS151 estado;                   // WS-88-SIUSA-S151, BASE-ORI, CONTINGENCIA...\n    private final MeterRegistry metrics;               // reemplaza los hooks S500L030 (INIL030/FINL030)\n\n    public int envia(BloqueS151 b) {\n        int status = 0;\n        boolean llamar = (estado.usaS151() && estado.baseOrigen())\n                || (estado.enviaTranControl() && !estado.prebatch());\n        if (llamar && !estado.enContingencia()) {\n            status = Timer.builder(\"s500.cargamov1\").register(metrics)\n                          .recordCallable(() -> s151.cargaMov1(b));   // GIVING WS-S151-0101-STATUS\n        }\n        if (estado.enContingencia()) {\n            conting.save(ContingenciaS151.de(b));   // se reenvía cuando S151 regrese\n        }\n        if (status > 0) {\n            rechazos.save(RechazoS151.de(b, status));\n        }\n        return status;\n    }\n}",
+          "racional": "En los programas en línea la llamada a la librería de contabilización solo ocurre si S151 está activo para la base de origen o si se envía transacción de control fuera de prebatch, y nunca en contingencia; en ese caso el bloque se guarda para reenvío. En batch esos <code>IF</code> no se compilan y la llamada es incondicional. El puerto <code>RegistraS500Port</code> puede implementarse como cliente síncrono o como productor a una cola si S151 se moderniza por separado. La precedencia de <code>AND</code> sobre <code>OR</code> del COBOL se hace explícita con paréntesis.",
+          "reglas": [],
+          "riesgo": "Si no se cumple la condición de llamada y no hay contingencia, el bloque no se envía ni se guarda, y el IF de rechazos evalúa el status que tuviera el área desde la llamada anterior. La versión Java parte de status 0."
+        }
+      ]
+    },
+    {
+      "titulo": "Utilerías de fecha y acceso a DMSII",
+      "origen": {
+        "archivo": "S500_INC_PRO_CAN.txt",
+        "contexto": "90000000-FECHA-2000 · 90000028-B28COMICOB-* · 90000000-BEGIN-TRANSACTION"
+      },
+      "java": {
+        "archivo": "VentanaSiglo.java · ParticionComisionCobrada.java · TransaccionCaptacion.java",
+        "contexto": "LocalDate · JPA con partición · TransactionTemplate"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Ventana de siglo Y2K con pivote 49",
+          "linea_ini": 5386,
+          "linea_fin": 5398,
+          "origen_codigo": "$SET OMIT = NOT FECHA2000\n****************************************************************\n  90000000-FECHA-2000.\n     IF WKS-FEC-2000-06 = ZEROS\n        MOVE ZEROS   TO WKS-AA1-2000\n     ELSE\n     IF WKS-AA1-2000 = 19 OR 20\n        NEXT SENTENCE\n     ELSE\n     IF WKS-AA-2000 > 49\n        MOVE 19          TO WKS-AA1-2000\n     ELSE\n        MOVE 20          TO WKS-AA1-2000.",
+          "java_codigo": "@Component\npublic class VentanaSiglo {\n\n    private final int pivote;   // s500.fecha.pivote-siglo: 49  (CRONOS 2000)\n\n    public VentanaSiglo(@Value(\"${s500.fecha.pivote-siglo:49}\") int pivote) {\n        this.pivote = pivote;\n    }\n\n    /** 90000000-FECHA-2000: completa el siglo de una fecha AAMMDD. */\n    public Optional<LocalDate> completa(int siglo, String aammdd) {\n        if (\"000000\".equals(aammdd)) {\n            return Optional.empty();                     // WKS-AA1-2000 = 0\n        }\n        int aa = Integer.parseInt(aammdd, 0, 2, 10);\n        int s = (siglo == 19 || siglo == 20) ? siglo     // ya trae siglo válido\n              : (aa > pivote ? 19 : 20);                 // 50-99 -> 19xx, 00-49 -> 20xx\n        return Optional.of(LocalDate.parse(s + aammdd, DateTimeFormatter.BASIC_ISO_DATE));\n    }\n}",
+          "racional": "El párrafo completa el siglo de una fecha de seis dígitos que viaja en <code>WKS-FEC-2000-08</code> (siglo <code>99</code> más <code>AAMMDD</code> por <code>REDEFINES</code>). Si el siglo ya es 19 o 20 lo respeta; si no, aplica la ventana: años mayores a 49 son del siglo XX y el resto del XXI. En Java se devuelve un <code>LocalDate</code> y el pivote queda explícito como propiedad, tal como pide el estándar de fechas. Una fecha en ceros se representa como ausencia de valor en lugar del siglo cero.",
+          "reglas": [],
+          "riesgo": "Con pivote fijo en 49, una fecha de dos dígitos del año 2050 o posterior se interpretaría como 1950. Las fechas que ya traen siglo no se ven afectadas."
+        },
+        {
+          "id": "s8",
+          "titulo": "Comisiones cobradas particionadas en siete datasets por mes",
+          "linea_ini": 10669,
+          "linea_fin": 10838,
+          "origen_codigo": "$SET OMIT = NOT BDB28R01\n  90000028-B28COMICOB-CREATE.\n     MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n     MOVE 0              TO WS-STATUS-BASE.\n     IF WS-COMICOB-DS = 1\n        CREATE S500B28COMICOB\n        ON EXCEPTION\n           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE\n     ELSE\n     IF WS-COMICOB-DS = 2\n        CREATE S500B29COMICOB\n        ON EXCEPTION\n           MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE\n     IF WS-COMICOB-DS = 7\n        CREATE S500B34COMICOB\n        ON EXCEPTION\n        MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n$POP OMIT\n$SET OMIT = NOT BDB28R04\n 90000028-B28COMICOB-NO-DS.\n     COMPUTE WS-COMICOB-DS = (WS-COMICOB-AA * 12) + WS-COMICOB-MM.\n     COMPUTE WS-COMICOB-DS = FUNCTION MOD (WS-COMICOB-DS,7).\n     IF WS-COMICOB-DS = 0\n        MOVE 7                    TO WS-COMICOB-DS.\n$POP OMIT",
+          "java_codigo": "/** WS-COMICOB-DS: B28..B34 son el mismo registro COMICOB en 7 datasets físicos. */\npublic final class ParticionComisionCobrada {\n\n    private ParticionComisionCobrada() {}\n\n    /** 90000028-B28COMICOB-NO-DS: (AA * 12 + MM) mod 7, con 0 -> 7. */\n    public static int de(int aa, int mm) {        // WS-COMICOB-AA 9(02), WS-COMICOB-MM 9(02)\n        int ds = Math.floorMod(aa * 12 + mm, 7);\n        return ds == 0 ? 7 : ds;\n    }\n}\n\n@Entity\n@Table(name = \"s500_comision_cobrada\")       // una tabla con columna de partición\npublic class ComisionCobrada {\n    @EmbeddedId private ComisionCobradaId id;    // num_contrato + cve_acumula (BnnSXCTOCVE)\n    @Column(name = \"particion\") private int particion;   // 1..7, LIST PARTITION en la BD destino\n    // ...\n}\n\n@Service\n@RequiredArgsConstructor\npublic class ComisionCobradaStore {\n    private final ComisionCobradaRepository repo;\n\n    @Transactional\n    public ComisionCobrada crea(ComisionCobrada c, int aa, int mm) {\n        int ds = ParticionComisionCobrada.de(aa, mm);\n        if (ds < 1 || ds > 7) throw new IllegalStateException(\"Partición COMICOB inválida \" + ds);\n        c.setParticion(ds);\n        return repo.save(c);\n    }\n}",
+          "racional": "El registro de comisiones cobradas existe en siete datasets idénticos (<code>S500B28COMICOB</code> a <code>S500B34COMICOB</code>) y cada <code>CREATE</code>, <code>STORE</code> y <code>LOCK</code> elige uno con una cascada de <code>IF</code> sobre <code>WS-COMICOB-DS</code>. La partición sale del número de mes absoluto módulo 7. En la base destino se recomienda una sola tabla con particionamiento por lista sobre la columna <code>particion</code>, lo que conserva la rotación y elimina las siete ramas duplicadas. El cálculo se aísla en una función pura que se puede probar contra los datos históricos.",
+          "reglas": [],
+          "riesgo": "Si WS-COMICOB-DS no está entre 1 y 7 al llamar CREATE (por ejemplo, porque el programa no ejecutó NO-DS antes), ninguna rama aplica y WS-STATUS-BASE queda en 0: el alta no ocurre y el llamador la da por exitosa."
+        },
+        {
+          "id": "s9",
+          "titulo": "Transacción DMSII sobre la base de reinicio a @Transactional",
+          "linea_ini": 5454,
+          "linea_fin": 5469,
+          "origen_codigo": "$SET OMIT = NOT BDB00R01\n 90000000-BEGIN-TRANSACTION.\n     MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n     MOVE 0              TO WS-STATUS-BASE.\n     BEGIN-TRANSACTION NO-AUDIT S500B91REINICIO\n           ON EXCEPTION\n              MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n$POP OMIT\n$SET OMIT = NOT BDB00R02\n 90000000-END-TRANSACTION.\n     MOVE WS-STATUS-BASE TO WS-STATUS-BASE-ANT.\n     MOVE 0              TO WS-STATUS-BASE.\n     END-TRANSACTION AUDIT S500B91REINICIO\n         ON EXCEPTION\n            MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.",
+          "java_codigo": "/** 90000000-BEGIN-TRANSACTION / END-TRANSACTION sobre S500B91REINICIO. */\n@Component\n@RequiredArgsConstructor\npublic class TransaccionCaptacion {\n\n    private final TransactionTemplate tx;            // PlatformTransactionManager de captación\n    private final DmsStatusTranslator traductor;     // DMSTATUS(DMCATEGORY) -> código 0..21\n\n    /** El llamador ya no revisa WS-STATUS-BASE: recibe excepción o resultado. */\n    public <T> T ejecuta(Supplier<T> unidadDeTrabajo) {\n        try {\n            return tx.execute(st -> unidadDeTrabajo.get());   // commit = END-TRANSACTION AUDIT\n        } catch (DataAccessException e) {\n            throw new CaptacionDbException(traductor.categoria(e), e);  // ON EXCEPTION\n        }\n    }\n}\n// La variante SYNC (90000000-END-TRANSACTIONSYNC) equivale al commit con\n// fsync obligatorio; en la BD destino es el comportamiento por defecto.",
+          "racional": "Los diez párrafos transaccionales guardan el status previo, lo ponen en cero y ejecutan <code>BEGIN-TRANSACTION</code> o <code>END-TRANSACTION</code> sobre una de las tres bases de reinicio B91, copiando la categoría DMSII a <code>WS-STATUS-BASE</code> si hay excepción. En Spring la demarcación la hace <code>TransactionTemplate</code> (o <code>@Transactional</code> en el servicio) y el error viaja como excepción tipada con la categoría DMSII traducida, de modo que ningún llamador puede olvidar revisar el status. <code>WS-STATUS-BASE-ANT</code> deja de ser necesario porque no hay un status global compartido.",
+          "reglas": [],
+          "riesgo": "El BEGIN se declara NO-AUDIT y el END como AUDIT; habrá que confirmar con el DBA qué garantías de recuperación da esa combinación antes de fijar el nivel de aislamiento destino."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Librería marcada como ligada aunque CTLVERS falle",
+      "detalle": "En la familia 10000xxx-* (por ejemplo 10000016-L422, líneas 504-521) la bandera 88 de la librería se pone en 1 fuera del IF de error. Si CTLVERS no devuelve título, el programa sigue y las llamadas posteriores usan el TITLE que la librería tenga declarado por omisión, sin aviso adicional."
+    },
+    {
+      "titulo": "Ruteo contable compilado en un copybook",
+      "detalle": "Las sucursales 342, 511, 859, 904, 907 y 7532 y las cajas 40, 55, 60, 79, 92 y 94 de CARGAMOV1-CTES (líneas 3388-3466) están compiladas en cada programa que incluye el copybook. Un cambio contable obliga a recompilar todos. Además, el comentario de las claves 4159 y 4160 contradice el valor (350 frente a 342)."
+    },
+    {
+      "titulo": "Todo el bloque hereda el ruteo de la primera clave",
+      "detalle": "CARGAMOV1-CTES decide sucursal y caja con WS-S151-0101-CVETRAN-I(1). Los otros cuatro movimientos del registro, y los bloques siguientes, se contabilizan con la sucursal elegida para la primera clave de la entrada."
+    },
+    {
+      "titulo": "Descarte silencioso de importes en cero",
+      "detalle": "En línea, CARGAMOV1-IMP salta con NEXT SENTENCE los movimientos de importe cero que no son no contables ni adicionales (líneas 4157-4162), sin bitácora. En batch la misma entrada sí se envía, por lo que el comportamiento depende del tipo de programa."
+    },
+    {
+      "titulo": "Escrituras DMSII que pueden no ocurrir sin error",
+      "detalle": "Las cascadas de CREATE y STORE de COMICOB (líneas 10670-10753) no tienen rama final: con WS-COMICOB-DS fuera de 1..7 no se escribe nada y el status queda en 0."
+    },
+    {
+      "titulo": "Ventana Y2K con pivote fijo",
+      "detalle": "90000000-FECHA-2000 (líneas 5388-5398) asume que los años 50-99 son del siglo XX. Debe sustituirse por fechas con siglo completo en la base destino."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario apunta a source/S500/extracted_source/S500_INC_PRO.txt, pero ese archivo es el copybook de pantallas de captación (WS-DATA-IN-SCREEN y párrafos 00000000-MASCARA-500nn) y no contiene CARGAMOV1, FECHA-2000 ni los accesos DMSII. El fuente que corresponde a procedur, y cuya numeración coincide con el pseudocódigo, es source/S500/extracted_source/S500_INC_PRO_CAN.txt. Todos los segmentos se tomaron de ese archivo; hay que corregir el campo fuente del inventario para que el generador los verifique.",
+    "Los PIC de importe y saldo (WS-S151-0101-IMPORTE-I 9(14)V99 COMP, WS-S151-SALDO-INI S9(15)V99) y de WS-COMICOB-AA/MM se tomaron de S500_INC_WOR_CAN.txt; confirmar que es el copybook de trabajo que acompaña a esta versión del PROCEDURE.",
+    "Confirmar si la sucursal correcta para las claves 4159 y 4160 es 342 (código) o 350 (comentario).",
+    "Confirmar si REGISTRAS500 tolera un registro sin movimientos, que se envía cuando la primera clave de entrada es cero.",
+    "Confirmar qué proceso depura la partición COMICOB antes de reutilizarla: con siete particiones por mes, el mes N y el N+7 comparten dataset.",
+    "Confirmar el significado operativo de WS-88-SIUSA-S151, WS-88-BASE-ORI y WS-88-ENVIAS151-TRANCTRL; se definen fuera de este copybook."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

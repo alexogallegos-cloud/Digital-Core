@@ -1,0 +1,809 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>S500 · proccanc → Java · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #C1272D;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · S500 proccanc</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Librería / Módulo</div>
+  <h1><span class="cw">S500 · proccanc</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">Al arrancar, 20020000-CARGA-INSTRUMENTOS consulta al servicio de tarifas S080 el tipo de cambio FIX, el salario mínimo, la UMA anual, los factores de ISR, la tasa de referencia en dólares del catálogo 279 y el valor UDI, y fija si el año tiene 365 o 366 días. Después, el host invoca 20500000-CAPITALIZACION por cada contrato: según el tipo de proceso (diario, línea pendiente o corte) paga rendimientos y cobra comisiones. 20520500-CALCULA-RENDIMIENTOS separa el saldo promedio exento del gravado, calcula el rendimiento bruto, el ISR retenido y la tasa neta. El cobro de comisiones sigue una plantilla por concepto; aquí se muestra la de manejo de cuenta con su exención por número de compras.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="S500_lib010.html">← S500 · lib010</a><a href="../cobol-java.html">Inventario</a><a href="S500_procedur.html">S500 · procedur →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">S500 · proccanc · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">20,446 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Copybook de PROCEDURE (sin PROGRAM-ID) que incluyen los batch de captación de S500, como P130 y las variantes IPAB, para cargar parámetros fiscales y tarifas y calcular rendimientos, ISR y comisiones contrato por contrato.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#9fb8c0">Librería / Módulo</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">0 de 0 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3</div></div>
+  </div>
+  <div class="sec-hdr">1 · Carga de parámetros fiscales y calendario</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_INC_WOR.txt</span><span class="fname">20020000-CARGA-INSTRUMENTOS · 20020030 · 20020110</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Arranque del motor: una sola carga de parámetros por corrida · L3–51"> <span class="num">20020000</span>-<span class="var">CARGA-INSTRUMENTOS</span>.
+     <span class="kw">MOVE</span> <span class="kw">ALL</span> @00@  <span class="kw">TO</span> <span class="var">WS-S080-0201-ENTRADA</span>
+                       <span class="var">WS-S080-0201-SALIDA</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020050</span>-<span class="var">TIPOCAMB-FIX</span>.
+     <span class="kw">MOVE</span> <span class="kw">ALL</span> @00@  <span class="kw">TO</span> <span class="var">WS-S080-0201-ENTRADA</span>
+                       <span class="var">WS-S080-0201-SALIDA</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020030</span>-<span class="var">CALCULA-BISIESTO</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020100</span>-<span class="var">DAME-SALMINIMO</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020110</span>-<span class="var">DAME-UMA-ANUAL</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020120</span>-<span class="var">DAME-FACTOR-ISR</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020130</span>-<span class="var">DAME-PORCEN-ISR</span>.
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> (<span class="var">BATCHP130</span> <span class="kw">OR</span> <span class="var">BATCHIPAB</span>)
+     <span class="kw">PERFORM</span> <span class="num">20020140</span>-<span class="var">DAME-FACTOR-ISR-EX</span>.
+$<span class="var">POP</span> <span class="var">OMIT</span>
+<span class="cmt">** se llama al catalogo parametrico 279</span>
+<span class="cmt">** para obtener en numero de Tarifa a utilizar para dolares</span>
+<span class="cmt">** pueder regresar 154=libor,260=ffe, 261=sofr</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-ERR-CAT279-01</span>.
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-ERR-CAT279-02</span>.
+     <span class="kw">PERFORM</span> <span class="var">A601000-DAME-QTASA-DLS</span>.
+<span class="cmt">      *&gt; ⋯ 9 líneas omitidas</span>
+     <span class="kw">PERFORM</span> <span class="var">A101000-DAME-CETES</span>.
+     <span class="kw">PERFORM</span> <span class="var">A101000-DAME-CETESPROM</span>.
+<span class="cmt">** llamado a rutinas para traer los valores de la tarifa</span>
+<span class="cmt">** para dolares indicada en el catalogo 279</span>
+<span class="cmt">** pueder ser 154=libor,260=ffe, 261=sofr</span>
+     <span class="kw">IF</span> (<span class="var">W77-ERR-CAT279-01</span> = <span class="num">0</span> <span class="kw">AND</span> <span class="var">W77-ERR-CAT279-02</span> = <span class="num">0</span>)
+        <span class="kw">PERFORM</span> <span class="var">A102000-DAME-LIBOR</span>
+        <span class="kw">PERFORM</span> <span class="var">A102000-DAME-LIBORPROM</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">WKS-TASA-LIBOR</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">WKS-TASA-LIBORPROM</span>.
+     <span class="kw">PERFORM</span> <span class="num">20020070</span>-<span class="var">VALOR-UDI</span>.</span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Año bisiesto con excepción por nombre de equipo · L330–360"> <span class="num">20020030</span>-<span class="var">CALCULA-BISIESTO</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span> <span class="kw">TO</span>        <span class="var">WS-RESULT-DIV-BIS</span>
+                      <span class="var">WS-RESIDUO-DIV-CUATRO</span>
+                      <span class="var">WS-RESIDUO-DIV-CIEN</span>
+                      <span class="var">WS-RESIDUO-DIV-CUA</span>
+                      <span class="var">WS-ES-BISIESTO</span>.
+     <span class="kw">DIVIDE</span> <span class="var">WS-CANC-AAAA-DB</span>  <span class="kw">BY</span> <span class="num">4</span>   <span class="kw">GIVING</span> <span class="var">WS-RESULT-DIV-BIS</span>
+            <span class="kw">REMAINDER</span> <span class="var">WS-RESIDUO-DIV-CUATRO</span>.
+     <span class="kw">DIVIDE</span> <span class="var">WS-CANC-AAAA-DB</span>  <span class="kw">BY</span> <span class="num">100</span> <span class="kw">GIVING</span> <span class="var">WS-RESULT-DIV-BIS</span>
+            <span class="kw">REMAINDER</span> <span class="var">WS-RESIDUO-DIV-CIEN</span>.
+     <span class="kw">DIVIDE</span> <span class="var">WS-CANC-AAAA-DB</span>  <span class="kw">BY</span> <span class="num">400</span> <span class="kw">GIVING</span> <span class="var">WS-RESULT-DIV-BIS</span>
+            <span class="kw">REMAINDER</span> <span class="var">WS-RESIDUO-DIV-CUA</span>.
+     <span class="kw">IF</span> <span class="var">WS-RESIDUO-DIV-CUATRO</span> = <span class="num">0</span> <span class="kw">AND</span> (<span class="var">WS-RESIDUO-DIV-CIEN</span> &gt; <span class="num">0</span>
+                                  <span class="kw">OR</span>   <span class="var">WS-RESIDUO-DIV-CUA</span> = <span class="num">0</span>)
+        <span class="kw">MOVE</span> <span class="num">1</span>            <span class="kw">TO</span> <span class="var">WS-ES-BISIESTO</span>.
+<span class="cmt">*SE VALIDA BISIESTO</span>
+     <span class="kw">IF</span> <span class="var">WS-ES-BISIESTO</span> = <span class="num">0</span> <span class="kw">OR</span> ((<span class="var">WS-DH-NOM-EQUIPO</span> = <span class="str">&quot;MONALFA.  &quot;</span> <span class="kw">OR</span>
+                                <span class="str">&quot;ACYPGAMA. &quot;</span> <span class="kw">OR</span> <span class="str">&quot;ACYPOMEGA.&quot;</span>    <span class="kw">OR</span>
+                                <span class="str">&quot;CMONALF.  &quot;</span> <span class="kw">OR</span> <span class="str">&quot;CACYPGAM. &quot;</span>) <span class="kw">AND</span>
+                                <span class="var">WS-CANC-FE-BASE</span> &gt; <span class="num">20161127</span> <span class="kw">AND</span>
+                                <span class="var">WS-CANC-AAAA-DB</span> = <span class="num">2016</span>)
+        <span class="kw">MOVE</span> <span class="num">365</span>           <span class="kw">TO</span> <span class="var">WS-DIAS-ANUAL</span>
+        <span class="kw">MOVE</span> <span class="num">36500</span>         <span class="kw">TO</span> <span class="var">WS-DIAS-ANUAL-EDIT</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">366</span>           <span class="kw">TO</span> <span class="var">WS-DIAS-ANUAL</span>
+        <span class="kw">MOVE</span> <span class="num">36600</span>         <span class="kw">TO</span> <span class="var">WS-DIAS-ANUAL-EDIT</span>.</span>
+<span class="seg" data-cid="s3" data-jid="j3" title="Exención de ISR: cinco UMA anuales (tarifa 252, catálogo 9991) · L426–454"> <span class="num">20020110</span>-<span class="var">DAME-UMA-ANUAL</span>.
+<span class="cmt">** CARGA VALOR DE UMA ANUAL TARIFA 252 CAT. 9991       **</span>
+     <span class="kw">MOVE</span> <span class="kw">ALL</span> @00@               <span class="kw">TO</span> <span class="var">WS-S080-0201-ENTRADA</span>
+                                    <span class="var">WS-S080-0201-SALIDA</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-CAP-EXEN-ISR-MN</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-CANC-NUM-PASO</span>       <span class="kw">TO</span> <span class="var">WS-S080-0201-PASO</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-CANC-FE-BASE</span>        <span class="kw">TO</span> <span class="var">WS-S080-0201-FECHVIG</span>.
+     <span class="kw">MOVE</span> <span class="num">252</span>                    <span class="kw">TO</span> <span class="var">WS-S080-0201-CVTARIF</span>.
+     <span class="kw">MOVE</span> <span class="num">9991</span>                   <span class="kw">TO</span> <span class="var">WS-S080-0201-PRODUCTO</span>.
+     <span class="kw">MOVE</span> <span class="num">2</span>                      <span class="kw">TO</span> <span class="var">WS-S080-0201-INSTRUM</span>.
+     <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-S080-0201-MONEDA</span>
+                                    <span class="var">WS-S080-0201-HORAVIG</span>
+                                    <span class="var">WS-S080-0201-IMPMIN</span>
+                                    <span class="var">WS-S080-0201-NIVEL</span>
+                                    <span class="var">WS-S080-0201-FECHCTRL</span>
+                                    <span class="var">WS-S080-0201-HORACTRL</span>.
+     <span class="kw">MOVE</span> <span class="num">1</span>                      <span class="kw">TO</span> <span class="var">WS-S080-0201-NUMREGS</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000080</span>-<span class="var">L700-TARIFAS</span>.
+     <span class="kw">IF</span> <span class="var">WS-S080-0201-RESULT</span> = <span class="num">0</span> <span class="kw">OR</span> <span class="num">1</span>
+        <span class="kw">COMPUTE</span> <span class="var">WS-CAP-IMPPTE</span> = <span class="var">WS-S080-ENT-CAMPO-03</span> (<span class="num">01</span>) /
+                         (<span class="num">10</span> ** <span class="var">WS-S080-DEC-CAMPO-03</span> (<span class="num">01</span>))
+        <span class="kw">MOVE</span> <span class="var">WS-CAP-IMPPTE</span> <span class="kw">TO</span> <span class="var">WS-CAP-EXEN-ISR-MN-UMA</span>.
+<span class="cmt">**CALCULO DE EXENCION DE ISR EN BASE AL VALOR UMA ANUAL</span>
+     <span class="kw">COMPUTE</span> <span class="var">WS-CAP-EXEN-ISR-MN</span> =
+             <span class="var">WS-CAP-EXEN-ISR-MN-UMA</span> * <span class="num">5</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ParametrosFiscalesLoader.java · ParametrosFiscales.java</span><span class="fname">@Service · record inmutable</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** 20020000-CARGA-INSTRUMENTOS: carga única de parámetros antes del ciclo de contratos. */</span>
+<span class="ann">@Service</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ParametrosFiscalesLoader</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">TarifasS080Client</span> s080;       <span class="cmt">// 20000080-L700-TARIFAS / L710-CATALOGOS</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ModoCompilacion</span> modo;          <span class="cmt">// sustituye $SET OMIT (BATCHP130, BATCHIPAB)</span>
+
+    <span class="kw">public</span> <span class="type">ParametrosFiscales</span> carga(<span class="type">LocalDate</span> fechaBase) {
+        <span class="kw">var</span> b = <span class="type">ParametrosFiscales</span>.builder()
+                .tipoCambioFix(s080.tipoCambioFix(fechaBase))          <span class="cmt">// 20020050</span>
+                .diasAnio(<span class="type">DiasAnio</span>.de(fechaBase.getYear(), fechaBase,
+                        equipo.nombre(), calendarioProps))             <span class="cmt">// 20020030</span>
+                .salarioMinimo(s080.salarioMinimo(fechaBase))          <span class="cmt">// 20020100</span>
+                .exencionIsrMn(exencionPorUma(fechaBase))              <span class="cmt">// 20020110</span>
+                .factorIsr(s080.factorIsr(fechaBase))                  <span class="cmt">// 20020120 tarifa 254</span>
+                .porcentajeIsr(s080.porcentajeIsr(fechaBase));         <span class="cmt">// 20020130 tarifa 255</span>
+        <span class="kw">if</span> (modo.esP130() || modo.esIpab()) {
+            b.factorIsrExtranjeros(s080.factorIsrExtranjeros(fechaBase)); <span class="cmt">// 20020140 tarifa 259</span>
+        }
+        <span class="cmt">// Catálogo 279: tarifa de referencia DLS (154 LIBOR, 260 FFE, 261 SOFR).</span>
+        <span class="type">Optional</span>&lt;<span class="type">TarifaDls</span>&gt; dls = s080.tarifaReferenciaDls(fechaBase);  <span class="cmt">// A601000-DAME-QTASA-DLS</span>
+        b.cetes(s080.cetes(fechaBase)).cetesPromedio(s080.cetesPromedio(fechaBase));
+        dls.ifPresentOrElse(
+            t -&gt; b.tasaDls(s080.tasa(t, fechaBase)).tasaDlsPromedio(s080.tasaPromedio(t, fechaBase)),
+            () -&gt; b.tasaDls(<span class="type">BigDecimal</span>.ZERO).tasaDlsPromedio(<span class="type">BigDecimal</span>.ZERO)); <span class="cmt">// error en cat. 279</span>
+        <span class="kw">return</span> b.valorUdi(s080.valorUdi(fechaBase)).build();            <span class="cmt">// 20020070</span>
+    }
+}</span>
+<span class="seg java-seg" data-jid="j2"><span class="cmt">/** 20020030-CALCULA-BISIESTO. WS-DIAS-ANUAL y WS-DIAS-ANUAL-EDIT (días x 100). */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">DiasAnio</span>(<span class="kw">int</span> dias, <span class="kw">int</span> diasPorCien) {
+
+    <span class="kw">public</span> <span class="kw">static</span> <span class="type">DiasAnio</span> de(<span class="kw">int</span> anio, <span class="type">LocalDate</span> fechaBase, <span class="type">String</span> equipo, <span class="type">CalendarioProps</span> props) {
+        <span class="kw">boolean</span> bisiesto = <span class="type">Year</span>.isLeap(anio);           <span class="cmt">// misma regla 4 / 100 / 400 del fuente</span>
+        <span class="kw">boolean</span> excepcion2016 = props.equiposExcepcion2016().contains(equipo.trim())
+                &amp;&amp; fechaBase.isAfter(<span class="type">LocalDate</span>.of(<span class="num">2016</span>, <span class="num">11</span>, <span class="num">27</span>))
+                &amp;&amp; anio == <span class="num">2016</span>;
+        <span class="kw">return</span> (!bisiesto || excepcion2016)
+                ? <span class="kw">new</span> <span class="type">DiasAnio</span>(<span class="num">365</span>, <span class="num">36500</span>)
+                : <span class="kw">new</span> <span class="type">DiasAnio</span>(<span class="num">366</span>, <span class="num">36600</span>);
+    }
+}
+
+# application.yml
+calendario:
+  equipos-excepcion-2016: [MONALFA., ACYPGAMA., ACYPOMEGA., CMONALF., CACYPGAM.]</span>
+<span class="seg java-seg" data-jid="j3"><span class="cmt">/** 20020110-DAME-UMA-ANUAL: la parte exenta de ISR en MN son 5 UMA anuales. */</span>
+<span class="kw">private</span> <span class="type">BigDecimal</span> exencionPorUma(<span class="type">LocalDate</span> fechaBase) {
+    <span class="type">TarifaRespuesta</span> r = s080.consulta(<span class="type">TarifaConsulta</span>.builder()
+            .clave(props.tarifaUmaAnual())        <span class="cmt">// 252</span>
+            .producto(<span class="num">9991</span>).instrumento(<span class="num">2</span>).moneda(<span class="num">0</span>)
+            .fechaVigencia(fechaBase).registros(<span class="num">1</span>)
+            .build());
+
+    <span class="type">BigDecimal</span> umaAnual = <span class="type">BigDecimal</span>.ZERO;           <span class="cmt">// WS-CAP-EXEN-ISR-MN-UMA conserva su valor previo si falla</span>
+    <span class="kw">if</span> (r.resultado() == <span class="num">0</span> || r.resultado() == <span class="num">1</span>) {
+        <span class="cmt">// CAMPO-03 llega como entero con DEC-CAMPO-03 decimales implícitos</span>
+        umaAnual = <span class="kw">new</span> <span class="type">BigDecimal</span>(r.campo(<span class="num">3</span>).entero()).movePointLeft(r.campo(<span class="num">3</span>).decimales());
+    }
+    <span class="cmt">// PIC 9(08)V99 COMP: multiplicar por 5 conserva la escala; sin ROUNDED</span>
+    <span class="kw">return</span> umaAnual.multiply(<span class="type">BigDecimal</span>.valueOf(props.vecesUmaExencion()))   <span class="cmt">// 5</span>
+                   .setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.DOWN);
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Capitalización por contrato: ruteo, base gravable, rendimiento e ISR</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_INC_WOR.txt</span><span class="fname">20500000-CAPITALIZACION · 20520500-CALCULA-RENDIMIENTOS</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s4" data-jid="j4" title="Días del mes y clasificación Artículo 61 · L4899–4944"> <span class="num">20500000</span>-<span class="var">CAPITALIZACION</span>.
+<span class="cmt">      *&gt; ⋯ 24 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="var">WS-CANC-MM-DB</span> &gt; <span class="num">0</span> <span class="kw">AND</span> &lt; <span class="num">13</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-TAB-DIAS-MES</span>(<span class="var">WS-CANC-MM-DB</span>) <span class="kw">TO</span> <span class="var">WS-CANC-DIASMES</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">30</span> <span class="kw">TO</span> <span class="var">WS-CANC-DIASMES</span>.
+<span class="cmt">*</span>
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">WS88-CANC-TP-BATCH</span>
+        <span class="kw">MOVE</span> <span class="var">WS03-SUC-PROMOTORA</span>     <span class="kw">TO</span> <span class="var">WKS-S080-NUMSUC</span>
+        <span class="kw">PERFORM</span> <span class="num">42000080</span>-<span class="var">DATOS-S080</span>.
+     <span class="kw">IF</span> <span class="var">WS03-88-PIM-CTAGLOB</span>
+        <span class="kw">IF</span> <span class="var">WS03-STA-BENEF</span> = <span class="num">3</span> <span class="kw">OR</span> <span class="num">8</span>
+           <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WS-ES-ART61-CG</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">MOVE</span> <span class="num">2</span> <span class="kw">TO</span> <span class="var">WS-ES-ART61-CG</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS03-STA-BENEF</span> = <span class="num">3</span> <span class="kw">OR</span> <span class="num">8</span>
+        <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WS-ES-ART61</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">0</span> <span class="kw">TO</span> <span class="var">WS-ES-ART61</span>.</span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Ruteo por tipo de proceso: diario, línea pendiente o corte · L4963–5021">     <span class="kw">PERFORM</span> <span class="num">20520100</span>-<span class="var">DAME-INSTRUMENTO</span>.
+<span class="cmt">** WS-CANC-ERROR = 2 cuando no existe B05</span>
+     <span class="kw">IF</span> <span class="var">WS-CANC-ERROR</span> = <span class="num">2</span>
+        <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS88-CANC-TP-DIARIO</span>
+        <span class="kw">IF</span> <span class="var">WS03-STATUS</span> = <span class="num">0</span> <span class="kw">OR</span> <span class="num">1</span> <span class="kw">OR</span> <span class="num">5</span>
+           <span class="kw">IF</span> <span class="var">TB-B05-IND-RENDDIA</span>(<span class="var">WS-IND-INST</span>) = <span class="num">1</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+              <span class="kw">PERFORM</span> <span class="num">20520000</span>-<span class="var">PAGA-RENDIMIENTOS</span>
+              <span class="kw">IF</span> <span class="var">WS03-STATUS</span> = <span class="num">0</span> <span class="kw">OR</span> <span class="num">5</span>
+                 <span class="kw">IF</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+                 <span class="kw">OR</span> <span class="var">WS-ES-ART61-CG</span> = <span class="num">1</span>
+                    <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+                 <span class="kw">ELSE</span>
+                    <span class="kw">PERFORM</span> <span class="num">20500010</span>-<span class="var">COMIS-DIARIAS</span>
+              <span class="kw">ELSE</span>
+              <span class="kw">IF</span> <span class="var">WS03-TIPO-BLOQUEO</span> = <span class="num">14</span>
+             <span class="kw">AND</span> <span class="var">WS03-IMPSOL-BLOQ</span>  &gt; <span class="num">0</span>
+                 <span class="kw">PERFORM</span> <span class="num">20500010</span>-<span class="var">COMIS-DIARIAS</span>
+              <span class="kw">ELSE</span>
+                 <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+           <span class="kw">ELSE</span>
+           <span class="kw">IF</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+           <span class="kw">OR</span> <span class="var">WS-ES-ART61-CG</span> = <span class="num">1</span>
+           <span class="kw">OR</span> <span class="var">WS03-88-CTO-BENEF</span>
+           <span class="kw">OR</span> <span class="var">WS03-88-CTO-GLOBMPS</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+           <span class="kw">ELSE</span>
+           <span class="kw">IF</span> <span class="var">WS03-STATUS</span> = <span class="num">0</span> <span class="kw">OR</span> <span class="num">5</span>
+              <span class="kw">PERFORM</span> <span class="num">20500010</span>-<span class="var">COMIS-DIARIAS</span>
+           <span class="kw">ELSE</span>
+           <span class="kw">IF</span> <span class="var">WS03-TIPO-BLOQUEO</span> = <span class="num">14</span>
+          <span class="kw">AND</span> <span class="var">WS03-IMPSOL-BLOQ</span>  &gt; <span class="num">0</span>
+              <span class="kw">PERFORM</span> <span class="num">20500010</span>-<span class="var">COMIS-DIARIAS</span>
+           <span class="kw">ELSE</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS88-CANC-TP-LINEAPTE</span>
+        <span class="kw">IF</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+        <span class="kw">OR</span> <span class="var">WS-ES-ART61-CG</span> = <span class="num">1</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+        <span class="kw">IF</span> <span class="var">WS03-88-CTO-BENEF</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-CTO-GLOBMPS</span>
+<span class="cmt">** No cobra comisiones Pendientes a Sub-Cuentas TESOFE **</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-CC-TESOFE-SUBCTA</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-USOCTANT-SCNORM</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-USOCTANT-SCCONC</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">PERFORM</span> <span class="num">20500015</span>-<span class="var">COMIS-PTE-LINEA</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">PERFORM</span> <span class="num">20500005</span>-<span class="var">CON-CORTE</span>.</span>
+<span class="seg" data-cid="s6" data-jid="j6" title="Divisor de tasa y saldo promedio gravado · L6365–6417"> <span class="num">20520500</span>-<span class="var">CALCULA-RENDIMIENTOS</span>.
+<span class="cmt">** Para Cta. Global y Art.61 usa Tasas mensuales  Dias_mes * 100</span>
+<span class="cmt">** Para Los demas Productos  usa Tasas anualizadas 36000</span>
+     <span class="kw">IF</span> <span class="var">WS03-88-PIM-CTAGLOB</span>
+     <span class="kw">OR</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+        <span class="kw">COMPUTE</span> <span class="var">WS-CAP-DIASPORCIEN</span> = <span class="var">WS-CANC-DIASMES</span> * <span class="num">100</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">36000</span> <span class="kw">TO</span> <span class="var">WS-CAP-DIASPORCIEN</span>.
+<span class="cmt">**</span>
+     <span class="kw">IF</span> <span class="var">WS03-88-PIM-CTAGLOB</span>
+     <span class="kw">OR</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+        <span class="kw">MOVE</span> <span class="kw">ZEROS</span>              <span class="kw">TO</span> <span class="var">WS-CAP-EXEN-ISR</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS03-MONEDA</span> = <span class="num">1</span>
+        <span class="kw">MOVE</span> <span class="var">WS-CAP-EXEN-ISR-MN</span> <span class="kw">TO</span> <span class="var">WS-CAP-EXEN-ISR</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="var">WS-CAP-EXEN-ISR-DLS</span> <span class="kw">TO</span> <span class="var">WS-CAP-EXEN-ISR</span>.
+     <span class="kw">IF</span> <span class="var">WS03-88-PIM-CTAGLOB</span>
+     <span class="kw">OR</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+        <span class="kw">MOVE</span> <span class="var">WS-CAP-PROMCICLO</span> <span class="kw">TO</span> <span class="var">WS-CAP-PROMGRAVADO</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">TB-B05-CVRETIMP</span>(<span class="var">WS-IND-INST</span>) = <span class="num">0</span>
+     <span class="kw">OR</span> <span class="var">WS-CAP-SINIMPTO</span> = <span class="num">1</span>
+     <span class="kw">OR</span> <span class="var">WS03-88-TP-MORNOLUCR1</span>
+     <span class="kw">OR</span> <span class="var">WS03-88-TP-FISEXT</span>
+     <span class="kw">OR</span> <span class="var">WS03-88-TP-MOREXT</span>
+     <span class="kw">OR</span> <span class="var">WS03-88-TP-FNALENEXT</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">WS-CAP-PROMGRAVADO</span>
+     <span class="kw">ELSE</span>
+<span class="cmt">*INI POSTMORTEM SE ELIMINA LA EXENCION DE ISR DEL TP 03 y 16</span>
+     <span class="kw">IF</span> <span class="var">WS03-88-TP-GMORAL</span> <span class="kw">OR</span>
+        <span class="var">WS03-88-TP-FISEMP</span> <span class="kw">OR</span>
+        <span class="var">WS03-88-TP-FEMPEXTEM</span>
+<span class="cmt">*FIN POSTMORTEM</span>
+        <span class="kw">MOVE</span> <span class="var">WS-CAP-PROMCICLO</span> <span class="kw">TO</span> <span class="var">WS-CAP-PROMGRAVADO</span>
+     <span class="kw">ELSE</span>
+<span class="cmt">* INI POSTMORTEM SE CONSULTA SALDO A EXENTAR</span>
+$<span class="kw">SET</span> <span class="var">OMIT</span> = <span class="kw">NOT</span> <span class="var">LIBS084L</span>
+     <span class="kw">IF</span> (<span class="var">WS03-88-TP-FISICA</span> <span class="kw">OR</span> <span class="var">WS03-88-TP-FISMENOR</span> <span class="kw">OR</span>
+        <span class="var">WS03-88-TP-FISINCAP</span> <span class="kw">OR</span> <span class="var">WS03-88-TP-FISDEEXT</span>) <span class="kw">AND</span>
+        <span class="var">WS-CAP-PROMCICLO</span>  &gt; <span class="num">0</span> <span class="kw">AND</span> <span class="var">WS-CAP-TASABRUTA</span> &gt; <span class="num">0</span>
+        <span class="kw">PERFORM</span> <span class="num">10000</span>-<span class="var">VALIDA-IMP-EXENT</span>
+     <span class="kw">ELSE</span>
+$<span class="var">POP</span> <span class="var">OMIT</span>
+<span class="cmt">* FIN POSTMORTEM</span>
+     <span class="kw">IF</span> <span class="var">WS-CAP-PROMCICLO</span> &gt; <span class="var">WS-CAP-EXEN-ISR</span>
+        <span class="kw">COMPUTE</span> <span class="var">WS-CAP-PROMGRAVADO</span> =
+                <span class="var">WS-CAP-PROMCICLO</span> - <span class="var">WS-CAP-EXEN-ISR</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">WS-CAP-PROMGRAVADO</span>.</span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Rendimiento bruto e ISR por tipo de persona · L6419–6472">     <span class="kw">MOVE</span> <span class="var">WS-ISR-0-9991-254</span>          <span class="kw">TO</span> <span class="var">WS-ISR-0</span>
+<span class="cmt">*INI POST-MORTEM SE MUEVE ISR AL TRACE DEL PROGRAMA</span>
+                                        <span class="var">WS-CAP-TASAIMPTO</span>.
+<span class="cmt">      *&gt; ⋯ 9 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="var">WS-CAP-DIASCICLO</span> &gt; <span class="num">0</span>
+<span class="cmt">*** Calculo de Rendimientos Bracketing</span>
+<span class="cmt">*INI X-20210200490 EL PAGO SEGMENTADO DE BRACKETING SOLO SE</span>
+<span class="cmt">*REALIZA SI LA TASA SE OBTUVO DEL S080, PARA LA TASA GBNP</span>
+<span class="cmt">*NO SE REALIZA</span>
+        <span class="kw">IF</span> <span class="var">WS03-ESQ-REND</span> = <span class="num">1</span> <span class="kw">AND</span> <span class="var">WS-88-PAGA-CON-S080</span>
+<span class="cmt">*FIN X-20210200490</span>
+           <span class="kw">PERFORM</span> <span class="var">A510000-CAL-REND-BRAK</span>
+        <span class="kw">ELSE</span>
+<span class="cmt">*** Calculo de Rendimientos tradicionales curvas y grupos</span>
+           <span class="kw">COMPUTE</span> <span class="var">WS-CAP-RENDBRTO</span> <span class="kw">ROUNDED</span> =
+                  (<span class="var">WS-CAP-PROMCICLO</span> * <span class="var">WS-CAP-TASABRUTA</span>
+                 / <span class="var">WS-CAP-DIASPORCIEN</span> * <span class="var">WS-CAP-DIASCICLO</span>).
+     <span class="kw">IF</span> <span class="var">WS-CAP-DIASCICLO</span> &gt; <span class="num">0</span>
+<span class="cmt">*INI POST-MORTEM SE AGREGAN REGLAS PARA EL CALCULO DE ISR DE CTA</span>
+<span class="cmt">*    GLOBAL</span>
+<span class="cmt">*       IF WS03-88-PIM-CTAGLOB</span>
+        <span class="kw">IF</span> <span class="var">WS-ES-ART61</span> = <span class="num">1</span>
+           <span class="kw">COMPUTE</span> <span class="var">WS-CAP-IMPUESTO</span> <span class="kw">ROUNDED</span> =
+           (<span class="var">WS-CAP-PROMGRAVADO</span> * <span class="var">WS-ISR-0</span> / <span class="var">WS-DIAS-ANUAL-EDIT</span>
+                               * <span class="var">WS-CAP-DIASCICLO</span>)
+        <span class="kw">ELSE</span>
+        <span class="kw">IF</span> <span class="var">TB-B05-CVRETIMP</span>(<span class="var">WS-IND-RENX</span>) = <span class="num">0</span>
+        <span class="kw">OR</span> <span class="var">WS-CAP-SINIMPTO</span> = <span class="num">1</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-TP-MORNOLUCR1</span>
+           <span class="kw">MOVE</span> <span class="kw">ZERO</span>    <span class="kw">TO</span> <span class="var">WS-CAP-IMPUESTO</span>
+        <span class="kw">ELSE</span>
+        <span class="kw">IF</span> <span class="var">WS03-88-TP-FISEXT</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-TP-MOREXT</span>
+        <span class="kw">OR</span> <span class="var">WS03-88-TP-FNALENEXT</span>
+           <span class="kw">MOVE</span> <span class="var">WS-ISR-EXTR-0</span>    <span class="kw">TO</span> <span class="var">WS-CAP-TASAIMPTO</span>
+<span class="cmt">*FIN POST-MORTEM</span>
+           <span class="kw">COMPUTE</span>  <span class="var">WS-CAP-IMPUESTO</span> <span class="kw">ROUNDED</span> =
+                    <span class="var">WS-CAP-RENDBRTO</span> * <span class="var">WS-ISR-EXTR-0</span>
+           <span class="kw">COMPUTE</span>  <span class="var">WS-CAP-RENDNETO</span> =
+                    <span class="var">WS-CAP-RENDBRTO</span> - <span class="var">WS-CAP-IMPUESTO</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">COMPUTE</span> <span class="var">WS-CAP-IMPUESTO</span> <span class="kw">ROUNDED</span> =
+           (<span class="var">WS-CAP-PROMGRAVADO</span> * <span class="var">WS-ISR-0</span> / <span class="var">WS-DIAS-ANUAL-EDIT</span>
+                               * <span class="var">WS-CAP-DIASCICLO</span>).</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>CapitalizacionService.java · RendimientoCalculator.java</span><span class="fname">@Service · BigDecimal</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j4"><span class="cmt">/** 20500000-CAPITALIZACION, preparación del contrato. */</span>
+<span class="kw">private</span> <span class="type">ContextoContrato</span> prepara(<span class="type">Contrato</span> c, <span class="type">LocalDate</span> fechaBase) {
+    <span class="kw">int</span> mes = fechaBase.getMonthValue();
+    <span class="kw">int</span> diasMes = (mes &gt;= <span class="num">1</span> &amp;&amp; mes &lt;= <span class="num">12</span>) ? TABLA_DIAS_MES[mes - <span class="num">1</span>] : <span class="num">30</span>;   <span class="cmt">// WKS-TAB-DIAS-MES</span>
+
+    <span class="kw">boolean</span> estatusBeneficencia = c.statusBeneficencia() == <span class="num">3</span> || c.statusBeneficencia() == <span class="num">8</span>;
+    <span class="type">Art61</span> art61 = c.esCuentaGlobal()
+            ? (estatusBeneficencia ? <span class="type">Art61</span>.CUENTA_GLOBAL_ART61 : <span class="type">Art61</span>.CUENTA_GLOBAL)   <span class="cmt">// WS-ES-ART61-CG 1 / 2</span>
+            : (estatusBeneficencia ? <span class="type">Art61</span>.ART61 : <span class="type">Art61</span>.NO);                          <span class="cmt">// WS-ES-ART61 1 / 0</span>
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">ContextoContrato</span>(c, diasMes, art61);
+}</span>
+<span class="seg java-seg" data-jid="j5"><span class="kw">public</span> <span class="kw">void</span> capitaliza(<span class="type">ContextoContrato</span> ctx) {
+    <span class="type">Optional</span>&lt;<span class="type">Instrumento</span>&gt; inst = instrumentos.de(ctx.contrato());        <span class="cmt">// 20520100-DAME-INSTRUMENTO</span>
+    <span class="kw">if</span> (inst.isEmpty()) <span class="kw">return</span>;                                         <span class="cmt">// WS-CANC-ERROR = 2: no existe B05</span>
+    <span class="type">Contrato</span> c = ctx.contrato();
+
+    <span class="kw">switch</span> (modo.tipoProceso()) {
+        <span class="kw">case</span> DIARIO -&gt; {
+            <span class="kw">if</span> (!<span class="type">Set</span>.of(<span class="num">0</span>, <span class="num">1</span>, <span class="num">5</span>).contains(c.status())) <span class="kw">return</span>;
+            <span class="kw">boolean</span> activo = c.status() == <span class="num">0</span> || c.status() == <span class="num">5</span>;
+            <span class="kw">boolean</span> bloqueo14 = c.tipoBloqueo() == <span class="num">14</span> &amp;&amp; c.importeSolBloqueo().signum() &gt; <span class="num">0</span>;
+            <span class="kw">if</span> (inst.get().rendimientoDiario()) {
+                rendimientos.paga(ctx);                                  <span class="cmt">// 20520000-PAGA-RENDIMIENTOS</span>
+                <span class="kw">if</span> (activo ? !ctx.art61().esArt61() : bloqueo14) comisiones.diarias(ctx);
+            } <span class="kw">else</span> {
+                <span class="kw">boolean</span> exento = ctx.art61().esArt61() || c.esBeneficencia() || c.esGlobalMps();
+                <span class="kw">if</span> (!exento &amp;&amp; (activo || bloqueo14)) comisiones.diarias(ctx);  <span class="cmt">// 20500010</span>
+            }
+        }
+        <span class="kw">case</span> LINEA_PENDIENTE -&gt; {
+            <span class="kw">boolean</span> exento = ctx.art61().esArt61() || c.esBeneficencia() || c.esGlobalMps()
+                    || c.esSubcuentaTesofe() || c.usoCuentaSubcuenta();
+            <span class="kw">if</span> (!exento) comisiones.pendientesLinea(ctx);              <span class="cmt">// 20500015-COMIS-PTE-LINEA</span>
+        }
+        <span class="kw">default</span> -&gt; corte.procesa(ctx, inst.get());                      <span class="cmt">// 20500005-CON-CORTE</span>
+    }
+}</span>
+<span class="seg java-seg" data-jid="j6"><span class="cmt">/** 20520500-CALCULA-RENDIMIENTOS, primera parte: base gravable. */</span>
+<span class="type">BigDecimal</span> promedioGravado(<span class="type">ContextoContrato</span> ctx, <span class="type">Instrumento</span> inst, <span class="type">BigDecimal</span> promCiclo,
+                           <span class="type">BigDecimal</span> tasaBruta, <span class="type">ParametrosFiscales</span> p) {
+    <span class="type">Contrato</span> c = ctx.contrato();
+    <span class="kw">if</span> (c.esCuentaGlobal() || ctx.art61() == <span class="type">Art61</span>.ART61) {
+        <span class="kw">return</span> promCiclo;                                   <span class="cmt">// sin exención: todo grava</span>
+    }
+    <span class="type">TipoPersona</span> tp = c.tipoPersona();
+    <span class="kw">if</span> (!inst.retieneImpuesto() || ctx.sinImpuesto()
+            || tp.in(MORAL_NO_LUCRATIVA_1, FISICA_EXTRANJERA, MORAL_EXTRANJERA, FINANCIERA_EXTRANJERA)) {
+        <span class="kw">return</span> <span class="type">BigDecimal</span>.ZERO;                             <span class="cmt">// no hay base gravable sobre saldo</span>
+    }
+    <span class="kw">if</span> (tp.in(MORAL_GENERAL, FISICA_EMPRESARIAL, FISICA_EMPRESARIAL_EXTRANJERA_EM)) {
+        <span class="kw">return</span> promCiclo;                                   <span class="cmt">// postmortem: sin exención para estos tipos</span>
+    }
+    <span class="kw">if</span> (modo.libS084() &amp;&amp; tp.esFisicaNacional()
+            &amp;&amp; promCiclo.signum() &gt; <span class="num">0</span> &amp;&amp; tasaBruta.signum() &gt; <span class="num">0</span>) {
+        <span class="kw">return</span> exencionS084.valida(ctx);                    <span class="cmt">// 10000-VALIDA-IMP-EXENT</span>
+    }
+    <span class="type">BigDecimal</span> exento = (c.moneda() == <span class="num">1</span>) ? p.exencionIsrMn() : p.exencionIsrDls();
+    <span class="kw">return</span> promCiclo.compareTo(exento) &gt; <span class="num">0</span> ? promCiclo.subtract(exento) : <span class="type">BigDecimal</span>.ZERO;
+}
+
+<span class="kw">int</span> diasPorCien(<span class="type">ContextoContrato</span> ctx) {                     <span class="cmt">// WS-CAP-DIASPORCIEN</span>
+    <span class="kw">return</span> (ctx.contrato().esCuentaGlobal() || ctx.art61() == <span class="type">Art61</span>.ART61)
+            ? ctx.diasMes() * <span class="num">100</span> : <span class="num">36000</span>;
+}</span>
+<span class="seg java-seg" data-jid="j7"><span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="type">MathContext</span> MC = <span class="type">MathContext</span>.DECIMAL128;
+
+<span class="cmt">/** WS-CAP-RENDBRTO PIC 9(12)V99 con ROUNDED. */</span>
+<span class="type">BigDecimal</span> rendimientoBruto(<span class="type">BigDecimal</span> promCiclo, <span class="type">BigDecimal</span> tasaBruta, <span class="kw">int</span> diasPorCien, <span class="kw">int</span> diasCiclo) {
+    <span class="kw">return</span> promCiclo.multiply(tasaBruta, MC)
+            .divide(<span class="type">BigDecimal</span>.valueOf(diasPorCien), MC)
+            .multiply(<span class="type">BigDecimal</span>.valueOf(diasCiclo), MC)
+            .setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.HALF_UP);
+}
+
+<span class="cmt">/** WS-CAP-IMPUESTO PIC 9(12)V99 con ROUNDED. */</span>
+<span class="type">BigDecimal</span> isr(<span class="type">ContextoContrato</span> ctx, <span class="type">Instrumento</span> inst, <span class="type">BigDecimal</span> promGravado,
+               <span class="type">BigDecimal</span> rendBruto, <span class="kw">int</span> diasCiclo, <span class="type">ParametrosFiscales</span> p) {
+    <span class="kw">if</span> (diasCiclo &lt;= <span class="num">0</span>) <span class="kw">return</span> <span class="type">BigDecimal</span>.ZERO;
+    <span class="type">TipoPersona</span> tp = ctx.contrato().tipoPersona();
+    <span class="kw">if</span> (ctx.art61() != <span class="type">Art61</span>.ART61) {
+        <span class="kw">if</span> (!inst.retieneImpuesto() || ctx.sinImpuesto() || tp == MORAL_NO_LUCRATIVA_1) {
+            <span class="kw">return</span> <span class="type">BigDecimal</span>.ZERO;
+        }
+        <span class="kw">if</span> (tp.in(FISICA_EXTRANJERA, MORAL_EXTRANJERA, FINANCIERA_EXTRANJERA)) {
+            <span class="cmt">// extranjeros: tasa de retención (tarifa 259) sobre el rendimiento</span>
+            <span class="kw">return</span> rendBruto.multiply(p.factorIsrExtranjeros()).setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.HALF_UP);
+        }
+    }
+    <span class="cmt">// nacionales y Artículo 61: factor anual (tarifa 254) sobre el saldo gravado, prorrateado</span>
+    <span class="kw">return</span> promGravado.multiply(p.factorIsr(), MC)
+            .divide(<span class="type">BigDecimal</span>.valueOf(p.diasAnio().diasPorCien()), MC)
+            .multiply(<span class="type">BigDecimal</span>.valueOf(diasCiclo), MC)
+            .setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.HALF_UP);
+}
+<span class="cmt">// Con esquema de rendimiento 1 y tasa obtenida de S080 se usa A510000-CAL-REND-BRAK (bracketing).</span></span></pre></div>
+</div>
+<div class="sec-hdr">3 · Comisión por manejo de cuenta</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_INC_WOR.txt</span><span class="fname">20530510-CALCULA-MANEJO-CTA · 20530511-EXEMAN-X-COMPRAS</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s8" data-jid="j8" title="Importe o tasa según la clave de cobro de S016 · L7298–7332"> <span class="num">20530510</span>-<span class="var">CALCULA-MANEJO-CTA</span>.
+     <span class="kw">MOVE</span> <span class="var">TB-B05-CVECOMI</span>(<span class="var">WS-IND-INST</span>, <span class="num">5</span>)  <span class="kw">TO</span> <span class="var">WS-CVECOMI-CAP</span>
+                                             <span class="var">WS-CLAVE-TRANS</span>.
+     <span class="kw">IF</span> <span class="var">WS-S016-0101-CVECOBRO</span>(<span class="num">03</span>) = <span class="num">2</span>
+        <span class="kw">MOVE</span> <span class="var">WS-S016-0101-COBCOM</span>(<span class="num">03</span>)   <span class="kw">TO</span> <span class="var">WS-TASACOM-CAP</span>
+        <span class="kw">PERFORM</span> <span class="num">20530520</span>-<span class="var">IMPCOM-CAP</span>
+        <span class="kw">IF</span> (<span class="var">WS-TASACOM-CAP</span> &gt; <span class="num">0</span>) <span class="kw">OR</span> (<span class="var">WS03-88-CC-PERSBNM</span>)
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+          <span class="kw">PERFORM</span> <span class="num">20530530</span>-<span class="var">COMNOCOBRO-CAP</span>
+     <span class="kw">ELSE</span>
+     <span class="kw">IF</span> <span class="var">WS-S016-0101-CVECOBRO</span>(<span class="num">03</span>) = <span class="num">1</span>
+         <span class="kw">MOVE</span> <span class="num">100</span>                       <span class="kw">TO</span> <span class="var">WS-TASACOM-CAP</span>
+         <span class="kw">MOVE</span> <span class="var">WS-S016-0101-COBCOM</span>(<span class="num">03</span>)   <span class="kw">TO</span> <span class="var">WS-IMPCOM-CAP</span>
+         <span class="kw">IF</span> (<span class="var">WS-IMPCOM-CAP</span> &gt; <span class="num">0</span>) <span class="kw">OR</span> (<span class="var">WS03-88-CC-PERSBNM</span>)
+            <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+         <span class="kw">ELSE</span>
+           <span class="kw">PERFORM</span> <span class="num">20530530</span>-<span class="var">COMNOCOBRO-CAP</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="num">100</span>                       <span class="kw">TO</span> <span class="var">WS-TASACOM-CAP</span>
+        <span class="kw">PERFORM</span> <span class="num">20530520</span>-<span class="var">IMPCOM-CAP</span>
+        <span class="kw">IF</span> <span class="var">W77-DIF-MANCTA-SDO</span> &lt; <span class="var">WS-IMPCOM-CAP</span>
+           <span class="kw">MOVE</span> <span class="var">W77-DIF-MANCTA-SDO</span>  <span class="kw">TO</span> <span class="var">WS-IMPCOM-CAP</span>.
+     <span class="kw">IF</span> <span class="var">WS-IMPCOM-CAP</span>  = <span class="num">0</span>
+     <span class="kw">OR</span> <span class="var">WS-TASACOM-CAP</span> = <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>   <span class="kw">TO</span> <span class="var">WS-GRAVADOS-CAP</span>
+        <span class="kw">IF</span> (<span class="var">WS88-CANC-TP-LINEA</span>)
+        <span class="kw">OR</span> (<span class="var">WS-COMNOCOBRO-CAP</span> = <span class="num">0</span>)
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">PERFORM</span> <span class="num">20550100</span>-<span class="var">CALCULA-COMISION</span>
+     <span class="kw">ELSE</span>
+         <span class="kw">PERFORM</span> <span class="num">20530511</span>-<span class="var">EXEMAN-X-COMPRAS</span>.</span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Exención del manejo de cuenta por número de compras · L7334–7348"> <span class="num">20530511</span>-<span class="var">EXEMAN-X-COMPRAS</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-249-COMP-MAN</span>(<span class="var">WS-IND-COMX</span>,<span class="var">WS-IND-PERS</span>,<span class="var">WS-IND-ESQC</span>)
+       <span class="kw">TO</span> <span class="var">WS-NCOMPRAS-CAP</span>.
+     <span class="kw">IF</span> <span class="var">WS-NCOMPRAS-CAP</span> &gt; <span class="num">0</span>
+    <span class="kw">AND</span> <span class="var">TB-B05-CVECOMI</span> (<span class="var">WS-IND-INST</span>, <span class="num">45</span>) &gt; <span class="num">0</span>
+        <span class="kw">IF</span> <span class="var">WS-NCOMPRAS-CAP</span> &gt; <span class="var">WS06-CONT-COMIS</span>(<span class="num">24</span>)
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+        <span class="kw">ELSE</span>
+           <span class="kw">MOVE</span> <span class="var">TB-B05-CVECOMI</span>(<span class="var">WS-IND-INST</span>, <span class="num">45</span>) <span class="kw">TO</span> <span class="var">WS-CVEEXE-CAP</span>
+           <span class="kw">MOVE</span> <span class="num">0</span>                              <span class="kw">TO</span> <span class="var">WS-GRAVADOS-CAP</span>
+                                                  <span class="var">WS-EXENTOS-CAP</span>
+                                                  <span class="var">WS-IMPCOM-CAP</span>
+                                                  <span class="var">WS-TASACOM-CAP</span>.
+     <span class="kw">PERFORM</span> <span class="num">20550100</span>-<span class="var">CALCULA-COMISION</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ComisionManejoCuenta.java</span><span class="fname">@Component · estrategia por clave de cobro</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j8"><span class="cmt">/** 20530510-CALCULA-MANEJO-CTA. Concepto 5 del instrumento; posición 03 del esquema S016. */</span>
+<span class="kw">public</span> <span class="type">Optional</span>&lt;<span class="type">Comision</span>&gt; calcula(<span class="type">ContextoContrato</span> ctx, <span class="type">EsquemaS016</span> esq, <span class="type">Instrumento</span> inst) {
+    <span class="type">Cobro</span> cobro = esq.cobro(<span class="num">3</span>);
+    <span class="type">BigDecimal</span> tasa;
+    <span class="type">BigDecimal</span> importe;
+    <span class="kw">switch</span> (cobro.clave()) {
+        <span class="kw">case</span> <span class="num">2</span> -&gt; {                                        <span class="cmt">// tasa de S016, importe de la tabla</span>
+            tasa = cobro.valor();
+            importe = tablaManejo(ctx);                    <span class="cmt">// 20530520-IMPCOM-CAP</span>
+            <span class="kw">if</span> (tasa.signum() == <span class="num">0</span> &amp;&amp; !ctx.contrato().esPersonalBanamex()) noCobro(ctx);
+        }
+        <span class="kw">case</span> <span class="num">1</span> -&gt; {                                        <span class="cmt">// importe fijo de S016</span>
+            tasa = CIEN;
+            importe = cobro.valor();
+            <span class="kw">if</span> (importe.signum() == <span class="num">0</span> &amp;&amp; !ctx.contrato().esPersonalBanamex()) noCobro(ctx);
+        }
+        <span class="kw">default</span> -&gt; {                                       <span class="cmt">// tabla, topada a la diferencia contra saldo</span>
+            tasa = CIEN;
+            importe = tablaManejo(ctx).min(ctx.difManejoVsSaldo());   <span class="cmt">// W77-DIF-MANCTA-SDO</span>
+        }
+    }
+    <span class="kw">if</span> (importe.signum() == <span class="num">0</span> || tasa.signum() == <span class="num">0</span>) {
+        <span class="kw">if</span> (!modo.esLinea() &amp;&amp; ctx.comisionNoCobrada()) <span class="kw">return</span> calculadora.calcula(ctx, CERO_GRAVADOS);
+        <span class="kw">return</span> <span class="type">Optional</span>.empty();
+    }
+    <span class="kw">return</span> exencionPorCompras(ctx, inst);                  <span class="cmt">// 20530511</span>
+}
+
+<span class="kw">private</span> <span class="type">BigDecimal</span> tablaManejo(<span class="type">ContextoContrato</span> ctx) {
+    <span class="kw">return</span> ctx.contrato().esBancaInstitucional()
+            ? tarifas.manejoInstitucional(ctx.indices())    <span class="cmt">// WS-COM-MANEJO-CI</span>
+            : tarifas.manejo(ctx.indices());                <span class="cmt">// WS-COM-MANEJO</span>
+}</span>
+<span class="seg java-seg" data-jid="j9"><span class="cmt">/** 20530511-EXEMAN-X-COMPRAS. */</span>
+<span class="kw">private</span> <span class="type">Optional</span>&lt;<span class="type">Comision</span>&gt; exencionPorCompras(<span class="type">ContextoContrato</span> ctx, <span class="type">Instrumento</span> inst) {
+    <span class="kw">int</span> comprasRequeridas = tarifas.comprasParaExentarManejo(ctx.indices());   <span class="cmt">// WS-249-COMP-MAN</span>
+    <span class="kw">int</span> claveExencion = inst.claveComision(<span class="num">45</span>);
+    <span class="kw">if</span> (comprasRequeridas &gt; <span class="num">0</span> &amp;&amp; claveExencion &gt; <span class="num">0</span>
+            &amp;&amp; comprasRequeridas &lt;= ctx.contadorComisiones(<span class="num">24</span>)) {             <span class="cmt">// WS06-CONT-COMIS(24)</span>
+        <span class="cmt">// se exenta: importes en cero y clave de exención 45 del instrumento</span>
+        <span class="kw">return</span> calculadora.calcula(ctx, <span class="type">Comision</span>.exenta(claveExencion));
+    }
+    <span class="kw">return</span> calculadora.calcula(ctx, <span class="type">Comision</span>.cobrable());                     <span class="cmt">// 20550100-CALCULA-COMISION</span>
+}</span></pre></div>
+</div>
+  
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Comportamiento distinto según directivas de compilación</b><p>Bloques completos dependen de $SET OMIT con CAPITALIZA, BATCHP130, BATCHIPAB y LIBS084L. En las líneas 6405-6411 la directiva cambia la forma del IF del cálculo de la base gravable. Cada programa host compila una variante distinta del mismo motor.</p></div><div class="risk"><b>Cálculo de exención fuera de la condición de éxito</b><p>En 20020110-DAME-UMA-ANUAL el COMPUTE de la exención (línea 453) se ejecuta aunque S080 haya respondido con error, usando el último valor de la UMA en memoria.</p></div><div class="risk"><b>Saldo de UMAS tomado de base de datos</b><p>En P130, para cheques de cuenta de producto y personas físicas, la línea 6428 sustituye el saldo promedio gravado por B03-UMAS-EXE, un campo de la base. El nombre sugiere un importe exento y se asigna a la variable del gravado.</p></div><div class="risk"><b>Divisor anual dependiente del equipo</b><p>20020030-CALCULA-BISIESTO fuerza 365 días en 2016 para cinco nombres de equipo compilados en el código.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Los nombres de los archivos extraídos no corresponden a su contenido: proccanc está en S500_INC_WOR.txt (inicia en la línea 3 con 20020000-CARGA-INSTRUMENTOS), mientras que S500_INC_PRO_CAN.txt contiene las rutinas de enlace a librerías. Conviene renombrarlos para evitar confusiones.</li><li>Las PIC de WS-CAP-RENDBRTO, WS-CAP-IMPUESTO, WS-CAP-PROMCICLO y WS-CAP-EXEN-ISR-MN se tomaron del copybook de WORKING del host (S500_INC_WOR_DAS.txt); confirmar que es el que incluye P130.</li><li>Confirmar la semántica de WS03-STATUS 0, 1 y 5 y del tipo de bloqueo 14 en el ruteo de comisiones diarias.</li><li>Validar si B03-UMAS-EXE debe asignarse a WS-CAP-PROMGRAVADO (línea 6428) o es un error de la corrección postmortem.</li><li>Confirmar que WS06-CONT-COMIS(24) es el contador de compras del cliente usado para exentar el manejo de cuenta.</li><li>El módulo no tiene reglas propias en el brain; las reglas de negocio viven en los programas host (P130 y variantes IPAB).</li></ul>
+  <div class="pn"><a href="S500_lib010.html">← S500 · lib010</a><a href="../cobol-java.html">Inventario</a><a href="S500_procedur.html">S500 · procedur →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · Banamex · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Arranque del motor: una sola carga de parámetros por corrida", "cobol": " 20020000-CARGA-INSTRUMENTOS.\n     MOVE ALL @00@  TO WS-S080-0201-ENTRADA\n                       WS-S080-0201-SALIDA.\n     PERFORM 20020050-TIPOCAMB-FIX.\n     MOVE ALL @00@  TO WS-S080-0201-ENTRADA\n                       WS-S080-0201-SALIDA.\n     PERFORM 20020030-CALCULA-BISIESTO.\n     PERFORM 20020100-DAME-SALMINIMO.\n     PERFORM 20020110-DAME-UMA-ANUAL.\n     PERFORM 20020120-DAME-FACTOR-ISR.\n     PERFORM 20020130-DAME-PORCEN-ISR.\n$SET OMIT = NOT (BATCHP130 OR BATCHIPAB)\n     PERFORM 20020140-DAME-FACTOR-ISR-EX.\n$POP OMIT\n** se llama al catalogo parametrico 279\n** para obtener en numero de Tarifa a utilizar para dolares\n** pueder regresar 154=libor,260=ffe, 261=sofr\n     MOVE ZERO TO W77-ERR-CAT279-01.\n     MOVE ZERO TO W77-ERR-CAT279-02.\n     PERFORM A601000-DAME-QTASA-DLS.\n      *> ⋯ 9 líneas omitidas\n     PERFORM A101000-DAME-CETES.\n     PERFORM A101000-DAME-CETESPROM.\n** llamado a rutinas para traer los valores de la tarifa\n** para dolares indicada en el catalogo 279\n** pueder ser 154=libor,260=ffe, 261=sofr\n     IF (W77-ERR-CAT279-01 = 0 AND W77-ERR-CAT279-02 = 0)\n        PERFORM A102000-DAME-LIBOR\n        PERFORM A102000-DAME-LIBORPROM\n     ELSE\n        MOVE ZERO TO WKS-TASA-LIBOR\n        MOVE ZERO TO WKS-TASA-LIBORPROM.\n     PERFORM 20020070-VALOR-UDI.", "java": "/** 20020000-CARGA-INSTRUMENTOS: carga única de parámetros antes del ciclo de contratos. */\n@Service\n@RequiredArgsConstructor\npublic class ParametrosFiscalesLoader {\n\n    private final TarifasS080Client s080;       // 20000080-L700-TARIFAS / L710-CATALOGOS\n    private final ModoCompilacion modo;          // sustituye $SET OMIT (BATCHP130, BATCHIPAB)\n\n    public ParametrosFiscales carga(LocalDate fechaBase) {\n        var b = ParametrosFiscales.builder()\n                .tipoCambioFix(s080.tipoCambioFix(fechaBase))          // 20020050\n                .diasAnio(DiasAnio.de(fechaBase.getYear(), fechaBase,\n                        equipo.nombre(), calendarioProps))             // 20020030\n                .salarioMinimo(s080.salarioMinimo(fechaBase))          // 20020100\n                .exencionIsrMn(exencionPorUma(fechaBase))              // 20020110\n                .factorIsr(s080.factorIsr(fechaBase))                  // 20020120 tarifa 254\n                .porcentajeIsr(s080.porcentajeIsr(fechaBase));         // 20020130 tarifa 255\n        if (modo.esP130() || modo.esIpab()) {\n            b.factorIsrExtranjeros(s080.factorIsrExtranjeros(fechaBase)); // 20020140 tarifa 259\n        }\n        // Catálogo 279: tarifa de referencia DLS (154 LIBOR, 260 FFE, 261 SOFR).\n        Optional<TarifaDls> dls = s080.tarifaReferenciaDls(fechaBase);  // A601000-DAME-QTASA-DLS\n        b.cetes(s080.cetes(fechaBase)).cetesPromedio(s080.cetesPromedio(fechaBase));\n        dls.ifPresentOrElse(\n            t -> b.tasaDls(s080.tasa(t, fechaBase)).tasaDlsPromedio(s080.tasaPromedio(t, fechaBase)),\n            () -> b.tasaDls(BigDecimal.ZERO).tasaDlsPromedio(BigDecimal.ZERO)); // error en cat. 279\n        return b.valorUdi(s080.valorUdi(fechaBase)).build();            // 20020070\n    }\n}", "rationale": "El párrafo es una secuencia de llamadas a S080 que llenan variables de WORKING-STORAGE compartidas con el host. En Java el resultado es un <code>record</code> inmutable <code>ParametrosFiscales</code> que se construye una vez por corrida y se inyecta al cálculo por contrato, en lugar de variables globales. Las directivas <code>$SET OMIT</code> que activan pasos solo para <code>BATCHP130</code> o <code>BATCHIPAB</code> pasan a un bean <code>ModoCompilacion</code> que se lee de <code>application.yml</code>. Si el catálogo 279 falla, el fuente pone en cero LIBOR y LIBOR promedio sin abortar; la traducción conserva ese comportamiento con <code>ifPresentOrElse</code>.", "risk": "Con error en el catálogo 279 las tasas de referencia en dólares quedan en cero y la corrida continúa; un rendimiento en dólares calculado sobre esa base saldría en cero sin aviso más allá de la bitácora.", "rules": [], "lines": "L3–51", "verified": true, "score": 100}, "s2": {"title": "Año bisiesto con excepción por nombre de equipo", "cobol": " 20020030-CALCULA-BISIESTO.\n     MOVE 0 TO        WS-RESULT-DIV-BIS\n                      WS-RESIDUO-DIV-CUATRO\n                      WS-RESIDUO-DIV-CIEN\n                      WS-RESIDUO-DIV-CUA\n                      WS-ES-BISIESTO.\n     DIVIDE WS-CANC-AAAA-DB  BY 4   GIVING WS-RESULT-DIV-BIS\n            REMAINDER WS-RESIDUO-DIV-CUATRO.\n     DIVIDE WS-CANC-AAAA-DB  BY 100 GIVING WS-RESULT-DIV-BIS\n            REMAINDER WS-RESIDUO-DIV-CIEN.\n     DIVIDE WS-CANC-AAAA-DB  BY 400 GIVING WS-RESULT-DIV-BIS\n            REMAINDER WS-RESIDUO-DIV-CUA.\n     IF WS-RESIDUO-DIV-CUATRO = 0 AND (WS-RESIDUO-DIV-CIEN > 0\n                                  OR   WS-RESIDUO-DIV-CUA = 0)\n        MOVE 1            TO WS-ES-BISIESTO.\n*SE VALIDA BISIESTO\n     IF WS-ES-BISIESTO = 0 OR ((WS-DH-NOM-EQUIPO = \"MONALFA.  \" OR\n                                \"ACYPGAMA. \" OR \"ACYPOMEGA.\"    OR\n                                \"CMONALF.  \" OR \"CACYPGAM. \") AND\n                                WS-CANC-FE-BASE > 20161127 AND\n                                WS-CANC-AAAA-DB = 2016)\n        MOVE 365           TO WS-DIAS-ANUAL\n        MOVE 36500         TO WS-DIAS-ANUAL-EDIT\n     ELSE\n        MOVE 366           TO WS-DIAS-ANUAL\n        MOVE 36600         TO WS-DIAS-ANUAL-EDIT.", "java": "/** 20020030-CALCULA-BISIESTO. WS-DIAS-ANUAL y WS-DIAS-ANUAL-EDIT (días x 100). */\npublic record DiasAnio(int dias, int diasPorCien) {\n\n    public static DiasAnio de(int anio, LocalDate fechaBase, String equipo, CalendarioProps props) {\n        boolean bisiesto = Year.isLeap(anio);           // misma regla 4 / 100 / 400 del fuente\n        boolean excepcion2016 = props.equiposExcepcion2016().contains(equipo.trim())\n                && fechaBase.isAfter(LocalDate.of(2016, 11, 27))\n                && anio == 2016;\n        return (!bisiesto || excepcion2016)\n                ? new DiasAnio(365, 36500)\n                : new DiasAnio(366, 36600);\n    }\n}\n\n# application.yml\ncalendario:\n  equipos-excepcion-2016: [MONALFA., ACYPGAMA., ACYPOMEGA., CMONALF., CACYPGAM.]", "rationale": "Las tres divisiones con <code>REMAINDER</code> implementan la regla gregoriana completa, que en Java es <code>Year.isLeap</code>. Además del cálculo, el fuente fuerza 365 días para 2016 cuando la fecha base es posterior al 27 de noviembre y el proceso corre en ciertos equipos, identificados por <code>WS-DH-NOM-EQUIPO</code>. Esa lista de nombres es un hardcode de infraestructura y pasa a <code>application.yml</code>. <code>WS-DIAS-ANUAL-EDIT</code> guarda los días multiplicados por 100 porque las tasas se expresan en porcentaje.", "risk": "La excepción de 2016 hace que el divisor anual dependa del servidor donde corre el batch. Ya no aplica a fechas actuales, pero muestra que el cálculo de ISR puede variar por equipo y debe probarse en paralelo.", "rules": [], "lines": "L330–360", "verified": true, "score": 100}, "s3": {"title": "Exención de ISR: cinco UMA anuales (tarifa 252, catálogo 9991)", "cobol": " 20020110-DAME-UMA-ANUAL.\n** CARGA VALOR DE UMA ANUAL TARIFA 252 CAT. 9991       **\n     MOVE ALL @00@               TO WS-S080-0201-ENTRADA\n                                    WS-S080-0201-SALIDA.\n     MOVE 0                      TO WS-CAP-EXEN-ISR-MN.\n     MOVE WS-CANC-NUM-PASO       TO WS-S080-0201-PASO.\n     MOVE WS-CANC-FE-BASE        TO WS-S080-0201-FECHVIG.\n     MOVE 252                    TO WS-S080-0201-CVTARIF.\n     MOVE 9991                   TO WS-S080-0201-PRODUCTO.\n     MOVE 2                      TO WS-S080-0201-INSTRUM.\n     MOVE 0                      TO WS-S080-0201-MONEDA\n                                    WS-S080-0201-HORAVIG\n                                    WS-S080-0201-IMPMIN\n                                    WS-S080-0201-NIVEL\n                                    WS-S080-0201-FECHCTRL\n                                    WS-S080-0201-HORACTRL.\n     MOVE 1                      TO WS-S080-0201-NUMREGS.\n     PERFORM 20000080-L700-TARIFAS.\n     IF WS-S080-0201-RESULT = 0 OR 1\n        COMPUTE WS-CAP-IMPPTE = WS-S080-ENT-CAMPO-03 (01) /\n                         (10 ** WS-S080-DEC-CAMPO-03 (01))\n        MOVE WS-CAP-IMPPTE TO WS-CAP-EXEN-ISR-MN-UMA.\n**CALCULO DE EXENCION DE ISR EN BASE AL VALOR UMA ANUAL\n     COMPUTE WS-CAP-EXEN-ISR-MN =\n             WS-CAP-EXEN-ISR-MN-UMA * 5.", "java": "/** 20020110-DAME-UMA-ANUAL: la parte exenta de ISR en MN son 5 UMA anuales. */\nprivate BigDecimal exencionPorUma(LocalDate fechaBase) {\n    TarifaRespuesta r = s080.consulta(TarifaConsulta.builder()\n            .clave(props.tarifaUmaAnual())        // 252\n            .producto(9991).instrumento(2).moneda(0)\n            .fechaVigencia(fechaBase).registros(1)\n            .build());\n\n    BigDecimal umaAnual = BigDecimal.ZERO;           // WS-CAP-EXEN-ISR-MN-UMA conserva su valor previo si falla\n    if (r.resultado() == 0 || r.resultado() == 1) {\n        // CAMPO-03 llega como entero con DEC-CAMPO-03 decimales implícitos\n        umaAnual = new BigDecimal(r.campo(3).entero()).movePointLeft(r.campo(3).decimales());\n    }\n    // PIC 9(08)V99 COMP: multiplicar por 5 conserva la escala; sin ROUNDED\n    return umaAnual.multiply(BigDecimal.valueOf(props.vecesUmaExencion()))   // 5\n                   .setScale(2, RoundingMode.DOWN);\n}", "rationale": "El valor de la UMA anual llega de S080 como un entero más un número de decimales implícitos; <code>movePointLeft</code> reproduce la división entre <code>10 ** DEC-CAMPO-03</code> sin pasar por punto flotante. La exención es el resultado multiplicado por 5; el factor y la clave de tarifa 252 se sacan a <code>application.yml</code>. <code>WS-CAP-EXEN-ISR-MN</code> es <code>PIC 9(08)V99 COMP</code> en el copybook de WORKING del host, de ahí la escala 2 con truncamiento porque el <code>COMPUTE</code> no lleva <code>ROUNDED</code>.", "risk": "El COMPUTE de la línea 453 está fuera del IF: si S080 responde con error, la exención se calcula con el valor que tuviera WS-CAP-EXEN-ISR-MN-UMA de antes y no se marca error en este párrafo.", "rules": [], "lines": "L426–454", "verified": true, "score": 100}, "s4": {"title": "Días del mes y clasificación Artículo 61", "cobol": " 20500000-CAPITALIZACION.\n      *> ⋯ 24 líneas omitidas\n     IF WS-CANC-MM-DB > 0 AND < 13\n        MOVE WKS-TAB-DIAS-MES(WS-CANC-MM-DB) TO WS-CANC-DIASMES\n     ELSE\n        MOVE 30 TO WS-CANC-DIASMES.\n*\n     IF NOT WS88-CANC-TP-BATCH\n        MOVE WS03-SUC-PROMOTORA     TO WKS-S080-NUMSUC\n        PERFORM 42000080-DATOS-S080.\n     IF WS03-88-PIM-CTAGLOB\n        IF WS03-STA-BENEF = 3 OR 8\n           MOVE 1 TO WS-ES-ART61-CG\n        ELSE\n           MOVE 2 TO WS-ES-ART61-CG\n     ELSE\n     IF WS03-STA-BENEF = 3 OR 8\n        MOVE 1 TO WS-ES-ART61\n     ELSE\n        MOVE 0 TO WS-ES-ART61.", "java": "/** 20500000-CAPITALIZACION, preparación del contrato. */\nprivate ContextoContrato prepara(Contrato c, LocalDate fechaBase) {\n    int mes = fechaBase.getMonthValue();\n    int diasMes = (mes >= 1 && mes <= 12) ? TABLA_DIAS_MES[mes - 1] : 30;   // WKS-TAB-DIAS-MES\n\n    boolean estatusBeneficencia = c.statusBeneficencia() == 3 || c.statusBeneficencia() == 8;\n    Art61 art61 = c.esCuentaGlobal()\n            ? (estatusBeneficencia ? Art61.CUENTA_GLOBAL_ART61 : Art61.CUENTA_GLOBAL)   // WS-ES-ART61-CG 1 / 2\n            : (estatusBeneficencia ? Art61.ART61 : Art61.NO);                          // WS-ES-ART61 1 / 0\n    return new ContextoContrato(c, diasMes, art61);\n}", "rationale": "Los contratos con estatus de beneficencia 3 u 8 se tratan como cuentas del Artículo 61 y la Cuenta Global tiene su propia bandera. En el fuente son dos variables numéricas con valores 0, 1 y 2; en Java un <code>enum</code> deja explícitos los cuatro casos. La tabla de días por mes con 30 por defecto se conserva porque determina el divisor mensual que se usa para estas cuentas en el cálculo de rendimientos.", "risk": "El valor 30 por defecto se aplica si el mes de la fecha base viene fuera de rango; en lugar de fallar, el cálculo mensual del Artículo 61 usaría 30 días.", "rules": [], "lines": "L4899–4944", "verified": true, "score": 100}, "s5": {"title": "Ruteo por tipo de proceso: diario, línea pendiente o corte", "cobol": "     PERFORM 20520100-DAME-INSTRUMENTO.\n** WS-CANC-ERROR = 2 cuando no existe B05\n     IF WS-CANC-ERROR = 2\n        NEXT SENTENCE\n     ELSE\n     IF WS88-CANC-TP-DIARIO\n        IF WS03-STATUS = 0 OR 1 OR 5\n           IF TB-B05-IND-RENDDIA(WS-IND-INST) = 1\n      *> ⋯ 2 líneas omitidas\n              PERFORM 20520000-PAGA-RENDIMIENTOS\n              IF WS03-STATUS = 0 OR 5\n                 IF WS-ES-ART61 = 1\n                 OR WS-ES-ART61-CG = 1\n                    NEXT SENTENCE\n                 ELSE\n                    PERFORM 20500010-COMIS-DIARIAS\n              ELSE\n              IF WS03-TIPO-BLOQUEO = 14\n             AND WS03-IMPSOL-BLOQ  > 0\n                 PERFORM 20500010-COMIS-DIARIAS\n              ELSE\n                 NEXT SENTENCE\n           ELSE\n           IF WS-ES-ART61 = 1\n           OR WS-ES-ART61-CG = 1\n           OR WS03-88-CTO-BENEF\n           OR WS03-88-CTO-GLOBMPS\n              NEXT SENTENCE\n           ELSE\n           IF WS03-STATUS = 0 OR 5\n              PERFORM 20500010-COMIS-DIARIAS\n           ELSE\n           IF WS03-TIPO-BLOQUEO = 14\n          AND WS03-IMPSOL-BLOQ  > 0\n              PERFORM 20500010-COMIS-DIARIAS\n           ELSE\n              NEXT SENTENCE\n        ELSE\n           NEXT SENTENCE\n     ELSE\n     IF WS88-CANC-TP-LINEAPTE\n        IF WS-ES-ART61 = 1\n        OR WS-ES-ART61-CG = 1\n           NEXT SENTENCE\n        ELSE\n        IF WS03-88-CTO-BENEF\n        OR WS03-88-CTO-GLOBMPS\n** No cobra comisiones Pendientes a Sub-Cuentas TESOFE **\n        OR WS03-88-CC-TESOFE-SUBCTA\n        OR WS03-88-USOCTANT-SCNORM\n        OR WS03-88-USOCTANT-SCCONC\n           NEXT SENTENCE\n        ELSE\n           PERFORM 20500015-COMIS-PTE-LINEA\n     ELSE\n        PERFORM 20500005-CON-CORTE.", "java": "public void capitaliza(ContextoContrato ctx) {\n    Optional<Instrumento> inst = instrumentos.de(ctx.contrato());        // 20520100-DAME-INSTRUMENTO\n    if (inst.isEmpty()) return;                                         // WS-CANC-ERROR = 2: no existe B05\n    Contrato c = ctx.contrato();\n\n    switch (modo.tipoProceso()) {\n        case DIARIO -> {\n            if (!Set.of(0, 1, 5).contains(c.status())) return;\n            boolean activo = c.status() == 0 || c.status() == 5;\n            boolean bloqueo14 = c.tipoBloqueo() == 14 && c.importeSolBloqueo().signum() > 0;\n            if (inst.get().rendimientoDiario()) {\n                rendimientos.paga(ctx);                                  // 20520000-PAGA-RENDIMIENTOS\n                if (activo ? !ctx.art61().esArt61() : bloqueo14) comisiones.diarias(ctx);\n            } else {\n                boolean exento = ctx.art61().esArt61() || c.esBeneficencia() || c.esGlobalMps();\n                if (!exento && (activo || bloqueo14)) comisiones.diarias(ctx);  // 20500010\n            }\n        }\n        case LINEA_PENDIENTE -> {\n            boolean exento = ctx.art61().esArt61() || c.esBeneficencia() || c.esGlobalMps()\n                    || c.esSubcuentaTesofe() || c.usoCuentaSubcuenta();\n            if (!exento) comisiones.pendientesLinea(ctx);              // 20500015-COMIS-PTE-LINEA\n        }\n        default -> corte.procesa(ctx, inst.get());                      // 20500005-CON-CORTE\n    }\n}", "rationale": "El bloque es un IF anidado de seis niveles donde cada <code>ELSE</code> se empareja con el IF abierto más cercano. Se resolvió el emparejamiento a mano: el <code>ELSE</code> de la línea 5003 corresponde al IF de estatus 0, 1 o 5 y el de la línea 5005 al de proceso diario. En Java el tipo de proceso es un <code>switch</code> sobre un <code>enum</code> y cada rama queda plana, lo que facilita probar las combinaciones de estatus, bloqueo y Artículo 61. Los <code>NEXT SENTENCE</code> equivalen a no hacer nada en esa rama.", "risk": "La exclusión de beneficencia y Global MPS solo se evalúa cuando el instrumento no paga rendimiento diario; con rendimiento diario, un contrato de beneficencia activo sí entra a comisiones diarias si no es Artículo 61. Confirmar si es intencional.", "rules": [], "lines": "L4963–5021", "verified": true, "score": 100}, "s6": {"title": "Divisor de tasa y saldo promedio gravado", "cobol": " 20520500-CALCULA-RENDIMIENTOS.\n** Para Cta. Global y Art.61 usa Tasas mensuales  Dias_mes * 100\n** Para Los demas Productos  usa Tasas anualizadas 36000\n     IF WS03-88-PIM-CTAGLOB\n     OR WS-ES-ART61 = 1\n        COMPUTE WS-CAP-DIASPORCIEN = WS-CANC-DIASMES * 100\n     ELSE\n        MOVE 36000 TO WS-CAP-DIASPORCIEN.\n**\n     IF WS03-88-PIM-CTAGLOB\n     OR WS-ES-ART61 = 1\n        MOVE ZEROS              TO WS-CAP-EXEN-ISR\n     ELSE\n     IF WS03-MONEDA = 1\n        MOVE WS-CAP-EXEN-ISR-MN TO WS-CAP-EXEN-ISR\n     ELSE\n        MOVE WS-CAP-EXEN-ISR-DLS TO WS-CAP-EXEN-ISR.\n     IF WS03-88-PIM-CTAGLOB\n     OR WS-ES-ART61 = 1\n        MOVE WS-CAP-PROMCICLO TO WS-CAP-PROMGRAVADO\n     ELSE\n     IF TB-B05-CVRETIMP(WS-IND-INST) = 0\n     OR WS-CAP-SINIMPTO = 1\n     OR WS03-88-TP-MORNOLUCR1\n     OR WS03-88-TP-FISEXT\n     OR WS03-88-TP-MOREXT\n     OR WS03-88-TP-FNALENEXT\n        MOVE ZERO TO WS-CAP-PROMGRAVADO\n     ELSE\n*INI POSTMORTEM SE ELIMINA LA EXENCION DE ISR DEL TP 03 y 16\n     IF WS03-88-TP-GMORAL OR\n        WS03-88-TP-FISEMP OR\n        WS03-88-TP-FEMPEXTEM\n*FIN POSTMORTEM\n        MOVE WS-CAP-PROMCICLO TO WS-CAP-PROMGRAVADO\n     ELSE\n* INI POSTMORTEM SE CONSULTA SALDO A EXENTAR\n$SET OMIT = NOT LIBS084L\n     IF (WS03-88-TP-FISICA OR WS03-88-TP-FISMENOR OR\n        WS03-88-TP-FISINCAP OR WS03-88-TP-FISDEEXT) AND\n        WS-CAP-PROMCICLO  > 0 AND WS-CAP-TASABRUTA > 0\n        PERFORM 10000-VALIDA-IMP-EXENT\n     ELSE\n$POP OMIT\n* FIN POSTMORTEM\n     IF WS-CAP-PROMCICLO > WS-CAP-EXEN-ISR\n        COMPUTE WS-CAP-PROMGRAVADO =\n                WS-CAP-PROMCICLO - WS-CAP-EXEN-ISR\n     ELSE\n        MOVE ZERO TO WS-CAP-PROMGRAVADO.", "java": "/** 20520500-CALCULA-RENDIMIENTOS, primera parte: base gravable. */\nBigDecimal promedioGravado(ContextoContrato ctx, Instrumento inst, BigDecimal promCiclo,\n                           BigDecimal tasaBruta, ParametrosFiscales p) {\n    Contrato c = ctx.contrato();\n    if (c.esCuentaGlobal() || ctx.art61() == Art61.ART61) {\n        return promCiclo;                                   // sin exención: todo grava\n    }\n    TipoPersona tp = c.tipoPersona();\n    if (!inst.retieneImpuesto() || ctx.sinImpuesto()\n            || tp.in(MORAL_NO_LUCRATIVA_1, FISICA_EXTRANJERA, MORAL_EXTRANJERA, FINANCIERA_EXTRANJERA)) {\n        return BigDecimal.ZERO;                             // no hay base gravable sobre saldo\n    }\n    if (tp.in(MORAL_GENERAL, FISICA_EMPRESARIAL, FISICA_EMPRESARIAL_EXTRANJERA_EM)) {\n        return promCiclo;                                   // postmortem: sin exención para estos tipos\n    }\n    if (modo.libS084() && tp.esFisicaNacional()\n            && promCiclo.signum() > 0 && tasaBruta.signum() > 0) {\n        return exencionS084.valida(ctx);                    // 10000-VALIDA-IMP-EXENT\n    }\n    BigDecimal exento = (c.moneda() == 1) ? p.exencionIsrMn() : p.exencionIsrDls();\n    return promCiclo.compareTo(exento) > 0 ? promCiclo.subtract(exento) : BigDecimal.ZERO;\n}\n\nint diasPorCien(ContextoContrato ctx) {                     // WS-CAP-DIASPORCIEN\n    return (ctx.contrato().esCuentaGlobal() || ctx.art61() == Art61.ART61)\n            ? ctx.diasMes() * 100 : 36000;\n}", "rationale": "La base gravable sale de una cascada de IF que en Java se vuelve una función con retornos tempranos en el mismo orden de evaluación del fuente. Las cuentas Global y Artículo 61 usan tasas mensuales (días del mes por 100) y gravan todo el saldo promedio; los demás productos usan base 36000. La rama con <code>10000-VALIDA-IMP-EXENT</code> solo existe si el host compila con <code>LIBS084L</code>; se modela con una bandera de configuración. La resta entre <code>PIC 9(14)V99</code> es exacta y no requiere modo de redondeo.", "risk": "La estructura del IF cambia según la directiva LIBS084L: sin ella, el ELSE de la línea 6410 desaparece y el IF de la línea 6413 se aplica directamente. Hay que probar ambos modos de compilación.", "rules": [], "lines": "L6365–6417", "verified": true, "score": 100}, "s7": {"title": "Rendimiento bruto e ISR por tipo de persona", "cobol": "     MOVE WS-ISR-0-9991-254          TO WS-ISR-0\n*INI POST-MORTEM SE MUEVE ISR AL TRACE DEL PROGRAMA\n                                        WS-CAP-TASAIMPTO.\n      *> ⋯ 9 líneas omitidas\n     IF WS-CAP-DIASCICLO > 0\n*** Calculo de Rendimientos Bracketing\n*INI X-20210200490 EL PAGO SEGMENTADO DE BRACKETING SOLO SE\n*REALIZA SI LA TASA SE OBTUVO DEL S080, PARA LA TASA GBNP\n*NO SE REALIZA\n        IF WS03-ESQ-REND = 1 AND WS-88-PAGA-CON-S080\n*FIN X-20210200490\n           PERFORM A510000-CAL-REND-BRAK\n        ELSE\n*** Calculo de Rendimientos tradicionales curvas y grupos\n           COMPUTE WS-CAP-RENDBRTO ROUNDED =\n                  (WS-CAP-PROMCICLO * WS-CAP-TASABRUTA\n                 / WS-CAP-DIASPORCIEN * WS-CAP-DIASCICLO).\n     IF WS-CAP-DIASCICLO > 0\n*INI POST-MORTEM SE AGREGAN REGLAS PARA EL CALCULO DE ISR DE CTA\n*    GLOBAL\n*       IF WS03-88-PIM-CTAGLOB\n        IF WS-ES-ART61 = 1\n           COMPUTE WS-CAP-IMPUESTO ROUNDED =\n           (WS-CAP-PROMGRAVADO * WS-ISR-0 / WS-DIAS-ANUAL-EDIT\n                               * WS-CAP-DIASCICLO)\n        ELSE\n        IF TB-B05-CVRETIMP(WS-IND-RENX) = 0\n        OR WS-CAP-SINIMPTO = 1\n        OR WS03-88-TP-MORNOLUCR1\n           MOVE ZERO    TO WS-CAP-IMPUESTO\n        ELSE\n        IF WS03-88-TP-FISEXT\n        OR WS03-88-TP-MOREXT\n        OR WS03-88-TP-FNALENEXT\n           MOVE WS-ISR-EXTR-0    TO WS-CAP-TASAIMPTO\n*FIN POST-MORTEM\n           COMPUTE  WS-CAP-IMPUESTO ROUNDED =\n                    WS-CAP-RENDBRTO * WS-ISR-EXTR-0\n           COMPUTE  WS-CAP-RENDNETO =\n                    WS-CAP-RENDBRTO - WS-CAP-IMPUESTO\n        ELSE\n           COMPUTE WS-CAP-IMPUESTO ROUNDED =\n           (WS-CAP-PROMGRAVADO * WS-ISR-0 / WS-DIAS-ANUAL-EDIT\n                               * WS-CAP-DIASCICLO).", "java": "private static final MathContext MC = MathContext.DECIMAL128;\n\n/** WS-CAP-RENDBRTO PIC 9(12)V99 con ROUNDED. */\nBigDecimal rendimientoBruto(BigDecimal promCiclo, BigDecimal tasaBruta, int diasPorCien, int diasCiclo) {\n    return promCiclo.multiply(tasaBruta, MC)\n            .divide(BigDecimal.valueOf(diasPorCien), MC)\n            .multiply(BigDecimal.valueOf(diasCiclo), MC)\n            .setScale(2, RoundingMode.HALF_UP);\n}\n\n/** WS-CAP-IMPUESTO PIC 9(12)V99 con ROUNDED. */\nBigDecimal isr(ContextoContrato ctx, Instrumento inst, BigDecimal promGravado,\n               BigDecimal rendBruto, int diasCiclo, ParametrosFiscales p) {\n    if (diasCiclo <= 0) return BigDecimal.ZERO;\n    TipoPersona tp = ctx.contrato().tipoPersona();\n    if (ctx.art61() != Art61.ART61) {\n        if (!inst.retieneImpuesto() || ctx.sinImpuesto() || tp == MORAL_NO_LUCRATIVA_1) {\n            return BigDecimal.ZERO;\n        }\n        if (tp.in(FISICA_EXTRANJERA, MORAL_EXTRANJERA, FINANCIERA_EXTRANJERA)) {\n            // extranjeros: tasa de retención (tarifa 259) sobre el rendimiento\n            return rendBruto.multiply(p.factorIsrExtranjeros()).setScale(2, RoundingMode.HALF_UP);\n        }\n    }\n    // nacionales y Artículo 61: factor anual (tarifa 254) sobre el saldo gravado, prorrateado\n    return promGravado.multiply(p.factorIsr(), MC)\n            .divide(BigDecimal.valueOf(p.diasAnio().diasPorCien()), MC)\n            .multiply(BigDecimal.valueOf(diasCiclo), MC)\n            .setScale(2, RoundingMode.HALF_UP);\n}\n// Con esquema de rendimiento 1 y tasa obtenida de S080 se usa A510000-CAL-REND-BRAK (bracketing).", "rationale": "Hay dos fórmulas de ISR. Para personas nacionales y cuentas del Artículo 61 el impuesto es el saldo promedio gravado por el factor anual de la tarifa 254, entre los días del año por 100 y por los días del ciclo. Para extranjeros es el rendimiento bruto por la tasa de la tarifa 259. Los <code>COMPUTE ... ROUNDED</code> se traducen a <code>HALF_UP</code> a escala 2, que es la del <code>PIC 9(12)V99</code>. Los productos y cocientes intermedios se hacen en <code>DECIMAL128</code> y en el mismo orden que la expresión COBOL, que divide antes de multiplicar por los días.", "risk": "La precisión de los intermedios en un COMPUTE de Unisys COBOL85 no está garantizada igual que DECIMAL128; una diferencia de un centavo es posible en saldos grandes. Requiere corrida en paralelo y conciliación por contrato.", "rules": [], "lines": "L6419–6472", "verified": true, "score": 100}, "s8": {"title": "Importe o tasa según la clave de cobro de S016", "cobol": " 20530510-CALCULA-MANEJO-CTA.\n     MOVE TB-B05-CVECOMI(WS-IND-INST, 5)  TO WS-CVECOMI-CAP\n                                             WS-CLAVE-TRANS.\n     IF WS-S016-0101-CVECOBRO(03) = 2\n        MOVE WS-S016-0101-COBCOM(03)   TO WS-TASACOM-CAP\n        PERFORM 20530520-IMPCOM-CAP\n        IF (WS-TASACOM-CAP > 0) OR (WS03-88-CC-PERSBNM)\n           NEXT SENTENCE\n        ELSE\n          PERFORM 20530530-COMNOCOBRO-CAP\n     ELSE\n     IF WS-S016-0101-CVECOBRO(03) = 1\n         MOVE 100                       TO WS-TASACOM-CAP\n         MOVE WS-S016-0101-COBCOM(03)   TO WS-IMPCOM-CAP\n         IF (WS-IMPCOM-CAP > 0) OR (WS03-88-CC-PERSBNM)\n            NEXT SENTENCE\n         ELSE\n           PERFORM 20530530-COMNOCOBRO-CAP\n     ELSE\n        MOVE 100                       TO WS-TASACOM-CAP\n        PERFORM 20530520-IMPCOM-CAP\n        IF W77-DIF-MANCTA-SDO < WS-IMPCOM-CAP\n           MOVE W77-DIF-MANCTA-SDO  TO WS-IMPCOM-CAP.\n     IF WS-IMPCOM-CAP  = 0\n     OR WS-TASACOM-CAP = 0\n        MOVE 0   TO WS-GRAVADOS-CAP\n        IF (WS88-CANC-TP-LINEA)\n        OR (WS-COMNOCOBRO-CAP = 0)\n           NEXT SENTENCE\n        ELSE\n           PERFORM 20550100-CALCULA-COMISION\n     ELSE\n         PERFORM 20530511-EXEMAN-X-COMPRAS.", "java": "/** 20530510-CALCULA-MANEJO-CTA. Concepto 5 del instrumento; posición 03 del esquema S016. */\npublic Optional<Comision> calcula(ContextoContrato ctx, EsquemaS016 esq, Instrumento inst) {\n    Cobro cobro = esq.cobro(3);\n    BigDecimal tasa;\n    BigDecimal importe;\n    switch (cobro.clave()) {\n        case 2 -> {                                        // tasa de S016, importe de la tabla\n            tasa = cobro.valor();\n            importe = tablaManejo(ctx);                    // 20530520-IMPCOM-CAP\n            if (tasa.signum() == 0 && !ctx.contrato().esPersonalBanamex()) noCobro(ctx);\n        }\n        case 1 -> {                                        // importe fijo de S016\n            tasa = CIEN;\n            importe = cobro.valor();\n            if (importe.signum() == 0 && !ctx.contrato().esPersonalBanamex()) noCobro(ctx);\n        }\n        default -> {                                       // tabla, topada a la diferencia contra saldo\n            tasa = CIEN;\n            importe = tablaManejo(ctx).min(ctx.difManejoVsSaldo());   // W77-DIF-MANCTA-SDO\n        }\n    }\n    if (importe.signum() == 0 || tasa.signum() == 0) {\n        if (!modo.esLinea() && ctx.comisionNoCobrada()) return calculadora.calcula(ctx, CERO_GRAVADOS);\n        return Optional.empty();\n    }\n    return exencionPorCompras(ctx, inst);                  // 20530511\n}\n\nprivate BigDecimal tablaManejo(ContextoContrato ctx) {\n    return ctx.contrato().esBancaInstitucional()\n            ? tarifas.manejoInstitucional(ctx.indices())    // WS-COM-MANEJO-CI\n            : tarifas.manejo(ctx.indices());                // WS-COM-MANEJO\n}", "rationale": "La clave de cobro de la posición 03 del esquema de S016 decide si la comisión es una tasa (2), un importe fijo (1) o el importe de la tabla de tarifas cargada al inicio. En el último caso el importe se topa a <code>W77-DIF-MANCTA-SDO</code>. Un <code>switch</code> con tres ramas sustituye los IF anidados. La tabla tiene dos versiones, banca institucional y general, indexadas por comisión, tipo de persona y esquema; en Java se encapsula en <code>tablaManejo</code>.", "risk": "Para personal Banamex (WS03-88-CC-PERSBNM) con importe o tasa en cero no se registra la comisión no cobrada; el tratamiento depende de una bandera del contrato que no se valida aquí.", "rules": [], "lines": "L7298–7332", "verified": true, "score": 100}, "s9": {"title": "Exención del manejo de cuenta por número de compras", "cobol": " 20530511-EXEMAN-X-COMPRAS.\n     MOVE WS-249-COMP-MAN(WS-IND-COMX,WS-IND-PERS,WS-IND-ESQC)\n       TO WS-NCOMPRAS-CAP.\n     IF WS-NCOMPRAS-CAP > 0\n    AND TB-B05-CVECOMI (WS-IND-INST, 45) > 0\n        IF WS-NCOMPRAS-CAP > WS06-CONT-COMIS(24)\n           NEXT SENTENCE\n        ELSE\n           MOVE TB-B05-CVECOMI(WS-IND-INST, 45) TO WS-CVEEXE-CAP\n           MOVE 0                              TO WS-GRAVADOS-CAP\n                                                  WS-EXENTOS-CAP\n                                                  WS-IMPCOM-CAP\n                                                  WS-TASACOM-CAP.\n     PERFORM 20550100-CALCULA-COMISION.", "java": "/** 20530511-EXEMAN-X-COMPRAS. */\nprivate Optional<Comision> exencionPorCompras(ContextoContrato ctx, Instrumento inst) {\n    int comprasRequeridas = tarifas.comprasParaExentarManejo(ctx.indices());   // WS-249-COMP-MAN\n    int claveExencion = inst.claveComision(45);\n    if (comprasRequeridas > 0 && claveExencion > 0\n            && comprasRequeridas <= ctx.contadorComisiones(24)) {             // WS06-CONT-COMIS(24)\n        // se exenta: importes en cero y clave de exención 45 del instrumento\n        return calculadora.calcula(ctx, Comision.exenta(claveExencion));\n    }\n    return calculadora.calcula(ctx, Comision.cobrable());                     // 20550100-CALCULA-COMISION\n}", "rationale": "En el fuente el <code>NEXT SENTENCE</code> salta al final del IF y el <code>PERFORM 20550100-CALCULA-COMISION</code> se ejecuta en ambos caminos. La diferencia es que, cuando el cliente alcanza las compras requeridas, antes se ponen en cero gravados, exentos, importe y tasa y se registra la clave de exención. En Java esto queda como dos llamadas a la misma calculadora con una comisión cobrable o exenta.", "risk": "La exención aplica cuando las compras requeridas son menores o iguales al contador 24; que ese contador sea el número de compras del cliente se infiere del nombre del párrafo y debe confirmarse.", "rules": [], "lines": "L7334–7348", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

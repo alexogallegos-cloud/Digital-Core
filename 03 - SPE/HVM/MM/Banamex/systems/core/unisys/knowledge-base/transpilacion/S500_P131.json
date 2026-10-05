@@ -1,0 +1,234 @@
+{
+  "slug": "S500_P131",
+  "sistema": "S500",
+  "programa": "P131",
+  "nombre": "Motor de Comisiones y Rewards del Paquete de Incentivos (EPP)",
+  "funcion": "Paso batch de S500 que, cuando llega de Teradata el archivo EVCOMIS, evalúa por cuenta las reglas de comisión (B13) y de reward (B14) de S500BD04TARJETAS y genera la respuesta para Teradata y el archivo de posteo contable.",
+  "resumen": "P131 lee el archivo de 300 posiciones que deja Teradata y, por cada detalle, traduce el tipo de evaluación a esquema, busca en memoria las reglas del producto, instrumento y moneda, y calcula la comisión aplicando una cascada de exenciones: producto no registrado o inactivo, periodo de gracia, excepción manual, reglas B13 en orden de prelación y, si nada aplica, cobro pleno. En los esquemas 5 y 6 evalúa además los rewards de B14 por canal y número de movimientos. Cada resultado se escribe en el archivo de respuesta RESEVAL y genera hasta tres asientos en el archivo de posteo: no contable por el monto exentado, cargo por la comisión y abono por el reward, con claves de transacción fijas por esquema. También produce un listado de totales por esquema y producto.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.tarjetas.epp",
+  "secciones": [
+    {
+      "titulo": "Registro de evaluación EVCOMIS y despacho por esquema",
+      "origen": {
+        "archivo": "S500_SOURCE_P131.txt",
+        "contexto": "WORKING-STORAGE WKS-EPP-DET · 000300-PROC-COMI-REW / VALIDA-ESQUEMA"
+      },
+      "java": {
+        "archivo": "EvaluacionEpp.java · EvaluacionEppProcessor.java",
+        "contexto": "record · enum · ItemProcessor @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Detalle de evaluación con tipo de esquema como enum",
+          "linea_ini": 153,
+          "linea_fin": 193,
+          "origen_codigo": "     02 WKS-EPP-DET            REDEFINES WKS-S500EPP-REG-DATA.\n         03 WKS-EPP-DET-SEC              PIC 9(08).\n         03 WKS-EPP-DET-NUM-CLIENTE      PIC 9(12).\n         03 WKS-EPP-DET-NUM-CTO          PIC 9(12).\n         03 WKS-EEP-DET-PROD.\n             04 WKS-EPP-DET-PROD         PIC 9(03).\n             04 WKS-EPP-DET-INST         PIC 9(03).\n             04 WKS-EPP-DET-MOND         PIC 9(03).\n         03 WKS-EPP-DET-FEC-ULT-CORTE.\n         03 WKS-EPP-DET-FEC-CORTE-ANT.\n         03 WKS-EPP-DET-FEC-APER.\n         03 WKS-EPP-DET-CVE-TPER         PIC 9(02).\n         03 WKS-EPP-DET-GPO-BIN          PIC 9(04).\n         03 WKS-EPP-DET-CTA-STATUS       PIC 9(01).\n             88 WKS-CTA-ACTIVA           VALUE 1.\n             88 WKS-CTA-DORMANT          VALUE 2.\n             88 WKS-CTA-CLOSE            VALUE 3.\n         03 WKS-EPP-DET-TIP-EVA          PIC 9(02).\n             88 WKS-ESQ-BY-REN           VALUE 01.\n             88 WKS-ESQ-BY-SDO           VALUE 02.\n*            88 WKS-ESQ-BY-REW           VALUE 03.\n             88 WKS-ESQ-MIX-REN          VALUE 05.\n             88 WKS-ESQ-MIX-SDO          VALUE 06.\n         03 WKS-EPP-DET-NUM-SUCDEPTO     PIC 9(04).\n         03 WKS-EPP-DET-PERBCO           PIC 9(02).\n         03 WKS-EPP-DET-SDO-PROM-INTE    PIC 9(14)V99.\n         03 WKS-EPP-DET-COD-EXC-MANUAL   PIC 9(04).\n         03 WKS-EPP-DET-COD-NOMINA       PIC 9(02).\n         03 WKS-EPP-DET-COD-SEGMENTO     PIC 9(04).\n         03 WKS-EPP-DET-CANAL-1          PIC 9(02).\n         03 WKS-EPP-DET-NUM-MOVS-CANAL-1 PIC 9(06).\n         03 WKS-EPP-DET-IMP-CANAL-1      PIC 9(14)V99.",
+          "java_codigo": "/** WKS-EPP-DET-TIP-EVA. El 03 (rewards independiente) se eliminó en 26MTP001. */\npublic enum TipoEvaluacion {\n    RENTA(1, false), SALDO(2, false), RENTA_REWARDS(5, true), SALDO_REWARDS(6, true);\n\n    final int codigo; final boolean conRewards;\n    TipoEvaluacion(int c, boolean r) { codigo = c; conRewards = r; }\n\n    static Optional<TipoEvaluacion> de(int c) {\n        return Arrays.stream(values()).filter(t -> t.codigo == c).findFirst();\n    }\n    /** 88 WKS-ESQ-BY-REN / MIX-REN frente a BY-SDO / MIX-SDO: decide las claves de posteo. */\n    boolean esRenta() { return this == RENTA || this == RENTA_REWARDS; }\n}\n\n/** WKS-EPP-DET: detalle de 300 posiciones enviado por Teradata. */\npublic record EvaluacionEpp(\n        long secuencia,\n        String numCliente, String numContrato,       // 9(12) como String\n        int producto, int instrumento, int moneda,   // 9(03) cada uno\n        LocalDate fecUltCorte, LocalDate fecCorteAnt, LocalDate fecApertura,  // AAAAMMDD\n        int tipoPersona, int grupoBin, int statusCuenta,\n        int tipoEvaluacionRaw,                       // se conserva crudo: puede ser inválido\n        int sucursalDepto, int periodoBanco,\n        BigDecimal saldoPromedio,                    // 9(14)V99 escala 2\n        int codExcepcionManual, int codNomina, int codSegmento,\n        List<MovimientosCanal> canales) {            // 7 pares canal / movimientos / importe\n\n    public record MovimientosCanal(int canal, int numMovs, BigDecimal importe) {}\n\n    /** 00010101 es la marca de cuenta nueva: no hay corte anterior. */\n    public boolean esCuentaNueva() { return fecCorteAnt.equals(LocalDate.of(1, 1, 1)); }\n}",
+          "racional": "El detalle de evaluación lleva la llave de producto en tres campos de tres dígitos, tres fechas AAAAMMDD, indicadores de cliente y siete pares de canal, número de movimientos e importe. Los niveles 88 del tipo de evaluación se convierten en un <code>enum</code> que además dice si el esquema incluye rewards y si es de renta o de saldo, que es lo que el programa consulta en cada decisión. El código crudo se conserva porque un tipo inválido no aborta: genera una respuesta de error. La fecha 00010101 que marca cuenta nueva se expresa como un método explícito. Los importes <code>9(14)V99</code> pasan a <code>BigDecimal</code> con escala 2.",
+          "reglas": [
+            "RN-S500-739",
+            "RN-S500-741"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Despacho por esquema: comisión sola o comisión más reward",
+          "linea_ini": 1924,
+          "linea_fin": 1955,
+          "origen_codigo": " 000300-PROC-COMI-REW.\n     IF (WKS-EPP-TIP-REG = 2)\n         PERFORM 000300-INI-VARS\n         PERFORM 000300-VALIDA-ESQUEMA.\n     PERFORM 000300-LEE-ARC-TRANSACCIONES.\n******************************************************************\n*                    VALIDACION DE ESQUEMAS:                     *\n*      1.RENTA 2.SALDO 5. REWARD Y RENTA 6. REWARD Y SALDO       *\n******************************************************************\n 000300-VALIDA-ESQUEMA.\n     IF WKS-ESQ-BY-REN OR WKS-ESQ-BY-SDO\n        PERFORM 000300-PROCESO-COMISIONES\n     ELSE\n     IF WKS-ESQ-MIX-SDO OR WKS-ESQ-MIX-REN\n        PERFORM 000300-PROCESO-COMISIONES\n        PERFORM 000300-BUSCA-REGLA-REWARD\n     ELSE\n        MOVE SPACES          TO WKS-EPP-COMI-MOTIVO\n        STRING \"ERROR: ESQUEMA INVALIDO[\"WKS-EPP-DET-TIP-EVA\"]\"\n        DELIMITED BY SIZE INTO WKS-EPP-COMI-MOTIVO\n        MOVE 1  TO WKS-EPP-STATUS-REG\n        MOVE 08 TO WKS-EPP-TIP-EXC\n        MOVE 02 TO WKS-IND-TOT\n        PERFORM 000300-ARMA-DET-RCOMIS\n        PERFORM 000300-ARMA-DET-COMI-ARCLIST.\n 000300-PROCESO-COMISIONES.\n     PERFORM 000300-CALCULO-COMISION\n     PERFORM 000300-ARMA-DET-RCOMIS\n     PERFORM 000300-ARMA-DET-COMI-ARCLIST\n     PERFORM 000300-GENERA-DET-POSTE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class EvaluacionEppProcessor implements ItemProcessor<RegistroEpp, ResultadoEpp> {\n\n    private final MotorComisiones comisiones;   // 000300-CALCULO-COMISION (reglas B13)\n    private final MotorRewards rewards;         // 000300-BUSCA-REGLA-REWARD (reglas B14)\n    private final GeneradorPosteo posteo;       // 000300-GENERA-DET-POSTE\n\n    @Override\n    public ResultadoEpp process(RegistroEpp reg) {\n        if (reg.tipoRegistro() != 2) return null;            // header y trailer no se evalúan\n        var ev = reg.detalle();\n        var tipo = TipoEvaluacion.de(ev.tipoEvaluacionRaw());\n        if (tipo.isEmpty()) {\n            return ResultadoEpp.error(ev, Excepcion.ESQUEMA_INVALIDO,     // TIP-EXC 08\n                    \"ERROR: ESQUEMA INVALIDO[\" + \"%02d\".formatted(ev.tipoEvaluacionRaw()) + \"]\");\n        }\n        // Estado nuevo por registro: equivale a 000300-INI-VARS, pero sin variables compartidas.\n        Comision c = comisiones.calcula(ev, tipo.get());\n        var r = ResultadoEpp.de(ev, c).conAsientos(posteo.deComision(ev, tipo.get(), c));\n        if (tipo.get().conRewards()) {\n            for (Reward rw : rewards.evalua(ev)) {\n                r = r.conReward(rw).conAsientos(posteo.deReward(ev, rw));\n            }\n        }\n        return r;\n    }\n}",
+          "racional": "El programa solo calcula sobre los registros de detalle. Los esquemas 1 y 2 calculan solo comisión; los esquemas 5 y 6 calculan comisión y luego rewards, que es la política introducida por la versión 26MTP001 al eliminar el esquema 3. Un tipo de evaluación no reconocido no detiene el proceso: se responde a Teradata con el motivo de error. En Java el procesador construye un resultado inmutable por registro en lugar de reiniciar decenas de variables de trabajo, lo que elimina por construcción los arrastres de estado entre registros (ver riesgo de s9).",
+          "reglas": [
+            "RN-S500-738",
+            "RN-S500-741"
+          ],
+          "riesgo": "Los nombres 88 y las claves de posteo tratan 05 como renta más rewards y 06 como saldo más rewards; la cabecera del programa (líneas 17-18) dice lo contrario. La traducción sigue a los niveles 88, que son los que gobiernan la ejecución."
+        }
+      ]
+    },
+    {
+      "titulo": "Motor de comisiones: llave de reglas y cascada de exenciones",
+      "origen": {
+        "archivo": "S500_SOURCE_P131.txt",
+        "contexto": "PROCEDURE DIVISION · 000300-CALCULO-COMISION / BUSCA-PROD-ON-TAB1 / COMISION-BY-EXC"
+      },
+      "java": {
+        "archivo": "MotorComisiones.java · ReglasComisionCache.java · Waiver.java",
+        "contexto": "@Service · cadena de responsabilidad · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Llave de búsqueda y traducción de evaluación a esquema",
+          "linea_ini": 2143,
+          "linea_fin": 2165,
+          "origen_codigo": " 000300-BUSCA-PROD-ON-TAB1.\n     MOVE 0                   TO WKS-PROD-FOUND,\n                                 WKS-PRODUCTO\n     MOVE WKS-EPP-DET-PROD    TO WKS-PRODUCTO-C\n     MOVE WKS-EPP-DET-INST    TO WKS-INSTRUMENTO-C\n     MOVE WKS-EPP-DET-MOND    TO WKS-MONEDA-C\n     IF WKS-EPP-DET-TIP-EVA = 05\n        MOVE                  01 TO WKS-ESQUEMA-C\n     ELSE\n     IF WKS-EPP-DET-TIP-EVA = 06\n        MOVE                  02 TO WKS-ESQUEMA-C\n     ELSE\n        MOVE WKS-EPP-DET-TIP-EVA TO WKS-ESQUEMA-C.\n     PERFORM 0003000-FIND-PRODUCTO VARYING WKS-IN-COM FROM 1 BY 1\n            UNTIL (WKS-IN-COM>WKS-REGS-B13) OR (WKS-PROD-FOUND=1).\n 0003000-FIND-PRODUCTO.\n     IF WKS-PRODUCTO = T1-B13PRODUCTO(WKS-IN-COM)\n         MOVE T1-B13PREGCOMEPP(WKS-IN-COM) TO WKS-B13PREGCOMEPP\n         MOVE 1                            TO WKS-PROD-FOUND\n         MOVE WKS-IN-COM                   TO WKS-I-PRE.",
+          "java_codigo": "/** Llave de T1 (reglas B13): producto, instrumento, moneda y esquema de comisión. */\npublic record LlaveReglaComision(int producto, int instrumento, int moneda, int esquema) {\n\n    /** La evaluación mixta busca la regla de comisión de su esquema base: 05 usa 01 y 06 usa 02. */\n    static LlaveReglaComision de(EvaluacionEpp ev) {\n        int esquema = switch (ev.tipoEvaluacionRaw()) {\n            case 5 -> 1;\n            case 6 -> 2;\n            default -> ev.tipoEvaluacionRaw();\n        };\n        return new LlaveReglaComision(ev.producto(), ev.instrumento(), ev.moneda(), esquema);\n    }\n}\n\n@Component\npublic class ReglasComisionCache {\n    // T1-TABLA-REGLAS-COMISIONES OCCURS 60: se carga una vez por archivo desde S500B13PREGCOMEPP.\n    private Map<LlaveReglaComision, ProductoComision> porLlave = Map.of();\n\n    public void carga(List<ProductoComision> b13) {\n        if (b13.size() > 60) throw new CapacidadTablaException(\"T1\", b13.size(), 60);\n        porLlave = b13.stream().collect(Collectors.toUnmodifiableMap(ProductoComision::llave, p -> p));\n    }\n\n    public Optional<ProductoComision> busca(LlaveReglaComision k) {\n        return Optional.ofNullable(porLlave.get(k));   // reemplaza la búsqueda lineal FIND-PRODUCTO\n    }\n}",
+          "racional": "La regla de comisión se localiza con una llave compuesta por producto, instrumento, moneda y esquema, y el tipo de evaluación mixto se traduce a su esquema base. En COBOL la tabla de 60 productos se recorre linealmente; en Java se indexa en un <code>Map</code> inmutable que se recarga por archivo, con el mismo contenido. Se conserva el límite de 60 entradas como validación explícita para no truncar en silencio si el catálogo B13 crece.",
+          "reglas": [
+            "RN-S500-739"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Cascada: producto, periodo de gracia, excepción manual, reglas y cobro pleno",
+          "linea_ini": 1967,
+          "linea_fin": 2042,
+          "origen_codigo": " 000300-CALCULO-COMISION.\n     PERFORM 000300-BUSCA-PROD-ON-TAB1\n     MOVE 0                     TO WKS-CUMPLE-REGLA,\n                                   WKS-EPP-STATUS-REG,\n                                   WKS-NUM-REGLA\n     MOVE SPACES                TO WKS-EPP-COMI-MOTIVO\n     PERFORM 000300-VAL-PROD-STAT-B13\n     IF WKS-CUMPLE-REGLA = 0\n         PERFORM 000300-VAL-PER-GRACIA\n         IF WKS-CUMPLE-REGLA = 0\n             PERFORM 000300-VAL-EXC-MANUAL\n             IF WKS-CUMPLE-REGLA = 0\n                 PERFORM 000300-VAL-REGLA-B13\n                     IF WKS-CUMPLE-REGLA = 0\n                         PERFORM 000300-VAL-NA-REGLA.\n 000300-VAL-PER-GRACIA.\n     MOVE WKS-B13P-DIAS-PERIO-GRACIA TO WKS-EPP-DG-COMI\n     MOVE WKS-B13P-IMP-COMISION      TO WKS-PROD-IMPORTE\n     IF WKS-EPP-DET-FEC-CORTE-ANT = 00010101\n*SE CONSIDERA FECHA DE APERTURA EN LUGAR DE FECHA DE ULTIMO CORTE\n         MOVE WKS-EPP-DET-FEC-APER      TO WKS-DG-FECHA1\n         MOVE WKS-FEC-ARC               TO WKS-DG-FECHA2\n     ELSE\n         MOVE WKS-EPP-DET-FEC-CORTE-ANT TO WKS-DG-FECHA1\n         MOVE WKS-EPP-DET-FEC-ULT-CORTE TO WKS-DG-FECHA2.\n 000300-COMPARA-DIAS-GRACIA.\n     IF (WS-S006-FECHA1 < WKS-EPP-DG-COMI) OR\n     (WS-S006-FECHA1 = WKS-EPP-DG-COMI)\n         STRING \"EX %100.00  PERIODO DE GRACIA\"\n         DELIMITED BY SIZE INTO WKS-EPP-COMI-MOTIVO\n         MOVE 0                TO WKS-COMI\n         MOVE WKS-PROD-IMPORTE TO WKS-IMP-EXC,WKS-IMP-TXN\n         MOVE 11               TO WKS-EPP-TIP-EXC\n 000300-VAL-EXC-MANUAL.\n*     IF(WKS-EPP-DET-COD-EXC-MANUAL = 0101) OR\n*     (WKS-EPP-DET-COD-EXC-MANUAL = 0202)\n     IF WKS-EPP-DET-COD-EXC-MANUAL > 0\n         STRING \"EX %100.00  EXCEPCION MANUAL[\"\n         WKS-EPP-DET-COD-EXC-MANUAL \"]\" DELIMITED BY SIZE INTO\n         WKS-EPP-COMI-MOTIVO\n         MOVE 0                TO WKS-COMI\n         MOVE WKS-PROD-IMPORTE TO WKS-IMP-EXC, WKS-IMP-TXN\n         MOVE 12               TO WKS-EPP-TIP-EXC",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class MotorComisiones {\n\n    private final ReglasComisionCache t1;\n    private final CalendarioBancario calendario;      // CALL-CALENDAR función 02, formato 13\n    private final EvaluadorReglasB13 reglasB13;       // 000300-VAL-REGLA-B13\n\n    /** El orden de la cascada es parte de la regla de negocio: la primera que aplica gana. */\n    public Comision calcula(EvaluacionEpp ev, TipoEvaluacion tipo) {\n        var prod = t1.busca(LlaveReglaComision.de(ev));\n        if (prod.isEmpty())                 return Comision.error(Excepcion.PROD_NO_REGISTRADO);   // 09\n        if (prod.get().status() == 2)       return Comision.error(Excepcion.PROD_INACTIVO);        // 10\n\n        BigDecimal importe = prod.get().importeComision();          // 9(08)V99\n        if (enPeriodoDeGracia(ev, prod.get()))\n            return Comision.exenta(importe, Excepcion.PERIODO_GRACIA, \"EX %100.00  PERIODO DE GRACIA\");\n        if (ev.codExcepcionManual() > 0)\n            return Comision.exenta(importe, Excepcion.EXCEPCION_MANUAL,\n                    \"EX %%100.00  EXCEPCION MANUAL[%04d]\".formatted(ev.codExcepcionManual()));\n\n        return reglasB13.evalua(ev, prod.get())\n                .orElseGet(() -> Comision.cobroPleno(importe));     // 13: NO CUMPLE CON REGLA\n    }\n\n    private LocalDate fechaArchivo;   // WKS-FEC-ARC: se fija al abrir EVCOMIS (beforeStep)\n\n    private boolean enPeriodoDeGracia(EvaluacionEpp ev, ProductoComision p) {\n        // Cuenta nueva: desde la apertura hasta la fecha del archivo; si no, entre los dos cortes.\n        LocalDate desde = ev.esCuentaNueva() ? ev.fecApertura() : ev.fecCorteAnt();\n        LocalDate hasta = ev.esCuentaNueva() ? fechaArchivo : ev.fecUltCorte();\n        return calendario.diasEntre(desde, hasta) <= p.diasPeriodoGracia();\n    }\n}",
+          "racional": "La comisión se decide por una cascada en orden fijo: si el producto no está o está inactivo se responde error; si la cuenta está dentro del periodo de gracia o trae un código de excepción manual se exenta al cien por ciento; si no, se evalúan las reglas de B13 por prelación y, si ninguna aplica, se cobra el importe completo. En Java la cascada es una secuencia de retornos tempranos que deja el orden a la vista. Los días de gracia se calculan con el calendario bancario, igual que la función 02 de la rutina de calendario.",
+          "reglas": [
+            "RN-S500-742"
+          ],
+          "riesgo": "La excepción manual exenta con cualquier código mayor que cero; la condición original (códigos 0101 y 0202) está comentada y el comentario de cabecera del párrafo sigue citando solo esos dos códigos."
+        },
+        {
+          "id": "s5",
+          "titulo": "Reglas B13 en orden de prelación y excepciones anidadas",
+          "linea_ini": 2047,
+          "linea_fin": 2201,
+          "origen_codigo": " 000300-VAL-REGLA-B13.\n     MOVE 1 TO WKS-J-PRE\n     PERFORM 000300-BUSCA-REGLA-ON-TAB1\n             VARYING WKS-J-PRE FROM 1 BY 1\n             UNTIL (WKS-CUMPLE-REGLA=1) OR\n             WKS-PRE-NUM-REGLA(WKS-I-PRE,WKS-J-PRE)=0 OR\n             WKS-J-PRE > 99.\n 000300-BUSCA-REGLA-ON-B13.\n     PERFORM 000300-VALORES-INICIALES\n     IF WKS-B13PSTATUS-REGLA = 1  AND\n     (WKS-FEC-SAMD > WKS-B13P-FEC-INI OR\n      WKS-FEC-SAMD = WKS-B13P-FEC-INI)AND\n     (WKS-FEC-SAMD < WKS-B13P-FEC-FIN OR\n      WKS-FEC-SAMD = WKS-B13P-FEC-FIN OR\n      WKS-B13P-FEC-FIN = 0)\n         PERFORM 000300-EXC-NOMINA-BNMX\n         IF WKS-CUMPLE-REGLA = 0\n             PERFORM 000300-EXC-EMPLEADO-BNX\n             IF WKS-CUMPLE-REGLA = 0\n                 PERFORM 000300-EXC-SEGMENTO\n                 IF WKS-CUMPLE-REGLA = 0\n                     PERFORM 000300-EXC-GPO-BIN\n                     IF WKS-CUMPLE-REGLA = 0\n                         PERFORM 000300-EXC-TIPO-PER\n                         IF WKS-CUMPLE-REGLA = 0\n                             PERFORM 000300-EXC-SDO-PROM\n                             IF WKS-CUMPLE-REGLA = 0\n                                 PERFORM 000300-EXC-MOVIMIENTOS.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EvaluadorReglasB13 {\n\n    /** Excepciones 01..07 en el orden del fuente: nómina, empleado, segmento, grupo BIN,\n     *  tipo de persona, saldo promedio y movimientos. */\n    private final List<ExcepcionComision> excepciones;   // @Order(1..7)\n    private final Clock clock;                           // WKS-FEC-SAMD: fecha de proceso\n\n    public Optional<Comision> evalua(EvaluacionEpp ev, ProductoComision prod) {\n        LocalDate hoy = LocalDate.now(clock);\n        return prod.reglasEnOrdenDePrelacion().stream()   // WKS-PRELACIONES (i, 1..99), corta en 0\n                .limit(99)\n                .filter(r -> r.status() == 1 && r.vigenteEn(hoy))   // FEC-FIN = 0: sin vencimiento\n                .map(r -> primeraExcepcionQueAplica(ev, r))\n                .flatMap(Optional::stream)\n                .findFirst();                              // UNTIL WKS-CUMPLE-REGLA = 1\n    }\n\n    private Optional<Comision> primeraExcepcionQueAplica(EvaluacionEpp ev, ReglaB13 r) {\n        return excepciones.stream()\n                .filter(e -> e.tipo() == r.tipoExcepcion())\n                .map(e -> e.aplica(ev, r))\n                .flatMap(Optional::stream)\n                .findFirst();\n    }\n}\n\n// record ReglaB13(...) { boolean vigenteEn(LocalDate d) {\n//     return !d.isBefore(fecIni) && (fecFin == null || !d.isAfter(fecFin)); } }",
+          "racional": "Las reglas del producto se recorren en el orden de una tabla de prelación hasta que una cumple, hasta encontrar una posición vacía o hasta 99 posiciones. Cada regla debe estar activa y vigente a la fecha de proceso, con fecha fin cero como vigencia abierta. Dentro de una regla, las siete excepciones se prueban anidadas y solo aplica la primera que coincide con su tipo. En Java la prelación es una lista ordenada y el corte al primer éxito es un <code>findFirst</code> sobre un stream perezoso, que respeta el mismo orden de evaluación.",
+          "reglas": [
+            "RN-S500-739",
+            "RN-S500-742"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Waiver por cantidad o por porcentaje",
+          "linea_ini": 2299,
+          "linea_fin": 2314,
+          "origen_codigo": " 000300-COMISION-BY-EXC.\n     IF WKS-B13P-CP = 1\n         PERFORM 000300-ASIGNA-COMISION\n     ELSE\n     IF WKS-B13P-CP = 2\n         COMPUTE WKS-IMP-EXC=\n                 WKS-B13P-IMP-COMI * (WKS-B13P-WAIVER/100)\n         COMPUTE WKS-COMI = WKS-B13P-IMP-COMI - WKS-IMP-EXC.\n 000300-ASIGNA-COMISION.\n     IF WKS-B13P-WAIVER>WKS-B13P-IMP-COMI OR WKS-B13P-IMP-COMI = 0\n         MOVE 0 TO WKS-COMI\n     ELSE\n         COMPUTE WKS-COMI = WKS-B13P-IMP-COMI - WKS-B13P-WAIVER.\n     COMPUTE WKS-IMP-EXC = WKS-B13P-IMP-COMI - WKS-COMI.",
+          "java_codigo": "/** Importes PIC 9(08)V99: escala 2. COMPUTE sin ROUNDED trunca. */\npublic final class Waiver {\n\n    private static final BigDecimal CIEN = new BigDecimal(\"100\");\n\n    /** CP = 1: waiver como monto fijo; nunca deja una comisión negativa. */\n    static Comision porCantidad(BigDecimal importeComi, BigDecimal waiver) {\n        BigDecimal comi = (waiver.compareTo(importeComi) > 0 || importeComi.signum() == 0)\n                ? BigDecimal.ZERO.setScale(2)\n                : importeComi.subtract(waiver);\n        return new Comision(comi, importeComi.subtract(comi));      // WKS-COMI, WKS-IMP-EXC\n    }\n\n    /** CP = 2: waiver como porcentaje del importe de la regla. */\n    static Comision porPorcentaje(BigDecimal importeComi, BigDecimal pctWaiver) {\n        if (pctWaiver.compareTo(CIEN) > 0) {\n            // En COBOL, WKS-COMI sin signo guardaría el valor absoluto de la resta negativa.\n            throw new ReglaInvalidaException(\"Waiver mayor a 100%: \" + pctWaiver);\n        }\n        BigDecimal exencion = importeComi.multiply(pctWaiver)\n                .divide(CIEN, 2, RoundingMode.DOWN);                // trunca como el COMPUTE\n        return new Comision(importeComi.subtract(exencion), exencion);\n    }\n}",
+          "racional": "Cada regla define si su waiver es un monto fijo o un porcentaje. Con monto fijo, la comisión es el importe menos el waiver y nunca baja de cero. Con porcentaje, la exención es el importe por el porcentaje entre cien y la comisión es el resto. Ninguno de los <code>COMPUTE</code> lleva <code>ROUNDED</code>, por eso la exención se trunca a dos decimales con <code>RoundingMode.DOWN</code>. El monto exentado se conserva por separado porque se reporta y se postea como movimiento no contable.",
+          "reglas": [
+            "RN-S500-742"
+          ],
+          "riesgo": "Con un porcentaje de waiver mayor que 100 en B13, la resta de la comisión es negativa y WKS-COMI, que no tiene signo, guarda su valor absoluto: se cobraría una comisión positiva. La versión Java rechaza la regla."
+        }
+      ]
+    },
+    {
+      "titulo": "Rewards, respuesta a Teradata y archivo de posteo",
+      "origen": {
+        "archivo": "S500_SOURCE_P131.txt",
+        "contexto": "PROCEDURE DIVISION · 000300-BUSCA-REGLA-REWARD / ARMA-DET-RCOMIS / GENERA-DET-POSTE"
+      },
+      "java": {
+        "archivo": "MotorRewards.java · RespuestaTeradataMapper.java · GeneradorPosteo.java",
+        "contexto": "@Service · FlatFileItemWriter · CompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Reward por canal cuando se alcanza el número de movimientos",
+          "linea_ini": 2430,
+          "linea_fin": 2600,
+          "origen_codigo": " 000300-BUSCA-REGLA-REWARD.\n     MOVE 0      TO WKS-CUMPLE-REGLA,WKS-IMP-TXN,\n                    WKS-IMP-EXC     , WKS-COMI\n     PERFORM 000300-BUSCA-PROD-T3\n     PERFORM 000300-VAL-PROD-STAT-B14\n     IF WKS-CUMPLE-REGLA = 0\n         PERFORM 000300-VAL-REGLA-B14\n         IF WKS-CUMPLE-REGLA = 0\n             PERFORM 000300-VAL-NA-REGLA-REW.\n 000300-VAL-REGLA-B14.\n         PERFORM 000300-BUSCA-REGLA-T3 VARYING WKS-I-R FROM 1 BY 1\n                 UNTIL WKS-I-R > WKS-T2-B14-TOTAL-REGLAS.\n 000300-BUSCA-REGLA-T3.\n     IF( WKS-B14P-STATUS-REWARD(WKS-I-R) = 1 )\n         PERFORM 000300-VAL-INI-REW\n         PERFORM 000300-CARGA-TAB-MOVS-X-CAN\n         PERFORM 000300-VALIDA-MOVS-X-CANAL\n                        VARYING WKS-K FROM 1 BY 1 UNTIL WKS-K > 7.\n 000300-VALIDA-MOVS-X-CANAL.\n     IF(WKS-MOVS-CANAL(WKS-K)= WKS-B14P-TIPO-CANAL(WKS-I-R)) AND\n     (WKS-MOVS-NUMERO(WKS-K) >WKS-B14P-MOVS-CANAL-DIG(WKS-I-R) OR\n      WKS-MOVS-NUMERO(WKS-K) = WKS-B14P-MOVS-CANAL-DIG(WKS-I-R))\n         PERFORM 000300-CAL-REW-BY-CANT-POR\n         PERFORM 000300-ASIGNA-MSG-REW\n         PERFORM 000300-VAL-SAL-LIST-REW-DET\n         PERFORM 000300-ARMA-DET-RCOMIS\n         PERFORM 000300-GENERA-DET-POSTE\n         PERFORM 000300-ARMA-DET-REW-ARCLIST\n         MOVE 01 TO WKS-CUMPLE-REGLA.\n 000300-CAL-REW-BY-CANT-POR.\n     IF WKS-CP-RW = 01\n         COMPUTE WKS-REWARD = WKS-WAIVER-RW\n     ELSE\n     IF WKS-CP-RW = 02\n         COMPUTE WKS-REWARD =\n                (WKS-MOVS-IMPORTE(WKS-K) * ( WKS-WAIVER-RW/100 )).\n     MOVE WKS-REWARD TO WKS-IMP-TXN\n     COMPUTE WKS-TOT-ABO = WKS-TOT-ABO + WKS-REWARD.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class MotorRewards {\n\n    private static final BigDecimal CIEN = new BigDecimal(\"100\");\n    private final ReglasRewardCache t2;     // T2-TABLA-REGLAS-REWARDS (B14), llave con esquema 03\n\n    /** Devuelve todos los rewards que dispara el registro: una regla puede pagar en varios canales. */\n    public List<Reward> evalua(EvaluacionEpp ev) {\n        var prod = t2.busca(ev.producto(), ev.instrumento(), ev.moneda());\n        if (prod.isEmpty())           return List.of(Reward.error(Excepcion.REW_NO_REGISTRADO));  // 14\n        if (prod.get().status() == 2) return List.of(Reward.error(Excepcion.REW_INACTIVO));       // 15\n\n        var pagados = new ArrayList<Reward>();\n        for (ReglaB14 r : prod.get().reglas()) {                    // todas las reglas, sin corte\n            if (r.status() != 1) continue;\n            for (var mov : ev.canales()) {                          // canales 1..7\n                if (mov.canal() == r.tipoCanal() && mov.numMovs() >= r.movsMinimos()) {\n                    BigDecimal monto = (r.indicador() == 1)\n                            ? r.waiver()                            // cantidad fija\n                            : mov.importe().multiply(r.waiver())\n                                 .divide(CIEN, 2, RoundingMode.DOWN); // 9(08)V99 sin ROUNDED\n                    pagados.add(Reward.de(r, mov, monto));\n                }\n            }\n        }\n        return pagados.isEmpty() ? List.of(Reward.noCumple()) : pagados;   // 17\n    }\n}",
+          "racional": "Para los esquemas mixtos, el reward se busca en B14 con el esquema 03 y se dispara por canal cuando el número de movimientos del cliente en ese canal alcanza el umbral de la regla. A diferencia de la comisión, aquí no hay corte al primer éxito: se recorren todas las reglas activas y los siete canales, y cada coincidencia genera su propio reward, su línea de respuesta y su abono. El monto es fijo o un porcentaje del importe movido en el canal, truncado a dos decimales. En Java se devuelve la lista completa de rewards para que el procesador produzca una salida por cada uno.",
+          "reglas": [
+            "RN-S500-741",
+            "RN-S500-742"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Respuesta a Teradata con contador de rewards en el campo moneda",
+          "linea_ini": 2856,
+          "linea_fin": 2875,
+          "origen_codigo": " 000300-ARMA-DET-RCOMIS.\n     ADD 1                          TO WKS-CONT-DET-RCOMIS\n     MOVE SPACES                    TO WKS-RCOMIS-REG\n     MOVE  2                        TO WKS-RCOMIS-DET-TIP-REG\n     MOVE WKS-CONT-DET-RCOMIS       TO WKS-RCOMIS-DET-SEQ\n     MOVE WKS-EPP-DET-PROD          TO WKS-RCOMIS-DET-PROD\n     MOVE WKS-EPP-DET-INST          TO WKS-RCOMIS-DET-INST\n     IF WSK-ESQ-R = 03\n        MOVE WKS-CONT-REWARDS       TO WKS-RCOMIS-DET-MON\n        ADD                 1       TO WKS-CONT-REWARDS\n     ELSE\n        MOVE WKS-EPP-DET-MOND       TO WKS-RCOMIS-DET-MON.\n     MOVE WKS-EPP-DET-NUM-CLIENTE   TO WKS-RCOMIS-DET-NUM-CLE\n     MOVE WKS-EPP-DET-NUM-CTO       TO WKS-RCOMIS-DET-NUM-CTO\n     MOVE WKS-EPP-COMI-MOTIVO       TO WKS-RCOMIS-DET-RESP-EVA\n     MOVE WKS-EPP-DET-FEC-ULT-CORTE TO WKS-RCOMIS-DET-FEC-CORT\n     MOVE WKS-FEC-MAQ               TO WKS-RCOMIS-DET-FEC-RESP\n     WRITE S500EPP-REG-RCOMIS       FROM WKS-RCOMIS-REG.",
+          "java_codigo": "# application.yml\np131:\n  respuesta:\n    moneda-inicial-rewards: 10      # 25MTP010: contrato con Teradata, no es una moneda\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class RespuestaTeradataMapper {\n\n    private final P131Properties props;\n    private final Clock clock;\n\n    /** Una línea por comisión y otra por cada reward; los rewards numeran 10, 11, 12... en MON. */\n    public List<DetalleRespuesta> mapea(ResultadoEpp r, AtomicLong secuencia) {\n        var lineas = new ArrayList<DetalleRespuesta>();\n        var ev = r.evaluacion();\n        lineas.add(DetalleRespuesta.de(secuencia.incrementAndGet(), ev, ev.moneda(),\n                r.comision().motivo(), LocalDate.now(clock)));\n        int contador = props.respuesta().monedaInicialRewards();   // WKS-CONT-REWARDS = 10 en INI-VARS\n        for (Reward rw : r.rewards()) {\n            lineas.add(DetalleRespuesta.de(secuencia.incrementAndGet(), ev, contador++,\n                    rw.motivo(), LocalDate.now(clock)));\n        }\n        return lineas;\n    }\n}",
+          "racional": "La respuesta a Teradata lleva una línea por la comisión, con la moneda real del registro, y una línea por cada reward en la que el campo moneda no es una moneda: arranca en 10 y aumenta en uno por cada reward del mismo registro, como documenta la versión 25MTP010. Es un acuerdo de interfaz que Teradata interpreta y no debe corregirse sin coordinarlo. En Java ese valor inicial pasa a <code>application.yml</code> y el contador es local al registro, que es lo que logra el fuente al reiniciarlo en 000300-INI-VARS.",
+          "reglas": [
+            "RN-S500-740"
+          ],
+          "riesgo": "Las respuestas de error de reward (producto no registrado o inactivo en B14, o ninguna regla cumplida) también consumen un valor del contador porque pasan por este párrafo con el esquema 03 ya fijado."
+        },
+        {
+          "id": "s9",
+          "titulo": "Hasta tres asientos por evaluación: no contable, cargo y abono",
+          "linea_ini": 2669,
+          "linea_fin": 2726,
+          "origen_codigo": " 000300-GENERA-DET-POSTE.\n     PERFORM 000300-ASIGNA-SUC-CAJ\n     MOVE 0 TO WKS-TIPMOV, WKS-CVETXN\n     IF WKS-IMP-EXC > 0\n         MOVE WKS-IMP-EXC TO WKS-IMP-TXN\n*        MOV NO CONTABLE\n         MOVE 3           TO WKS-TIPMOV\n         ADD  1           TO WKS-CONT-DET\n         ADD  1           TO WKS-NUM-NCO\n         PERFORM 000300-ASIGNA-CVE-TRN-NCO\n         PERFORM 000300-ASIGNA-REF\n         PERFORM 000300-ARMA-DETALLE-POSTE.\n     IF WKS-COMI > 0\n         ADD WKS-COMI  TO WKS-TOT-CAR\n*        CARGO\n         MOVE 1        TO WKS-TIPMOV\n         MOVE WKS-COMI TO WKS-IMP-TXN\n         ADD  1        TO WKS-CONT-DET\n         ADD  1        TO WKS-NUM-CAR\n         PERFORM 000300-ASIGNA-CVE-TRN-CAR\n         PERFORM 000300-ASIGNA-REF\n         PERFORM 000300-ARMA-DETALLE-POSTE.\n     IF WKS-REWARD > 0\n*        ABONO\n         MOVE 2    TO WKS-TIPMOV\n         ADD  1    TO WKS-CONT-DET\n         ADD  1    TO WKS-NUN-ABO\n         MOVE 1293 TO WKS-CVETXN\n         MOVE 0511 TO WKS-NUM-SUC\n         MOVE   72 TO WKS-NUM-CAJ\n         PERFORM 000300-ASIGNA-REF\n         PERFORM 000300-ARMA-DETALLE-POSTE.\n 000300-ASIGNA-CVE-TRN-NCO.\n     MOVE ZEROS TO WKS-CVETXN\n     IF WKS-ESQ-BY-REN OR WKS-ESQ-MIX-REN\n         MOVE 0833  TO WKS-CVETXN\n     ELSE\n         IF WKS-ESQ-BY-SDO OR WKS-ESQ-MIX-SDO\n            MOVE 0835  TO WKS-CVETXN.\n 000300-ASIGNA-CVE-TRN-CAR.\n     MOVE ZEROS TO WKS-CVETXN\n     IF WKS-ESQ-BY-REN OR WKS-ESQ-MIX-REN\n         MOVE 2523  TO WKS-CVETXN\n     ELSE\n         IF WKS-ESQ-BY-SDO OR WKS-ESQ-MIX-SDO\n            MOVE 2524  TO WKS-CVETXN.",
+          "java_codigo": "# application.yml\np131:\n  posteo:\n    sucursal: \"0511\"\n    caja-comisiones: \"71\"\n    caja-rewards: \"72\"\n    claves:\n      exencion: { renta: \"0833\", saldo: \"0835\" }   # movimiento no contable (tipo 3)\n      cargo:    { renta: \"2523\", saldo: \"2524\" }   # tipo 1\n      reward:   \"1293\"                             # bonificación por paquete, tipo 2\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class GeneradorPosteo {\n\n    private final P131Properties.Posteo cfg;\n    private final ReferenciaPeriodo referencias;   // 000300-ASIGNA-REF: \"PERIODO ... AL ...\"\n\n    public List<AsientoPosteo> deComision(EvaluacionEpp ev, TipoEvaluacion t, Comision c) {\n        var asientos = new ArrayList<AsientoPosteo>(2);\n        var claves = t.esRenta() ? cfg.claves().renta() : cfg.claves().saldo();\n        if (c.exencion().signum() > 0)\n            asientos.add(AsientoPosteo.noContable(ev, cfg.cajaComisiones(), claves.exencion(),\n                    c.exencion(), referencias.de(ev, true)));\n        if (c.comision().signum() > 0)\n            asientos.add(AsientoPosteo.cargo(ev, cfg.cajaComisiones(), claves.cargo(),\n                    c.comision(), referencias.de(ev, false)));\n        return asientos;                     // nunca genera abono: el reward va aparte\n    }\n\n    public List<AsientoPosteo> deReward(EvaluacionEpp ev, Reward rw) {\n        return rw.monto().signum() > 0\n                ? List.of(AsientoPosteo.abono(ev, cfg.cajaRewards(), cfg.claves().reward(),\n                          rw.monto(), referencias.de(ev, false)))\n                : List.of();\n    }\n}",
+          "racional": "Cada evaluación puede generar tres asientos: un movimiento no contable por lo exentado, un cargo por la comisión y un abono por el reward. Las claves de transacción dependen de si el esquema es de renta o de saldo, y la sucursal y caja son fijas (0511 con caja 71 para comisiones y 72 para rewards); todas pasan a <code>application.yml</code>. En Java la comisión y el reward se postean por métodos separados que reciben solo sus importes, de modo que un asiento no puede tomar el valor de otro registro.",
+          "reglas": [
+            "RN-S500-738"
+          ],
+          "riesgo": "WKS-REWARD (PIC 9(08)V99, línea 133) solo se asigna en 000300-CAL-REW-BY-CANT-POR y ningún párrafo lo reinicia, ni siquiera 000300-INI-VARS. Después del primer reward del archivo, cada llamada a este párrafo desde una comisión encuentra WKS-REWARD mayor que cero y escribe un abono 1293 con el importe que quedó en WKS-IMP-TXN, sin sumarlo a WKS-TOT-ABO. Hay que confirmarlo contra un archivo de posteo real."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Abono de reward arrastrado entre registros",
+      "detalle": "WKS-REWARD nunca se reinicia (solo se asigna en las líneas 2593 y 2596). Una vez que un registro gana reward, las evaluaciones de comisión posteriores pasan la condición IF WKS-REWARD > 0 de 000300-GENERA-DET-POSTE (línea 2693) y generan abonos 1293 no justificados, con conteo en WKS-NUN-ABO pero sin importe en WKS-TOT-ABO, lo que descuadraría el trailer de posteo."
+    },
+    {
+      "titulo": "Excepción manual abierta a cualquier código",
+      "detalle": "000300-VAL-EXC-MANUAL (líneas 2034-2036) exenta al cien por ciento cualquier código de excepción manual mayor que cero; la restricción a 0101 y 0202 está comentada."
+    },
+    {
+      "titulo": "Waiver porcentual mayor a 100",
+      "detalle": "En 000300-COMISION-BY-EXC, si B13 trae un porcentaje mayor que 100, WKS-COMI (sin signo) recibe el valor absoluto de una resta negativa y se cobra comisión en lugar de exentar."
+    },
+    {
+      "titulo": "Inconsistencia de esquemas 5 y 6",
+      "detalle": "La cabecera del programa asocia 5 con saldo y 6 con renta; los niveles 88 (líneas 183-184) y las claves de posteo los asocian al revés. Lo que se ejecuta es lo de los niveles 88."
+    },
+    {
+      "titulo": "Credencial embebida en el WFL de impresión",
+      "detalle": "En la línea 3325, el WFL que envía el listado a impresión incluye un ACCESSCODE con usuario y contraseña en claro para un host de desarrollo. El valor se omite en este documento (****) y debe retirarse del fuente y moverse a un almacén de secretos."
+    },
+    {
+      "titulo": "Hardcodes de posteo e interfaz",
+      "detalle": "Sistema 000000000500, número de archivo 005, sucursal 0511, cajas 71 y 72, claves 0833, 0835, 2523, 2524 y 1293, tipo de moneda 001 y el valor inicial 10 del contador de rewards están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con un archivo de posteo de producción si aparecen abonos 1293 en cuentas de esquemas 1 o 2 (efecto del WKS-REWARD no reiniciado).",
+    "Confirmar con el SME cuál es la semántica correcta de los esquemas 5 y 6 (renta o saldo); la cabecera, RN-S500-739 y RN-S500-741 difieren de los niveles 88.",
+    "RN-S500-739 dice que el esquema de rewards es el 3; el fuente lo eliminó como tipo de evaluación (26MTP001) pero sigue usando 03 como esquema de búsqueda en B14 (línea 2501). La regla debería aclararlo.",
+    "Confirmar si la excepción manual con cualquier código mayor que cero es la política vigente o un cambio temporal que quedó en producción.",
+    "Confirmar si Teradata espera que las respuestas de error de reward consuman valores del contador de moneda."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-091",
+    "RN-S151-092",
+    "RN-S151-093",
+    "RN-S151-094",
+    "RN-S151-095",
+    "RN-S151-096",
+    "RN-S151-097",
+    "RN-S151-098",
+    "RN-S151-099",
+    "RN-S151-100",
+    "RN-S151-101",
+    "RN-S151-102",
+    "RN-S151-103",
+    "RN-S151-104",
+    "RN-S151-105",
+    "RN-S151-106",
+    "RN-S151-107",
+    "RN-S151-108",
+    "RN-S151-109",
+    "RN-S151-110",
+    "RN-S151-111",
+    "RN-S151-112",
+    "RN-S500-738",
+    "RN-S500-739",
+    "RN-S500-740",
+    "RN-S500-741",
+    "RN-S500-742"
+  ]
+}

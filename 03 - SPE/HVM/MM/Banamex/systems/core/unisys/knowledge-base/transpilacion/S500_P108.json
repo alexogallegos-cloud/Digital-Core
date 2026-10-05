@@ -1,0 +1,240 @@
+{
+  "slug": "S500_P108",
+  "sistema": "S500",
+  "programa": "P108",
+  "nombre": "Generador del archivo de saldos GBNP",
+  "funcion": "Paso batch diario del S500 lanzado por WFL con un parámetro (1, 2 o 3) que recorre B03CONTRATOS y genera los archivos secuenciales de saldos para GBNP (001 y 002 en la corrida normal, 003 en la segunda, o un reproceso por fecha), y los envía con el WFL ENVIAGBNPSDOS.",
+  "resumen": "Abre S500BD01CAPTACION en UPDATE y toma de B02CONTROL el CSI y el control del envío GBNP; si B02-GBNP-SALDOS-FEC ya es la fecha base, solo reenvía los archivos que la secuencia guardada indica. Si no, recorre B03CONTRATOS y escribe un detalle por cada contrato que no es clon y tiene servicio GBNP, con moneda ISO, día de corte, estatus y un saldo que en ciertos cortes se promedia con los saldos de días inhábiles. Cierra con un trailer de conteo, envía el archivo por WFL y guarda fecha y secuencia en B02. Con el parámetro 1 espera a que termine el P105 para generar la secuencia 002.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.gbnp.saldos",
+  "secciones": [
+    {
+      "titulo": "Layout del feed de saldos GBNP y etiqueta del archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P108.txt",
+        "contexto": "WORKING-STORAGE · WKS-HDR-GBNP / WKS-DET-GBNP / WKS-TRL-GBNP"
+      },
+      "java": {
+        "archivo": "GbnpRecord.java · GbnpProperties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Header VDBAL, detalle y trailer delimitados con tilde",
+          "linea_ini": 167,
+          "linea_fin": 206,
+          "origen_codigo": " 01 WKS-HDR-GBNP.\n    02 WKS-HDR-GBNP-ID              PIC X(03) VALUE \"HDR\".\n    02 WKS-HDR-FILLER-1             PIC X VALUE \"~\".\n    02 WKS-HDR-GBNP-HAN             PIC X(05) VALUE \"VDBAL\".\n    02 WKS-HDR-FILLER-2             PIC X VALUE \"~\".\n    02 WKS-HDR-GBNP-FEC             PIC 9(08).\n    02 WKS-HDR-FILLER-3             PIC X VALUE \"~\".\n    02 WKS-HDR-GBNP-SEC             PIC 9(03).\n    02 WKS-HDR-FILLER-5             PIC X VALUE \"~\".\n    02 WKS-HDR-GBNP-CSI             PIC X(04).\n    02 WKS-HDR-FILLER-4             PIC X VALUE \"~\".\n    02 WKS-HDR-GBNP-SIS             PIC X(03) VALUE \"MX \".\n    02 WKS-HDR-FILLER-6             PIC X VALUE \"~\".\n    02 WKS-HDR-GBNP-BRCO            PIC 9(03) VALUE 485.\n 01 WKS-DET-GBNP.\n    02 WKS-DET-GBNP-ID              PIC X(03).\n    02 WKS-DET-FILLER-1             PIC X.\n    02 WKS-DET-GBNP-BRCO            PIC 9(03).\n    02 WKS-DET-FILLER-2             PIC X.\n    02 WKS-DET-GBNP-CTOS            PIC 9(20).\n    02 WKS-DET-GBNP-CTO-R           REDEFINES WKS-DET-GBNP-CTOS.\n       03 WKS-FILLER-CTO            PIC 9(04).\n       03 WKS-DET-GBNP-SUC          PIC 9(04).\n       03 WKS-DET-GBNP-CTO          PIC 9(12).\n    02 WKS-DET-FILLER-3             PIC X.\n    02 WKS-DET-GBNP-FECAP           PIC 9(08).\n    02 WKS-DET-FILLER-4             PIC X.\n    02 WKS-DET-GBNP-SDO             PIC ZZZZZZZZZZZZZZZZZZZZ9.99.\n    02 WKS-DET-FILLER-5             PIC X.\n    02 WKS-DET-GBNP-MON             PIC X(03).\n    02 WKS-DET-FILLER-6             PIC X.\n    02 WKS-DET-GBNP-LOBAL           PIC ZZZZZZZZZZZZZZZZZZZZ9.99.\n    02 WKS-DET-FILLER-7             PIC X.\n    02 WKS-DET-GBNP-DICOR           PIC X(03).\n    02 WKS-DET-FILLER-8             PIC X.\n    02 WKS-DET-GBNP-STAT            PIC X.\n 01 WKS-TRL-GBNP.\n    02 WKS-TRL-GBNP-ID              PIC X(03) VALUE \"TRL\".\n    02 WKS-TRL-FILLER-1             PIC X VALUE \"~\".\n    02 WKS-TRL-GBNP-TOTRE           PIC 9(10).",
+          "java_codigo": "/** Feed GBNP: registros de 98 bytes con campos separados por \"~\". */\npublic sealed interface GbnpRecord permits GbnpRecord.Header, GbnpRecord.Detalle, GbnpRecord.Trailer {\n\n    String linea();\n\n    record Header(LocalDate fechaBase, int secuencia, String csi,\n                  GbnpProperties p) implements GbnpRecord {\n        public String linea() {          // HDR~VDBAL~AAAAMMDD~SSS~CSI ~MX ~485\n            return String.join(\"~\", \"HDR\", p.handle(), fechaBase.format(BASIC_ISO_DATE),\n                    \"%03d\".formatted(secuencia), \"%-4s\".formatted(csi), p.sistema(), p.claveBanco());\n        }\n    }\n\n    record Detalle(String claveBanco, String contrato20, LocalDate fechaAplic,\n                   BigDecimal saldo, String monedaIso, String diaCorte, char status) implements GbnpRecord {\n        public String linea() {\n            return String.join(\"~\", \"DET\", claveBanco, contrato20, fechaAplic.format(BASIC_ISO_DATE),\n                    Fixed.editado(saldo, 21, 2),        // ZZZ...9.99 con ceros a la izquierda (INSPECT)\n                    monedaIso, Fixed.editado(saldo, 21, 2), diaCorte, String.valueOf(status));\n        }\n    }\n\n    record Trailer(long registros) implements GbnpRecord {\n        public String linea() { return \"TRL~\" + \"%010d\".formatted(registros); }\n    }\n}",
+          "racional": "El feed hacia GBNP no es de posiciones fijas puras: cada campo va separado por una tilde y el header se identifica con el literal <code>VDBAL</code>, el sistema <code>MX</code> y la clave de banco 485. Se traduce a una <code>sealed interface</code> con un <code>record</code> por tipo de registro que sabe producir su línea. El saldo se edita con <code>ZZZ...9.99</code> y después se rellenan ceros a la izquierda con <code>INSPECT</code>, lo que el helper reproduce. El contrato de 20 dígitos se arma como <code>String</code> (4 ceros, sucursal en cero y 12 de contrato).",
+          "reglas": [
+            "RN-S500-396"
+          ],
+          "riesgo": "El detalle repite el mismo saldo en WKS-DET-GBNP-SDO y WKS-DET-GBNP-LOBAL (líneas 1620-1621); el layout sugiere dos conceptos distintos que hoy viajan iguales."
+        },
+        {
+          "id": "s2",
+          "titulo": "Ruta del buzón INTS compilada en la etiqueta",
+          "linea_ini": 132,
+          "linea_fin": 145,
+          "origen_codigo": " 01 WKS-ETIQ-GBNP.\n    02 FILLER                    PIC X(15) VALUE\n       \"S500/FILE/INTS/\".\n    02 WKS-E-GBNP-BUZON          PIC X(09) VALUE\n       \"50025S01/\".\n    02 WKS-E-GBNP-CSI            PIC 9(02).\n    02 FILLER                    PIC X(01) VALUE\n       \"/\".\n    02 WKS-E-GBNP-FEC            PIC 9(08).\n    02 FILLER                    PIC X(10) VALUE\n       \"/GBNPSDOS/\".\n    02 WKS-E-GBNP-SEC            PIC 9(04).\n    02 FILLER                    PIC X VALUE\n       \".\".",
+          "java_codigo": "# application.yml\np108:\n  gbnp:\n    titulo: \"S500/FILE/INTS/{buzon}/{csi}/{fecha}/GBNPSDOS/{secuencia}.\"\n    buzon: \"50025S01\"              # WKS-E-GBNP-BUZON\n    handle: \"VDBAL\"\n    sistema: \"MX \"\n    clave-banco: \"485\"             # clave de institución Banamex\n    wfl-envio: \"ENVIAGBNPSDOS\"     # WS-WFLP197-PARAM\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p108.gbnp\")\npublic record GbnpProperties(String titulo, String buzon, String handle, String sistema,\n                             String claveBanco, String wflEnvio) {\n\n    public String resuelve(int csi, LocalDate fechaBase, int secuencia) {\n        return titulo.replace(\"{buzon}\", buzon)\n                     .replace(\"{csi}\", \"%02d\".formatted(csi))\n                     .replace(\"{fecha}\", fechaBase.format(DateTimeFormatter.BASIC_ISO_DATE))\n                     .replace(\"{secuencia}\", \"%04d\".formatted(secuencia));\n    }\n}",
+          "racional": "El título del archivo fija el prefijo <code>S500/FILE/INTS/</code>, el buzón <code>50025S01</code> y el nombre <code>GBNPSDOS</code>; la fecha va completa con 8 dígitos y la secuencia con 4. Todos los literales del feed (buzón, handle, sistema, clave de banco y nombre del WFL) se trasladan a <code>application.yml</code> para cambiar de ambiente o de institución sin recompilar.",
+          "reglas": [
+            "RN-S500-396"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control de corridas, reenvío y secuencias en B02CONTROL",
+      "origen": {
+        "archivo": "S500_SOURCE_P108.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20006000 / 20006100 / 50000200 / 50004000"
+      },
+      "java": {
+        "archivo": "SaldosGbnpJobConfig.java · ControlGbnpService.java · EsperaP105Decider.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal en ciclo hasta WKS-FIN = 2",
+          "linea_ini": 724,
+          "linea_fin": 1288,
+          "origen_codigo": " 00000000-RUTINA-PRINCIPAL.\n     MOVE ATTRIBUTE HOSTNAME  OF MYSELF TO WKS-NAME-HOST.\n     MOVE ATTRIBUTE MIXNUMBER OF MYSELF TO W77-NUM-MIX.\n     MOVE W77-PARAM-WFL       TO WKS-PARAMETRO.\n     MOVE \"P108\"              TO WS-0101-PASO-MSG.\n     MOVE \"25MTP004\"          TO WS-0101-MTP-MSG.\n     MOVE \"S500P108\"          TO W77-S000-MY-ID.\n     MOVE \"25MTP004\"          TO W77-S000-MY-VERSION.\n     MOVE 2                   TO W77-USO-LIBLJ.\n     MOVE 0                   TO WKS-FIN.\n     PERFORM 10000000-OPEN       THRU 10000000-EXIT.\n     PERFORM 50000000-PROCESOS THRU 50000000-EXIT\n                   UNTIL WKS-FIN = 2.\n     PERFORM 70000000-CIERRO     THRU 70000000-EXIT.\n     STOP RUN.\n 50000000-PROCESOS.\n     PERFORM 20004000-HORA-MAQ\n     MOVE WS-HORA-HHMMSSCC  TO WKS-HI-HRIN\n     SET S500B03CONTRATOS TO BEGINNING.\n     PERFORM 50001000-GENERA-A-GBNP THRU 50001000-EXIT.\n     PERFORM 50002000-GENERA-TRA.\n     PERFORM 50003000-ENVIA-ARCHIVOS.\n     PERFORM 50004000-VA-SEC2 UNTIL WKS-BAND = 1.",
+          "java_codigo": "@Configuration\npublic class SaldosGbnpJobConfig {\n\n    /** El ciclo PERFORM 50000000-PROCESOS UNTIL WKS-FIN = 2 se vuelve un flujo explícito. */\n    @Bean\n    Job saldosGbnp(JobRepository repo, Step validaServicio, Step generaSecuencia,\n                   Step enviaArchivo, Step actualizaB02, Step esperaP105,\n                   JobExecutionDecider siguienteSecuencia) {\n        return new JobBuilder(\"S500P108\", repo)\n                .start(validaServicio)                    // 20006000: reenvío o generación\n                .next(generaSecuencia)                    // 50001000 + 50002000-GENERA-TRA\n                .next(actualizaB02)                       // 50000200-ACT-B02\n                .next(enviaArchivo)                       // 50003000: CALL SYSTEM WFL ENVIAGBNPSDOS\n                .next(siguienteSecuencia)\n                    .on(\"ESPERA_P105\").to(esperaP105).next(generaSecuencia)   // parámetro 1: secuencia 002\n                .from(siguienteSecuencia)\n                    .on(\"*\").end()\n                .end()\n                .build();\n    }\n}",
+          "racional": "El programa repite el bloque de proceso mientras <code>WKS-FIN</code> no llegue a 2. Con el parámetro 1 la primera vuelta genera la secuencia 001, espera a que termine el P105 y la segunda vuelta genera la 002; con los parámetros 2 y 3 hay una sola vuelta. Ese ciclo con estado se reescribe como un flujo de Spring Batch con un <code>JobExecutionDecider</code>, lo que deja visible en el <code>JobRepository</code> cuántas secuencias se generaron y en qué paso se detuvo.",
+          "reglas": [
+            "RN-S500-399"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Servicio GBNP ya enviado en la fecha base: solo se reenvía",
+          "linea_ini": 1088,
+          "linea_fin": 1157,
+          "origen_codigo": " 20006000-VALIDA-SERV.\n     PERFORM 90000002-B02CONTROL-FIND.\n     MOVE B02-NUM-CSI       TO WKS-CSI-BASE.\n     IF WKS-CSI-BASE = 10\n        MOVE \"VDM\"         TO WKS-CSI\n     ELSE\n        MOVE \"QRO\"         TO WKS-CSI.\n     IF WKS-PARAM   = 2\n        MOVE 1                  TO WKS-FIN\n     IF B02-GBNP-SALDOS-FEC = WKS-FEC-BASE\n        PERFORM 20004000-HORA-MAQ\n        STRING \"ENTRA A PROCESO DE VALIDAR REENVIOS\"\n               DELIMITED BY SIZE INTO WKS-R01-L06-MSN\n        PERFORM 20004001-ESCRIBE-MSN\n        PERFORM 20006100-REENVIA-ARC.\n 20006000-EXIT.\n     EXIT.\n 20006100-REENVIA-ARC.\n     MOVE WKS-FEC-BASE        TO WS-WFLP197-FECHA\n     MOVE \"ENVIAGBNPSDOS\"     TO WS-WFLP197-PARAM\n     IF B02-GBNP-SALDOS-SEC = 1 AND WKS-PARAM = 1\n        MOVE 0001                TO WS-WFLP197-SEC\n        CALL SYSTEM WFL USING WS-WFLP197\n     IF B02-GBNP-SALDOS-SEC = 3\n        MOVE 0001                TO WS-WFLP197-SEC\n        CALL SYSTEM WFL USING WS-WFLP197",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ControlGbnpService {\n\n    private final ControlCaptacionRepository b02;\n    private final GbnpProperties props;\n    private final WflGateway wfl;                       // CALL SYSTEM WFL USING WS-WFLP197\n\n    /** 20006000-VALIDA-SERV / 20006100-REENVIA-ARC */\n    @Transactional(readOnly = true)\n    public DecisionGbnp decide(ParametroP108 p, LocalDate fechaBase) {\n        ControlCaptacion c = b02.findControl().orElseThrow();\n        String csi = (c.numCsi() == 10) ? \"VDM\" : \"QRO\";        // rotulado del header\n        if (fechaBase.equals(c.gbnpSaldosFec())) {\n            // Los archivos de la fecha ya existen: se reenvían según la secuencia guardada.\n            int sec = c.gbnpSaldosSec();\n            if (sec == 3) {                                   // cualquier parámetro\n                reenvia(fechaBase, 1, 3);\n                return DecisionGbnp.terminado(csi);            // WKS-FIN = 2\n            }\n            if (p.valor() == 1 && sec == 2) {\n                reenvia(fechaBase, 1, 2);\n                return DecisionGbnp.terminado(csi);\n            }\n            if (p.valor() == 1 && sec == 1) {\n                reenvia(fechaBase, 1, 1);\n                return DecisionGbnp.generaSecuencia(csi, 2);   // WKS-SEC2 = 1: falta la 002\n            }\n        }\n        return DecisionGbnp.genera(csi);\n    }\n\n    private void reenvia(LocalDate fecha, int desde, int hasta) {\n        for (int s = desde; s <= hasta; s++) {\n            wfl.envia(props.wflEnvio(), fecha, s);\n            if (s < hasta) sleepSegundos(5);                   // WAIT(5)\n        }\n    }\n}",
+          "racional": "La idempotencia del envío vive en B02: si <code>B02-GBNP-SALDOS-FEC</code> ya es la fecha base, el día ya se generó y el programa solo vuelve a lanzar el WFL de envío para las secuencias registradas, con esperas de 5 segundos entre una y otra. Con secuencia 3 se reenvían las tres; con secuencia 2 y parámetro 1, la 001 y la 002; con secuencia 1 y parámetro 1 se reenvía la 001 y todavía se genera la 002. En Java esa decisión es un servicio de solo lectura que devuelve si hay que generar o reenviar. El rótulo de plaza se decide con el literal 10.",
+          "reglas": [
+            "RN-S500-399"
+          ],
+          "riesgo": "El CSI distinto de 10 se rotula QRO en este programa, mientras P165 rotula MTY para el mismo caso."
+        },
+        {
+          "id": "s5",
+          "titulo": "Fecha y secuencia del envío guardadas en B02CONTROL",
+          "linea_ini": 1777,
+          "linea_fin": 1784,
+          "origen_codigo": "     PERFORM 90000002-B02CONTROL-LOCK.\n     IF B02-GBNP-SALDOS-FEC =  WKS-FEC-BASE\n        NEXT SENTENCE\n     ELSE\n        MOVE WKS-FEC-BASE        TO B02-GBNP-SALDOS-FEC\n                                    WKS-FECHA.\n     MOVE WKS-SEC-ARC            TO B02-GBNP-SALDOS-SEC.\n     PERFORM 90000002-B02CONTROL-STORE.",
+          "java_codigo": "/** 50000200-ACT-B02: BEGIN-TRANSACTION, LOCK, STORE, END-TRANSACTION. */\n@Transactional\npublic void registraEnvio(LocalDate fechaBase, int secuencia) {\n    ControlCaptacion c = b02.findForUpdate();          // B02CONTROL-LOCK\n    if (!fechaBase.equals(c.gbnpSaldosFec())) {\n        c.setGbnpSaldosFec(fechaBase);\n    }\n    c.setGbnpSaldosSec(secuencia);                     // 1, 2 o 3\n}   // si el STORE falla, el COBOL solo escribe mensaje y continúa; aquí la excepción hace rollback",
+          "racional": "Después de generar cada secuencia se guardan en B02 la fecha base y el número de secuencia, que son la llave del reenvío del día siguiente o de un reinicio. La transacción DMSII se traduce a un método <code>@Transactional</code> con bloqueo pesimista.",
+          "reglas": [
+            "RN-S500-399"
+          ],
+          "riesgo": "Si el STORE o el END-TRANSACTION fallan, el programa solo registra el mensaje y sigue; el archivo se envía pero B02 no queda marcado, y una nueva corrida lo regenera completo."
+        },
+        {
+          "id": "s6",
+          "titulo": "Espera activa del término del P105",
+          "linea_ini": 1674,
+          "linea_fin": 1703,
+          "origen_codigo": "     IF WKS-FIN = 0\n       PERFORM 90000000-B00CTRLPASO-FIND\n       IF B00-NUM-PASO-01 = 105 AND B00-NUM-PASO-02 = 105 AND\n          B00-NUM-PASO-03 = 105\n          PERFORM 20004000-HORA-MAQ\n          STRING \"TERMINA VALIDACION DE TERMINO P105\",\n             DELIMITED BY SIZE INTO WKS-R01-L06-MSN\n          PERFORM 20004001-ESCRIBE-MSN\n          MOVE 1                 TO WKS-SEC2\n                                    WKS-BAND\n          ADD 1                  TO WKS-FIN\n          MOVE WKS-NUMACT-LIB(107)         TO W77-ID-ACTXX-MAPLI\n          PERFORM 70000910-FIN-ACTI-MAPLI\n          PERFORM 20007000-OPEN-ARC     THRU 20007000-EXIT\n       ELSE\n        WAIT(30)\n     ELSE\n        MOVE 1                   TO WKS-BAND\n        ADD 1                    TO WKS-FIN.",
+          "java_codigo": "/** 50004000-VA-SEC2: la secuencia 002 se genera solo cuando B00 marca el paso 105 en las tres posiciones. */\n@Component\n@RequiredArgsConstructor\npublic class EsperaP105Tasklet implements Tasklet {\n\n    private final ControlPasoRepository b00;\n    private final P108Properties props;          // intervalo 30 s y tope de espera\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws InterruptedException {\n        Instant limite = Instant.now().plus(props.esperaMaximaP105());\n        while (!b00.pasosEn(105, 105, 105)) {     // B00-NUM-PASO-01/02/03 = 105\n            if (Instant.now().isAfter(limite)) {\n                throw new EsperaAgotadaException(\"P105 no terminó en \" + props.esperaMaximaP105());\n            }\n            Thread.sleep(props.intervaloP105().toMillis());   // WAIT(30)\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Con el parámetro 1 el programa consulta B00CTRLPASO cada 30 segundos hasta que las tres posiciones de paso valen 105, y entonces abre el archivo de la secuencia 002. Es una dependencia entre pasos resuelta por sondeo. En Java se conserva como <code>Tasklet</code> con intervalo configurable y se agrega un tope de espera, porque el fuente no tiene ninguno; en el orquestador destino lo natural es modelarla como dependencia del flujo.",
+          "reglas": [
+            "RN-S500-399"
+          ],
+          "riesgo": "No hay tiempo máximo: si P105 no termina, P108 queda esperando indefinidamente."
+        }
+      ]
+    },
+    {
+      "titulo": "Selección de contratos, moneda ISO y cálculo del saldo",
+      "origen": {
+        "archivo": "S500_SOURCE_P108.txt",
+        "contexto": "PROCEDURE DIVISION · 50002000 / 50002100 / 50002300 / 20520205"
+      },
+      "java": {
+        "archivo": "ContratoGbnpProcessor.java · SaldoGbnpCalculator.java",
+        "contexto": "JpaPagingItemReader · ItemProcessor · BigDecimal"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Filtro de clones y de servicio GBNP",
+          "linea_ini": 1372,
+          "linea_fin": 1394,
+          "origen_codigo": " 50002000-VALIDA-CTO.\n     MOVE LOW-VALUES       TO REG-GBNP\n                              WKS-DET-GBNP.\n     MOVE 0                TO WKS-TIP-CORT-ANT.\n     IF B03-MARCA-CLON = 2 OR 3\n        NEXT SENTENCE\n     ELSE\n     IF B03-GBNP-SERV-IND > 0\n        PERFORM 50002100-MUEV-DET\n        MOVE B03-NUM-PRODUCTO        TO WS-NUM-PRODUCT\n        MOVE B03-NUM-INSTRUM         TO WS-NUM-INSTRUME\n        MOVE B03-MONEDA              TO WS-MON\n        MOVE 0                       TO WS-IND-TB05\n                                        WS-TB05-FIN\n        PERFORM 50002220-BUSCA-PRODINST VARYING WS-IND-TB05\n                FROM 1 BY 1 UNTIL WS-IND-TB05 > 30 OR\n                WS-TB05-FIN =1\n        PERFORM 50002205-VALIDA-DIA-CORTE\n        PERFORM 50002200-RECORD-STAT\n        PERFORM 50002300-CALCULA-SALDO\n        ADD 1                    TO WKS-HI-PROCE\n                                    WKS-CONTADOR\n        WRITE REG-GBNP FROM WKS-DET-GBNP.",
+          "java_codigo": "@Bean\nJpaPagingItemReader<Contrato> b03Reader(EntityManagerFactory emf) {\n    return new JpaPagingItemReaderBuilder<Contrato>()\n            .name(\"b03Contratos\")\n            .entityManagerFactory(emf)\n            // IF B03-MARCA-CLON = 2 OR 3 NEXT SENTENCE / IF B03-GBNP-SERV-IND > 0\n            .queryString(\"select c from Contrato c \"\n                       + \"where c.marcaClon not in (2, 3) and c.gbnpServInd > 0 order by c.id\")\n            .pageSize(1000)\n            .build();\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ContratoGbnpProcessor implements ItemProcessor<Contrato, GbnpRecord.Detalle> {\n\n    private final CatalogoInstrumentos b05;        // tabla en memoria de 30 entradas\n    private final SaldoGbnpCalculator saldo;\n\n    @Override\n    public GbnpRecord.Detalle process(Contrato c) {\n        var corte = b05.buscar(c.producto(), c.instrumento(), c.moneda());   // 50002220-BUSCA-PRODINST\n        return Detalles.de(c, corte, saldo.calcula(c, corte));\n    }\n}",
+          "racional": "El recorrido <code>FINDF</code> y <code>FINDN</code> de B03 se vuelve un lector paginado, y las dos condiciones de exclusión pasan a la consulta: no se envían contratos clon (marca 2 o 3) ni los que no tienen encendido el indicador de servicio GBNP. En el arquetipo A1 la fuente suele ser un conjunto de archivos; aquí es la propia base, por eso se usa <code>JpaPagingItemReader</code> en lugar de <code>MultiResourceItemReader</code>. La búsqueda del producto e instrumento en la tabla de 30 posiciones de B05 se vuelve un mapa en memoria.",
+          "reglas": [
+            "RN-S500-397"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Clave de banco y moneda interna a ISO",
+          "linea_ini": 1398,
+          "linea_fin": 1422,
+          "origen_codigo": " 50002100-MUEV-DET.\n     MOVE \"DET\"               TO WKS-DET-GBNP-ID.\n     MOVE 485                 TO WKS-DET-GBNP-BRCO.\n     IF B03-MONEDA = 01\n        MOVE \"MXN\"            TO WKS-DET-GBNP-MON\n     ELSE\n     IF B03-MONEDA = 05\n        MOVE \"USD\"            TO WKS-DET-GBNP-MON.\n     MOVE B03-NUM-CONTRATO    TO WKS-DET-GBNP-CTO.",
+          "java_codigo": "/** 50002100-MUEV-DET */\nstatic String monedaIso(int monedaInterna) {\n    return switch (monedaInterna) {\n        case 1 -> \"MXN\";\n        case 5 -> \"USD\";\n        // En COBOL el campo queda en LOW-VALUES (MOVE LOW-VALUES TO WKS-DET-GBNP) y el registro se escribe igual.\n        default -> throw new MonedaSinEquivalenciaException(monedaInterna);\n    };\n}\n\nstatic String contrato20(long numContrato) {\n    return \"0000\" + \"0000\" + \"%012d\".formatted(numContrato);   // WKS-FILLER-CTO, SUC en cero, CTO\n}",
+          "racional": "Cada detalle lleva la clave de banco 485 como literal y la moneda traducida de la codificación interna a ISO: 01 a MXN y 05 a USD. Solo esas dos tienen equivalencia. El número de contrato se arma en un campo de 20 dígitos con la sucursal en cero, porque la línea que movía la sucursal promotora está comentada. En Java la traducción es un <code>switch</code> exhaustivo y la moneda no mapeada se vuelve un error explícito.",
+          "reglas": [
+            "RN-S500-396",
+            "RN-S500-398"
+          ],
+          "riesgo": "Un contrato con moneda distinta de 01 y 05 se envía con el campo de moneda en LOW-VALUES; el consumidor recibe bytes nulos en el feed."
+        },
+        {
+          "id": "s9",
+          "titulo": "Saldo GBNP con promedio por días inhábiles",
+          "linea_ini": 1600,
+          "linea_fin": 1631,
+          "origen_codigo": " 50002300-CALCULA-SALDO.\n      MOVE ZEROS                      TO WKS-SALDO-GBNP.\n      IF WKS-SEC-ARC = 0001 OR 0002\n         IF B03-SDO-PENDIENTE > 0\n            ADD B03-SDO-PENDIENTE      TO B03-SDO-ACTUAL.\n      IF (WKS-TIP-CORT = 2  OR WKS-TIP-CORT-ANT = 2 ) AND\n         WKS-PARAM = 1\n        MOVE ZERO                  TO WS-IND-DIAINH\n                                      WS-SUM-SDO-INHAB\n        PERFORM  20520205-SUMA-SDOINHAB\n                 WS-DIAS-INHAXCTO  TIMES\n        COMPUTE WKS-SALDO-GBNP =\n              ((B03-SDO-ACTUAL + B03-SDOPROT-BLOQ) +\n                WS-SUM-SDO-INHAB) / WS-DIAS-INHAXCTO\n                MOVE WKS-SALDO-GBNP    TO WKS-SALDO-PEND\n      ELSE\n        COMPUTE WKS-SALDO-GBNP =\n              (B03-SDO-ACTUAL + B03-SDOPROT-BLOQ)\n               MOVE WKS-SALDO-GBNP    TO WKS-SALDO-PEND.\n      MOVE WKS-SALDO-GBNP        TO WKS-DET-GBNP-SDO\n                                    WKS-DET-GBNP-LOBAL.\n      INSPECT WKS-DET-GBNP-SDO   REPLACING LEADING SPACES BY \"0\".\n      INSPECT WKS-DET-GBNP-LOBAL REPLACING LEADING SPACES BY \"0\".\n 20520205-SUMA-SDOINHAB.\n    ADD 1 TO WS-IND-DIAINH.\n    IF WS-DIAS-INHAXCTO = WS-IND-DIAINH\n       NEXT SENTENCE\n    ELSE\n       ADD B03-SDOFIN-INHAB(WS-IND-DIAINH)\n       TO WS-SUM-SDO-INHAB.",
+          "java_codigo": "@Component\npublic class SaldoGbnpCalculator {\n\n    private static final int ESCALA = 2;                        // WKS-SALDO-GBNP PIC 9(14)V99\n\n    public BigDecimal calcula(Contrato c, int secuencia, ParametroP108 p,\n                              TipoCorte corte, int diasInhabiles /* WS-DIAS-INHAXCTO */) {\n        BigDecimal actual = c.sdoActual();\n        if ((secuencia == 1 || secuencia == 2) && c.sdoPendiente().signum() > 0) {\n            actual = actual.add(c.sdoPendiente());              // ADD B03-SDO-PENDIENTE TO B03-SDO-ACTUAL\n        }\n        BigDecimal base = actual.add(c.sdoProtBloq());\n        if (corte.esTipo2() && p.valor() == 1) {\n            // 20520205-SUMA-SDOINHAB suma los saldos finales de los días 1..N-1\n            BigDecimal inhabiles = BigDecimal.ZERO;\n            for (int i = 1; i < diasInhabiles; i++) {\n                inhabiles = inhabiles.add(c.sdoFinInhab(i));\n            }\n            if (diasInhabiles == 0) throw new DiasInhabilesCeroException(c.numContrato());\n            // COMPUTE sin ROUNDED: trunca a 2 decimales\n            return base.add(inhabiles).divide(BigDecimal.valueOf(diasInhabiles), ESCALA, RoundingMode.DOWN);\n        }\n        return base.setScale(ESCALA, RoundingMode.DOWN);\n    }\n}",
+          "racional": "El saldo enviado es saldo actual más saldo protegido o bloqueado; en las secuencias 1 y 2 se suma además el saldo pendiente. Cuando el corte del producto es de tipo 2 y la corrida es la normal, el saldo se promedia entre el número de días inhábiles que da LOCSUP, sumando los saldos finales guardados de los días previos. El <code>COMPUTE</code> no lleva <code>ROUNDED</code>, así que la división trunca: <code>RoundingMode.DOWN</code> con escala 2. El saldo pendiente se suma a una copia y no al registro de base, a diferencia del fuente, que lo suma sobre el buffer de B03.",
+          "reglas": [
+            "RN-S500-400"
+          ],
+          "riesgo": "WKS-SALDO-GBNP es PIC 9(14)V99 sin signo y el campo editado tampoco tiene signo: un saldo deudor se envía como positivo. La división no tiene ON SIZE ERROR si WS-DIAS-INHAXCTO llega en cero."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Saldos negativos enviados como positivos",
+      "detalle": "WKS-SALDO-GBNP (línea 292) es 9(14)V99 sin signo y WKS-DET-GBNP-SDO es un editado ZZZ...9.99 sin signo. Un contrato sobregirado aparece en GBNP con saldo positivo."
+    },
+    {
+      "titulo": "Moneda no mapeada viaja en LOW-VALUES",
+      "detalle": "50002100-MUEV-DET solo traduce 01 y 05 (líneas 1417-1421); con cualquier otra moneda el campo queda en LOW-VALUES y el detalle se escribe igual."
+    },
+    {
+      "titulo": "Espera sin límite del P105",
+      "detalle": "50004000-VA-SEC2 consulta B00CTRLPASO con WAIT(30) hasta que los tres pasos valgan 105, sin tope de tiempo (líneas 1674-1703)."
+    },
+    {
+      "titulo": "Errores de B02 no detienen el envío",
+      "detalle": "50000200-ACT-B02 registra mensajes ante fallas de BEGIN, STORE o END-TRANSACTION pero no aborta; el archivo se envía aunque B02 no quede marcado."
+    },
+    {
+      "titulo": "Modificación del buffer de B03",
+      "detalle": "50002300-CALCULA-SALDO suma B03-SDO-PENDIENTE sobre B03-SDO-ACTUAL en el área de la base abierta en UPDATE (línea 1604). No hay STORE de B03, pero cualquier lógica posterior sobre el mismo registro ve el saldo alterado."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Clave de banco 485, handle VDBAL, sistema MX, buzón 50025S01, CSI 10 como VDM y el resto como QRO, WFL ENVIAGBNPSDOS y esperas WAIT(5) y WAIT(30) están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME si B03-SDO-ACTUAL puede ser negativo y cómo debe representarse el signo en el feed GBNP.",
+    "Confirmar el significado de WKS-DET-GBNP-LOBAL, que hoy recibe el mismo valor que WKS-DET-GBNP-SDO.",
+    "Validar la regla de promedio: 20520205-SUMA-SDOINHAB suma los días 1 a N-1 de B03-SDOFIN-INHAB y divide entre N; confirmar que el día N corresponde al saldo actual.",
+    "Confirmar el rótulo QRO para CSI distinto de 10 frente al MTY que usa P165.",
+    "En 50000200-ACT-B02 se usa EXIT PERFORM fuera de un PERFORM en línea (línea 1775); confirmar el comportamiento en el compilador MCP."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-121",
+    "RN-S151-122",
+    "RN-S151-123",
+    "RN-S151-124",
+    "RN-S151-125",
+    "RN-S151-126",
+    "RN-S151-127",
+    "RN-S151-128",
+    "RN-S151-129",
+    "RN-S151-130",
+    "RN-S151-131",
+    "RN-S151-132",
+    "RN-S151-133",
+    "RN-S151-134",
+    "RN-S151-135",
+    "RN-S151-136",
+    "RN-S151-137",
+    "RN-S151-138",
+    "RN-S151-139",
+    "RN-S151-140",
+    "RN-S151-141",
+    "RN-S151-142",
+    "RN-S151-143",
+    "RN-S151-144",
+    "RN-S151-145",
+    "RN-S151-146",
+    "RN-S151-147",
+    "RN-S151-148",
+    "RN-S151-149",
+    "RN-S151-150",
+    "RN-S500-396",
+    "RN-S500-397",
+    "RN-S500-398",
+    "RN-S500-399",
+    "RN-S500-400"
+  ]
+}

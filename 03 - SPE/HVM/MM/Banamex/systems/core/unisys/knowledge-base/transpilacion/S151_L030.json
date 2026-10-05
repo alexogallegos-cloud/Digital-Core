@@ -1,0 +1,221 @@
+{
+  "slug": "S151_L030",
+  "sistema": "S151",
+  "programa": "L030",
+  "nombre": "Librería de Consulta de Saldos y Movimientos del Día",
+  "funcion": "Librería COBOL residente de S151 que atienden programas y tasks COMS en línea: con una sola entrada despacha por número de función las consultas de movimientos contables del día sobre la base semanal S151BD10MOVDIA151.",
+  "resumen": "L030 recibe tres áreas de enlace: la pantalla de solicitud, cuyo primer campo es el número de función, la pantalla de respuesta y un código de retorno. La función 0 levanta librerías dependientes, carga en memoria los catálogos de claves de transacción y leyendas desde ESTRUCTURA y abre la base semanal en modo de solo lectura; las funciones 11 a 26 recorren los SET de movimientos del día y llenan pantallas paginadas, y las funciones 60 a 69 cierran o reabren la base. No escribe archivos ni actualiza DMSII: todo su efecto es la pantalla de salida y el código en W77-RES-LIBCON.",
+  "arquetipo": "L",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Data JPA (solo lectura)",
+  "paquete_java": "mx.banamex.s151.consulta.movimientos",
+  "secciones": [
+    {
+      "titulo": "Interfaz de la librería y ciclo de vida",
+      "origen": {
+        "archivo": "COBOL_L030.txt",
+        "contexto": "PROCEDURE DIVISION · 00-00000-CONTROL / 01-00000-LEVANTA"
+      },
+      "java": {
+        "archivo": "ConsultaMovimientosLibrary.java · CicloVidaBaseSemanal.java",
+        "contexto": "@Service · interfaz de librería"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Entrada única con GO TO DEPENDING ON a un mapa de consultas",
+          "linea_ini": 10338,
+          "linea_fin": 10505,
+          "origen_codigo": " PROCEDURE DIVISION USING WKS-ENT-DATOS, WKS-PANTALLAS-SAL,       083300\n                          W77-RES-LIBCON.                         083400\n 00-00000-CONTROL SECTION.                                        083600\n 00-00010-INICIO.                                                 083800\n**********************************************************        084000\n* DETERMINACION DEL NUMERO DE FUNCION                    *        084100\n**********************************************************        084200\n     PERFORM 00-00020-LIMPIA-VARIABLES.                           084300\n     MOVE WKS-ENT-DATOS            TO WKS-PANTALLAS-ENT.          084400\n     MOVE WKS-PAN-ENTNUMPAN        TO WKS-PARAM-FUNCION.          084500\n     MOVE SPACES                   TO WKS-PANTALLAS-SAL.          084600\n     IF WKS-PARAM-FUNCION = 0                                     084700\n        GO TO 01-00070-INICIO-REINICIO                            084800\n     ELSE                                                         084900\n     IF W77-INICIO = 1                                            085000\n        MOVE WKS-R01-MOVDIA           TO WKS-NOM-BDERR-DMSII      085010\n        GO TO                                                     085100\n           00-00030-FUNCION-ERROR                                 085200\n           11-00050-CONAPL                                        086200\n           12-00050-CONXCTO-DIA                                   086300\n           13-00050-CONXCAJA-DIA                                  086400\n           13-00050-CONXCAJA-DIA                                  086500\n           16-00050-TOTXPROD-DIA                                  086600\n           16-00050-TOTXPROD-DIA                                  086700\n           17-00050-TOTNAL-DIA                                    086800\n           18-00050-CONXMDA-DIA                                   086900\n           19-00050-TOTXMDA-DIA                                   087000\n           19-00050-TOTXMDA-DIA                                   087100\n           21-00050-TOTXSUC-DIA                                   087200\n           21-00050-TOTXSUC-DIA                                   087300\n           01-00070-INICIO-REINICIO                               091200\n        DEPENDING ON WKS-PARAM-FUNCION                            092200\n     ELSE                                                         092300\n        MOVE 5                     TO W77-RES-LIBCON.             092400\n     EXIT PROGRAM.                                                092500\n 00-00030-FUNCION-ERROR.                                          096600\n*======================                                           096700\n     MOVE 2                        TO W77-RES-LIBCON.             096800\n     EXIT PROGRAM.                                                096900",
+          "java_codigo": "/** S151LIB030: la misma interfaz que la librería, una entrada que despacha por número de función. */\n@Service\n@RequiredArgsConstructor\npublic class ConsultaMovimientosLibrary {\n\n    public static final long FUNCION_INVALIDA = 2;     // 00-00030-FUNCION-ERROR\n    public static final long NO_INICIALIZADA  = 5;     // W77-INICIO <> 1\n\n    private final CicloVidaBaseSemanal ciclo;           // funciones 0 y 60..69\n    private final Map<Integer, ConsultaDia> consultas;  // 11, 12, 13/14, 15/16, 17, 18, 19/20, 21/22, 24, 25/26\n\n    /** PROCEDURE DIVISION USING WKS-ENT-DATOS, WKS-PANTALLAS-SAL, W77-RES-LIBCON. */\n    public long invoca(PantallaEntrada entrada, PantallaSalida salida) {\n        int funcion = entrada.numeroFuncion();          // WKS-PAN-ENTNUMPAN -> WKS-PARAM-FUNCION 9(04)\n        salida.limpia();                                // MOVE SPACES TO WKS-PANTALLAS-SAL\n        if (funcion == 0) {\n            return ciclo.inicializa(entrada);           // GO TO 01-00070-INICIO-REINICIO\n        }\n        if (!ciclo.inicializada()) {\n            return NO_INICIALIZADA;                     // MOVE 5 TO W77-RES-LIBCON\n        }\n        if (funcion >= 60 && funcion <= 69) {\n            return ciclo.controla(funcion, entrada);    // posiciones 60..69 del GO TO DEPENDING\n        }\n        ConsultaDia consulta = consultas.get(funcion);\n        // Posiciones 1..10, 23, 27..59 y 70..99 van a FUNCION-ERROR. Fuera de 1..99 el COBOL\n        // no salta y devuelve el código que traía el llamador; aquí se responde 2 explícitamente.\n        return (consulta == null) ? FUNCION_INVALIDA : consulta.ejecuta(entrada, salida);\n    }\n}",
+          "racional": "La librería expone un solo punto de entrada con tres áreas de enlace. El <code>GO TO ... DEPENDING ON</code> de 99 posiciones se reemplaza por un <code>Map</code> de implementaciones de <code>ConsultaDia</code> inyectadas por Spring, una por familia de función, y el método conserva la firma de la librería para que los llamadores migren sin cambiar su contrato. El código de retorno <code>PIC S9(11) BINARY</code> se vuelve un <code>long</code>. Se omitieron en el extracto las posiciones repetidas del GO TO.",
+          "reglas": [],
+          "riesgo": "Un número de función mayor a 99 no salta a ningún párrafo y deja intacto W77-RES-LIBCON; el llamador puede interpretar como éxito un valor residual."
+        },
+        {
+          "id": "s2",
+          "titulo": "Funciones de control 0 y 60 a 69 a un servicio de ciclo de vida",
+          "linea_ini": 10509,
+          "linea_fin": 10576,
+          "origen_codigo": " 01-00070-INICIO-REINICIO.                                        097300\n*========================                                         097400\n     MOVE WKS-ENT-ENTNUMSIS        TO WKS-PARAM-SIST.             097500\n     IF WKS-PARAM-FUNCION = 0                                     097600\n        PERFORM 01-00300-ESTABLECE-LIBRERIAS                      097700\n        PERFORM 01-00040-LEVANTA-L001                             097800\n        IF W77-ERR = 0                                            097900\n           PERFORM 01-00070-CARGA-CONSISDIA                       098000\n           IF W77-ERR = 0                                         098100\n              MOVE ZERO         TO W77-ERROR-BASE                 098400\n              PERFORM 01-00200-INICIA-DATOS                       098500\n              PERFORM 01-00500-EXTRAE-NOMBASES                    098600\n              PERFORM 01-00600-ABRE-BASEDIA                       098700\n              MOVE 1            TO W77-INICIO                     098900\n              PERFORM 01-00800-CLAVES                             099100\n        IF WKS-PARAM-FUNCION = 53                                 099802\n           IF W77-IND-S016 = 1                                    099804\n        IF WKS-PARAM-FUNCION = 55                                 099834\n           IF W77-IND-S016 = 1                                    099835\n              CANCEL \"S016L422\"                                   099836\n        IF WKS-PARAM-FUNCION = 60                                 099900\n           PERFORM 01-00650-CIERRA-BASEDIA                        100000\n        ELSE                                                      100100\n        IF WKS-PARAM-FUNCION = 61                                 100200\n           PERFORM 01-00070-CARGA-CONSISDIA                       100300\n           PERFORM 01-00220-DAME-FECPRO                           100400\n           PERFORM 01-00600-ABRE-BASEDIA                          100500\n        IF WKS-PARAM-FUNCION = 62 OR 63 OR 64 OR 65 OR 66 OR 67   101600\n           NEXT SENTENCE                                          101700\n     MOVE W77-ERR                  TO W77-RES-LIBCON.             104700\n     EXIT PROGRAM.                                                104800",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CicloVidaBaseSemanal {\n\n    private final ControlProcesoClient control;     // LIB-CONTROL (L001): CONSISDIA y fecha de proceso\n    private final CatalogoClavesService catalogos;  // 01-00800-CLAVES\n    private final BaseSemanalDataSource base;       // BASESEMANAL = S151BD10MOVDIA151\n    private volatile boolean inicializada;          // W77-INICIO\n\n    /** Función 0: levanta L001, carga control, abre la base y los catálogos. */\n    public long inicializa(PantallaEntrada entrada) {\n        var consisdia = control.cargaConsisdia(entrada.sistema());   // 01-00070-CARGA-CONSISDIA\n        base.abre(consisdia.nombreBaseDia());                        // 01-00600-ABRE-BASEDIA\n        catalogos.carga(entrada.sistema());                          // CVETRAN, leyendas, devoluciones\n        inicializada = true;                                         // MOVE 1 TO W77-INICIO\n        return 0;\n    }\n\n    public long controla(int funcion, PantallaEntrada entrada) {\n        switch (funcion) {\n            case 60, 68 -> base.cierra();                                     // 01-00650-CIERRA-BASEDIA\n            case 61, 69 -> base.abre(control.cargaConsisdia(entrada.sistema()).nombreBaseDia());\n            default     -> { }                                                // 62..67: sin efecto\n        }\n        return 0;                                                             // MOVE W77-ERR TO W77-RES-LIBCON\n    }\n\n    public boolean inicializada() { return inicializada; }\n}",
+          "racional": "La función 0 encadena la carga de librerías, el control del día, la apertura de la base y la carga de catálogos; las funciones 60 a 69 cierran o reabren la base cuando cambia el día. En Java la apertura y el cierre dejan de ser estado global de la librería y se concentran en un componente con un indicador <code>volatile</code>, porque la librería original atiende a varios llamadores COMS sobre la misma instancia. Las ramas de las funciones 53 y 55 no se trasladan porque el despacho nunca las alcanza con la librería inicializada.",
+          "reglas": [],
+          "riesgo": "Las ramas IF WKS-PARAM-FUNCION = 53 y = 55 sólo se alcanzan desde la función 0, nunca con esos valores, por lo que el cambio de título y el CANCEL de S016L422 son código muerto."
+        },
+        {
+          "id": "s3",
+          "titulo": "Apertura de la base semanal con nombre dinámico y OPEN INQUIRY",
+          "linea_ini": 10684,
+          "linea_fin": 10699,
+          "origen_codigo": " 01-00600-ABRE-BASEDIA.                                           126900\n*============================================================     127000\n*        SE ABRE SEMANAL SI ESTA EN STATUS VALIDO Y CERRADA =     127100\n*============================================================     127200\n     MOVE ZERO                     TO W77-ERROR-BASE.             127300\n     IF WKS-R01-STMDIA = 0                                        127400\n        IF WKS-ABRE-SEM = 0                                       127500\n           MOVE WKS-R01-MOVDIA     TO WKS-NOM-BDERR-DMSII         127600\n           CHANGE ATTRIBUTE TITLE OF BASESEMANAL TO WKS-R01-MOVDIA127700\n           OPEN INQUIRY BASESEMANAL ON EXCEPTION                  127800\n                                       PERFORM 900000-CHE-STA     127900\n                                       MOVE 1 TO W77-ERROR-BASE.  128000\n     IF W77-ERROR-BASE = 0 AND WKS-R01-STMDIA = 0                 128100\n        MOVE 1                     TO WKS-ABRE-SEM                128200\n     ELSE                                                         128300\n        MOVE ZERO                  TO W77-ERROR-BASE.             128400",
+          "java_codigo": "@Component\npublic class BaseSemanalDataSource {\n\n    private final AtomicReference<String> baseAbierta = new AtomicReference<>();  // WKS-ABRE-SEM\n\n    /** CHANGE ATTRIBUTE TITLE + OPEN INQUIRY: solo lectura sobre la base del día. */\n    public void abre(String nombreBaseDia) {\n        if (baseAbierta.get() != null) {\n            return;                                    // IF WKS-ABRE-SEM = 0\n        }\n        try {\n            routing.selecciona(nombreBaseDia);         // AbstractRoutingDataSource, conexión readOnly=true\n            baseAbierta.set(nombreBaseDia);\n        } catch (DataAccessException e) {\n            // El COBOL marca W77-ERROR-BASE = 1 y en seguida lo regresa a cero, y la librería\n            // queda inicializada sin base. Aquí el error se propaga a la función 0.\n            throw new BaseNoDisponibleException(nombreBaseDia, e);\n        }\n    }\n}",
+          "racional": "La base de movimientos del día se abre con un título que se arma en tiempo de ejecución desde CONSISDIA y en modo <code>INQUIRY</code>, es decir, de solo lectura. En Spring eso se modela con un <code>AbstractRoutingDataSource</code> que elige el esquema del día y conexiones de solo lectura. El indicador <code>WKS-ABRE-SEM</code> pasa a una referencia atómica. La traducción no conserva el comportamiento de tragarse el error de apertura.",
+          "reglas": [],
+          "riesgo": "Si OPEN INQUIRY falla, la rama ELSE de la línea 10699 pone W77-ERROR-BASE en cero y la librería responde como inicializada sin base abierta."
+        }
+      ]
+    },
+    {
+      "titulo": "Catálogo de claves de transacción en memoria (CVETRAN)",
+      "origen": {
+        "archivo": "COBOL_L030.txt",
+        "contexto": "WORKING-STORAGE · 01-00811-CLAVES / 01-00811-MUEVE-CLAVES"
+      },
+      "java": {
+        "archivo": "ClaveTransaccion.java · CatalogoClavesService.java",
+        "contexto": "record · @Service · Map inmutable"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Dos tablas paralelas OCCURS 10000 a un record por clave",
+          "linea_ini": 6385,
+          "linea_fin": 6397,
+          "origen_codigo": " 01 WKS-CVE-SIS.                                                  031600\n    03 WKS-CVE-DATOS OCCURS 10000 TIMES.                          031700\n       05 WKS-CVE-CVE              PIC 9(04) COMP.                031800\n       05 WKS-CVE-TMOV             PIC 9(02) COMP.                031850\n       05 WKS-CVE-LEY              PIC 9(04) COMP.                031900\n       05 WKS-CVE-INDMOV           PIC 9(02) COMP.                032000\n 01 WKS-CVE-SIS-2.                                                032010\n    03 WKS-CVE-DATOS2 OCCURS 10000 TIMES.                         032020\n       05 WKS-CVE-EDOCTA           PIC 9(02) COMP.                032100\n       05 WKS-CVE-S28              PIC 9(02) COMP.                032200\n       05 WKS-CVE-INDBIT           PIC 9(02) COMP.                032300\n       05 WKS-CVE-SUMASCR          PIC 9(02) COMP.                032400\n       05 WKS-CVE-ENVCITI          PIC 9(02) COMP.                032410",
+          "java_codigo": "/** Una fila de WKS-CVE-SIS más su gemela WKS-CVE-SIS-2 (mismo subíndice). */\npublic record ClaveTransaccion(\n        int clave,            // WKS-CVE-CVE     9(04) COMP\n        int tipoMovimiento,   // WKS-CVE-TMOV    9(02) COMP\n        int leyenda,          // WKS-CVE-LEY     9(04) COMP\n        int indMovimiento,    // WKS-CVE-INDMOV  9(02) COMP\n        int estadoCuenta,     // WKS-CVE-EDOCTA  9(02) COMP\n        int s28,              // WKS-CVE-S28     9(02) COMP\n        int indBit,           // WKS-CVE-INDBIT  9(02) COMP\n        int sumasCr,          // WKS-CVE-SUMASCR 9(02) COMP\n        EnvioCiti envioCiti)  // WKS-CVE-ENVCITI 9(02) COMP, posición 17 del catálogo\n{}\n\npublic enum EnvioCiti {\n    NINGUNO(0), CBII_CTD(1), SOLO_CTD(2);\n    private final int codigo;\n    EnvioCiti(int codigo) { this.codigo = codigo; }\n    static EnvioCiti of(int c) {\n        return Arrays.stream(values()).filter(e -> e.codigo == c).findFirst().orElse(NINGUNO);\n    }\n}",
+          "racional": "Los datos de cada clave de transacción están repartidos en dos tablas paralelas de 10000 ocurrencias que comparten subíndice. En Java se juntan en un <code>record</code> inmutable y el indicador de envío a Citi pasa a un <code>enum</code> con los dos valores que el fuente distingue. Los campos <code>COMP</code> de dos y cuatro dígitos caben en <code>int</code>; no hay importes en esta estructura.",
+          "reglas": [
+            "RN-S151-549"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Carga del catálogo desde ESTRUCTURA por bloques de 10 filas",
+          "linea_ini": 10835,
+          "linea_fin": 10882,
+          "origen_codigo": "        IF W77-IND < 10001                                        163100\n           PERFORM 01-00811-MUEVE-CLAVES                          163110\n                   VARYING W77-IND-S080 FROM 1 BY 1               163115\n                   UNTIL   W77-IND-S080 > WKS-SL710-NUMREG        163116\n           IF W77-L710-RESULT = 0                                 163117\n              MOVE 1                  TO W77-EOF                  163118\n           ELSE  NEXT SENTENCE                                    163119\n        ELSE                                                      163122\n           MOVE \"I\"                TO TIPO-LJ                     163124\n           MOVE 020601             TO CODIGO-LJ                   163126\n           STRING \"S\" W77-SISTEMA  \" CVETRAN > 10000\"             163128\n                         DELIMITED BY SIZE INTO TEXTO-LJ          163130\n           CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ                163132\n                                       MENSAJE-LJ                 163134\n           MOVE 1                  TO W77-EOF                     163136\n 01-00811-MUEVE-CLAVES.                                           163162\n*======================                                           163164\n         ADD 1                     TO W77-IND                     163174\n         MOVE W77-IND              TO W77-TOT-CVES                163184\n         IF W77-CAT-FORMATO = 1 OR W77-CAT-FORMATO = 2            163200\n           MOVE WKS-SL710-DAT(W77-IND-S080,3)                     163250\n                                   TO WKS-CVE-LEY(W77-IND)        163300\n           MOVE WKS-SL710-DAT(W77-IND-S080,5)                     163350\n                                   TO WKS-CVE-EDOCTA(W77-IND)     163400\n           MOVE WKS-SL710-DAT(W77-IND-S080,7)                     163450\n                                   TO WKS-CVE-INDMOV(W77-IND)     163500\n           MOVE WKS-SL710-DAT(W77-IND-S080,11)                    163550\n                                   TO WKS-CVE-S28(W77-IND)        163600\n           MOVE WKS-SL710-DAT(W77-IND-S080,13)                    163650\n                                   TO WKS-CVE-INDBIT(W77-IND)     163700\n           MOVE WKS-SL710-DAT(W77-IND-S080,15)                    163720\n                                   TO WKS-CVE-SUMASCR(W77-IND)    163740\n           MOVE WKS-SL710-DAT(W77-IND-S080,17)                    163745\n                                   TO WKS-CVE-ENVCITI(W77-IND)    163750\n           PERFORM 01-00812-FORMATO                               163751\n         ELSE                                                     163752",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class CatalogoClavesService {\n\n    private final EstructuraCatalogosClient estructura;   // L710_CONSUL_DETALLE IN ESTRUCTURA\n    private final CatalogosProperties props;              // catalogo-cvetran: 523 / 1059, tope: 10000\n    private volatile Map<Integer, ClaveTransaccion> porClave = Map.of();\n\n    public void carga(int sistema) {\n        var formato = estructura.formatoCatalogo(sistema);          // 01-00818-DAME-NUMCAT\n        var filas = estructura.consultaDetalle(formato.numero())     // pagina de 10 en 10\n                .flatMap(pagina -> pagina.filas().stream())\n                .toList();\n        if (filas.size() > props.topeClaves()) {                     // \"S\" W77-SISTEMA \" CVETRAN > 10000\"\n            log.info(\"S{} CVETRAN > {}\", sistema, props.topeClaves());\n        }\n        porClave = filas.stream().limit(props.topeClaves())\n                .map(f -> switch (formato.tipo()) {\n                    case 1, 2 -> new ClaveTransaccion(f.clave(formato), 0, f.num(3), f.num(7), f.num(5),\n                                     f.num(11), f.num(13), f.num(15), EnvioCiti.of(f.num(17)));\n                    case 3    -> new ClaveTransaccion(f.num(1), f.num(2), f.num(3), 0, 0,\n                                     f.num(6), f.num(8), 0, EnvioCiti.NINGUNO);\n                    default   -> new ClaveTransaccion(f.num(1), 0, f.num(2), 0, 0,\n                                     f.num(4), f.num(6), 0, EnvioCiti.NINGUNO);\n                })\n                .collect(Collectors.toUnmodifiableMap(ClaveTransaccion::clave, c -> c, (a, b) -> a));\n    }\n\n    public Optional<ClaveTransaccion> busca(int clave) { return Optional.ofNullable(porClave.get(clave)); }\n}",
+          "racional": "El catálogo se pide a la librería ESTRUCTURA en bloques de diez filas y cada fila se reparte en las dos tablas según el formato del catálogo. El indicador de envío a Citi se toma de la posición 17 solo en los formatos 1 y 2. En Java el resultado es un <code>Map</code> inmutable indexado por la clave, que reemplaza tanto la búsqueda secuencial por <code>WKS-CVE-CVE</code> como el subíndice directo de la consulta 11. Los números de catálogo y el tope de 10000 pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-549"
+          ],
+          "riesgo": "La guarda W77-IND < 10001 se evalúa antes de mover un bloque de hasta 10 filas, de modo que el último bloque puede rebasar OCCURS 10000."
+        }
+      ]
+    },
+    {
+      "titulo": "Función 11 — consulta por autorización de aplicación",
+      "origen": {
+        "archivo": "COBOL_L030.txt",
+        "contexto": "11-00000-AUTAPL · 99-000000-COMUNES"
+      },
+      "java": {
+        "archivo": "ConsultaPorAutorizacion.java · MovimientoDiaRepository.java · DmsiiErrorTranslator.java",
+        "contexto": "ConsultaDia · JPA de solo lectura · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Recorrido del SET del día seleccionado por W77-BASE-NUMDIA",
+          "linea_ini": 11680,
+          "linea_fin": 11739,
+          "origen_codigo": "  11-00600-FN-AUTAPL.                                             205700\n*===================                                              205800\n     IF W77-BASE-NUMDIA = 1                                       205900\n        FIND NEXT  B01BXCAJ859                                    206000\n             ON EXCEPTION                                         206400\n             IF DMSTATUS(NOTFOUND)                                206500\n                MOVE 1                  TO W77-ERROR-BASE         206510\n                                           W77-MSG                206520\n             ELSE                                                 206530\n               PERFORM 900000-CHE-STA                             206540\n               MOVE 13                 TO W77-MSG                 206550\n     ELSE                                                         206600\n     IF W77-BASE-NUMDIA = 2                                       206700\n        FIND NEXT  B11BXCAJ859                                    206800\n             ON EXCEPTION                                         207200\n             IF DMSTATUS(NOTFOUND)                                207300\n                MOVE 1                  TO W77-ERROR-BASE         207310\n                                           W77-MSG                207320\n             ELSE                                                 207330\n               PERFORM 900000-CHE-STA                             207340\n               MOVE 13                 TO W77-MSG                 207350\n     IF W77-BASE-NUMDIA = 5                                       209100\n        FIND NEXT  B41BXCAJ859                                    209200\n             ON EXCEPTION                                         209600\n             IF DMSTATUS(NOTFOUND)                                209700\n                 MOVE 1                  TO W77-ERROR-BASE        209720\n                                            W77-MSG               209740\n             ELSE                                                 209760\n                 PERFORM 900000-CHE-STA                           209780\n                 MOVE 13                 TO W77-MSG.              209800\n     IF W77-MSG = 0                                               209820\n        IF W77-BASE-NUMDIA = 1                                    209825\n           IF B01-MOV-SUCINI  = WKS-PARAM-SUCOPE AND              209830\n              B01-MOV-CAJINI  = WKS-PARAM-CAJA                    209840\n*              B01-MOV-AUTAPL  > WKS-D01-AUTS151                  209850\n              PERFORM 11-00700-MUEVE-AUTAPL                       209860\n           ELSE                                                   209862\n              MOVE 1 TO W77-NO-ENCONTRADO                         209864",
+          "java_codigo": "/** B01..B41: un SET por día hábil de la semana. En la base relacional, una tabla con columna dia_semana. */\npublic interface MovimientoDiaRepository extends Repository<MovimientoDia, Long> {\n\n    @QueryHints(@QueryHint(name = HINT_READ_ONLY, value = \"true\"))\n    @Query(\"\"\"\n           select m from MovimientoDia m\n            where m.diaSemana = :dia and m.sucIni = :sucursal and m.cajIni = :caja\n            order by m.autS151\n           \"\"\")\n    Stream<MovimientoDia> porSucursalCaja(int dia, int sucursal, int caja);   // B0nBXCAJ859\n}\n\n// En ConsultaPorAutorizacion: el FIND NEXT ... ON EXCEPTION queda como fin del Stream.\ntry (Stream<MovimientoDia> movs = repo.porSucursalCaja(diaBase, param.sucursal(), param.caja())) {\n    movs.takeWhile(m -> !pantalla.llena())\n        .filter(m -> esElegible(m, param))\n        .forEach(m -> pantalla.agrega(renglon(m)));\n}",
+          "racional": "La consulta repite el mismo <code>FIND NEXT</code> sobre cinco SET distintos, uno por día de la semana (<code>B01</code>, <code>B11</code>, <code>B21</code>, <code>B31</code>, <code>B41</code>), y corta cuando la llave sucursal y caja deja de coincidir. En Java los cinco SET se unifican en una tabla con la columna del día y un <code>Stream</code> ordenado de solo lectura. <code>NOTFOUND</code> deja de ser un error: es el fin natural del <code>Stream</code>. Se omitieron en el extracto las ramas de los días 3 y 4, que son idénticas.",
+          "reglas": [],
+          "riesgo": "El fuente compara solo sucursal y caja para seguir avanzando; la condición por autorización quedó comentada (línea 11736), así que la paginación depende del orden físico del SET."
+        },
+        {
+          "id": "s7",
+          "titulo": "Elegibilidad del movimiento: estatus 1 o 2, autorización y fecha contable",
+          "linea_ini": 11354,
+          "linea_fin": 11362,
+          "origen_codigo": " 11-00305-BUSCA-SIGUIENTE.                                        188700\n*=========================                                        188800\n     PERFORM 11-00600-FN-AUTAPL                                   188900\n     IF W77-ERROR-BASE = 0  AND                                   189000\n        W77-MSG        = 0                                        189050\n        IF ( WKS-D01-STA = 1 OR WKS-D01-STA = 2 ) AND             189100\n           WKS-D01-AUTAPL  = WKS-PARAM-AUTAPL     AND             189200\n           WKS-D01-FECCONT = WKS-PARAM-FECHA                      189300\n           MOVE 1                  TO W77-ENCONTRADO.             189400",
+          "java_codigo": "/** 11-00305-BUSCA-SIGUIENTE: el movimiento solo se presenta si está vigente o eliminado y es de la consulta. */\nstatic boolean esElegible(MovimientoDia m, ParametrosConsulta p) {\n    return (m.estatus() == 1 || m.estatus() == 2)        // WKS-D01-STA\n        && m.autorizacionAplicacion() == p.autorizacion() // WKS-D01-AUTAPL = WKS-PARAM-AUTAPL, 9(08)\n        && m.fechaContable().equals(p.fechaContable());   // WKS-D01-FECCONT = WKS-PARAM-FECHA, 9(08) AAAAMMDD\n}\n\n// MovimientoDia.fechaContable(): LocalDate.parse(\"%08d\".formatted(fecCont), BASIC_ISO_DATE).\n// El campo es 9(08) COMP con siglo completo, no requiere pivote Y2K.",
+          "racional": "Es la regla que filtra qué movimientos se muestran: el estatus debe ser 1 o 2 y la autorización de aplicación y la fecha contable deben coincidir con los parámetros de la pantalla. En Java es un predicado puro, fácil de probar en aislamiento, que se aplica al <code>Stream</code> del segmento anterior. La fecha contable de 8 dígitos se convierte a <code>LocalDate</code>; al traer siglo no necesita pivote.",
+          "reglas": [
+            "RN-S151-534"
+          ],
+          "riesgo": "Confirmar con el SME que la fecha contable siempre viene como AAAAMMDD; el fuente la compara como número y no valida su formato."
+        },
+        {
+          "id": "s8",
+          "titulo": "Etiquetas de servicio CTD y CBII en el renglón de pantalla",
+          "linea_ini": 11394,
+          "linea_fin": 11452,
+          "origen_codigo": "     IF WKS-PARAM-SIST = 500 OR 264                               191602\n        MOVE WKS-D01-NIO           TO WKS-SAL-P11NIO              191604\n        MOVE WKS-D01-ENVCTD        TO WKS-SAL-P11ENVCTD           191606\n     ELSE                                                         191608\n        MOVE SPACES                TO WKS-SAL-P11NIO              191610\n        MOVE ZERO                  TO WKS-SAL-P11ENVCTD           191612\n        MOVE SPACES                TO WKS-SAL-P11SERVICIO.        191614\n     IF WKS-D01-ENVCTD = 0                                        191616\n        MOVE SPACES                TO WKS-SAL-P11SERVICIO         191618\n     ELSE                                                         191620\n     IF WKS-D01-ENVCTD = 1 AND WKS-PARAM-SIST = 500               191622\n        MOVE \"SOLO CBII \"          TO WKS-SAL-P11SERVICIO         191624\n     ELSE                                                         191626\n     IF WKS-D01-ENVCTD = 2 AND WKS-PARAM-SIST = 500               191628\n        MOVE \"CTD Y CBII\"          TO WKS-SAL-P11SERVICIO         191630\n     ELSE                                                         191632\n     IF WKS-D01-ENVCTD = 3 AND WKS-PARAM-SIST = 500               191634\n        MOVE \"SOLO CTD  \"          TO WKS-SAL-P11SERVICIO.        191636\n        MOVE WKS-LEYENDA        TO WKS-SAL-P11DES(W77-MOVTOS)     192552\n        MOVE WKS-D01-IMP        TO WKS-SAL-P11IMP(W77-MOVTOS)     192554\n        MOVE WKS-D01-CVETRA     TO WKS-SAL-P11TRA(W77-MOVTOS)     192556\n        IF WKS-PARAM-SIST = 500 AND WKS-D01-ENVCTD > 0            192558\n           IF   WKS-CVE-ENVCITI(WKS-D01-CVETRA) = 1               192560\n                MOVE \"CBII CTD\"    TO WKS-SAL-P11CTD(W77-MOVTOS)  192562\n           ELSE                                                   192564\n           IF   WKS-CVE-ENVCITI(WKS-D01-CVETRA) = 2               192566\n                MOVE \"SOLO CTD\"    TO WKS-SAL-P11CTD(W77-MOVTOS)  192568\n           ELSE                                                   192570\n                MOVE SPACES        TO WKS-SAL-P11CTD(W77-MOVTOS)  192572\n        ELSE                                                      192574\n           MOVE SPACES             TO WKS-SAL-P11CTD(W77-MOVTOS). 192576",
+          "java_codigo": "private void etiquetasServicio(MovimientoDia m, RenglonP11 r, int sistema) {\n    boolean captacion = props.sistemasConNio().contains(sistema);       // 500 o 264\n    r.nio(captacion ? m.nio() : \"\");\n    r.servicio(sistema != props.sistemaCaptacion() ? \"\" : switch (m.envCtd()) {   // 500\n        case 1  -> \"SOLO CBII \";\n        case 2  -> \"CTD Y CBII\";\n        case 3  -> \"SOLO CTD  \";\n        default -> \"\";\n    });\n    // WKS-CVE-ENVCITI(WKS-D01-CVETRA): en Java la clave se busca, no se usa como subíndice.\n    EnvioCiti env = (sistema == props.sistemaCaptacion() && m.envCtd() > 0)\n            ? catalogos.busca(m.claveTransaccion()).map(ClaveTransaccion::envioCiti).orElse(EnvioCiti.NINGUNO)\n            : EnvioCiti.NINGUNO;\n    r.ctd(switch (env) {\n        case CBII_CTD -> \"CBII CTD\";\n        case SOLO_CTD -> \"SOLO CTD\";\n        case NINGUNO  -> \"\";\n    });\n}",
+          "racional": "Para captación (sistema 500) cada renglón lleva dos etiquetas: la de servicio sale del campo <code>ENVCTD</code> del movimiento y la de CTD sale del indicador <code>ENVCITI</code> del catálogo de claves. En el fuente el indicador se lee usando la clave de transacción como subíndice de una tabla que se llenó por posición; en Java se busca por clave en el mapa del catálogo, que es lo que hacen las demás búsquedas de L030. Los sistemas 500 y 264 pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-549"
+          ],
+          "riesgo": "Si las claves del catálogo no son densas desde 1, el COBOL toma ENVCITI de otra clave. La traducción corrige esto y puede cambiar etiquetas visibles; validar contra producción antes de liberar."
+        },
+        {
+          "id": "s9",
+          "titulo": "Rutina común de errores DMSII a un traductor de excepciones",
+          "linea_ini": 18909,
+          "linea_fin": 18921,
+          "origen_codigo": " 900000-CHE-STA.                                                  068000\n     MOVE DMSTATUS(DMCATEGORY)            TO WKS-ERR-DMSII        069000\n     MOVE DMSTATUS(DMERRORTYPE)           TO WKS-ERR-BD           069100\n     MOVE DMSTATUS(DMSTRUCTURE)           TO WKS-ESTRUCT-BD       069200\n     IF WKS-ERR-DMSII > ZEROS                                     070000\n        STRING  \"BASE DATOS  \" WKS-NOM-BDERR-DMSII                071000\n                \"ERROR EN BD \" WKS-LEY-ERR-DMSII(WKS-ERR-DMSII)   072000\n                           \" \" WKS-ERR-DMSII                      073000\n                \"TIPO        \" WKS-ERR-BD                         074000\n                \"ESTRUCTURA  \" WKS-ESTRUCT-BD                     075000\n        DELIMITED BY SIZE INTO TEXTO-LJ                           076000\n        CALL \"LJ IN LIB-DISP\" USING  CONTADOR-LJ, MENSAJE-LJ.     077000",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class DmsiiErrorTranslator {\n\n    private final BitacoraLj bitacora;   // CALL \"LJ IN LIB-DISP\"\n\n    /** 900000-CHE-STA: categoría, tipo y estructura del error, con la leyenda de WKS-TAB-ERRDMSII. */\n    public long registra(String base, DataAccessException e) {\n        var cat = CategoriaError.de(e);  // NOTFOUND(1) .. INTLIBERROR(21), mismo orden que la tabla\n        bitacora.informativo(\"BASE DATOS  %s ERROR EN BD %s %02d TIPO        %s ESTRUCTURA  %s\"\n                .formatted(base, cat.leyenda(), cat.codigo(), cat.tipo(e), cat.estructura(e)));\n        return 13;                       // MOVE 13 TO W77-MSG en las consultas\n    }\n}",
+          "racional": "Todas las secciones llaman a la misma rutina, que arma un texto con la categoría, el tipo y la estructura del error DMSII y lo manda a la bitácora LJ. En Java se centraliza en un componente que traduce la <code>DataAccessException</code> a la categoría equivalente y conserva el formato del mensaje, porque operación busca esos textos. La tabla de 21 leyendas pasa a un <code>enum</code>.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Funciones 53 y 55 inalcanzables con la librería inicializada",
+      "detalle": "El GO TO ... DEPENDING ON de las líneas 10357-10458 tiene 99 destinos y las posiciones 53 y 55 apuntan a 00-00030-FUNCION-ERROR (líneas 10411 y 10413). Solo las posiciones 60 a 69 llevan a 01-00070-INICIO-REINICIO, así que las ramas de cambio de título y CANCEL de S016L422 (líneas 10529-10550) no se ejecutan cuando W77-INICIO = 1: el llamador recibe 2. Antes de inicializar reciben 5."
+    },
+    {
+      "titulo": "Función fuera de rango devuelve el código que traía el llamador",
+      "detalle": "WKS-PARAM-FUNCION es PIC 9(04). Un valor mayor a 99 no coincide con ningún destino del GO TO DEPENDING, la ejecución sigue a EXIT PROGRAM y W77-RES-LIBCON, que viaja por referencia, conserva el valor que puso el llamador. La versión Java responde 2 de forma explícita."
+    },
+    {
+      "titulo": "Indicador de envío Citi subindexado por la clave y no por la posición",
+      "detalle": "El catálogo CVETRAN se llena por posición (W77-IND, líneas 10864-10880), pero en la línea 11444 se lee WKS-CVE-ENVCITI(WKS-D01-CVETRA), usando la clave de transacción como subíndice. Las demás búsquedas recorren la tabla comparando WKS-CVE-CVE (por ejemplo la línea 11514). Si el catálogo no trae las claves densas desde 1, la etiqueta CTD sale de otra clave; además WKS-D01-CVETRA es PIC 9(06) y la tabla tiene 10000 posiciones."
+    },
+    {
+      "titulo": "Error al abrir la base semanal se descarta",
+      "detalle": "En 01-00600-ABRE-BASEDIA (líneas 10688-10699), si OPEN INQUIRY falla se marca W77-ERROR-BASE = 1 pero la rama ELSE lo regresa a cero, y 01-00070-INICIO-REINICIO pone W77-INICIO = 1 de todos modos. La librería queda marcada como inicializada sin base abierta y el problema aparece después como error de FIND."
+    },
+    {
+      "titulo": "Desborde del catálogo CVETRAN",
+      "detalle": "La guarda IF W77-IND < 10001 (línea 10835) se evalúa antes de mover un bloque de hasta 10 registros (WKS-EL710-REGISTROS = 10), por lo que el último bloque puede escribir por encima de OCCURS 10000."
+    },
+    {
+      "titulo": "Hardcodes de catálogo y sistema",
+      "detalle": "Los números de catálogo 523 y 1059, el sistema 151 y programa 30 para ESTRUCTURA, el sistema 500 o 264 para mostrar NIO y servicio, y el origen 711 para devoluciones están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si las funciones 53 y 55 se invocan alguna vez con la librería ya inicializada; el despacho las manda a FUNCION-ERROR y la lógica de las líneas 10529-10550 parece código muerto.",
+    "RN-S151-549 dice que los valores 1 y 2 de WKS-CVE-ENVCITI disparan lógicas de envío distintas hacia Citi. En el fuente solo se usan para poner la etiqueta CBII CTD o SOLO CTD en la columna WKS-SAL-P11CTD de la pantalla (líneas 11443-11452); L030 no envía nada. Revisar la redacción de la regla.",
+    "Validar si el catálogo de claves de transacción de S500 (catálogo de formato 1 o 2) devuelve las claves en orden y sin huecos desde 1; de eso depende que el subíndice por clave de la línea 11444 sea correcto.",
+    "El catálogo solo carga ENVCITI cuando W77-CAT-FORMATO es 1 o 2; para formatos 3 y 4 el campo queda en su valor inicial. Confirmar que ningún sistema con formato 3 o 4 usa la consulta 11 con ENVCTD mayor a cero.",
+    "Las secciones de consulta 12 a 26 siguen el mismo patrón de FIND por día de la semana y no se transpilan aquí; requieren su propio análisis."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-526",
+    "RN-S151-527",
+    "RN-S151-528",
+    "RN-S151-529",
+    "RN-S151-530",
+    "RN-S151-531",
+    "RN-S151-532",
+    "RN-S151-533",
+    "RN-S151-534",
+    "RN-S151-535",
+    "RN-S151-536",
+    "RN-S151-537",
+    "RN-S151-538",
+    "RN-S151-539",
+    "RN-S151-540",
+    "RN-S151-541",
+    "RN-S151-542",
+    "RN-S151-543",
+    "RN-S151-544",
+    "RN-S151-545",
+    "RN-S151-546",
+    "RN-S151-547",
+    "RN-S151-548",
+    "RN-S151-549",
+    "RN-S151-550",
+    "RN-S500-884"
+  ]
+}

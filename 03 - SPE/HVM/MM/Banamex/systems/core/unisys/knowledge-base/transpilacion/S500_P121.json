@@ -1,0 +1,176 @@
+{
+  "slug": "S500_P121",
+  "sistema": "S500",
+  "programa": "P121",
+  "nombre": "Planchado de Autorizaciones Pendientes en Captación",
+  "funcion": "Paso batch de S500 (PROGRAM-ID ACTB03) que, invocado con el parámetro 1, recorre todos los contratos de S500B03CONTRATOS y recalcula o limpia la autorización pendiente según el indicador de corrida guardado en S500B02CONTROL.",
+  "resumen": "Abre S500BD01CAPTACION para actualización y toma de B02 el indicador de corrida de autorizaciones pendientes (B02-CTR-AUTSPEND), el indicador alterno B02-CTR-AUTSPENDEAS, la fecha de lote y el CSI. Recorre B03 completo y, para cada contrato activo o bloqueado, decide si ya fue planchado en esta corrida comparando su indicador con el de B02. Si no lo fue, la autorización pendiente pasa a ser la diferencia entre los acumulados B03-FILLER1 y B03-FILLER2 (o cero si no es positiva), se limpian esos acumulados y se marca el contrato con el indicador de B02. Cada contrato modificado se guarda en su propia transacción y al final se informan contratos leídos, bloqueados y actualizados.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.captacion.autorizaciones",
+  "secciones": [
+    {
+      "titulo": "Control del paso y registro de control B02",
+      "origen": {
+        "archivo": "S500_SOURCE_P121.txt",
+        "contexto": "PROCEDURE DIVISION USING WS-PARAM-121 · 20000100-ABRO-BASE · 50000100-PROCESO-PLANCHADO"
+      },
+      "java": {
+        "archivo": "PlanchadoAutorizacionesJobConfig.java · ControlCaptacion.java",
+        "contexto": "Spring Batch Job · JobParametersValidator · @Entity"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal y parámetro de invocación",
+          "linea_ini": 180,
+          "linea_fin": 264,
+          "origen_codigo": " PROCEDURE DIVISION USING WS-PARAM-121.\n 00000000-PRINCIPAL.\n     PERFORM 10000000-INICIO.\n     PERFORM 20000000-OPEN.\n     PERFORM 50000000-PROCESO.\n     PERFORM 70000000-CIERRO.\n     STOP RUN.\n 50000000-PROCESO.\n IF WS-PARAM-121 = 1\n    PERFORM 50000100-PROCESO-PLANCHADO\n ELSE\n    STRING \"PARAMETRO NO RECONOCIDO \",WS-PARAM-121\n            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n    PERFORM 70000050-MENSAJE.",
+          "java_codigo": "@Configuration\npublic class PlanchadoAutorizacionesJobConfig {\n\n    /** 00000000-PRINCIPAL: INICIO, OPEN, PROCESO, CIERRO. */\n    @Bean\n    Job planchadoAutorizaciones(JobRepository repo, Step leeControl, Step planchaContratos) {\n        return new JobBuilder(\"S500P121\", repo)\n                .validator(p -> {\n                    // WS-PARAM-121 RECEIVED BY CONTENT: solo 1 ejecuta el planchado.\n                    if (!Long.valueOf(1).equals(p.getLong(\"param\"))) {\n                        throw new JobParametersInvalidException(\n                                \"PARAMETRO NO RECONOCIDO \" + p.getLong(\"param\"));\n                    }\n                })\n                .start(leeControl)          // 20000100-ABRO-BASE: lectura de B02\n                .next(planchaContratos)     // 50000100-PROCESO-PLANCHADO\n                .build();\n    }\n}",
+          "racional": "El programa recibe un parámetro de un dígito y solo ejecuta el planchado cuando vale 1. Con cualquier otro valor imprime un mensaje y termina como fin normal, sin tocar la base. En Java la validación se hace antes de arrancar el job con un <code>JobParametersValidator</code>, lo que convierte un parámetro inválido en un error visible para el orquestador en lugar de una corrida vacía.",
+          "reglas": [],
+          "riesgo": "Con un parámetro distinto de 1 el paso termina normalmente sin procesar nada; el WFL que lo invoca no se entera."
+        },
+        {
+          "id": "s2",
+          "titulo": "Indicadores de corrida y CSI desde S500B02CONTROL",
+          "linea_ini": 228,
+          "linea_fin": 240,
+          "origen_codigo": " 20000100-ABRO-BASE.\n     OPEN UPDATE  S500BD01CAPTACION\n          ON EXCEPTION\n          MOVE \"ERROR AL ABRIR LA BASE  \" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n     PERFORM 90000002-B02CONTROL-FIND.                            131500\n     MOVE B02-CTR-AUTSPEND  TO W77-B02-IND-AUTPEND\n                               W77-EDIT-B02-IND-AUTPEND.\n     MOVE B02-CTR-AUTSPENDEAS TO W77-B02-CTR-AUTSPENDEAS.\n     MOVE B02-FECHA-LOTE    TO WS-FECHA-MOV.\n     MOVE B02-NUM-CSI       TO W77-MY-CSI.",
+          "java_codigo": "@Entity\n@Table(name = \"s500_b02_control\")\npublic class ControlCaptacion {\n    @Id Integer id;\n    @Column(name = \"ctr_autspend\")    int indAutPend;       // B02-CTR-AUTSPEND\n    @Column(name = \"ctr_autspendeas\") int indAutPendEas;    // B02-CTR-AUTSPENDEAS\n    @Column(name = \"fecha_lote\")      LocalDate fechaLote;  // B02-FECHA-LOTE 9(8) AAAAMMDD\n    @Column(name = \"num_csi\")         int csi;              // B02-NUM-CSI\n}\n\n@Component\n@RequiredArgsConstructor\nclass LeeControlTasklet implements Tasklet {\n    private final ControlCaptacionRepository b02;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlCaptacion ctl = b02.findUnico()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR AL ABRIR LA BASE\"));  // DMTERMINATE\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.putInt(\"indAutPend\", ctl.indAutPend);\n        ec.putInt(\"indAutPendEas\", ctl.indAutPendEas);\n        ec.putInt(\"csi\", ctl.csi);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La base se abre en modo <code>UPDATE</code> y del registro de control se toman el indicador de corrida de autorizaciones pendientes, el indicador alterno con sufijo EAS, la fecha de lote y el número de CSI. Esos valores gobiernan la regla de todo el recorrido, así que en Java se leen una vez en un <code>Tasklet</code> y se publican en el <code>ExecutionContext</code> del job. Un error al abrir la base termina el programa, igual que la excepción del tasklet.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Dos ramas por CSI que ejecutan lo mismo",
+          "linea_ini": 266,
+          "linea_fin": 297,
+          "origen_codigo": " 50000100-PROCESO-PLANCHADO.\n     IF W77-MY-CSI = 10\n        PERFORM 50005001-APLI-DES-VDM\n     ELSE\n     IF W77-MY-CSI = 04\n        PERFORM 50005005-APLI-DES-MTY\n     ELSE\n        STRING \"NODO ERRONEO\", W77-MY-CSI\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n****************************************************************\n* ACTUALIZA DESARROLLO PARA CSI VDM\n* EN COBERTURA DE VDM ACTUALIZA.\n****************************************************************\n 50005001-APLI-DES-VDM.\n     SET S500B03CONTRATOS  TO BEGINNING.\n     MOVE 0 TO W77-EOF-B03.\n     PERFORM 50100005-LEE-B03  UNTIL W77-EOF-B03 = 1.\n     PERFORM 50100005-TOTALES.\n****************************************************************\n* ACTUALIZA DESARROLLO PARA CSI MTY\n* EN COBERTURA DE MTY NO ACTUALIZA.\n****************************************************************\n 50005005-APLI-DES-MTY.\n     SET S500B03CONTRATOS  TO BEGINNING.\n     MOVE 0 TO W77-EOF-B03.\n     PERFORM 50100005-LEE-B03  UNTIL W77-EOF-B03 = 1.\n     PERFORM 50100005-TOTALES.",
+          "java_codigo": "@Bean\nStep planchaContratos(JobRepository repo, PlatformTransactionManager tx,\n                      JpaPagingItemReader<Contrato> b03Activos,\n                      PlanchadoProcessor planchado, JpaItemWriter<Contrato> b03Writer,\n                      CsiValidoDecider csiValido) {\n    // 50005001-APLI-DES-VDM y 50005005-APLI-DES-MTY son idénticos: un solo step.\n    // CSI distinto de 04 y 10: el fuente solo despliega \"NODO ERRONEO\" y termina normal.\n    return new StepBuilder(\"planchaContratos\", repo)\n            .<Contrato, Contrato>chunk(500, tx)\n            .reader(b03Activos)\n            .processor(planchado)\n            .writer(b03Writer)\n            .listener(new TotalesListener())          // 50100005-TOTALES\n            .build();\n}",
+          "racional": "El programa separa el CSI 10 (Valle de México) y el CSI 04 (Monterrey) en dos párrafos, pero ambos hacen exactamente lo mismo: posicionarse al inicio de B03, recorrerla completa y emitir totales. Por eso en Java hay un solo step. Un CSI distinto de 04 y 10 solo despliega un mensaje y el programa termina como fin normal; en Java conviene validarlo antes de arrancar.",
+          "reglas": [],
+          "riesgo": "Los comentarios dicen que en Monterrey no se actualiza (líneas 289-290) y que en Valle sí (líneas 278-279), pero el código de ambos párrafos es idéntico y actualiza en los dos CSI."
+        }
+      ]
+    },
+    {
+      "titulo": "Regla de planchado de la autorización pendiente",
+      "origen": {
+        "archivo": "S500_SOURCE_P121.txt",
+        "contexto": "50100005-LEE-B03 · 50110000-ACTUALIZACION"
+      },
+      "java": {
+        "archivo": "PlanchadoProcessor.java · Contrato.java",
+        "contexto": "ItemProcessor @StepScope · @Entity"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Recorrido de B03 con filtro de estatus activo o bloqueado",
+          "linea_ini": 302,
+          "linea_fin": 315,
+          "origen_codigo": " 50100005-LEE-B03.\n     PERFORM 90000003-B03CONTRATOS-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-DB-NOTFOUND\n           MOVE 1                     TO  W77-EOF-B03\n           MOVE 1                     TO  W77-NEXT-CTO.\n     IF W77-EOF-B03 = 0\n        MOVE B03-NUM-CONTRATO            TO WS-MSG-CTO\n        ADD 1 TO W77-TOT-B03-CTOS-LEI\n*       B03-STATUS=0 ACTIVO    B03-STATUS=1 BLOQUEADO\n        IF B03-STATUS = 0 OR 1\n           PERFORM 50110000-ACTUALIZACION.",
+          "java_codigo": "@Bean\nJpaPagingItemReader<Contrato> b03Activos(EntityManagerFactory emf) {\n    return new JpaPagingItemReaderBuilder<Contrato>()\n            .name(\"b03Activos\")\n            .entityManagerFactory(emf)\n            // B03-STATUS = 0 ACTIVO, 1 BLOQUEADO; el FINDN recorre B03 completa\n            .queryString(\"SELECT c FROM Contrato c WHERE c.status IN (0, 1) ORDER BY c.numero\")\n            .pageSize(500)\n            .build();\n}\n// Un error de lectura distinto de NOTFOUND lanza DataAccessException y el step queda FAILED.",
+          "racional": "El programa lee B03 secuencialmente con <code>FINDN</code> y solo considera contratos con estatus 0 (activo) o 1 (bloqueado). En Java el filtro se lleva a la consulta del lector paginado. El fin de datos se detecta con <code>NOTFOUND</code>; cualquier otro error de lectura debería detener el proceso, que es lo que ocurre de forma natural con la excepción de acceso a datos.",
+          "reglas": [],
+          "riesgo": "Si FINDN devuelve un error distinto de NOTFOUND (líneas 305-308), W77-EOF-B03 no se enciende y el programa continúa con el registro anterior en el área de B03, que puede volver a bloquear y procesar, o repetir la lectura fallida indefinidamente."
+        },
+        {
+          "id": "s5",
+          "titulo": "Contrato no planchado: autorización pendiente como diferencia de acumulados",
+          "linea_ini": 317,
+          "linea_fin": 350,
+          "origen_codigo": " 50110000-ACTUALIZACION.\n     PERFORM 90000003-B03CONTRATOS-LOCK.\n     MOVE 0                     TO WKS-SI-B03.\n  IF W77-B02-IND-AUTPEND NOT = B03-CTR-AUTSPEND\n     IF  W77-B02-CTR-AUTSPENDEAS NOT = B03-CTR-AUTSPEND\n*    CONTRATO NO PLANCHADO\n        IF (B03-AUT-PENDIENTE > 0)\n          OR (B03-FILLER1 > 0)\n          OR (B03-FILLER2 > 0)\n            IF B03-FILLER1 > B03-FILLER2\n              COMPUTE B03-AUT-PENDIENTE = B03-FILLER1\n                                        - B03-FILLER2\n               MOVE W77-B02-IND-AUTPEND  TO B03-CTR-AUTSPEND\n               MOVE ZERO                 TO B03-FILLER1\n                                            B03-FILLER2\n               MOVE 1                    TO WKS-SI-B03\n            ELSE\n*           NO REALIZARON COMPRAS O CANCELARON TODAS LAS COMPRAS\n               MOVE ZERO                 TO B03-AUT-PENDIENTE\n                                            B03-FILLER1\n                                            B03-FILLER2\n               MOVE W77-B02-IND-AUTPEND  TO B03-CTR-AUTSPEND\n               MOVE 1                    TO WKS-SI-B03\n        ELSE\n          NEXT SENTENCE",
+          "java_codigo": "@Component\n@StepScope\npublic class PlanchadoProcessor implements ItemProcessor<Contrato, Contrato> {\n\n    @Value(\"#{jobExecutionContext['indAutPend']}\")    private int indCorrida;\n    @Value(\"#{jobExecutionContext['indAutPendEas']}\") private int indEas;\n\n    @Override\n    public Contrato process(Contrato c) {\n        if (c.ctrAutsPend() == indCorrida) {                 // ya planchado en esta corrida\n            return limpiaAcumuladosSiHay(c);                  // ver s6\n        }\n        if (c.ctrAutsPend() == indEas) {                     // planchado por el proceso alterno\n            c.marcaCorrida(indCorrida);\n            c.limpiaAcumulados();\n            return c;\n        }\n        // CONTRATO NO PLANCHADO\n        if (c.autPendiente().signum() <= 0 && c.filler1().signum() <= 0 && c.filler2().signum() <= 0) {\n            return null;                                      // NEXT SENTENCE: sin cambios\n        }\n        BigDecimal diferencia = c.filler1().subtract(c.filler2());\n        c.autPendiente(diferencia.signum() > 0 ? diferencia : BigDecimal.ZERO.setScale(2));\n        c.limpiaAcumulados();                                 // FILLER1 = FILLER2 = 0\n        c.marcaCorrida(indCorrida);\n        return c;\n    }\n}",
+          "racional": "Si el indicador del contrato no coincide con el de la corrida ni con el alterno, el contrato no se ha planchado. Cuando hay autorización pendiente o acumulados, la nueva autorización pendiente es FILLER1 menos FILLER2 si FILLER1 es mayor; en caso contrario queda en cero, que según el comentario corresponde a no haber hecho compras o haberlas cancelado todas. En ambos casos se limpian los acumulados y se marca el contrato con el indicador de la corrida, lo que vuelve idempotente una segunda pasada. La resta de dos importes con la misma escala es exacta, sin modo de redondeo.",
+          "reglas": [],
+          "riesgo": "Si FILLER1 no es mayor que FILLER2, la autorización pendiente anterior se borra aunque fuera mayor a cero; no hay validación contra el saldo ni bitácora del valor previo."
+        },
+        {
+          "id": "s6",
+          "titulo": "Contrato ya planchado: solo se limpian los acumulados",
+          "linea_ini": 351,
+          "linea_fin": 371,
+          "origen_codigo": "     ELSE\n*    CONTRATO PLANCHADO\n        MOVE W77-B02-IND-AUTPEND  TO B03-CTR-AUTSPEND\n        MOVE 1                    TO WKS-SI-B03\n        IF (B03-FILLER1 > 0)                                      304400\n        OR (B03-FILLER2 > 0)                                      304450\n             MOVE ZERO TO B03-FILLER1 B03-FILLER2                 304500\n***          MOVE 1    TO WKS-SI-B03.\n        ELSE\n          NEXT SENTENCE\n  ELSE\n* CONTRATO PLANCHADO\n     IF (B03-FILLER1 > 0)\n     OR (B03-FILLER2 > 0)\n          MOVE ZERO TO B03-FILLER1 B03-FILLER2\n          MOVE 1    TO WKS-SI-B03.\n     IF WKS-SI-B03 = 1\n        PERFORM 00000000-ACT-B03.\n     FREE S500B03CONTRATOS.",
+          "java_codigo": "    /** Ramas CONTRATO PLANCHADO (líneas 352 y 362). */\n    private Contrato limpiaAcumuladosSiHay(Contrato c) {\n        if (c.filler1().signum() > 0 || c.filler2().signum() > 0) {\n            c.limpiaAcumulados();\n            return c;                                    // se guarda (WKS-SI-B03 = 1)\n        }\n        return null;                                     // sin cambios: no se escribe\n    }\n\n/** S500B03CONTRATOS: campos que toca P121. */\n@Entity\n@Table(name = \"s500_b03_contratos\")\npublic class Contrato {\n    @Id String numero;                                    // B03-NUM-CONTRATO 9(12)\n    int status;                                           // 0 activo, 1 bloqueado\n    @Column(precision = 14, scale = 2) BigDecimal autPendiente;   // B03-AUT-PENDIENTE\n    @Column(name = \"filler1\", precision = 14, scale = 2) BigDecimal filler1;  // nombre heredado\n    @Column(name = \"filler2\", precision = 14, scale = 2) BigDecimal filler2;\n    int ctrAutsPend;                                      // B03-CTR-AUTSPEND\n    @Version long version;                                // reemplaza LOCK / FREE\n}",
+          "racional": "Cuando el contrato ya trae el indicador de la corrida solo se ponen en cero FILLER1 y FILLER2 si alguno tiene valor; si ya están en cero no se escribe nada. Cuando el contrato trae el indicador alterno EAS se marca con el de la corrida y se limpian los acumulados, y en ese caso siempre se guarda. El <code>LOCK</code> y <code>FREE</code> de cada registro se sustituyen por bloqueo optimista con <code>@Version</code>, suficiente para un recorrido batch exclusivo.",
+          "reglas": [],
+          "riesgo": "Los acumulados que gobiernan la regla se llaman B03-FILLER1 y B03-FILLER2: campos de negocio guardados en espacios de relleno de la estructura DMSII, sin documentación de su significado en el fuente."
+        }
+      ]
+    },
+    {
+      "titulo": "Persistencia y cifras de control",
+      "origen": {
+        "archivo": "S500_SOURCE_P121.txt",
+        "contexto": "00000000-ACT-B03 · 50100005-TOTALES"
+      },
+      "java": {
+        "archivo": "PlanchadoAutorizacionesJobConfig.java · TotalesListener.java",
+        "contexto": "chunk transaccional · StepExecutionListener"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Una transacción DMSII por contrato a transacción por chunk",
+          "linea_ini": 373,
+          "linea_fin": 399,
+          "origen_codigo": " 00000000-ACT-B03.\n        PERFORM 90000000-BEGIN-TRANSACTION\n        IF WS-STATUS-BASE > 0\n           IF WS-STATUS-BASE = 15\n              NEXT SENTENCE\n           ELSE\n              CALL SYSTEM DMTERMINATE.\n        PERFORM 90000003-B03CONTRATOS-STORE.\n        ADD 1 TO W77-TOT-B03-CTOS-ACT.\n        IF WS-STATUS-BASE > 0\n           STRING \" ERR STORE CONTRATOS \",\n              \" CTO=\", WS-MSG-CTO\n              \" STA DB=\", WS-STATUS-BASE\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n              PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n        PERFORM 90000000-END-TRANSACTIONNOAU\n        IF WS-STATUS-BASE > 0\n           IF WS-STATUS-BASE = 15\n              NEXT SENTENCE\n           ELSE\n              CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Bean\nJpaItemWriter<Contrato> b03Writer(EntityManagerFactory emf) {\n    var w = new JpaItemWriter<Contrato>();\n    w.setEntityManagerFactory(emf);\n    w.setUsePersist(false);                       // STORE sobre registro existente: merge\n    return w;\n}\n// BEGIN-TRANSACTION / STORE / END-TRANSACTIONNOAU por contrato se vuelven una transacción\n// por chunk (500 contratos). Si el chunk falla, Spring Batch lo revierte completo y el\n// reinicio retoma desde el último chunk confirmado; la marca B03-CTR-AUTSPEND evita\n// reprocesar los contratos ya planchados.",
+          "racional": "Cada contrato que cambió se guarda en una transacción propia: <code>BEGIN-TRANSACTION</code>, <code>STORE</code> y <code>END-TRANSACTIONNOAU</code>, tolerando el estatus 15 y terminando el programa con cualquier otro error. En Java la unidad de trabajo es el chunk, más eficiente para un recorrido completo de B03. La reanudación es segura porque la marca de corrida en cada contrato hace que la regla no se aplique dos veces.",
+          "reglas": [],
+          "riesgo": "W77-TOT-B03-CTOS-ACT se incrementa antes de revisar el resultado del STORE (línea 384); si el STORE falla el programa termina, pero el contador ya incluye el contrato fallido."
+        },
+        {
+          "id": "s8",
+          "titulo": "Cifras de control: leídos, bloqueados y actualizados",
+          "linea_ini": 432,
+          "linea_fin": 446,
+          "origen_codigo": " 50100005-TOTALES.\n     MOVE W77-TOT-B03-CTOS-LEI TO W77-EDIT-B03-CTOS-LEI.\n     STRING \"CONTRATOS LEIDOS \" W77-EDIT-B03-CTOS-LEI\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE.\n     MOVE W77-TOT-B03-CTOS-ACT TO W77-EDIT-B03-CTOS-ACT.\n     STRING \"CONTRATOS ACTUALIZADOS \" W77-EDIT-B03-CTOS-ACT\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE.\n     MOVE W77-TOT-B03-CTOS-LOCK TO W77-EDIT-B03-CTOS-LOCK.\n     STRING \"CONTRATOS LOCK \" W77-EDIT-B03-CTOS-LOCK\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE.",
+          "java_codigo": "class TotalesListener implements StepExecutionListener {\n    @Override\n    public ExitStatus afterStep(StepExecution s) {\n        long leidosB03 = conteoB03.count();                          // todos los contratos, como el FINDN\n        log.info(\"CONTRATOS LEIDOS {}\",       leidosB03);\n        log.info(\"CONTRATOS ACTUALIZADOS {}\", s.getWriteCount());\n        log.info(\"CONTRATOS LOCK {}\",         s.getReadCount());   // estatus 0 o 1\n        return s.getExitStatus();\n    }\n}",
+          "racional": "Al terminar el recorrido el programa informa tres cifras: contratos leídos de B03, contratos bloqueados con <code>LOCK</code> (los de estatus 0 o 1) y contratos actualizados. En Spring Batch esas cifras salen de los contadores de lectura, filtrado y escritura del step, que además quedan en el <code>JobRepository</code> para conciliación. Como el filtro de estatus pasa a la consulta, el lector ya no ve los contratos con otro estatus; para conservar el significado de la cifra de leídos se cuenta B03 completa por separado.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Comentarios de CSI contradictorios",
+      "detalle": "Los comentarios indican que en Monterrey no se actualiza, pero 50005005-APLI-DES-MTY (líneas 292-297) es idéntico a la rama de Valle de México y actualiza B03."
+    },
+    {
+      "titulo": "Error de lectura que no detiene el recorrido",
+      "detalle": "En 50100005-LEE-B03 un error de FINDN distinto de NOTFOUND no enciende el fin de archivo (líneas 305-308); el programa sigue con el contenido anterior del área de B03."
+    },
+    {
+      "titulo": "Autorización pendiente borrada sin rastro",
+      "detalle": "Cuando FILLER1 no supera a FILLER2, B03-AUT-PENDIENTE se pone en cero sin bitácora del valor anterior (líneas 342-348)."
+    },
+    {
+      "titulo": "Encabezado desactualizado",
+      "detalle": "La regla descrita en el comentario inicial (líneas 20-44) no incluye la comparación con B02-CTR-AUTSPENDEAS que el código hace en la línea 330."
+    },
+    {
+      "titulo": "Parámetro o CSI inválidos con fin normal",
+      "detalle": "Un parámetro distinto de 1 o un CSI distinto de 04 y 10 solo generan un mensaje; el paso termina normal sin actualizar."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME qué representan B03-FILLER1 y B03-FILLER2 (por el comentario de la línea 343, autorizaciones de compra y cancelaciones) y qué proceso los alimenta.",
+    "Confirmar qué proceso escribe B02-CTR-AUTSPENDEAS y por qué un contrato marcado con ese indicador se considera planchado.",
+    "Confirmar si la intención original era no actualizar en Monterrey, como dicen los comentarios.",
+    "El copybook S500/INC/PRO/25MTP004 con las rutinas de acceso (FINDN, LOCK, STORE) no viene en el fuente; la semántica de WS-DB-NOTFOUND y del estatus 15 se infiere."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-416",
+    "RN-S500-417",
+    "RN-S500-418",
+    "RN-S500-419",
+    "RN-S500-420"
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "slug": "S500_P420",
+  "sistema": "S500",
+  "programa": "P420",
+  "nombre": "Concentrador de Saldos de Tarjeta",
+  "funcion": "Paso batch de S500 que corre después de la proyección de fechas y une los archivos SALDOSTB de Monterrey y Valle de México en las cintas CINTACM y CINTACH que se envían a Tarjetas.",
+  "resumen": "Lee cuatro archivos secuenciales de 90 bytes: SALDOSTB de Cuenta Maestra y de Cheques, cada uno con su versión de Monterrey (ruta 04) y de Valle de México (ruta 10). Obtiene la fecha de proceso de S500B02CONTROL retrocediendo un día con LOCSUP y exige que el header de cada archivo traiga esa fecha. Copia el header del primer archivo y todos los detalles a la cinta del producto (CINTACM o CINTACH) y, al llegar el trailer del segundo archivo, escribe un trailer consolidado con registros e importes MN y DL. Emite además un listado de cifras de control por plaza.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.tarjetas.saldos",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — WS-REGTB (90 bytes) y etiquetas de archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P420.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "SaldoTbRecord.java · P420Properties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro con tres vistas REDEFINES a sealed interface",
+          "linea_ini": 327,
+          "linea_fin": 383,
+          "origen_codigo": " 01 WS-REGTB.\n   02 WS-TB-TIPO-REG             PIC X(01).\n   02 WS-REGTB-HEADER.\n       03 WS-TBHE-SISO           PIC X(4).\n       03 WS-TBHE-SISD           PIC X(4).\n       03 WS-TBHE-FECPRO         PIC 9(08).\n       03 WS-TBHE-FECBASE        PIC 9(08).\n       03 WS-TBHE-TIPCAM         PIC 9(04)V9(04).\n       03 FILLER                 PIC X(57).\n   02 WS-REGTB-DETALLE REDEFINES WS-REGTB-HEADER.\n       03 WS-TBDE-NUMCTO        PIC 9(12).\n       03 WS-TBDE-NUMPRD        PIC 9(04).\n       03 WS-TBDE-NUMINS        PIC 9(04).\n       03 WS-TBDE-NUMMON        PIC 9(03).\n       03 WS-TBDE-SIGSDO        PIC X.\n       03 WS-TBDE-SDOMN         PIC 9(12)V99.\n       03 WS-TBDE-LIMCRE        PIC 9(3).\n       03 WS-TBDE-CSI           PIC 99.\n       03 WS-TBDE-SUCPRO        PIC 9(04).\n       03 WS-TBDE-AUTPENMN      PIC 9(08)V99.\n       03 WS-TBDE-STATUS        PIC 9.\n       03 WS-TBDE-SDODL         PIC 9(12)V99.\n       03 WS-TBDE-AUTPENDL      PIC 9(08)V99.\n       03 FILLER                PIC X(7).\n   02 WS-REGTB-TRAILER REDEFINES WS-REGTB-HEADER.\n       03 WS-TBTR-NUMREG        PIC 9(08).\n       03 WS-TBTR-TOTSDOMN      PIC 9(16)V99.\n       03 WS-TBTR-TOTSDODL      PIC 9(16)V99.\n       03 FILLER                PIC X(45).",
+          "java_codigo": "/** WS-REGTB: un registro de 90 bytes con tres vistas REDEFINES, discriminadas por WS-TB-TIPO-REG. */\npublic sealed interface SaldoTbRecord\n        permits SaldoTbRecord.Header, SaldoTbRecord.Detalle,\n                SaldoTbRecord.Trailer, SaldoTbRecord.Otro {\n\n    String raw();   // la cinta de salida recibe el registro tal cual (WRITE ... FROM WS-REGTB)\n\n    /** Tipo '0'. Posiciones 1-32; FILLER X(57). */\n    record Header(String sisOrigen, String sisDestino,\n                  LocalDate fecProceso, LocalDate fecBase,      // 9(08) AAAAMMDD\n                  BigDecimal tipoCambio,                        // 9(04)V9(04) -> escala 4\n                  String raw) implements SaldoTbRecord {}\n\n    /** Tipo '1'. Contrato como String para conservar ceros a la izquierda. */\n    record Detalle(String numContrato,                          // 9(12)\n                   int producto, int instrumento, int moneda,\n                   char signoSaldo,                             // X: P420 no lo usa\n                   BigDecimal saldoMn,                          // 9(12)V99 -> escala 2\n                   int limiteCredito, int csi, int sucursal,\n                   BigDecimal autPendMn,                        // 9(08)V99\n                   int status,\n                   BigDecimal saldoDl,                          // 9(12)V99\n                   BigDecimal autPendDl,                        // 9(08)V99\n                   String raw) implements SaldoTbRecord {}\n\n    /** Tipo '9'. */\n    record Trailer(long numRegistros,                           // 9(08)\n                   BigDecimal totSaldoMn, BigDecimal totSaldoDl, // 9(16)V99\n                   String raw) implements SaldoTbRecord {}\n\n    /** Cualquier otro tipo: P420 no lo copia ni lo reporta. */\n    record Otro(String raw) implements SaldoTbRecord {}\n\n    static SaldoTbRecord parse(String r) {\n        return switch (r.charAt(0)) {\n            case '0' -> new Header(r.substring(1, 5), r.substring(5, 9),\n                    Fixed.fechaAmd(r, 9), Fixed.fechaAmd(r, 17), Fixed.decimal(r, 25, 8, 4), r);\n            case '1' -> Fixed.detalle(r);   // offsets: 1,13,17,21,24,25,39,42,44,48,58,59,73\n            case '9' -> new Trailer(Fixed.entero(r, 1, 8), Fixed.decimal(r, 9, 18, 2),\n                    Fixed.decimal(r, 27, 18, 2), r);\n            default  -> new Otro(r);\n        };\n    }\n}",
+          "racional": "WS-REGTB es un solo buffer de 90 bytes con tres interpretaciones (header, detalle y trailer) que comparten memoria vía <code>REDEFINES</code>. En Java cada vista es un <code>record</code> inmutable dentro de una <code>sealed interface</code>, de modo que el <code>switch</code> del procesador es exhaustivo y el compilador obliga a tratar el caso de un tipo de registro desconocido, que P420 ignora en silencio. Los importes <code>PIC 9(12)V99</code> y <code>9(16)V99</code> pasan a <code>BigDecimal</code> con escala 2 y el tipo de cambio <code>9(04)V9(04)</code> con escala 4. El número de contrato se conserva como <code>String</code>. Se guarda el texto original porque la cinta de salida recibe el registro byte a byte.",
+          "reglas": [],
+          "riesgo": "El campo WS-TBDE-SIGSDO se define pero ningún párrafo lo lee: los importes se tratan siempre como positivos."
+        },
+        {
+          "id": "s2",
+          "titulo": "Rutas de entrada y salida compiladas a application.yml",
+          "linea_ini": 395,
+          "linea_fin": 501,
+          "origen_codigo": " 01 WS-ETIQ-SDOTBM.\n      02 FILLER       PIC X(30) VALUE\n                      \"S500/FILE/S500/04/10/SALDOSTB/\".\n      02 WS-TB-FECHA1 PIC 9(6).\n      02 FILLER       PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CM.\n*    PARA TARJETAS QUE PROVIENE DE MTY.\n****************************************************************\n 01 WS-ETIQ-SDOTBV.\n      02 FILLER       PIC X(30) VALUE\n                      \"S500/FILE/S500/10/10/SALDOSTB/\".\n      02 WS-TB-FECHA2 PIC 9(6).\n      02 FILLER       PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA LEIDO EL ARCHIVO DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE VDM.\n****************************************************************\n 01 WS-ETIQ-SDOTBTM.\n      02 FILLER       PIC X(30) VALUE\n                      \"S001/FILE/S500/04/10/SALDOSTB/\".\n      02 WS-TB-FECHA3  PIC 9(6).\n      02 FILLER        PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE MTY.\n****************************************************************\n 01 WS-ETIQ-SDOTBTV.\n      02 FILLER        PIC X(30) VALUE\n                       \"S001/FILE/S500/10/10/SALDOSTB/\".\n      02 WS-TB-FECHA4   PIC 9(6).\n      02 FILLER         PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO LA CINTA DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE VDM Y MTY.\n****************************************************************\n 01 WS-ETIQ-CINTACH.\n      02 FILLER       PIC X(29) VALUE\n                      \"S001/FILE/S500/10/10/CINTACH/\".\n      02 WS-TB-FECHA5  PIC 9(6).\n      02 FILLER        PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE MTY.\n****************************************************************\n 01 WS-ETIQ-CINTACM.\n      02 FILLER        PIC X(29) VALUE\n                       \"S500/FILE/S500/10/10/CINTACM/\".\n      02 WS-TB-FECHA6   PIC 9(6).\n      02 FILLER         PIC X VALUE \".\".",
+          "java_codigo": "# application.yml  (las rutas y nodos dejan de estar compilados en el programa)\np420:\n  fecha-en-nombre: yyMMdd            # WS-TB-FECHAn es PIC 9(6): MOVE de 9(8) conserva AAMMDD\n  validar-trailer: false             # comportamiento actual: la validación está comentada\n  entradas:\n    cuenta-maestra:                  # orden significativo: primero MTY, luego VDM\n      - \"S500/FILE/S500/04/10/SALDOSTB/{fecha}.\"\n      - \"S500/FILE/S500/10/10/SALDOSTB/{fecha}.\"\n    cheques:\n      - \"S001/FILE/S500/04/10/SALDOSTB/{fecha}.\"\n      - \"S001/FILE/S500/10/10/SALDOSTB/{fecha}.\"\n  salidas:\n    cinta-ch: \"S001/FILE/S500/10/10/CINTACH/{fecha}.\"\n    cinta-cm: \"S500/FILE/S500/10/10/CINTACM/{fecha}.\"\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p420\")\npublic record P420Properties(String fechaEnNombre, boolean validarTrailer,\n                             Entradas entradas, Salidas salidas) {\n\n    public record Entradas(List<String> cuentaMaestra, List<String> cheques) {}\n    public record Salidas(String cintaCh, String cintaCm) {}\n\n    /** Sustituye {fecha} igual que MOVE WS-FECHA-PRO TO WS-TB-FECHAn (trunca el siglo). */\n    public String resuelve(String plantilla, LocalDate fechaProceso) {\n        return plantilla.replace(\"{fecha}\",\n                fechaProceso.format(DateTimeFormatter.ofPattern(fechaEnNombre)));\n    }\n}",
+          "racional": "Las seis etiquetas fijan en el código el prefijo de sistema (<code>S500</code> para Cuenta Maestra y <code>S001</code> para Cheques), los nodos <code>04</code> y <code>10</code> y el nombre lógico de cada archivo. Se mueven a <code>application.yml</code> para poder cambiar rutas por ambiente sin recompilar. La fecha del nombre es <code>PIC 9(6)</code> y recibe un <code>MOVE</code> desde la fecha de proceso de 8 dígitos, lo que trunca el siglo: el patrón <code>yyMMdd</code> lo deja explícito. La lista de entradas conserva el orden Monterrey y luego Valle, del que depende el trailer consolidado.",
+          "reglas": [
+            "RN-S500-764",
+            "RN-S500-765"
+          ],
+          "riesgo": "Los comentarios de WS-ETIQ-SDOTBM y WS-ETIQ-SDOTBV dicen VDM y MTY al revés de lo que indican los FD y la ruta (04 corresponde a Monterrey en el mapa de nodos de S151). Se tomó como válida la ruta."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y fecha de proceso",
+      "origen": {
+        "archivo": "S500_SOURCE_P420.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20000000 / 50000000"
+      },
+      "java": {
+        "archivo": "ConcentradorSaldosTbJobConfig.java · FechaProcesoTasklet.java",
+        "contexto": "Spring Batch Job · MultiResourceItemReader · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal a definición de Job",
+          "linea_ini": 891,
+          "linea_fin": 917,
+          "origen_codigo": " 00000000-INICIO SECTION.\n 00000000-PRINCIPAL.\n     MOVE 2            TO  W77-USO-LIBLJ\n     MOVE \"P420\"       TO  WS-0101-PASO-MSG\n     MOVE \"25MTP004\"   TO  WS-0101-MTP-MSG\n                           W77-S000-MY-VERSION\n                           B91-IDPROG\n     MOVE \"S500P420\"   TO  W77-S000-MY-ID.\n     PERFORM 10000000-LIBRERIAS           THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN                THRU 20000000-EXIT.\n     PERFORM 50000000-PROCESOS            THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO              THRU 70000000-EXIT.\n     STOP RUN.",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P420Properties.class)\npublic class ConcentradorSaldosTbJobConfig {\n\n    /** 00000000-PRINCIPAL: cuatro PERFORM en secuencia y STOP RUN. */\n    @Bean\n    Job concentradorSaldosTb(JobRepository repo,\n                             Step validaVersion,            // 10000000-LIBRERIAS + 20000050-CHECO-VER\n                             Step fechaProceso,             // 20001000 .. 20008000\n                             Step concentraCuentaMaestra,   // 50002000 + 50003000 -> CINTACM\n                             Step concentraCheques) {       // 50004000 + 50005000 -> CINTACH\n        return new JobBuilder(\"S500P420\", repo)\n                .start(validaVersion)\n                .next(fechaProceso)\n                .next(concentraCuentaMaestra)\n                .next(concentraCheques)\n                .build();\n        // 70000000-CIERRO (CLOSE ... WITH SAVE) lo hace cada ItemWriter al cerrar su step.\n    }\n}",
+          "racional": "La rutina principal es una secuencia fija de cuatro <code>PERFORM ... THRU</code>. En Spring Batch cada bloque se vuelve un <code>Step</code> encadenado con <code>next()</code>, lo que da reinicio por paso y bitácora en el <code>JobRepository</code>. Los <code>MOVE</code> de identificación (<code>P420</code>, <code>25MTP004</code>) pasan a ser el nombre del job y la versión del artefacto desplegado.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Lectura de los cuatro SALDOSTB en dos steps con MultiResourceItemReader",
+          "linea_ini": 1351,
+          "linea_fin": 1365,
+          "origen_codigo": " 50000000-PROCESOS.\n   PERFORM 50001000-REPORTE THRU 50001000-EXIT\n   PERFORM 50002000-LEOCMM  THRU 50002000-EXIT UNTIL WS-1VEZ = 1\n   PERFORM 50003000-LEOCMV  THRU 50003000-EXIT UNTIL WS-2VEZ = 1\n   PERFORM 50004000-LEOCHM  THRU 50004000-EXIT UNTIL WS-3VEZ = 1\n   PERFORM 50005000-LEOCHV  THRU 50005000-EXIT UNTIL WS-4VEZ = 1.\n 50000000-EXIT.\n    EXIT.",
+          "java_codigo": "@Bean\nStep concentraCuentaMaestra(JobRepository repo, PlatformTransactionManager tx,\n                            P420Properties props, ResourceLoader rl,\n                            @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fecha,\n                            ConcentradorProcessor procesadorCm,\n                            FlatFileItemWriter<SaldoTbRecord> cintaCmWriter) {\n\n    Resource[] entradas = props.entradas().cuentaMaestra().stream()\n            .map(p -> rl.getResource(props.resuelve(p, fecha)))\n            .toArray(Resource[]::new);\n\n    var lector = new MultiResourceItemReaderBuilder<SaldoTbRecord>()\n            .name(\"saldosTbCuentaMaestra\")\n            .resources(entradas)\n            .comparator((a, b) -> 0)        // NO ordenar por nombre: P420 depende de leer MTY antes que VDM\n            .delegate(saldoTbLineReader())  // LineMapper -> SaldoTbRecord.parse\n            .build();\n\n    return new StepBuilder(\"concentraCuentaMaestra\", repo)\n            .<SaldoTbRecord, SaldoTbRecord>chunk(180, tx)   // BLOCK CONTAINS 180 RECORDS\n            .reader(lector)\n            .processor(procesadorCm)        // @StepScope: estado WS-1VEZ..WS-7VEZ por step\n            .writer(cintaCmWriter)\n            .build();\n}\n// concentraCheques es idéntico con props.entradas().cheques() y la cinta CINTACH.",
+          "racional": "50000000-PROCESOS lee los dos archivos de Cuenta Maestra uno tras otro hacia la misma cinta y luego los dos de Cheques. Es el patrón del arquetipo A1: un <code>MultiResourceItemReader</code> por familia de producto. Hay que anular el ordenamiento por nombre que aplica por defecto ese lector, porque el procesador asume que el primer trailer es el de Monterrey. El tamaño de chunk reproduce el <code>BLOCK CONTAINS 180 RECORDS</code>.",
+          "reglas": [
+            "RN-S500-764"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Fecha de proceso: control de la base menos un día",
+          "linea_ini": 1077,
+          "linea_fin": 1151,
+          "origen_codigo": " 20002000-FECHA-PRO.\n  PERFORM 90000002-B02CONTROL-FIND\n  IF WS-STATUS-BASE > 0\n    IF WS-STATUS-BASE = 1\n       MOVE \"ERROR REG. DE CONTROL VACIO    \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n    ELSE\n       STRING \"ERROR AL HACER FIND A B02 \" ,WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n     PERFORM 20002100-PROY-FEC        THRU  20002100-EXIT.\n     MOVE WS-FECHA-PRO   TO WS-TOT-FECHA      WS-TB-FECHA1\n                            WS-TB-FECHA2      WS-TB-FECHA3\n                            WS-TB-FECHA4      WS-TB-FECHA5\n                            WS-TB-FECHA6.\n     MOVE WS-PRO-DD      TO WS-SDOTB-DIA1\n     MOVE WS-PRO-MM      TO WS-SDOTB-MES1\n     MOVE WS-PRO-AA      TO WS-SDOTB-ANO1.\n 20002000-EXIT.\n    EXIT.\n******************************************************************\n* PROYECTO LA FECHA LINEA UN DIA HACIA ATRAS PARA OBTENER LA\n* FECHA DE PROCESO, PUES AL CORRER ESTE PASO LAS FECHAS YA FUERON\n* PROYECTADAS AL SIGUIENTE DIA.\n******************************************************************\n 20002100-PROY-FEC.\n    MOVE B02-FECHA-LINEA         TO    WS-S006-FECHA1\n    MOVE 1                       TO    WS-S006-FECHA2\n    MOVE 12                      TO    WS-S006-FORMATO\n    MOVE 15                      TO    WS-S006-FUNCION\n    PERFORM 40000000-CALL-FECPRO THRU  40000000-EXIT.\n    MOVE WS-S006-FECHA1          TO    WS-FECHA-PRO.\n 20002100-EXIT.\n    EXIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechaProcesoTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500B02CONTROL, acceso de solo lectura (OPEN INQUIRY)\n    private final CalendarioBancario calendario;         // reemplaza LOCSUP\n\n    @Override\n    public RepeatStatus execute(StepContribution contribution, ChunkContext ctx) {\n        LocalDate fechaLinea = control.findFechaLinea()\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"ERROR REG. DE CONTROL VACIO\"));            // CALL SYSTEM DMTERMINATE\n\n        // 20002100-PROY-FEC: LOCSUP función 15, formato 12, desplazamiento 1.\n        // Las fechas ya se proyectaron al día siguiente; se retrocede uno para obtener la de proceso.\n        LocalDate fechaProceso = calendario.retrocede(fechaLinea, 1)\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"ERROR AL ACCESAR LOCSUP\"));                 // 40000000-CALL-FECPRO\n\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"fechaProceso\", fechaProceso);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa abre S500BD01CAPTACION solo para leer <code>B02-FECHA-LINEA</code> y la cierra de inmediato, así que en Java es un <code>Tasklet</code> de solo lectura previo a los steps de concentración. Cada <code>CALL SYSTEM DMTERMINATE</code> se traduce en una excepción que deja el step en FAILED. La fecha resultante se publica en el <code>ExecutionContext</code> del job, donde la toman las rutas de archivo y la validación de headers.",
+          "reglas": [],
+          "riesgo": "No se sabe si LOCSUP función 15 con formato 12 retrocede un día natural o un día hábil; el comentario del fuente solo dice un día hacia atrás."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de concentración — header, detalle y trailer",
+      "origen": {
+        "archivo": "S500_SOURCE_P420.txt",
+        "contexto": "PROCEDURE DIVISION · 50008000 / 50009000"
+      },
+      "java": {
+        "archivo": "ConcentradorProcessor.java · Acumulador.java",
+        "contexto": "ItemProcessor @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Validación de fecha del header y escritura única",
+          "linea_ini": 1539,
+          "linea_fin": 1567,
+          "origen_codigo": " 50008010-HEADER-CINTACM.\n   IF WS-TBHE-FECBASE = WS-FECHA-PRO\n      NEXT SENTENCE\n   ELSE\n      STRING \"FECEXT Y FECINT ARCH SDOTB CM DIFIEREN;\"\n             \"EXT: \"  WS-FECHA-PRO \" INT: \" WS-TBHE-FECBASE\n             DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n   IF WS-6VEZ = 0\n        WRITE REG-CINTACM FROM WS-REGTB\n        MOVE 1 TO WS-6VEZ.\n 50008010-EXIT.\n   EXIT.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ConcentradorProcessor implements ItemProcessor<SaldoTbRecord, SaldoTbRecord> {\n\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n    @Value(\"#{stepExecution.stepName}\")             private String familia;   // CM o CH\n    private boolean headerEscrito;                                         // WS-6VEZ / WS-8VEZ\n\n    @Override\n    public SaldoTbRecord process(SaldoTbRecord rec) {\n        return switch (rec) {\n            case SaldoTbRecord.Header h  -> procesaHeader(h);\n            case SaldoTbRecord.Detalle d -> procesaDetalle(d);\n            case SaldoTbRecord.Trailer t -> procesaTrailer(t);\n            case SaldoTbRecord.Otro o    -> null;   // tipo distinto de 0/1/9: se descarta sin aviso\n        };\n    }\n\n    /** 50008010-HEADER-CINTACM: la fecha base de cada archivo debe ser la de proceso. */\n    private SaldoTbRecord procesaHeader(SaldoTbRecord.Header h) {\n        if (!h.fecBase().equals(fechaProceso)) {\n            throw new ProcesoAbortadoException(                         // CALL SYSTEM DMTERMINATE\n                \"FECEXT Y FECINT ARCH SDOTB %s DIFIEREN;EXT: %s INT: %s\"\n                    .formatted(familia, fechaProceso, h.fecBase()));\n        }\n        if (headerEscrito) {\n            return null;            // el header del segundo archivo se valida pero no va a la cinta\n        }\n        headerEscrito = true;\n        return h;\n    }",
+          "racional": "Los indicadores <code>WS-nVEZ</code> son estado que vive durante todo el recorrido de los archivos de una familia. En Java ese estado pertenece a un <code>ItemProcessor</code> con <code>@StepScope</code>, de modo que cada step arranca limpio. Una fecha base distinta a la de proceso aborta el programa y aquí aborta el step. Devolver <code>null</code> filtra el registro en Spring Batch, que es exactamente lo que ocurre con el header del segundo archivo.",
+          "reglas": [
+            "RN-S500-764"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Acumulación del detalle por moneda",
+          "linea_ini": 1577,
+          "linea_fin": 1593,
+          "origen_codigo": " 50008020-GRABO-DETALLE.\n     WRITE REG-CINTACM      FROM WS-REGTB\n     ADD 1                  TO   WS-TOTCTES-REG\n     IF WS-TBDE-NUMMON = 1\n        ADD WS-TBDE-SDOMN   TO   WS-IMPCTESMN-REG\n     ELSE\n        ADD WS-TBDE-SDODL   TO   WS-IMPCTESDL-REG.\n 50008020-EXIT.\n    EXIT.",
+          "java_codigo": "    private Acumulador porArchivo = Acumulador.vacio();   // WS-TOTCTES-REG, WS-IMPCTES*-REG\n\n    /** 50008020-GRABO-DETALLE: copia el detalle a la cinta y acumula importes por moneda. */\n    private SaldoTbRecord procesaDetalle(SaldoTbRecord.Detalle d) {\n        porArchivo = (d.moneda() == 1)\n                ? porArchivo.masRegistro().masMn(d.saldoMn())    // MN\n                : porArchivo.masRegistro().masDl(d.saldoDl());   // cualquier otra moneda va a DL\n        return d;\n    }\n\n/** Acumuladores con la capacidad de los PIC originales. */\npublic record Acumulador(long registros, BigDecimal mn, BigDecimal dl) {\n    private static final BigDecimal TOPE_9_12_V99 = new BigDecimal(\"999999999999.99\");\n\n    static Acumulador vacio() {\n        return new Acumulador(0, BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2));\n    }\n    Acumulador masRegistro()          { return new Acumulador(registros + 1, mn, dl); }\n    Acumulador masMn(BigDecimal v)    { return new Acumulador(registros, tope(mn.add(v)), dl); }\n    Acumulador masDl(BigDecimal v)    { return new Acumulador(registros, mn, tope(dl.add(v))); }\n\n    /** ADD sin ON SIZE ERROR en COBOL pierde el dígito alto en silencio; aquí se falla. */\n    private static BigDecimal tope(BigDecimal v) {\n        if (v.compareTo(TOPE_9_12_V99) > 0) throw new DesbordamientoAcumuladorException(v);\n        return v;   // suma de importes con escala 2: exacta, sin redondeo\n    }\n}",
+          "racional": "Cada detalle se copia a la cinta y suma su saldo al acumulador de MN si la moneda es 1, o al de DL en cualquier otro caso. La suma entre importes de escala 2 es exacta, por eso no hay modo de redondeo. Los acumuladores <code>PIC 9(12)V99</code> no tienen <code>ON SIZE ERROR</code>: COBOL truncaría el dígito alto sin aviso, y en Java se decidió fallar explícitamente para no ocultar un desbordamiento en cifras de control.",
+          "reglas": [
+            "RN-S500-764"
+          ],
+          "riesgo": "La rama ELSE manda a DL cualquier moneda distinta de 1, incluida la moneda 0 si llegara en el archivo."
+        },
+        {
+          "id": "s8",
+          "titulo": "Validación de trailer desactivada en el fuente",
+          "linea_ini": 1603,
+          "linea_fin": 1625,
+          "origen_codigo": " 50008030-TRAILER.\n     IF (WS-TBTR-TOTSDOMN = WS-IMPCTESMN-REG)  AND\n        (WS-TBTR-TOTSDODL = WS-IMPCTESDL-REG)  AND\n        (WS-TBTR-NUMREG = WS-TOTCTES-REG)\n         NEXT SENTENCE\n     ELSE\n         NEXT SENTENCE.\n*       MOVE 010201                           TO WS-0101-CODI-MSG\n*       MOVE 02                               TO WS-0101-TIPO-MSG\n*       MOVE \"TRA.DIF. A SUMA DE REG. DE CM.\" TO WS-0101-TEXT-MSG\n*       PERFORM 70000050-MENSAJE\n*       CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "    private final P420Properties props;\n\n    /**\n     * 50008030-TRAILER, primer bloque. En el fuente ambas ramas del IF son NEXT SENTENCE\n     * y el abort está comentado: un trailer que no cuadra pasa sin aviso.\n     * Se conserva ese comportamiento por defecto y se deja la validación activable.\n     */\n    private void validaTrailer(SaldoTbRecord.Trailer t) {\n        boolean cuadra = t.totSaldoMn().compareTo(porArchivo.mn()) == 0\n                && t.totSaldoDl().compareTo(porArchivo.dl()) == 0\n                && t.numRegistros() == porArchivo.registros();\n        if (!cuadra) {\n            log.warn(\"TRA.DIF. A SUMA DE REG. DE {}. trailer={} calculado={}\",\n                     familia, t, porArchivo);\n            if (props.validarTrailer()) {          // p420.validar-trailer: false (comportamiento actual)\n                throw new TrailerDescuadradoException(familia, t, porArchivo);\n            }\n        }\n    }",
+          "racional": "El IF compara totales del trailer contra lo acumulado, pero las dos ramas terminan en <code>NEXT SENTENCE</code> y el aviso con <code>DMTERMINATE</code> está comentado. El resultado práctico es que P420 no valida el trailer. La traducción mantiene ese comportamiento para no cambiar la operación, registra la diferencia en bitácora y deja la validación detrás de la propiedad <code>p420.validar-trailer</code> para que el SME decida cuándo encenderla.",
+          "reglas": [],
+          "riesgo": "Un archivo SALDOSTB truncado o duplicado llega a Tarjetas sin que P420 lo detecte."
+        },
+        {
+          "id": "s9",
+          "titulo": "Trailer consolidado y renglón de cifras por plaza",
+          "linea_ini": 1629,
+          "linea_fin": 1697,
+          "origen_codigo": "     IF WS-7VEZ = 0\n        MOVE \"M O N T E R R E Y   \" TO   WS-NOMCSI\n        MOVE WS-TOTCTES-REG         TO   WS-NUMCTES\n        MOVE WS-IMPCTESMN-REG       TO   WS-IMPTOTMN\n        MOVE WS-IMPCTESDL-REG       TO   WS-IMPTOTDL\n        WRITE REG-IMP               FROM WS-DET-SDOTB BEFORE 2\n        ADD WS-IMPCTESMN-REG        TO WS-TOT-SDOSMN\n        ADD WS-IMPCTESDL-REG        TO WS-TOT-SDOSDL\n        ADD WS-TOTCTES-REG          TO WS-TOT-CTES\n        MOVE 0                      TO WS-IMPCTESMN-REG\n        MOVE 0                      TO WS-IMPCTESDL-REG\n        MOVE 0                      TO WS-TOTCTES-REG\n        MOVE 1                      TO WS-7VEZ\n     ELSE\n        MOVE \"V A L L E  D/ M E X.\" TO   WS-NOMCSI\n        MOVE WS-TOTCTES-REG         TO   WS-NUMCTES\n        MOVE WS-IMPCTESMN-REG       TO   WS-IMPTOTMN\n        MOVE WS-IMPCTESDL-REG       TO   WS-IMPTOTDL\n        WRITE REG-IMP               FROM WS-DET-SDOTB BEFORE 2\n        ADD WS-IMPCTESMN-REG        TO WS-TOT-SDOSMN\n        ADD WS-IMPCTESDL-REG        TO WS-TOT-SDOSDL\n        ADD WS-TOTCTES-REG          TO WS-TOT-CTES\n        MOVE 9                      TO WS-TB-TIPO-REG\n        MOVE WS-TOT-SDOSMN          TO WS-TBTR-TOTSDOMN\n        MOVE WS-TOT-SDOSDL          TO WS-TBTR-TOTSDODL\n        MOVE WS-TOT-CTES            TO WS-TBTR-NUMREG\n        WRITE REG-CINTACM           FROM WS-REGTB\n        MOVE 0                      TO WS-IMPCTESMN-REG\n        MOVE 0                      TO WS-IMPCTESDL-REG\n        MOVE 0                      TO WS-TOTCTES-REG\n        MOVE 0                      TO WS-TOT-SDOSMN\n        MOVE 0                      TO WS-TOT-SDOSDL\n        MOVE 0                      TO WS-TOT-CTES.\n 50008030-EXIT.\n    EXIT.",
+          "java_codigo": "    private final ReporteCifrasControl reporte;   // REPORTE (PRINTER) -> JasperReports / CSV\n    private Acumulador total = Acumulador.vacio();  // WS-TOT-CTES, WS-TOT-SDOSMN, WS-TOT-SDOSDL\n    private int trailersVistos;                     // WS-7VEZ / WS-9VEZ\n\n    private SaldoTbRecord procesaTrailer(SaldoTbRecord.Trailer t) {\n        validaTrailer(t);\n        String plaza = (trailersVistos == 0) ? \"M O N T E R R E Y   \" : \"V A L L E  D/ M E X.\";\n        reporte.renglon(familia, plaza, porArchivo);           // WRITE REG-IMP FROM WS-DET-SDOTB\n        total = new Acumulador(total.registros() + porArchivo.registros(),\n                               total.mn().add(porArchivo.mn()), total.dl().add(porArchivo.dl()));\n        porArchivo = Acumulador.vacio();\n\n        if (trailersVistos++ == 0) {\n            return null;            // falta el archivo de Valle: el trailer de MTY no va a la cinta\n        }\n        var consolidado = Fixed.trailer(total.registros(), total.mn(), total.dl());   // tipo '9'\n        total = Acumulador.vacio();\n        return consolidado;         // WRITE REG-CINTACM FROM WS-REGTB\n    }\n}",
+          "racional": "El primer trailer de cada familia se asume de Monterrey y solo alimenta el reporte y el total. Al llegar el segundo, que se asume de Valle, se escribe en la cinta un trailer tipo 9 con el número de registros y los totales MN y DL de ambos archivos, y se reinician los acumuladores. La cinta queda con un header, los detalles de las dos plazas y un trailer consolidado, que es la concentración que describen las reglas del brain.",
+          "reglas": [
+            "RN-S500-764",
+            "RN-S500-765"
+          ],
+          "riesgo": "La plaza se deduce del orden de llegada y no del contenido del archivo. Si falta el trailer del primer archivo, sus importes se reportan como de Valle de México."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Trailer de entrada sin validar",
+      "detalle": "En 50008030-TRAILER y 50009030-TRAILER (líneas 1603-1625 y 1801-1823) las dos ramas del IF son NEXT SENTENCE y el abort está comentado. P420 no detecta archivos incompletos ni duplicados."
+    },
+    {
+      "titulo": "Signo del saldo ignorado en cifras de control",
+      "detalle": "WS-TBDE-SIGSDO (línea 355) no se lee en ningún párrafo. Los totales del trailer consolidado y del reporte suman importes sin signo; un saldo deudor se sumaría como positivo. El detalle viaja intacto a la cinta, así que el impacto es sobre las cifras de control."
+    },
+    {
+      "titulo": "Desbordamiento silencioso",
+      "detalle": "Los acumuladores por archivo son PIC 9(12)V99 y los totales PIC 9(13)V99, sin ON SIZE ERROR. Si se excede la capacidad, COBOL pierde los dígitos altos sin aviso. La versión Java falla de forma explícita."
+    },
+    {
+      "titulo": "Dependencia del orden de lectura",
+      "detalle": "La etiqueta de plaza del reporte, el header que se escribe y el momento del trailer consolidado dependen de que se procese primero el archivo de Monterrey (WS-7VEZ y WS-9VEZ). El MultiResourceItemReader debe configurarse sin reordenar recursos."
+    },
+    {
+      "titulo": "Hardcodes de rutas y plazas",
+      "detalle": "Prefijos S500 y S001, nodos 04 y 10, WS-TOT-CI = 10 en el título del listado y los nombres de plaza están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el formato de B02-FECHA-LINEA y la semántica de LOCSUP función 15 con formato 12 (día natural o día hábil anterior); el copybook S500/INC/WOR/25MTP002 no viene en el fuente.",
+    "RN-S500-764 describe SALDOSTBM y SALDOSTBV como turnos matutino y vespertino; el fuente los identifica como Monterrey y Valle de México (comentarios de los FD en líneas 91 y 109 y renglones del reporte en líneas 1631 y 1657). Revisar la redacción de la regla en el brain.",
+    "RN-S500-765 dice que CINTACM y CINTACH responden al ruteo hacia dos CSIs de contabilidad; en el fuente la separación es por producto (Cuenta Maestra y Cheques) y ambas cintas se describen como enviadas a Tarjetas (líneas 163-165 y 187-189). Validar con SME.",
+    "Los comentarios de WS-ETIQ-SDOTBM y WS-ETIQ-SDOTBV (líneas 389-391 y 409-411) contradicen a los FD sobre qué plaza es cada archivo; se asumió que la ruta 04 es Monterrey.",
+    "Confirmar si el prefijo S001 en las rutas de Cheques sigue vigente.",
+    "Confirmar si un saldo con WS-TBDE-SIGSDO negativo puede llegar en SALDOSTB; de ser así, las cifras de control actuales están sobreestimadas."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-764",
+    "RN-S500-765"
+  ]
+}

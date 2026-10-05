@@ -1,0 +1,872 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Arquitectura TO-BE · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--gold:#6CC5D8;--gold2:rgba(108,197,216,.15);
+  --java:#28a745;--cobol:#d4a017;
+  --a1:#6CC5D8;--a2:#28a745;--a3:#bd93f9;
+  --a4:#ffb86c;--a5:#ff79c6;--a6:#50fa7b;
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 28px;
+  backdrop-filter:blur(18px);background:rgba(7,28,35,.8);border-bottom:1px solid rgba(255,255,255,.07)}
+.ntitle{font-size:13px;font-weight:700}.nsub{font-size:11px;color:var(--muted);margin-top:1px}
+nav a.back{margin-left:auto;font-size:12px;color:var(--gold);text-decoration:none;border:1px solid rgba(108,197,216,.35);border-radius:20px;padding:5px 14px;transition:.2s;flex-shrink:0}
+nav a.back:hover{background:rgba(108,197,216,.1)}
+.brief-badge{display:flex;align-items:center;gap:7px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.4);border-radius:20px;padding:5px 13px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+.bdot{width:6px;height:6px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px #C1272D}50%{box-shadow:0 0 16px #C1272D}}
+
+/* HERO */
+.hero{padding:44px 32px 28px;max-width:1380px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(26px,3.4vw,44px);font-weight:800;line-height:1.08;letter-spacing:-.02em}
+.hero h1 .hi{background:linear-gradient(90deg,var(--gold),#a8e6f0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.65}
+
+.wrap{max-width:1380px;margin:0 auto;padding:0 32px 60px}
+
+/* ── LAYERED ARCHITECTURE DIAGRAM ── */
+.arch-diagram{margin:32px 0 40px;border-radius:20px;border:1px solid var(--line);overflow:hidden}
+.arch-row{display:grid;position:relative}
+.arch-layer{display:flex;align-items:stretch;border-bottom:1px solid var(--line)}
+.arch-layer:last-child{border-bottom:none}
+.layer-label{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:14px 18px;min-width:160px;flex-shrink:0;
+  border-right:1px solid var(--line);
+  font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+}
+.layer-label .ln{font-size:12px;font-weight:700;margin-bottom:3px;letter-spacing:0;text-transform:none}
+.layer-label .ls{font-size:9px;color:var(--muted2);letter-spacing:.05em;line-height:1.4}
+.layer-nodes{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;flex:1}
+
+/* Component boxes */
+.cbox{
+  display:flex;flex-direction:column;align-items:flex-start;
+  padding:10px 14px;border-radius:10px;font-size:11.5px;
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);
+  transition:.2s;cursor:default;
+  min-width:130px;
+}
+.cbox:hover{transform:translateY(-1px);background:rgba(255,255,255,.08)}
+.cbox .ct{font-weight:700;font-size:12px;margin-bottom:3px}
+.cbox .ct{display:flex;align-items:center;gap:7px}
+.clogos{display:inline-flex;gap:4px;flex-shrink:0}
+.clogos img{height:20px;max-width:64px;object-fit:contain;background:#fff;border-radius:5px;padding:2px 4px;box-sizing:content-box}
+
+.cbox .cs{font-size:10px;color:var(--muted2);line-height:1.35}
+.cbox .ctag{font-size:9px;font-weight:800;letter-spacing:.08em;padding:1px 7px;border-radius:4px;margin-top:5px;display:inline-block}
+
+/* Layer color variants */
+.l-obs .layer-label{background:rgba(108,197,216,.07);color:var(--gold)}
+.l-orch .layer-label{background:rgba(189,147,249,.07);color:#bd93f9}
+.l-proc .layer-label{background:rgba(40,167,69,.07);color:#28a745}
+.l-intg .layer-label{background:rgba(255,184,108,.07);color:#ffb86c}
+.l-data .layer-label{background:rgba(80,250,123,.07);color:#50fa7b}
+.l-infra .layer-label{background:rgba(255,121,198,.07);color:#ff79c6}
+
+.new-badge{font-size:8px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.45);color:#6ee89f;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.cobol-badge{font-size:8px;font-weight:800;letter-spacing:.08em;background:rgba(212,160,23,.15);border:1px solid rgba(212,160,23,.35);color:#f0d080;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.retire-badge{font-size:8px;font-weight:700;background:rgba(193,39,45,.15);border:1px solid rgba(193,39,45,.35);color:#f8a0a4;padding:1px 6px;border-radius:3px;margin-left:6px}
+
+/* ── ARCHETYPES GRID ── */
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:36px 0 16px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+.archetypes{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px}
+
+.archetype{
+  border-radius:16px;border:1px solid var(--line);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.arch-hdr{
+  display:flex;align-items:center;gap:12px;padding:14px 18px;
+  border-bottom:1px solid var(--line);
+}
+.arch-num{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;flex-shrink:0;
+}
+.arch-name{font-size:15px;font-weight:800}
+.arch-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.arch-body{padding:16px 18px;flex:1}
+.arch-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+/* arquetipos en filas con diagrama */
+.archetypes{grid-template-columns:1fr!important;gap:22px}
+.archetype .arch-body{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr);gap:22px;align-items:start}
+.arch-diag{background:rgba(4,16,22,.55);border:1px solid rgba(108,197,216,.14);border-radius:14px;padding:14px 14px 10px}
+.arch-diag svg{width:100%;height:auto;display:block}
+.arch-diag svg text{font-family:inherit}
+.arch-cap{font-size:12.5px;line-height:1.6;color:var(--muted);margin:10px 4px 2px}
+.arch-info .arch-row2{grid-template-columns:1fr}
+.arch-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:-6px 0 16px}
+.arch-legend b{font-weight:700}
+.fl{stroke-opacity:.85}
+.fl.dash{stroke-dasharray:5 5;animation:fldash 1.4s linear infinite}
+@keyframes fldash{to{stroke-dashoffset:-20}}
+@media (max-width:1100px){.archetype .arch-body{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.fl.dash{animation:none}}
+
+.half-block{background:rgba(255,255,255,.03);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.07)}
+.hb-label{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.hb-val{font-size:12px;line-height:1.5}
+.hb-val code{font-family:'Cascadia Code','Consolas',monospace;font-size:11.5px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px}
+
+.prog-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.prog-chip{font-size:11px;font-weight:700;font-family:'Cascadia Code','Consolas',monospace;
+  padding:2px 9px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05)}
+
+.complexity{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted)}
+.complexity-dots{display:flex;gap:3px}
+.cd{width:8px;height:8px;border-radius:2px}
+.cd.on{opacity:1}.cd.off{opacity:.2}
+
+/* color per archetype */
+.a1 .arch-hdr{background:rgba(108,197,216,.08)} .a1 .arch-num{background:rgba(108,197,216,.2);color:var(--a1)}
+.a2 .arch-hdr{background:rgba(40,167,69,.08)}   .a2 .arch-num{background:rgba(40,167,69,.2);color:var(--a2)}
+.a3 .arch-hdr{background:rgba(189,147,249,.08)} .a3 .arch-num{background:rgba(189,147,249,.2);color:var(--a3)}
+.a4 .arch-hdr{background:rgba(255,184,108,.08)} .a4 .arch-num{background:rgba(255,184,108,.2);color:var(--a4)}
+.a5 .arch-hdr{background:rgba(255,121,198,.08)} .a5 .arch-num{background:rgba(255,121,198,.2);color:var(--a5)}
+.a6 .arch-hdr{background:rgba(80,250,123,.08)}  .a6 .arch-num{background:rgba(80,250,123,.2);color:var(--a6)}
+
+/* ── MIGRATION PATH ── */
+.migpath{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin:32px 0;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.mp-phase{padding:18px 16px;background:rgba(255,255,255,.03);text-align:center}
+.mp-phase:nth-child(1){background:rgba(193,39,45,.07)}
+.mp-phase:nth-child(2){background:rgba(255,184,108,.06)}
+.mp-phase:nth-child(3){background:rgba(108,197,216,.06)}
+.mp-phase:nth-child(4){background:rgba(40,167,69,.07)}
+.mp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px}
+.mp-title{font-size:14px;font-weight:800;margin-bottom:4px}
+.mp-items{font-size:11px;color:var(--muted);line-height:1.7}
+
+/* PRINCIPLES */
+.principles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:16px}
+.prin{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.prin .pi{font-size:18px;margin-bottom:6px}
+.prin .pt{font-size:13px;font-weight:700;margin-bottom:3px}
+.prin .pd{font-size:12px;color:var(--muted);line-height:1.5}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6}
+
+/* ── DMSII HOVER PANEL ── */
+.dmsii-card{overflow:visible !important}
+.dmsii-hover{
+  display:none;
+  position:fixed;
+  z-index:1000;
+  width:660px;
+  background:#0a2530;
+  border:1px solid rgba(108,197,216,.45);
+  border-radius:16px;
+  box-shadow:0 24px 70px rgba(0,0,0,.85),0 0 0 1px rgba(108,197,216,.12);
+  padding:16px 18px;
+  pointer-events:none;
+  animation:dh-in .18s ease;
+}
+@keyframes dh-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* small arrow pointing down */
+.dmsii-hover::after{content:"";position:absolute;bottom:-8px;left:var(--arr,50%);transform:translateX(-50%);width:14px;height:8px;background:#0a2530;clip-path:polygon(0 0,100% 0,50% 100%)}
+.dmsii-hover::before{content:"";position:absolute;bottom:-9px;left:var(--arr,50%);transform:translateX(-50%);width:16px;height:9px;background:rgba(108,197,216,.45);clip-path:polygon(0 0,100% 0,50% 100%)}
+
+.dh-title{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;text-align:center}
+.dh-cols{display:grid;grid-template-columns:1fr 54px 1fr;gap:6px;align-items:start}
+.dh-arrow{display:flex;align-items:center;justify-content:center;padding-top:28px}
+.dh-side-label{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px;text-align:center}
+.dmsii-lbl{color:#f0d080}
+.jpa-lbl{color:#50fa7b}
+
+.dh-file{background:#071c23;border:1px solid rgba(212,160,23,.25);border-radius:8px;padding:8px 10px;font-family:'Cascadia Code','Consolas',monospace}
+.dh-file-name{font-size:10px;font-weight:800;color:#f0d080;margin-bottom:5px;border-bottom:1px solid rgba(212,160,23,.2);padding-bottom:4px}
+.dh-rec{font-size:10.5px;color:#ffb86c;margin-top:4px;font-weight:700}
+.dh-field{font-size:10px;color:#7fb8c8;line-height:1.6;padding-left:4px}
+.dh-link-arrow{font-size:9px;color:#f8a0a4;margin-top:7px;text-align:center;background:rgba(193,39,45,.1);border:1px solid rgba(193,39,45,.25);border-radius:5px;padding:3px 7px}
+
+.er-wrap{display:flex;flex-direction:column}
+.er-entity{background:#071c23;border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}
+.er-name{font-size:11px;font-weight:800;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.08);letter-spacing:.04em}
+.er-field{font-size:10px;padding:2px 10px;font-family:'Cascadia Code','Consolas',monospace;color:#b0d0d8;line-height:1.65}
+.er-field.pk{color:#f0d080}
+.er-field.fk{color:#6CC5D8}
+.er-benefit{font-size:9px;font-weight:800;color:#50fa7b;text-align:center;margin-top:7px;background:rgba(80,250,123,.08);border:1px solid rgba(80,250,123,.25);border-radius:5px;padding:3px 8px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+
+<!-- NAV -->
+<nav class="dbnav">
+  <a class="nlogo" href="index.html"><img src="assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · Arquitectura TO-BE</span><span class="sp"></span>
+  <a class="jump" href="index.html">Inicio</a><a class="jump" href="modelo-capacidades.html">Capacidades</a><a class="jump" href="cap-relationships.html">Relaciones</a><a class="jump cur" href="arq-tobe.html">Arquitectura TO-BE</a><a class="jump" href="cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · Arquitectura de Destino</div>
+  <h1>Arquitectura <span class="hi">TO-BE</span> — S500 + S151</h1>
+  <p class="sub">El Enterprise Digital Brain no solo documenta lo que existe — define adónde va. Cada programa COBOL Unisys encaja en uno de 6 arquetipos de modernización. El arquetipo determina el patrón Java de destino, el framework Spring específico y la complejidad de migración. Esto convierte 742,000 LOC de COBOL en un portafolio estructurado y predecible de componentes Java 21.</p>
+</div>
+
+<div class="wrap">
+
+<!-- ── LAYERED ARCHITECTURE ── -->
+<div class="sec-hdr">Stack de destino — capas</div>
+<div class="arch-diagram">
+
+  <div class="arch-layer l-obs">
+    <div class="layer-label">
+      <div class="ln">Observabilidad</div>
+      <div class="ls">Monitoreo · Alertas · SLOs</div>
+    </div>
+    <div class="layer-nodes">
+      <div class="cbox" style="border-color:rgba(108,197,216,.3);background:rgba(108,197,216,.07)">
+        <div class="ct" style="color:var(--gold)"><span class="clogos"><img src="assets/logos/grafana.png" alt="Grafana"></span>Grafana + Prometheus</div>
+        <div class="cs">Dashboards SLO · alertas PagerDuty</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(108,197,216,.3);background:rgba(108,197,216,.07)">
+        <div class="ct" style="color:var(--gold)"><span class="clogos"><img src="assets/logos/opentelemetry.png" alt="OpenTelemetry"></span>OpenTelemetry</div>
+        <div class="cs">Traces distribuidos · correlación</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(108,197,216,.3);background:rgba(108,197,216,.07)">
+        <div class="ct" style="color:var(--gold)"><span class="clogos"><img src="assets/logos/spring.webp" alt="Spring"></span>Spring Boot Actuator</div>
+        <div class="cs">Health checks · métricas JVM</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-layer l-orch">
+    <div class="layer-label">
+      <div class="ln">Orquestación</div>
+      <div class="ls">Reemplaza WFL Unisys</div>
+    </div>
+    <div class="layer-nodes">
+      <div class="cbox" style="border-color:rgba(189,147,249,.35);background:rgba(189,147,249,.07)">
+        <div class="ct" style="color:#bd93f9"><span class="clogos"><img src="assets/logos/spring.webp" alt="Spring"></span>Spring Cloud Data Flow</div>
+        <div class="cs">DAGs batch · dependencias entre jobs</div>
+        <span class="ctag" style="background:rgba(189,147,249,.15);color:#bd93f9">↔ WFL</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(189,147,249,.35);background:rgba(189,147,249,.07)">
+        <div class="ct" style="color:#bd93f9"><span class="clogos"><img src="assets/logos/airflow.png" alt="Apache Airflow"></span>Apache Airflow (alt.)</div>
+        <div class="cs">Scheduling fin de día · retry</div>
+        <span class="ctag" style="background:rgba(189,147,249,.15);color:#bd93f9">↔ WFL</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(189,147,249,.2);background:rgba(255,255,255,.03)">
+        <div class="ct"><span class="clogos"><img src="assets/logos/kong.png" alt="Kong"></span>API Gateway</div>
+        <div class="cs">Kong · JWT · rate limit</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-layer l-proc">
+    <div class="layer-label">
+      <div class="ln">Procesamiento</div>
+      <div class="ls">6 arquetipos COBOL → Java</div>
+    </div>
+    <div class="layer-nodes">
+      <div class="cbox" style="border-color:rgba(40,167,69,.4);background:rgba(40,167,69,.08)">
+        <div class="ct" style="color:#28a745"><span class="clogos"><img src="assets/logos/spring.webp" alt="Spring"></span>Spring Batch Jobs</div>
+        <div class="cs">Concentrador · Validador · Rept.</div>
+        <span class="ctag" style="background:rgba(212,160,23,.15);color:#f0d080">↔ P-prefix COBOL</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(40,167,69,.4);background:rgba(40,167,69,.08)">
+        <div class="ct" style="color:#28a745"><span class="clogos"><img src="assets/logos/spring.webp" alt="Spring"></span>Spring Boot 3 Microservices</div>
+        <div class="cs">REST APIs · gRPC interno</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(40,167,69,.3);background:rgba(255,255,255,.03)">
+        <div class="ct" style="color:#28a745"><span class="clogos"><img src="assets/logos/java.png" alt="Java"></span>Java 21 Virtual Threads</div>
+        <div class="cs">Concurrencia I/O sin bloqueo</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-layer l-intg">
+    <div class="layer-label">
+      <div class="ln">Integración</div>
+      <div class="ls">Reemplaza cintas + TARINTERCAM</div>
+    </div>
+    <div class="layer-nodes">
+      <div class="cbox" style="border-color:rgba(255,184,108,.4);background:rgba(255,184,108,.07)">
+        <div class="ct" style="color:#ffb86c"><span class="clogos"><img src="assets/logos/kafka.webp" alt="Apache Kafka"></span>Apache Kafka</div>
+        <div class="cs">Feeds ATM/PoS · eventos en tiempo real</div>
+        <span class="ctag" style="background:rgba(212,160,23,.15);color:#f0d080">↔ Cintas CINTACM</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(255,184,108,.4);background:rgba(255,184,108,.07)">
+        <div class="ct" style="color:#ffb86c"><span class="clogos"><img src="assets/logos/spring.webp" alt="Spring"></span>Spring Integration</div>
+        <div class="cs">AMEX · INTELAR · TBI adaptadores</div>
+        <span class="ctag" style="background:rgba(212,160,23,.15);color:#f0d080">↔ TARINTERCAM</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(255,184,108,.3);background:rgba(255,255,255,.03)">
+        <div class="ct" style="color:#ffb86c"><span class="clogos"><img src="assets/logos/iso20022.png" alt="ISO 20022"></span>ISO 20022 / REST</div>
+        <div class="cs">Protocolo estándar vs COBOL CICS</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-layer l-data">
+    <div class="layer-label">
+      <div class="ln">Datos</div>
+      <div class="ls">Reemplaza DMSII</div>
+    </div>
+    <div class="layer-nodes">
+      <div class="cbox dmsii-card" style="border-color:rgba(80,250,123,.4);background:rgba(80,250,123,.07);position:relative;cursor:default">
+        <div class="ct" style="color:#50fa7b">PostgreSQL + JPA</div>
+        <div class="cs">Core bancario · Spring Data JPA</div>
+        <span class="ctag" style="background:rgba(212,160,23,.15);color:#f0d080">↔ DMSII datasets</span>
+        <!-- HOVER PANEL -->
+        <div class="dmsii-hover">
+          <div class="dh-title">Transformación del modelo de datos</div>
+          <div class="dh-cols">
+            <!-- DMSII side -->
+            <div class="dh-side">
+              <div class="dh-side-label dmsii-lbl">DMSII · AS-IS</div>
+              <div class="dh-file">
+                <div class="dh-file-name">S500BD01CAPTACION</div>
+                <div class="dh-rec">▤ CUENTA-SET</div>
+                <div class="dh-field">  NUMCTA  PIC 9(12)</div>
+                <div class="dh-field">  SALDO   9(10)V99 COMP-3</div>
+                <div class="dh-field">  MONEDA  PIC 9(3)</div>
+                <div class="dh-rec">▤ CONTRATO-SET</div>
+                <div class="dh-field">  NUMCTO  PIC 9(12)</div>
+                <div class="dh-field">  NUMPRD  PIC 9(4)</div>
+                <div class="dh-field">  FCHALT  PIC 9(8)</div>
+              </div>
+              <div class="dh-file" style="margin-top:7px">
+                <div class="dh-file-name">S500BD04TARJETAS</div>
+                <div class="dh-rec">▤ TARJETA-SET</div>
+                <div class="dh-field">  NUMTARJ PIC 9(16)</div>
+                <div class="dh-field">  SDOTAR  9(12)V99 COMP-3</div>
+                <div class="dh-field">  CSICODE PIC 9(2)</div>
+              </div>
+              <div class="dh-link-arrow">⚠ Sin FK · joins manuales COBOL</div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="dh-arrow">
+              <svg width="54" height="60" viewBox="0 0 54 60" fill="none">
+                <line x1="4" y1="30" x2="42" y2="30" stroke="#6CC5D8" stroke-width="2.5" stroke-dasharray="5,3"/>
+                <polygon points="42,24 54,30 42,36" fill="#6CC5D8"/>
+                <text x="27" y="22" text-anchor="middle" font-size="8" fill="#6CC5D8" font-family="monospace">migrar</text>
+                <text x="27" y="46" text-anchor="middle" font-size="8" fill="#6CC5D8" font-family="monospace">normalizar</text>
+              </svg>
+            </div>
+
+            <!-- JPA side -->
+            <div class="dh-side">
+              <div class="dh-side-label jpa-lbl">PostgreSQL + JPA · TO-BE</div>
+              <!-- ER boxes -->
+              <div class="er-wrap">
+                <div class="er-entity" style="border-color:#50fa7b55">
+                  <div class="er-name" style="background:rgba(80,250,123,.18);color:#50fa7b">Cuenta</div>
+                  <div class="er-field pk">🔑 id BIGSERIAL PK</div>
+                  <div class="er-field">numeroCuenta VARCHAR(12) UNIQUE</div>
+                  <div class="er-field">saldo NUMERIC(12,2)</div>
+                  <div class="er-field">moneda ENUM(MXN,USD)</div>
+                </div>
+                <div class="er-entity" style="border-color:#6CC5D855;margin-top:7px">
+                  <div class="er-name" style="background:rgba(108,197,216,.18);color:#6CC5D8">Contrato</div>
+                  <div class="er-field pk">🔑 id BIGSERIAL PK</div>
+                  <div class="er-field fk">🔗 cuenta_id FK → Cuenta</div>
+                  <div class="er-field">numProducto INTEGER</div>
+                  <div class="er-field">fechaAlta DATE</div>
+                </div>
+                <div class="er-entity" style="border-color:#ffb86c55;margin-top:7px">
+                  <div class="er-name" style="background:rgba(255,184,108,.15);color:#ffb86c">Tarjeta</div>
+                  <div class="er-field pk">🔑 id BIGSERIAL PK</div>
+                  <div class="er-field fk">🔗 cuenta_id FK → Cuenta</div>
+                  <div class="er-field">numeroTarjeta VARCHAR(16)</div>
+                  <div class="er-field">saldoTarjeta NUMERIC(12,2)</div>
+                  <div class="er-field">csiRegion ENUM(MTY,VMX)</div>
+                </div>
+                <div class="er-benefit">✓ FKs declarativos · ✓ índices · ✓ ACID</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cbox" style="border-color:rgba(80,250,123,.4);background:rgba(80,250,123,.07)">
+        <div class="ct" style="color:#50fa7b"><span class="clogos"><img src="assets/logos/redis.webp" alt="Redis"></span>Redis</div>
+        <div class="cs">Sesiones · cache de saldos · locks</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(80,250,123,.3);background:rgba(255,255,255,.03)">
+        <div class="ct" style="color:#50fa7b"><span class="clogos"><img src="assets/logos/minio.svg" alt="MinIO"></span>MinIO / S3</div>
+        <div class="cs">Archivos de salida · reportes · audit</div>
+        <span class="ctag" style="background:rgba(212,160,23,.15);color:#f0d080">↔ Cintas batch</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-layer l-infra">
+    <div class="layer-label">
+      <div class="ln">Infraestructura</div>
+      <div class="ls">IaC · Containers · CI/CD</div>
+    </div>
+    <div class="layer-nodes">
+      <div class="cbox" style="border-color:rgba(255,121,198,.3);background:rgba(255,121,198,.06)">
+        <div class="ct" style="color:#ff79c6"><span class="clogos"><img src="assets/logos/kubernetes.svg" alt="Kubernetes"></span>Kubernetes (EKS / AKS)</div>
+        <div class="cs">Auto-scaling · health probes · namespaces</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(255,121,198,.3);background:rgba(255,121,198,.06)">
+        <div class="ct" style="color:#ff79c6"><span class="clogos"><img src="assets/logos/terraform.webp" alt="Terraform"><img src="assets/logos/helm.png" alt="Helm"></span>Terraform + Helm</div>
+        <div class="cs">IaC reproducible · GitOps</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+      <div class="cbox" style="border-color:rgba(255,121,198,.3);background:rgba(255,121,198,.06)">
+        <div class="ct" style="color:#ff79c6"><span class="clogos"><img src="assets/logos/github-actions.png" alt="GitHub Actions"><img src="assets/logos/sonarqube.png" alt="SonarQube"></span>GitHub Actions · SonarQube</div>
+        <div class="cs">CI/CD · SAST · cobertura ≥ 80%</div>
+        <span class="ctag" style="background:rgba(40,167,69,.15);color:#6ee89f">NEW</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /arch-diagram -->
+
+<!-- ── 6 ARCHETYPES ── -->
+<div class="sec-hdr">6 Arquetipos COBOL → Java · Catálogo completo</div>
+<div class="arch-legend"><span><b style="color:#F0F8FA">Blanco</b> paso funcional</span><span><b style="color:#6ee89f">Verde</b> componente Java TO-BE</span><span><b style="color:#e8b04a">Ámbar</b> equivalente COBOL AS-IS</span></div>
+<div class="archetypes">
+
+  <!-- A1: Concentrador -->
+  <div class="archetype a1">
+    <div class="arch-hdr">
+      <div class="arch-num">1</div>
+      <div>
+        <div class="arch-name" style="color:var(--a1)">Concentrador</div>
+        <div class="arch-sub">Lee N archivos → agrega → escribe salida</div>
+      </div>
+    </div>
+    <div class="arch-body">
+      <div class="arch-diag"><svg viewBox="0 0 960 270" role="img" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah-a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6CC5D8"/></marker></defs><path class="fl" d="M800 134 C820 134 815 134 831 134" fill="none" stroke="#6CC5D8" stroke-width="1.6" marker-end="url(#ah-a1)"/><path class="fl" d="M580 134 C602.5 134 602.5 134 621 134" fill="none" stroke="#6CC5D8" stroke-width="1.6" marker-end="url(#ah-a1)"/><path class="fl" d="M360 134 C382.5 134 382.5 134 401 134" fill="none" stroke="#6CC5D8" stroke-width="1.6" marker-end="url(#ah-a1)"/><path class="fl" d="M130 227 C157.5 227 157.5 134 181 134" fill="none" stroke="#6CC5D8" stroke-width="1.6" marker-end="url(#ah-a1)"/><path class="fl" d="M130 134 C157.5 134 157.5 134 181 134" fill="none" stroke="#6CC5D8" stroke-width="1.6" marker-end="url(#ah-a1)"/><path class="fl" d="M130 41 C157.5 41 157.5 134 181 134" fill="none" stroke="#6CC5D8" stroke-width="1.6" marker-end="url(#ah-a1)"/><path d="M10 15 h108 l12 12 v40 h-120 z" fill="#0b2530" stroke="#4d7f8f" stroke-width="1.3"/><path d="M118 15 v12 h12" fill="none" stroke="#4d7f8f" stroke-width="1.1"/><text x="70" y="37.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Cinta 1</text><text x="70" y="51.75" text-anchor="middle" font-size="10" font-weight="400" fill="#8fb4c0">entrada</text><path d="M10 108 h108 l12 12 v40 h-120 z" fill="#0b2530" stroke="#4d7f8f" stroke-width="1.3"/><path d="M118 108 v12 h12" fill="none" stroke="#4d7f8f" stroke-width="1.1"/><text x="70" y="130.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Cinta 2</text><text x="70" y="144.75" text-anchor="middle" font-size="10" font-weight="400" fill="#8fb4c0">entrada</text><path d="M10 201 h108 l12 12 v40 h-120 z" fill="#0b2530" stroke="#4d7f8f" stroke-width="1.3"/><path d="M118 201 v12 h12" fill="none" stroke="#4d7f8f" stroke-width="1.1"/><text x="70" y="223.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Cinta N</text><text x="70" y="237.75" text-anchor="middle" font-size="10" font-weight="400" fill="#8fb4c0">entrada</text><rect x="185" y="100" width="175" height="68" rx="10" fill="#6CC5D8" fill-opacity=".13" stroke="#6CC5D8" stroke-width="1.4"/><text x="272.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Leer N archivos</text><text x="272.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">MultiResourceItemReader</text><text x="272.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">PERFORM UNTIL EOF</text><rect x="405" y="100" width="175" height="68" rx="10" fill="#6CC5D8" fill-opacity=".13" stroke="#6CC5D8" stroke-width="1.4"/><text x="492.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Agregar por llave</text><text x="492.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">AggregatorProcessor</text><text x="492.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">SUMAR … A totales</text><rect x="625" y="100" width="175" height="68" rx="10" fill="#6CC5D8" fill-opacity=".13" stroke="#6CC5D8" stroke-width="1.4"/><text x="712.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Escribir consolidado</text><text x="712.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">FlatFileItemWriter</text><text x="712.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">ESCRIBIR cinta salida</text><path d="M835 108 h108 l12 12 v40 h-120 z" fill="#0b2530" stroke="#6CC5D8" stroke-width="1.3"/><path d="M943 108 v12 h12" fill="none" stroke="#6CC5D8" stroke-width="1.1"/><text x="895" y="129.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Archivo</text><text x="895" y="145.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">consolidado</text></svg><p class="arch-cap">Lee varios archivos de entrada en una sola corrida, acumula importes por llave y escribe un archivo consolidado. En Java, Spring Batch trata los N archivos como un solo flujo de lectura y el agregado ocurre en el procesador antes de escribir.</p></div>
+      <div class="arch-info">
+      <div class="arch-row2">
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--cobol)">COBOL AS-IS</div>
+          <div class="hb-val">PERFORM UNTIL EOF (N cintas)<br>SUMAR … A totales<br>ESCRIBIR cinta salida</div>
+        </div>
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--java)">Java TO-BE</div>
+          <div class="hb-val"><code>MultiResourceItemReader</code><br><code>AggregatorProcessor</code><br><code>FlatFileItemWriter</code></div>
+        </div>
+      </div>
+      <div class="hb-label" style="color:var(--muted2)">Programas COBOL en S500</div>
+      <div class="prog-list">
+        <span class="prog-chip" style="border-color:rgba(108,197,216,.3);color:var(--a1)">P420</span>
+        <span class="prog-chip" style="border-color:rgba(108,197,216,.3);color:var(--a1)">P400</span>
+        <span class="prog-chip" style="border-color:rgba(108,197,216,.3);color:var(--a1)">P046</span>
+      </div>
+      <div class="complexity">
+        <span>Complejidad:</span>
+        <div class="complexity-dots">
+          <div class="cd on" style="background:var(--a1)"></div>
+          <div class="cd on" style="background:var(--a1)"></div>
+          <div class="cd off" style="background:var(--a1)"></div>
+          <div class="cd off" style="background:var(--a1)"></div>
+          <div class="cd off" style="background:var(--a1)"></div>
+        </div>
+        <span>Media</span>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A2: Validador-Actualizador -->
+  <div class="archetype a2">
+    <div class="arch-hdr">
+      <div class="arch-num">2</div>
+      <div>
+        <div class="arch-name" style="color:var(--a2)">Validador-Actualizador</div>
+        <div class="arch-sub">Lee registro → valida → escribe a DMSII</div>
+      </div>
+    </div>
+    <div class="arch-body">
+      <div class="arch-diag"><svg viewBox="0 0 960 270" role="img" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah-a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#28a745"/></marker></defs><path class="fl" d="M770 212 C790 212 790 212 806 212" fill="none" stroke="#28a745" stroke-width="1.6" marker-end="url(#ah-a2)"/><path class="fl" d="M770 56 C790 56 790 56 806 56" fill="none" stroke="#28a745" stroke-width="1.6" marker-end="url(#ah-a2)"/><path class="fl" d="M540 134 C570 134 570 212 596 212" fill="none" stroke="#28a745" stroke-width="1.6" marker-end="url(#ah-a2)"/><path class="fl" d="M540 134 C570 134 570 56 596 56" fill="none" stroke="#28a745" stroke-width="1.6" marker-end="url(#ah-a2)"/><path class="fl" d="M330 134 C350 134 340 134 356 134" fill="none" stroke="#28a745" stroke-width="1.6" marker-end="url(#ah-a2)"/><path class="fl" d="M130 134 C150 134 150 134 166 134" fill="none" stroke="#28a745" stroke-width="1.6" marker-end="url(#ah-a2)"/><rect x="588" y="8" width="368" height="96" rx="12" fill="none" stroke="#28a745" stroke-opacity=".55" stroke-dasharray="4 4"/><path d="M10 108 h108 l12 12 v40 h-120 z" fill="#0b2530" stroke="#4d7f8f" stroke-width="1.3"/><path d="M118 108 v12 h12" fill="none" stroke="#4d7f8f" stroke-width="1.1"/><text x="70" y="129.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Registro</text><text x="70" y="145.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">entrante</text><rect x="170" y="100" width="160" height="68" rx="10" fill="#28a745" fill-opacity=".13" stroke="#28a745" stroke-width="1.4"/><text x="250" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Leer registro</text><text x="250" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">ItemReader</text><text x="250" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">LEER SIGUIENTE</text><polygon points="450,76 540,134 450,192 360,134" fill="#28a745" fill-opacity=".10" stroke="#28a745" stroke-width="1.4"/><text x="450" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">¿Válido?</text><text x="450" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">ItemProcessor&lt;In,Out&gt;</text><text x="450" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">EVALUAR campos</text><rect x="600" y="22" width="170" height="68" rx="10" fill="#28a745" fill-opacity=".13" stroke="#28a745" stroke-width="1.4"/><text x="685" y="45" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Actualizar registro</text><text x="685" y="59.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">JpaRepository.save()</text><text x="685" y="74" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">MODIFICAR DMSII</text><path d="M810 27 a70 9 0 0 1 140 0 v58 a70 9 0 0 1 -140 0 z" fill="#0b2530" stroke="#28a745" stroke-width="1.3"/><path d="M810 27 a70 9 0 0 0 140 0" fill="none" stroke="#28a745" stroke-width="1.1"/><text x="880" y="56.75" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">PostgreSQL</text><text x="880" y="71.25" text-anchor="middle" font-size="10" font-weight="400" fill="#8fb4c0">antes DMSII</text><rect x="600" y="178" width="170" height="68" rx="10" fill="#28a745" fill-opacity=".13" stroke="#28a745" stroke-width="1.4"/><text x="685" y="201" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Registrar rechazo</text><text x="685" y="215.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">SkipListener</text><text x="685" y="230" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">SUMAR 1 A errores</text><path d="M810 186 h128 l12 12 v40 h-140 z" fill="#0b2530" stroke="#28a745" stroke-width="1.3"/><path d="M938 186 v12 h12" fill="none" stroke="#28a745" stroke-width="1.1"/><text x="880" y="207.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Bitácora de</text><text x="880" y="223.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">rechazos</text><text x="598" y="118" font-size="10" font-family="SF Mono,ui-monospace,Consolas,monospace" fill="#6ee89f">@Transactional · commit por chunk</text><text x="566" y="70" text-anchor="middle" font-size="10.5" font-weight="700" fill="#28a745">Sí</text><text x="566" y="206" text-anchor="middle" font-size="10.5" font-weight="700" fill="#28a745">No</text></svg><p class="arch-cap">Procesa registro por registro: valida cada campo y, si pasa, actualiza la base; si no, lo cuenta como rechazo y sigue con el siguiente. En Java cada lote se confirma en una sola transacción y los rechazos van a una bitácora sin detener el job.</p></div>
+      <div class="arch-info">
+      <div class="arch-row2">
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--cobol)">COBOL AS-IS</div>
+          <div class="hb-val">EVALUAR campos<br>SI válido → MODIFICAR registro DMSII<br>SINO → conteo de errores</div>
+        </div>
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--java)">Java TO-BE</div>
+          <div class="hb-val"><code>ItemProcessor&lt;In,Out&gt;</code><br><code>JpaRepository.save()</code><br><code>@Transactional</code></div>
+        </div>
+      </div>
+      <div class="hb-label" style="color:var(--muted2)">Programas COBOL en S500</div>
+      <div class="prog-list">
+        <span class="prog-chip" style="border-color:rgba(40,167,69,.3);color:var(--a2)">P630</span>
+        <span class="prog-chip" style="border-color:rgba(40,167,69,.3);color:var(--a2)">S111</span>
+        <span class="prog-chip" style="border-color:rgba(40,167,69,.3);color:var(--a2)">P176</span>
+      </div>
+      <div class="complexity">
+        <span>Complejidad:</span>
+        <div class="complexity-dots">
+          <div class="cd on" style="background:var(--a2)"></div>
+          <div class="cd on" style="background:var(--a2)"></div>
+          <div class="cd on" style="background:var(--a2)"></div>
+          <div class="cd off" style="background:var(--a2)"></div>
+          <div class="cd off" style="background:var(--a2)"></div>
+        </div>
+        <span>Media-Alta</span>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A3: Reporteador -->
+  <div class="archetype a3">
+    <div class="arch-hdr">
+      <div class="arch-num">3</div>
+      <div>
+        <div class="arch-name" style="color:var(--a3)">Reporteador</div>
+        <div class="arch-sub">Lee datos → formatea → genera reporte regulatorio</div>
+      </div>
+    </div>
+    <div class="arch-body">
+      <div class="arch-diag"><svg viewBox="0 0 960 270" role="img" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah-a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#bd93f9"/></marker></defs><path class="fl" d="M755 134 C782.5 134 782.5 212 806 212" fill="none" stroke="#bd93f9" stroke-width="1.6" marker-end="url(#ah-a3)"/><path class="fl" d="M755 134 C782.5 134 782.5 48 806 48" fill="none" stroke="#bd93f9" stroke-width="1.6" marker-end="url(#ah-a3)"/><path class="fl" d="M550 134 C570 134 570 134 586 134" fill="none" stroke="#bd93f9" stroke-width="1.6" marker-end="url(#ah-a3)"/><path class="fl" d="M345 134 C365 134 365 134 381 134" fill="none" stroke="#bd93f9" stroke-width="1.6" marker-end="url(#ah-a3)"/><path class="fl" d="M140 135 C160 135 160 134 176 134" fill="none" stroke="#bd93f9" stroke-width="1.6" marker-end="url(#ah-a3)"/><path d="M10 105 a65 9 0 0 1 130 0 v60 a65 9 0 0 1 -130 0 z" fill="#0b2530" stroke="#bd93f9" stroke-width="1.3"/><path d="M10 105 a65 9 0 0 0 130 0" fill="none" stroke="#bd93f9" stroke-width="1.1"/><text x="75" y="135" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Datos</text><text x="75" y="151" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">contables</text><rect x="180" y="100" width="165" height="68" rx="10" fill="#bd93f9" fill-opacity=".13" stroke="#bd93f9" stroke-width="1.4"/><text x="262.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Ordenar y agrupar</text><text x="262.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">JdbcCursorItemReader</text><text x="262.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">SORT ON ASCENDING KEY</text><rect x="385" y="100" width="165" height="68" rx="10" fill="#bd93f9" fill-opacity=".13" stroke="#bd93f9" stroke-width="1.4"/><text x="467.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Cortes de control</text><text x="467.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">StepExecutionListener</text><text x="467.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">Niveles 1, 2 y 3</text><rect x="590" y="100" width="165" height="68" rx="10" fill="#bd93f9" fill-opacity=".13" stroke="#bd93f9" stroke-width="1.4"/><text x="672.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Dar formato</text><text x="672.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">JasperReports</text><text x="672.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">PIC Z(n).99 · REPORT</text><path d="M810 22 h133 l12 12 v40 h-145 z" fill="#0b2530" stroke="#bd93f9" stroke-width="1.3"/><path d="M943 22 v12 h12" fill="none" stroke="#bd93f9" stroke-width="1.1"/><text x="882.5" y="43.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Reporte</text><text x="882.5" y="59.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">regulatorio</text><path d="M810 186 h133 l12 12 v40 h-145 z" fill="#0b2530" stroke="#bd93f9" stroke-width="1.3"/><path d="M943 186 v12 h12" fill="none" stroke="#bd93f9" stroke-width="1.1"/><text x="882.5" y="207.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Reporte</text><text x="882.5" y="223.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">operativo</text><text x="872" y="138" text-anchor="middle" font-size="9.5" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">ClassifierCompositeItemWriter</text></svg><p class="arch-cap">Ordena los datos por la llave del reporte, detecta los cambios de nivel para imprimir subtotales y da formato a cada línea. En Java el formato vive en plantillas JasperReports y un escritor clasificador separa la salida regulatoria de la operativa.</p></div>
+      <div class="arch-info">
+      <div class="arch-row2">
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--cobol)">COBOL AS-IS</div>
+          <div class="hb-val">Formateo con PIC Z(n).99<br>WRITE REPORT GROUP<br>Cortes de control nivel 1-3</div>
+        </div>
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--java)">Java TO-BE</div>
+          <div class="hb-val"><code>JasperReports</code><br><code>ClassifierCompositeItemWriter</code><br><code>StepExecutionListener</code></div>
+        </div>
+      </div>
+      <div class="hb-label" style="color:var(--muted2)">Programas COBOL en S500</div>
+      <div class="prog-list">
+        <span class="prog-chip" style="border-color:rgba(189,147,249,.3);color:var(--a3)">P180</span>
+        <span class="prog-chip" style="border-color:rgba(189,147,249,.3);color:var(--a3)">P176</span>
+        <span class="prog-chip" style="border-color:rgba(189,147,249,.3);color:var(--a3)">S244</span>
+      </div>
+      <div class="complexity">
+        <span>Complejidad:</span>
+        <div class="complexity-dots">
+          <div class="cd on" style="background:var(--a3)"></div>
+          <div class="cd on" style="background:var(--a3)"></div>
+          <div class="cd off" style="background:var(--a3)"></div>
+          <div class="cd off" style="background:var(--a3)"></div>
+          <div class="cd off" style="background:var(--a3)"></div>
+        </div>
+        <span>Media</span>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A4: Intercambiador -->
+  <div class="archetype a4">
+    <div class="arch-hdr">
+      <div class="arch-num">4</div>
+      <div>
+        <div class="arch-name" style="color:var(--a4)">Intercambiador</div>
+        <div class="arch-sub">Recibe feed externo → transforma → carga</div>
+      </div>
+    </div>
+    <div class="arch-body">
+      <div class="arch-diag"><svg viewBox="0 0 960 270" role="img" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah-a4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffb86c"/></marker></defs><path class="fl" d="M755 134 C780 134 780 212 801 212" fill="none" stroke="#ffb86c" stroke-width="1.6" marker-end="url(#ah-a4)"/><path class="fl" d="M755 134 C780 134 780 55 801 55" fill="none" stroke="#ffb86c" stroke-width="1.6" marker-end="url(#ah-a4)"/><path class="fl" d="M550 134 C570 134 570 134 586 134" fill="none" stroke="#ffb86c" stroke-width="1.6" marker-end="url(#ah-a4)"/><path class="fl" d="M350 134 C370 134 370 134 386 134" fill="none" stroke="#ffb86c" stroke-width="1.6" marker-end="url(#ah-a4)"/><path class="fl" d="M150 134 C170 134 170 134 186 134" fill="none" stroke="#ffb86c" stroke-width="1.6" marker-end="url(#ah-a4)"/><rect x="10" y="100" width="140" height="68" rx="10" fill="#0b2530" stroke="#9fb8c0" stroke-width="1.3" stroke-dasharray="5 4"/><text x="80" y="122.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Feed AMEX /</text><text x="80" y="138.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">INTELAR</text><text x="80" y="152.75" text-anchor="middle" font-size="10" font-weight="400" fill="#8fb4c0">formato del tercero</text><rect x="190" y="100" width="160" height="68" rx="10" fill="#ffb86c" fill-opacity=".13" stroke="#ffb86c" stroke-width="1.4"/><text x="270" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Recibir feed</text><text x="270" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">KafkaItemReader</text><text x="270" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">Leer cinta</text><rect x="390" y="100" width="160" height="68" rx="10" fill="#ffb86c" fill-opacity=".13" stroke="#ffb86c" stroke-width="1.4"/><text x="470" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Parsear formato</text><text x="470" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">Spring Integration</text><text x="470" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">REDEFINES por tipo</text><rect x="590" y="100" width="165" height="68" rx="10" fill="#ffb86c" fill-opacity=".13" stroke="#ffb86c" stroke-width="1.4"/><text x="672.5" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Mapear a canónico</text><text x="672.5" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">ISO 20022 adapter</text><text x="672.5" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">MOVE campo a campo</text><path d="M805 25 a75 9 0 0 1 150 0 v60 a75 9 0 0 1 -150 0 z" fill="#0b2530" stroke="#ffb86c" stroke-width="1.3"/><path d="M805 25 a75 9 0 0 0 150 0" fill="none" stroke="#ffb86c" stroke-width="1.1"/><text x="880" y="55.75" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">PostgreSQL</text><text x="880" y="70.25" text-anchor="middle" font-size="10" font-weight="400" fill="#8fb4c0">antes DMSII</text><path d="M805 186 h138 l12 12 v40 h-150 z" fill="#0b2530" stroke="#ffb86c" stroke-width="1.3"/><path d="M943 186 v12 h12" fill="none" stroke="#ffb86c" stroke-width="1.1"/><text x="880" y="207.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Tópico Kafka</text><text x="880" y="223.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">de salida</text></svg><p class="arch-cap">Recibe el archivo de un tercero en su propio formato, lo traduce a la estructura del banco y lo carga. En Java el feed llega por Kafka, Spring Integration hace el parseo y un adaptador ISO 20022 entrega el mensaje canónico.</p></div>
+      <div class="arch-info">
+      <div class="arch-row2">
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--cobol)">COBOL AS-IS</div>
+          <div class="hb-val">Leer cinta AMEX/INTELAR<br>Transformar formato propietario<br>Escribir a DMSII / cinta salida</div>
+        </div>
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--java)">Java TO-BE</div>
+          <div class="hb-val"><code>Spring Integration</code><br><code>KafkaItemReader</code><br><code>ISO 20022 adapters</code></div>
+        </div>
+      </div>
+      <div class="hb-label" style="color:var(--muted2)">Programas COBOL en S500</div>
+      <div class="prog-list">
+        <span class="prog-chip" style="border-color:rgba(255,184,108,.3);color:var(--a4)">TARINTERCAM</span>
+        <span class="prog-chip" style="border-color:rgba(255,184,108,.3);color:var(--a4)">TBI</span>
+        <span class="prog-chip" style="border-color:rgba(255,184,108,.3);color:var(--a4)">BD04</span>
+      </div>
+      <div class="complexity">
+        <span>Complejidad:</span>
+        <div class="complexity-dots">
+          <div class="cd on" style="background:var(--a4)"></div>
+          <div class="cd on" style="background:var(--a4)"></div>
+          <div class="cd on" style="background:var(--a4)"></div>
+          <div class="cd on" style="background:var(--a4)"></div>
+          <div class="cd off" style="background:var(--a4)"></div>
+        </div>
+        <span>Alta</span>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A5: Orquestador -->
+  <div class="archetype a5">
+    <div class="arch-hdr">
+      <div class="arch-num">5</div>
+      <div>
+        <div class="arch-name" style="color:var(--a5)">Orquestador de Flujos</div>
+        <div class="arch-sub">Controla secuencia de jobs · dependencias · retry</div>
+      </div>
+    </div>
+    <div class="arch-body">
+      <div class="arch-diag"><svg viewBox="0 0 960 270" role="img" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah-a5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff79c6"/></marker></defs><path class="fl dash" d="M872 246 C872 268 860 264 600 264 L300 264 C262 264 260 240 260 172" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M725 134 C757.5 134 757.5 212 786 212" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M725 134 C757.5 134 757.5 56 786 56" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M525 212 C545 212 535 134 551 134" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M525 56 C545 56 535 134 551 134" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M335 134 C355 134 355 212 371 212" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M335 134 C355 134 355 56 371 56" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><path class="fl" d="M150 134 C170 134 165 134 181 134" fill="none" stroke="#ff79c6" stroke-width="1.6" marker-end="url(#ah-a5)"/><rect x="10" y="100" width="140" height="68" rx="10" fill="#0b2530" stroke="#9fb8c0" stroke-width="1.3" stroke-dasharray="5 4"/><text x="80" y="122.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Calendario</text><text x="80" y="138.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">fin de día</text><text x="80" y="152.75" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">Scheduler</text><rect x="185" y="100" width="150" height="68" rx="10" fill="#ff79c6" fill-opacity=".13" stroke="#ff79c6" stroke-width="1.4"/><text x="260" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Paso 1</text><text x="260" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">JobLauncher</text><text x="260" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">RUNPROGRAM</text><rect x="375" y="22" width="150" height="68" rx="10" fill="#ff79c6" fill-opacity=".13" stroke="#ff79c6" stroke-width="1.4"/><text x="450" y="45" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Paso 2a</text><text x="450" y="59.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">Flow.split()</text><text x="450" y="74" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">en paralelo</text><rect x="375" y="178" width="150" height="68" rx="10" fill="#ff79c6" fill-opacity=".13" stroke="#ff79c6" stroke-width="1.4"/><text x="450" y="201" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Paso 2b</text><text x="450" y="215.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">Flow.split()</text><text x="450" y="230" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">en paralelo</text><polygon points="640,78 725,134 640,190 555,134" fill="#ff79c6" fill-opacity=".10" stroke="#ff79c6" stroke-width="1.4"/><text x="640" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">¿Terminó OK?</text><text x="640" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">JobExecutionDecider</text><text x="640" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">IF TASKVALUE ≠ 0</text><rect x="790" y="22" width="165" height="68" rx="10" fill="#ff79c6" fill-opacity=".13" stroke="#ff79c6" stroke-width="1.4"/><text x="872.5" y="45" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Paso 3 · cierre</text><text x="872.5" y="59.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">Step siguiente</text><text x="872.5" y="74" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">RUNPROGRAM</text><rect x="790" y="178" width="165" height="68" rx="10" fill="#ff79c6" fill-opacity=".13" stroke="#ff79c6" stroke-width="1.4"/><text x="872.5" y="201" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Reintento y alerta</text><text x="872.5" y="215.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">RetryTemplate</text><text x="872.5" y="230" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">Manejo de error WFL</text><text x="752" y="70" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ff79c6">Sí</text><text x="752" y="206" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ff79c6">No</text><text x="560" y="258" text-anchor="middle" font-size="10" fill="#ff79c6">reintento</text></svg><p class="arch-cap">No procesa datos: decide qué programa corre, en qué orden y qué hacer si uno falla. El WFL de Unisys se reemplaza por un flujo declarativo con pasos en paralelo, decisiones por código de salida y reintentos automáticos.</p></div>
+      <div class="arch-info">
+      <div class="arch-row2">
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--cobol)">COBOL AS-IS</div>
+          <div class="hb-val">WFL Unisys<br>RUNPROGRAM P420<br>IF TASKVALUE ≠ 0 → manejo error</div>
+        </div>
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--java)">Java TO-BE</div>
+          <div class="hb-val"><code>Spring Cloud Data Flow</code><br><code>JobLauncher + Flow</code><br><code>Airflow DAG</code></div>
+        </div>
+      </div>
+      <div class="hb-label" style="color:var(--muted2)">WFLs en S500+S151</div>
+      <div class="prog-list">
+        <span class="prog-chip" style="border-color:rgba(255,121,198,.3);color:var(--a5)">WFL-S500-LOTE</span>
+        <span class="prog-chip" style="border-color:rgba(255,121,198,.3);color:var(--a5)">WFL-S500-LINEA</span>
+        <span class="prog-chip" style="border-color:rgba(255,121,198,.3);color:var(--a5)">WFL-S151-LOTE</span>
+      </div>
+      <div class="complexity">
+        <span>Complejidad:</span>
+        <div class="complexity-dots">
+          <div class="cd on" style="background:var(--a5)"></div>
+          <div class="cd on" style="background:var(--a5)"></div>
+          <div class="cd on" style="background:var(--a5)"></div>
+          <div class="cd on" style="background:var(--a5)"></div>
+          <div class="cd on" style="background:var(--a5)"></div>
+        </div>
+        <span>Muy Alta</span>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A6: Distribuidor Geográfico -->
+  <div class="archetype a6">
+    <div class="arch-hdr">
+      <div class="arch-num">6</div>
+      <div>
+        <div class="arch-name" style="color:var(--a6)">Distribuidor Geográfico</div>
+        <div class="arch-sub">Enruta registros por código CSI · región</div>
+      </div>
+    </div>
+    <div class="arch-body">
+      <div class="arch-diag"><svg viewBox="0 0 960 270" role="img" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah-a6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#50fa7b"/></marker></defs><path class="fl" d="M590 134 C640 134 640 228 686 228" fill="none" stroke="#50fa7b" stroke-width="1.6" marker-end="url(#ah-a6)"/><path class="fl" d="M590 134 C640 134 640 134 686 134" fill="none" stroke="#50fa7b" stroke-width="1.6" marker-end="url(#ah-a6)"/><path class="fl" d="M590 134 C640 134 640 40 686 40" fill="none" stroke="#50fa7b" stroke-width="1.6" marker-end="url(#ah-a6)"/><path class="fl" d="M345 134 C372.5 134 372.5 134 396 134" fill="none" stroke="#50fa7b" stroke-width="1.6" marker-end="url(#ah-a6)"/><path class="fl" d="M140 134 C162.5 134 162.5 134 181 134" fill="none" stroke="#50fa7b" stroke-width="1.6" marker-end="url(#ah-a6)"/><path d="M10 108 h118 l12 12 v40 h-130 z" fill="#0b2530" stroke="#4d7f8f" stroke-width="1.3"/><path d="M128 108 v12 h12" fill="none" stroke="#4d7f8f" stroke-width="1.1"/><text x="75" y="129.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Registros</text><text x="75" y="145.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">nacionales</text><rect x="185" y="100" width="160" height="68" rx="10" fill="#50fa7b" fill-opacity=".13" stroke="#50fa7b" stroke-width="1.4"/><text x="265" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Leer registro</text><text x="265" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">ItemReader</text><text x="265" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">LEER SIGUIENTE</text><polygon points="495,76 590,134 495,192 400,134" fill="#50fa7b" fill-opacity=".10" stroke="#50fa7b" stroke-width="1.4"/><text x="495" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Código CSI</text><text x="495" y="137.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">CsiRouter @Bean</text><text x="495" y="152" text-anchor="middle" font-size="10" font-weight="400" fill="#e8b04a">EVALUAR WS-TBDE-CSI</text><path d="M690 12 h208 l12 12 v44 h-220 z" fill="#0b2530" stroke="#50fa7b" stroke-width="1.3"/><path d="M898 12 v12 h12" fill="none" stroke="#50fa7b" stroke-width="1.1"/><text x="800" y="43.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">CSI 04 · Monterrey</text><path d="M690 106 h208 l12 12 v44 h-220 z" fill="#0b2530" stroke="#50fa7b" stroke-width="1.3"/><path d="M898 106 v12 h12" fill="none" stroke="#50fa7b" stroke-width="1.1"/><text x="800" y="137.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">CSI 10 · Valle de México</text><path d="M690 200 h208 l12 12 v44 h-220 z" fill="#0b2530" stroke="#50fa7b" stroke-width="1.3"/><path d="M898 200 v12 h12" fill="none" stroke="#50fa7b" stroke-width="1.1"/><text x="800" y="231.5" text-anchor="middle" font-size="12.5" font-weight="700" fill="#F0F8FA">Otros CSI · resto del país</text><text x="495" y="222" text-anchor="middle" font-size="9.5" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">ClassifierCompositeItemWriter</text><text x="495" y="238" text-anchor="middle" font-size="9.5" fill="#6ee89f" font-family="SF Mono,ui-monospace,Consolas,monospace">PartitionedStep · una partición por región</text></svg><p class="arch-cap">Lee los registros de todo el país y envía cada uno a la región que le corresponde según su código CSI. En Java un clasificador enruta cada registro y un paso particionado procesa cada región en paralelo.</p></div>
+      <div class="arch-info">
+      <div class="arch-row2">
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--cobol)">COBOL AS-IS</div>
+          <div class="hb-val">EVALUAR WS-TBDE-CSI<br>CUANDO 04 → Monterrey<br>CUANDO 10 → Valle de México</div>
+        </div>
+        <div class="half-block">
+          <div class="hb-label" style="color:var(--java)">Java TO-BE</div>
+          <div class="hb-val"><code>ClassifierCompositeWriter</code><br><code>PartitionedStep</code><br><code>CsiRouter @Bean</code></div>
+        </div>
+      </div>
+      <div class="hb-label" style="color:var(--muted2)">Programas COBOL en S500</div>
+      <div class="prog-list">
+        <span class="prog-chip" style="border-color:rgba(80,250,123,.3);color:var(--a6)">P400</span>
+        <span class="prog-chip" style="border-color:rgba(80,250,123,.3);color:var(--a6)">SDOTB</span>
+        <span class="prog-chip" style="border-color:rgba(80,250,123,.3);color:var(--a6)">SDOTBC</span>
+      </div>
+      <div class="complexity">
+        <span>Complejidad:</span>
+        <div class="complexity-dots">
+          <div class="cd on" style="background:var(--a6)"></div>
+          <div class="cd on" style="background:var(--a6)"></div>
+          <div class="cd off" style="background:var(--a6)"></div>
+          <div class="cd off" style="background:var(--a6)"></div>
+          <div class="cd off" style="background:var(--a6)"></div>
+        </div>
+        <span>Media</span>
+      </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /archetypes -->
+
+<!-- ── MIGRATION PATH ── -->
+<div class="sec-hdr">Ruta de modernización — 4 fases</div>
+<div class="migpath">
+  <div class="mp-phase">
+    <div class="mp-label" style="color:#f8a0a4">Fase 1</div>
+    <div class="mp-title">Fundación</div>
+    <div class="mp-items">
+      Scaffolding Spring Boot<br>
+      Pipeline CI/CD<br>
+      Golden-master tests AS-IS<br>
+      Arquetipos 1+6 (Concentrador / Distribuidor)
+    </div>
+  </div>
+  <div class="mp-phase">
+    <div class="mp-label" style="color:#ffb86c">Fase 2</div>
+    <div class="mp-title">Core Batch</div>
+    <div class="mp-items">
+      Arquetipos 2+3 (Validador / Reporteador)<br>
+      Migración DMSII → PostgreSQL<br>
+      Shadow mode (COBOL + Java en paralelo)<br>
+      SLO definidos y monitoreados
+    </div>
+  </div>
+  <div class="mp-phase">
+    <div class="mp-label" style="color:var(--gold)">Fase 3</div>
+    <div class="mp-title">Integración</div>
+    <div class="mp-items">
+      Arquetipo 4 (Intercambiador → Kafka)<br>
+      AMEX · INTELAR · TBI migrados<br>
+      Cintas eliminadas<br>
+      Event-driven architecture activa
+    </div>
+  </div>
+  <div class="mp-phase">
+    <div class="mp-label" style="color:#6ee89f">Fase 4</div>
+    <div class="mp-title">Orquestación</div>
+    <div class="mp-items">
+      Arquetipo 5 (WFL → Airflow/SCDF)<br>
+      Mainframe Unisys retirado<br>
+      Observabilidad completa<br>
+      CNBV compliance verificado
+    </div>
+  </div>
+</div>
+
+<!-- PRINCIPLES -->
+<div class="sec-hdr">Principios de diseño TO-BE</div>
+<div class="principles">
+  <div class="prin">
+    <div class="pi">🔒</div>
+    <div class="pt">Aritmética exacta siempre</div>
+    <div class="pd">Todo importe financiero usa <code>BigDecimal</code> con escala=2 y <code>HALF_EVEN</code>. Nunca <code>double</code>. Equivalencia ≥ 99.99% exigida por CNBV.</div>
+  </div>
+  <div class="prin">
+    <div class="pi">🧪</div>
+    <div class="pt">Golden-master testing</div>
+    <div class="pd">Cada programa Java debe producir exactamente la misma salida que su contraparte COBOL contra el mismo input. Aprobación = diff cero en archivos de salida.</div>
+  </div>
+  <div class="prin">
+    <div class="pi">📖</div>
+    <div class="pt">Reglas como código</div>
+    <div class="pd">Las 1,583 reglas extraídas del Enterprise Digital Brain se convierten en tests automatizados. Cada regla tiene su test JUnit 5 con el ID trazable (RN-S500-XXX-NNN).</div>
+  </div>
+  <div class="prin">
+    <div class="pi">🔁</div>
+    <div class="pt">Shadow mode obligatorio</div>
+    <div class="pd">COBOL y Java corren en paralelo mínimo 60 días antes de cualquier cutover. El shadow mode detecta divergencias antes de afectar producción.</div>
+  </div>
+  <div class="prin">
+    <div class="pi">📊</div>
+    <div class="pt">SLO desde día 1</div>
+    <div class="pd">Latencia batch, tasa de error y throughput definidos antes de escribir la primera línea Java. Grafana muestra verde antes del go-live.</div>
+  </div>
+  <div class="prin">
+    <div class="pi">🛡️</div>
+    <div class="pt">Compliance CNBV by design</div>
+    <div class="pd">Regulaciones CNBV, Banxico y PCI-DSS son non-negotiable. Cada componente tiene su control de seguridad documentado en el ADR correspondiente.</div>
+  </div>
+</div>
+
+<!-- ── INVENTARIO (movido a cobol-java.html) ── -->
+<div class="sec-hdr" style="margin-top:36px">Inventario · 199 componentes S500 y S151 por arquetipo</div>
+<div class="invs">
+  <div class="invs-chips"><div class="invs-chip" style="--c:var(--a1)"><b>15</b><span>A1 · Concentrador</span></div><div class="invs-chip" style="--c:var(--a2)"><b>62</b><span>A2 · Validador-Actualizador</span></div><div class="invs-chip" style="--c:var(--a3)"><b>22</b><span>A3 · Reporteador</span></div><div class="invs-chip" style="--c:var(--a4)"><b>29</b><span>A4 · Intercambiador</span></div><div class="invs-chip" style="--c:var(--a5)"><b>27</b><span>A5 · Orquestador</span></div><div class="invs-chip" style="--c:var(--a6)"><b>7</b><span>A6 · Distribuidor</span></div><div class="invs-chip" style="--c:#9fb8c0"><b>37</b><span>L · Librería / Módulo</span></div></div>
+  <a class="invs-cta" href="cobol-java.html">Ver el inventario completo y la transpilación de cada componente →</a>
+</div>
+<style>
+.invs{display:flex;flex-wrap:wrap;align-items:center;gap:16px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.invs-chips{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+.invs-chip{display:flex;align-items:baseline;gap:7px;border:1px solid color-mix(in srgb,var(--c) 40%,transparent);border-radius:12px;padding:7px 12px}
+.invs-chip b{font-size:18px;color:var(--c)}.invs-chip span{font-size:11.5px;color:var(--muted)}
+.invs-cta{font-size:13px;font-weight:700;color:#071c23;background:var(--gold);border-radius:22px;padding:10px 18px;text-decoration:none;white-space:nowrap}
+.invs-cta:hover{filter:brightness(1.1)}
+</style>
+
+<script>
+// ── DMSII hover panel (position:fixed to escape overflow:hidden) ──
+(function(){
+  const card  = document.querySelector('.dmsii-card');
+  const panel = card.querySelector('.dmsii-hover');
+  const W = 660;
+
+  function show(){
+    const r = card.getBoundingClientRect();
+    panel.style.display = 'block';
+    // measure panel height after making it visible but off-screen
+    panel.style.visibility = 'hidden';
+    panel.style.top = '-9999px'; panel.style.left = '-9999px';
+    const ph = panel.offsetHeight;
+    panel.style.visibility = '';
+
+    // center horizontally over the card, clamped to viewport
+    let left = r.left + r.width / 2 - W / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - W - 8));
+    const top  = r.top - ph - 12;
+
+    panel.style.left = left + 'px';
+    panel.style.top  = Math.max(8, top) + 'px';
+
+    // move the CSS arrow to align with card center
+    const cardCenterInPanel = (r.left + r.width / 2) - left;
+    const pct = Math.round(Math.min(Math.max(cardCenterInPanel / W * 100, 10), 90));
+    panel.style.setProperty('--arr', pct + '%');
+  }
+
+  card.addEventListener('mouseenter', show);
+  card.addEventListener('mouseleave', ()=>{ panel.style.display='none'; });
+})();
+</script>
+
+</div><!-- /wrap -->
+
+<footer>
+  Enterprise Digital Brain · Banamex · SPE-MM-001 (S500) + SPE-MM-002 (S151)<br>
+  Arquitectura TO-BE · 6 Arquetipos de Modernización · Accenture México · High Velocity Modernization · Sep 2026
+</footer>
+</body></html>

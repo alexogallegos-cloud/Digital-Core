@@ -1,0 +1,178 @@
+{
+  "slug": "S151_P670",
+  "sistema": "S151",
+  "programa": "P670",
+  "nombre": "Impresión de backups de movimientos",
+  "funcion": "Paso batch de S151 que toma el archivo de impresión diferida que generan P106, P108, P109 o P158 y lo reparte en listados de impresora, uno por cada backup que contiene, respetando los saltos de línea y de página grabados.",
+  "resumen": "Recibe por parámetro el sistema, un identificador de paso de ocho caracteres (bitácora o MOVXCONT) y una fecha de seis dígitos, con los que arma el título del archivo de entrada; el pack de disco lo toma de la librería de control S151L001. Cada registro de entrada trae una línea de 132 caracteres y dos campos de control: una marca INICI BACK abre un nuevo listado cuyo título viene en la propia línea, PAGE produce un salto de página y un número indica cuántas líneas avanzar. Al llegar a 16 millones de líneas en un listado, lo cierra y continúa en otro con un número de parte en el título. También crea vacío un archivo I01 que sirve como marca de residencia.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.impresion.backups",
+  "secciones": [
+    {
+      "titulo": "Archivo de entrada y parámetros",
+      "origen": {
+        "archivo": "COBOL_P670.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE · PROCEDURE DIVISION USING"
+      },
+      "java": {
+        "archivo": "LineaImpresionDiferida.java · P670Properties.java",
+        "contexto": "sealed interface · record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de impresión diferida a sealed interface de comandos",
+          "linea_ini": 33,
+          "linea_fin": 47,
+          "origen_codigo": " FD  ARCHIVOENT                                                   003100\n     VALUE OF TITLE IS WKS-TIT-LISMOVSXCONT                       003200\n              SECURITYTYPE IS PUBLIC                              003300\n              DEPENDENTSPECS IS TRUE                              003400\n     DATA RECORD IS REG-IMPRESION.                                003500\n                                                                  003600\n 01 REG-IMPRESION.                                                003700\n    02 LINEA-IMPRESION             PIC X(132).                    003800\n    02 FILLER                      PIC X(01).                     003900\n    02 WKS-OPCION1-IMP             PIC X(05).                     004000\n    02 FILLER                      PIC X(01).                     004100\n    02 WKS-OPCION2-IMP             PIC X(04).                     004200\n    02 WKS-OPCION2-IMP-R REDEFINES WKS-OPCION2-IMP.               004300\n       03 WKS-OPCION2-NUM          PIC 9(04).                     004400\n    02 FILLER                      PIC X(07).                     004500",
+          "java_codigo": "/** REG-IMPRESION: 132 de línea + control de 5 y 4 posiciones. */\npublic sealed interface LineaImpresionDiferida\n        permits LineaImpresionDiferida.InicioBackup, LineaImpresionDiferida.SaltoPagina,\n                LineaImpresionDiferida.Avance {\n\n    String texto();                                   // LINEA-IMPRESION X(132)\n\n    /** WKS-OPCION1-IMP = \"INICI\" y WKS-OPCION2-IMP = \"BACK\": el texto es el título del listado. */\n    record InicioBackup(String texto) implements LineaImpresionDiferida {}\n    /** WKS-OPCION2-IMP = \"PAGE\". */\n    record SaltoPagina(String texto) implements LineaImpresionDiferida {}\n    /** Cualquier otro: WKS-OPCION2-NUM líneas de avance. */\n    record Avance(String texto, int lineas) implements LineaImpresionDiferida {}\n\n    static LineaImpresionDiferida parse(String r) {\n        String texto = r.substring(0, 132);\n        String op1 = r.substring(133, 138), op2 = r.substring(139, 143);\n        if (op1.equals(\"INICI\") && op2.equals(\"BACK\")) return new InicioBackup(texto);\n        if (op2.equals(\"PAGE\")) return new SaltoPagina(texto);\n        if (!op2.chars().allMatch(Character::isDigit)) {                 // el COBOL no lo valida\n            throw new FormatoLineaException(\"Avance no numérico: '\" + op2 + \"'\");\n        }\n        return new Avance(texto, Integer.parseInt(op2));\n    }\n}",
+          "racional": "Cada registro del archivo de entrada es una línea de reporte ya formateada más dos campos que funcionan como comandos de impresión. Un <code>REDEFINES</code> permite leer el segundo campo como número de líneas a avanzar. En Java cada combinación es un <code>record</code> de una <code>sealed interface</code>, y el escritor hace un <code>switch</code> exhaustivo. El análisis rechaza un avance no numérico, que el COBOL aceptaría sin validar.",
+          "reglas": [],
+          "riesgo": "Rechazar avances no numéricos puede detener corridas que hoy terminan; conviene medir primero cuántos registros así existen."
+        },
+        {
+          "id": "s2",
+          "titulo": "Parámetros y títulos de entrada a configuración",
+          "linea_ini": 921,
+          "linea_fin": 277,
+          "origen_codigo": " 01  WKS-PARAMETROS.                                              011300\n     03 WKS-PARAM-SIS-IDPASO.                                     011400\n        05 WKS-PARAM-SIS           PIC 9(03).                     011500\n        05 WKS-NOMBRE-IDPASO       PIC X(08).                     011600\n        05 WKS-FECHA-IDPASO        PIC X(06).                     011601\n*        05 WKS-PACK-IDPASO         PIC X(10).                    011602\n  01 WKS-PACK-IDPASO         PIC X(17).                           011700\n 01  WKS-TIT-LISMOVSXCONT.                                        007300\n     02  FILLER                        PIC X(07) VALUE \"(S151)S\". 007400\n     02  WKS-SIS-LM                    PIC 9(03) VALUE ZEROS.     007500\n     02  FILLER                        PIC X(11) VALUE            007600\n                                       \"/FILE/S151/\".             007700\n     02  WKS-ID-PASO                   PIC X(08).                 007800\n     02  FILLER                        PIC X(01) VALUE \"/\".       007900\n     02  WKS-FEC-MOVSXCONTLM           PIC 9(06).                 008000\n     02  FILLER                        PIC X(04) VALUE \" ON \".    008100\n     02  WKS-PACK-ARCH                 PIC X(17).                 008200\n     02  FILLER                        PIC X(01) VALUE \".\".       008300\n 01  WKS-TIT-INMOVIMIENTOS.                                       008450\n     02  FILLER                        PIC X(07) VALUE \"(S151)S\". 008460\n     02  WKS-SIS-INMOV                 PIC 9(03) VALUE ZEROS.     008470\n     02  FILLER                        PIC X(15) VALUE            008480\n                                       \"/FILE/I01/S151/\".         008490\n     02  WKS-ID-INMOVPASO              PIC X(08).                 008491\n     02  FILLER                        PIC X(01) VALUE \"/\".       008492\n     02  WKS-FEC-INMOVSXCONTLM         PIC 9(06).                 008493\n     02  FILLER                        PIC X(10) VALUE            008494\n                                       \" ON CMEMP.\".              008500",
+          "java_codigo": "/** WKS-PARAMETROS (PROCEDURE DIVISION USING): sistema 9(03) + id de paso X(08) + fecha X(06). */\npublic record ParametrosP670(int sistema, String idPaso, String fechaAmd) {\n    public ParametrosP670 {\n        if (!idPaso.matches(\"[A-Z0-9]{1,8}\")) throw new IllegalArgumentException(\"idPaso\");\n        if (!fechaAmd.matches(\"\\\\d{6}\")) throw new IllegalArgumentException(\"fechaAmd\");\n    }\n}\n\n# application.yml\np670:\n  entrada:  \"(S151)S{sis}/FILE/S151/{idPaso}/{fecha} ON {pack}.\"      # WKS-TIT-LISMOVSXCONT\n  marca-i01: \"(S151)S{sis}/FILE/I01/S151/{idPaso}/{fecha} ON CMEMP.\"  # WKS-TIT-INMOVIMIENTOS\n  max-lineas-por-parte: 16000000",
+          "racional": "El programa recibe un solo parámetro con el sistema, el identificador del paso que generó el archivo y la fecha. Con ellos y el pack arma dos títulos: el archivo a imprimir y un archivo I01 en CMEMP que se crea como marca. En Java el parámetro es un <code>record</code> que valida su formato al construirse, y los títulos, el pack fijo CMEMP y el límite de líneas por parte pasan a <code>application.yml</code>.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y resolución del pack",
+      "origen": {
+        "archivo": "COBOL_P670.txt",
+        "contexto": "PROCEDURE DIVISION · 00-0100-CTL-PROCESO / 01-0110-LIBRERIAS"
+      },
+      "java": {
+        "archivo": "ImpresionBackupsJobConfig.java · PackMovimientosResolver.java",
+        "contexto": "Spring Batch Job · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Secuencia verificar, imprimir y terminar",
+          "linea_ini": 984,
+          "linea_fin": 1015,
+          "origen_codigo": " 00-0100-CTL-PROCESO.                                             015500\n     MOVE WKS-PARAM-SIS           TO WKS-SIS-LM WKS-SIS-INMOV.    015501\n     MOVE WKS-NOMBRE-IDPASO       TO WKS-ID-PASO WKS-ID-INMOVPASO.015502\n     MOVE WKS-FECHA-IDPASO        TO WKS-FEC-MOVSXCONTLM          015600\n                              WKS-FEC-INMOVSXCONTLM.              015601\n     MOVE WKS-PACK-IDPASO           TO WKS-PACK-ARCH.             015602\n                                                                  015700\n*     MOVE WKS-NOMBRE-IDPASO       TO  WKS-ID-PASO                015800\n*                                      WKS-ID-INMOVPASO.          015850\n                                                                  015900\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      016000\n        \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".          016100\n                                                                  016200\n     MOVE \"S151\"  TO  SISTEMA-LJ                                  016300\n     MOVE \"P670\"  TO  PASO-LJ                                     016400\n     MOVE \"001\"   TO  MTP-LJ                                      016500\n     MOVE \"I\"     TO  TIPO-LJ                                     016600\n     MOVE 020101  TO  CODIGO-LJ.                                  016700\n     PERFORM 01-0000-VERIFICACION.                                017700\n     PERFORM 02-0000-PROC-IMPRIME-LIST.                           017800\n     PERFORM 03-0000-PROC-TERMINA.                                017900\n                                                                  018000\n     STOP RUN.                                                    018100",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P670Properties.class)\npublic class ImpresionBackupsJobConfig {\n\n    /** 00-0100-CTL-PROCESO: arma títulos, verifica, imprime y cierra. */\n    @Bean\n    Job impresionBackups(JobRepository repo, Step resuelvePack, Step imprimeBackups) {\n        return new JobBuilder(\"S151P670\", repo)\n                .start(resuelvePack)       // 01-0000-VERIFICACION\n                .next(imprimeBackups)      // 02-0000-PROC-IMPRIME-LIST + 03-0000-PROC-TERMINA\n                .build();\n    }\n}",
+          "racional": "La rutina principal copia el sistema, el paso y la fecha a los dos títulos, prepara la identificación para los mensajes al operador y ejecuta tres secciones en orden. La verificación es un step propio porque consulta la librería de control y puede abortar; la impresión y el cierre forman un solo step porque comparten los archivos abiertos.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Pack de movimientos desde la librería de control",
+          "linea_ini": 1064,
+          "linea_fin": 1085,
+          "origen_codigo": "     MOVE \"S151L001CTL\"            TO WKS-LIBID.                  023000\n     CALL \"DAME_TIT IN CTLVER\" USING  WKS-LIBID, WKS-NOMBLIB      023100\n                               GIVING W77-ERR-CTLVER.             023200\n     IF W77-ERR-CTLVER = 0                                        023300\n        CHANGE ATTRIBUTE TITLE OF \"LIB-CONTROL\" TO WKS-NOMBLIB    023400\n     ELSE                                                         023500\n        CHANGE ATTRIBUTE TITLE OF \"LIB-CONTROL\" TO                023600\n               \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP\".         023700\n                                                                  023800\n     MOVE WKS-PARAM-SIS            TO WKS-B01-SISTEMA.            023900\n                                                                  024000\n     MOVE 1                        TO WKS-B01-FUNCION.            024100\n                                                                  024200\n     MOVE WKS-NUMCSI               TO WKS-B01-CSI.                024300\n                                                                  024400\n     CALL \"CONSISDIA IN LIB-CONTROL\" USING  WKS-S151B01SISDIA     024420\n                                     GIVING W77-RESULT-LIBCON.    024440\n                                                                  024460\n      IF W77-RESULT-LIBCON = 0                                    024461\n         MOVE WKS-B01-NOMPACMOV TO WKS-PACK-IDPASO WKS-PACK-ARCH  024462\n      ELSE                                                        024463\n         CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                 024464",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PackMovimientosResolver implements Tasklet {\n\n    private final CtlVerClient ctlver;           // DAME_TIT IN CTLVER\n    private final LibControlClient control;      // CONSISDIA IN LIB-CONTROL\n    private final P670Properties props;          // p670.lib-control-respaldo: \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP\"\n\n    @Override\n    public RepeatStatus execute(StepContribution sc, ChunkContext ctx) {\n        ParametrosP670 p = Parametros.de(ctx);\n        String titulo = ctlver.titulo(\"S151L001CTL\").orElse(props.libControlRespaldo());\n        var b01 = control.consultaSistemaDia(titulo, p.sistema(), /* funcion */ 1);\n        if (b01.resultado() != 0) {\n            throw new ProcesoAbortadoException(\"CONSISDIA resultado \" + b01.resultado()); // STATUS -1\n        }\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().putString(\"pack\", b01.packMovimientos());   // WKS-B01-NOMPACMOV\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El título de la librería de control se pide a CTLVER y, si no responde, se usa una ruta de respaldo compilada en el programa, que pasa a configuración. De S151B01SISDIA se toma el nombre del pack donde está el archivo de movimientos; si la consulta falla, el programa se aborta. En la versión Java el pack queda en el contexto del job para que el lector arme la ruta de entrada.",
+          "reglas": [],
+          "riesgo": "La ruta de respaldo de LIB-CONTROL en CMEMP puede apuntar a una versión vieja de la librería si CTLVER falla; hoy no se registra cuál se usó."
+        }
+      ]
+    },
+    {
+      "titulo": "Reparto en listados por backup",
+      "origen": {
+        "archivo": "COBOL_P670.txt",
+        "contexto": "PROCEDURE DIVISION · 02-0150-IMPRIME-BACKUPS / 000078-256-ARMA-NVO-NOM / 03-0100"
+      },
+      "java": {
+        "archivo": "ListadosPorBackupWriter.java · TituloListado.java",
+        "contexto": "ItemWriter con ItemStream · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Ciclo de lectura del archivo diferido",
+          "linea_ini": 1124,
+          "linea_fin": 1141,
+          "origen_codigo": " 02-0100-PROCESO-BACKUP.                                          028400\n*========================                                         028500\n                                                                  028600\n     MOVE 0               TO       WS-EOF-MOV.                    028700\n                                                                  028800\n     OPEN INPUT ARCHIVOENT.                                       028900\n     OPEN OUTPUT I01-MOVIMIENTOS.                                 029000\n     READ ARCHIVOENT INTO REG-IMPRESION                           029100\n          AT END                                                  029200\n             MOVE 1                TO WS-EOF-MOV.                 029300\n                                                                  029400\n                                                                  029500\n     SET MOVIMIENTOS(USERBACKUPNAME) TO VALUE TRUE.               029600\n                                                                  029700\n     PERFORM 02-0150-IMPRIME-BACKUPS UNTIL WS-EOF-MOV = 1.        029800\n     PERFORM 02-0500-FIN-IMPRESION.                               029900\n                                                                  030000\n     GO TO 02-0900-EXIT.                                          030100",
+          "java_codigo": "@Bean\nStep imprimeBackups(JobRepository repo, PlatformTransactionManager tx,\n                    FlatFileItemReader<LineaImpresionDiferida> lector,\n                    ListadosPorBackupWriter escritor, MarcaI01Listener marca) {\n    return new StepBuilder(\"imprimeBackups\", repo)\n            .<LineaImpresionDiferida, LineaImpresionDiferida>chunk(500, tx)\n            .reader(lector)          // ARCHIVOENT, línea -> LineaImpresionDiferida.parse\n            .writer(escritor)        // abre, escribe y cierra listados según los comandos\n            .stream(escritor)        // ItemStream: cierre ordenado y reinicio con el listado vigente\n            .listener(marca)         // OPEN OUTPUT / CLOSE WITH SAVE de I01-MOVIMIENTOS\n            .build();\n}",
+          "racional": "El ciclo abre el archivo de entrada y el archivo de marca I01, lee el primer registro y procesa hasta fin de archivo; al terminar libera la entrada con <code>WITH RELEASE</code>. En Spring Batch el lector es un <code>FlatFileItemReader</code> y el escritor implementa <code>ItemStream</code>, de modo que el listado abierto se cierra aunque el step falle y un reinicio sabe en qué listado y línea iba.",
+          "reglas": []
+        },
+        {
+          "id": "s6",
+          "titulo": "Inicio de backup: cierre del listado anterior y apertura del nuevo",
+          "linea_ini": 1144,
+          "linea_fin": 1164,
+          "origen_codigo": " 02-0150-IMPRIME-BACKUPS.                                         030400\n*=========================                                        030500\n                                                                  030600\n                                                                  030700\n     IF WKS-OPCION1-IMP = \"INICI\" AND WKS-OPCION2-IMP = \"BACK\"    030800\n        IF W88-BACK-ABIERTO                                       030900\n           MOVE 0 TO W77-BACK-ABIERTO WKS-NUM-LINE                031000\n           CLOSE MOVIMIENTOS WITH SAVE.                           031100\n                                                                  031200\n                                                                  031300\n     IF WKS-OPCION1-IMP = \"INICI\" AND WKS-OPCION2-IMP = \"BACK\" AND031400\n        W77-BACK-ABIERTO = 0                                      031500\n        SET MOVIMIENTOS(USERBACKUPNAME) TO VALUE TRUE             031600\n        MOVE LINEA-IMPRESION TO WKS-TIT-LIST LINEA-IMPRESION-TMP  031601\n*        DISPLAY \"NOM LEIDO: \" WKS-TIT-LIST                       031602\n        MOVE \"001\"             TO WKS-VAR-TMP                     031652\n        MOVE    1              TO WKS-CONT                        031672\n        CHANGE ATTRIBUTE TITLE OF MOVIMIENTOS TO                  031700\n                                  LINEA-IMPRESION-TMP             031800\n        MOVE 1 TO W77-BACK-ABIERTO                                031900\n        OPEN OUTPUT MOVIMIENTOS                                   032000",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ListadosPorBackupWriter implements ItemWriter<LineaImpresionDiferida>, ItemStream {\n\n    private final SalidaImpresion salida;     // impresora / archivo de spool\n    private final P670Properties props;\n    private Listado actual;                   // MOVIMIENTOS + W77-BACK-ABIERTO\n    private TituloListado titulo;             // WKS-TIT-LIST\n    private long lineas;                      // WKS-NUM-LINE\n\n    @Override\n    public void write(Chunk<? extends LineaImpresionDiferida> chunk) {\n        for (LineaImpresionDiferida l : chunk) {\n            switch (l) {\n                case LineaImpresionDiferida.InicioBackup ib -> {\n                    cierraActual();                                  // CLOSE MOVIMIENTOS WITH SAVE\n                    titulo = TituloListado.desde(ib.texto(), props.patronTitulo()); // valida el título\n                    actual = salida.abre(titulo.conParte(1));        // \"001\" en WKS-VAR-TMP\n                    lineas = 0;\n                }\n                case LineaImpresionDiferida.SaltoPagina sp -> { verificaCorte(); escribe(sp.texto(), true, 0); }\n                case LineaImpresionDiferida.Avance av     -> escribe(av.texto(), false, av.lineas());\n            }\n        }\n    }\n\n    private void escribe(String texto, boolean pagina, int avance) {\n        if (actual == null) throw new SinListadoAbiertoException();   // el COBOL escribe sin OPEN\n        actual.escribe(texto, pagina, avance);                        // AFTER PAGE / AFTER n\n        lineas++;\n    }\n}",
+          "racional": "Una línea INICI BACK cierra el listado abierto, si lo hay, y abre otro cuyo título es el contenido de la propia línea con el número de parte 001 insertado; esa línea no se imprime. En Java cada comando es un caso del <code>switch</code> sobre la <code>sealed interface</code>. El título se valida contra un patrón configurado antes de abrir, porque proviene de datos y no de código, y escribir sin un listado abierto es un error explícito en lugar de un comportamiento indefinido.",
+          "reglas": [],
+          "riesgo": "Validar el título puede rechazar nombres que hoy se aceptan; el patrón debe construirse con los títulos reales que generan P106, P108, P109 y P158."
+        },
+        {
+          "id": "s7",
+          "titulo": "Corte por volumen con número de parte",
+          "linea_ini": 1473,
+          "linea_fin": 1487,
+          "origen_codigo": " 000078-256-ARMA-NVO-NOM.                                         036600\n*========================                                         036700\n  IF WKS-NUM-LINE = 16000000 OR WKS-NUM-LINE > 16000000           036800\n*   IF WKS-NUM-LINE = 16000 OR WKS-NUM-LINE > 16000               036850\n      MOVE WKS-1ERP      TO WKS-1ERP2                             036900\n      ADD 1              TO WKS-CONT                              037000\n      MOVE WKS-CONT      TO WKS-VAR2                              037100\n      MOVE WKS-2DA       TO WKS-2DA2                              037200\n*      DISPLAY \"TITULO ORI: \" WKS-TIT-LIST                        037300\n*      DISPLAY \"CAMBIO DE TITULO: \" WKS-TIT-LIST2                 037400\n      CLOSE MOVIMIENTOS WITH SAVE                                 037500\n        CHANGE ATTRIBUTE TITLE OF MOVIMIENTOS TO                  037600\n                                  WKS-TIT-LIST2                   037700\n        OPEN OUTPUT MOVIMIENTOS                                   037800\n      MOVE 0               TO WKS-NUM-LINE.                       037900",
+          "java_codigo": "    /** 000078-256-ARMA-NVO-NOM: al llegar al límite, cierra y abre la parte siguiente. */\n    private void verificaCorte() {\n        if (lineas < props.maxLineasPorParte()) return;         // 16000000\n        cierraActual();\n        actual = salida.abre(titulo.siguienteParte());          // WKS-VAR2 = WKS-CONT, sin desbordar\n        lineas = 0;\n    }\n\n/** WKS-TIT-LIST: 21 posiciones + parte de 3 + 32 posiciones. */\npublic record TituloListado(String prefijo, String sufijo, int parte) {\n    TituloListado conParte(int p) { return new TituloListado(prefijo, sufijo, p); }\n    TituloListado siguienteParte() {\n        if (parte >= 999) throw new IllegalStateException(\"Demasiadas partes para \" + this);\n        return conParte(parte + 1);       // en COBOL WKS-CONT es 9(01) y vuelve a 0 tras el 9\n    }\n    @Override public String toString() { return prefijo + \"%03d\".formatted(parte) + sufijo.strip() + \".\"; }\n}",
+          "racional": "Cuando un listado llega a 16 millones de líneas se cierra y se abre otro con el mismo título y el número de parte siguiente en las posiciones 22 a 24; el comentario conserva un límite anterior de 16000 líneas. La traducción mantiene el límite en configuración y modela el título como un <code>record</code> con prefijo, parte y sufijo. El contador de partes ya no se desborda: el COBOL lo guarda en un dígito y tras la parte 9 volvería a 0.",
+          "reglas": [],
+          "riesgo": "Como el corte solo se evalúa en un salto de página, un listado sin saltos puede exceder el límite indefinidamente."
+        },
+        {
+          "id": "s8",
+          "titulo": "Cierre del archivo de marca y del último listado",
+          "linea_ini": 1193,
+          "linea_fin": 1198,
+          "origen_codigo": " 03-0100-PROCESO-TERMINA.                                         034600\n*========================                                         034700\n     CLOSE I01-MOVIMIENTOS WITH SAVE.                             034800\n                                                                  034820\n     IF W88-BACK-ABIERTO                                          034840\n        CLOSE MOVIMIENTOS WITH SAVE.                              034900",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass MarcaI01Listener implements StepExecutionListener {\n\n    private final AlmacenArchivos almacen;\n    private final P670Properties props;\n\n    /** OPEN OUTPUT I01-MOVIMIENTOS al inicio y CLOSE WITH SAVE al final: archivo vacío como marca. */\n    @Override\n    public ExitStatus afterStep(StepExecution se) {\n        if (se.getStatus() == BatchStatus.COMPLETED) {\n            almacen.creaVacio(props.marcaI01(Parametros.de(se)));\n        }\n        return se.getExitStatus();\n    }\n}\n// El cierre del último listado (IF W88-BACK-ABIERTO CLOSE MOVIMIENTOS) lo hace ListadosPorBackupWriter.close().",
+          "racional": "Al terminar se cierra y guarda el archivo I01, que nunca recibe registros, y el último listado si quedó abierto. Ese archivo vacío es una marca para otro proceso. En Java se crea solo si el step termina bien, lo que evita que la marca exista después de una corrida fallida, y el cierre del listado queda en el <code>close()</code> del <code>ItemStream</code>.",
+          "reglas": [],
+          "riesgo": "En MCP el I01 se crea al abrir, antes de imprimir; si el paso aborta a la mitad, la marca puede quedar guardada según el manejo del sistema. La versión Java cambia ese momento y el consumidor debe validarlo."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Título de archivo tomado del contenido",
+      "detalle": "En 02-0150-IMPRIME-BACKUPS el título del listado se toma de LINEA-IMPRESION del registro INICI BACK (líneas 1157-1162). Quien pueda escribir el archivo de entrada decide dónde se crean archivos de impresión. En Java el nombre debe validarse contra un patrón permitido."
+    },
+    {
+      "titulo": "Escritura sin listado abierto",
+      "detalle": "Si el archivo no empieza con un registro INICI BACK, las líneas siguientes se escriben en MOVIMIENTOS sin haberlo abierto (líneas 1166-1173). El resultado depende del manejo de errores del MCP."
+    },
+    {
+      "titulo": "Avance de líneas con campo no validado",
+      "detalle": "Cuando el control no es PAGE, se usa WKS-OPCION2-NUM, un REDEFINES numérico de un campo alfanumérico (líneas 44-46), en AFTER WKS-OPCION2-NUM. Espacios u otro texto producen un avance indefinido."
+    },
+    {
+      "titulo": "Contador de partes de un dígito",
+      "detalle": "WKS-CONT es PIC 9(01) (línea 968). Después de la parte 9, ADD 1 lo deja en 0 y los títulos se repiten; un listado de más de diez partes sobrescribiría las anteriores."
+    },
+    {
+      "titulo": "El corte por volumen solo se evalúa en saltos de página",
+      "detalle": "000078-256-ARMA-NVO-NOM, que revisa el límite de 16000000 líneas, solo se invoca en registros PAGE (línea 1167); WKS-NUM-LINE cuenta además una línea por registro y no por línea física avanzada."
+    }
+  ],
+  "pendientes_revision": [
+    "WKS-FECHA-PROCESO no recibe valor: las asignaciones están comentadas (líneas 1086-1091) y su conversión en 01-0140-MUEVE-SISFEC no se usa. Confirmar que la fecha del título viene solo del parámetro WKS-FECHA-IDPASO.",
+    "WKS-PACK-IDPASO se mueve a WKS-PACK-ARCH en la línea 989 antes de recibir valor; se sobrescribe en la línea 1083 con el pack de LIB-CONTROL. Confirmar que no hay un caso en que se use el valor inicial.",
+    "Confirmar qué proceso revisa la residencia del archivo I01-MOVIMIENTOS, que se abre y se cierra sin registros (líneas 1130 y 1195).",
+    "Los layouts WKS-TIT-LIST y LINEA-IMPRESION-TMP colocan el número de parte en las posiciones 22 a 24 del título (WKS-VAR, líneas 957-974); confirmar con un ejemplo real que esas posiciones no contienen parte del nombre del archivo."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-598",
+    "RN-S151-601",
+    "RN-S151-602",
+    "RN-S151-603",
+    "RN-S151-604",
+    "RN-S151-605",
+    "RN-S151-606",
+    "RN-S151-608"
+  ]
+}

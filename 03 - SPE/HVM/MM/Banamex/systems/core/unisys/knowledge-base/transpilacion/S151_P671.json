@@ -1,0 +1,174 @@
+{
+  "slug": "S151_P671",
+  "sistema": "S151",
+  "programa": "P671",
+  "nombre": "Generador de CSV INTELAR: Protección al Cobro, Alertas y Domiciliación",
+  "funcion": "Programa de S151 (escrito en diciembre de 2024) que se invoca con un parámetro de interfaz, fecha y contrato opcional, y genera un archivo CSV para INTELAR con los registros de S151B07PROTCOB o S151B10DOMI del día.",
+  "resumen": "Recibe un identificador de interfaz (1 protección al cobro, 2 alertas, 3 domiciliación), una fecha de cargo y, opcionalmente, un contrato. Abre en consulta la base S151BD13BIFIN con hasta siete intentos, valida que la combinación de parámetros sea uno de dos casos (solo fecha, o fecha y contrato) y arma el título del archivo con el CSI del equipo, el nombre de la interfaz, la fecha del parámetro y la hora de la máquina. Escribe un encabezado y una línea separada por comas por cada registro de B07 (interfaces 1 y 2) o de B10 (interfaz 3) que coincida con la interfaz y la fecha, y con el contrato en el segundo caso.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration · Spring Data JPA",
+  "paquete_java": "mx.banamex.s151.intelar.extractor",
+  "secciones": [
+    {
+      "titulo": "Estructuras de datos — título del archivo y layouts CSV",
+      "origen": {
+        "archivo": "COBOL_P671.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "application.yml · IntelarArchivo.java · ProteccionCobroCsv.java",
+        "contexto": "@ConfigurationProperties · adaptador de archivo · record con formateo CSV"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Título del archivo INTELAR y archivo con SECURITYTYPE PUBLIC",
+          "linea_ini": 26,
+          "linea_fin": 79,
+          "origen_codigo": " FD REPORTE\n    VALUE OF     SECURITYTYPE IS PUBLIC\n                 TITLE IS WKS-ARCH-INTELAR\n                 MAXRECSIZE   IS  400\n                 BLOCK CONTAINS   100 RECORDS.\n 01 REG-REPORTE                   PIC X(400).\n  01 WKS-ARCH-INTELAR.\n      05 FILLER             PIC X(16) VALUE \"(S151)S151/FILE/\".\n      05 FILLER             PIC X(14) VALUE \"INTS/15110S01/\".\n      05 WKS-CSI            PIC 9(02).\n      05 FILLER             PIC X(01) VALUE \"/\".\n      05 WKS-NOM-ARCH       PIC X(09).\n      05 FILLER             PIC X(01) VALUE \"/\".\n      05 WKS-FECHA          PIC 9(08).\n      05 FILLER             PIC X(01) VALUE \"/\".\n      05 WKS-HHMMSS         PIC 9(06).\n      05 FILLER             PIC X(13) VALUE \"/CSV ON CMEMP\".\n      05 FILLER             PIC X(01) VALUE \".\".",
+          "java_codigo": "# application.yml  (antes WKS-ARCH-INTELAR y el FD REPORTE)\np671:\n  directorio: \"S151/FILE/INTS/15110S01\"        # usuario (S151) y familia CMEMP por ambiente\n  familia: CMEMP\n  titulo: \"{dir}/{csi}/{interfaz}/{fecha}/{hhmmss}/CSV\"\n  permisos-archivo: \"rw-r-----\"                # el fuente declara SECURITYTYPE PUBLIC\n  max-registro: 400                            # MAXRECSIZE IS 400\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class IntelarArchivo {\n\n    private final P671Properties props;\n    private final Clock reloj;\n\n    /** WKS-ARCH-INTELAR: fecha del parámetro (8 dígitos) y hora de la máquina en el nombre. */\n    public Path ruta(int csi, Interfaz interfaz, LocalDate fechaParametro) {\n        String hhmmss = LocalTime.now(reloj).format(DateTimeFormatter.ofPattern(\"HHmmss\"));\n        return Path.of(props.titulo()\n                .replace(\"{dir}\", props.directorio())\n                .replace(\"{csi}\", \"%02d\".formatted(csi))\n                .replace(\"{interfaz}\", interfaz.nombreArchivo())     // PROTECCOB, ALERTANOT, DOMICILIA\n                .replace(\"{fecha}\", fechaParametro.format(DateTimeFormatter.BASIC_ISO_DATE))\n                .replace(\"{hhmmss}\", hhmmss));\n    }\n\n    /** Se crea con permisos restringidos: el CSV lleva cliente, contrato, cuenta y CLABE. */\n    public BufferedWriter abre(Path p) throws IOException {\n        Files.createDirectories(p.getParent());\n        Files.createFile(p, PosixFilePermissions.asFileAttribute(\n                PosixFilePermissions.fromString(props.permisosArchivo())));\n        return Files.newBufferedWriter(p, StandardCharsets.UTF_8);\n    }\n}",
+          "racional": "El título del archivo es un grupo de literales y campos que fija el usuario <code>S151</code>, el directorio <code>INTS/15110S01</code> y la familia <code>CMEMP</code>, y lo completa con el CSI del equipo, el nombre de la interfaz, la fecha del parámetro y la hora de ejecución. Todo lo fijo pasa a <code>application.yml</code>. El cambio más relevante es de seguridad: el <code>FD</code> declara <code>SECURITYTYPE IS PUBLIC</code> para un archivo que contiene números de cliente, contratos, cuentas y CLABE, así que en el destino el archivo se crea con permisos restringidos y la publicidad del archivo queda como decisión explícita.",
+          "reglas": [],
+          "riesgo": "Con SECURITYTYPE PUBLIC (línea 27) cualquier usuario del sistema puede leer un archivo con datos personales y bancarios del cliente, lo que es relevante frente a la Ley Federal de Protección de Datos Personales y a las disposiciones de seguridad de la información de la CNBV."
+        },
+        {
+          "id": "s2",
+          "titulo": "Línea CSV de B07 con separadores en FILLER a record con formateo explícito",
+          "linea_ini": 81,
+          "linea_fin": 132,
+          "origen_codigo": " 01 WKS-DET-B07.\n    03 WKS-DET-NUM-ID       PIC 9(002).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-NUM-CTE      PIC 9(012).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-CONTRATO     PIC 9(016).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-MED-ACCESO   PIC 9(004).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-MDA-PREF     PIC 9(004).\n    03 WKS-DET-AUT-PC       PIC 9(012).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-IMPORTE      PIC 9(014).9(02).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-TIPO-MOV     PIC 9(004).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-NUM-ERROR    PIC 9(004).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-DAT-GEN      PIC X(147).\n    03 FILLER               PIC X(001) VALUE \",\".\n    03 WKS-DET-HR-ENVIO     PIC 9(006).\n 01 WKS-ENCABEZADO-B07.\n    02 FILLER               PIC X(60) VALUE\n   \"Id,Cte,Contrato,Cve Acceso,Suc mda,Cuenta,Aut Apli,Fec Carg,\".\n    02 FILLER               PIC X(59) VALUE\n    \"Hr Carg,Aut pc,importe,Aut S151,Aut Ant S151,Cve,Ocurr,Num \".\n    02 FILLER               PIC X(55) VALUE\n    \"Pro,Estatus,Num Env,Tipo Mov,Num Error,Dat Gen,Hr Envio\".",
+          "java_codigo": "/** WKS-DET-B07: los campos se separan con FILLER VALUE \",\"; el ancho de cada PIC se conserva. */\npublic record ProteccionCobroCsv(int numId, String numCte, String contrato, int medAcceso,\n                                 int mdaPref, String mdaCuenta, long autAplic,\n                                 int fecCargo, int hrCargo, long autPc,\n                                 BigDecimal importe,          // PIC 9(014).9(02): sin signo\n                                 long autS151, long autAntS151, int cveTrans,\n                                 int numOcurr, int numProc, int status, int numEnv,\n                                 int tipoMov, int numError, String datGen, int hrEnvio) {\n\n    static final String ENCABEZADO = \"Id,Cte,Contrato,Cve Acceso,Suc mda,Cuenta,Aut Apli,Fec Carg,\"\n            + \"Hr Carg,Aut pc,importe,Aut S151,Aut Ant S151,Cve,Ocurr,Num \"\n            + \"Pro,Estatus,Num Env,Tipo Mov,Num Error,Dat Gen,Hr Envio\";\n\n    String linea() {\n        return String.join(\",\",\n                \"%02d\".formatted(numId), ceros(numCte, 12), ceros(contrato, 16),\n                \"%04d\".formatted(medAcceso), \"%04d\".formatted(mdaPref), ceros(mdaCuenta, 16),\n                \"%08d\".formatted(autAplic), \"%06d\".formatted(fecCargo), \"%06d\".formatted(hrCargo),\n                \"%012d\".formatted(autPc), Importe.editado(importe, 14, 2),   // trunca el signo, como el PIC\n                \"%08d\".formatted(autS151), \"%08d\".formatted(autAntS151), \"%04d\".formatted(cveTrans),\n                \"%02d\".formatted(numOcurr), \"%02d\".formatted(numProc), \"%02d\".formatted(status),\n                \"%04d\".formatted(numEnv), \"%04d\".formatted(tipoMov), \"%04d\".formatted(numError),\n                Csv.texto(datGen, 147),                                        // ver riesgo\n                \"%06d\".formatted(hrEnvio));\n    }\n}",
+          "racional": "La línea de detalle es un grupo de 22 campos con ancho fijo intercalados con <code>FILLER</code> que valen coma; es un CSV de ancho fijo. En Java se modela como un <code>record</code> que formatea cada campo con el mismo ancho y relleno de ceros, para que el archivo sea idéntico byte a byte. El importe usa un <code>PIC</code> editado sin signo, que se reproduce con un formateador explícito. El encabezado se conserva literal, incluido el corte de texto entre <code>Num </code> y <code>Pro</code> que viene de partir el literal en tres <code>FILLER</code>. El layout de B10 es equivalente, con CLABE, fecha juliana, autorización 702 y sucursal promotora.",
+          "reglas": [],
+          "riesgo": "WKS-DET-DAT-GEN es texto libre de 147 posiciones que se copia sin comillas ni escape: si trae una coma, el archivo queda con columnas corridas para INTELAR. El importe editado tampoco tiene signo."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del programa y validación de parámetros",
+      "origen": {
+        "archivo": "COBOL_P671.txt",
+        "contexto": "PROCEDURE DIVISION · 000000 / 700100 / 00100 / 00110"
+      },
+      "java": {
+        "archivo": "ExtractorIntelarService.java · Interfaz.java",
+        "contexto": "@Service · Spring Retry · enum"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Apertura de la base con reintentos y flujo principal",
+          "linea_ini": 244,
+          "linea_fin": 320,
+          "origen_codigo": " 000000-INIC-PROGRAMA.\n*=================================================================\n   PERFORM 100100-LIGA-LJ.\n   MOVE \"P671\"                   TO PASO-LJ   .\n   MOVE \"S151\"                   TO SISTEMA-LJ.\n   MOVE \"002\"                    TO MTP-LJ    .\n   MOVE \"I\"                      TO TIPO-LJ   .\n   MOVE ZERO                     TO W77-NUMMOVS.\n   PERFORM 00050-INICIO.\n   MOVE 1                        TO W77-FIN.\n   MOVE 0                        TO W77-INTENTO.\n   PERFORM 700100-ABRE-BD UNTIL W77-FIN = 0 OR W77-INTENTO > 6.\n   IF W77-FIN=0\n      PERFORM 00100-PROCESO\n   ELSE\n      MOVE \"ERROR AL ABRIR LA S151BD13BIFIN\" TO TEXTO-LJ\n      PERFORM 700000-LOG\n      PERFORM 700020-DS.\n   PERFORM 00999-TERMINA.\n 700100-ABRE-BD.\n*=================================================================\n    MOVE ZERO  TO  W77-FIN\n    OPEN INQUIRY S151BD13BIFIN\n    ON EXCEPTION\n       MOVE     1                               TO W77-FIN\n       ADD      1                               TO W77-INTENTO\n       WAIT(10).\n 00100-PROCESO.\n*=================================================================\n   PERFORM 00110-VAL-PARAM.\n   IF WKS-CASO > 0\n      CHANGE ATTRIBUTE TITLE OF REPORTE  TO WKS-ARCH-INTELAR\n      OPEN OUTPUT REPORTE\n      PERFORM 00120-VAL-CASO\n      CLOSE REPORTE WITH SAVE\n   ELSE\n      MOVE \"PARAMETRO INVALIDO\" TO TEXTO-LJ\n      PERFORM 700000-LOG\n      PERFORM 700020-DS.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ExtractorIntelarService {\n\n    private final IntelarArchivo archivo;\n    private final ProteccionCobroRepository b07;   // S151B07PROTCOB\n    private final DomiciliacionRepository b10;     // S151B10DOMI\n    private final HostInfo host;                   // CSIID IN SOPORTECOMS\n\n    /** 000000-INIC-PROGRAMA + 00100-PROCESO. Una sola transacción de lectura (OPEN INQUIRY). */\n    @Retryable(retryFor = CannotGetJdbcConnectionException.class,\n               maxAttempts = 7, backoff = @Backoff(delay = 10_000))      // W77-INTENTO > 6, WAIT(10)\n    @Transactional(readOnly = true)\n    public Path genera(ParametroIntelar p) throws IOException {\n        var caso = p.caso().orElseThrow(() -> new ParametroInvalidoException(\"PARAMETRO INVALIDO\"));\n        Path ruta = archivo.ruta(host.csi(), p.interfaz(), p.fecha());\n        try (var w = archivo.abre(ruta)) {                                // OPEN OUTPUT REPORTE\n            switch (p.interfaz()) {\n                case PROTECCION_COBRO, ALERTAS -> exportaB07(w, p, caso);    // 00121-BUSCAB07\n                case DOMICILIACION             -> exportaB10(w, p, caso);    // 00130-BUSCAB10\n            }\n        }                                                                  // CLOSE REPORTE WITH SAVE\n        return ruta;\n    }\n\n    @Recover\n    Path sinBase(CannotGetJdbcConnectionException e, ParametroIntelar p) {\n        throw new ProcesoAbortadoException(\"ERROR AL ABRIR LA S151BD13BIFIN\", e);   // STATUS -1\n    }\n}",
+          "racional": "El programa intenta abrir la base en modo consulta hasta siete veces con una espera de 10 segundos entre intentos; si no lo logra, termina con <code>STATUS -1</code>. En Spring ese patrón es <code>@Retryable</code> con <code>@Recover</code>, y el modo consulta se traduce en una transacción de solo lectura. Si los parámetros no forman un caso válido, se registra el mensaje y la tarea se termina sin crear el archivo; en Java es una excepción de validación antes de abrir el archivo.",
+          "reglas": [],
+          "riesgo": "100100-LIGA-LJ deja CODIGO-LJ en 151605 y PASO-LJ en P605, valores copiados de otro programa; el paso se corrige después, pero los mensajes de P671 salen con el código de mensaje de P605."
+        },
+        {
+          "id": "s4",
+          "titulo": "Dos casos válidos de parámetro y tres interfaces",
+          "linea_ini": 210,
+          "linea_fin": 351,
+          "origen_codigo": " 01 WKSPARAMETRO.\n    02 WKS-PARAM-ID                   PIC 9(02).\n    02 WKS-PARAM-FECHA                PIC 9(08).\n    02 WKS-PARAM-FECHA-R REDEFINES WKS-PARAM-FECHA.\n       03 WKS-PA-FE-CC                PIC 9(02).\n       03 WKS-PA-FE-AAMMDD            PIC 9(06).\n    02 WKS-PARAM-CTO                  PIC 9(16).\n 00110-VAL-PARAM.\n*=================================================================\n   IF WKS-PA-FE-AAMMDD >0 AND WKS-PARAM-CTO= 0\n      MOVE 1                           TO WKS-CASO\n   ELSE\n      IF WKS-PA-FE-AAMMDD >0 AND WKS-PARAM-CTO > 0\n         MOVE 2                           TO WKS-CASO\n      ELSE\n         MOVE 0                           TO WKS-CASO.\n   IF WKS-CASO >0 AND (WKS-PARAM-ID = 1 OR WKS-PARAM-ID = 2 OR\n      WKS-PARAM-ID = 3)\n      NEXT SENTENCE\n   ELSE\n      MOVE 0                           TO WKS-CASO.\n   IF WKS-PARAM-ID = 1\n      MOVE \"PROTECCOB\"          TO WKS-NOM-ARCH.\n   IF WKS-PARAM-ID = 2\n      MOVE \"ALERTANOT\"          TO WKS-NOM-ARCH.\n   IF WKS-PARAM-ID = 3\n      MOVE \"DOMICILIA\"          TO WKS-NOM-ARCH.",
+          "java_codigo": "public enum Interfaz {\n    PROTECCION_COBRO(1, \"PROTECCOB\"), ALERTAS(2, \"ALERTANOT\"), DOMICILIACION(3, \"DOMICILIA\");\n\n    private final int id; private final String nombreArchivo;\n    Interfaz(int id, String nombre) { this.id = id; this.nombreArchivo = nombre; }\n    public String nombreArchivo() { return nombreArchivo; }\n\n    static Optional<Interfaz> de(int id) {\n        return Arrays.stream(values()).filter(i -> i.id == id).findFirst();\n    }\n}\n\n/** WKSPARAMETRO: id 9(02), fecha 9(08) (solo se usa AAMMDD), contrato 9(16). */\npublic record ParametroIntelar(int id, int fecha8, String contrato) {\n\n    public enum Caso { POR_FECHA, POR_FECHA_Y_CONTRATO }\n\n    /** 00110-VAL-PARAM: la fecha se valida y se busca con sus 6 dígitos bajos (AAMMDD). */\n    public Optional<Caso> caso() {\n        int aammdd = fecha8 % 1_000_000;\n        if (aammdd <= 0 || Interfaz.de(id).isEmpty()) return Optional.empty();\n        return Optional.of(new BigInteger(contrato).signum() == 0 ? Caso.POR_FECHA : Caso.POR_FECHA_Y_CONTRATO);\n    }\n\n    public int fechaBusqueda() { return fecha8 % 1_000_000; }        // B07-FEC-CARGO es AAMMDD\n    public Interfaz interfaz()  { return Interfaz.de(id).orElseThrow(); }\n    public LocalDate fecha()    { return LocalDate.parse(\"%08d\".formatted(fecha8), DateTimeFormatter.BASIC_ISO_DATE); }\n}",
+          "racional": "El parámetro admite dos casos: solo fecha (todos los registros de la interfaz en ese día) o fecha y contrato. El identificador debe ser 1, 2 o 3 y de él depende el nombre del archivo y el dataset que se lee. La fecha llega con 8 dígitos, pero la validación y la búsqueda usan solo los 6 bajos (<code>WKS-PA-FE-AAMMDD</code>), porque <code>B07-FEC-CARGO</code> y <code>B10-FEC-CARGO</code> están en formato AAMMDD; el nombre del archivo sí usa los 8 dígitos. En Java el caso se calcula una sola vez y el <code>enum</code> concentra los tres nombres de interfaz, que antes eran literales en el código.",
+          "reglas": [],
+          "riesgo": "Como la búsqueda es por AAMMDD, la fecha 20250115 y la 19250115 seleccionan los mismos registros; el siglo solo aparece en el nombre del archivo."
+        }
+      ]
+    },
+    {
+      "titulo": "Extracción de B07 y B10 y escritura del CSV",
+      "origen": {
+        "archivo": "COBOL_P671.txt",
+        "contexto": "PROCEDURE DIVISION · 00121 / 00130 / 010-0400 a 010-0700 / 00122"
+      },
+      "java": {
+        "archivo": "ProteccionCobroRepository.java · DomiciliacionRepository.java · ExtractorIntelarService.java",
+        "contexto": "Spring Data JPA · Stream · escritura secuencial"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Recorrido de B07 por interfaz, fecha y contrato",
+          "linea_ini": 363,
+          "linea_fin": 492,
+          "origen_codigo": " 00121-BUSCAB07.\n*=================================================================\n   IF WKS-CASO = 1\n      PERFORM 010-0400-PRIMER-CASO-1\n      IF WKS-OK = 0\n         PERFORM 00122-GRABA-REGISTRO UNTIL WKS-OK = 1.\n   IF WKS-CASO = 2\n      PERFORM 010-0500-PRIMER-CASO-2\n      IF WKS-OK = 0\n         PERFORM 00122-GRABA-REGISTRO UNTIL WKS-OK = 1.\n 010-0400-PRIMER-CASO-1.\n*=================================================================\n     MOVE        ZERO TO WKS-OK\n     FIND  FIRST B07SXFECHA\n       AT B07-NUM-ID    = WKS-PARAM-ID AND\n          B07-FEC-CARGO = WKS-PA-FE-AAMMDD\n          ON EXCEPTION\n          IF DMSTATUS(NOTFOUND)\n             MOVE 1 TO WKS-OK.\n 010-0500-PRIMER-CASO-2.\n*=================================================================\n     MOVE        ZERO TO WKS-OK\n     FIND  FIRST B07SXFECHA\n       AT B07-NUM-ID    = WKS-PARAM-ID AND\n          B07-FEC-CARGO = WKS-PA-FE-AAMMDD AND\n          B07-CONTRATO  = WKS-PARAM-CTO\n          ON EXCEPTION\n          IF DMSTATUS(NOTFOUND)\n             MOVE 1 TO WKS-OK.\n 010-0600-SIGUIENTE-CASO-1.\n*=================================================================\n   FIND NEXT B07SXFECHA\n      AT B07-NUM-ID    = WKS-PARAM-ID AND\n         B07-FEC-CARGO = WKS-PA-FE-AAMMDD\n      ON EXCEPTION\n         IF DMSTATUS(NOTFOUND)\n            MOVE 1 TO WKS-OK.\n   IF WKS-OK = 0 AND B07-NUM-ID    = WKS-PARAM-ID AND\n      B07-FEC-CARGO = WKS-PA-FE-AAMMDD\n      NEXT SENTENCE\n   ELSE\n      MOVE 1 TO WKS-OK.\n 010-0700-SIGUIENTE-CASO-2.\n*=================================================================\n   FIND NEXT B07SXFECHA\n      AT B07-NUM-ID    = WKS-PARAM-ID AND\n         B07-FEC-CARGO = WKS-PA-FE-AAMMDD AND\n         B07-CONTRATO  = WKS-PARAM-CTO\n      ON EXCEPTION\n         IF DMSTATUS(NOTFOUND)\n            MOVE 1 TO WKS-OK.\n   IF WKS-OK = 0 AND B07-NUM-ID    = WKS-PARAM-ID AND\n          B07-CONTRATO  = WKS-PARAM-CTO AND\n          B07-FEC-CARGO = WKS-PA-FE-AAMMDD\n      NEXT SENTENCE\n   ELSE\n      MOVE 1 TO WKS-OK.",
+          "java_codigo": "public interface ProteccionCobroRepository extends JpaRepository<ProteccionCobro, Long> {\n\n    /** B07SXFECHA: FIND FIRST / FIND NEXT AT B07-NUM-ID y B07-FEC-CARGO. */\n    @QueryHints(@QueryHint(name = HINT_FETCH_SIZE, value = \"500\"))\n    Stream<ProteccionCobro> findByNumIdAndFecCargoOrderByIndiceB07(int numId, int fecCargo);\n\n    /** Caso 2: la llave del índice incluye el contrato, así que el filtro es exacto. */\n    Stream<ProteccionCobro> findByNumIdAndFecCargoAndContratoOrderByIndiceB07(int numId, int fecCargo, String contrato);\n}\n\n/** 00121-BUSCAB07: encabezado y una línea por registro. */\nvoid exportaB07(BufferedWriter w, ParametroIntelar p, ParametroIntelar.Caso caso) throws IOException {\n    w.write(ProteccionCobroCsv.ENCABEZADO); w.newLine();\n    try (Stream<ProteccionCobro> s = (caso == ParametroIntelar.Caso.POR_FECHA)\n            ? b07.findByNumIdAndFecCargoOrderByIndiceB07(p.id(), p.fechaBusqueda())\n            : b07.findByNumIdAndFecCargoAndContratoOrderByIndiceB07(p.id(), p.fechaBusqueda(), p.contrato())) {\n        for (var r : (Iterable<ProteccionCobro>) s::iterator) {\n            w.write(ProteccionCobroCsv.de(r).linea()); w.newLine();   // 00122-GRABA-REGISTRO\n        }\n    }\n}",
+          "racional": "Para las interfaces 1 y 2 el programa se posiciona con <code>FIND FIRST</code> en el índice <code>B07SXFECHA</code> y avanza con <code>FIND NEXT</code> mientras el registro conserve la interfaz y la fecha, y en el segundo caso también el contrato, que forma parte de la condición de búsqueda. Los nombres de los párrafos están cruzados (el que se llama <code>010-0600-SIGUIENTE-CASO-1</code> avanza sobre B07 y el <code>010-0400-SIGUIENTE-CASO-1</code> sobre B10), pero el orden de llamadas es correcto. En Java el recorrido es una consulta derivada que devuelve un <code>Stream</code>, ordenada como el índice DMSII, y cada registro se escribe en cuanto se lee.",
+          "reglas": [],
+          "riesgo": "Los FIND solo atienden la excepción NOTFOUND. Ante otro error de DMSII WKS-OK queda en 0, el registro en memoria no cambia y la comparación sigue siendo verdadera, de modo que GRABA-REGISTRO escribiría el mismo renglón sin fin."
+        },
+        {
+          "id": "s6",
+          "titulo": "Domiciliación por contrato: búsqueda que se corta en el primer contrato distinto",
+          "linea_ini": 411,
+          "linea_fin": 477,
+          "origen_codigo": " 010-0500-SIGUIENTE-CASO-2.\n*=================================================================\n   FIND NEXT B10SXFECAUT151\n      AT B10-NUM-ID    = WKS-PARAM-ID AND\n          B10-FEC-CARGO = WKS-PA-FE-AAMMDD\n      ON EXCEPTION\n         IF DMSTATUS(NOTFOUND)\n            MOVE 1 TO WKS-OK.\n   IF WKS-OK = 0 AND B10-NUM-ID    = WKS-PARAM-ID AND\n      B10-FEC-CARGO = WKS-PA-FE-AAMMDD AND\n         B10-CONTRATO  = WKS-PARAM-CTO\n      NEXT SENTENCE\n   ELSE\n      MOVE 1 TO WKS-OK.\n 00130-BUSCAB10.\n*=================================================================\n   IF WKS-CASO = 1\n      PERFORM 010-0600-PRIMER-CASO-1\n      IF WKS-OK = 0\n         PERFORM 00122-GRABA-REGISTRO2 UNTIL WKS-OK = 1.\n   IF WKS-CASO = 2\n      PERFORM 010-0700-PRIMER-CASO-2\n      IF WKS-OK = 0\n         PERFORM 00122-GRABA-REGISTRO2 UNTIL WKS-OK = 1.\n 010-0700-PRIMER-CASO-2.\n*=================================================================\n     MOVE        ZERO TO WKS-OK\n     FIND  FIRST B10SXFECAUT151\n       AT B10-NUM-ID    = WKS-PARAM-ID AND\n          B10-FEC-CARGO = WKS-PA-FE-AAMMDD\n          ON EXCEPTION\n          IF DMSTATUS(NOTFOUND)\n             MOVE 1 TO WKS-OK.\n    IF WKS-OK = 0 AND B10-NUM-ID    = WKS-PARAM-ID AND\n      B10-FEC-CARGO = WKS-PA-FE-AAMMDD AND\n         B10-CONTRATO  = WKS-PARAM-CTO\n      NEXT SENTENCE\n   ELSE\n      MOVE 1 TO WKS-OK.",
+          "java_codigo": "public interface DomiciliacionRepository extends JpaRepository<Domiciliacion, Long> {\n\n    /** B10SXFECAUT151: el índice es por interfaz y fecha; el contrato NO forma parte de la llave. */\n    Stream<Domiciliacion> findByNumIdAndFecCargoOrderByIndiceB10(int numId, int fecCargo);\n}\n\n/** 00130-BUSCAB10. */\nvoid exportaB10(BufferedWriter w, ParametroIntelar p, ParametroIntelar.Caso caso) throws IOException {\n    w.write(DomiciliacionCsv.ENCABEZADO); w.newLine();\n    try (Stream<Domiciliacion> s = b10.findByNumIdAndFecCargoOrderByIndiceB10(p.id(), p.fechaBusqueda())) {\n        Stream<Domiciliacion> filas = (caso == ParametroIntelar.Caso.POR_FECHA)\n                ? s\n                // Comportamiento del COBOL: se detiene en el primer registro de otro contrato.\n                // Con p671.domiciliacion.filtro-completo = true se usaría s.filter(...) en su lugar.\n                : (props.domiciliacion().filtroCompleto()\n                        ? s.filter(r -> r.contrato().equals(p.contrato()))\n                        : s.takeWhile(r -> r.contrato().equals(p.contrato())));\n        for (var r : (Iterable<Domiciliacion>) filas::iterator) {\n            w.write(DomiciliacionCsv.de(r).linea()); w.newLine();     // 00122-GRABA-REGISTRO2\n        }\n    }\n}",
+          "racional": "Para la interfaz 3 el índice <code>B10SXFECAUT151</code> no tiene el contrato en su condición de búsqueda, así que el programa se posiciona por interfaz y fecha y compara el contrato después de cada lectura. Cuando el registro no coincide, pone <code>WKS-OK</code> en 1 y termina el recorrido. El efecto es el de un <code>takeWhile</code>, no el de un <code>filter</code>: solo se exportan los registros del contrato que estén al inicio y de forma contigua en el orden del índice. La traducción conserva ese resultado por defecto y deja el filtro completo detrás de una propiedad, para que el SME decida si se corrige.",
+          "reglas": [],
+          "riesgo": "Si el primer registro del día en B10SXFECAUT151 pertenece a otro contrato, el archivo de domiciliación por contrato sale solo con el encabezado; si los registros del contrato no son contiguos, el archivo sale incompleto. En ningún caso hay aviso."
+        },
+        {
+          "id": "s7",
+          "titulo": "Copia campo a campo y escritura del renglón",
+          "linea_ini": 496,
+          "linea_fin": 557,
+          "origen_codigo": " 00122-GRABA-REGISTRO.\n*=================================================================\n   MOVE B07-NUM-ID         TO WKS-DET-NUM-ID      .\n   MOVE B07-NUM-CTE        TO WKS-DET-NUM-CTE     .\n   MOVE B07-CONTRATO       TO WKS-DET-CONTRATO    .\n   MOVE B07-MDA-CUENTA     TO WKS-DET-MDA-CUENTA  .\n   MOVE B07-IMPORTE        TO WKS-DET-IMPORTE     .\n   MOVE B07-DAT-GEN        TO WKS-DET-DAT-GEN     .\n   MOVE B07-HR-ENVIO       TO WKS-DET-HR-ENVIO    .\n   WRITE REG-REPORTE       FROM WKS-DET-B07.\n   IF WKS-CASO = 1\n      PERFORM 010-0600-SIGUIENTE-CASO-1.\n   IF WKS-CASO = 2\n      PERFORM 010-0700-SIGUIENTE-CASO-2.\n 00122-GRABA-REGISTRO2.\n*=================================================================\n   MOVE B10-NUM-ID         TO WKS-DET2-NUM-ID      .\n   MOVE B10-CUENTA-CLABE   TO WKS-DET2-CUENTA-CLABE.\n   WRITE REG-REPORTE       FROM WKS-DET-B10.\n   IF WKS-CASO = 1\n      PERFORM 010-0400-SIGUIENTE-CASO-1.\n   IF WKS-CASO = 2\n      PERFORM 010-0500-SIGUIENTE-CASO-2.",
+          "java_codigo": "/** 00122-GRABA-REGISTRO: un MOVE por campo de B07 al layout CSV y WRITE ... FROM. */\nstatic ProteccionCobroCsv de(ProteccionCobro r) {\n    return new ProteccionCobroCsv(\n            r.numId(), r.numCte(), r.contrato(), r.medAcceso(), r.mdaPref(), r.mdaCuenta(),\n            r.autAplic(), r.fecCargo(), r.hrCargo(), r.autPc(), r.importe(),\n            r.autS151(), r.autAntS151(), r.cveTrans(), r.numOcurr(), r.numProc(),\n            r.status(), r.numEnv(), r.tipoMov(), r.numError(), r.datGen(), r.hrEnvio());\n}\n\n/** 00122-GRABA-REGISTRO2: igual para B10, con CLABE como String de 18 posiciones. */\nstatic DomiciliacionCsv de(Domiciliacion r) {\n    return new DomiciliacionCsv(r.numId(), r.cuentaClabe(), r.numCte(), r.contrato(), /* ... */\n                                r.sucProm());\n}",
+          "racional": "Cada párrafo de grabación copia un registro completo del dataset a la línea CSV con un <code>MOVE</code> por campo y la escribe con <code>WRITE ... FROM</code>; después llama al párrafo que avanza al siguiente registro. En Java la copia es una función de mapeo y el avance lo hace el <code>Stream</code>. La CLABE de 18 dígitos y los números de cuenta y contrato se conservan como <code>String</code> para no perder ceros a la izquierda.",
+          "reglas": [],
+          "riesgo": "No se cuenta ni se reporta cuántos registros se escribieron (W77-NUMMOVS se inicializa y no se incrementa), así que no hay cifra de control para conciliar el archivo con INTELAR."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Datos personales en archivo público",
+      "detalle": "El FD REPORTE declara SECURITYTYPE IS PUBLIC (línea 27) para un CSV con número de cliente, contrato, cuenta, CLABE e importes. Cualquier usuario del sistema puede leerlo."
+    },
+    {
+      "titulo": "Domiciliación por contrato incompleta",
+      "detalle": "En la interfaz 3 con contrato, la búsqueda se posiciona por fecha y termina en el primer registro de otro contrato (líneas 413-425 y 466-477). El archivo puede salir vacío o parcial sin aviso."
+    },
+    {
+      "titulo": "CSV sin escape",
+      "detalle": "WKS-DET-DAT-GEN y WKS-DET2-DAT-GEN son texto libre de 147 posiciones que se insertan sin comillas. Una coma en ese texto desalinea las columnas para INTELAR."
+    },
+    {
+      "titulo": "Ciclo sin fin ante error de DMSII",
+      "detalle": "Los FIND solo tratan NOTFOUND; cualquier otra excepción deja WKS-OK en 0 con el mismo registro en memoria y la grabación se repite indefinidamente."
+    },
+    {
+      "titulo": "Sin cifras de control",
+      "detalle": "W77-NUMMOVS no se incrementa y no hay trailer; el receptor no puede validar que recibió todos los registros."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Usuario S151, directorio INTS/15110S01, familia CMEMP, nombres PROTECCOB, ALERTANOT y DOMICILIA, siete intentos con espera de 10 segundos y los mensajes copiados de P605. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar la llave real de los índices B07SXFECHA y B10SXFECAUT151 en el DASDL de S151BD13BIFIN; de ella depende si la domiciliación por contrato está efectivamente truncada.",
+    "Confirmar el PIC de B07-IMPORTE y B10-IMPORTE y si pueden ser negativos; el layout CSV usa un PIC editado sin signo.",
+    "Confirmar con el área dueña de INTELAR si el archivo debe seguir siendo PUBLIC y qué proceso lo recoge del directorio INTS/15110S01.",
+    "Confirmar qué programa o WFL invoca a P671 y con qué parámetros; el inventario no asocia reglas del brain a este componente."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-609",
+    "RN-S151-610",
+    "RN-S151-611",
+    "RN-S151-612",
+    "RN-S151-613",
+    "RN-S151-614",
+    "RN-S151-615",
+    "RN-S151-616"
+  ]
+}

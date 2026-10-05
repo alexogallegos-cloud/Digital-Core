@@ -1,0 +1,162 @@
+{
+  "slug": "S500_P075",
+  "sistema": "S500",
+  "programa": "P075",
+  "nombre": "Informe de Cambio de Día",
+  "funcion": "Paso batch de control de S500 que, invocado desde WFL con el parámetro 1, notifica a P080 el cambio de día llamando al entry point INIBATCH de la librería L080.",
+  "resumen": "No lee archivos ni bases de datos. Valida su propia versión (S500P075, 25MTP003) con CHECAME en CTLVERS, obtiene de CTLVERS el título vigente de la librería lógica S500L080CTRL y, si lo obtuvo y el parámetro recibido del WFL es 1, llama a S500L080INIBATCHP080. Cualquier falla de versión, un parámetro distinto de 1 o un resultado de INIBATCH mayor que cero se registra en la librería LJ y marca el status del proceso en -1; la falla al resolver el título de L080 solo se registra.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.control.cambiodia",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — parámetro del WFL, resultado y mensaje LJ",
+      "origen": {
+        "archivo": "S500_SOURCE_P075.txt",
+        "contexto": "WORKING-STORAGE · PROCEDURE DIVISION USING · 70000050-MENSAJE"
+      },
+      "java": {
+        "archivo": "CambioDiaJobConfig.java · MensajeOperacion.java",
+        "contexto": "JobParametersValidator · log estructurado"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro RECEIVED BY CONTENT a JobParameter validado",
+          "linea_ini": 40,
+          "linea_fin": 135,
+          "origen_codigo": " 77 WKS-88-S500L080               PIC 99 COMP VALUE 0.\n 77 WKS-L080-RESULT               PIC 9(02).\n 77 W77-PARAM-WFL                 PIC 9(01) RECEIVED BY CONTENT.\n PROCEDURE DIVISION USING W77-PARAM-WFL.",
+          "java_codigo": "/** W77-PARAM-WFL PIC 9(01) RECEIVED BY CONTENT: el WFL debe pasar 1. */\n@Component\nclass ParametroCambioDiaValidator implements JobParametersValidator {\n\n    static final long VALOR_EJECUTAR = 1L;\n\n    @Override\n    public void validate(JobParameters p) throws JobParametersInvalidException {\n        Long valor = p.getLong(\"paramWfl\");\n        if (valor == null || valor != VALOR_EJECUTAR) {\n            // \"VALUE ERRONEO PARA EJECUTAR P075 <valor>\" + STATUS := -1\n            throw new JobParametersInvalidException(\"VALUE ERRONEO PARA EJECUTAR P075 \" + valor);\n        }\n    }\n}\n\n/** WKS-L080-RESULT PIC 9(02): en Java se conserva el entero completo que devuelve L080. */\npublic record ResultadoInibatch(int codigo) {\n    boolean exitoso() { return codigo == 0; }\n}",
+          "racional": "El programa recibe un único dígito del WFL por contenido y solo hace el cambio de día si vale 1; cualquier otro valor se trata como error de invocación. En Spring Batch el parámetro pasa a un <code>JobParameter</code> y la condición a un <code>JobParametersValidator</code>, con lo que una invocación errónea ni siquiera crea la ejecución. El resultado de INIBATCH se guarda como entero completo, sin la limitación de dos dígitos sin signo del fuente.",
+          "reglas": [
+            "RN-S500-023"
+          ],
+          "riesgo": "WKS-L080-RESULT es PIC 9(02) sin signo: un código de retorno negativo se guardaría sin signo y uno de tres o más dígitos perdería las cifras altas, por ejemplo 100 quedaría como 00 y se tomaría como éxito."
+        },
+        {
+          "id": "s2",
+          "titulo": "Mensaje de operación y enlace a LIBLJ",
+          "linea_ini": 56,
+          "linea_fin": 238,
+          "origen_codigo": " 01 WS-0101-MENSAJE.\n     02 WS-0101-CODI-MSG    PIC 9(06)  VALUE 051010.\n     02 FILLER              PIC X      VALUE \"-\".\n     02 WS-0101-TIPO-MSG    PIC 9(02)  VALUE 02.\n     02 FILLER              PIC X      VALUE \"-\".\n     02 WS-0101-SYST-MSG    PIC X(04)  VALUE \"S500\".\n     02 FILLER              PIC X      VALUE \"-\".\n     02 WS-0101-PASO-MSG    PIC X(04)  VALUE \"PXXX\".\n     02 FILLER              PIC X      VALUE \"-\".\n     02 WS-0101-MTP-MSG     PIC X(08)  VALUE \"XXMTPXXX\".\n    02 WS-0101-TEXT-MSG    PIC X(200).\n 70000050-MENSAJE.\n     IF W77-USO-LIBLJ = 0\n        DISPLAY WS-0101-MENSAJE\n     ELSE\n        PERFORM 70000050-MENSAJE-LJ.\n     MOVE \" \" TO WS-0101-TEXT-MSG.\n 70000050-MENSAJE-LJ.\n     IF W77-USO-LIBLJ NOT = 1\n        PERFORM 00000000-LINK-LIBLJ.\n     MOVE WS-0101-SYST-MSG  TO SISTEMA-LJ.\n     MOVE WS-0101-PASO-MSG  TO PASO-LJ.\n     MOVE WS-0101-NUM-MTP   TO MTP-LJ.\n     MOVE W77-TIPO-DISP     TO TIPO-LJ.\n     MOVE WS-0101-CODI-MSG  TO CODIGO-LJ.\n     MOVE WS-0101-TEXT-MSG  TO TEXTO-LJ.\n     CALL \"LJ IN LIBLJ\" USING CONTADOR-LJ, MENSAJE-LJ.\n     MOVE \" \"               TO TEXTO-LJ.\n 00000000-LINK-LIBLJ.\n     CHANGE ATTRIBUTE TITLE OF \"LIBLJ\" TO\n            \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".\n     MOVE 1 TO W77-USO-LIBLJ.",
+          "java_codigo": "# application.yml\ns500:\n  p075:\n    codigo-mensaje: 51010         # WS-0101-CODI-MSG VALUE 051010\n    paso: P075\n    mtp: 25MTP003\n\n// ---------------------------------------------------------------------------\n/** WS-0101-MENSAJE y MENSAJE-LJ como evento de log estructurado. */\npublic record MensajeOperacion(String sistema, String paso, String mtp,\n                               char tipoDisp, int codigo, String texto) {}\n\n@Component\n@RequiredArgsConstructor\nclass BitacoraOperacion {\n    private static final Logger LJ = LoggerFactory.getLogger(\"LJ\");   // antes LJ IN LIBLJ\n\n    void registra(MensajeOperacion m) {\n        LJ.atInfo()\n          .addKeyValue(\"sistema\", m.sistema()).addKeyValue(\"paso\", m.paso())\n          .addKeyValue(\"mtp\", m.mtp()).addKeyValue(\"codigo\", m.codigo())\n          .log(m.texto());\n    }\n}",
+          "racional": "Todos los mensajes del programa se arman en un registro de texto con código, tipo, sistema, paso y versión, y se envían a la librería LJ, cuyo título se fija la primera vez con una ruta compilada. En la plataforma destino ese envío es un evento de log estructurado con los mismos campos como atributos, que la plataforma de observabilidad puede filtrar. La ruta de la librería deja de existir; el código de mensaje y la versión pasan a <code>application.yml</code>.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y validación de versión",
+      "origen": {
+        "archivo": "S500_SOURCE_P075.txt",
+        "contexto": "000000-MODULO-DE-CONTROL · 20000100-CHECAME-VERSION"
+      },
+      "java": {
+        "archivo": "CambioDiaTasklet.java · VersionGuard.java",
+        "contexto": "Tasklet · ApplicationRunner"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Módulo de control a un Tasklet de un solo paso",
+          "linea_ini": 142,
+          "linea_fin": 169,
+          "origen_codigo": " 000000-MODULO-DE-CONTROL.\n     MOVE 2            TO W77-USO-LIBLJ\n     MOVE 051010       TO WS-0101-CODI-MSG\n     MOVE 2            TO WS-0101-TIPO-MSG\n     MOVE \"P075\"       TO WS-0101-PASO-MSG\n      MOVE \"25MTP003\"   TO WS-0101-MTP-MSG\n                          W77-S000-MY-VERSION\n     MOVE \"S500P075\"   TO W77-S000-MY-ID.\n     PERFORM 100000-L080.\n     IF S000-CTR-CVEERROR = 0\n        IF W77-PARAM-WFL = 1\n           PERFORM 200000-INIBATCH\n        ELSE\n           MOVE W77-PARAM-WFL TO WS-MSG-N-04\n           STRING \"VALUE ERRONEO PARA EJECUTAR P075 \", WS-MSG-N-04\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     STOP RUN.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CambioDiaTasklet implements Tasklet {\n\n    private final CatalogoVersiones ctlvers;     // DAME_TIT IN CTLVERS\n    private final ControlCaptacionL080 l080;     // S500L080CTRL\n    private final BitacoraOperacion lj;\n\n    /** 000000-MODULO-DE-CONTROL. El parámetro ya llegó validado (s1). */\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        String titulo = ctlvers.titulo(\"S500L080CTRL\")\n                .orElseThrow(() -> new CambioDiaNoNotificadoException(\n                        \"ERROR EN CALL CTLVERS S500L080\"));   // el fuente solo lo registra\n        ResultadoInibatch r = l080.inibatch(titulo);          // 200000-INIBATCH\n        if (!r.exitoso()) {\n            throw new CambioDiaNoNotificadoException(\"ERROR EN LLAMADO INIBATCH \" + r.codigo());\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa entero cabe en un párrafo: identificarse, validar versión, resolver la librería L080 y, si todo está bien y el parámetro es 1, notificar el cambio de día. En Spring Batch es un <code>Tasklet</code> único; el parámetro se valida antes, en el <code>JobParametersValidator</code>. La traducción hace explícito algo que el fuente deja implícito: si no se pudo resolver L080, el cambio de día no se notificó y el paso debe fallar en lugar de terminar sin señal de error.",
+          "reglas": [
+            "RN-S500-023",
+            "RN-S500-024"
+          ],
+          "riesgo": "Si CTLVERS no devuelve el título de S500L080CTRL, P075 termina con STOP RUN sin notificar a P080 y sin marcar error en su status; el orquestador lo verá como éxito."
+        },
+        {
+          "id": "s4",
+          "titulo": "Validación de versión con CHECAME",
+          "linea_ini": 152,
+          "linea_fin": 207,
+          "origen_codigo": "     PERFORM 10000100-VERSIONES.\n     PERFORM 20000100-CHECAME-VERSION.\n     IF S000-CTR-CVEERROR < 0\n        MOVE \"ERROR DE VERSION \"    TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n 10000100-VERSIONES.\n     CHANGE ATTRIBUTE LIBACCESS OF \"CTLVERS\" TO BYFUNCTION.\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"CTLVERS\" TO \"CTLVERS\".\n     MOVE 1 TO WKS-88-CTLVERS.\n 20000100-CHECAME-VERSION.\n     CALL \"CHECAME IN CTLVERS\"\n           USING   W77-S000-MY-ID\n                   W77-S000-MY-VERSION\n           GIVING  S000-CTR-CVEERROR.",
+          "java_codigo": "/** 10000100-VERSIONES + 20000100-CHECAME-VERSION. */\n@Component\n@RequiredArgsConstructor\nclass VersionGuard implements StepExecutionListener {\n\n    private final CatalogoVersiones ctlvers;\n    @Value(\"${s500.p075.id:S500P075}\") private String miId;\n    @Value(\"${s500.p075.mtp:25MTP003}\") private String miVersion;\n\n    @Override\n    public void beforeStep(StepExecution se) {\n        long cveError = ctlvers.checame(miId, miVersion);     // S000-CTR-CVEERROR S9(11)\n        if (cveError < 0) {\n            // ERROR DE VERSION + STATUS := -1. Se decide fallar antes de notificar a P080.\n            throw new VersionNoAutorizadaException(\"ERROR DE VERSION \" + cveError);\n        }\n    }\n}",
+          "racional": "Antes de hacer nada, el programa pregunta al catálogo de versiones si su identificador y versión siguen autorizados; un resultado negativo se registra como error de versión y pone el status del proceso en -1. En Java es un <code>StepExecutionListener</code> que falla el paso antes de notificar a P080. El identificador y la versión, hoy literales del programa, pasan a propiedades que normalmente llenaría el pipeline de despliegue.",
+          "reglas": [
+            "RN-S500-022"
+          ],
+          "riesgo": "RN-S500-022 afirma que, tras marcar STATUS -1, el programa sigue y puede notificar el cambio de día. En MCP asignar un valor negativo al STATUS del propio proceso suele terminarlo de inmediato; el comportamiento real debe confirmarse con el SME, porque decide si un programa con versión no autorizada puede cambiar el día."
+        }
+      ]
+    },
+    {
+      "titulo": "Resolución de L080 y notificación del cambio de día",
+      "origen": {
+        "archivo": "S500_SOURCE_P075.txt",
+        "contexto": "100000-L080 · 20000100-DAME-TIT-VERS · 200000-INIBATCH · 205000-INIBATCH-CALL"
+      },
+      "java": {
+        "archivo": "ControlCaptacionL080.java · CatalogoVersiones.java",
+        "contexto": "@Service cliente de L080"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Título vigente de S500L080CTRL desde CTLVERS",
+          "linea_ini": 171,
+          "linea_fin": 233,
+          "origen_codigo": " 100000-L080.\n     MOVE ZEROS              TO S000-CTR-CVEERROR.\n     MOVE \"S500L080CTRL\"     TO S000-CTR-LIBID.\n     PERFORM 20000100-DAME-TIT-VERS.\n     IF S000-CTR-CVEERROR = 0\n          CHANGE ATTRIBUTE TITLE OF \"S500L080CTRL\"\n                                 TO S000-CTR-NOMLIB\n     ELSE\n        MOVE S000-CTR-CVEERROR TO WS-MSG-N-02\n        STRING  \"ERROR EN CALL CTLVERS S500L080 \"\n                \" RESULT=\", WS-MSG-N-02\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n 20000100-DAME-TIT-VERS.\n     CALL \"DAME_TIT IN CTLVERS\"\n           USING      S000-CTR-LIBID\n                      S000-CTR-NOMLIB\n           GIVING     S000-CTR-CVEERROR.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class CatalogoVersiones {\n\n    private final CtlversClient cliente;\n\n    /** 20000100-DAME-TIT-VERS: devuelve el título físico vigente de una librería lógica. */\n    public Optional<String> titulo(String libId) {\n        var r = cliente.dameTit(libId);                       // GIVING S000-CTR-CVEERROR\n        if (r.cveError() != 0) {\n            log.error(\"ERROR EN CALL CTLVERS {} RESULT={}\", libId, r.cveError());   // código completo\n            return Optional.empty();\n        }\n        return Optional.of(r.nombreLibreria());               // S000-CTR-NOMLIB X(72)\n    }\n}",
+          "racional": "La librería L080 no se liga por un título fijo: el programa pide a CTLVERS el nombre físico vigente de la librería lógica S500L080CTRL y se lo asigna con <code>CHANGE ATTRIBUTE TITLE</code> antes de llamarla. Es el mismo mecanismo de versionado que usan los demás programas de S500. En Java se encapsula en un servicio que devuelve un <code>Optional</code>, y quien llama decide qué hacer si no hay título; aquí falla el paso. El mensaje de error conserva el código completo, que el fuente recorta a dos dígitos sin signo al moverlo a <code>WS-MSG-N-02</code>.",
+          "reglas": [
+            "RN-S500-024"
+          ],
+          "riesgo": "El MOVE de S000-CTR-CVEERROR (S9(11)) a WS-MSG-N-02 (9(02)) en la línea 181 pierde signo y cifras altas: el código que queda en la bitácora no es el que devolvió CTLVERS."
+        },
+        {
+          "id": "s6",
+          "titulo": "Llamada a INIBATCH y evaluación del resultado",
+          "linea_ini": 187,
+          "linea_fin": 196,
+          "origen_codigo": " 200000-INIBATCH.\n     PERFORM 205000-INIBATCH-CALL\n     IF WKS-L080-RESULT > 0\n        MOVE \"ERROR EN LLAMADO INIBATCH\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n 205000-INIBATCH-CALL.\n     CALL \"S500L080INIBATCHP080 IN S500L080CTRL\"\n           GIVING WKS-L080-RESULT.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ControlCaptacionL080 {\n\n    private final L080Gateway gateway;     // adaptador al servicio que reemplace a S500L080CTRL\n\n    /** 205000-INIBATCH-CALL: CALL \"S500L080INIBATCHP080 IN S500L080CTRL\" GIVING WKS-L080-RESULT. */\n    public ResultadoInibatch inibatch(String version) {\n        int codigo = gateway.inibatchP080(version);\n        if (codigo != 0) {\n            log.error(\"ERROR EN LLAMADO INIBATCH codigo={}\", codigo);\n        }\n        return new ResultadoInibatch(codigo);\n    }\n}\n// 200000-INIBATCH: IF WKS-L080-RESULT > 0 -> mensaje + STATUS := -1.\n// En Java cualquier código distinto de 0 falla el paso (ver CambioDiaTasklet).",
+          "racional": "Este es el punto que realmente notifica a P080 el cambio de día: una llamada sin parámetros al entry point de inicialización de lote de L080, que devuelve un código. Un código mayor que cero se registra y marca el proceso con status -1, que el orquestador ve como falla. En la plataforma destino L080 se expone como servicio detrás de un adaptador, y la condición se generaliza a cualquier código distinto de cero para no depender de la representación sin signo del campo de resultado.",
+          "reglas": [
+            "RN-S500-025",
+            "RN-S500-026"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Cambio de día omitido sin señal de error",
+      "detalle": "Si DAME_TIT de CTLVERS falla, 100000-L080 solo escribe el mensaje (líneas 180-185) y el programa termina con STOP RUN sin llamar a INIBATCH ni marcar STATUS -1. P080 no recibe el cambio de día y el orquestador ve un paso exitoso."
+    },
+    {
+      "titulo": "Resultado de INIBATCH en 9(02) sin signo",
+      "detalle": "WKS-L080-RESULT (línea 41) no puede representar códigos negativos ni mayores a 99; un código como 100 se truncaría a 00 y la falla pasaría como éxito."
+    },
+    {
+      "titulo": "Comportamiento real de STATUS -1 sobre el propio proceso",
+      "detalle": "El fuente usa CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 tras la validación de versión (línea 157) y continúa el código. Según la semántica de MCP esto podría terminar el proceso de inmediato; la regla del brain asume que sigue."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Identificador S500P075, versión 25MTP003, librería lógica S500L080CTRL, entry point S500L080INIBATCHP080, código de mensaje 051010 y título de LIBLJ (S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME de MCP si CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 termina el proceso en el acto o solo fija el status de salida; RN-S500-022 y RN-S500-023 dependen de ello.",
+    "Confirmar el rango de códigos que devuelve S500L080INIBATCHP080 y si puede ser negativo.",
+    "Confirmar si la falta de STATUS -1 cuando CTLVERS no resuelve L080 (RN-S500-024) es intencional.",
+    "El arquetipo del inventario es A3 (Reporteador), pero P075 no genera reportes: es un paso de control que notifica a otro proceso; la traducción se hizo como Tasklet. Revisar la clasificación."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-022",
+    "RN-S500-023",
+    "RN-S500-024",
+    "RN-S500-025",
+    "RN-S500-026"
+  ]
+}

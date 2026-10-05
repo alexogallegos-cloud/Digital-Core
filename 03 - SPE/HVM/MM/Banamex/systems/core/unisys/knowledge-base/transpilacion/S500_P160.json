@@ -1,0 +1,185 @@
+{
+  "slug": "S500_P160",
+  "sistema": "S500",
+  "programa": "P160",
+  "nombre": "Reconciliador de Saldos de Captación",
+  "funcion": "Paso batch nocturno de S500, en hasta tres copias simultáneas, que concilia el saldo de cada contrato de inversión contra el reconstruido desde el histórico y genera el archivo Motor para P189.",
+  "resumen": "Recorre en secuencia el dataset de contratos S500B03CONTRATOS. Para la copia 1 escribe en el archivo Motor la fecha de último movimiento y los saldos de los contratos que cumplen las condiciones de cambio. Para los productos asignados a su copia reconstruye el saldo sumando al saldo de fin de corte los depósitos y restando los retiros de los 31 días del histórico B06 y lo compara contra el saldo actual más pendiente y protegido; los descuadres van a un archivo que se ordena e imprime en dos listados. Al final marca el paso 160 en el control de pasos.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.captacion.conciliacion",
+  "secciones": [
+    {
+      "titulo": "Estructuras de trabajo",
+      "origen": {
+        "archivo": "S500_SOURCE_P160.txt",
+        "contexto": "FILE SECTION · 50201000-CHECO-COPIA"
+      },
+      "java": {
+        "archivo": "DiferenciaSaldo.java · TablaCopias.java",
+        "contexto": "record · @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de diferencias FILE-SALDOS a record con importes BigDecimal",
+          "linea_ini": 155,
+          "linea_fin": 167,
+          "origen_codigo": " FD FILE-SALDOS\n    BLOCK CONTAINS 180 RECORDS\n    VALUE OF TITLE IS WS-ETIQ-SALDOS\n    VALUE OF SECURITYTYPE IS PUBLIC.\n  01 REG-SALDOS.\n    02 SDO-PRD     PIC 9(04).\n    02 SDO-INS     PIC 9(04).\n    02 SDO-MON     PIC 9(03).\n    02 SDO-CTO     PIC 9(12).\n    02 SDO-INV     PIC S9(14)V99.\n    02 SDO-HIS     PIC S9(14)V99.\n    02 SDO-CIF     PIC S9(14)V99.",
+          "java_codigo": "/** REG-SALDOS: contrato con diferencia, o renglón de totales por producto cuando el contrato es 999999999999. */\npublic record DiferenciaSaldo(\n        int producto,               // SDO-PRD 9(04)\n        int instrumento,            // SDO-INS 9(04)\n        int moneda,                 // SDO-MON 9(03)\n        String contrato,            // SDO-CTO 9(12): String para conservar ceros\n        BigDecimal saldoInversion,  // SDO-INV S9(14)V99 -> escala 2, con signo\n        BigDecimal saldoHistorico,  // SDO-HIS S9(14)V99\n        BigDecimal saldoCifras) {   // SDO-CIF S9(14)V99\n\n    public static final String CONTRATO_TOTALES = \"999999999999\";   // centinela de 50310000-LEO\n\n    public boolean esTotalProducto() { return CONTRATO_TOTALES.equals(contrato); }\n\n    public DiferenciaSaldo {\n        saldoInversion = saldoInversion.setScale(2, RoundingMode.UNNECESSARY);\n        saldoHistorico = saldoHistorico.setScale(2, RoundingMode.UNNECESSARY);\n        saldoCifras    = saldoCifras.setScale(2, RoundingMode.UNNECESSARY);\n    }\n}",
+          "racional": "El archivo intermedio guarda por cada contrato descuadrado el saldo de inversiones, el reconstruido desde el histórico y, en los renglones de totales, el de cifras de control. Los tres importes son <code>PIC S9(14)V99</code> y pasan a <code>BigDecimal</code> de escala 2; el constructor compacto exige que lleguen sin decimales extra para detectar cualquier conversión que hubiera truncado en COBOL. El contrato se maneja como <code>String</code>. El valor 999999999999 marca el renglón de totales de un producto, y se expone como método en lugar de dejar el número mágico disperso.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Asignación de producto a copia con tabla de 30 posiciones",
+          "linea_ini": 1462,
+          "linea_fin": 1483,
+          "origen_codigo": " 50201000-CHECO-COPIA.\n    MOVE 0 TO WS-PRD2.\n    MOVE 0 TO WS-NUM-COPIAC.\n    PERFORM 50211100-PASO  VARYING\n                           WS-PRD2 FROM 1 BY 1\n            UNTIL (WS-COPIA-PRD(WS-PRD2) = WS-COPY-PRD ) AND\n                  (WS-COPIA-INS(WS-PRD2) = WS-COPY-INS ) AND\n                  (WS-COPIA-MON(WS-PRD2) = WS-COPY-MON ) OR\n                  (WS-PRD2 > 30).\n    IF (WS-PRD2 < 31) AND (WS-PRD2 > 0)\n       MOVE WS-COPIA-COPIA(WS-PRD2)           TO WS-NUM-COPIAC\n       MOVE WS-COPIA-SDO(WS-PRD2)             TO WS-DIF-SDO\n    ELSE\n       MOVE WS-COPY-PRD                       TO WS-MSG-PRD\n       MOVE WS-COPY-INS                       TO WS-MSG-INST\n       MOVE WS-COPY-MON                       TO WS-MSG-MDA\n       MOVE \"NO EXISTE EN TABLA DE COPIAS \"   TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       PERFORM 50211200-DIS-PIM               THRU 50211200-EXIT\n       CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class TablaCopias {\n\n    private final InstrumentoRepository b05;                     // S500B05INSTRUMEN\n    private Map<Pim, Copia> porPim;                              // WS-GUARDACOPIA\n\n    public record Pim(int producto, int instrumento, int moneda) {}\n    public record Copia(int numero, BigDecimal ajusteSaldo) {}   // B05-PROCESA-COPIA, B05-IMP-AJUSTE-P160\n\n    @BeforeStep\n    void carga() {\n        porPim = b05.findAll().stream().collect(Collectors.toMap(\n                i -> new Pim(i.producto(), i.instrumento(), i.moneda()),\n                i -> new Copia(i.procesaCopia(), i.ajusteP160())));\n    }\n\n    /** 50201000-CHECO-COPIA: un PIM que no está en la tabla aborta el paso. */\n    public Copia copiaDe(Pim pim) {\n        var c = porPim.get(pim);\n        if (c == null) {\n            throw new ProcesoAbortadoException(\"NO EXISTE EN TABLA DE COPIAS PROD-INST-MONEDA \"\n                    + pim.producto() + \"-\" + pim.instrumento() + \"-\" + pim.moneda());   // DMTERMINATE\n        }\n        return c;\n    }\n}",
+          "racional": "P160 corre hasta en tres copias simultáneas y cada una procesa los productos que la tabla de instrumentos le asigna. La búsqueda es lineal sobre un arreglo de 31 posiciones, y un producto que no aparece termina el programa. En Java la tabla se carga una vez por step en un <code>Map</code> con llave compuesta y la consulta es directa; el abort se conserva como excepción que deja el step en FAILED. La partición por copia se puede expresar después con un <code>Partitioner</code> de Spring Batch en lugar de tres ejecuciones separadas.",
+          "reglas": [],
+          "riesgo": "La búsqueda se detiene cuando el índice pasa de 30 y luego exige que sea menor que 31: un producto en la posición 31 del arreglo provoca DMTERMINATE aunque sí exista. La capacidad real es de 30 productos."
+        }
+      ]
+    },
+    {
+      "titulo": "Recorrido de contratos, histórico y archivo Motor",
+      "origen": {
+        "archivo": "S500_SOURCE_P160.txt",
+        "contexto": "PROCEDURE DIVISION · 50200000 / 50213090 / 50200500"
+      },
+      "java": {
+        "archivo": "ConciliacionProcessor.java · HistoricoService.java · MotorPolicy.java",
+        "contexto": "RepositoryItemReader · ItemProcessor · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Recorrido de contratos con exclusiones de motor y de conciliación",
+          "linea_ini": 1355,
+          "linea_fin": 1408,
+          "origen_codigo": " 50200000-LEO-INV.\n     PERFORM 90000003-B03CONTRATOS-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1  TO WS-3VEZ\n        ELSE\n           STRING \"ERROR FINDNEXT A B03 \",\n           \" STATUS DB=\",WS-STATUS-BASE \", COPIA=\", WS-COPIAP160\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE\n     ELSE\n        MOVE B03-NUM-PRODUCTO   TO WS-COPY-PRD\n        MOVE B03-NUM-INSTRUM    TO WS-COPY-INS\n        MOVE B03-MONEDA         TO WS-COPY-MON.\n     IF WS-3VEZ = 0\n        IF B03-MIGR-S111 = 1\n           NEXT SENTENCE\n        ELSE\n           PERFORM 50213090-LEE-HIS THRU 50213090-EXIT\n           IF WS-COPIAP160= 1\n              IF B03-STATUS = 4\n              OR B03-NUM-CLIENTE = 0\n              OR W88-QPIM-0066-0090-01\n              OR W88-QPIM-0066-0011-01\n              OR W88-QPIM-0066-0017-01\n              OR W88-QPIM-0500-0006-01\n                 NEXT SENTENCE\n              ELSE\n                 COMPUTE WKS-MOT-SDOACT = B03-SDO-ACTUAL\n                                        + B03-SDOPROT-BLOQ\n                 COMPUTE WKS-MOT-SDOANT = B06-SDO-ANT-ANT\n                                        + B06-SDOBLO-ANTANT\n                 PERFORM 50200500-ARMA-MOTOR  THRU 50200500-EXIT.\n      IF B03-MIGR-S111 = 1\n         NEXT SENTENCE\n      ELSE\n         PERFORM 50201000-CHECO-COPIA  THRU 50201000-EXIT\n         IF WS-COPIAP160 = WS-NUM-COPIAC\n            IF W88-QPIM-0500-0006-01\n               IF B03-STATUS = 2 OR 3 OR 4\n                  NEXT SENTENCE\n               ELSE\n                  PERFORM 50210000-OPERO-INV THRU 50210000-EXIT\n            ELSE\n               PERFORM 50210000-OPERO-INV THRU 50210000-EXIT\n         ELSE\n            NEXT SENTENCE.",
+          "java_codigo": "@Bean\n@StepScope\nRepositoryItemReader<Contrato> contratosB03(ContratoRepository b03) {    // FINDN secuencial sobre S500B03CONTRATOS\n    return new RepositoryItemReaderBuilder<Contrato>()\n            .name(\"contratosB03\").repository(b03).methodName(\"findAll\")\n            .sorts(Map.of(\"numContrato\", Sort.Direction.ASC))\n            .pageSize(1000).build();\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ConciliacionProcessor implements ItemProcessor<Contrato, ResultadoContrato> {\n\n    private static final Set<Pim> EXCLUIDOS_MOTOR = Set.of(        // W88-QPIM-*\n            new Pim(66, 90, 1), new Pim(66, 11, 1), new Pim(66, 17, 1), new Pim(500, 6, 1));\n    private static final Pim QPIM_0500_0006 = new Pim(500, 6, 1);\n\n    private final HistoricoService historico;\n    private final TablaCopias copias;\n    @Value(\"#{jobParameters['copia']}\") private int copiaActual;   // WS-COPIAP160\n\n    @Override\n    public ResultadoContrato process(Contrato c) {\n        if (c.migradoS111()) return null;                          // B03-MIGR-S111 = 1: se ignora\n        var his = historico.de(c);                                 // 50213090-LEE-HIS\n        var r = new ResultadoContrato(c);\n\n        boolean excluidoMotor = c.status() == 4 || c.numCliente() == 0\n                || EXCLUIDOS_MOTOR.contains(c.pim());\n        if (copiaActual == 1 && !excluidoMotor) MotorPolicy.registro(c, his, contextoMotor).ifPresent(r::motor);\n\n        if (copias.copiaDe(c.pim()).numero() == copiaActual) {\n            boolean excluidoConciliacion = c.pim().equals(QPIM_0500_0006) && Set.of(2, 3, 4).contains(c.status());\n            if (!excluidoConciliacion) r.diferencia(concilia(c, his));   // 50210000-OPERO-INV\n        }\n        return r;\n    }\n}",
+          "racional": "El recorrido secuencial de <code>B03CONTRATOS</code> es el reader del step y cada contrato pasa por un <code>ItemProcessor</code>. Los contratos migrados a S111 se ignoran. Para el archivo Motor, que solo genera la copia 1, se excluyen los cancelados, los que no tienen cliente y cuatro combinaciones de producto, instrumento y moneda. Para la conciliación, la copia que corresponde al producto procesa todos salvo el producto 500-6-1 con estatus 2, 3 o 4. Un error de base distinto de fin de datos aborta el programa; en Spring Batch el reader propaga la excepción y el step falla sin avanzar sobre datos inconsistentes.",
+          "reglas": [
+            "RN-S500-655",
+            "RN-S500-657"
+          ],
+          "riesgo": "Las dos listas de exclusión no son iguales: el producto 500-6-1 se excluye siempre del Motor, pero de la conciliación solo con estatus 2, 3 o 4. Los códigos QPIM están compilados en condiciones 88 y conviene llevarlos a un catálogo."
+        },
+        {
+          "id": "s4",
+          "titulo": "Búsqueda en el histórico B06: no encontrado contra error de base",
+          "linea_ini": 1581,
+          "linea_fin": 1600,
+          "origen_codigo": " 50213090-LEE-HIS.\n    MOVE B03-NUM-CONTRATO      TO WS-NUM-CONTRATO WS-MSG-CTO\n    PERFORM 90000006-B06SXCTO-FIND\n    IF WS-STATUS-BASE > 0\n     IF WS-STATUS-BASE = 1\n        STRING  \"CTO INEXISTENTE EN B06 \",\n                \", PIM=\", WS-PIM-PROD\n                \", CTO=\", WS-MSG-CTO\n                \", COPIA=\", WS-COPIAP160\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        MOVE 1   TO WS-4VEZ\n        MOVE 0   TO B06-SDO-ANT-ANT B06-SDOBLO-ANTANT\n     ELSE\n        STRING \"ERROR AL HACER FIND  A B06 \",\n          \" STATUS DB=\",WS-STATUS-BASE, \", PIM=\", WS-PIM-PROD\n          \", CTO=\", WS-MSG-CTO, \", COPIA=\", WS-COPIAP160\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class HistoricoService {\n\n    private final HistoricoRepository b06;    // S500B06HISTORICO, set B06SXCTO\n\n    /** 50213090-LEE-HIS: el contrato sin histórico es un caso de negocio; un error de base aborta. */\n    public Historico de(Contrato c) {\n        try {\n            return b06.findByNumContrato(c.numContrato())\n                    .orElseGet(() -> {\n                        log.info(\"CTO INEXISTENTE EN B06 , PIM={}, CTO={}, COPIA={}\",\n                                 c.pim(), c.numContrato(), copiaActual);\n                        return Historico.vacio();      // saldos anteriores en 0 y sin acumular días\n                    });\n        } catch (DataAccessException e) {\n            // \"ERROR AL HACER FIND  A B06\": CALL SYSTEM DMTERMINATE\n            throw new ProcesoAbortadoException(\"ERROR AL HACER FIND A B06 PIM=%s CTO=%s\"\n                    .formatted(c.pim(), c.numContrato()), e);\n        }\n    }\n}",
+          "racional": "El estatus 1 de DMSII significa registro no encontrado: P160 lo reporta como mensaje informativo, pone en cero los saldos anteriores y marca que no hay movimientos que acumular. Cualquier otro estatus es un error real de base y termina el programa con <code>DMTERMINATE</code>. En Java esa distinción es natural: <code>Optional</code> vacío para el caso de negocio y <code>DataAccessException</code> para el error, que se convierte en una excepción que falla el step.",
+          "reglas": [
+            "RN-S500-657"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Condiciones para escribir el registro Motor que consume P189",
+          "linea_ini": 1412,
+          "linea_fin": 1450,
+          "origen_codigo": " 50200500-ARMA-MOTOR.\n     IF WKS-E01-R1-TPOARCH = 1 AND\n        (B03-FEC-RCTAORI IS NOT EQUAL TO B03-FEC-ULTMOV)\n        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT\n     ELSE\n     IF B03-FEC-ULTMOV = WS-FECHA-PRO-AMD AND\n        (B03-FEC-RCTAORI IS NOT EQUAL TO B03-FEC-ULTMOV)\n        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT\n     ELSE\n     IF B03-STATUS = 1\n        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT\n     ELSE\n     IF WKS-MOT-SDOACT NOT = WKS-MOT-SDOANT\n        PERFORM 50200520-ESC-MOTOR  THRU 50200520-EXIT.\n 50200520-ESC-MOTOR.\n     MOVE B03-NUM-CLIENTE     TO WKS-E01-R3-NUMCTE.\n     MOVE B03-NUM-CONTRATO    TO WKS-E01-R3-NUMCTO.\n     MOVE B03-NUM-PRODUCTO    TO WKS-E01-R3-NPROD.\n     MOVE B03-NUM-INSTRUM     TO WKS-E01-R3-NINST.\n     MOVE B03-MONEDA          TO WKS-E01-R3-MONEDA.\n     MOVE B03-FEC-ULTMOV      TO WKS-E01-R3-FECHULTM.\n     MOVE WKS-E01-R1-TPOARCH  TO WKS-E01-R3-TPOMOVTO.\n     MOVE WKS-MOT-SDOACT   TO WKS-E01-R3-SDOACT.\n     MOVE WKS-MOT-SDOANT   TO WKS-E01-R3-SDOANT.\n     IF B03-STATUS = 1\n        MOVE 1                TO WKS-E01-R3-STACTO\n     ELSE\n        MOVE 0                TO WKS-E01-R3-STACTO.\n     WRITE FD-REG-MOTOR FROM WKS-E01-DATOS.",
+          "java_codigo": "/** 50200500-ARMA-MOTOR + 50200520-ESC-MOTOR. */\npublic final class MotorPolicy {\n\n    public static Optional<RegistroMotor> registro(Contrato c, Historico h, ContextoMotor ctx) {\n        BigDecimal sdoAct = c.saldoActual().add(c.saldoProtBloq());          // WKS-MOT-SDOACT\n        BigDecimal sdoAnt = h.saldoAntAnt().add(h.saldoBloqAntAnt());        // WKS-MOT-SDOANT\n        boolean recalculoDistinto = !c.fecRctaOri().equals(c.fecUltMov());\n\n        boolean escribe =\n                (ctx.tipoArchivo() == 1 && recalculoDistinto)                 // tipo de archivo 1\n             || (c.fecUltMov().equals(ctx.fechaProceso()) && recalculoDistinto) // movimiento del día\n             || c.status() == 1                                               // contrato activo\n             || sdoAct.compareTo(sdoAnt) != 0;                                // cambió el saldo\n        if (!escribe) return Optional.empty();\n\n        return Optional.of(new RegistroMotor(\n                c.numCliente(), c.numContrato(), c.producto(), c.instrumento(), c.moneda(),\n                c.fecUltMov(),                       // FECHULTM 9(08)\n                ctx.tipoArchivo(),                   // TPOMOVTO\n                sdoAnt, sdoAct,                      // S9(14)V99, suma exacta de escala 2\n                c.status() == 1 ? 1 : 0));           // STACTO\n    }\n}",
+          "racional": "El archivo Motor lleva por cliente la fecha de último movimiento y lo consume el paso P189. El registro se escribe si se cumple cualquiera de cuatro condiciones, evaluadas en cascada: archivo de tipo 1 con fecha de recálculo distinta a la de último movimiento, movimiento del día con esa misma diferencia, contrato activo, o saldo actual distinto del anterior. Los saldos del Motor suman el saldo protegido por orden judicial. La política queda en una clase pura, fácil de probar contra los casos del brain.",
+          "reglas": [
+            "RN-S500-656"
+          ],
+          "riesgo": "Como basta con que el contrato esté activo, prácticamente todos los contratos vigentes generan registro Motor; las otras tres condiciones solo agregan contratos no activos."
+        }
+      ]
+    },
+    {
+      "titulo": "Conciliación de saldos y cierre del paso",
+      "origen": {
+        "archivo": "S500_SOURCE_P160.txt",
+        "contexto": "PROCEDURE DIVISION · 50212000 / 50213000 / 50213200 / 70000050"
+      },
+      "java": {
+        "archivo": "ConciliacionProcessor.java · MarcaPasoTasklet.java",
+        "contexto": "BigDecimal · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Acumulación por producto y reconstrucción del saldo desde 31 días de histórico",
+          "linea_ini": 1557,
+          "linea_fin": 1624,
+          "origen_codigo": " 50212000-ACUMULO.\n       ADD B03-SDO-ACTUAL      TO WS-INV(WS-INDCIF).\n       ADD B03-SDOPROT-BLOQ    TO WS-INV(WS-INDCIF).\n 50213000-VEOHIS.\n     PERFORM 50213100-SDO-HIS.\n     MOVE 0       TO WS-4VEZ.\n     COMPUTE WS-SUM-SDOCAL = B03-SDO-FINCORTE + WS-SUM-SDODEP\n                                              - WS-SUM-SDORET.\n 50213100-SDO-HIS.\n      MOVE 0 TO WS-6VEZ WS-DIAC2.\n      MOVE 0 TO WS-SUM-SDODEP.\n      MOVE 0 TO WS-SUM-SDORET.\n      IF WS-4VEZ = 0\n         PERFORM 50213110-ACUM-MOV THRU 50213110-EXIT\n                 UNTIL WS-6VEZ = 1.\n 50213110-ACUM-MOV.\n      ADD  1                 TO WS-DIAC2.\n      IF WS-DIAC2 > 31\n         MOVE 1   TO WS-6VEZ\n      ELSE\n         ADD B06-DEPS-DIA(WS-DIAC2) TO WS-SUM-SDODEP WS-TOTALDEP\n         ADD B06-RETS-DIA(WS-DIAC2) TO WS-SUM-SDORET WS-TOTALRET.",
+          "java_codigo": "/** 50212000-ACUMULO + 50213000-VEOHIS + 50213100-SDO-HIS + 50213110-ACUM-MOV. */\nprivate DiferenciaSaldo concilia(Contrato c, Historico h) {\n    // Saldo de inversiones por producto: actual + protegido por orden judicial (sin pendiente).\n    totales.acumulaInversion(c.pim(), c.saldoActual().add(c.saldoProtBloq()));\n\n    BigDecimal depositos = BigDecimal.ZERO.setScale(2);\n    BigDecimal retiros   = BigDecimal.ZERO.setScale(2);\n    if (h.existe()) {                                           // WS-4VEZ = 0\n        for (int dia = 1; dia <= 31; dia++) {                   // tope fijo de 31 posiciones\n            depositos = depositos.add(h.depositosDia(dia));     // B06-DEPS-DIA(WS-DIAC2)\n            retiros   = retiros.add(h.retirosDia(dia));         // B06-RETS-DIA(WS-DIAC2)\n        }\n    }\n    // COMPUTE WS-SUM-SDOCAL = B03-SDO-FINCORTE + DEP - RET  (S9(14)V99, sin redondeo: exacto)\n    BigDecimal saldoCalculado = c.saldoFinCorte().add(depositos).subtract(retiros);\n    return compara(c, saldoCalculado);\n}",
+          "racional": "La reconstrucción toma el saldo del fin de corte del contrato y le suma los depósitos y le resta los retiros de cada día del arreglo del histórico. El ciclo recorre siempre las 31 posiciones del arreglo, que corresponden a un mes calendario máximo. Todas las operaciones son sumas y restas entre importes de escala 2, así que el resultado es exacto y no requiere modo de redondeo. En paralelo, el saldo del contrato se acumula en la tabla de totales por producto.",
+          "reglas": [
+            "RN-S500-654"
+          ],
+          "riesgo": "El comentario del fuente dice que se acumula dependiendo de la fecha de corte, pero el ciclo no consulta ninguna fecha: suma las 31 posiciones completas. Si el arreglo conservara movimientos de un mes anterior, entrarían en el cálculo."
+        },
+        {
+          "id": "s7",
+          "titulo": "Comparación contra el saldo actual y escritura del descuadre",
+          "linea_ini": 1631,
+          "linea_fin": 1654,
+          "origen_codigo": " 50213200-COMPARO.\n* Se incluye saldo protegido por Orden Judicial al Saldo Actual\n      COMPUTE B03-SDO-ACTUAL = B03-SDO-ACTUAL + B03-SDO-PENDIENTE\n                             + B03-SDOPROT-BLOQ\n      IF B03-SDO-ACTUAL = WS-SUM-SDOCAL\n         NEXT SENTENCE\n      ELSE\n         PERFORM 50213210-GRABO.\n 50213210-GRABO.\n     MOVE B03-NUM-CONTRATO      TO SDO-CTO.\n     MOVE B03-NUM-PRODUCTO      TO SDO-PRD.\n     MOVE B03-NUM-INSTRUM       TO SDO-INS.\n     MOVE B03-MONEDA            TO SDO-MON.\n     MOVE B03-SDO-ACTUAL        TO SDO-INV.\n     MOVE WS-SUM-SDOCAL         TO SDO-HIS.\n     MOVE 0                     TO SDO-CIF.\n     WRITE REG-SALDOS.",
+          "java_codigo": "private DiferenciaSaldo compara(Contrato c, BigDecimal saldoCalculado) {\n    // 50213200-COMPARO: en COBOL este COMPUTE sobrescribe B03-SDO-ACTUAL en el buffer de la base.\n    BigDecimal saldoComparable = c.saldoActual()\n            .add(c.saldoPendiente())\n            .add(c.saldoProtBloq());                     // nunca se modifica la entidad\n    if (saldoComparable.compareTo(saldoCalculado) == 0) {\n        return null;                                    // cuadra: no se escribe en FILE-SALDOS\n    }\n    return new DiferenciaSaldo(c.producto(), c.instrumento(), c.moneda(), c.numContrato(),\n            saldoComparable, saldoCalculado, BigDecimal.ZERO.setScale(2));   // 50213210-GRABO\n}",
+          "racional": "El saldo que se compara contra el histórico suma al actual el pendiente y el protegido por orden judicial. Si coincide, el contrato no se reporta; si no, se escribe en el archivo de diferencias con ambos saldos y la cifra de control en cero. En COBOL la suma se guarda en el propio campo <code>B03-SDO-ACTUAL</code> del área de la base de datos; la traducción usa una variable local para que la entidad JPA nunca quede modificada y no exista riesgo de persistir un saldo alterado por el <code>flush</code> de la transacción.",
+          "reglas": [],
+          "riesgo": "La tabla de totales por producto acumula saldo actual más protegido (sin pendiente), mientras que la comparación por contrato incluye el pendiente. Los dos listados de P160 usan definiciones distintas de saldo."
+        },
+        {
+          "id": "s8",
+          "titulo": "Marca de paso concluido en B00CTRLPASO por copia",
+          "linea_ini": 1960,
+          "linea_fin": 2040,
+          "origen_codigo": " 70000050-ACT-PASO.\n   SET S500B00CTRLPASO TO BEGINNING.\n   PERFORM 90000000-B00CTRLPASO-LOCK.\n      IF WS-COPIAP160= 1\n         MOVE 0               TO B00-CARGA-MOTOR\n         MOVE 160             TO B00-NUM-PASO-01\n      ELSE\n      IF WS-COPIAP160= 2\n         MOVE 160             TO B00-NUM-PASO-02\n      ELSE\n         MOVE 160             TO B00-NUM-PASO-03.\n      MOVE 1                  TO WS-BAN-B00.\n      PERFORM 51001100-ACTUALIZO THRU  51001100-EXIT.\n 51001100-ACTUALIZO.\n    PERFORM 90000000-BEGIN-TRANSACTION.\n    IF WS-BAN-B00 = 1\n      PERFORM 90000000-B00CTRLPASO-STORE\n      IF WS-STATUS-BASE > 0\n         CALL SYSTEM DMTERMINATE\n      ELSE\n         MOVE 0                                TO WS-BAN-B00.\n    PERFORM 90000000-END-TRANSACTIONNOAU.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class MarcaPasoTasklet implements Tasklet {\n\n    private static final int PASO = 160;\n    private final ControlPasoRepository b00;     // S500B00CTRLPASO\n    @Value(\"#{jobParameters['copia']}\") private int copia;\n\n    /** 70000050-ACT-PASO + 51001100-ACTUALIZO: LOCK, MOVE 160 y STORE en una transacción. */\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution contribution, ChunkContext ctx) {\n        ControlPaso cp = b00.findForUpdate()                         // LOCK (PESSIMISTIC_WRITE)\n                .orElseThrow(() -> new ProcesoAbortadoException(\"NO EXISTE B00CONTROL EN BASE\"));\n        switch (copia) {\n            case 1 -> { cp.setCargaMotor(0); cp.setNumPaso01(PASO); }\n            case 2 -> cp.setNumPaso02(PASO);\n            default -> cp.setNumPaso03(PASO);                        // cualquier otra copia\n        }\n        return RepeatStatus.FINISHED;                                // STORE + END-TRANSACTION al commit\n    }\n}",
+          "racional": "Al terminar, cada copia bloquea el registro de control de pasos, anota que el paso 160 concluyó en su propia columna y lo guarda dentro de una transacción. La copia 1 además apaga la bandera de carga del Motor. En Java es un <code>Tasklet</code> final con <code>@Transactional</code> y lectura con bloqueo pesimista, que es el equivalente del <code>LOCK</code> de DMSII. El control de secuencia entre pasos que hoy vive en este registro puede convivir con el <code>JobRepository</code> mientras se migran los pasos vecinos.",
+          "reglas": [],
+          "riesgo": "Cualquier copia distinta de 1 y 2 escribe en B00-NUM-PASO-03, incluido un valor de copia inválido."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Saldo de la base modificado en memoria",
+      "detalle": "50213200-COMPARO (líneas 1633-1634) sobrescribe B03-SDO-ACTUAL con la suma de actual, pendiente y protegido. No se encontró un STORE de B03, pero cualquier lógica posterior que lea ese campo en la misma iteración verá un saldo alterado."
+    },
+    {
+      "titulo": "Definiciones de saldo inconsistentes",
+      "detalle": "La tabla por producto acumula actual más protegido (líneas 1558-1560) y la comparación por contrato incluye además el pendiente (líneas 1633-1634). Los listados de diferencias y de posición no son comparables entre sí."
+    },
+    {
+      "titulo": "Capacidad real de 30 productos",
+      "detalle": "Las búsquedas en las tablas de copias y de cifras (líneas 1465-1471 y 1504-1510) terminan al pasar de 30 y luego exigen índice menor a 31; un producto en la posición 31 aborta el programa."
+    },
+    {
+      "titulo": "Acumulación de 31 días sin fecha",
+      "detalle": "50213110-ACUM-MOV (líneas 1618-1624) suma las 31 posiciones del arreglo sin considerar la fecha de corte que menciona el comentario."
+    },
+    {
+      "titulo": "Exclusiones compiladas",
+      "detalle": "Los códigos QPIM 0066-0090-01, 0066-0011-01, 0066-0017-01 y 0500-0006-01 y el estatus 4 de cancelado están en condiciones 88 y en IF del fuente (líneas 1377-1382 y 1400-1401). Se trasladan a catálogo o propiedades."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME si el pendiente debe formar parte del saldo de la tabla por producto, para unificar las dos definiciones de saldo.",
+    "Confirmar si el arreglo B06-DEPS-DIA y B06-RETS-DIA se limpia al inicio de cada corte; de eso depende que sumar las 31 posiciones sea correcto.",
+    "Verificar que ningún párrafo posterior a 50213200-COMPARO haga STORE sobre B03 con el saldo modificado; en la revisión no se encontró, pero el copybook 25MTP002 con las rutinas de base no viene expandido.",
+    "Los listados de 50500000 en adelante (CHECASAL y CHECAPOS) y el archivo de incidentes de 2020 no se incluyeron en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-653",
+    "RN-S500-654",
+    "RN-S500-655",
+    "RN-S500-656",
+    "RN-S500-657"
+  ]
+}

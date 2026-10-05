@@ -1,0 +1,214 @@
+{
+  "slug": "S500_P015",
+  "sistema": "S500",
+  "programa": "P015",
+  "nombre": "Dispersador de movimientos a sistemas externos",
+  "funcion": "Programa en línea del S500 (PROGRAM-ID DISPERSADOR) que reúne los archivos de movimientos de S087, S152 y Tarjetas en un consolidado ORDENADO-CM y lo envía registro por registro al P010 vía COMS; no corre mientras está activo el batch del S500.",
+  "resumen": "P015 lee la estructura de control B02CONTROL de S500BD01CAPTACION para saber qué archivos ya se aplicaron y en qué estado quedó la última dispersión. Si no hay un consolidado pendiente, mete al ORDENADO-CM cada archivo diario de S087, S152 (solo con dispersión CPE habilitada) y Tarjetas desde la última fecha aplicada hasta la fecha de línea, lo ordena y pide autorizaciones a la L010. Después lo dispersa por COMS en tres vueltas, con reintento de pendientes, espera de respuestas retrasadas y confirmación por registro, y marca el avance en B02-STA-DISP (1 al empezar a meter archivos, 2 con el ordenado listo, 3 al terminar el envío). Una rama paralela hace lo mismo con el archivo de saldos pendientes.",
+  "arquetipo": "A6",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration",
+  "paquete_java": "mx.banamex.s500.dispersion",
+  "secciones": [
+    {
+      "titulo": "Archivos de dispersión y registro del ORDENADO-CM (390 bytes)",
+      "origen": {
+        "archivo": "S500_SOURCE_P015.txt",
+        "contexto": "FILE-CONTROL · FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "DispersionFiles.java · OrdenadoRecord.java · DispersionProperties.java",
+        "contexto": "ResourceLocator · sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Archivos OPTIONAL con acceso RANDOM por ACTUAL KEY",
+          "linea_ini": 34,
+          "linea_fin": 92,
+          "origen_codigo": "     SELECT OPTIONAL DISPS087\n                     ASSIGN TO DISK\n                     ORGANIZATION IS SEQUENTIAL\n                     ACCESS MODE IS RANDOM\n                     ACTUAL KEY IS WS-LLAVE-DISPS087.\n     SELECT OPTIONAL DISPS152\n                     ASSIGN TO DISK\n                     ORGANIZATION IS SEQUENTIAL\n                     ACCESS MODE IS RANDOM\n                     ACTUAL KEY IS WS-LLAVE-DISPS152.\n*NOR-INI CONCILIACION EAS-HUB\n     SELECT EAS-HUB\n              ASSIGN TO    DISK\n              ORGANIZATION IS SEQUENTIAL\n              ACCESS MODE  IS RANDOM\n              ACTUAL KEY   IS WS-LLAVE-EASH.\n     SELECT OPTIONAL SALDOSPEN\n                     ASSIGN TO DISK\n                     ORGANIZATION IS SEQUENTIAL\n                     ACCESS MODE IS RANDOM\n                     ACTUAL KEY IS WS-LLAVE-SALDOSPEN.\n     SELECT OPTIONAL MOVTBINT\n        ASSIGN       TO DISK\n        ORGANIZATION IS SEQUENTIAL\n        ACCESS MODE  IS RANDOM\n        ACTUAL KEY   IS WS-LLAVE-TBINT.\n* ARCHIVO DEL SISTEMA TARJETA * CAJEROS  (SEMANAL)            *\n     SELECT OPTIONAL MOVTBINTSEM\n        ASSIGN       TO DISK\n        ACCESS MODE  IS RANDOM\n        ACTUAL KEY   IS WS-LLAVE-TBINTSEM.\n     SELECT ORDENADO-CM\n              ASSIGN TO    DISK\n              ORGANIZATION IS SEQUENTIAL\n              ACCESS MODE  IS RANDOM\n              ACTUAL KEY   IS WS-LLAVE-ORDCM.\n     SELECT CTRLARCH\n              ASSIGN TO    DISK\n              ORGANIZATION IS SEQUENTIAL\n              ACCESS MODE  IS RANDOM\n              ACTUAL KEY   IS WS-LLAVE-CTRL.",
+          "java_codigo": "/** Sustituye SELECT OPTIONAL ... ACCESS MODE IS RANDOM / ACTUAL KEY. */\npublic interface RegistroDirecto<T> extends AutoCloseable {\n    Optional<T> leer(long llave);          // READ ... INVALID KEY -> Optional.empty()\n    void escribir(long llave, T registro); // WRITE ... INVALID KEY -> excepción\n    long ultimoRegistro();                 // ATTRIBUTE LASTRECORD\n}\n\n@Component\n@RequiredArgsConstructor\npublic class DispersionFiles {\n\n    private final ResourceLoader loader;\n\n    /**\n     * OPTIONAL: la ausencia del archivo no aborta el paso; el programa pregunta\n     * ATTRIBUTE RESIDENT antes de abrir. Aquí la ausencia es un Optional vacío.\n     */\n    public Optional<RegistroDirecto<String>> abrirOpcional(String titulo, int longitud) {\n        Resource r = loader.getResource(titulo);\n        return r.exists() ? Optional.of(new ArchivoLongitudFija(r, longitud)) : Optional.empty();\n    }\n\n    /** EAS-HUB, ORDENADO-CM y CTRLARCH no son OPTIONAL en el fuente. */\n    public RegistroDirecto<String> abrirObligatorio(String titulo, int longitud) {\n        return abrirOpcional(titulo, longitud)\n                .orElseThrow(() -> new ArchivoNoResidenteException(titulo));\n    }\n}",
+          "racional": "Todos los archivos de entrada de dispersión (S087, S152, saldos pendientes y los dos de Tarjetas) se declaran <code>OPTIONAL</code> con <code>ACCESS MODE IS RANDOM</code> y una <code>ACTUAL KEY</code>, que en MCP es el número relativo de registro. Eso permite releer el header en la llave 1, posicionarse por número de registro para reintentos y confirmar registro a registro. En Java se modela con una interfaz de acceso directo por número de registro sobre archivos de longitud fija, y lo opcional se expresa con <code>Optional</code> en lugar de dejar que la apertura falle.",
+          "reglas": [
+            "RN-S500-619"
+          ],
+          "riesgo": "EAS-HUB, ORDENADO-CM y CTRLARCH no llevan OPTIONAL, y MOVTBINTSEM no declara ORGANIZATION. La regla del brain dice que todos los archivos son OPTIONAL; el fuente no lo confirma para EAS-HUB."
+        },
+        {
+          "id": "s2",
+          "titulo": "REG-ORDENADO con vistas REDEFINES y estado de envío por registro",
+          "linea_ini": 132,
+          "linea_fin": 292,
+          "origen_codigo": " 01 REG-ORDENADO.\n    02 REG-ORDENADO-TR                  PIC X.\n*** \"1\"\n    02 REG-ORDENADO-CTR.\n       03 REG-ORDENADO-HEADER           PIC 9(12) COMP.\n       03 REG-ORDENADO-FECHA            PIC 9(08) COMP.\n       03 REG-ORDENADO-NODO             PIC 9(02) COMP.\n    02 REG-ORDENADO-TB REDEFINES REG-ORDENADO-CTR.\n       03 ORDENADO-TB-CLAVE              PIC  9(04)    COMP.\n          88 ORD-CVE-P015                VALUE 1,2,10 THRU 16.\n          88 ORD-CVE-ELIM                VALUE 534.\n          88 ORD-CVE-ABONOS              VALUE 1000 THRU 1999.\n          88 ORD-CVE-ABOAUT              VALUE 3000,3001,3019,\n                                               3024.\n          88 ORD-CVE-CARGOS              VALUE 2000 THRU 2999.\n          88 ORD-CVE-CGOAUT              VALUE 4000,4009,4053 THRU\n                                                    4055.\n          88 ORD-CVE-ISR-CGOAUT          VALUE 4009.\n          88 ORD-CVE-VOUCHER-NAL         VALUE 2139.\n          88 ORD-CVE-AUTORIZ             VALUE 526, 527.\n          88 ORD-CVE-D-COMIS             VALUE 584,585,613,615,\n                                               700,701.\n          88 ORD-CVE-FINLINEA            VALUE 008.\n          88 ORD-CVE-PRELINEA            VALUE 009.\n          88 ORD-CVE-FINPRELI            VALUE 010.\n          88 ORD-CVE-RECHAZOS            VALUE 001 THRU 002.\n          88 ORD-CVE-NCONT               VALUE 500 THRU 533,\n                                               535 THRU 999.\n       03 ORDENADO-TB-TIPERROR           PIC  9(02)    COMP.\n          88 ORD-TB-NOENVIADO            VALUE 0.\n          88 ORD-TB-ENVIADO              VALUE 1.\n          88 ORD-TB-CONFOK               VALUE 2.\n          88 ORD-TB-CONFNOK              VALUE 3.\n       03 ORDENADO-TB-NUMCONT            PIC  9(12)    COMP.\n       03 ORDENADO-TB-NUMTB              PIC  9(16)    COMP.\n       03 ORDENADO-TB-IMPORTE            PIC  9(12)V99 COMP.\n 02 REG-ORDENADO-TRL REDEFINES REG-ORDENADO-CTR.\n       03 REG-ORDENADO-TRAILER          PIC 9(06)    COMP.\n       03 REG-ORDENADO-NUMTRL           PIC 9(08)    COMP.\n       03 REG-ORDENADO-IMPTRL           PIC 9(20)V99 COMP.",
+          "java_codigo": "/** REG-ORDENADO: 390 bytes, vista según REG-ORDENADO-TR. */\npublic sealed interface OrdenadoRecord\n        permits OrdenadoRecord.Header, OrdenadoRecord.Movimiento, OrdenadoRecord.TotalesArchivo,\n                OrdenadoRecord.UltimosArchivos, OrdenadoRecord.Trailer {\n\n    record Header(LocalDate fecha, int nodo, long hora /* , primeras y últimas fechas por origen */) implements OrdenadoRecord {}\n\n    /** Tipo \"2\" (y \"3\" para rechazos). */\n    record Movimiento(int clave, EstadoEnvio estado, int numError, int prioridad,\n                      String contrato,          // 9(12) COMP -> String con ceros\n                      String tarjeta,           // 9(16) COMP\n                      BigDecimal importe        // 9(12)V99 COMP -> escala 2\n                      /* , demás campos del layout */) implements OrdenadoRecord {\n\n        public ClaseClave clase() { return ClaseClave.de(clave); }\n    }\n\n    record TotalesArchivo(/* OCCURS 10 */ List<TotalArchivo> totales) implements OrdenadoRecord {}\n    record UltimosArchivos(/* OCCURS 30 */ List<LocalDate> fechas)   implements OrdenadoRecord {}\n    record Trailer(int marca, long registros, BigDecimal importe /* 9(20)V99 */) implements OrdenadoRecord {}\n\n    /** ORDENADO-TB-TIPERROR: 0 no enviado, 1 enviado, 2 confirmado ok, 3 confirmado con error. */\n    enum EstadoEnvio { NO_ENVIADO, ENVIADO, CONF_OK, CONF_NOK }\n}\n\n/** Niveles 88 de ORDENADO-TB-CLAVE. Los rangos se evalúan en el orden del fuente. */\npublic enum ClaseClave {\n    P015, ELIMINACION, ABONOS, ABONOS_AUT, CARGOS, CARGOS_AUT, AUTORIZACION,\n    COMISIONES, FIN_LINEA, PRE_LINEA, FIN_PRE_LINEA, RECHAZOS, NO_CONTABLE, OTRA;\n\n    static ClaseClave de(int c) {\n        if (c == 1 || c == 2 || (c >= 10 && c <= 16)) return P015;   // se solapa con 001-002 y 010\n        if (c == 534)                    return ELIMINACION;\n        if (c >= 1000 && c <= 1999)      return ABONOS;\n        if (Set.of(3000, 3001, 3019, 3024).contains(c)) return ABONOS_AUT;\n        if (c >= 2000 && c <= 2999)      return CARGOS;\n        if (c == 4000 || c == 4009 || (c >= 4053 && c <= 4055)) return CARGOS_AUT;\n        if (c == 526 || c == 527)        return AUTORIZACION;\n        if (Set.of(584, 585, 613, 615, 700, 701).contains(c)) return COMISIONES;\n        if (c == 8)                      return FIN_LINEA;\n        if (c == 9)                      return PRE_LINEA;\n        if ((c >= 500 && c <= 533) || (c >= 535 && c <= 999)) return NO_CONTABLE;\n        return OTRA;\n    }\n}",
+          "racional": "El consolidado es un solo buffer de 390 bytes con cinco interpretaciones (header, movimiento, totales por archivo, últimos archivos aplicados y trailer). Igual que en el resto de los arquetipos se traduce a <code>sealed interface</code> con un <code>record</code> por vista. Los niveles 88 de la clave se vuelven un <code>enum</code> clasificador, que es la pieza que el arquetipo A6 usa como <code>Classifier</code> para decidir tratamiento por tipo de movimiento. <code>ORDENADO-TB-TIPERROR</code> es en realidad el estado de envío del registro y se modela como <code>enum</code>; el importe <code>9(12)V99 COMP</code> pasa a <code>BigDecimal</code> de escala 2 y contrato y tarjeta a <code>String</code>.",
+          "reglas": [],
+          "riesgo": "Los niveles 88 se solapan: ORD-CVE-P015 incluye 1, 2 y 10, que también son ORD-CVE-RECHAZOS y ORD-CVE-FINPRELI. En COBOL ambos son verdaderos a la vez; un enum de un solo valor obliga a decidir precedencia y debe validarse contra cada IF que los usa."
+        },
+        {
+          "id": "s3",
+          "titulo": "Rutas de archivo compiladas en etiquetas a application.yml",
+          "linea_ini": 892,
+          "linea_fin": 916,
+          "origen_codigo": " 01 W-ETIQ-DISPS087.\n    02 FILLER             PIC X(16) VALUE \"S087/FILE/S500/\".\n    02 W-ETIQ-D87-CSIO    PIC 99/.\n    02 W-ETIQ-D87-CSID    PIC 99.\n    02 FILLER             PIC X(10) VALUE \"/MOVSDISP/\".\n    02 W-ETIQ-D87-FECHA   PIC 9(06).\n    02 W-ETIQ-D87-FECHAR REDEFINES W-ETIQ-D87-FECHA.\n       04 W-ETIQ-D87-ANO  PIC 9(02).\n       04 W-ETIQ-D87-MES  PIC 9(02).\n       04 W-ETIQ-D87-DIA  PIC 9(02).\n    02 FILLER             PIC X(01) VALUE \".\".\n 01 W-ETIQ-DISPS152.\n    02 FILLER             PIC X(18) VALUE \"S152/FILE/S500/12/\".\n    02 W-ETIQ-DIS-CSID    PIC 99.\n    02 FILLER             PIC X(10) VALUE \"/MOVSDISP/\".\n    02 W-ETIQ-DIS-FECHA   PIC 9(06).\n    02 W-ETIQ-DIS-FECHAR REDEFINES W-ETIQ-DIS-FECHA.\n       04 W-ETIQ-DIS-ANO  PIC 9(02).\n       04 W-ETIQ-DIS-MES  PIC 9(02).\n       04 W-ETIQ-DIS-DIA  PIC 9(02).\n    02 FILLER             PIC X(01) VALUE \".\".",
+          "java_codigo": "# application.yml\np015:\n  entradas:\n    s087: \"S087/FILE/S500/{csiOrigen}/{csiDestino}/MOVSDISP/{fecha}.\"   # W-ETIQ-D87-CSIO PIC 99/\n    s152: \"S152/FILE/S500/12/{csiDestino}/MOVSDISP/{fecha}.\"             # origen 12 fijo en el fuente\n  fecha-en-nombre: yyMMdd                                                # PIC 9(06) AAMMDD\n  ejecuta-p121: true                                                     # WS-88-EJECUTA-P121\n  minutos-espera: 3                                                      # WKS-MINUTOS-A-ESPERAR\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p015\")\npublic record DispersionProperties(Entradas entradas, String fechaEnNombre,`n                                   boolean ejecutaP121, int minutosEspera) {\n    public record Entradas(String s087, String s152) {}\n\n    public String titulo(String plantilla, int csi, LocalDate fecha) {\n        String nodo = \"%02d\".formatted(csi);\n        return plantilla.replace(\"{csiOrigen}\", nodo)\n                        .replace(\"{csiDestino}\", nodo)\n                        .replace(\"{fecha}\", fecha.format(DateTimeFormatter.ofPattern(fechaEnNombre)));\n    }\n}",
+          "racional": "El título de cada archivo se arma con un grupo de <code>FILLER</code> con literales y campos editados: <code>PIC 99/</code> inserta la diagonal después del número de CSI. El prefijo de sistema, el nodo y el nombre lógico <code>MOVSDISP</code> quedan compilados, así que se mueven a <code>application.yml</code>. La fecha es <code>PIC 9(06)</code> AAMMDD, y el patrón <code>yyMMdd</code> deja explícito que el siglo no viaja en el nombre.",
+          "reglas": [],
+          "riesgo": "En S152 el CSI de origen está fijo en 12 dentro del literal; solo el destino toma el nodo de B02-NUM-CSI."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del programa y candados de dispersión en B02CONTROL",
+      "origen": {
+        "archivo": "S500_SOURCE_P015.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 40030000 / 50010000 / 50031100 / 50031300"
+      },
+      "java": {
+        "archivo": "DispersadorJobConfig.java · CandadoDispersion.java · ControlCaptacionService.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Rutina principal a Job con decisión de P121",
+          "linea_ini": 4373,
+          "linea_fin": 4402,
+          "origen_codigo": " 00000000-MAIN-PARAGRAPH.\n     PERFORM 10000000-VERIFICA-VERSIONES.\n     IF WKS-PROCESO-SIN-ERROR\n        PERFORM 20000000-DISPLAY-INICIO\n        PERFORM 30000000-CHANGE-LIBRERIAS.\n     IF WKS-PROCESO-SIN-ERROR\n        PERFORM 40000000-VALIDA-INICIO.\n     IF WKS-PROCESO-SIN-ERROR\n        PERFORM 50000000-PROCESO-PGM.\n*INI EAS FASE 5\n     IF WKS-PROCESO-SIN-ERROR\n        IF WS-88-EJECUTA-P121  AND\n           (WS-ULT-ARCH-APLI(24) = WS-ULT-ARCH-APLI(04) OR\n            WS-B02-DECOM-S111    = 1                   )\n           PERFORM 50060000-EJECUTA-P121.\n*FIN EAS FASE 5\n     MOVE \"DISABLE PROGRAM S500P015\"  TO WS-SOPCOM-COMANDO.\n     CALL \"SMCOMS OF SOPORTECOMS\" USING  WS-SOPCOM-COMANDO\n                                         WS-SOPCOM-TRABAJO\n                                  GIVING WS-COMS-RESULT.\n     MOVE 1 TO WS-END-OF-PROGRAM.\n     PERFORM 001120-ESPERA-RESPUESTA UNTIL\n                                     WS-END-OF-PROGRAM = 2.\n     PERFORM 80000000-FIN-PGM.\n     STOP RUN.",
+          "java_codigo": "@Configuration\n@RequiredArgsConstructor\npublic class DispersadorJobConfig {\n\n    @Bean\n    Job dispersador(JobRepository repo, Step verificaVersiones, Step validaInicio,\n                    Step generaOrdenado, Step dispersaOrdenado, Step ejecutaP121,\n                    Step finPrograma, JobExecutionDecider decideP121) {\n        return new JobBuilder(\"S500P015\", repo)\n                .start(verificaVersiones)                 // 10000000 + 20000000 + 30000000\n                .next(validaInicio)                       // 40000000: falla el job si corre el batch\n                .next(generaOrdenado)                     // 50000000 -> 50010000 / 50030000\n                .next(dispersaOrdenado)                   // 50050000\n                .next(decideP121)\n                    .on(\"EJECUTA\").to(ejecutaP121).next(finPrograma)\n                .from(decideP121)\n                    .on(\"*\").to(finPrograma)              // 80000000-FIN-PGM\n                .end()\n                .build();\n        // DISABLE PROGRAM S500P015 y el drenado de COMS lo hace el adaptador de mensajería al cerrar.\n    }\n\n    /** EAS fase 5: P121 solo si el archivo EAS semanal coincide con el de Tarjetas o S111 está decomisionado. */\n    @Bean\n    JobExecutionDecider decideP121(DispersionProperties props) {\n        return (job, step) -> {\n            var ctx = job.getExecutionContext();\n            boolean coincide = Objects.equals(ctx.get(\"ultArchApli24\"), ctx.get(\"ultArchApli04\"));\n            boolean decomS111 = ctx.getInt(\"decomS111\", 0) == 1;\n            return new FlowExecutionStatus(props.ejecutaP121() && (coincide || decomS111) ? \"EJECUTA\" : \"OMITE\");\n        };\n    }\n}",
+          "racional": "La rutina principal encadena bloques condicionados a <code>WKS-PROCESO-SIN-ERROR</code>; en Spring Batch esa condición es el estado del step anterior, porque un step que falla detiene el job. La llamada a P121 depende de una comparación de fechas de archivos aplicados (posiciones 24 y 4 de <code>WS-ULT-ARCH-APLI</code>) o del indicador de decomisión de S111, y se expresa con un <code>JobExecutionDecider</code>. El <code>DISABLE PROGRAM</code> y la espera hasta <code>WS-END-OF-PROGRAM = 2</code> sirven para drenar respuestas de COMS antes de cerrar; en la versión Java corresponden al cierre ordenado del adaptador de mensajería.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Lectura de B02CONTROL y bloqueo cuando corre el batch del S500",
+          "linea_ini": 4641,
+          "linea_fin": 4734,
+          "origen_codigo": " 40030000-ABRE-Y-VALIDA-BASE.\n     PERFORM 09000000-ABRE-BD-UPDATE.\n     MOVE 1                       TO WKS-STATUS-BD-VA.\n     PERFORM 09000000-B02CONTROL-FIND.\n     IF B02-ELI-MEDACC > 2\n*       NO UTILIZA LOS TIPOS DE AUTORIZACION - ARCH TBINTER\n        MOVE 0                    TO WKS-USA-TIPO-AUT-VA\n        COMPUTE WKS-ELI-MEDACC = B02-ELI-MEDACC - 2\n     ELSE\n*       SI UTILIZA LOS TIPOS DE AUTORIZACION - ARCH TBINTER\n        MOVE 1                    TO WKS-USA-TIPO-AUT-VA\n        MOVE B02-ELI-MEDACC       TO WKS-ELI-MEDACC.\n     MOVE B02-STA-DISP            TO WS-STA-DISP.\n     MOVE B02-FECHA-LINEA         TO WS-FECHA-LIN.\n     MOVE B02-NUM-CSI             TO WS-NODO.\n     MOVE B02-TC-TCAMBIO          TO WS-TC-TCAMBIO.\n     MOVE B02-ARCH-DISP           TO WS-CTR-ARCDISP.\n     IF NOT WS-TP-LINEA\n        MOVE \"I\"                  TO WKS-TIPO-LJ\n        MOVE 050110               TO WKS-CODIGO-LJ\n        STRING \"NO PUEDO DISPERSAR.. SE ESTA CORRIENDO \",\n               \"BATCH DEL S500, FAVOR DE REINTENTAR CUANDO \",\n               \"TERMINE PROCESO BATCH\"\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 00000000-LLAMA-DISPLAY-STRING\n        MOVE 2                    TO WKS-ERROR-PROCESO-VA.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ValidaInicioTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository b02;   // S500BD01CAPTACION.B02CONTROL\n    private final ControlPasoRepository b00;        // B00CTRLPASO\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlCaptacion control = b02.findControl()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"B02CONTROL VACIO\"));\n\n        // HI de la L010 que suma 2 a B02-ELI-MEDACC para regresar a la forma anterior de postear\n        boolean usaTipoAut = control.eliMedacc() <= 2;\n        int eliMedacc = usaTipoAut ? control.eliMedacc() : control.eliMedacc() - 2;\n\n        if (b00.findTipoProceso() != TipoProceso.LINEA) {          // NOT WS-TP-LINEA\n            throw new DispersionNoPermitidaException(                // código 050110, error 2\n                \"NO PUEDO DISPERSAR.. SE ESTA CORRIENDO BATCH DEL S500, \"\n              + \"FAVOR DE REINTENTAR CUANDO TERMINE PROCESO BATCH\");\n        }\n        var jobCtx = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        jobCtx.put(\"staDisp\", control.staDisp());\n        jobCtx.put(\"fechaLinea\", control.fechaLinea());\n        jobCtx.put(\"nodo\", control.numCsi());\n        jobCtx.put(\"usaTipoAut\", usaTipoAut);\n        jobCtx.put(\"eliMedacc\", eliMedacc);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "P015 abre la base en modo UPDATE, lee el registro único de B02CONTROL y copia a memoria el estado de la dispersión, la fecha de línea, el CSI, el tipo de cambio y las fechas de los últimos archivos aplicados. El candado operativo es <code>B00-TIPO-PROCESO</code>: si no es línea, el programa no dispersa y termina con error 2. En Java es un <code>Tasklet</code> previo que publica esos datos en el <code>ExecutionContext</code> y falla con una excepción de negocio. El truco de <code>B02-ELI-MEDACC</code> mayor a 2 se conserva tal cual, documentado como bandera de compatibilidad.",
+          "reglas": [
+            "RN-S500-618"
+          ],
+          "riesgo": "B02-ELI-MEDACC mezcla dos datos en un campo: el modo de eliminación de medio de acceso y, sumando 2, si se usan los tipos de autorización. Conviene separarlo en dos columnas en la base destino."
+        },
+        {
+          "id": "s6",
+          "titulo": "Inicio o reinicio según el estado de la dispersión anterior",
+          "linea_ini": 4772,
+          "linea_fin": 4791,
+          "origen_codigo": " 50010000-INI-O-REINI-DISPER.\n     IF WKS-DISPERSO-MOVTOS\n        IF WS-STA-DISP = 2\n*          EL ARCHIVO ORDENADO-CM ESTA PENDIENTE POR DISPERSAR\n           MOVE 1                 TO WKS-EXISTE-ORD-X-DISPER\n           MOVE 1                 TO WKS-HAY-ARCH-ORDCM\n           PERFORM 50012000-DISPER-CM-DESDE-ARCH\n        ELSE\n*          EL ARCHIVO ORDENADO-CM NO HA SIDO CREADO, SE DEBE CREAR\n           MOVE 1                 TO WKS-NUEVO-ORDENADO-VA\n           PERFORM 50011000-DISPER-CM-DESDE-CERO\n     ELSE\n        IF WKS-STA-DISP-LSDO = 2\n*          EL ARCHIVO ORDENADO-SP ESTA PENDIENTE POR DISPERSAR\n           MOVE 2                 TO WKS-EXISTE-ORD-X-DISPER\n           PERFORM 50014000-DISPER-SP-DESDE-ARCH\n        ELSE\n*          EL ARCHIVO ORDENADO-SP NO HA SIDO CREADO, SE DEBE CREAR\n           MOVE 2                 TO WKS-NUEVO-ORDENADO-VA\n           PERFORM 50013000-DISPER-SP-DESDE-CERO.",
+          "java_codigo": "/** 50010000-INI-O-REINI-DISPER: decide si se crea un ordenado nuevo o se retoma el pendiente. */\n@Component\npublic class InicioOReinicioDecider implements JobExecutionDecider {\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        var ctx = job.getExecutionContext();\n        TipoDispersion tipo = (TipoDispersion) ctx.get(\"tipoDispersion\");   // 1 movimientos, 2 saldo pendiente\n        int estado = (tipo == TipoDispersion.MOVIMIENTOS)\n                ? ctx.getInt(\"staDisp\")         // B02-STA-DISP\n                : ctx.getInt(\"staDispLsdo\");    // B02-STA-DISP-LSDO\n\n        // 2 = el ordenado ya se generó y quedó pendiente de enviar: solo se reabre y se dispersa.\n        // Cualquier otro valor (0, 1 o 3) obliga a construirlo de nuevo a partir de las\n        // fechas de últimos archivos aplicados que guarda la base.\n        return new FlowExecutionStatus(estado == 2 ? \"RETOMA_ARCHIVO\" : \"DESDE_CERO\");\n    }\n}",
+          "racional": "Este párrafo es el corazón del candado de idempotencia. Si el estado guardado es 2, el ordenado ya existe y ya tiene autorizaciones, así que un reinicio solo vuelve a dispersarlo y no vuelve a meter archivos. Con 1 la generación quedó a medias y, como las fechas de últimos archivos aplicados todavía no se actualizaron, reconstruirlo desde cero no duplica movimientos. En Java la decisión se modela como <code>JobExecutionDecider</code> que elige entre el flujo de generación y el de solo envío.",
+          "reglas": [
+            "RN-S500-618"
+          ],
+          "riesgo": "El valor 3 (dispersión terminada) y el 0 caen en la misma rama que el 1. La protección contra repetir una dispersión terminada depende de que las fechas de B02-ULT-ARCH-APLI ya estén avanzadas, no de este IF."
+        },
+        {
+          "id": "s7",
+          "titulo": "Marcas de avance en B02-STA-DISP y fechas de últimos archivos aplicados",
+          "linea_ini": 4952,
+          "linea_fin": 5055,
+          "origen_codigo": " 50031100-INI-METEARCHS-ORDCM.\n     MOVE \"E\"             TO WKS-TIPO-LJ.\n     MOVE 020801          TO WKS-CODIGO-LJ.\n     STRING \"SE MARCA LA BD COMO QUE INICIA A METERSE ARCHIVOS \"\n            \" AL ORDENADO CM\"\n            DELIMITED BY SIZE INTO TEXTO-LJ.\n     PERFORM 00000000-LLAMA-DISPLAY-STRING.\n     PERFORM 09000000-B02CONTROL-LOCK.\n     MOVE 1               TO B02-STA-DISP.\n     PERFORM 09000000-BEGIN-TRANSACTION.\n     PERFORM 09000000-B02CONTROL-STORE.\n     PERFORM 09000000-END-TRANSACTION-SYNC.\n 50031300-FIN-METEARCHS-ORDCM.\n     PERFORM 09000000-B02CONTROL-LOCK.\n     MOVE 2                       TO B02-STA-DISP.\n     MOVE WS-CTR-ARCDISP          TO B02-ARCH-DISP.\n     MOVE WS-ULT-ARCH-APLI(1)     TO B02-ULT-ARCH-APLI(1)\n     MOVE WS-ULT-ARCH-APLI(2)     TO B02-ULT-ARCH-APLI(2)\n     MOVE WS-ULT-ARCH-APLI(3)     TO B02-ULT-ARCH-APLI(3)\n     MOVE WS-CTR-CONTNAUT         TO B02-ULT-ARCH-APLI(20).\n     MOVE WS-CTR-CONTNAUT         TO B02-AUT-L010.\n     PERFORM 09000000-BEGIN-TRANSACTION.\n     PERFORM 09000000-B02CONTROL-STORE.\n     PERFORM 09000000-END-TRANSACTION-SYNC.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class CandadoDispersion {\n\n    private final ControlCaptacionRepository b02;\n\n    /** 50031100: se marca 1 antes de empezar a meter archivos. */\n    @Transactional\n    public void iniciaGeneracion() {\n        ControlCaptacion c = b02.findForUpdate();        // LOCK\n        c.setStaDisp(1);\n    }                                                    // END-TRANSACTION SYNC = commit con flush a log\n\n    /** 50031300: con el ordenado listo se marca 2 y se avanzan las fechas aplicadas. */\n    @Transactional\n    public void terminaGeneracion(OrdenadoGenerado o) {\n        ControlCaptacion c = b02.findForUpdate();\n        c.setStaDisp(2);\n        c.setArchDisp(o.secuencia());\n        c.getUltArchApli().put(1, o.ultFecha(1));\n        c.getUltArchApli().put(2, o.ultFecha(2));\n        c.getUltArchApli().put(3, o.ultFecha(3));\n        // 4 (S111 semanal) y 24 (EAS semanal) se difieren a terminaDispersion()\n        c.getUltArchApli().put(20, o.ultimaAutorizacion());   // evita autorizaciones duplicadas en L010\n        c.setAutL010(o.ultimaAutorizacion());\n    }\n}",
+          "racional": "El candado se escribe en dos momentos con <code>LOCK</code>, <code>BEGIN-TRANSACTION</code>, <code>STORE</code> y <code>END-TRANSACTION SYNC</code>, que equivale a un método <code>@Transactional</code> con bloqueo pesimista sobre el registro de control. Los comentarios del fuente explican por qué las fechas se actualizan al marcar 2 y no al marcar 3: hubo duplicaciones cuando una dispersión quedaba inconclusa. También explican que la última autorización se guarda para que la L010 no repita autorizaciones entre dispersiones del mismo día contable. La traducción conserva el mismo orden de escritura.",
+          "reglas": [
+            "RN-S500-618"
+          ],
+          "riesgo": "Las fechas de las posiciones 4 y 24 se guardan en variables temporales y solo pasan a la base al marcar 3; si la dispersión se interrumpe después del 2, quedan sin actualizar mientras las demás sí avanzaron."
+        }
+      ]
+    },
+    {
+      "titulo": "Ingesta incremental por fecha y envío en tres vueltas",
+      "origen": {
+        "archivo": "S500_SOURCE_P015.txt",
+        "contexto": "PROCEDURE DIVISION · 50032000 / 50051000"
+      },
+      "java": {
+        "archivo": "IngestaS087Step.java · EnvioOrdenadoService.java",
+        "contexto": "MultiResourceItemReader · Spring Integration gateway"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Archivos S087 desde la última fecha aplicada hasta la fecha de línea",
+          "linea_ini": 5259,
+          "linea_fin": 5349,
+          "origen_codigo": " 50032000-PROCESO-ARCHS-S087.\n*****************************\n     MOVE WS-ULTFECHA-87          TO WKS-FEC-A-PROYECTAR-AAMD.\n     MOVE 1                       TO WKS-ARCH-A-DISP.\n     PERFORM 50031700-PROYECTA-FECHA.\n     MOVE WKS-FEC-PROYECTADA-AAMD TO WS-ULTFECHA-87.\n     MOVE 0                       TO WKS-FILE-ERROR-VA.\n     PERFORM 50032100-METO-ARCHS-S087\n             UNTIL WS-ULTFECHA-87     > WS-FECHA-LIN OR\n                   WKS-FILE-CON-ERROR.\n 50032100-METO-ARCHS-S087.\n     MOVE WS-ULTFECHA-87           TO W-ETIQ-D87-FECHA.\n     MOVE WS-NODO                  TO W-ETIQ-D87-CSIO\n                                      W-ETIQ-D87-CSID.\n     SET DISPS087 (TITLE)          TO W-ETIQ-DISPS087.\n     SET DISPS087 (DEPENDENTSPECS) TO VALUE (TRUE).\n     MOVE 0                        TO WKS-EOF-S087-VA.\n     IF ATTRIBUTE RESIDENT OF DISPS087 IS = VALUE TRUE\n        OPEN INPUT DISPS087\n        PERFORM 50032200-VALIDA-HEADER-S087\n     ELSE\n        PERFORM 50032110-ALARMA-S087\n        MOVE 1            TO WKS-FILE-ERROR-VA.\n     IF WKS-FILE-SIN-ERROR\n        MOVE W-ETIQ-DISPS087      TO WKS-ARCH-EN-PROCESO\n        MOVE 1                    TO WKS-REG-ACTUAL\n        MOVE ATTRIBUTE LASTRECORD OF DISPS087 TO WKS-REG-ULTIMO\n        PERFORM 50032300-LEO-ARCH-S087 UNTIL WKS-EOF-S087\n        CLOSE DISPS087 WITH SAVE\n        MOVE WS-ULTFECHA-87          TO WS-ULT-ARCH-APLI(3)\n                                        WS-ULT-ARCH-APLI(1)\n                                        WS-ULT-ARCH-APLI(5)\n        MOVE WS-ULTFECHA-87          TO WKS-FEC-A-PROYECTAR-AAMD\n        MOVE 1                       TO WKS-ARCH-A-DISP\n                                        WKS-DISP-S087\n        PERFORM 50031700-PROYECTA-FECHA\n        MOVE WKS-FEC-PROYECTADA-AAMD TO WS-ULTFECHA-87.\n     IF WKS-FILE-SIN-ERROR\n        IF WS-DISP87-FECARC = W-ETIQ-D87-FECHA\n           MOVE \"E\"               TO WKS-TIPO-LJ\n           MOVE 020801            TO WKS-CODIGO-LJ\n           STRING \"PROCESO ARCHIVO \" W-ETIQ-DISPS087\n                  DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 00000000-LLAMA-DISPLAY-STRING\n        ELSE\n           MOVE WS-DISP87-FECARC  TO WKS-DISP87-FECARC\n           MOVE \"O\"               TO WKS-TIPO-LJ\n           MOVE 010401            TO WKS-CODIGO-LJ\n           STRING \"EL ARCHIVO DEL S087 CON FECHA \"\n                  W-ETIQ-D87-FECHA \" TRAE INTERNAMENTE LA FECHA \"\n                  WKS-DISP87-FECARC \" Y NO CORRESPONDEN, LLAMAR \"\n                  \"AL RESPONSABLE DEL S087 EN ING. DE SISTEMAS \"\n                  DELIMITED BY SIZE INTO TEXTO-LJ\n           PERFORM 00000000-LLAMA-DISPLAY-STRING\n           MOVE 1         TO WKS-FILE-ERROR-VA.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class IngestaS087 {\n\n    private final DispersionFiles files;\n    private final DispersionProperties props;\n    private final CalendarioBancario calendario;   // 50031700-PROYECTA-FECHA\n    private final OrdenadoWriter ordenado;\n\n    /** 50032000: un archivo por día, desde ultFecha+1 hasta la fecha de línea, sin saltar huecos. */\n    public LocalDate procesa(LocalDate ultimaAplicada, LocalDate fechaLinea, int nodo) {\n        LocalDate fecha = calendario.siguiente(ultimaAplicada);\n        while (!fecha.isAfter(fechaLinea)) {\n            String titulo = props.titulo(props.entradas().s087(), nodo, fecha);\n            var archivo = files.abrirOpcional(titulo, DISPS087_LONGITUD);\n            if (archivo.isEmpty()) {                              // NOT RESIDENT -> alarma y se detiene\n                log.warn(\"SE INTENTA DISPERSAR EL ARCHIVO {} Y NO ESTA RESIDENTE\", titulo);\n                break;\n            }\n            try (var a = archivo.get()) {\n                Disps087Header h = Disps087Header.parse(a.leer(1)\n                        .orElseThrow(() -> new ArchivoVacioException(titulo)));\n                if (!h.fechaArchivo().equals(fecha)) {            // fecha interna distinta a la del nombre\n                    log.error(\"EL ARCHIVO DEL S087 CON FECHA {} TRAE INTERNAMENTE LA FECHA {}\", fecha, h.fechaArchivo());\n                    break;\n                }\n                ordenado.agregaArchivo(a);                        // 50032300-LEO-ARCH-S087\n            }\n            ultimaAplicada = fecha;                               // WS-ULT-ARCH-APLI(1), (3) y (5)\n            fecha = calendario.siguiente(fecha);\n        }\n        return ultimaAplicada;\n    }\n}",
+          "racional": "La idempotencia de la ingesta depende de las fechas: se parte del último archivo aplicado que guarda B02, se proyecta al día siguiente y se procesa un archivo por fecha hasta rebasar la fecha de línea. Si un archivo no está residente o su fecha interna no coincide con la del nombre, el ciclo se detiene sin abortar, porque <code>WKS-FILE-CON-ERROR</code> es un error de archivo y no de proceso. Así nunca se salta un día. En Java es un ciclo explícito sobre fechas; un <code>MultiResourceItemReader</code> con comodín no sirve aquí porque no detendría la ingesta ante un hueco.",
+          "reglas": [
+            "RN-S500-618",
+            "RN-S500-619"
+          ],
+          "riesgo": "Un archivo S087 faltante bloquea en silencio todos los días posteriores: el programa solo emite la alarma y continúa con S152 y Tarjetas."
+        },
+        {
+          "id": "s9",
+          "titulo": "Tres vueltas de envío por COMS y cierre del candado",
+          "linea_ini": 7229,
+          "linea_fin": 7265,
+          "origen_codigo": " 50051000-DISPERSO-ARCH-MOVTOS.\n      OPEN I-O ORDENADO-CM.\n      MOVE ATTRIBUTE LASTRECORD OF ORDENADO-CM TO WS-ULTREG-ORDCM.\n      MOVE 1 TO WS-LLAVE-ORDCM.\n      PERFORM 001100-LEE-ENVIA UNTIL WS-EOF-ORDCM = 1.\n      IF WS-END-OF-PROGRAM = 0\n         MOVE 1 TO WS-LLAVE-ORDCM\n         MOVE 0 TO WS-EOF-ORDCM\n         MOVE 1 TO WS-SGDA-VUELTA\n         PERFORM 001100-LEE-ENVIA UNTIL WS-EOF-ORDCM = 1\n         IF WS-END-OF-PROGRAM = 0\n            MOVE 2 TO WS-SGDA-VUELTA\n            MOVE 0 TO WKS-ESPERO-VA\n            PERFORM 001120-ESPERA-RESPUESTA UNTIL\n                                  WS-ULTREG-ENV = WS-ULTREG-REC\n                                  AND WKS-PASARON-N-MIN\n            PERFORM 002030-LEE-RECHAZOS\n            MOVE 3 TO WS-SGDA-VUELTA\n            PERFORM 001100-LEE-ENVIA UNTIL WS-EOF-ORDCM = 1\n            IF WS-END-OF-PROGRAM = 0\n               PERFORM 001120-ESPERA-RESPUESTA UNTIL\n                       WS-ULTREG-ENV = WS-ULTREG-REC OR\n                       WS-END-OF-PROGRAM > 0.\n      IF WS-END-OF-PROGRAM = 0\n         PERFORM 09000000-B02CONTROL-LOCK\n         MOVE 3           TO B02-STA-DISP\n         MOVE WS-ULT-ARCH-APLI4-S111  TO B02-ULT-ARCH-APLI(4)\n         MOVE WS-ULT-ARCH-APLI24-EAS  TO B02-ULT-ARCH-APLI(24)\n         PERFORM 09000000-BEGIN-TRANSACTION\n         PERFORM 09000000-B02CONTROL-STORE\n         MOVE 0           TO WS-EOF-ARCH\n         PERFORM 09000000-END-TRANSACTION-SYNC.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class EnvioOrdenadoService {\n\n    private final OrdenadoRepository ordenado;           // ORDENADO-CM con acceso por llave\n    private final DialogoGateway p010;                   // COMS -> Spring Integration / Kafka\n    private final CandadoDispersion candado;\n    private final RechazosService rechazos;\n    private final DispersionProperties props;\n\n    public void dispersa() {\n        long ultimo = ordenado.ultimoRegistro();          // ATTRIBUTE LASTRECORD\n        enviaPendientes(Vuelta.PRIMERA, ultimo);\n        if (p010.detenido()) return;                      // WS-END-OF-PROGRAM <> 0\n        enviaPendientes(Vuelta.SEGUNDA, ultimo);          // reintento de no confirmados\n        p010.esperaRespuestas(Duration.ofMinutes(props.minutosEspera()));   // WKS-MINUTOS-A-ESPERAR = 3\n        rechazos.arma(ordenado);                          // 002030-LEE-RECHAZOS (RechazosService)\n        enviaPendientes(Vuelta.TERCERA, ultimo);          // envía los registros de rechazo\n        p010.esperaRespuestas(null);\n        if (p010.detenido()) return;                      // queda en 2: el reinicio solo reenvía\n        candado.terminaDispersion();                      // STA-DISP = 3 y fechas 4 y 24\n    }\n\n    private void enviaPendientes(Vuelta v, long ultimo) {\n        for (long llave = 2; llave <= ultimo; llave++) {  // la llave 1 es el header\n            var r = ordenado.leer(llave).orElse(null);\n            if (r == null || r instanceof OrdenadoRecord.Trailer) break;\n            if (r instanceof OrdenadoRecord.Movimiento m && m.estado().ordinal() <= 1) {\n                p010.envia(llave, m);                     // 001110-ENVIA-MENSAJE\n            }\n        }\n    }\n}",
+          "racional": "La dispersión recorre el ordenado por llave relativa empezando en la 2, porque <code>001100-LEE-ENVIA</code> suma 1 antes de leer. Solo se envían registros con estado 0 o 1, de modo que la segunda vuelta reintenta lo que no se confirmó. Después espera las respuestas retrasadas, arma los rechazos y los envía en una tercera vuelta. Solo si COMS no pidió terminar se marca <code>B02-STA-DISP = 3</code>; si no, el estado queda en 2 y el siguiente arranque retoma el archivo. Es el patrón del arquetipo A6 con salida por mensajería en lugar de archivos por plaza.",
+          "reglas": [
+            "RN-S500-618"
+          ],
+          "riesgo": "En la segunda vuelta la espera exige WKS-PASARON-N-MIN (WKS-MINUTOS-A-ESPERAR VALUE 03, línea 834) además de igualar enviados y recibidos; en la tercera basta con igualar o con una petición de terminar, sin tope de tiempo."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Cobertura de OPTIONAL distinta a la regla",
+      "detalle": "EAS-HUB (línea 47), ORDENADO-CM y CTRLARCH se declaran sin OPTIONAL; si EAS-HUB no existe al abrirse, el paso sí puede abortar. RN-S500-619 afirma que todos los archivos son OPTIONAL."
+    },
+    {
+      "titulo": "Error de CTRLARCH absorbido",
+      "detalle": "En 50010000 (líneas 4824-4826), si falla la escritura del header de CTRLARCH (error 14) el programa pone el error en 0 y purga el archivo, y la dispersión continúa sin archivo de control para P104."
+    },
+    {
+      "titulo": "S152 condicionado a dispersión CPE",
+      "detalle": "La línea 4937 solo procesa S152 cuando WS-DISPERSACPE = 1 (cambio Stefanini US-1115); en cualquier otro caso los archivos S152 esperan a la siguiente dispersión."
+    },
+    {
+      "titulo": "Actualización asimétrica de fechas aplicadas",
+      "detalle": "Las posiciones 1, 2, 3, 5, 6, 20 y 23 de B02-ULT-ARCH-APLI se graban al marcar STA-DISP = 2; las posiciones 4 y 24 se graban hasta marcar 3 (líneas 7258-7265). Un corte entre ambos momentos deja la base con fechas de distinta época."
+    },
+    {
+      "titulo": "Esperas fijas y hardcodes",
+      "detalle": "WAIT (20) segundos alrededor del mensaje con clave 12, el CSI 12 fijo en la ruta de S152, el título de la librería DISP y la versión del programa están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "La espera de retrasados (000000-VERIF-FIN-ESPERA) compara solo hora y minuto contra una hora fin calculada; confirmar el comportamiento si la espera cruza la medianoche.",
+    "Confirmar si EAS-HUB debe ser OPTIONAL como los demás archivos de dispersión o si su ausencia debe detener el paso, y ajustar la redacción de RN-S500-619.",
+    "Revisar la precedencia entre los niveles 88 ORD-CVE-P015, ORD-CVE-RECHAZOS y ORD-CVE-FINPRELI, que comparten valores 1, 2 y 10.",
+    "El párrafo 50031700-PROYECTA-FECHA tiene dos párrafos con el mismo prefijo (50031700-CALENDAR y 50031700-PROYECTA-FECHA); validar con SME si la proyección por archivo usa día hábil o natural según WKS-ARCH-A-DISP.",
+    "WS-DISPERSACPE se enciende solo cuando la fecha de máquina es igual a la fecha de línea (línea 5255) y se apaga en 50033100 (línea 5468); confirmar con SME que S152 no debe dispersarse en corridas de fin de semana o días inhábiles."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1164",
+    "RN-S151-1165",
+    "RN-S151-1166",
+    "RN-S151-1167",
+    "RN-S151-1168",
+    "RN-S151-1169",
+    "RN-S151-1170",
+    "RN-S500-617",
+    "RN-S500-618",
+    "RN-S500-619",
+    "RN-S500-072",
+    "RN-S500-073",
+    "RN-S500-074",
+    "RN-S500-075",
+    "RN-S500-076",
+    "RN-S500-077",
+    "RN-S500-078"
+  ]
+}

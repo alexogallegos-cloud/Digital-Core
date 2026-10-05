@@ -1,0 +1,753 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>S500 · P420 → Java · Enterprise Digital Brain · Banamex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#C1272D;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #C1272D;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#C1272D;box-shadow:0 0 8px #C1272D;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/banamex.png" alt="Banamex"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · S500 P420</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Concentrador</div>
+  <h1><span class="cw">S500 · P420</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">Lee cuatro archivos secuenciales de 90 bytes: SALDOSTB de Cuenta Maestra y de Cheques, cada uno con su versión de Monterrey (ruta 04) y de Valle de México (ruta 10). Obtiene la fecha de proceso de S500B02CONTROL retrocediendo un día con LOCSUP y exige que el header de cada archivo traiga esa fecha. Copia el header del primer archivo y todos los detalles a la cinta del producto (CINTACM o CINTACH) y, al llegar el trailer del segundo archivo, escribe un trailer consolidado con registros e importes MN y DL. Emite además un listado de cifras de control por plaza.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="S500_P400.html">← S500 · P400</a><a href="../cobol-java.html">Inventario</a><a href="S500_P430.html">S500 · P430 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">S500 · P420 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">983 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Paso batch de S500 que corre después de la proyección de fechas y une los archivos SALDOSTB de Monterrey y Valle de México en las cintas CINTACM y CINTACH que se envían a Tarjetas.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#6CC5D8">Concentrador</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">2 de 2 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch</div></div>
+  </div>
+  <div class="sec-hdr">1 · Estructura de datos — WS-REGTB (90 bytes) y etiquetas de archivo</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P420.txt</span><span class="fname">WORKING-STORAGE</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Registro con tres vistas REDEFINES a sealed interface · L164–192"> <span class="num">01</span> <span class="var">WS-REGTB</span>.
+   <span class="num">02</span> <span class="var">WS-TB-TIPO-REG</span>             <span class="kw">PIC</span> X(<span class="num">01</span>).
+   <span class="num">02</span> <span class="var">WS-REGTB-HEADER</span>.
+       <span class="num">03</span> <span class="var">WS-TBHE-SISO</span>           <span class="kw">PIC</span> X(<span class="num">4</span>).
+       <span class="num">03</span> <span class="var">WS-TBHE-SISD</span>           <span class="kw">PIC</span> X(<span class="num">4</span>).
+       <span class="num">03</span> <span class="var">WS-TBHE-FECPRO</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>).
+       <span class="num">03</span> <span class="var">WS-TBHE-FECBASE</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>).
+       <span class="num">03</span> <span class="var">WS-TBHE-TIPCAM</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>)V9(<span class="num">04</span>).
+       <span class="num">03</span> <span class="kw">FILLER</span>                 <span class="kw">PIC</span> X(<span class="num">57</span>).
+   <span class="num">02</span> <span class="var">WS-REGTB-DETALLE</span> <span class="kw">REDEFINES</span> <span class="var">WS-REGTB-HEADER</span>.
+       <span class="num">03</span> <span class="var">WS-TBDE-NUMCTO</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>).
+       <span class="num">03</span> <span class="var">WS-TBDE-NUMPRD</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).
+       <span class="num">03</span> <span class="var">WS-TBDE-NUMINS</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).
+       <span class="num">03</span> <span class="var">WS-TBDE-NUMMON</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">03</span>).
+       <span class="num">03</span> <span class="var">WS-TBDE-SIGSDO</span>        <span class="kw">PIC</span> X.
+       <span class="num">03</span> <span class="var">WS-TBDE-SDOMN</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)<span class="var">V99</span>.
+       <span class="num">03</span> <span class="var">WS-TBDE-LIMCRE</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">3</span>).
+       <span class="num">03</span> <span class="var">WS-TBDE-CSI</span>           <span class="kw">PIC</span> <span class="num">99</span>.
+       <span class="num">03</span> <span class="var">WS-TBDE-SUCPRO</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).
+       <span class="num">03</span> <span class="var">WS-TBDE-AUTPENMN</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>.
+       <span class="num">03</span> <span class="var">WS-TBDE-STATUS</span>        <span class="kw">PIC</span> <span class="num">9</span>.
+       <span class="num">03</span> <span class="var">WS-TBDE-SDODL</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>)<span class="var">V99</span>.
+       <span class="num">03</span> <span class="var">WS-TBDE-AUTPENDL</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>)<span class="var">V99</span>.
+       <span class="num">03</span> <span class="kw">FILLER</span>                <span class="kw">PIC</span> X(<span class="num">7</span>).
+   <span class="num">02</span> <span class="var">WS-REGTB-TRAILER</span> <span class="kw">REDEFINES</span> <span class="var">WS-REGTB-HEADER</span>.
+       <span class="num">03</span> <span class="var">WS-TBTR-NUMREG</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>).
+       <span class="num">03</span> <span class="var">WS-TBTR-TOTSDOMN</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">16</span>)<span class="var">V99</span>.
+       <span class="num">03</span> <span class="var">WS-TBTR-TOTSDODL</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">16</span>)<span class="var">V99</span>.
+       <span class="num">03</span> <span class="kw">FILLER</span>                <span class="kw">PIC</span> X(<span class="num">45</span>).</span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Rutas de entrada y salida compiladas a application.yml · L198–251"> <span class="num">01</span> <span class="var">WS-ETIQ-SDOTBM</span>.
+      <span class="num">02</span> <span class="kw">FILLER</span>       <span class="kw">PIC</span> X(<span class="num">30</span>) <span class="kw">VALUE</span>
+                      <span class="str">&quot;S500/FILE/S500/04/10/SALDOSTB/&quot;</span>.
+      <span class="num">02</span> <span class="var">WS-TB-FECHA1</span> <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">6</span>).
+      <span class="num">02</span> <span class="kw">FILLER</span>       <span class="kw">PIC</span> X <span class="kw">VALUE</span> <span class="str">&quot;.&quot;</span>.
+<span class="cmt">****************************************************************</span>
+<span class="cmt">*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CM.</span>
+<span class="cmt">*    PARA TARJETAS QUE PROVIENE DE MTY.</span>
+<span class="cmt">****************************************************************</span>
+ <span class="num">01</span> <span class="var">WS-ETIQ-SDOTBV</span>.
+      <span class="num">02</span> <span class="kw">FILLER</span>       <span class="kw">PIC</span> X(<span class="num">30</span>) <span class="kw">VALUE</span>
+                      <span class="str">&quot;S500/FILE/S500/10/10/SALDOSTB/&quot;</span>.
+      <span class="num">02</span> <span class="var">WS-TB-FECHA2</span> <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">6</span>).
+      <span class="num">02</span> <span class="kw">FILLER</span>       <span class="kw">PIC</span> X <span class="kw">VALUE</span> <span class="str">&quot;.&quot;</span>.
+<span class="cmt">****************************************************************</span>
+<span class="cmt">*    ETIQUETA DEL NOMBRE CON QUE SERA LEIDO EL ARCHIVO DE CHEQUES</span>
+<span class="cmt">*    PARA TARJETAS QUE PROVIENE DE VDM.</span>
+<span class="cmt">****************************************************************</span>
+ <span class="num">01</span> <span class="var">WS-ETIQ-SDOTBTM</span>.
+      <span class="num">02</span> <span class="kw">FILLER</span>       <span class="kw">PIC</span> X(<span class="num">30</span>) <span class="kw">VALUE</span>
+                      <span class="str">&quot;S001/FILE/S500/04/10/SALDOSTB/&quot;</span>.
+      <span class="num">02</span> <span class="var">WS-TB-FECHA3</span>  <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">6</span>).
+      <span class="num">02</span> <span class="kw">FILLER</span>        <span class="kw">PIC</span> X <span class="kw">VALUE</span> <span class="str">&quot;.&quot;</span>.
+<span class="cmt">****************************************************************</span>
+<span class="cmt">*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CHEQUES</span>
+<span class="cmt">*    PARA TARJETAS QUE PROVIENE DE MTY.</span>
+<span class="cmt">****************************************************************</span>
+ <span class="num">01</span> <span class="var">WS-ETIQ-SDOTBTV</span>.
+      <span class="num">02</span> <span class="kw">FILLER</span>        <span class="kw">PIC</span> X(<span class="num">30</span>) <span class="kw">VALUE</span>
+                       <span class="str">&quot;S001/FILE/S500/10/10/SALDOSTB/&quot;</span>.
+      <span class="num">02</span> <span class="var">WS-TB-FECHA4</span>   <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">6</span>).
+      <span class="num">02</span> <span class="kw">FILLER</span>         <span class="kw">PIC</span> X <span class="kw">VALUE</span> <span class="str">&quot;.&quot;</span>.
+<span class="cmt">****************************************************************</span>
+<span class="cmt">*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO LA CINTA DE CHEQUES</span>
+<span class="cmt">*    PARA TARJETAS QUE PROVIENE DE VDM Y MTY.</span>
+<span class="cmt">****************************************************************</span>
+ <span class="num">01</span> <span class="var">WS-ETIQ-CINTACH</span>.
+      <span class="num">02</span> <span class="kw">FILLER</span>       <span class="kw">PIC</span> X(<span class="num">29</span>) <span class="kw">VALUE</span>
+                      <span class="str">&quot;S001/FILE/S500/10/10/CINTACH/&quot;</span>.
+      <span class="num">02</span> <span class="var">WS-TB-FECHA5</span>  <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">6</span>).
+      <span class="num">02</span> <span class="kw">FILLER</span>        <span class="kw">PIC</span> X <span class="kw">VALUE</span> <span class="str">&quot;.&quot;</span>.
+<span class="cmt">****************************************************************</span>
+<span class="cmt">*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CHEQUES</span>
+<span class="cmt">*    PARA TARJETAS QUE PROVIENE DE MTY.</span>
+<span class="cmt">****************************************************************</span>
+ <span class="num">01</span> <span class="var">WS-ETIQ-CINTACM</span>.
+      <span class="num">02</span> <span class="kw">FILLER</span>        <span class="kw">PIC</span> X(<span class="num">29</span>) <span class="kw">VALUE</span>
+                       <span class="str">&quot;S500/FILE/S500/10/10/CINTACM/&quot;</span>.
+      <span class="num">02</span> <span class="var">WS-TB-FECHA6</span>   <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">6</span>).
+      <span class="num">02</span> <span class="kw">FILLER</span>         <span class="kw">PIC</span> X <span class="kw">VALUE</span> <span class="str">&quot;.&quot;</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>SaldoTbRecord.java · P420Properties.java</span><span class="fname">sealed interface · @ConfigurationProperties</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** WS-REGTB: un registro de 90 bytes con tres vistas REDEFINES, discriminadas por WS-TB-TIPO-REG. */</span>
+<span class="kw">public</span> <span class="kw">sealed</span> <span class="kw">interface</span> <span class="type">SaldoTbRecord</span>
+        <span class="kw">permits</span> <span class="type">SaldoTbRecord</span>.<span class="type">Header</span>, <span class="type">SaldoTbRecord</span>.<span class="type">Detalle</span>,
+                <span class="type">SaldoTbRecord</span>.<span class="type">Trailer</span>, <span class="type">SaldoTbRecord</span>.<span class="type">Otro</span> {
+
+    <span class="type">String</span> raw();   <span class="cmt">// la cinta de salida recibe el registro tal cual (WRITE ... FROM WS-REGTB)</span>
+
+<span class="cmt">    /** Tipo &#x27;0&#x27;. Posiciones 1-32; FILLER X(57). */</span>
+    <span class="kw">record</span> <span class="type">Header</span>(<span class="type">String</span> sisOrigen, <span class="type">String</span> sisDestino,
+                  <span class="type">LocalDate</span> fecProceso, <span class="type">LocalDate</span> fecBase,      <span class="cmt">// 9(08) AAAAMMDD</span>
+                  <span class="type">BigDecimal</span> tipoCambio,                        <span class="cmt">// 9(04)V9(04) -&gt; escala 4</span>
+                  <span class="type">String</span> raw) <span class="kw">implements</span> <span class="type">SaldoTbRecord</span> {}
+
+<span class="cmt">    /** Tipo &#x27;1&#x27;. Contrato como String para conservar ceros a la izquierda. */</span>
+    <span class="kw">record</span> <span class="type">Detalle</span>(<span class="type">String</span> numContrato,                          <span class="cmt">// 9(12)</span>
+                   <span class="kw">int</span> producto, <span class="kw">int</span> instrumento, <span class="kw">int</span> moneda,
+                   <span class="kw">char</span> signoSaldo,                             <span class="cmt">// X: P420 no lo usa</span>
+                   <span class="type">BigDecimal</span> saldoMn,                          <span class="cmt">// 9(12)V99 -&gt; escala 2</span>
+                   <span class="kw">int</span> limiteCredito, <span class="kw">int</span> csi, <span class="kw">int</span> sucursal,
+                   <span class="type">BigDecimal</span> autPendMn,                        <span class="cmt">// 9(08)V99</span>
+                   <span class="kw">int</span> status,
+                   <span class="type">BigDecimal</span> saldoDl,                          <span class="cmt">// 9(12)V99</span>
+                   <span class="type">BigDecimal</span> autPendDl,                        <span class="cmt">// 9(08)V99</span>
+                   <span class="type">String</span> raw) <span class="kw">implements</span> <span class="type">SaldoTbRecord</span> {}
+
+<span class="cmt">    /** Tipo &#x27;9&#x27;. */</span>
+    <span class="kw">record</span> <span class="type">Trailer</span>(<span class="kw">long</span> numRegistros,                           <span class="cmt">// 9(08)</span>
+                   <span class="type">BigDecimal</span> totSaldoMn, <span class="type">BigDecimal</span> totSaldoDl, <span class="cmt">// 9(16)V99</span>
+                   <span class="type">String</span> raw) <span class="kw">implements</span> <span class="type">SaldoTbRecord</span> {}
+
+<span class="cmt">    /** Cualquier otro tipo: P420 no lo copia ni lo reporta. */</span>
+    <span class="kw">record</span> <span class="type">Otro</span>(<span class="type">String</span> raw) <span class="kw">implements</span> <span class="type">SaldoTbRecord</span> {}
+
+    <span class="kw">static</span> <span class="type">SaldoTbRecord</span> parse(<span class="type">String</span> r) {
+        <span class="kw">return</span> <span class="kw">switch</span> (r.charAt(<span class="num">0</span>)) {
+            <span class="kw">case</span> <span class="str">&#x27;0&#x27;</span> -&gt; <span class="kw">new</span> <span class="type">Header</span>(r.substring(<span class="num">1</span>, <span class="num">5</span>), r.substring(<span class="num">5</span>, <span class="num">9</span>),
+                    <span class="type">Fixed</span>.fechaAmd(r, <span class="num">9</span>), <span class="type">Fixed</span>.fechaAmd(r, <span class="num">17</span>), <span class="type">Fixed</span>.decimal(r, <span class="num">25</span>, <span class="num">8</span>, <span class="num">4</span>), r);
+            <span class="kw">case</span> <span class="str">&#x27;1&#x27;</span> -&gt; <span class="type">Fixed</span>.detalle(r);   <span class="cmt">// offsets: 1,13,17,21,24,25,39,42,44,48,58,59,73</span>
+            <span class="kw">case</span> <span class="str">&#x27;9&#x27;</span> -&gt; <span class="kw">new</span> <span class="type">Trailer</span>(<span class="type">Fixed</span>.entero(r, <span class="num">1</span>, <span class="num">8</span>), <span class="type">Fixed</span>.decimal(r, <span class="num">9</span>, <span class="num">18</span>, <span class="num">2</span>),
+                    <span class="type">Fixed</span>.decimal(r, <span class="num">27</span>, <span class="num">18</span>, <span class="num">2</span>), r);
+            <span class="kw">default</span>  -&gt; <span class="kw">new</span> <span class="type">Otro</span>(r);
+        };
+    }
+}</span>
+<span class="seg java-seg" data-jid="j2"># application.yml  (las rutas y nodos dejan de estar compilados en el programa)
+p420:
+  fecha-en-nombre: yyMMdd            # <span class="type">WS-TB-FECHAn</span> es PIC <span class="num">9</span>(<span class="num">6</span>): MOVE de <span class="num">9</span>(<span class="num">8</span>) conserva AAMMDD
+  validar-trailer: <span class="kw">false</span>             # comportamiento actual: la validación está comentada
+  entradas:
+    cuenta-maestra:                  # orden significativo: primero MTY, luego VDM
+      - <span class="str">&quot;S500/FILE/S500/04/10/SALDOSTB/{fecha}.&quot;</span>
+      - <span class="str">&quot;S500/FILE/S500/10/10/SALDOSTB/{fecha}.&quot;</span>
+    cheques:
+      - <span class="str">&quot;S001/FILE/S500/04/10/SALDOSTB/{fecha}.&quot;</span>
+      - <span class="str">&quot;S001/FILE/S500/10/10/SALDOSTB/{fecha}.&quot;</span>
+  salidas:
+    cinta-ch: <span class="str">&quot;S001/FILE/S500/10/10/CINTACH/{fecha}.&quot;</span>
+    cinta-cm: <span class="str">&quot;S500/FILE/S500/10/10/CINTACM/{fecha}.&quot;</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@ConfigurationProperties</span>(<span class="str">&quot;p420&quot;</span>)
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">P420Properties</span>(<span class="type">String</span> fechaEnNombre, <span class="kw">boolean</span> validarTrailer,
+                             <span class="type">Entradas</span> entradas, <span class="type">Salidas</span> salidas) {
+
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">Entradas</span>(<span class="type">List</span>&lt;<span class="type">String</span>&gt; cuentaMaestra, <span class="type">List</span>&lt;<span class="type">String</span>&gt; cheques) {}
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">Salidas</span>(<span class="type">String</span> cintaCh, <span class="type">String</span> cintaCm) {}
+
+<span class="cmt">    /** Sustituye {fecha} igual que MOVE WS-FECHA-PRO TO WS-TB-FECHAn (trunca el siglo). */</span>
+    <span class="kw">public</span> <span class="type">String</span> resuelve(<span class="type">String</span> plantilla, <span class="type">LocalDate</span> fechaProceso) {
+        <span class="kw">return</span> plantilla.replace(<span class="str">&quot;{fecha}&quot;</span>,
+                fechaProceso.format(<span class="type">DateTimeFormatter</span>.ofPattern(fechaEnNombre)));
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Control del job y fecha de proceso</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P420.txt</span><span class="fname">PROCEDURE DIVISION · 00000000 / 20000000 / 50000000</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s3" data-jid="j3" title="Rutina principal a definición de Job · L446–459"> <span class="num">00000000</span>-<span class="var">INICIO</span> <span class="kw">SECTION</span>.
+ <span class="num">00000000</span>-<span class="var">PRINCIPAL</span>.
+     <span class="kw">MOVE</span> <span class="num">2</span>            <span class="kw">TO</span>  <span class="var">W77-USO-LIBLJ</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;P420&quot;</span>       <span class="kw">TO</span>  <span class="var">WS-0101-PASO-MSG</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;25MTP004&quot;</span>   <span class="kw">TO</span>  <span class="var">WS-0101-MTP-MSG</span>
+                           <span class="var">W77-S000-MY-VERSION</span>
+                           <span class="var">B91-IDPROG</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;S500P420&quot;</span>   <span class="kw">TO</span>  <span class="var">W77-S000-MY-ID</span>.
+     <span class="kw">PERFORM</span> <span class="num">10000000</span>-<span class="var">LIBRERIAS</span>           <span class="kw">THRU</span> <span class="num">10000000</span>-<span class="kw">EXIT</span>.
+     <span class="kw">PERFORM</span> <span class="num">20000000</span>-<span class="kw">OPEN</span>                <span class="kw">THRU</span> <span class="num">20000000</span>-<span class="kw">EXIT</span>.
+     <span class="kw">PERFORM</span> <span class="num">50000000</span>-<span class="var">PROCESOS</span>            <span class="kw">THRU</span> <span class="num">50000000</span>-<span class="kw">EXIT</span>.
+     <span class="kw">PERFORM</span> <span class="num">70000000</span>-<span class="var">CIERRO</span>              <span class="kw">THRU</span> <span class="num">70000000</span>-<span class="kw">EXIT</span>.
+     <span class="kw">STOP</span> <span class="kw">RUN</span>.</span>
+<span class="seg" data-cid="s4" data-jid="j4" title="Lectura de los cuatro SALDOSTB en dos steps con MultiResourceItemReader · L676–683"> <span class="num">50000000</span>-<span class="var">PROCESOS</span>.
+   <span class="kw">PERFORM</span> <span class="num">50001000</span>-<span class="var">REPORTE</span> <span class="kw">THRU</span> <span class="num">50001000</span>-<span class="kw">EXIT</span>
+   <span class="kw">PERFORM</span> <span class="num">50002000</span>-<span class="var">LEOCMM</span>  <span class="kw">THRU</span> <span class="num">50002000</span>-<span class="kw">EXIT</span> <span class="kw">UNTIL</span> <span class="var">WS-1VEZ</span> = <span class="num">1</span>
+   <span class="kw">PERFORM</span> <span class="num">50003000</span>-<span class="var">LEOCMV</span>  <span class="kw">THRU</span> <span class="num">50003000</span>-<span class="kw">EXIT</span> <span class="kw">UNTIL</span> <span class="var">WS-2VEZ</span> = <span class="num">1</span>
+   <span class="kw">PERFORM</span> <span class="num">50004000</span>-<span class="var">LEOCHM</span>  <span class="kw">THRU</span> <span class="num">50004000</span>-<span class="kw">EXIT</span> <span class="kw">UNTIL</span> <span class="var">WS-3VEZ</span> = <span class="num">1</span>
+   <span class="kw">PERFORM</span> <span class="num">50005000</span>-<span class="var">LEOCHV</span>  <span class="kw">THRU</span> <span class="num">50005000</span>-<span class="kw">EXIT</span> <span class="kw">UNTIL</span> <span class="var">WS-4VEZ</span> = <span class="num">1</span>.
+ <span class="num">50000000</span>-<span class="kw">EXIT</span>.
+    <span class="kw">EXIT</span>.</span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Fecha de proceso: control de la base menos un día · L539–576"> <span class="num">20002000</span>-<span class="var">FECHA-PRO</span>.
+  <span class="kw">PERFORM</span> <span class="num">90000002</span>-<span class="var">B02CONTROL-FIND</span>
+  <span class="kw">IF</span> <span class="var">WS-STATUS-BASE</span> &gt; <span class="num">0</span>
+    <span class="kw">IF</span> <span class="var">WS-STATUS-BASE</span> = <span class="num">1</span>
+       <span class="kw">MOVE</span> <span class="str">&quot;ERROR REG. DE CONTROL VACIO    &quot;</span> <span class="kw">TO</span> <span class="var">WS-0101-TEXT-MSG</span>
+       <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+       <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>
+    <span class="kw">ELSE</span>
+       <span class="kw">STRING</span> <span class="str">&quot;ERROR AL HACER FIND A B02 &quot;</span> ,<span class="var">WS-STATUS-BASE</span>
+       <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span>                 <span class="var">WS-0101-TEXT-MSG</span>
+       <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+       <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>.
+     <span class="kw">PERFORM</span> <span class="num">20002100</span>-<span class="var">PROY-FEC</span>        <span class="kw">THRU</span>  <span class="num">20002100</span>-<span class="kw">EXIT</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-FECHA-PRO</span>   <span class="kw">TO</span> <span class="var">WS-TOT-FECHA</span>      <span class="var">WS-TB-FECHA1</span>
+                            <span class="var">WS-TB-FECHA2</span>      <span class="var">WS-TB-FECHA3</span>
+                            <span class="var">WS-TB-FECHA4</span>      <span class="var">WS-TB-FECHA5</span>
+                            <span class="var">WS-TB-FECHA6</span>.
+     <span class="kw">MOVE</span> <span class="var">WS-PRO-DD</span>      <span class="kw">TO</span> <span class="var">WS-SDOTB-DIA1</span>
+     <span class="kw">MOVE</span> <span class="var">WS-PRO-MM</span>      <span class="kw">TO</span> <span class="var">WS-SDOTB-MES1</span>
+     <span class="kw">MOVE</span> <span class="var">WS-PRO-AA</span>      <span class="kw">TO</span> <span class="var">WS-SDOTB-ANO1</span>.
+ <span class="num">20002000</span>-<span class="kw">EXIT</span>.
+    <span class="kw">EXIT</span>.
+<span class="cmt">******************************************************************</span>
+<span class="cmt">* PROYECTO LA FECHA LINEA UN DIA HACIA ATRAS PARA OBTENER LA</span>
+<span class="cmt">* FECHA DE PROCESO, PUES AL CORRER ESTE PASO LAS FECHAS YA FUERON</span>
+<span class="cmt">* PROYECTADAS AL SIGUIENTE DIA.</span>
+<span class="cmt">******************************************************************</span>
+ <span class="num">20002100</span>-<span class="var">PROY-FEC</span>.
+    <span class="kw">MOVE</span> <span class="var">B02-FECHA-LINEA</span>         <span class="kw">TO</span>    <span class="var">WS-S006-FECHA1</span>
+    <span class="kw">MOVE</span> <span class="num">1</span>                       <span class="kw">TO</span>    <span class="var">WS-S006-FECHA2</span>
+    <span class="kw">MOVE</span> <span class="num">12</span>                      <span class="kw">TO</span>    <span class="var">WS-S006-FORMATO</span>
+    <span class="kw">MOVE</span> <span class="num">15</span>                      <span class="kw">TO</span>    <span class="var">WS-S006-FUNCION</span>
+    <span class="kw">PERFORM</span> <span class="num">40000000</span>-<span class="var">CALL-FECPRO</span> <span class="kw">THRU</span>  <span class="num">40000000</span>-<span class="kw">EXIT</span>.
+    <span class="kw">MOVE</span> <span class="var">WS-S006-FECHA1</span>          <span class="kw">TO</span>    <span class="var">WS-FECHA-PRO</span>.
+ <span class="num">20002100</span>-<span class="kw">EXIT</span>.
+    <span class="kw">EXIT</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ConcentradorSaldosTbJobConfig.java · FechaProcesoTasklet.java</span><span class="fname">Spring Batch Job · MultiResourceItemReader · Tasklet</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j3"><span class="ann">@Configuration</span>
+<span class="ann">@EnableConfigurationProperties</span>(<span class="type">P420Properties</span>.<span class="kw">class</span>)
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ConcentradorSaldosTbJobConfig</span> {
+
+<span class="cmt">    /** 00000000-PRINCIPAL: cuatro PERFORM en secuencia y STOP RUN. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">Job</span> concentradorSaldosTb(<span class="type">JobRepository</span> repo,
+                             <span class="type">Step</span> validaVersion,            <span class="cmt">// 10000000-LIBRERIAS + 20000050-CHECO-VER</span>
+                             <span class="type">Step</span> fechaProceso,             <span class="cmt">// 20001000 .. 20008000</span>
+                             <span class="type">Step</span> concentraCuentaMaestra,   <span class="cmt">// 50002000 + 50003000 -&gt; CINTACM</span>
+                             <span class="type">Step</span> concentraCheques) {       <span class="cmt">// 50004000 + 50005000 -&gt; CINTACH</span>
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">JobBuilder</span>(<span class="str">&quot;S500P420&quot;</span>, repo)
+                .start(validaVersion)
+                .next(fechaProceso)
+                .next(concentraCuentaMaestra)
+                .next(concentraCheques)
+                .build();
+        <span class="cmt">// 70000000-CIERRO (CLOSE ... WITH SAVE) lo hace cada ItemWriter al cerrar su step.</span>
+    }
+}</span>
+<span class="seg java-seg" data-jid="j4"><span class="ann">@Bean</span>
+<span class="type">Step</span> concentraCuentaMaestra(<span class="type">JobRepository</span> repo, <span class="type">PlatformTransactionManager</span> tx,
+                            <span class="type">P420Properties</span> props, <span class="type">ResourceLoader</span> rl,
+                            <span class="ann">@Value</span>(<span class="str">&quot;#{jobExecutionContext[&#x27;fechaProceso&#x27;]}&quot;</span>) <span class="type">LocalDate</span> fecha,
+                            <span class="type">ConcentradorProcessor</span> procesadorCm,
+                            <span class="type">FlatFileItemWriter</span>&lt;<span class="type">SaldoTbRecord</span>&gt; cintaCmWriter) {
+
+    <span class="type">Resource</span>[] entradas = props.entradas().cuentaMaestra().stream()
+            .map(p -&gt; rl.getResource(props.resuelve(p, fecha)))
+            .toArray(<span class="type">Resource</span>[]::<span class="kw">new</span>);
+
+    <span class="kw">var</span> lector = <span class="kw">new</span> <span class="type">MultiResourceItemReaderBuilder</span>&lt;<span class="type">SaldoTbRecord</span>&gt;()
+            .name(<span class="str">&quot;saldosTbCuentaMaestra&quot;</span>)
+            .resources(entradas)
+            .comparator((a, b) -&gt; <span class="num">0</span>)        <span class="cmt">// NO ordenar por nombre: P420 depende de leer MTY antes que VDM</span>
+            .delegate(saldoTbLineReader())  <span class="cmt">// LineMapper -&gt; SaldoTbRecord.parse</span>
+            .build();
+
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">StepBuilder</span>(<span class="str">&quot;concentraCuentaMaestra&quot;</span>, repo)
+            .&lt;<span class="type">SaldoTbRecord</span>, <span class="type">SaldoTbRecord</span>&gt;chunk(<span class="num">180</span>, tx)   <span class="cmt">// BLOCK CONTAINS 180 RECORDS</span>
+            .reader(lector)
+            .processor(procesadorCm)        <span class="cmt">// @StepScope: estado WS-1VEZ..WS-7VEZ por step</span>
+            .writer(cintaCmWriter)
+            .build();
+}
+<span class="cmt">// concentraCheques es idéntico con props.entradas().cheques() y la cinta CINTACH.</span></span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">FechaProcesoTasklet</span> <span class="kw">implements</span> <span class="type">Tasklet</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlCaptacionRepository</span> control;   <span class="cmt">// S500B02CONTROL, acceso de solo lectura (OPEN INQUIRY)</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">CalendarioBancario</span> calendario;         <span class="cmt">// reemplaza LOCSUP</span>
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">RepeatStatus</span> execute(<span class="type">StepContribution</span> contribution, <span class="type">ChunkContext</span> ctx) {
+        <span class="type">LocalDate</span> fechaLinea = control.findFechaLinea()
+                .orElseThrow(() -&gt; <span class="kw">new</span> <span class="type">ProcesoAbortadoException</span>(
+                        <span class="str">&quot;ERROR REG. DE CONTROL VACIO&quot;</span>));            <span class="cmt">// CALL SYSTEM DMTERMINATE</span>
+
+        <span class="cmt">// 20002100-PROY-FEC: LOCSUP función 15, formato 12, desplazamiento 1.</span>
+        <span class="cmt">// Las fechas ya se proyectaron al día siguiente; se retrocede uno para obtener la de proceso.</span>
+        <span class="type">LocalDate</span> fechaProceso = calendario.retrocede(fechaLinea, <span class="num">1</span>)
+                .orElseThrow(() -&gt; <span class="kw">new</span> <span class="type">ProcesoAbortadoException</span>(
+                        <span class="str">&quot;ERROR AL ACCESAR LOCSUP&quot;</span>));                 <span class="cmt">// 40000000-CALL-FECPRO</span>
+
+        ctx.getStepContext().getStepExecution().getJobExecution()
+           .getExecutionContext().put(<span class="str">&quot;fechaProceso&quot;</span>, fechaProceso);
+        <span class="kw">return</span> <span class="type">RepeatStatus</span>.FINISHED;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Reglas de concentración — header, detalle y trailer</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>S500_SOURCE_P420.txt</span><span class="fname">PROCEDURE DIVISION · 50008000 / 50009000</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s6" data-jid="j6" title="Validación de fecha del header y escritura única · L770–784"> <span class="num">50008010</span>-<span class="var">HEADER-CINTACM</span>.
+   <span class="kw">IF</span> <span class="var">WS-TBHE-FECBASE</span> = <span class="var">WS-FECHA-PRO</span>
+      <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+   <span class="kw">ELSE</span>
+      <span class="kw">STRING</span> <span class="str">&quot;FECEXT Y FECINT ARCH SDOTB CM DIFIEREN;&quot;</span>
+             <span class="str">&quot;EXT: &quot;</span>  <span class="var">WS-FECHA-PRO</span> <span class="str">&quot; INT: &quot;</span> <span class="var">WS-TBHE-FECBASE</span>
+             <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span>  <span class="var">WS-0101-TEXT-MSG</span>
+      <span class="kw">PERFORM</span> <span class="num">70000050</span>-<span class="var">MENSAJE</span>
+      <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>.
+   <span class="kw">IF</span> <span class="var">WS-6VEZ</span> = <span class="num">0</span>
+        <span class="kw">WRITE</span> <span class="var">REG-CINTACM</span> <span class="kw">FROM</span> <span class="var">WS-REGTB</span>
+        <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">WS-6VEZ</span>.
+ <span class="num">50008010</span>-<span class="kw">EXIT</span>.
+   <span class="kw">EXIT</span>.</span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Acumulación del detalle por moneda · L789–797"> <span class="num">50008020</span>-<span class="var">GRABO-DETALLE</span>.
+     <span class="kw">WRITE</span> <span class="var">REG-CINTACM</span>      <span class="kw">FROM</span> <span class="var">WS-REGTB</span>
+     <span class="kw">ADD</span> <span class="num">1</span>                  <span class="kw">TO</span>   <span class="var">WS-TOTCTES-REG</span>
+     <span class="kw">IF</span> <span class="var">WS-TBDE-NUMMON</span> = <span class="num">1</span>
+        <span class="kw">ADD</span> <span class="var">WS-TBDE-SDOMN</span>   <span class="kw">TO</span>   <span class="var">WS-IMPCTESMN-REG</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">ADD</span> <span class="var">WS-TBDE-SDODL</span>   <span class="kw">TO</span>   <span class="var">WS-IMPCTESDL-REG</span>.
+ <span class="num">50008020</span>-<span class="kw">EXIT</span>.
+    <span class="kw">EXIT</span>.</span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Validación de trailer desactivada en el fuente · L802–813"> <span class="num">50008030</span>-<span class="var">TRAILER</span>.
+     <span class="kw">IF</span> (<span class="var">WS-TBTR-TOTSDOMN</span> = <span class="var">WS-IMPCTESMN-REG</span>)  <span class="kw">AND</span>
+        (<span class="var">WS-TBTR-TOTSDODL</span> = <span class="var">WS-IMPCTESDL-REG</span>)  <span class="kw">AND</span>
+        (<span class="var">WS-TBTR-NUMREG</span> = <span class="var">WS-TOTCTES-REG</span>)
+         <span class="kw">NEXT</span> <span class="var">SENTENCE</span>
+     <span class="kw">ELSE</span>
+         <span class="kw">NEXT</span> <span class="var">SENTENCE</span>.
+<span class="cmt">*       MOVE 010201                           TO WS-0101-CODI-MSG</span>
+<span class="cmt">*       MOVE 02                               TO WS-0101-TIPO-MSG</span>
+<span class="cmt">*       MOVE &quot;TRA.DIF. A SUMA DE REG. DE CM.&quot; TO WS-0101-TEXT-MSG</span>
+<span class="cmt">*       PERFORM 70000050-MENSAJE</span>
+<span class="cmt">*       CALL SYSTEM DMTERMINATE.</span></span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Trailer consolidado y renglón de cifras por plaza · L815–849">     <span class="kw">IF</span> <span class="var">WS-7VEZ</span> = <span class="num">0</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;M O N T E R R E Y   &quot;</span> <span class="kw">TO</span>   <span class="var">WS-NOMCSI</span>
+        <span class="kw">MOVE</span> <span class="var">WS-TOTCTES-REG</span>         <span class="kw">TO</span>   <span class="var">WS-NUMCTES</span>
+        <span class="kw">MOVE</span> <span class="var">WS-IMPCTESMN-REG</span>       <span class="kw">TO</span>   <span class="var">WS-IMPTOTMN</span>
+        <span class="kw">MOVE</span> <span class="var">WS-IMPCTESDL-REG</span>       <span class="kw">TO</span>   <span class="var">WS-IMPTOTDL</span>
+        <span class="kw">WRITE</span> <span class="var">REG-IMP</span>               <span class="kw">FROM</span> <span class="var">WS-DET-SDOTB</span> <span class="kw">BEFORE</span> <span class="num">2</span>
+        <span class="kw">ADD</span> <span class="var">WS-IMPCTESMN-REG</span>        <span class="kw">TO</span> <span class="var">WS-TOT-SDOSMN</span>
+        <span class="kw">ADD</span> <span class="var">WS-IMPCTESDL-REG</span>        <span class="kw">TO</span> <span class="var">WS-TOT-SDOSDL</span>
+        <span class="kw">ADD</span> <span class="var">WS-TOTCTES-REG</span>          <span class="kw">TO</span> <span class="var">WS-TOT-CTES</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-IMPCTESMN-REG</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-IMPCTESDL-REG</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-TOTCTES-REG</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>                      <span class="kw">TO</span> <span class="var">WS-7VEZ</span>
+     <span class="kw">ELSE</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;V A L L E  D/ M E X.&quot;</span> <span class="kw">TO</span>   <span class="var">WS-NOMCSI</span>
+        <span class="kw">MOVE</span> <span class="var">WS-TOTCTES-REG</span>         <span class="kw">TO</span>   <span class="var">WS-NUMCTES</span>
+        <span class="kw">MOVE</span> <span class="var">WS-IMPCTESMN-REG</span>       <span class="kw">TO</span>   <span class="var">WS-IMPTOTMN</span>
+        <span class="kw">MOVE</span> <span class="var">WS-IMPCTESDL-REG</span>       <span class="kw">TO</span>   <span class="var">WS-IMPTOTDL</span>
+        <span class="kw">WRITE</span> <span class="var">REG-IMP</span>               <span class="kw">FROM</span> <span class="var">WS-DET-SDOTB</span> <span class="kw">BEFORE</span> <span class="num">2</span>
+        <span class="kw">ADD</span> <span class="var">WS-IMPCTESMN-REG</span>        <span class="kw">TO</span> <span class="var">WS-TOT-SDOSMN</span>
+        <span class="kw">ADD</span> <span class="var">WS-IMPCTESDL-REG</span>        <span class="kw">TO</span> <span class="var">WS-TOT-SDOSDL</span>
+        <span class="kw">ADD</span> <span class="var">WS-TOTCTES-REG</span>          <span class="kw">TO</span> <span class="var">WS-TOT-CTES</span>
+        <span class="kw">MOVE</span> <span class="num">9</span>                      <span class="kw">TO</span> <span class="var">WS-TB-TIPO-REG</span>
+        <span class="kw">MOVE</span> <span class="var">WS-TOT-SDOSMN</span>          <span class="kw">TO</span> <span class="var">WS-TBTR-TOTSDOMN</span>
+        <span class="kw">MOVE</span> <span class="var">WS-TOT-SDOSDL</span>          <span class="kw">TO</span> <span class="var">WS-TBTR-TOTSDODL</span>
+        <span class="kw">MOVE</span> <span class="var">WS-TOT-CTES</span>            <span class="kw">TO</span> <span class="var">WS-TBTR-NUMREG</span>
+        <span class="kw">WRITE</span> <span class="var">REG-CINTACM</span>           <span class="kw">FROM</span> <span class="var">WS-REGTB</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-IMPCTESMN-REG</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-IMPCTESDL-REG</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-TOTCTES-REG</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-TOT-SDOSMN</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-TOT-SDOSDL</span>
+        <span class="kw">MOVE</span> <span class="num">0</span>                      <span class="kw">TO</span> <span class="var">WS-TOT-CTES</span>.
+ <span class="num">50008030</span>-<span class="kw">EXIT</span>.
+    <span class="kw">EXIT</span>.</span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ConcentradorProcessor.java · Acumulador.java</span><span class="fname">ItemProcessor @StepScope</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j6"><span class="ann">@Component</span>
+<span class="ann">@StepScope</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ConcentradorProcessor</span> <span class="kw">implements</span> <span class="type">ItemProcessor</span>&lt;<span class="type">SaldoTbRecord</span>, <span class="type">SaldoTbRecord</span>&gt; {
+
+    <span class="ann">@Value</span>(<span class="str">&quot;#{jobExecutionContext[&#x27;fechaProceso&#x27;]}&quot;</span>) <span class="kw">private</span> <span class="type">LocalDate</span> fechaProceso;
+    <span class="ann">@Value</span>(<span class="str">&quot;#{stepExecution.stepName}&quot;</span>)             <span class="kw">private</span> <span class="type">String</span> familia;   <span class="cmt">// CM o CH</span>
+    <span class="kw">private</span> <span class="kw">boolean</span> headerEscrito;                                         <span class="cmt">// WS-6VEZ / WS-8VEZ</span>
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">SaldoTbRecord</span> process(<span class="type">SaldoTbRecord</span> rec) {
+        <span class="kw">return</span> <span class="kw">switch</span> (rec) {
+            <span class="kw">case</span> <span class="type">SaldoTbRecord</span>.<span class="type">Header</span> h  -&gt; procesaHeader(h);
+            <span class="kw">case</span> <span class="type">SaldoTbRecord</span>.<span class="type">Detalle</span> d -&gt; procesaDetalle(d);
+            <span class="kw">case</span> <span class="type">SaldoTbRecord</span>.<span class="type">Trailer</span> t -&gt; procesaTrailer(t);
+            <span class="kw">case</span> <span class="type">SaldoTbRecord</span>.<span class="type">Otro</span> o    -&gt; <span class="kw">null</span>;   <span class="cmt">// tipo distinto de 0/1/9: se descarta sin aviso</span>
+        };
+    }
+
+<span class="cmt">    /** 50008010-HEADER-CINTACM: la fecha base de cada archivo debe ser la de proceso. */</span>
+    <span class="kw">private</span> <span class="type">SaldoTbRecord</span> procesaHeader(<span class="type">SaldoTbRecord</span>.<span class="type">Header</span> h) {
+        <span class="kw">if</span> (!h.fecBase().equals(fechaProceso)) {
+            <span class="kw">throw</span> <span class="kw">new</span> <span class="type">ProcesoAbortadoException</span>(                         <span class="cmt">// CALL SYSTEM DMTERMINATE</span>
+                <span class="str">&quot;FECEXT Y FECINT ARCH SDOTB %s DIFIEREN;EXT: %s INT: %s&quot;</span>
+                    .formatted(familia, fechaProceso, h.fecBase()));
+        }
+        <span class="kw">if</span> (headerEscrito) {
+            <span class="kw">return</span> <span class="kw">null</span>;            <span class="cmt">// el header del segundo archivo se valida pero no va a la cinta</span>
+        }
+        headerEscrito = <span class="kw">true</span>;
+        <span class="kw">return</span> h;
+    }</span>
+<span class="seg java-seg" data-jid="j7">    <span class="kw">private</span> <span class="type">Acumulador</span> porArchivo = <span class="type">Acumulador</span>.vacio();   <span class="cmt">// WS-TOTCTES-REG, WS-IMPCTES*-REG</span>
+
+<span class="cmt">    /** 50008020-GRABO-DETALLE: copia el detalle a la cinta y acumula importes por moneda. */</span>
+    <span class="kw">private</span> <span class="type">SaldoTbRecord</span> procesaDetalle(<span class="type">SaldoTbRecord</span>.<span class="type">Detalle</span> d) {
+        porArchivo = (d.moneda() == <span class="num">1</span>)
+                ? porArchivo.masRegistro().masMn(d.saldoMn())    <span class="cmt">// MN</span>
+                : porArchivo.masRegistro().masDl(d.saldoDl());   <span class="cmt">// cualquier otra moneda va a DL</span>
+        <span class="kw">return</span> d;
+    }
+
+<span class="cmt">/** Acumuladores con la capacidad de los PIC originales. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">Acumulador</span>(<span class="kw">long</span> registros, <span class="type">BigDecimal</span> mn, <span class="type">BigDecimal</span> dl) {
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="type">BigDecimal</span> TOPE_9_12_V99 = <span class="kw">new</span> <span class="type">BigDecimal</span>(<span class="str">&quot;999999999999.99&quot;</span>);
+
+    <span class="kw">static</span> <span class="type">Acumulador</span> vacio() {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">Acumulador</span>(<span class="num">0</span>, <span class="type">BigDecimal</span>.ZERO.setScale(<span class="num">2</span>), <span class="type">BigDecimal</span>.ZERO.setScale(<span class="num">2</span>));
+    }
+    <span class="type">Acumulador</span> masRegistro()          { <span class="kw">return</span> <span class="kw">new</span> <span class="type">Acumulador</span>(registros + <span class="num">1</span>, mn, dl); }
+    <span class="type">Acumulador</span> masMn(<span class="type">BigDecimal</span> v)    { <span class="kw">return</span> <span class="kw">new</span> <span class="type">Acumulador</span>(registros, tope(mn.add(v)), dl); }
+    <span class="type">Acumulador</span> masDl(<span class="type">BigDecimal</span> v)    { <span class="kw">return</span> <span class="kw">new</span> <span class="type">Acumulador</span>(registros, mn, tope(dl.add(v))); }
+
+<span class="cmt">    /** ADD sin ON SIZE ERROR en COBOL pierde el dígito alto en silencio; aquí se falla. */</span>
+    <span class="kw">private</span> <span class="kw">static</span> <span class="type">BigDecimal</span> tope(<span class="type">BigDecimal</span> v) {
+        <span class="kw">if</span> (v.compareTo(TOPE_9_12_V99) &gt; <span class="num">0</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">DesbordamientoAcumuladorException</span>(v);
+        <span class="kw">return</span> v;   <span class="cmt">// suma de importes con escala 2: exacta, sin redondeo</span>
+    }
+}</span>
+<span class="seg java-seg" data-jid="j8">    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P420Properties</span> props;
+
+<span class="cmt">    /**</span>
+<span class="cmt">     * 50008030-TRAILER, primer bloque. En el fuente ambas ramas del IF son NEXT SENTENCE</span>
+<span class="cmt">     * y el abort está comentado: un trailer que no cuadra pasa sin aviso.</span>
+<span class="cmt">     * Se conserva ese comportamiento por defecto y se deja la validación activable.</span>
+<span class="cmt">     */</span>
+    <span class="kw">private</span> <span class="kw">void</span> validaTrailer(<span class="type">SaldoTbRecord</span>.<span class="type">Trailer</span> t) {
+        <span class="kw">boolean</span> cuadra = t.totSaldoMn().compareTo(porArchivo.mn()) == <span class="num">0</span>
+                &amp;&amp; t.totSaldoDl().compareTo(porArchivo.dl()) == <span class="num">0</span>
+                &amp;&amp; t.numRegistros() == porArchivo.registros();
+        <span class="kw">if</span> (!cuadra) {
+            log.warn(<span class="str">&quot;TRA.DIF. A SUMA DE REG. DE {}. trailer={} calculado={}&quot;</span>,
+                     familia, t, porArchivo);
+            <span class="kw">if</span> (props.validarTrailer()) {          <span class="cmt">// p420.validar-trailer: false (comportamiento actual)</span>
+                <span class="kw">throw</span> <span class="kw">new</span> <span class="type">TrailerDescuadradoException</span>(familia, t, porArchivo);
+            }
+        }
+    }</span>
+<span class="seg java-seg" data-jid="j9">    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ReporteCifrasControl</span> reporte;   <span class="cmt">// REPORTE (PRINTER) -&gt; JasperReports / CSV</span>
+    <span class="kw">private</span> <span class="type">Acumulador</span> total = <span class="type">Acumulador</span>.vacio();  <span class="cmt">// WS-TOT-CTES, WS-TOT-SDOSMN, WS-TOT-SDOSDL</span>
+    <span class="kw">private</span> <span class="kw">int</span> trailersVistos;                     <span class="cmt">// WS-7VEZ / WS-9VEZ</span>
+
+    <span class="kw">private</span> <span class="type">SaldoTbRecord</span> procesaTrailer(<span class="type">SaldoTbRecord</span>.<span class="type">Trailer</span> t) {
+        validaTrailer(t);
+        <span class="type">String</span> plaza = (trailersVistos == <span class="num">0</span>) ? <span class="str">&quot;M O N T E R R E Y   &quot;</span> : <span class="str">&quot;V A L L E  D/ M E X.&quot;</span>;
+        reporte.renglon(familia, plaza, porArchivo);           <span class="cmt">// WRITE REG-IMP FROM WS-DET-SDOTB</span>
+        total = <span class="kw">new</span> <span class="type">Acumulador</span>(total.registros() + porArchivo.registros(),
+                               total.mn().add(porArchivo.mn()), total.dl().add(porArchivo.dl()));
+        porArchivo = <span class="type">Acumulador</span>.vacio();
+
+        <span class="kw">if</span> (trailersVistos++ == <span class="num">0</span>) {
+            <span class="kw">return</span> <span class="kw">null</span>;            <span class="cmt">// falta el archivo de Valle: el trailer de MTY no va a la cinta</span>
+        }
+        <span class="kw">var</span> consolidado = <span class="type">Fixed</span>.trailer(total.registros(), total.mn(), total.dl());   <span class="cmt">// tipo &#x27;9&#x27;</span>
+        total = <span class="type">Acumulador</span>.vacio();
+        <span class="kw">return</span> consolidado;         <span class="cmt">// WRITE REG-CINTACM FROM WS-REGTB</span>
+    }
+}</span></pre></div>
+</div>
+  <div class="sec-hdr">Reglas de negocio trazadas</div><table class="rules-table"><thead><tr><th>ID regla</th><th>Descripción (brain)</th><th>Segmento</th></tr></thead><tbody><tr><td>RN-S500-764</td><td>P420 (CONCENTRADOR-SALDOSTB) unifica los archivos de saldos de tarjetas de ambos turnos: matutino (`SALDOSTBM`, `SALDOSTBTM`) y vespertino (`SALDOSTBV`, `SALDOSTBTV`). La unión de los cuatro archivos SALDOTB produce el saldo consolidado del día por tarjeta, base para el cuadre de tarjetas contra contabilidad.</td><td>Rutas de entrada y salida compiladas a application.yml · Lectura de los cuatro SALDOSTB en dos steps con MultiResourceItemReader · Validación de fecha del header y escritura única · Acumulación del detalle por moneda · Trailer consolidado y renglón de cifras por plaza</td></tr><tr><td>RN-S500-765</td><td>El saldo consolidado se escribe en dos cintas de 90 caracteres con etiqueta dinámica: `CINTACM` (etiqueta `WS-ETIQ-CINTACM`) y `CINTACH`. La separación en dos salidas responde al ruteo posterior de la cinta hacia los dos destinos/CSIs de contabilidad, cerrando el ciclo de concentración de saldos de tarjeta.</td><td>Rutas de entrada y salida compiladas a application.yml · Trailer consolidado y renglón de cifras por plaza</td></tr></tbody></table>
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Trailer de entrada sin validar</b><p>En 50008030-TRAILER y 50009030-TRAILER (líneas 1603-1625 y 1801-1823) las dos ramas del IF son NEXT SENTENCE y el abort está comentado. P420 no detecta archivos incompletos ni duplicados.</p></div><div class="risk"><b>Signo del saldo ignorado en cifras de control</b><p>WS-TBDE-SIGSDO (línea 355) no se lee en ningún párrafo. Los totales del trailer consolidado y del reporte suman importes sin signo; un saldo deudor se sumaría como positivo. El detalle viaja intacto a la cinta, así que el impacto es sobre las cifras de control.</p></div><div class="risk"><b>Desbordamiento silencioso</b><p>Los acumuladores por archivo son PIC 9(12)V99 y los totales PIC 9(13)V99, sin ON SIZE ERROR. Si se excede la capacidad, COBOL pierde los dígitos altos sin aviso. La versión Java falla de forma explícita.</p></div><div class="risk"><b>Dependencia del orden de lectura</b><p>La etiqueta de plaza del reporte, el header que se escribe y el momento del trailer consolidado dependen de que se procese primero el archivo de Monterrey (WS-7VEZ y WS-9VEZ). El MultiResourceItemReader debe configurarse sin reordenar recursos.</p></div><div class="risk"><b>Hardcodes de rutas y plazas</b><p>Prefijos S500 y S001, nodos 04 y 10, WS-TOT-CI = 10 en el título del listado y los nombres de plaza están compilados. Se trasladan a application.yml.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Confirmar el formato de B02-FECHA-LINEA y la semántica de LOCSUP función 15 con formato 12 (día natural o día hábil anterior); el copybook S500/INC/WOR/25MTP002 no viene en el fuente.</li><li>RN-S500-764 describe SALDOSTBM y SALDOSTBV como turnos matutino y vespertino; el fuente los identifica como Monterrey y Valle de México (comentarios de los FD en líneas 91 y 109 y renglones del reporte en líneas 1631 y 1657). Revisar la redacción de la regla en el brain.</li><li>RN-S500-765 dice que CINTACM y CINTACH responden al ruteo hacia dos CSIs de contabilidad; en el fuente la separación es por producto (Cuenta Maestra y Cheques) y ambas cintas se describen como enviadas a Tarjetas (líneas 163-165 y 187-189). Validar con SME.</li><li>Los comentarios de WS-ETIQ-SDOTBM y WS-ETIQ-SDOTBV (líneas 389-391 y 409-411) contradicen a los FD sobre qué plaza es cada archivo; se asumió que la ruta 04 es Monterrey.</li><li>Confirmar si el prefijo S001 en las rutas de Cheques sigue vigente.</li><li>Confirmar si un saldo con WS-TBDE-SIGSDO negativo puede llegar en SALDOSTB; de ser así, las cifras de control actuales están sobreestimadas.</li></ul>
+  <div class="pn"><a href="S500_P400.html">← S500 · P400</a><a href="../cobol-java.html">Inventario</a><a href="S500_P430.html">S500 · P430 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · Banamex · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Registro con tres vistas REDEFINES a sealed interface", "cobol": " 01 WS-REGTB.\n   02 WS-TB-TIPO-REG             PIC X(01).\n   02 WS-REGTB-HEADER.\n       03 WS-TBHE-SISO           PIC X(4).\n       03 WS-TBHE-SISD           PIC X(4).\n       03 WS-TBHE-FECPRO         PIC 9(08).\n       03 WS-TBHE-FECBASE        PIC 9(08).\n       03 WS-TBHE-TIPCAM         PIC 9(04)V9(04).\n       03 FILLER                 PIC X(57).\n   02 WS-REGTB-DETALLE REDEFINES WS-REGTB-HEADER.\n       03 WS-TBDE-NUMCTO        PIC 9(12).\n       03 WS-TBDE-NUMPRD        PIC 9(04).\n       03 WS-TBDE-NUMINS        PIC 9(04).\n       03 WS-TBDE-NUMMON        PIC 9(03).\n       03 WS-TBDE-SIGSDO        PIC X.\n       03 WS-TBDE-SDOMN         PIC 9(12)V99.\n       03 WS-TBDE-LIMCRE        PIC 9(3).\n       03 WS-TBDE-CSI           PIC 99.\n       03 WS-TBDE-SUCPRO        PIC 9(04).\n       03 WS-TBDE-AUTPENMN      PIC 9(08)V99.\n       03 WS-TBDE-STATUS        PIC 9.\n       03 WS-TBDE-SDODL         PIC 9(12)V99.\n       03 WS-TBDE-AUTPENDL      PIC 9(08)V99.\n       03 FILLER                PIC X(7).\n   02 WS-REGTB-TRAILER REDEFINES WS-REGTB-HEADER.\n       03 WS-TBTR-NUMREG        PIC 9(08).\n       03 WS-TBTR-TOTSDOMN      PIC 9(16)V99.\n       03 WS-TBTR-TOTSDODL      PIC 9(16)V99.\n       03 FILLER                PIC X(45).", "java": "/** WS-REGTB: un registro de 90 bytes con tres vistas REDEFINES, discriminadas por WS-TB-TIPO-REG. */\npublic sealed interface SaldoTbRecord\n        permits SaldoTbRecord.Header, SaldoTbRecord.Detalle,\n                SaldoTbRecord.Trailer, SaldoTbRecord.Otro {\n\n    String raw();   // la cinta de salida recibe el registro tal cual (WRITE ... FROM WS-REGTB)\n\n    /** Tipo '0'. Posiciones 1-32; FILLER X(57). */\n    record Header(String sisOrigen, String sisDestino,\n                  LocalDate fecProceso, LocalDate fecBase,      // 9(08) AAAAMMDD\n                  BigDecimal tipoCambio,                        // 9(04)V9(04) -> escala 4\n                  String raw) implements SaldoTbRecord {}\n\n    /** Tipo '1'. Contrato como String para conservar ceros a la izquierda. */\n    record Detalle(String numContrato,                          // 9(12)\n                   int producto, int instrumento, int moneda,\n                   char signoSaldo,                             // X: P420 no lo usa\n                   BigDecimal saldoMn,                          // 9(12)V99 -> escala 2\n                   int limiteCredito, int csi, int sucursal,\n                   BigDecimal autPendMn,                        // 9(08)V99\n                   int status,\n                   BigDecimal saldoDl,                          // 9(12)V99\n                   BigDecimal autPendDl,                        // 9(08)V99\n                   String raw) implements SaldoTbRecord {}\n\n    /** Tipo '9'. */\n    record Trailer(long numRegistros,                           // 9(08)\n                   BigDecimal totSaldoMn, BigDecimal totSaldoDl, // 9(16)V99\n                   String raw) implements SaldoTbRecord {}\n\n    /** Cualquier otro tipo: P420 no lo copia ni lo reporta. */\n    record Otro(String raw) implements SaldoTbRecord {}\n\n    static SaldoTbRecord parse(String r) {\n        return switch (r.charAt(0)) {\n            case '0' -> new Header(r.substring(1, 5), r.substring(5, 9),\n                    Fixed.fechaAmd(r, 9), Fixed.fechaAmd(r, 17), Fixed.decimal(r, 25, 8, 4), r);\n            case '1' -> Fixed.detalle(r);   // offsets: 1,13,17,21,24,25,39,42,44,48,58,59,73\n            case '9' -> new Trailer(Fixed.entero(r, 1, 8), Fixed.decimal(r, 9, 18, 2),\n                    Fixed.decimal(r, 27, 18, 2), r);\n            default  -> new Otro(r);\n        };\n    }\n}", "rationale": "WS-REGTB es un solo buffer de 90 bytes con tres interpretaciones (header, detalle y trailer) que comparten memoria vía <code>REDEFINES</code>. En Java cada vista es un <code>record</code> inmutable dentro de una <code>sealed interface</code>, de modo que el <code>switch</code> del procesador es exhaustivo y el compilador obliga a tratar el caso de un tipo de registro desconocido, que P420 ignora en silencio. Los importes <code>PIC 9(12)V99</code> y <code>9(16)V99</code> pasan a <code>BigDecimal</code> con escala 2 y el tipo de cambio <code>9(04)V9(04)</code> con escala 4. El número de contrato se conserva como <code>String</code>. Se guarda el texto original porque la cinta de salida recibe el registro byte a byte.", "risk": "El campo WS-TBDE-SIGSDO se define pero ningún párrafo lo lee: los importes se tratan siempre como positivos.", "rules": [], "lines": "L164–192", "verified": true, "score": 100}, "s2": {"title": "Rutas de entrada y salida compiladas a application.yml", "cobol": " 01 WS-ETIQ-SDOTBM.\n      02 FILLER       PIC X(30) VALUE\n                      \"S500/FILE/S500/04/10/SALDOSTB/\".\n      02 WS-TB-FECHA1 PIC 9(6).\n      02 FILLER       PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CM.\n*    PARA TARJETAS QUE PROVIENE DE MTY.\n****************************************************************\n 01 WS-ETIQ-SDOTBV.\n      02 FILLER       PIC X(30) VALUE\n                      \"S500/FILE/S500/10/10/SALDOSTB/\".\n      02 WS-TB-FECHA2 PIC 9(6).\n      02 FILLER       PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA LEIDO EL ARCHIVO DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE VDM.\n****************************************************************\n 01 WS-ETIQ-SDOTBTM.\n      02 FILLER       PIC X(30) VALUE\n                      \"S001/FILE/S500/04/10/SALDOSTB/\".\n      02 WS-TB-FECHA3  PIC 9(6).\n      02 FILLER        PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE MTY.\n****************************************************************\n 01 WS-ETIQ-SDOTBTV.\n      02 FILLER        PIC X(30) VALUE\n                       \"S001/FILE/S500/10/10/SALDOSTB/\".\n      02 WS-TB-FECHA4   PIC 9(6).\n      02 FILLER         PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO LA CINTA DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE VDM Y MTY.\n****************************************************************\n 01 WS-ETIQ-CINTACH.\n      02 FILLER       PIC X(29) VALUE\n                      \"S001/FILE/S500/10/10/CINTACH/\".\n      02 WS-TB-FECHA5  PIC 9(6).\n      02 FILLER        PIC X VALUE \".\".\n****************************************************************\n*    ETIQUETA DEL NOMBRE CON QUE SERA CREADO EL ARCHIVO DE CHEQUES\n*    PARA TARJETAS QUE PROVIENE DE MTY.\n****************************************************************\n 01 WS-ETIQ-CINTACM.\n      02 FILLER        PIC X(29) VALUE\n                       \"S500/FILE/S500/10/10/CINTACM/\".\n      02 WS-TB-FECHA6   PIC 9(6).\n      02 FILLER         PIC X VALUE \".\".", "java": "# application.yml  (las rutas y nodos dejan de estar compilados en el programa)\np420:\n  fecha-en-nombre: yyMMdd            # WS-TB-FECHAn es PIC 9(6): MOVE de 9(8) conserva AAMMDD\n  validar-trailer: false             # comportamiento actual: la validación está comentada\n  entradas:\n    cuenta-maestra:                  # orden significativo: primero MTY, luego VDM\n      - \"S500/FILE/S500/04/10/SALDOSTB/{fecha}.\"\n      - \"S500/FILE/S500/10/10/SALDOSTB/{fecha}.\"\n    cheques:\n      - \"S001/FILE/S500/04/10/SALDOSTB/{fecha}.\"\n      - \"S001/FILE/S500/10/10/SALDOSTB/{fecha}.\"\n  salidas:\n    cinta-ch: \"S001/FILE/S500/10/10/CINTACH/{fecha}.\"\n    cinta-cm: \"S500/FILE/S500/10/10/CINTACM/{fecha}.\"\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p420\")\npublic record P420Properties(String fechaEnNombre, boolean validarTrailer,\n                             Entradas entradas, Salidas salidas) {\n\n    public record Entradas(List<String> cuentaMaestra, List<String> cheques) {}\n    public record Salidas(String cintaCh, String cintaCm) {}\n\n    /** Sustituye {fecha} igual que MOVE WS-FECHA-PRO TO WS-TB-FECHAn (trunca el siglo). */\n    public String resuelve(String plantilla, LocalDate fechaProceso) {\n        return plantilla.replace(\"{fecha}\",\n                fechaProceso.format(DateTimeFormatter.ofPattern(fechaEnNombre)));\n    }\n}", "rationale": "Las seis etiquetas fijan en el código el prefijo de sistema (<code>S500</code> para Cuenta Maestra y <code>S001</code> para Cheques), los nodos <code>04</code> y <code>10</code> y el nombre lógico de cada archivo. Se mueven a <code>application.yml</code> para poder cambiar rutas por ambiente sin recompilar. La fecha del nombre es <code>PIC 9(6)</code> y recibe un <code>MOVE</code> desde la fecha de proceso de 8 dígitos, lo que trunca el siglo: el patrón <code>yyMMdd</code> lo deja explícito. La lista de entradas conserva el orden Monterrey y luego Valle, del que depende el trailer consolidado.", "risk": "Los comentarios de WS-ETIQ-SDOTBM y WS-ETIQ-SDOTBV dicen VDM y MTY al revés de lo que indican los FD y la ruta (04 corresponde a Monterrey en el mapa de nodos de S151). Se tomó como válida la ruta.", "rules": ["RN-S500-764", "RN-S500-765"], "lines": "L198–251", "verified": true, "score": 100}, "s3": {"title": "Rutina principal a definición de Job", "cobol": " 00000000-INICIO SECTION.\n 00000000-PRINCIPAL.\n     MOVE 2            TO  W77-USO-LIBLJ\n     MOVE \"P420\"       TO  WS-0101-PASO-MSG\n     MOVE \"25MTP004\"   TO  WS-0101-MTP-MSG\n                           W77-S000-MY-VERSION\n                           B91-IDPROG\n     MOVE \"S500P420\"   TO  W77-S000-MY-ID.\n     PERFORM 10000000-LIBRERIAS           THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN                THRU 20000000-EXIT.\n     PERFORM 50000000-PROCESOS            THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO              THRU 70000000-EXIT.\n     STOP RUN.", "java": "@Configuration\n@EnableConfigurationProperties(P420Properties.class)\npublic class ConcentradorSaldosTbJobConfig {\n\n    /** 00000000-PRINCIPAL: cuatro PERFORM en secuencia y STOP RUN. */\n    @Bean\n    Job concentradorSaldosTb(JobRepository repo,\n                             Step validaVersion,            // 10000000-LIBRERIAS + 20000050-CHECO-VER\n                             Step fechaProceso,             // 20001000 .. 20008000\n                             Step concentraCuentaMaestra,   // 50002000 + 50003000 -> CINTACM\n                             Step concentraCheques) {       // 50004000 + 50005000 -> CINTACH\n        return new JobBuilder(\"S500P420\", repo)\n                .start(validaVersion)\n                .next(fechaProceso)\n                .next(concentraCuentaMaestra)\n                .next(concentraCheques)\n                .build();\n        // 70000000-CIERRO (CLOSE ... WITH SAVE) lo hace cada ItemWriter al cerrar su step.\n    }\n}", "rationale": "La rutina principal es una secuencia fija de cuatro <code>PERFORM ... THRU</code>. En Spring Batch cada bloque se vuelve un <code>Step</code> encadenado con <code>next()</code>, lo que da reinicio por paso y bitácora en el <code>JobRepository</code>. Los <code>MOVE</code> de identificación (<code>P420</code>, <code>25MTP004</code>) pasan a ser el nombre del job y la versión del artefacto desplegado.", "risk": "", "rules": [], "lines": "L446–459", "verified": true, "score": 100}, "s4": {"title": "Lectura de los cuatro SALDOSTB en dos steps con MultiResourceItemReader", "cobol": " 50000000-PROCESOS.\n   PERFORM 50001000-REPORTE THRU 50001000-EXIT\n   PERFORM 50002000-LEOCMM  THRU 50002000-EXIT UNTIL WS-1VEZ = 1\n   PERFORM 50003000-LEOCMV  THRU 50003000-EXIT UNTIL WS-2VEZ = 1\n   PERFORM 50004000-LEOCHM  THRU 50004000-EXIT UNTIL WS-3VEZ = 1\n   PERFORM 50005000-LEOCHV  THRU 50005000-EXIT UNTIL WS-4VEZ = 1.\n 50000000-EXIT.\n    EXIT.", "java": "@Bean\nStep concentraCuentaMaestra(JobRepository repo, PlatformTransactionManager tx,\n                            P420Properties props, ResourceLoader rl,\n                            @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fecha,\n                            ConcentradorProcessor procesadorCm,\n                            FlatFileItemWriter<SaldoTbRecord> cintaCmWriter) {\n\n    Resource[] entradas = props.entradas().cuentaMaestra().stream()\n            .map(p -> rl.getResource(props.resuelve(p, fecha)))\n            .toArray(Resource[]::new);\n\n    var lector = new MultiResourceItemReaderBuilder<SaldoTbRecord>()\n            .name(\"saldosTbCuentaMaestra\")\n            .resources(entradas)\n            .comparator((a, b) -> 0)        // NO ordenar por nombre: P420 depende de leer MTY antes que VDM\n            .delegate(saldoTbLineReader())  // LineMapper -> SaldoTbRecord.parse\n            .build();\n\n    return new StepBuilder(\"concentraCuentaMaestra\", repo)\n            .<SaldoTbRecord, SaldoTbRecord>chunk(180, tx)   // BLOCK CONTAINS 180 RECORDS\n            .reader(lector)\n            .processor(procesadorCm)        // @StepScope: estado WS-1VEZ..WS-7VEZ por step\n            .writer(cintaCmWriter)\n            .build();\n}\n// concentraCheques es idéntico con props.entradas().cheques() y la cinta CINTACH.", "rationale": "50000000-PROCESOS lee los dos archivos de Cuenta Maestra uno tras otro hacia la misma cinta y luego los dos de Cheques. Es el patrón del arquetipo A1: un <code>MultiResourceItemReader</code> por familia de producto. Hay que anular el ordenamiento por nombre que aplica por defecto ese lector, porque el procesador asume que el primer trailer es el de Monterrey. El tamaño de chunk reproduce el <code>BLOCK CONTAINS 180 RECORDS</code>.", "risk": "", "rules": ["RN-S500-764"], "lines": "L676–683", "verified": true, "score": 100}, "s5": {"title": "Fecha de proceso: control de la base menos un día", "cobol": " 20002000-FECHA-PRO.\n  PERFORM 90000002-B02CONTROL-FIND\n  IF WS-STATUS-BASE > 0\n    IF WS-STATUS-BASE = 1\n       MOVE \"ERROR REG. DE CONTROL VACIO    \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n    ELSE\n       STRING \"ERROR AL HACER FIND A B02 \" ,WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n     PERFORM 20002100-PROY-FEC        THRU  20002100-EXIT.\n     MOVE WS-FECHA-PRO   TO WS-TOT-FECHA      WS-TB-FECHA1\n                            WS-TB-FECHA2      WS-TB-FECHA3\n                            WS-TB-FECHA4      WS-TB-FECHA5\n                            WS-TB-FECHA6.\n     MOVE WS-PRO-DD      TO WS-SDOTB-DIA1\n     MOVE WS-PRO-MM      TO WS-SDOTB-MES1\n     MOVE WS-PRO-AA      TO WS-SDOTB-ANO1.\n 20002000-EXIT.\n    EXIT.\n******************************************************************\n* PROYECTO LA FECHA LINEA UN DIA HACIA ATRAS PARA OBTENER LA\n* FECHA DE PROCESO, PUES AL CORRER ESTE PASO LAS FECHAS YA FUERON\n* PROYECTADAS AL SIGUIENTE DIA.\n******************************************************************\n 20002100-PROY-FEC.\n    MOVE B02-FECHA-LINEA         TO    WS-S006-FECHA1\n    MOVE 1                       TO    WS-S006-FECHA2\n    MOVE 12                      TO    WS-S006-FORMATO\n    MOVE 15                      TO    WS-S006-FUNCION\n    PERFORM 40000000-CALL-FECPRO THRU  40000000-EXIT.\n    MOVE WS-S006-FECHA1          TO    WS-FECHA-PRO.\n 20002100-EXIT.\n    EXIT.", "java": "@Component\n@RequiredArgsConstructor\npublic class FechaProcesoTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500B02CONTROL, acceso de solo lectura (OPEN INQUIRY)\n    private final CalendarioBancario calendario;         // reemplaza LOCSUP\n\n    @Override\n    public RepeatStatus execute(StepContribution contribution, ChunkContext ctx) {\n        LocalDate fechaLinea = control.findFechaLinea()\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"ERROR REG. DE CONTROL VACIO\"));            // CALL SYSTEM DMTERMINATE\n\n        // 20002100-PROY-FEC: LOCSUP función 15, formato 12, desplazamiento 1.\n        // Las fechas ya se proyectaron al día siguiente; se retrocede uno para obtener la de proceso.\n        LocalDate fechaProceso = calendario.retrocede(fechaLinea, 1)\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"ERROR AL ACCESAR LOCSUP\"));                 // 40000000-CALL-FECPRO\n\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"fechaProceso\", fechaProceso);\n        return RepeatStatus.FINISHED;\n    }\n}", "rationale": "El programa abre S500BD01CAPTACION solo para leer <code>B02-FECHA-LINEA</code> y la cierra de inmediato, así que en Java es un <code>Tasklet</code> de solo lectura previo a los steps de concentración. Cada <code>CALL SYSTEM DMTERMINATE</code> se traduce en una excepción que deja el step en FAILED. La fecha resultante se publica en el <code>ExecutionContext</code> del job, donde la toman las rutas de archivo y la validación de headers.", "risk": "No se sabe si LOCSUP función 15 con formato 12 retrocede un día natural o un día hábil; el comentario del fuente solo dice un día hacia atrás.", "rules": [], "lines": "L539–576", "verified": true, "score": 100}, "s6": {"title": "Validación de fecha del header y escritura única", "cobol": " 50008010-HEADER-CINTACM.\n   IF WS-TBHE-FECBASE = WS-FECHA-PRO\n      NEXT SENTENCE\n   ELSE\n      STRING \"FECEXT Y FECINT ARCH SDOTB CM DIFIEREN;\"\n             \"EXT: \"  WS-FECHA-PRO \" INT: \" WS-TBHE-FECBASE\n             DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n   IF WS-6VEZ = 0\n        WRITE REG-CINTACM FROM WS-REGTB\n        MOVE 1 TO WS-6VEZ.\n 50008010-EXIT.\n   EXIT.", "java": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ConcentradorProcessor implements ItemProcessor<SaldoTbRecord, SaldoTbRecord> {\n\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n    @Value(\"#{stepExecution.stepName}\")             private String familia;   // CM o CH\n    private boolean headerEscrito;                                         // WS-6VEZ / WS-8VEZ\n\n    @Override\n    public SaldoTbRecord process(SaldoTbRecord rec) {\n        return switch (rec) {\n            case SaldoTbRecord.Header h  -> procesaHeader(h);\n            case SaldoTbRecord.Detalle d -> procesaDetalle(d);\n            case SaldoTbRecord.Trailer t -> procesaTrailer(t);\n            case SaldoTbRecord.Otro o    -> null;   // tipo distinto de 0/1/9: se descarta sin aviso\n        };\n    }\n\n    /** 50008010-HEADER-CINTACM: la fecha base de cada archivo debe ser la de proceso. */\n    private SaldoTbRecord procesaHeader(SaldoTbRecord.Header h) {\n        if (!h.fecBase().equals(fechaProceso)) {\n            throw new ProcesoAbortadoException(                         // CALL SYSTEM DMTERMINATE\n                \"FECEXT Y FECINT ARCH SDOTB %s DIFIEREN;EXT: %s INT: %s\"\n                    .formatted(familia, fechaProceso, h.fecBase()));\n        }\n        if (headerEscrito) {\n            return null;            // el header del segundo archivo se valida pero no va a la cinta\n        }\n        headerEscrito = true;\n        return h;\n    }", "rationale": "Los indicadores <code>WS-nVEZ</code> son estado que vive durante todo el recorrido de los archivos de una familia. En Java ese estado pertenece a un <code>ItemProcessor</code> con <code>@StepScope</code>, de modo que cada step arranca limpio. Una fecha base distinta a la de proceso aborta el programa y aquí aborta el step. Devolver <code>null</code> filtra el registro en Spring Batch, que es exactamente lo que ocurre con el header del segundo archivo.", "risk": "", "rules": ["RN-S500-764"], "lines": "L770–784", "verified": true, "score": 100}, "s7": {"title": "Acumulación del detalle por moneda", "cobol": " 50008020-GRABO-DETALLE.\n     WRITE REG-CINTACM      FROM WS-REGTB\n     ADD 1                  TO   WS-TOTCTES-REG\n     IF WS-TBDE-NUMMON = 1\n        ADD WS-TBDE-SDOMN   TO   WS-IMPCTESMN-REG\n     ELSE\n        ADD WS-TBDE-SDODL   TO   WS-IMPCTESDL-REG.\n 50008020-EXIT.\n    EXIT.", "java": "    private Acumulador porArchivo = Acumulador.vacio();   // WS-TOTCTES-REG, WS-IMPCTES*-REG\n\n    /** 50008020-GRABO-DETALLE: copia el detalle a la cinta y acumula importes por moneda. */\n    private SaldoTbRecord procesaDetalle(SaldoTbRecord.Detalle d) {\n        porArchivo = (d.moneda() == 1)\n                ? porArchivo.masRegistro().masMn(d.saldoMn())    // MN\n                : porArchivo.masRegistro().masDl(d.saldoDl());   // cualquier otra moneda va a DL\n        return d;\n    }\n\n/** Acumuladores con la capacidad de los PIC originales. */\npublic record Acumulador(long registros, BigDecimal mn, BigDecimal dl) {\n    private static final BigDecimal TOPE_9_12_V99 = new BigDecimal(\"999999999999.99\");\n\n    static Acumulador vacio() {\n        return new Acumulador(0, BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2));\n    }\n    Acumulador masRegistro()          { return new Acumulador(registros + 1, mn, dl); }\n    Acumulador masMn(BigDecimal v)    { return new Acumulador(registros, tope(mn.add(v)), dl); }\n    Acumulador masDl(BigDecimal v)    { return new Acumulador(registros, mn, tope(dl.add(v))); }\n\n    /** ADD sin ON SIZE ERROR en COBOL pierde el dígito alto en silencio; aquí se falla. */\n    private static BigDecimal tope(BigDecimal v) {\n        if (v.compareTo(TOPE_9_12_V99) > 0) throw new DesbordamientoAcumuladorException(v);\n        return v;   // suma de importes con escala 2: exacta, sin redondeo\n    }\n}", "rationale": "Cada detalle se copia a la cinta y suma su saldo al acumulador de MN si la moneda es 1, o al de DL en cualquier otro caso. La suma entre importes de escala 2 es exacta, por eso no hay modo de redondeo. Los acumuladores <code>PIC 9(12)V99</code> no tienen <code>ON SIZE ERROR</code>: COBOL truncaría el dígito alto sin aviso, y en Java se decidió fallar explícitamente para no ocultar un desbordamiento en cifras de control.", "risk": "La rama ELSE manda a DL cualquier moneda distinta de 1, incluida la moneda 0 si llegara en el archivo.", "rules": ["RN-S500-764"], "lines": "L789–797", "verified": true, "score": 100}, "s8": {"title": "Validación de trailer desactivada en el fuente", "cobol": " 50008030-TRAILER.\n     IF (WS-TBTR-TOTSDOMN = WS-IMPCTESMN-REG)  AND\n        (WS-TBTR-TOTSDODL = WS-IMPCTESDL-REG)  AND\n        (WS-TBTR-NUMREG = WS-TOTCTES-REG)\n         NEXT SENTENCE\n     ELSE\n         NEXT SENTENCE.\n*       MOVE 010201                           TO WS-0101-CODI-MSG\n*       MOVE 02                               TO WS-0101-TIPO-MSG\n*       MOVE \"TRA.DIF. A SUMA DE REG. DE CM.\" TO WS-0101-TEXT-MSG\n*       PERFORM 70000050-MENSAJE\n*       CALL SYSTEM DMTERMINATE.", "java": "    private final P420Properties props;\n\n    /**\n     * 50008030-TRAILER, primer bloque. En el fuente ambas ramas del IF son NEXT SENTENCE\n     * y el abort está comentado: un trailer que no cuadra pasa sin aviso.\n     * Se conserva ese comportamiento por defecto y se deja la validación activable.\n     */\n    private void validaTrailer(SaldoTbRecord.Trailer t) {\n        boolean cuadra = t.totSaldoMn().compareTo(porArchivo.mn()) == 0\n                && t.totSaldoDl().compareTo(porArchivo.dl()) == 0\n                && t.numRegistros() == porArchivo.registros();\n        if (!cuadra) {\n            log.warn(\"TRA.DIF. A SUMA DE REG. DE {}. trailer={} calculado={}\",\n                     familia, t, porArchivo);\n            if (props.validarTrailer()) {          // p420.validar-trailer: false (comportamiento actual)\n                throw new TrailerDescuadradoException(familia, t, porArchivo);\n            }\n        }\n    }", "rationale": "El IF compara totales del trailer contra lo acumulado, pero las dos ramas terminan en <code>NEXT SENTENCE</code> y el aviso con <code>DMTERMINATE</code> está comentado. El resultado práctico es que P420 no valida el trailer. La traducción mantiene ese comportamiento para no cambiar la operación, registra la diferencia en bitácora y deja la validación detrás de la propiedad <code>p420.validar-trailer</code> para que el SME decida cuándo encenderla.", "risk": "Un archivo SALDOSTB truncado o duplicado llega a Tarjetas sin que P420 lo detecte.", "rules": [], "lines": "L802–813", "verified": true, "score": 100}, "s9": {"title": "Trailer consolidado y renglón de cifras por plaza", "cobol": "     IF WS-7VEZ = 0\n        MOVE \"M O N T E R R E Y   \" TO   WS-NOMCSI\n        MOVE WS-TOTCTES-REG         TO   WS-NUMCTES\n        MOVE WS-IMPCTESMN-REG       TO   WS-IMPTOTMN\n        MOVE WS-IMPCTESDL-REG       TO   WS-IMPTOTDL\n        WRITE REG-IMP               FROM WS-DET-SDOTB BEFORE 2\n        ADD WS-IMPCTESMN-REG        TO WS-TOT-SDOSMN\n        ADD WS-IMPCTESDL-REG        TO WS-TOT-SDOSDL\n        ADD WS-TOTCTES-REG          TO WS-TOT-CTES\n        MOVE 0                      TO WS-IMPCTESMN-REG\n        MOVE 0                      TO WS-IMPCTESDL-REG\n        MOVE 0                      TO WS-TOTCTES-REG\n        MOVE 1                      TO WS-7VEZ\n     ELSE\n        MOVE \"V A L L E  D/ M E X.\" TO   WS-NOMCSI\n        MOVE WS-TOTCTES-REG         TO   WS-NUMCTES\n        MOVE WS-IMPCTESMN-REG       TO   WS-IMPTOTMN\n        MOVE WS-IMPCTESDL-REG       TO   WS-IMPTOTDL\n        WRITE REG-IMP               FROM WS-DET-SDOTB BEFORE 2\n        ADD WS-IMPCTESMN-REG        TO WS-TOT-SDOSMN\n        ADD WS-IMPCTESDL-REG        TO WS-TOT-SDOSDL\n        ADD WS-TOTCTES-REG          TO WS-TOT-CTES\n        MOVE 9                      TO WS-TB-TIPO-REG\n        MOVE WS-TOT-SDOSMN          TO WS-TBTR-TOTSDOMN\n        MOVE WS-TOT-SDOSDL          TO WS-TBTR-TOTSDODL\n        MOVE WS-TOT-CTES            TO WS-TBTR-NUMREG\n        WRITE REG-CINTACM           FROM WS-REGTB\n        MOVE 0                      TO WS-IMPCTESMN-REG\n        MOVE 0                      TO WS-IMPCTESDL-REG\n        MOVE 0                      TO WS-TOTCTES-REG\n        MOVE 0                      TO WS-TOT-SDOSMN\n        MOVE 0                      TO WS-TOT-SDOSDL\n        MOVE 0                      TO WS-TOT-CTES.\n 50008030-EXIT.\n    EXIT.", "java": "    private final ReporteCifrasControl reporte;   // REPORTE (PRINTER) -> JasperReports / CSV\n    private Acumulador total = Acumulador.vacio();  // WS-TOT-CTES, WS-TOT-SDOSMN, WS-TOT-SDOSDL\n    private int trailersVistos;                     // WS-7VEZ / WS-9VEZ\n\n    private SaldoTbRecord procesaTrailer(SaldoTbRecord.Trailer t) {\n        validaTrailer(t);\n        String plaza = (trailersVistos == 0) ? \"M O N T E R R E Y   \" : \"V A L L E  D/ M E X.\";\n        reporte.renglon(familia, plaza, porArchivo);           // WRITE REG-IMP FROM WS-DET-SDOTB\n        total = new Acumulador(total.registros() + porArchivo.registros(),\n                               total.mn().add(porArchivo.mn()), total.dl().add(porArchivo.dl()));\n        porArchivo = Acumulador.vacio();\n\n        if (trailersVistos++ == 0) {\n            return null;            // falta el archivo de Valle: el trailer de MTY no va a la cinta\n        }\n        var consolidado = Fixed.trailer(total.registros(), total.mn(), total.dl());   // tipo '9'\n        total = Acumulador.vacio();\n        return consolidado;         // WRITE REG-CINTACM FROM WS-REGTB\n    }\n}", "rationale": "El primer trailer de cada familia se asume de Monterrey y solo alimenta el reporte y el total. Al llegar el segundo, que se asume de Valle, se escribe en la cinta un trailer tipo 9 con el número de registros y los totales MN y DL de ambos archivos, y se reinician los acumuladores. La cinta queda con un header, los detalles de las dos plazas y un trailer consolidado, que es la concentración que describen las reglas del brain.", "risk": "La plaza se deduce del orden de llegada y no del contenido del archivo. Si falta el trailer del primer archivo, sus importes se reportan como de Valle de México.", "rules": ["RN-S500-764", "RN-S500-765"], "lines": "L815–849", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

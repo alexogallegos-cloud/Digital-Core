@@ -1,0 +1,230 @@
+{
+  "slug": "S500_P100",
+  "sistema": "S500",
+  "programa": "P100",
+  "nombre": "Proveedor de fecha de proceso para los WFL de S500",
+  "funcion": "Utilería batch de S500 que los WFL invocan con un parámetro de dos dígitos para obtener una fecha de proceso proyectada, la fecha de línea, el nodo activo u otros datos de control, que regresa en TASKVALUE.",
+  "resumen": "P100 recibe un parámetro de dos dígitos: el primero es la opción y el segundo los días de retroceso. Lee el registro de control de Captación (S500B02CONTROL) o, para la opción 3 sin días, el de Tarjetas (S500B01PCONTROL), y según la opción proyecta la fecha de línea uno, dos o N días hacia atrás con LOCSUP, calcula el primer día del mes o el último del mes anterior, pide una fecha al operador, o devuelve el nodo activo o el indicador de Teletón. El resultado sale en el atributo TASKVALUE como ocho dígitos de fecha y dos de nodo. Fuera del servidor de desarrollo valida antes su versión.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.control.fechaproceso",
+  "secciones": [
+    {
+      "titulo": "Contrato de entrada y salida",
+      "origen": {
+        "archivo": "S500_SOURCE_P100.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "SolicitudFecha.java · RespuestaFecha.java",
+        "contexto": "record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro de dos dígitos, fecha tecleada y respuesta de diez dígitos",
+          "linea_ini": 114,
+          "linea_fin": 172,
+          "origen_codigo": " AUTHOR.     INGENIERIA DE SISTEMAS BANAMEX.\n SECURITY.   OBTIENE LA FECHA DE PROCESO DE LOS DATOS\n             GLOBALES PARA REGRESARLA AL WFL.\n             Y VALIDA CAMPOS DE LA PRELINEA.\n INSTALLATION. CUPS A10.\n DATE-WRITTEN. MAR96 .\n DATE-COMPILED.\n*************************************\n* E N V I R O N M E N T     D I V I S I O N.\n*************************************\n ENVIRONMENT DIVISION.\n CONFIGURATION SECTION.\n OBJECT-COMPUTER. A16.\n*************************************\n* D A T A      D I V I S I O N.\n*************************************\n DATA DIVISION.\n******************************************************************\n* D A T A - B A S E      S E C T I O N.\n******************************************************************\n DATA-BASE SECTION.\n DB  S500BD01CAPTACION.\n 01  S500B02CONTROL.\n 01  S500B91REINICIO.\n DB  S500BD04TARJETAS.",
+          "java_codigo": "/** WS-VAL-FEC PIC 99: primer dígito = opción, segundo = días hacia atrás. */\npublic record SolicitudFecha(int opcion, int diasAtras) {\n    public static SolicitudFecha de(String valFec) {                 // \"00\"..\"99\"\n        return new SolicitudFecha(valFec.charAt(0) - '0', valFec.charAt(1) - '0');\n    }\n}\n\n/** WKS-PARAM100 PIC 9(10): fecha AAAAMMDD (o dato) y nodo de dos dígitos. */\npublic record RespuestaFecha(long valor8, int nodo) {\n    public static RespuestaFecha de(LocalDate f, int nodo) {\n        return new RespuestaFecha(Long.parseLong(f.format(DateTimeFormatter.BASIC_ISO_DATE)), nodo);\n    }\n    public static RespuestaFecha soloNodo(int nodo) { return new RespuestaFecha(0, nodo); }\n    public long comoTaskValue() { return valor8 * 100 + nodo; }   // SET MYSELF (TASKVALUE) TO WKS-PARAM100\n}\n\n/** WS-TABLA-NUM-DIAS: \"312831303130\" + \"313130313031\", 12 ocurrencias PIC 9(02). */\nstatic final int[] DIAS_POR_MES = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};",
+          "racional": "P100 recibe un solo parámetro de dos dígitos que codifica la opción y los días de retroceso, y regresa su resultado al WFL a través del atributo <code>TASKVALUE</code> de la tarea, como un número de diez dígitos: ocho de fecha y dos de nodo. En Java la entrada y la salida se vuelven dos <code>record</code>, y la salida conserva el método que arma el mismo número para no romper a quien hoy lo lee. La tabla de días por mes, que en COBOL es una cadena con <code>REDEFINES</code>, pasa a un arreglo constante. Los niveles 88 de la fecha tecleada validan año, mes y día por separado.",
+          "reglas": [
+            "RN-S500-015",
+            "RN-S500-017"
+          ],
+          "riesgo": "Los niveles 88 aceptan cualquier día del 1 al 31 sin revisar el mes; ver el segmento de captura manual."
+        }
+      ]
+    },
+    {
+      "titulo": "Control, versión y selección de base",
+      "origen": {
+        "archivo": "S500_SOURCE_P100.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-PRINCIPAL / 20000000-OPEN / 20001000-ABRO-BASE"
+      },
+      "java": {
+        "archivo": "FechaProcesoTasklet.java · FechaProcesoService.java",
+        "contexto": "Tasklet · @Service · @Transactional(readOnly)"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Rutina principal y servidor de desarrollo",
+          "linea_ini": 186,
+          "linea_fin": 218,
+          "origen_codigo": " 01  WKS-VARIABLES-HOST.\n     02 WKS-MY-HOST         PIC X(10).\n     02 RD-WKS-MY-HOST      REDEFINES  WKS-MY-HOST.\n        04 WKS-MY-HOST-03   PIC X(04).\n        04 WKS-MY-HOST-17   PIC X(06).\n     02 WKS-ES-DES          PIC 9(01)   VALUE 0.\n     02 WKS-ES-SIT          PIC 9(01)   VALUE 0.\n     02 WKS-ES-UAT          PIC 9(01)   VALUE 0.\n     02 WKS-ES-PRD          PIC 9(01)   VALUE 0.\n******************************************************************\n* VARIABLES UTILIZADAS PARA EL MANEJO DE ERRORES Y LLAVES D/ACCESO\n* A LA BASE DE DATOS.\n******************************************************************\n COPY \"S500/INC/WOR/25MTP004\".",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechaProcesoTasklet implements Tasklet {      // 00000000-PRINCIPAL\n\n    private final FechaProcesoService servicio;\n    private final P100Properties props;                    // ambiente-desarrollo: ACYPBETA\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var solicitud = SolicitudFecha.de(parametro(ctx, \"valFec\"));\n        if (!props.esDesarrollo()) {\n            servicio.validaVersion(\"S500P100\", \"25MTP007\");     // 20000050-CHECO-VER\n        }\n        RespuestaFecha r = servicio.resuelve(solicitud);         // 20001000-ABRO-BASE + 20002000-FECHA-PRO\n        c.getStepExecution().getExecutionContext().putLong(\"taskValue\", r.comoTaskValue());\n        c.setExitStatus(new ExitStatus(\"FECHA_\" + r.valor8()));\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La rutina principal identifica si corre en el servidor de desarrollo comparando el nombre del host con <code>ACYPBETA</code>, separa los dos dígitos del parámetro y ejecuta en secuencia librerías, apertura con cálculo y cierre. El único efecto real de ser desarrollo es omitir la validación de versión: los <code>DISPLAY</code> de diagnóstico que dependían de la misma bandera están comentados. En Spring Batch el cálculo es un <code>Tasklet</code> que deja el resultado en el <code>ExecutionContext</code> y en el estado de salida, que es como el job siguiente lo consume. El nombre del host deja de compararse en el código y pasa a una propiedad de ambiente.",
+          "reglas": [
+            "RN-S500-009"
+          ],
+          "riesgo": "La comparación es contra el literal \"ACYPBETA. \"; un host de desarrollo con otro nombre ejecuta la validación de versión y uno productivo renombrado así la omitiría."
+        },
+        {
+          "id": "s3",
+          "titulo": "Validación de versión y elección de base según la opción",
+          "linea_ini": 259,
+          "linea_fin": 290,
+          "origen_codigo": "     88 ANOOK VALUE 1989 THRU 2999.\n     02 MMES           PIC 99.\n     88 MESOK VALUE 1 THRU 12.\n     02 DDIA           PIC 99.\n     88 DIAOK VALUE 1 THRU 31.\n****************************************************************\n* VARIABLES ADICIONALES UTILIZADAS PARA PROYECTAR LA FECHA.\n*****************************************************************\n 01  WKS-PARAM100                PIC 9(10).\n 01  RD-WKS-PARAM100             REDEFINES  WKS-PARAM100.\n     02 WS-FEC-CALCULADA-AMD     PIC 9(08).\n     02 WS-FEC-CAL-AMD REDEFINES WS-FEC-CALCULADA-AMD.\n        04 WS-CALCULADA-AA       PIC 9(04).\n        04 WS-CALCULADA-MM       PIC 99.\n        04 WS-CALCULADA-DD       PIC 99.",
+          "java_codigo": "    /** 20000050-CHECO-VER. */\n    public void validaVersion(String id, String version) {\n        if (versiones.compara(id, version) < 0) {                  // S000-CTR-CVEERROR < 0\n            throw new VersionNoVigenteException(\"VER. EJECUTADA DIF. A VERSIONES\");\n        }                                                          // CHANGE ATTRIBUTE STATUS OF MYSELF TO -1\n    }\n\n    /** 20001000-ABRO-BASE: solo la opción 3 con cero días va a Tarjetas. */\n    @Transactional(readOnly = true)                               // OPEN INQUIRY\n    public RespuestaFecha resuelve(SolicitudFecha s) {\n        return (s.opcion() == 3 && s.diasAtras() == 0)\n                ? desdeTarjetas()                                  // S500BD04TARJETAS / B01PCONTROL\n                : desdeCaptacion(s);                               // S500BD01CAPTACION / B02CONTROL\n    }",
+          "racional": "Fuera de desarrollo, si la versión que corre no coincide con la del catálogo central, la tarea se marca con estatus -1 y no devuelve fecha. Después se abre en modo consulta una de dos bases: la de Tarjetas solo para la opción 3 con cero días, y la de Captación en cualquier otro caso. En Java las dos bases son repositorios de solo lectura y la apertura se reduce a una transacción <code>readOnly</code>. La versión <code>25MTP007</code> que hoy está compilada pasa a ser la versión del artefacto.",
+          "reglas": [
+            "RN-S500-010",
+            "RN-S500-011"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Tabla de opciones y cálculo de fechas",
+      "origen": {
+        "archivo": "S500_SOURCE_P100.txt",
+        "contexto": "PROCEDURE DIVISION · 20002010 / 20002200 / 20002300 / 20002100 / 20002500"
+      },
+      "java": {
+        "archivo": "FechaProcesoService.java · ConsolaOperador.java",
+        "contexto": "switch sobre opción · LocalDate"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Lectura del control y opciones 31, inválidas y 01 a 09",
+          "linea_ini": 332,
+          "linea_fin": 365,
+          "origen_codigo": " 01 WS-RESIDUO-BI                PIC 9(08).\n 01 WKS-VAL-FEC-RCV         PIC 99.\n 01 WKS-VAL-FEC-RCV-RD      REDEFINES  WKS-VAL-FEC-RCV.\n    02 WKS-VAL-DANT         PIC 9.\n    02 WKS-VAL-OPCI         PIC 9.\n******************************************************************\n* P R O C E D U R E      D I V I S I O N.\n******************************************************************\n PROCEDURE DIVISION USING WS-VAL-FEC.\n****************************************************************\n****************************************************************\n*             R U T I N A          P R I N C I P A L.\n****************************************************************\n****************************************************************",
+          "java_codigo": "    /** 20002010-FECHA-BD01: primera mitad de la tabla de opciones. */\n    private RespuestaFecha desdeCaptacion(SolicitudFecha s) {\n        ControlCaptacion b02 = control.find()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));   // DMTERMINATE\n        int op = s.opcion(), d = s.diasAtras();\n\n        if (op == 3 && d == 1) {                                  // opción \"31\": solo el nodo activo\n            return RespuestaFecha.soloNodo(b02.usoFuturo05());\n        }\n        if (op > 0 && d > 0) {                                    // inválida: fecha de línea sin proyectar\n            return RespuestaFecha.de(b02.fechaLinea(), b02.numCsi());\n            // la condición (op == 3 && d > 1) del fuente ya está contenida en esta\n        }\n        if (op == 0 && d > 0) {                                   // \"01\"..\"09\": d días hacia atrás\n            return proyecta(b02, s);\n        }\n        return segundaMitad(b02, s);                              // opciones 9, 5, 6, 7, 8, 1, 2, 4 y 0\n    }",
+          "racional": "Primero se lee el registro de control de Captación; si no existe o falla, se aborta. La opción 31 no calcula fecha: regresa el nodo activo, que se guarda en un campo reservado para uso futuro de B02, y ceros en la fecha. Cualquier parámetro con opción y días distintos de cero se considera inválido y regresa la fecha de línea sin proyectar. La segunda parte de esa condición, opción 3 con más de un día, ya está cubierta por la primera, porque se evalúa después de atender el 31; en Java se deja una sola condición y se documenta. Con opción 0 y días informados se proyecta ese número de días.",
+          "reglas": [
+            "RN-S500-012",
+            "RN-S500-013",
+            "RN-S500-014",
+            "RN-S500-021"
+          ],
+          "riesgo": "Un parámetro inválido no produce error: el WFL recibe la fecha de línea como si fuera una fecha calculada."
+        },
+        {
+          "id": "s5",
+          "titulo": "Opciones 9, 5, 6, 7, 8, 1, 2, 4 y 0",
+          "linea_ini": 366,
+          "linea_fin": 404,
+          "origen_codigo": " 00000000-INICIO SECTION.\n 00000000-PRINCIPAL.\n***  MANEJO DE LA LIB LJ     -ENE-08-\n     MOVE 2            TO  W77-USO-LIBLJ\n     MOVE \"P100\"       TO  WS-0101-PASO-MSG\n     MOVE \"25MTP007\"   TO  WS-0101-MTP-MSG\n                           W77-S000-MY-VERSION\n     MOVE \"S500P100\"   TO  W77-S000-MY-ID.\n     MOVE ATTRIBUTE HOSTNAME  OF MYSELF TO WKS-MY-HOST.\n     IF WKS-MY-HOST = \"ACYPBETA. \"\n        MOVE 1 TO WKS-ES-DES.\n***\n     MOVE WS-VAL-F-O TO WKS-VAL-OPCI.\n     MOVE WS-VAL-F-D TO WKS-VAL-DANT.\n**   IF WKS-ES-DES = 1\n**      DISPLAY \"WS-VAL-FEC      =\" WS-VAL-FEC",
+          "java_codigo": "    /** Segunda mitad de 20002010-FECHA-BD01. */\n    private RespuestaFecha segundaMitad(ControlCaptacion b02, SolicitudFecha s) {\n        return switch (s.opcion()) {\n            case 9 -> new RespuestaFecha(b02.actTeleton(), b02.numCsi());   // indicador Teletón en el campo de fecha\n            case 5 -> {\n                LocalDate tecleada = consola.pideFechaValida();             // 20002100-PIDO-FECHA UNTIL WS-1VEZ = 1\n                proyecta(b02, s);                                           // el fuente llama a LOCSUP aunque descarte el resultado\n                yield RespuestaFecha.de(tecleada, b02.numCsi());\n            }\n            case 6 -> RespuestaFecha.de(ultimoDiaMesAnterior(b02.fechaLinea()), b02.numCsi());\n            case 7 -> RespuestaFecha.de(b02.fechaLinea().withDayOfMonth(1), b02.numCsi());\n            case 8 -> RespuestaFecha.de(b02.fechaLinea(), b02.numCsi());\n            case 1, 2, 4 -> proyecta(b02, s);\n            default -> proyecta(b02, s);                                    // opción 0 sin días\n        };\n    }",
+          "racional": "El resto de la tabla se despacha por el primer dígito. La opción 9 reutiliza el campo de fecha para devolver el indicador de la campaña Teletón. La opción 5 pide la fecha por consola y, aunque al final usa la tecleada, antes invoca la proyección con LOCSUP, que puede abortar el proceso. La 6 calcula el último día del mes anterior, la 7 el primer día del mes de la fecha de línea y la 8 devuelve la fecha de línea. Las opciones 1, 2 y 4, y la 0 sin días, terminan en la misma proyección. En Java es un <code>switch</code> con <code>yield</code>, y la llamada a LOCSUP de la opción 5 se conserva para no cambiar el comportamiento ante una falla de esa librería.",
+          "reglas": [
+            "RN-S500-016",
+            "RN-S500-015",
+            "RN-S500-019",
+            "RN-S500-020",
+            "RN-S500-021"
+          ],
+          "riesgo": "Las opciones 0, 2 y 4 dan exactamente el mismo resultado (dos días hacia atrás); si algún WFL usa la 4 esperando otra cosa, recibe la de la 2."
+        },
+        {
+          "id": "s6",
+          "titulo": "Proyección de la fecha con LOCSUP",
+          "linea_ini": 436,
+          "linea_fin": 454,
+          "origen_codigo": "******************************************************************\n******************************************************************\n*         R U T I N A S  D E   S E L E C C I O N   D E\n*    L I B R E R I A S   Q U E   S E R A N   U T I L I Z A D A S",
+          "java_codigo": "    /** 20002200-PROY-FEC + 40000000-CALL-FECPRO. */\n    private RespuestaFecha proyecta(ControlCaptacion b02, SolicitudFecha s) {\n        int dias = (s.diasAtras() > 0) ? s.diasAtras()\n                 : (s.opcion() == 1)   ? 1\n                 : 2;                                               // opciones 0, 2, 4 y 5\n        LocalDate fecha = calendario.retrocede(b02.fechaLinea(), dias)   // LOCSUP función 15, formato 12\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR AL ACCESAR LOCSUP\"));\n        return RespuestaFecha.de(fecha, b02.numCsi());\n    }",
+          "racional": "La proyección resta a la fecha de línea los días pedidos, o uno para la opción 1, o dos en cualquier otro caso, usando la librería de calendario LOCSUP con función 15 y formato 12. El comentario del fuente dice que la opción 2 es proyectar dos días hacia atrás. En Java LOCSUP se sustituye por un servicio de calendario bancario y cualquier falla se convierte en una excepción que aborta el step, igual que <code>CALL SYSTEM DMTERMINATE</code>. Para la opción 5 el resultado se descarta en el fuente y se usa la fecha tecleada.",
+          "reglas": [
+            "RN-S500-018",
+            "RN-S500-021"
+          ],
+          "riesgo": "No se sabe si LOCSUP función 15 resta días naturales o hábiles; la diferencia cambia la fecha que reciben los WFL en lunes y después de festivos."
+        },
+        {
+          "id": "s7",
+          "titulo": "Último día del mes anterior con bisiesto por divisibilidad entre 4",
+          "linea_ini": 462,
+          "linea_fin": 477,
+          "origen_codigo": " 10000000-LIBRERIAS.\n******************************************************************\n* CHANGE A LA LIBRERIA DE VERSIONES.\n******************************************************************\n     PERFORM 10000100-VERSIONES.\n******************************************************************",
+          "java_codigo": "    /** 20002300-FEC-ULTDIAMES, con la regla de bisiesto del fuente. */\n    static LocalDate ultimoDiaMesAnterior(LocalDate fechaLinea) {\n        int anio = fechaLinea.getYear(), mes = fechaLinea.getMonthValue();\n        if (mes == 1) { mes = 12; anio -= 1; } else { mes -= 1; }\n        int dia = DIAS_POR_MES[mes - 1];\n        if (mes == 2 && anio % 4 == 0) {\n            dia = 29;                       // el fuente no aplica la excepción de 100 y 400\n        }\n        return LocalDate.of(anio, mes, dia);\n        // Equivalente gregoriano exacto: fechaLinea.withDayOfMonth(1).minusDays(1).\n        // Coinciden en todos los años de 1901 a 2099; difieren en 2100.\n    }",
+          "racional": "Se retrocede un mes, se toma el número de días de la tabla y, para febrero, se usa 29 si el año es divisible entre 4. Esa regla omite la excepción de los años seculares, por lo que en 2100 daría un 29 de febrero que no existe; en Java <code>LocalDate.of</code> fallaría en ese caso en lugar de devolver una fecha inválida. Se conserva la regla del fuente para que el resultado sea idéntico hoy, y el comentario muestra la expresión equivalente con la API de fechas, que coincide en todos los años hasta 2099.",
+          "reglas": [
+            "RN-S500-017"
+          ],
+          "riesgo": "Para fechas de línea en marzo de 2100 el programa devolvería 21000229."
+        },
+        {
+          "id": "s8",
+          "titulo": "Captura manual de fecha con validación por campo",
+          "linea_ini": 411,
+          "linea_fin": 426,
+          "origen_codigo": "**      DISPLAY \"A=OPCION        =\" WKS-VAL-OPCI\n**      DISPLAY \"B=DIAS MENOS    =\" WKS-VAL-DANT.\n     PERFORM 10000000-LIBRERIAS          THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN               THRU 20000000-EXIT.\n     PERFORM 70000000-CIERRO             THRU 70000000-EXIT.\n**   IF WKS-ES-DES = 1",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ConsolaOperador {                      // 20002100-PIDO-FECHA (ACCEPT FECHA)\n\n    private final OperadorPrompt prompt;            // sustituye ACCEPT / DISPLAY de consola MCP\n\n    public LocalDate pideFechaValida() {\n        while (true) {\n            String txt = prompt.pide(\"DAME FECHA DE PROCESO, FORMATO AAAAMMDD\");\n            try {\n                LocalDate f = LocalDate.parse(txt, DateTimeFormatter.BASIC_ISO_DATE);\n                if (f.getYear() >= 1989 && f.getYear() <= 2999) return f;   // ANOOK\n            } catch (DateTimeParseException e) {\n                // cae al mensaje de error\n            }\n            prompt.avisa(\"LA FECHA ESTA MAL TECLEADA\");\n        }\n    }\n}",
+          "racional": "La opción 5 pide al operador una fecha en formato AAAAMMDD y repite la solicitud hasta que pase la validación. La validación del fuente revisa por separado que el año esté entre 1989 y 2999, el mes entre 1 y 12 y el día entre 1 y 31, sin cruzar día y mes. En Java el <code>ACCEPT</code> de consola se reemplaza por una interfaz de captura del operador y la validación usa <code>LocalDate.parse</code>, que sí rechaza fechas imposibles. Es la única diferencia funcional intencional del segmento y está marcada para revisión.",
+          "reglas": [
+            "RN-S500-015"
+          ],
+          "riesgo": "El fuente acepta fechas como 20260231 o 20260931, que después se devuelven al WFL tal cual."
+        },
+        {
+          "id": "s9",
+          "titulo": "Opción 3: fecha del último archivo de prealtas en Tarjetas",
+          "linea_ini": 494,
+          "linea_fin": 509,
+          "origen_codigo": "******************************************************************\n******************************************************************\n*                             O P E N.\n*  R U T I N A S   P A R A   A P E R T U R A   D E   B A S E   Y\n*                            A R C H I V O S.",
+          "java_codigo": "    /** 20002500-FECHA-BD04. */\n    private RespuestaFecha desdeTarjetas() {\n        ControlTarjetas b01p = controlTarjetas.findFirst()          // 90400001-B01PCONTROL-FINDF\n                .orElseThrow(() -> new ProcesoAbortadoException(\"NO HAY B01PCONTROL EN BD04 \"));\n        return new RespuestaFecha(b01p.ultimoArchivoAplicado(), b01p.numCsi());   // B01P-ULT-ARCHAPLI\n    }",
+          "racional": "La opción 3 con cero días no usa la fecha de Captación: lee el primer registro de control de la base de Tarjetas y devuelve la fecha del último archivo aplicado junto con su nodo. Si el registro no existe o la lectura falla, aborta. En Java es un repositorio de solo lectura sobre la base de Tarjetas y la falla es una excepción del step. El valor se devuelve como número de ocho dígitos sin convertirlo a <code>LocalDate</code>, porque el fuente lo copia sin validarlo.",
+          "reglas": [
+            "RN-S500-011"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Bisiesto incompleto",
+      "detalle": "20002300-FEC-ULTDIAMES (líneas 472-476) considera bisiesto todo año divisible entre 4. En 2100 devolvería 29 de febrero."
+    },
+    {
+      "titulo": "Validación de fecha tecleada por campo",
+      "detalle": "Los niveles 88 de las líneas 130-134 validan año, mes y día de forma independiente; se aceptan fechas imposibles como el 31 de febrero."
+    },
+    {
+      "titulo": "Condición redundante",
+      "detalle": "En la línea 353, (WKS-VAL-OPCI = 3 AND WKS-VAL-DANT > 1) ya está contenida en (WKS-VAL-OPCI > 0 AND WKS-VAL-DANT > 0) de la línea 352."
+    },
+    {
+      "titulo": "Parámetros inválidos sin error",
+      "detalle": "Cualquier combinación de opción y días distintos de cero, salvo 31, devuelve la fecha de línea sin aviso; el WFL no distingue un error de captura de una petición válida."
+    },
+    {
+      "titulo": "Opciones equivalentes y llamada descartada",
+      "detalle": "Las opciones 0, 2 y 4 producen el mismo resultado. La opción 5 invoca LOCSUP y descarta su resultado, pero una falla de LOCSUP la aborta igual."
+    },
+    {
+      "titulo": "Hardcodes de ambiente",
+      "detalle": "El host de desarrollo \"ACYPBETA. \" (línea 195) y la versión 25MTP007 (línea 190) están compilados. Se trasladan a configuración."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si LOCSUP función 15 con formato 12 resta días naturales o hábiles; el copybook S500/INC/PRO/25MTP005 con la llamada no viene en el fuente.",
+    "RN-S500-010 asocia la fecha devuelta con el parámetro WS-VAL-FEC; en el fuente el resultado se publica con SET MYSELF (TASKVALUE) TO WKS-PARAM100 y el parámetro no se modifica. Confirmar cómo la leen los WFL.",
+    "WKS-VAL-FEC-RCV define DANT antes que OPCI (líneas 169-172), al revés de WS-VAL-FEC; hoy no afecta porque los campos se mueven uno por uno, pero confirmar que ningún copybook use el grupo completo.",
+    "La validación de la fecha tecleada en Java usa LocalDate.parse y rechaza fechas imposibles que el fuente acepta; el SME debe decidir si se conserva el comportamiento actual.",
+    "Confirmar el significado de B02-USO-FUTURO-05 como nodo activo y de B02-ACT-TELETON como valor devuelto en la posición de fecha."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-918",
+    "RN-S500-920",
+    "RN-S500-009",
+    "RN-S500-010",
+    "RN-S500-011",
+    "RN-S500-012",
+    "RN-S500-013",
+    "RN-S500-014",
+    "RN-S500-015",
+    "RN-S500-016",
+    "RN-S500-017",
+    "RN-S500-018",
+    "RN-S500-019",
+    "RN-S500-020",
+    "RN-S500-021"
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "slug": "S151_P612",
+  "sistema": "S151",
+  "programa": "P612",
+  "nombre": "Dispatcher de WFL para LINEA en línea",
+  "funcion": "Programa de S151 que recibe un código de opción de 5 caracteres y arranca los WFL registrados como pendientes para esa opción en los archivos S151/FILE/EJECUCIONWFL/01 a 99.",
+  "resumen": "P612 recorre los títulos S151/FILE/EJECUCIONWFL/NN. con NN de 01 a 99. Para cada archivo residente lo abre en I-O y lee registros de 60 bytes con opción, nombre de WFL, estatus y parámetro. En el primer registro cuya opción coincide con la recibida y cuyo estatus es 0, arma un comando START (S151) sobre el pack CMEMP, con o sin parámetro entre comillas, lo envía con CALL SYSTEM WFL, marca el estatus en 1 y deja de leer ese archivo. No usa librerías externas ni verifica el resultado del arranque.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Cloud Data Flow",
+  "paquete_java": "mx.banamex.s151.orquestacion.linea",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — registro de ejecución y comandos WFL",
+      "origen": {
+        "archivo": "COBOL_P612.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "EjecucionWfl.java · P612Properties.java",
+        "contexto": "@Entity · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de 60 bytes de EJECUCIONWFL",
+          "linea_ini": 8,
+          "linea_fin": 20,
+          "origen_codigo": "     SELECT A04-WFLS      ASSIGN       TO DISK\n                          ORGANIZATION IS SEQUENTIAL.\n DATA DIVISION.\n FILE SECTION.\n FD A04-WFLS\n    VALUE OF DEPENDENTSPECS  TRUE\n    VALUE OF TITLE            IS WKS-TIT-ARC.\n 01 R01-REG-WFL.\n    03 WKS-WFL-OPCION         PIC X(05).\n    03 WKS-WFL-NOMBRE         PIC X(34).\n    03 WKS-WFL-STATUS         PIC X(01).\n    03 WKS-WFL-PARAM          PIC X(20).",
+          "java_codigo": "/** R01-REG-WFL: una fila por WFL programado. Los archivos 01..99 pasan a ser la columna 'grupo'. */\n@Entity\n@Table(name = \"ejecucion_wfl\")\npublic class EjecucionWfl {\n    @Id @GeneratedValue Long id;\n    @Column(nullable = false) int grupo;                      // NN del título EJECUCIONWFL/NN.\n    @Column(nullable = false) int orden;                      // posición dentro del archivo\n    @Column(length = 5,  nullable = false) String opcion;     // WKS-WFL-OPCION X(05)\n    @Column(length = 34, nullable = false) String nombre;     // WKS-WFL-NOMBRE X(34)\n    @Column(length = 1,  nullable = false) String status;     // WKS-WFL-STATUS X(01): \"0\" pendiente, \"1\" lanzado\n    @Column(length = 20) String parametro;                     // WKS-WFL-PARAM X(20), espacios = sin parámetro\n    @Version long version;                                     // evita doble lanzamiento concurrente\n}",
+          "racional": "Cada archivo de ejecución es secuencial y se reescribe en sitio para marcar el registro lanzado. En Java el conjunto de archivos se convierte en una sola tabla, con el número de archivo como grupo y el orden de lectura como columna, de modo que se conserva el criterio de recorrido. El estatus se mantiene como texto de un carácter porque en el fuente es <code>X(01)</code> comparado contra 0. La columna de versión agrega control optimista, algo que el original no tiene.",
+          "reglas": [
+            "RN-S151-468"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Título del archivo con número de 01 a 99",
+          "linea_ini": 24,
+          "linea_fin": 30,
+          "origen_codigo": " 77  W77-EOF                       PIC 9(01) VALUE ZERO.\n 01  WKS-PARAMETRO                 PIC X(05).\n 01  WKS-TIT-ARC.\n     02 FILLER PIC X(23) VALUE \"S151/FILE/EJECUCIONWFL/\".\n     02 WKS-NFILE PIC 9(02) VALUE 00.\n     02 FILLER PIC X(01) VALUE \".\".",
+          "java_codigo": "# application.yml\np612:\n  grupos: 1..99                       # WKS-NFILE PIC 9(02), de 01 a 99\n  titulo: \"S151/FILE/EJECUCIONWFL/{nn}.\"   # solo si se conserva la lectura de archivos\n\n@ConfigurationProperties(\"p612\")\npublic record P612Properties(String titulo, String pack, String usercode) {}",
+          "racional": "El título del archivo se arma en un grupo de WORKING-STORAGE con prefijo fijo, número de dos dígitos y punto final. El contador es el mismo campo numérico del título, así que el número de archivo y la variable de control del ciclo son una sola cosa. En Java el rango y el patrón quedan en <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-467"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Comandos START con y sin parámetro",
+          "linea_ini": 32,
+          "linea_fin": 44,
+          "origen_codigo": " 01 WKS-START-WFL.\n    02 FILLER      PIC X(13) VALUE \"START (S151)\".\n    02 WKS-NOM-WFL PIC X(34).\n    02 FILLER      PIC X(09) VALUE \" ON CMEMP\".\n 01 WKS-START-WFL2.\n    02 FILLER       PIC X(13) VALUE \"START (S151)\".\n    02 WKS-NOM-WFL2 PIC X(34).\n    02 FILLER       PIC X(10) VALUE \" ON CMEMP(\".\n    02 FILLER       PIC X(01) VALUE QUOTES.\n    02 WKS-PAR-WFL2 PIC X(20).\n    02 FILLER       PIC X(01) VALUE QUOTES.\n    02 FILLER       PIC X(10) VALUE \")\".",
+          "java_codigo": "# application.yml\np612:\n  usercode: S151\n  pack: CMEMP                          # \" ON CMEMP\" compilado en el comando\n\n// ---------------------------------------------------------------------------\n/** WKS-START-WFL y WKS-START-WFL2 se reemplazan por una petición de lanzamiento tipada. */\npublic record LanzamientoWfl(String usercode, String nombre, String pack, Optional<String> parametro) {\n\n    /** Solo para trazabilidad: el texto que el MCP habría recibido. */\n    String comandoMcp() {\n        return \"START (\" + usercode + \") \" + nombre.strip() + \" ON \" + pack\n               + parametro.map(p -> \"(\\\"\" + p.strip() + \"\\\")\").orElse(\"\");\n    }\n}",
+          "racional": "El comando se arma concatenando literales y campos de longitud fija: el usercode, el nombre del WFL con relleno a 34 posiciones, el pack CMEMP y, en la variante con parámetro, el parámetro entre comillas. En Java el comando deja de ser texto y pasa a ser un <code>record</code> con los mismos datos, que el lanzador traduce a la API del orquestador. El usercode y el pack, fijos en el fuente, pasan a configuración.",
+          "reglas": [
+            "RN-S151-469",
+            "RN-S151-470"
+          ],
+          "riesgo": "El nombre y el parámetro viajan con sus espacios de relleno dentro del comando (X(34) y X(20)) y el parámetro no se escapa: unas comillas dentro de WKS-WFL-PARAM romperían el comando."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del dispatcher — recorrido de los 99 archivos",
+      "origen": {
+        "archivo": "COBOL_P612.txt",
+        "contexto": "PROCEDURE DIVISION USING WKS-PARAMETRO · 00-0000-CONTROL / 00-0050-BUSCA-FILE"
+      },
+      "java": {
+        "archivo": "DispatcherWflService.java",
+        "contexto": "@Service · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Ciclo principal hasta el archivo 99",
+          "linea_ini": 46,
+          "linea_fin": 50,
+          "origen_codigo": "  PROCEDURE DIVISION USING WKS-PARAMETRO.\n  00-0000-CONTROL.\n*=================\n     PERFORM 00-0050-BUSCA-FILE UNTIL WKS-NFILE = 99.\n     STOP RUN.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class DispatcherWflService {\n\n    private final EjecucionWflRepository repo;\n    private final LanzadorWfl lanzador;\n\n    /** 00-0000-CONTROL: PERFORM 00-0050-BUSCA-FILE UNTIL WKS-NFILE = 99. */\n    public List<LanzamientoWfl> despacha(String opcion) {\n        var lanzados = new ArrayList<LanzamientoWfl>();\n        for (int grupo : repo.gruposExistentesOrdenados()) {   // 01..99\n            despachaGrupo(grupo, opcion).ifPresent(lanzados::add);\n        }\n        return lanzados;    // puede haber uno por grupo, no solo uno en total\n    }\n}",
+          "racional": "La rutina principal repite la búsqueda de archivo hasta que el contador llega a 99 y termina. El ciclo no se detiene después de lanzar un WFL: lanzar solo cierra el archivo actual y el recorrido sigue con el siguiente número. La traducción mantiene ese comportamiento, que puede arrancar un WFL por archivo, y devuelve la lista de lanzamientos para que quede trazado.",
+          "reglas": [
+            "RN-S151-466",
+            "RN-S151-472"
+          ],
+          "riesgo": "En una misma llamada se puede lanzar un WFL por cada archivo que tenga un registro pendiente con la opción recibida."
+        },
+        {
+          "id": "s5",
+          "titulo": "Archivo ausente y apertura en I-O",
+          "linea_ini": 53,
+          "linea_fin": 65,
+          "origen_codigo": "  00-0050-BUSCA-FILE.\n*=====================\n     ADD 1 TO WKS-NFILE\n     CHANGE ATTRIBUTE TITLE       OF A04-WFLS\n                                  TO WKS-TIT-ARC.\n     IF ATTRIBUTE RESIDENT        OF A04-WFLS = 0\n        EXIT PERFORM\n     ELSE\n        OPEN I-O A04-WFLS.\n     MOVE ZERO TO W77-EOF.\n     READ A04-WFLS                AT END MOVE 1 TO W77-EOF.\n     PERFORM 00-0100-LEEARCHIVO   UNTIL W77-EOF = 1.\n     CLOSE A04-WFLS WITH SAVE.",
+          "java_codigo": "/** 00-0050-BUSCA-FILE: un archivo (grupo) por iteración. */\n@Transactional\nOptional<LanzamientoWfl> despachaGrupo(int grupo, String opcion) {\n    // IF ATTRIBUTE RESIDENT OF A04-WFLS = 0: EXIT PERFORM.\n    // Con la tabla, un grupo sin filas simplemente no aparece en gruposExistentesOrdenados().\n    return repo.primerPendiente(grupo, opcion, \"0\")             // 00-0100-LEEARCHIVO\n            .map(e -> {\n                LanzamientoWfl l = new LanzamientoWfl(props.usercode(), e.nombre, props.pack(),\n                        e.parametro == null || e.parametro.isBlank()\n                                ? Optional.empty() : Optional.of(e.parametro));\n                lanzador.lanza(l);\n                e.status = \"1\";                                // MOVE 1 TO WKS-WFL-STATUS\n                return l;                                      // commit = CLOSE A04-WFLS WITH SAVE\n            });\n}\nprivate final P612Properties props;",
+          "racional": "Para cada número se cambia el título del archivo y se consulta si existe en disco con el atributo <code>RESIDENT</code>. Si existe se abre en I-O, se lee hasta encontrar el registro o llegar al final y se cierra con <code>SAVE</code> para que el cambio de estatus persista. En Java cada grupo se procesa en su propia transacción, que es el equivalente del cierre con <code>SAVE</code> por archivo.",
+          "reglas": [
+            "RN-S151-467",
+            "RN-S151-473"
+          ],
+          "riesgo": "El EXIT PERFORM de la línea 59 está en un párrafo ejecutado con PERFORM ... UNTIL; si en este compilador solo abandona la iteración, el recorrido sigue con el siguiente número y un hueco no detiene la búsqueda."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de lanzamiento — selección, arranque y marca",
+      "origen": {
+        "archivo": "COBOL_P612.txt",
+        "contexto": "PROCEDURE DIVISION · 00-0100-LEEARCHIVO"
+      },
+      "java": {
+        "archivo": "LanzadorWfl.java · EjecucionWflRepository.java",
+        "contexto": "TaskLauncher de Spring Cloud Data Flow · Spring Data JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Primer pendiente de la opción sin parámetro",
+          "linea_ini": 67,
+          "linea_fin": 76,
+          "origen_codigo": "  00-0100-LEEARCHIVO.\n*=====================\n*     DISPLAY R01-REG-WFL.\n     IF WKS-WFL-OPCION = WKS-PARAMETRO AND WKS-WFL-STATUS = 0\n        IF WKS-WFL-PARAM = SPACES\n           MOVE WKS-WFL-NOMBRE TO WKS-NOM-WFL\n           CALL SYSTEM WFL USING WKS-START-WFL\n           MOVE 1 TO WKS-WFL-STATUS\n           WRITE R01-REG-WFL\n           MOVE 1 TO W77-EOF",
+          "java_codigo": "public interface EjecucionWflRepository extends JpaRepository<EjecucionWfl, Long> {\n\n    /** IF WKS-WFL-OPCION = WKS-PARAMETRO AND WKS-WFL-STATUS = 0, en orden de lectura. */\n    @Lock(LockModeType.PESSIMISTIC_WRITE)\n    @Query(\"\"\"\n           select e from EjecucionWfl e\n            where e.grupo = :grupo and e.opcion = :opcion and e.status = :status\n            order by e.orden\n           \"\"\")\n    List<EjecucionWfl> pendientes(int grupo, String opcion, String status, Pageable una);\n\n    default Optional<EjecucionWfl> primerPendiente(int grupo, String opcion, String status) {\n        return pendientes(grupo, opcion, status, PageRequest.of(0, 1)).stream().findFirst();\n    }\n}",
+          "racional": "El párrafo compara cada registro contra la opción recibida y exige estatus 0. Al primer acierto sin parámetro arma el comando simple, lo envía, cambia el estatus a 1, escribe el registro y termina la lectura de ese archivo. En Java la búsqueda del primer pendiente es una consulta ordenada que bloquea la fila, lo que evita que dos llamadas simultáneas lancen el mismo WFL.",
+          "reglas": [
+            "RN-S151-468",
+            "RN-S151-469",
+            "RN-S151-471",
+            "RN-S151-472"
+          ],
+          "riesgo": "La marca se hace con WRITE y no con REWRITE sobre un archivo abierto en I-O; según el compilador puede no actualizar el registro leído."
+        },
+        {
+          "id": "s7",
+          "titulo": "Variante con parámetro y arranque sin verificación",
+          "linea_ini": 77,
+          "linea_fin": 86,
+          "origen_codigo": "        ELSE\n           MOVE WKS-WFL-NOMBRE TO WKS-NOM-WFL2\n           MOVE WKS-WFL-PARAM  TO WKS-PAR-WFL2\n           CALL SYSTEM WFL USING WKS-START-WFL2\n*          DISPLAY WKS-START-WFL2\n           MOVE 1 TO WKS-WFL-STATUS\n           WRITE R01-REG-WFL\n           MOVE 1 TO W77-EOF\n     ELSE\n        READ A04-WFLS                AT END MOVE 1 TO W77-EOF.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass LanzadorWfl {\n\n    private final TaskLauncher launcher;   // Spring Cloud Data Flow\n\n    /** CALL SYSTEM WFL USING WKS-START-WFL / WKS-START-WFL2. */\n    void lanza(LanzamientoWfl l) {\n        var args = l.parametro().map(List::of).orElse(List.of());\n        String id = launcher.launch(new AppDeploymentRequest(\n                new AppDefinition(l.nombre().strip(), Map.of(\"pack\", l.pack())),\n                recurso(l.nombre()), Map.of(), args));\n        if (id == null || id.isBlank()) {\n            // El COBOL no revisa el resultado y marca STATUS = 1 de todos modos.\n            throw new LanzamientoFallidoException(l);   // rollback: el registro sigue pendiente\n        }\n        log.info(\"WFL {} lanzado: {}\", l.comandoMcp(), id);\n    }\n}",
+          "racional": "Cuando el registro trae parámetro, el comando lleva ese valor entre comillas como argumento del WFL; el resto del flujo es idéntico. <code>CALL SYSTEM WFL</code> no devuelve resultado al programa y el estatus se marca en 1 aunque el arranque haya fallado. En Java el lanzamiento usa el <code>TaskLauncher</code> del orquestador y una falla lanza excepción, con lo que la transacción hace rollback y el registro queda pendiente para el siguiente intento.",
+          "reglas": [
+            "RN-S151-470",
+            "RN-S151-471",
+            "RN-S151-474"
+          ],
+          "riesgo": "Un WFL que no arranca queda marcado como lanzado y no se vuelve a intentar."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Arranque sin verificación",
+      "detalle": "Después de CALL SYSTEM WFL (líneas 73 y 80) el estatus se marca en 1 sin revisar si el WFL arrancó."
+    },
+    {
+      "titulo": "Varios WFL por llamada",
+      "detalle": "Lanzar un WFL solo termina la lectura del archivo actual (MOVE 1 TO W77-EOF); el ciclo de 00-0000-CONTROL continúa con los siguientes números hasta el 99."
+    },
+    {
+      "titulo": "WRITE en lugar de REWRITE",
+      "detalle": "El registro leído se actualiza con WRITE R01-REG-WFL (líneas 75 y 83) sobre un archivo abierto en I-O; la forma estándar es REWRITE."
+    },
+    {
+      "titulo": "Sin control de concurrencia",
+      "detalle": "Dos ejecuciones simultáneas con la misma opción pueden leer el mismo registro pendiente y lanzar el WFL dos veces."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Usercode S151, pack CMEMP, prefijo S151/FILE/EJECUCIONWFL/ y el límite 99 están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-467 dice que el primer archivo ausente detiene el recorrido; confirmar con el compilador MCP si EXIT PERFORM dentro de un párrafo ejecutado con PERFORM ... UNTIL termina el ciclo completo o solo la iteración.",
+    "RN-S151-472 dice que solo se procesa el primer registro encontrado en el archivo de menor número; en el fuente el ciclo externo no se detiene al lanzar (línea 49), por lo que puede haber un lanzamiento por archivo. Revisar la regla.",
+    "Confirmar el efecto de WRITE sobre un archivo secuencial abierto en I-O en MCP (líneas 75 y 83): si actualiza el registro leído o escribe en otra posición.",
+    "El programa no tiene PROGRAM-ID (línea 4 vacía); confirmar el nombre de objeto con el que lo invoca el WFL.",
+    "Definir con SME si la versión Java debe conservar los archivos EJECUCIONWFL o si la tabla los sustituye para todos los productores."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-466",
+    "RN-S151-467",
+    "RN-S151-468",
+    "RN-S151-469",
+    "RN-S151-470",
+    "RN-S151-471",
+    "RN-S151-472",
+    "RN-S151-473",
+    "RN-S151-474",
+    "RN-S151-475"
+  ]
+}

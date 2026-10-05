@@ -1,0 +1,222 @@
+{
+  "slug": "S500_P080",
+  "sistema": "S500",
+  "programa": "P080",
+  "nombre": "Servidor de Atributos de Cuenta y Sincronización entre Nodos",
+  "funcion": "Tarea residente de S500 ligada a COMS que atiende en línea aperturas y consultas de atributos de cuenta, procesa archivos masivos y, al cambio de día contable, sincroniza los nodos 04 y 10 y genera el archivo para el bloque contable B03.",
+  "resumen": "P080 corre en dos copias: la copia 1 atiende mensajes COMS y la copia 2 procesa los archivos masivos ARCHMASIV y, tras el aviso de cambio de día, ejecuta la sincronización entre el nodo de Monterrey (04) y el de Valle de México (10). La lógica de contrato vive en las librerías L080 y L081, que P080 invoca por entry points; el programa solo orquesta, valida agrupadores y lleva bitácora en ARCH-PROB. La sincronización es una máquina de seis fases con checkpoint en L081: genera ARCHSINC local, lo envía al nodo foráneo con el WFL de P197, espera el archivo del otro nodo, lo procesa y deriva al archivo ARCH-SINC-B03 una marca de cuenta ordenante por cada contrato del propio nodo. El operador gobierna el comportamiento en caliente mediante Handle Interrupts (TASKVALUE 4001 a 4196).",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.atributocuenta",
+  "secciones": [
+    {
+      "titulo": "Arranque, copias de la tarea y despacho de actividades",
+      "origen": {
+        "archivo": "S500_SOURCE_P080.txt",
+        "contexto": "PROCEDURE DIVISION · MAIN-PGM / 20000000-VALIDA-INICIO / 50200000"
+      },
+      "java": {
+        "archivo": "P080Server.java · MonitoreoMapli.java · P080Properties.java",
+        "contexto": "SmartLifecycle · @Service · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Párrafo principal a un servidor con ciclo de vida",
+          "linea_ini": 3192,
+          "linea_fin": 3204,
+          "origen_codigo": " MAIN-PGM SECTION.\n 00000000-MAIN-PARAGRAPH.\n   PERFORM 10200000-CHECA-VERSION.\n   IF S000-CTR-CVEERROR = 0 OR > 0\n      PERFORM 20000000-VALIDA-INICIO\n      PERFORM 50000000-PROCESO-PGM UNTIL WKS-EOJ\n      PERFORM 70000000-FIN-PGM\n   ELSE\n      STRING \"VERSION INCORRECTA S500P080\" DELIMITED BY SIZE INTO\n           WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE.\n   STOP RUN.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\n@Slf4j\npublic class P080Server implements SmartLifecycle {\n\n    private final ControlVersiones ctlvers;      // CHECAME contra CTLVERS\n    private final ArranqueP080 arranque;         // 20000000-VALIDA-INICIO\n    private final DespachadorActividades despacho; // 50000000-PROCESO-PGM\n    private final FinP080 fin;                   // 70000000-FIN-PGM\n    private volatile boolean eoj;                // WKS-EOJ\n    private Thread bucle;\n\n    @Override\n    public void start() {\n        if (!ctlvers.versionValida(\"S500P080\")) {          // S000-CTR-CVEERROR < 0\n            log.error(\"VERSION INCORRECTA S500P080\");\n            throw new IllegalStateException(\"VERSION INCORRECTA S500P080\");\n        }\n        EstadoTarea estado = arranque.ejecuta();\n        bucle = Thread.ofVirtual().name(\"P080-copia-\" + estado.copia()).start(() -> {\n            while (!eoj) {\n                despacho.obtieneTransaccion(estado);\n            }\n            fin.ejecuta(estado);\n        });\n    }\n\n    @Override public void stop()        { eoj = true; }\n    @Override public boolean isRunning() { return bucle != null && bucle.isAlive(); }\n}",
+          "racional": "P080 no es un paso batch que termina: es una tarea residente que valida su versión, arranca, cicla hasta fin de trabajo y se da de baja. En Spring Boot ese ciclo corresponde a un <code>SmartLifecycle</code> cuyo <code>start()</code> ejecuta el arranque y deja el bucle en un hilo virtual, y cuyo <code>stop()</code> equivale a encender <code>WKS-EOJ</code>. La validación de versión contra CTLVERS se conserva como precondición; si falla, la aplicación no levanta, que es el equivalente de no entrar al bucle.",
+          "reglas": [
+            "RN-S500-721"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Nodo, número de copia y arranque de L081",
+          "linea_ini": 3253,
+          "linea_fin": 3373,
+          "origen_codigo": "   IF WS-DH-HOSTNAME-PBA\n      IF WS-DH-NUM-CSI = 32\n         MOVE 04     TO WS-CSI\n      ELSE\n         MOVE 10     TO WS-CSI\n   ELSE\n      MOVE WS-DH-NUM-CSI TO WS-CSI.\n   PERFORM 2000000-OBTIENE-NUM-COPIA.\n   MOVE WS-L080-COPIA-A       TO WS-NO-COPIA.\n   MOVE WS-L080-FECHA-LINEA-A TO WS-FECHA-PROCESO.\n   IF WS-NO-COPIA = 1\n      MOVE 1   TO WS-ACTIVIDAD\n   ELSE IF WS-NO-COPIA = 2\n      MOVE 2   TO WS-ACTIVIDAD\n      MOVE 1      TO WS-BD-STATUS\n      OPEN INQUIRY S500BD07ATRIBUCTA ON\n               EXCEPTION\n                  MOVE 0 TO WS-BD-STATUS.\n   IF WS-NO-COPIA < 1 AND WS-NO-COPIA > 2\n      STRING \"NUMERO DE COPIA NO RECONOCIDO: \" WS-NO-COPIA,\n       DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n   MOVE 99        TO WS-L081-RESULT.\n   PERFORM 20000000-INICIA-L081 VARYING WS-CONT-TEMP FROM 1 BY 1\n            UNTIL WS-CONT-TEMP = 3 OR WS-L081-RESULT = 0.\n   IF WS-L081-RESULT NOT = 0\n      STRING \"IMPOSIBLE INICIAR L081 EN 3 INTENTOS, RESULT \"\n         WS-L081-RESULT\n       DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n   ATTACH PGM-INTERRUPT-BY-HI TO ATTRIBUTE EXCEPTIONEVENT\n            OF MYSELF.\n   ALLOW INTERRUPT.\n   IF WS-NO-COPIA = 2 AND WS-88-ACT-ARCH\n      PERFORM 50500000-VALIDA-REC-SINC.",
+          "java_codigo": "# application.yml\np080:\n  csi-pruebas: { host-csi: 32, mapea-a: 4, resto: 10 }   # WS-DH-HOSTNAME-PBA\n  l081-intentos-inicio: 2     # comportamiento real del PERFORM VARYING (ver riesgo)\n\n// ---------------------------------------------------------------------------\n@Service\n@RequiredArgsConstructor\npublic class ArranqueP080 {\n\n    private final Host host;\n    private final L080Client l080;\n    private final L081Client l081;\n    private final P080Properties props;\n    private final RecuperacionSincronizacion recuperacion;\n\n    public EstadoTarea ejecuta() {\n        int csi = host.esPruebas()\n                ? (host.numCsi() == props.csiPruebas().hostCsi() ? props.csiPruebas().mapeaA()\n                                                                : props.csiPruebas().resto())\n                : host.numCsi();\n\n        InicioPgm ini = l080.inicioPorPrograma(80, host.mixNumber());   // L080INICIOXPGM\n        Actividad actividad = switch (ini.copia()) {\n            case 1 -> Actividad.COMS;\n            case 2 -> Actividad.ARCHIVOS;\n            default -> throw new ArranqueException(\"NUMERO DE COPIA NO RECONOCIDO: \" + ini.copia());\n        };\n\n        int result = 99;\n        for (int i = 1; i <= props.l081IntentosInicio() && result != 0; i++) {\n            result = l081.inicio();\n        }\n        if (result != 0) {\n            throw new ArranqueException(\"IMPOSIBLE INICIAR L081, RESULT \" + result);\n        }\n        var estado = new EstadoTarea(csi, ini.copia(), ini.fechaLinea(), actividad);\n        if (actividad == Actividad.ARCHIVOS) {\n            recuperacion.validaRecSinc(estado);      // 50500000-VALIDA-REC-SINC\n        }\n        return estado;\n    }\n}",
+          "racional": "El arranque fija el nodo lógico (04 Monterrey o 10 Valle de México, con un mapeo especial para el host de pruebas), pide a L080 el número de copia y la fecha de línea, y asigna la actividad: la copia 1 atiende COMS y la copia 2 archivos, abriendo la base de atributos en modo consulta. El mapeo del host de pruebas y el número de intentos de L081 pasan a <code>application.yml</code>. En Java el número de copia desconocido se vuelve una excepción en el <code>switch</code>, que es lo que el fuente pretende y no logra (ver riesgo). La recuperación de una sincronización interrumpida se dispara solo en la copia de archivos, igual que en el original.",
+          "reglas": [
+            "RN-S500-721"
+          ],
+          "riesgo": "La condición WS-NO-COPIA < 1 AND WS-NO-COPIA > 2 nunca es verdadera, así que una copia 0 o 3 arranca sin actividad válida. Además, PERFORM VARYING ... UNTIL WS-CONT-TEMP = 3 evalúa antes de ejecutar: L081INICIO se intenta dos veces, no tres como dicen el comentario y el mensaje."
+        },
+        {
+          "id": "s3",
+          "titulo": "Alta y baja en el monitoreo MAPLI",
+          "linea_ini": 8306,
+          "linea_fin": 8376,
+          "origen_codigo": "  70000950-INI-PGM-MAPLI.\n     IF W77-ID-ERR-LIB-MAPLI = 0\n        MOVE W77-ID-NUM-COPIA-MAPLI\n          TO WS-S038L035-01-NUM-COPIA-E\n        PERFORM 2000038-INI-PROG-EN-MAPLI\n        IF WS-S038L035-RESULT = 0\n           MOVE WS-S038L035-01-ID-PROG-S   TO W77-ID-PGM-MAPLI\n        ELSE\n           MOVE 1 TO W77-ID-ERR-LIB-MAPLI.\n 70000950-FIN-PGM-MAPLI.\n     IF W77-ID-ERR-LIB-MAPLI = 0\n        MOVE W77-ID-PGM-MAPLI  TO WS-S038L035-02-ID-PROG-E\n        PERFORM 2000038-FIN-PROG-EN-MAPLI\n 60000000-PROGRAMA-MAPLI-INI.\n     MOVE WS-NO-COPIA             TO W77-ID-NUM-COPIA-MAPLI.\n     MOVE 2                       TO W77-ID-TPODSP-INFO-MAPLI.\n     MOVE 2                       TO W77-ID-ESINI-GRUPO-MAPLI.\n     MOVE 2                       TO W77-ID-NUM-GRUPO-MAPLI.\n     MOVE \"LINEA ATRIBUTO EN APERTURA DE CUENTA  \"\n                                  TO W77-ID-NOMB-LIB.\n     PERFORM 70000950-INI-PGM-MAPLI.\n     IF WS-S038L035-RESULT > 0\n        IF WS-S038L035-RESULT = 99\n           MOVE 1         TO WS-MAPLI-CALL-INICIO-VA\n 60000000-PROGRAMA-MAPLI-FIN.\n     PERFORM 70000950-FIN-PGM-MAPLI.\n     IF WS-S038L035-RESULT > 0\n        STRING \"(PROGRAMA FIN) ERROR CALL MAPLI RESULT: \"\n        PERFORM 70200000-DATOS-AL-ARCHPROB.",
+          "java_codigo": "/** Sustituye a S038L035_01_PROG_INI / S038L035_02_PROG_FIN de la librería MAPLI. */\n@Service\n@RequiredArgsConstructor\n@Slf4j\npublic class MonitoreoMapli {\n\n    private final MeterRegistry meters;          // Micrometer: registro de tareas activas\n    private final MapliClient mapli;             // adaptador mientras MAPLI siga vivo\n    private Long idPrograma;                     // WS-S038L035-01-ID-PROG-S PIC 9(08)\n    private boolean enError;                     // W77-ID-ERR-LIB-MAPLI\n\n    public void alta(int copia) {\n        try {\n            idPrograma = mapli.inicioPrograma(new AltaMapli(copia, 2, 2, 2,\n                    \"LINEA ATRIBUTO EN APERTURA DE CUENTA\"));\n            meters.gauge(\"s500.p080.activo\", Tags.of(\"copia\", String.valueOf(copia)), 1);\n        } catch (MapliException e) {\n            enError = true;                         // el monitoreo nunca baja la tarea\n            log.warn(\"(PROGRAMA INICIO) ERROR CALL MAPLI RESULT: {}\", e.result());\n        }\n    }\n\n    public void baja() {\n        if (enError || idPrograma == null) return;\n        try {\n            mapli.finPrograma(idPrograma);\n        } catch (MapliException e) {\n            log.warn(\"(PROGRAMA FIN) ERROR CALL MAPLI RESULT: {}\", e.result());\n        }\n    }\n}",
+          "racional": "El alta en MAPLI devuelve un identificador de programa de 8 dígitos que se guarda y se usa para la baja; si el alta falla, la baja no se intenta. Ningún error de MAPLI detiene a P080: solo se escribe en la bitácora de problemas. La traducción conserva esa semántica no bloqueante con un servicio que encapsula el cliente de MAPLI y expone, en paralelo, un indicador de Micrometer para que la observabilidad no dependa de la librería Unisys. El bloque completo está bajo compilación condicional <code>$SET OMIT = NOT MAPLIACTLIB</code>; en Java es un bean condicionado por propiedad.",
+          "reglas": [
+            "RN-S500-723"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Despacho entre las tres actividades",
+          "linea_ini": 3778,
+          "linea_fin": 3794,
+          "origen_codigo": " 50200000-OBTIENE-TRANSACCION.\n   IF WS-88-ACT-COMS\n      PERFORM 50300000-ACTIVIDAD-COMS\n   ELSE\n   IF WS-88-ACT-ARCH\n      MOVE 01        TO WS-PUEDE-PROCESAR-ARCH\n      PERFORM 50401000-VERIFICA-RECUPERACION\n      PERFORM 5040000-ACTIVIDAD-ARCHIVOS UNTIL\n                              WS-PUEDE-PROCESAR-ARCH = 0\n                              OR WS-88-HAY-CAMBIO-DIA\n                              OR WS-88-ACT-COMS\n                              OR WS-88-ACT-SINC\n   ELSE\n   IF WS-88-ACT-SINC\n      PERFORM 50500000-ACTIVIDAD-SINC UNTIL WS-88-ACT-COMS\n                                       OR WS-88-NO-HAY-CAMBIO-DIA\n                                       OR WS-88-ACT-ARCH.",
+          "java_codigo": "public enum Actividad { COMS, ARCHIVOS, SINCRONIZACION }   // WS-ACTIVIDAD 1, 2, 3\n\n@Service\n@RequiredArgsConstructor\npublic class DespachadorActividades {\n\n    private final ActividadComs coms;                 // 50300000: listener de mensajes en línea\n    private final ActividadArchivos archivos;         // 5040000: Job de masivos ARCHMASIV\n    private final ActividadSincronizacion sinc;       // 50500000: máquina de 6 fases\n\n    /** 50200000-OBTIENE-TRANSACCION. La actividad la cambian los HI y las propias actividades. */\n    public void obtieneTransaccion(EstadoTarea e) {\n        switch (e.actividad()) {\n            case COMS -> coms.atiendeSiguienteMensaje(e);\n            case ARCHIVOS -> {\n                archivos.verificaRecuperacion(e);\n                while (archivos.hayTrabajo(e) && !e.hayCambioDia()\n                        && e.actividad() == Actividad.ARCHIVOS) {\n                    archivos.procesa(e);\n                }\n            }\n            case SINCRONIZACION -> {\n                while (e.actividad() == Actividad.SINCRONIZACION && e.hayCambioDia()) {\n                    sinc.ejecuta(e);\n                }\n            }\n        }\n    }\n}",
+          "racional": "<code>WS-ACTIVIDAD</code> es el estado de toda la tarea y lo modifican tanto las actividades como las interrupciones de operación, por eso el bucle reevalúa la condición en cada vuelta. En Java el estado vive en un objeto <code>EstadoTarea</code> con campos <code>volatile</code>, porque el equivalente de los HI llega por otro hilo. La actividad de archivos se implementa como un job de Spring Batch con <code>ItemProcessor</code> y <code>@Transactional</code> sobre la base de atributos, en línea con el arquetipo A2.",
+          "reglas": [
+            "RN-S500-721"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Interrupciones de operación (Handle Interrupts)",
+      "origen": {
+        "archivo": "S500_SOURCE_P080.txt",
+        "contexto": "DECLARATIVES · PGM-INTERRUPT-BY-HI · 00000000-PROCHI-4020 / 4030"
+      },
+      "java": {
+        "archivo": "OperacionP080Endpoint.java · CambioDiaService.java",
+        "contexto": "Spring Boot Actuator @Endpoint · @WriteOperation"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Tabla de TASKVALUE a endpoint de operación",
+          "linea_ini": 3122,
+          "linea_fin": 3186,
+          "origen_codigo": " DECLARATIVES.\n PGM-INTERRUPT-BY-HI SECTION.\n   USE AS INTERRUPT PROCEDURE.\n INTERRUPT-BY-HI.\n   DISALLOW INTERRUPT.\n   IF ATTRIBUTE TASKVALUE OF MYSELF = 4001\n      PERFORM 00000000-PROCHI-4001\n   ELSE\n   IF ATTRIBUTE TASKVALUE OF MYSELF = 4030\n      PERFORM 00000000-PROCHI-4030\n   ELSE\n   IF ATTRIBUTE TASKVALUE OF MYSELF = 4020\n      PERFORM 00000000-PROCHI-4020\n   ELSE\n      NEXT SENTENCE.\n   CHANGE ATTRIBUTE TASKVALUE OF MYSELF TO 0.\n   MOVE 1         TO WS-L080-FUNCION-PHI.\n   PERFORM 20000000-CALL-L080-PROCHI.\n   ALLOW INTERRUPT.",
+          "java_codigo": "@Component\n@Endpoint(id = \"p080\")\n@RequiredArgsConstructor\npublic class OperacionP080Endpoint {\n\n    private final Map<Integer, OperacionHi> operaciones;   // 4001..4196, un bean por HI\n    private final L080Client l080;\n    private final ReentrantLock disallowInterrupt = new ReentrantLock();\n\n    /** POST /actuator/p080/{hi}: reemplaza el HI con TASKVALUE sobre la tarea MCP. */\n    @WriteOperation\n    public String ejecuta(@Selector int hi) {\n        disallowInterrupt.lock();                         // DISALLOW INTERRUPT\n        try {\n            var op = operaciones.get(hi);\n            String r = (op == null) ? \"HI SIN ACCION\" : op.ejecuta();   // NEXT SENTENCE\n            l080.procesaHi(1);                             // 20000000-CALL-L080-PROCHI\n            return r;\n        } finally {\n            disallowInterrupt.unlock();                    // ALLOW INTERRUPT\n        }\n    }\n}",
+          "racional": "En MCP el operador manda un HI con un número en TASKVALUE y la sección declarativa lo enruta con una cadena de IF. En Spring Boot el canal equivalente es un endpoint de Actuator protegido, con un bean por operación indexado por el mismo número para que los procedimientos de operación no cambien. <code>DISALLOW INTERRUPT</code> y <code>ALLOW INTERRUPT</code> serializan las interrupciones; aquí lo hace un candado. Se conserva la notificación a L080 después de cualquier HI, incluso los no reconocidos, como ocurre en el fuente.",
+          "reglas": []
+        },
+        {
+          "id": "s6",
+          "titulo": "HI 4020: interruptor de trazas en caliente",
+          "linea_ini": 3659,
+          "linea_fin": 3668,
+          "origen_codigo": " 00000000-PROCHI-4020.\n  STRING \"HI 4020 - DISPLAYS P080\"\n         DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n  PERFORM 70000050-MENSAJE.\n  IF WS-88-DISPLAYS\n      MOVE 0 TO WS-DISPLAYS\n      DISPLAY \"<PBA> DISPLAYS DESACTIVADOS\"\n  ELSE\n      MOVE 1 TO WS-DISPLAYS\n      DISPLAY \"<PBA> DISPLAYS ACTIVADOS\".",
+          "java_codigo": "/** HI 4020: alterna el nivel DEBUG del paquete sin reiniciar, igual que WS-DISPLAYS. */\n@Component(\"hi4020\")\n@RequiredArgsConstructor\npublic class Hi4020Displays implements OperacionHi {\n\n    private static final String LOGGER = \"mx.banamex.s500.captacion.atributocuenta\";\n    private final LoggingSystem logging;\n\n    @Override public int numero() { return 4020; }\n\n    @Override\n    public String ejecuta() {\n        log.info(\"HI 4020 - DISPLAYS P080\");\n        boolean activos = logging.getLoggerConfiguration(LOGGER).getEffectiveLevel() == LogLevel.DEBUG;\n        logging.setLogLevel(LOGGER, activos ? LogLevel.INFO : LogLevel.DEBUG);\n        return activos ? \"<PBA> DISPLAYS DESACTIVADOS\" : \"<PBA> DISPLAYS ACTIVADOS\";\n    }\n}\n\n// Cada IF WS-88-DISPLAYS DISPLAY \"<PBA> ...\" del fuente se vuelve log.debug(\"<PBA> ...\").",
+          "racional": "<code>WS-DISPLAYS</code> es un interruptor de una posición que habilita los <code>DISPLAY \"&lt;PBA&gt; ...\"</code> repartidos en el programa. El equivalente directo en Spring Boot es cambiar en caliente el nivel del logger del paquete con <code>LoggingSystem</code>, de modo que cada traza condicionada se convierte en un <code>log.debug</code>. Se conserva la semántica de alternar con cada invocación y el texto que confirma el nuevo estado.",
+          "reglas": [
+            "RN-S500-722"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "HI 4030: cambio de día contable",
+          "linea_ini": 3433,
+          "linea_fin": 3493,
+          "origen_codigo": " 00000000-PROCHI-4030.\n   STRING \"HI 4030 CAMBIO DE DIA\"\n      DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.\n$SET OMIT = NOT MAPLIACTLIB\n   IF WS-88-MONI-MAPLI\n      PERFORM 60000000-PROGRAMA-MAPLI-FIN\n      CANCEL \"S500L035\"\n      PERFORM 1000038-S038L035\n      PERFORM 60000000-PROGRAMA-MAPLI-INI.\n$POP OMIT\n   MOVE 80           TO WS-L080-PASO-C\n   MOVE WS-NO-COPIA  TO WS-L080-COPIA-C\n   MOVE 2            TO WS-L080-FUNCION-C\n   MOVE WS-MIX       TO WS-L080-MIX-C\n   PERFORM 20000000-CALL-L080-CONFIRM-HI\n   MOVE 1      TO  WS-AVISO-CAMBIO-DIA.\n   IF WS-NO-COPIA = 1\n      MOVE 1   TO WS-ACTIVIDAD\n   ELSE IF WS-NO-COPIA = 2\n      MOVE 3   TO WS-ACTIVIDAD.\n   CANCEL \"S500L081\".\n   PERFORM 20000000-LIGA-L081.\n   PERFORM 20000000-L080-CALL-ESBATCH.\n   IF WS-L080-RESULT = 0\n      MOVE WS-L080-FECHA-LINEA-B TO WS-FECHA-PROCESO\n      PERFORM 70200000-CIERRA-ARCHPROB\n      PERFORM 70200000-ABRE-ARCHPROB\n   ELSE\n      STRING \"ERROR L080ESBATCH RESULT: \" WS-L080-RESULT\n               \"NO SE OBTUVO LA NUEVA FECHA DE PROCESO \"\n               \" SE BAJA EL P080\"\n         DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "@Component(\"hi4030\")\n@RequiredArgsConstructor\npublic class Hi4030CambioDia implements OperacionHi {\n\n    private final EstadoTarea estado;\n    private final MonitoreoMapli mapli;\n    private final L080Client l080;\n    private final L081Client l081;\n    private final BitacoraProblemas archProb;\n    private final ApplicationContext ctx;\n\n    @Override public int numero() { return 4030; }\n\n    @Override\n    public String ejecuta() {\n        mapli.baja();\n        mapli.alta(estado.copia());                         // reinicia el registro de monitoreo\n        l080.confirmaHi(80, estado.copia(), 2, estado.mix());\n\n        estado.avisoCambioDia(true);                        // WS-AVISO-CAMBIO-DIA = 1\n        estado.actividad(estado.copia() == 2 ? Actividad.SINCRONIZACION : Actividad.COMS);\n        l081.religa();                                      // CANCEL + LIGA + INICIA\n\n        EsBatch r = l080.esBatch(80, estado.copia(), estado.mix());\n        if (r.result() != 0) {\n            // CHANGE ATTRIBUTE STATUS OF MYSELF TO -1: la tarea se baja\n            SpringApplication.exit(ctx, () -> 1);\n            return \"ERROR L080ESBATCH RESULT: \" + r.result() + \" SE BAJA EL P080\";\n        }\n        estado.fechaProceso(r.fechaLinea());\n        archProb.rota(estado);                              // nuevo título con la nueva fecha\n        return \"FIN CAMBIO DE DIA, NUEVA FECHA PROCESO: \" + r.fechaLinea();\n    }\n}",
+          "racional": "El cambio de día es el disparador de la sincronización: enciende el aviso, pasa la copia 2 a la actividad 3, religa L081 y obtiene de L080 la nueva fecha de proceso. Si L080 no la entrega, la tarea se da de baja. En Java la baja se expresa con <code>SpringApplication.exit</code> y un código distinto de cero para que el orquestador de contenedores lo detecte. La rotación de la bitácora con la nueva fecha se conserva porque el nombre del archivo de problemas lleva la fecha de proceso.",
+          "reglas": [
+            "RN-S500-721",
+            "RN-S500-723"
+          ],
+          "riesgo": "Si el HI 4030 llega a una copia distinta de 1 o 2, el aviso de cambio de día queda encendido sin cambiar la actividad."
+        }
+      ]
+    },
+    {
+      "titulo": "Sincronización entre nodos y archivo para el bloque contable B03",
+      "origen": {
+        "archivo": "S500_SOURCE_P080.txt",
+        "contexto": "PROCEDURE DIVISION · 50500000-ACTIVIDAD-SINC / PROCESO-SINC / GENERA-ARCH-B03"
+      },
+      "java": {
+        "archivo": "ActividadSincronizacion.java · ArchivoB03Writer.java · RegistroB03.java",
+        "contexto": "máquina de estados con checkpoint · FlatFileItemWriter · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s8",
+          "titulo": "Máquina de seis fases con checkpoint en L081",
+          "linea_ini": 6052,
+          "linea_fin": 6275,
+          "origen_codigo": " 50500000-ACTIVIDAD-SINC.\n   IF WS-88-REC-SINC\n      NEXT SENTENCE\n   ELSE\n      PERFORM 20000000-CALL-GENERALSUPPORT\n      PERFORM 00000000-PROYECTA-T-1\n      MOVE WKS-FEC-MAQ-AAMD    TO WS-FEC-SINC-MAQ\n      MOVE LOW-VALUES   TO WS-L081-AGRUPADORES-ACTRL\n      MOVE 01           TO WS-L081-TIPO-REGISTRO-ACTRL\n      STRING \"aC01\" WS-FEC-SINC \"                      \"\n         DELIMITED BY SIZE\n         INTO WS-L081-AGRUPADORES-ACTRL\n      PERFORM 20000000-CALL-ACTCTRL-L081\n      MOVE 1   TO WS-PROC-SINC.\n   PERFORM 50500000-VALIDA-TIPO-SINC.\n   IF WS-88-HAY-CAMBIO-DIA\n      PERFORM 50500000-PROCESO-SINC UNTIL WS-PROC-SINC > 6 OR = 6\n                                    OR WS-88-ACT-COMS\n 50500000-PROCESO-SINC.\n      IF WS-PROC-SINC = 1\n         PERFORM 50500000-GENERA-ARCH-SINC\n      ELSE\n      IF WS-PROC-SINC = 2\n         PERFORM 50500000-ENVIA-ARCH-FORAN\n      ELSE\n      IF WS-PROC-SINC = 3\n         PERFORM 50500000-BUSCA-ARCH-FORAN\n      ELSE\n      IF WS-PROC-SINC = 4\n         PERFORM 50500000-PROC-ARCH-SINC\n      ELSE\n      IF WS-PROC-SINC = 5\n         PERFORM 50500000-GENERA-ARCH-B03\n      ELSE\n      IF WS-PROC-SINC = 6\n         MOVE 0    TO WS-REC-PROC-NIVEL\n         MOVE 0    TO WS-AVISO-CAMBIO-DIA\n         MOVE 2    TO WS-ACTIVIDAD\n      PERFORM 50207000-VERIFIC-REENVIO-ARCH.",
+          "java_codigo": "public enum FaseSinc {\n    GENERA_LOCAL(1), ENVIA_FORANEO(2), BUSCA_FORANEO(3),\n    PROCESA_FORANEO(4), GENERA_B03(5), TERMINADA(6);\n    final int codigo;  FaseSinc(int c) { codigo = c; }\n}\n\n@Service\n@RequiredArgsConstructor\npublic class ActividadSincronizacion {\n\n    private final ControlSincRepository control;   // L081 ACTUALIZACTRL: \"aC0n\" + fecha\n    private final CalendarioBancario calendario;    // LOCSUP formato 12, función 15\n    private final Map<FaseSinc, PasoSinc> pasos;    // un bean por fase\n\n    public void ejecuta(EstadoTarea e) {\n        if (!e.enRecuperacion()) {\n            e.fechaSinc(calendario.proyecta(e.fechaProceso()));       // 00000000-PROYECTA-T-1\n            control.registra(e.fechaSinc(), FaseSinc.GENERA_LOCAL);  // \"aC01\"\n            e.fase(FaseSinc.GENERA_LOCAL);\n        }\n        e.tipoSinc(calendario.esFinDeSemana(e.fechaProceso()) ? TipoSinc.SEMANAL : TipoSinc.DIARIA);\n\n        while (e.fase() != FaseSinc.TERMINADA && e.actividad() != Actividad.COMS) {\n            // cada paso persiste su checkpoint y avanza e.fase(); si se interrumpe,\n            // VALIDA-REC-SINC reanuda en la fase registrada\n            pasos.get(e.fase()).ejecuta(e);\n        }\n        if (e.fase() == FaseSinc.TERMINADA) {\n            e.avisoCambioDia(false);\n            e.actividad(Actividad.ARCHIVOS);\n        }\n    }\n}",
+          "racional": "La sincronización es una máquina de estados cuya fase se persiste en L081 con el prefijo <code>aC</code> más el número de fase y la fecha, lo que permite reanudarla tras una caída en el punto donde quedó. En Java se modela con un <code>enum</code> de fases y un paso por fase, y el checkpoint pasa a una tabla de control con JPA. La salida por baja de la copia COMS se respeta en la condición del bucle. Si la sincronización de varios días se quiere ejecutar con reinicio nativo, cada fase puede ser un <code>Step</code> de Spring Batch; aquí se dejó la forma más cercana al original.",
+          "reglas": [
+            "RN-S500-721"
+          ]
+        },
+        {
+          "id": "s9",
+          "titulo": "Archivo ARCH-SINC-B03: header, barrido de contratos y trailer",
+          "linea_ini": 6720,
+          "linea_fin": 6771,
+          "origen_codigo": " 50500000-GENERA-ARCH-B03.\n   MOVE WS-CSI             TO WS-CSI-ARCH-SINC-B03.\n   MOVE WS-FEC-SINC        TO WS-FECHA-ARCH-SINC-B03.\n   CHANGE ATTRIBUTE TITLE OF ARCH-SINC-B03\n                                 TO WS-TIT-ARCH-SINC-B03.\n   OPEN OUTPUT ARCH-SINC-B03.\n   MOVE 01                 TO WS-ARCHSINCB03-HDR-TIPREG.\n   MOVE WS-CSI             TO WS-ARCHSINCB03-HDR-NODORI.\n   MOVE WS-FEC-SINC        TO WS-ARCHSINCB03-HDR-FECPRO.\n   MOVE 500                TO WS-ARCHSINCB03-HDR-SISCTE.\n   MOVE \"MARCA MASIVA ORDENANTE\"\n                           TO WS-ARCHSINCB03-HDR-DESCTE.\n   MOVE 08                 TO WS-ARCHSINCB03-HDR-NUMARC.\n   WRITE REG-ARCH-SINC-B03 FROM WS-ARCHSINCB03-REG.\n   PERFORM B01CTOS-FINDFIRST.\n   PERFORM 50500000-CONS-REG-CTOSB01 UNTIL WS-ERROR-BASE = 01\n                                       OR WS-88-ACT-COMS.\n   IF WS-88-ACT-COMS\n       CLOSE ARCH-SINC-B03 WITH SAVE\n   ELSE\n      MOVE 9                  TO WS-ARCHSINCB03-TRL-TIPREG\n      MOVE ZEROS              TO WS-ARCHSINCB03-TRL-NUMABO\n      MOVE ZEROS              TO WS-ARCHSINCB03-TRL-IMPABO\n      MOVE ZEROS              TO WS-ARCHSINCB03-TRL-NUMCAR\n      MOVE ZEROS              TO WS-ARCHSINCB03-TRL-IMPCAR\n      MOVE WS-REG-ARCHSINCB03 TO WS-ARCHSINCB03-TRL-NUMNCO\n      WRITE REG-ARCH-SINC-B03 FROM WS-ARCHSINCB03-REG\n      CLOSE ARCH-SINC-B03 WITH SAVE\n      STRING \"aC06\" WS-FEC-SINC \"                      \"\n         DELIMITED BY SIZE\n         INTO WS-L081-AGRUPADORES-ACTRL\n      PERFORM 20000000-CALL-ACTCTRL-L081\n      MOVE 6   TO WS-PROC-SINC.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PasoGeneraB03 implements PasoSinc {\n\n    private final ContratoRepository contratos;     // S500B01CONTRATOS (JPA, solo lectura)\n    private final ArchivoB03Factory archivos;       // título con CSI y fecha, en application.yml\n    private final ControlSincRepository control;\n    private final RegistroB03Mapper mapper;\n\n    @Override\n    @Transactional(readOnly = true)\n    public void ejecuta(EstadoTarea e) {\n        Path destino = archivos.ruta(e.csi(), e.fechaSinc());\n        Path temporal = destino.resolveSibling(destino.getFileName() + \".tmp\");\n        long detalles = 0;\n\n        try (var w = Files.newBufferedWriter(temporal, StandardCharsets.ISO_8859_1);\n             Stream<Contrato> barrido = e.tipoSinc() == TipoSinc.DIARIA\n                     ? contratos.streamByFechaMaqAct(e.fechaSincMaquina())   // B01SXULTACT\n                     : contratos.streamAll()) {                             // FIND FIRST/NEXT\n            w.write(RegistroB03.header(e.csi(), e.fechaSinc(), 500, 8, \"MARCA MASIVA ORDENANTE\"));\n            for (Contrato c : (Iterable<Contrato>) barrido::iterator) {\n                if (e.actividad() == Actividad.COMS) {\n                    return;                                 // baja: el .tmp no se publica\n                }\n                if (c.csi() == e.csi()) {                   // solo contratos del propio nodo\n                    w.write(mapper.detalle(c, ++detalles));\n                }\n            }\n            w.write(RegistroB03.trailer(detalles));         // importes y conteos de cargo/abono en cero\n        }\n        Files.move(temporal, destino, StandardCopyOption.ATOMIC_MOVE);\n        control.registra(e.fechaSinc(), FaseSinc.TERMINADA); // \"aC06\"\n        e.fase(FaseSinc.TERMINADA);\n    }\n}",
+          "racional": "Esta fase separa del flujo de sincronización un archivo propio para el bloque contable B03, con header de sistema 500, número de archivo 08 y la leyenda MARCA MASIVA ORDENANTE, un detalle por contrato del nodo y un trailer que solo informa el número de registros, con importes en cero. La traducción escribe primero a un temporal y lo publica con un movimiento atómico, de modo que el consumidor nunca vea un archivo a medias. El barrido usa el índice por fecha de actualización en la sincronización diaria y todo el dataset en la semanal, igual que <code>B01CTOS-FINDFIRST</code>.",
+          "reglas": [
+            "RN-S500-724"
+          ],
+          "riesgo": "Cuando la copia COMS pide la baja a mitad del barrido, el fuente cierra ARCH-SINC-B03 WITH SAVE sin trailer, a diferencia de ARCHSINC que se purga. Queda en disco un archivo B03 incompleto con el título del día."
+        },
+        {
+          "id": "s10",
+          "titulo": "Detalle B03 con hardcodes de asiento",
+          "linea_ini": 6773,
+          "linea_fin": 6815,
+          "origen_codigo": " 50500000-CONS-REG-CTOSB01.\n   MOVE SPACES TO WS-ARCHSINCB03-REG.\n   MOVE 02                       TO  WS-ARCHSINCB03-TIPO-REG.\n   MOVE 0511                     TO  WS-ARCHSINCB03-SUC.\n   MOVE 05                       TO  WS-ARCHSINCB03-CAJA.\n   MOVE 0935                     TO  WS-ARCHSINCB03-CLAVE-TRANS.\n   MOVE 03                       TO  WS-ARCHSINCB03-TIPO-MOV.\n   MOVE 00                       TO  WS-ARCHSINCB03-TIPMEDACC.\n   IF B01-CSI-CONTRATO = 04\n      MOVE 0366 TO WS-ARCHSINCB03-SUC-PROM\n   ELSE\n      MOVE 0432 TO WS-ARCHSINCB03-SUC-PROM.\n   MOVE B01-NUM-CONTRATO      TO  WS-ARCHSINCB03-CTO.\n   MOVE ZEROS                 TO  WS-ARCHSINCB03-IMPORTE.\n   MOVE B01-NUM-DATO(1)       TO  WS-SNC-C935-IND-MARORD-A.\n   MOVE B01-NUM-FECPROACT(1)  TO  WS-SNC-C935-FEC-MARORD-A.\n   IF WS-CSI = B01-CSI-CONTRATO\n      ADD 1 TO WS-NUM-AUT-ARCHSINCB03\n      MOVE WS-NUM-AUT-ARCHSINCB03   TO  WS-ARCHSINCB03-NUMTRAN\n      MOVE WS-NUM-AUT-ARCHSINCB03   TO  WS-ARCHSINCB03-NUM-SEC\n      WRITE REG-ARCH-SINC-B03    FROM WS-ARCHSINCB03-REG\n      ADD 1    TO WS-REG-ARCHSINCB03.\n   PERFORM B01CTOS-FINDNEXT.\n B01CTOS-FINDFIRST.\n   MOVE 0 TO WS-ERROR-BASE.\n   IF WS-88-SINC-DIARIA\n      FIND FIRST B01SXULTACT AT\n            B01-FEC-MAQACT = WS-FEC-SINC-MAQ\n            ON EXCEPTION\n               MOVE DMSTATUS(DMCATEGORY) TO WS-ERROR-BASE\n   ELSE\n       FIND FIRST S500B01CONTRATOS\n            ON EXCEPTION\n               MOVE DMSTATUS(DMCATEGORY) TO WS-ERROR-BASE.",
+          "java_codigo": "# application.yml\np080:\n  b03:\n    sucursal: \"0511\"\n    caja: \"05\"\n    clave-transaccion: \"0935\"\n    tipo-movimiento: 3            # PIC 9(01): el MOVE 03 deja 3\n    medio-acceso: \"00\"\n    sucursal-promotora: { \"4\": \"0366\", default: \"0432\" }\n\n// ---------------------------------------------------------------------------\n/** WS-ARCHSINCB03-DET: 240 posiciones. Importe 9(14)V99 en cero para la marca. */\npublic record RegistroB03Detalle(long numSec, String sucursal, String caja, long numTran,\n                                 String claveTrans, int tipoMov, String medioAcceso,\n                                 String sucPromotora, String contrato,   // 9(12) como String\n                                 BigDecimal importe, int moneda, long referencia,\n                                 int indMarcaOrdenante, LocalDate fecMarcaOrdenante) {}\n\n@Component\n@RequiredArgsConstructor\npublic class RegistroB03Mapper {\n    private final P080Properties.B03 cfg;\n\n    String detalle(Contrato c, long secuencia) {     // WS-NUM-AUT-ARCHSINCB03 PIC 9(08)\n        var r = new RegistroB03Detalle(secuencia, cfg.sucursal(), cfg.caja(), secuencia,\n                cfg.claveTransaccion(), cfg.tipoMovimiento(), cfg.medioAcceso(),\n                cfg.sucursalPromotora(c.csi()), c.numContrato(),\n                BigDecimal.ZERO.setScale(2), 0, 0L,\n                c.numDato(1), c.fechaProcAct(1));\n        return Fixed.b03Detalle(r);                   // 240 bytes, tipo de registro 2\n    }\n}",
+          "racional": "Cada contrato del propio nodo produce un detalle tipo 2 con la clave de transacción 0935, sucursal 0511, caja 05 y tipo de movimiento 3; el contrato viaja en la mitad baja del campo tarjeta y la sucursal promotora depende del CSI del contrato. El importe, la moneda y la referencia van en cero porque el registro no es un movimiento monetario sino la marca de cuenta ordenante (indicador y fecha del primer agrupador). Todos los valores fijos se mueven a <code>application.yml</code>. El número de contrato se conserva como <code>String</code> para no perder ceros.",
+          "reglas": [
+            "RN-S500-724"
+          ],
+          "riesgo": "El ciclo termina solo cuando DMSTATUS(DMCATEGORY) vale 01 (registro no encontrado). Otra categoría de excepción en FIND NEXT no corta el ciclo ni se registra en bitácora, y el párrafo vuelve a escribir los datos del último contrato leído."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Validación de número de copia inoperante",
+      "detalle": "En 20000000-VALIDA-INICIO (línea 3346) la condición WS-NO-COPIA < 1 AND WS-NO-COPIA > 2 no puede cumplirse. Una copia con número distinto de 1 o 2 arranca sin actividad asignada y sin aviso."
+    },
+    {
+      "titulo": "Reintentos de L081 menores a lo documentado",
+      "detalle": "PERFORM 20000000-INICIA-L081 VARYING WS-CONT-TEMP FROM 1 BY 1 UNTIL WS-CONT-TEMP = 3 (líneas 3356 y 3465) ejecuta dos intentos. El comentario y el mensaje hablan de tres."
+    },
+    {
+      "titulo": "Archivo B03 incompleto en baja",
+      "detalle": "Si la copia COMS ordena la baja durante 50500000-GENERA-ARCH-B03, el archivo se cierra WITH SAVE sin trailer (línea 6748). Un consumidor que no valide el trailer podría tomarlo como completo."
+    },
+    {
+      "titulo": "Excepciones DMSII no contempladas en el barrido",
+      "detalle": "El barrido de S500B01CONTRATOS para B03 solo termina con la categoría 01; deadlock u otras categorías no se tratan y pueden duplicar el último detalle o prolongar el ciclo."
+    },
+    {
+      "titulo": "Truncamiento de fecha en el header B03",
+      "detalle": "WS-FEC-SINC es PIC 9(08) y WS-ARCHSINCB03-HDR-FECPRO es PIC 9(06); el MOVE numérico conserva los seis dígitos de la derecha. Si la fecha está en AAAAMMDD, el header lleva AAMMDD sin siglo."
+    },
+    {
+      "titulo": "Hardcodes de nodo y asiento",
+      "detalle": "Nodos 04 y 10, CSI 32 del host de pruebas, sucursal 0511, caja 05, clave 0935, sucursales promotoras 0366 y 0432, sistema 500 y número de archivo 08 están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el formato de WS-FEC-SINC que devuelve LOCSUP formato 12 función 15 (AAAAMMDD o AAMMDD) para fijar el patrón del header B03.",
+    "Confirmar qué sistema consume ARCH-SINC-B03 y si valida el trailer; RN-S500-724 indica el amarre con S151, pero el fuente solo muestra la generación.",
+    "Confirmar si un contrato con B01-CSI-CONTRATO distinto de 04 y 10 puede existir; la sucursal promotora 0432 se asigna por omisión a cualquier CSI que no sea 04.",
+    "RN-S500-723 dice que la copia se codifica 1 para programa y 2 para librería; en 60000000-PROGRAMA-MAPLI-INI la copia que se envía es WS-NO-COPIA y los campos fijos en 2 son tipo de despliegue, inicio de grupo y número de grupo. Revisar la redacción de la regla.",
+    "La lógica de alta y actualización de atributos de contrato vive en L080 y L081, que no forman parte de este fuente."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-913",
+    "RN-S500-914",
+    "RN-S500-919",
+    "RN-S500-922",
+    "RN-S500-933",
+    "RN-S500-721",
+    "RN-S500-722",
+    "RN-S500-723",
+    "RN-S500-724"
+  ]
+}

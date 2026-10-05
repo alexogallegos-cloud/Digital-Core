@@ -1,0 +1,231 @@
+{
+  "slug": "S500_P290",
+  "sistema": "S500",
+  "programa": "P290",
+  "nombre": "Planchado de Esquemas Tarifarios y Reactivación a Cuenta Origen",
+  "funcion": "Proceso batch dominical de S500 con dos fases: el planchado mensual de esquemas tarifarios de los contratos de captación contra el catálogo S016 y la generación semanal de archivos de reactivación a cuenta origen hacia S500, S084 y S087.",
+  "resumen": "Toma la fecha y hora de la máquina, el día de la semana con LOCSUP y las opciones de la tarea desde TASKVALUE (actualizar o sólo simular, forzar el planchado, forzar la generación). El planchado sólo corre en domingo entre los días 4 y 10 del mes a partir de las 16:00, salvo que se fuerce. Carga en memoria hasta 30 productos de S500B05INSTRUMEN con su indicador de esquema de comisión, ajustado por excepciones escritas en el código, y recorre los contratos de S500B03CONTRATOS: para cada contrato vigente consulta al S016 su opción de esquema y rango de medios de acceso, clasifica la combinación en uno de 25 tipos de actualización y, según el tipo, sobrescribe el esquema tarifario y los medios asignados con el valor del S016 o con un valor por defecto. Después, si es domingo o se fuerza, recorre S500B51, ordena los pendientes y genera los archivos de reactivación y sus cifras de control.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.esquemas",
+  "secciones": [
+    {
+      "titulo": "Control del job, opciones de la tarea y ventana de ejecución",
+      "origen": {
+        "archivo": "S500_SOURCE_P290.txt",
+        "contexto": "WORKING-STORAGE · 00000000 / 10000000 / 10005200"
+      },
+      "java": {
+        "archivo": "PlanchadoJobConfig.java · OpcionesTarea.java · VentanaPlanchadoDecider.java",
+        "contexto": "Spring Batch Job · JobParameters · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal: fecha de máquina con siglo fijo y dos fases",
+          "linea_ini": 994,
+          "linea_fin": 1025,
+          "origen_codigo": " 00000000-PRINCIPAL.\n     MOVE 2          TO W77-USO-LIBLJ.\n     MOVE 051010     TO WS-0101-CODI-MSG.\n     MOVE 02         TO WS-0101-TIPO-MSG.\n     MOVE \"S500P290\" TO W77-S000-MY-ID.\n     MOVE \"P290\"     TO WS-0101-PASO-MSG.\n     MOVE \"25MTP004\" TO WS-0101-MTP-MSG W77-S000-MY-VERSION.\n     MOVE \"  \"       TO WS-0101-TEXT-MSG.\n     MOVE @2525@     TO WS-FIN-TXT.\n***********************************************************\n*** LA FECHA SE RECIBE EN 6 DIGITOS AAMMDD\n*** SE SUMA 2000 AL AÂµO PARA COMPLETAR A 8 DIGITOS AAAAMMDD\n***********************************************************\n     ACCEPT WS-FECHA-DIA           FROM DATE.\n     ADD 2000  TO WS-DIA-AA.\n     ACCEPT WS-HORA-HMSC-N         FROM TIME.\n     PERFORM 00000000-TOMA-HOSTNAME.\n     PERFORM 10000006-LOCSUP.\n     PERFORM 00000010-VALIDA-SI-DOMINGO.\n     PERFORM 00000000-FORMA-ETIQ-TASKFILE.\n     PERFORM 00000000-TOMA-TASKVALUE.\n     PERFORM 00000000-PROCESO-PLANCHADO.\n     PERFORM 90000050-PROCESO-REACTIVA.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class PlanchadoJobConfig {\n\n    @Bean\n    Job planchadoYReactivacion(JobRepository repo, Step contexto, VentanaPlanchadoDecider ventana,\n                               Flow planchado, Flow reactivacion) {\n        return new JobBuilder(\"S500P290\", repo)\n            .start(contexto)                       // fecha, hora, hostname, LOCSUP día de la semana\n            .next(ventana).on(\"PROCESA\").to(planchado)\n            .from(ventana).on(\"*\").to(reactivacion)\n            .from(planchado).on(\"*\").to(reactivacion)   // 90000050-PROCESO-REACTIVA corre siempre\n            .end()\n            .build();\n    }\n}\n\n@Component\npublic class ContextoTasklet implements Tasklet {\n    private final Clock reloj;                         // inyectable para pruebas\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        // ACCEPT ... FROM DATE trae AAMMDD; el fuente suma 2000 al año (siglo fijo).\n        LocalDateTime ahora = LocalDateTime.now(reloj);\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaDia\", ahora.toLocalDate());\n        ec.put(\"hora\", ahora.toLocalTime());\n        ec.put(\"diaSemana\", ahora.getDayOfWeek());   // reemplaza LOCSUP función 6\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa encadena dos fases independientes, planchado y reactivación, y la segunda corre aunque la primera no proceda. En Spring Batch se expresa como un <code>Flow</code> con un <code>JobExecutionDecider</code> para la ventana. La fecha de máquina llega en seis dígitos y el fuente completa el siglo sumando 2000 al año, un pivote fijo; en Java se toma directamente un <code>LocalDate</code> de un <code>Clock</code> inyectable, lo que además permite probar la ventana dominical sin esperar al domingo. El día de la semana que hoy calcula LOCSUP lo da <code>DayOfWeek</code>.",
+          "reglas": [],
+          "riesgo": "ADD 2000 TO WS-DIA-AA es un pivote de siglo fijo: correcto hasta 2099."
+        },
+        {
+          "id": "s2",
+          "titulo": "TASKVALUE de tres dígitos a parámetros del job",
+          "linea_ini": 396,
+          "linea_fin": 408,
+          "origen_codigo": "  01  WKS-TASKVALUE           PIC 9(03).\n  01  RD-WKS-TASKVALUE        REDEFINES  WKS-TASKVALUE.\n      02 WKS-TASK-NOACT       PIC 9(01).\n      88 W88-TASK-ACT-OK      VALUE 0, 1.\n      88 W88-TASK-SI-ACT      VALUE 0.\n      88 W88-TASK-NO-ACT      VALUE 1.\n      02 WKS-TASK-OPCION      PIC 9(01).\n      88 W88-TASK-OPC-OK      VALUE 0, 1.\n      88 W88-TASK-OPC-NORMAL  VALUE 0.\n      88 W88-TASK-OPC-FUERZA  VALUE 1.\n      02 WKS-TASK-OPCGEN      PIC 9(01).\n      88 W88-TASK-FGEN        VALUE 9.\n      88 W88-TASK-GEN-OK      VALUE 0, 9.",
+          "java_codigo": "/** WKS-TASKVALUE 9(03) redefinido en tres banderas: actualizar, opción y generación. */\npublic record OpcionesTarea(boolean actualizaBase,      // dígito 1: 0 = sí actualiza, 1 = simula\n                            boolean forzarPlanchado,    // dígito 2: 1 = forzar\n                            boolean forzarGeneracion) { // dígito 3: 9 = forzar generación\n\n    public static OpcionesTarea de(JobParameters p) {\n        return new OpcionesTarea(\n                !p.getString(\"simular\", \"N\").equals(\"S\"),\n                p.getString(\"forzarPlanchado\", \"N\").equals(\"S\"),\n                p.getString(\"forzarGeneracion\", \"N\").equals(\"S\"));\n    }\n\n    /** Compatibilidad con el TASKVALUE numérico mientras el scheduler siga enviándolo. */\n    public static OpcionesTarea deTaskValue(int v) {\n        int act = v / 100, opc = (v / 10) % 10, gen = v % 10;\n        boolean valido = (act == 0 || act == 1) && (opc == 0 || opc == 1) && (gen == 0 || gen == 9);\n        if (v <= 0 || !valido) return new OpcionesTarea(true, false, false);   // \"CORRO SIN TASKVALUE\"\n        return new OpcionesTarea(act == 0, opc == 1, gen == 9);\n    }\n}",
+          "racional": "El comportamiento de la tarea se controla con un número de tres dígitos que se redefine en tres campos de un dígito con condiciones 88. En el destino son parámetros con nombre del job, mucho más legibles en el scheduler. Se conserva una fábrica que interpreta el número original, incluida la regla de 00000000-TOMA-TASKVALUE: un valor inválido se ignora y el programa corre con las opciones por defecto, que actualizan la base.",
+          "reglas": [
+            "RN-S500-285"
+          ],
+          "riesgo": "Un TASKVALUE inválido no detiene el programa: se registra un mensaje y se corre en modo normal, que sí actualiza la base."
+        },
+        {
+          "id": "s3",
+          "titulo": "Ventana de planchado: domingo, días 4 a 10, desde las 16:00",
+          "linea_ini": 1175,
+          "linea_fin": 1234,
+          "origen_codigo": " 10005200-VALIDA-DIA.\n     STRING \"HOY ES DOMINGO Y \"\n            \" SON LAS \" WS-HORA-HH-N \" HORAS CON \"\n                        WS-HORA-MM-N \" MINUTOS Y \"\n                        WS-HORA-SS-N \" SEGUNDOS DEL \"\n                        WS-FECHA-DIA WS-FIN-TXT\n            DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.\n     MOVE WS-0101-TEXT-MSG TO WLI-R00-L10-DETALLE\n     PERFORM 61000100-ESC-R001\n     PERFORM 70000050-MENSAJE.\n**   Dentro de la semana de Proceso de Planchado\n     IF WS-DIA-DD > 3\n    AND WS-DIA-DD < 11\n**      Dentro de horario de las 4:00 pm\n        IF WS-HORA-HMS-N > 155959\n           MOVE 1  TO W77-NO-PROCESO\n           STRING \"INICIO PROCESO \" WS-FIN-TXT\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           MOVE WS-0101-TEXT-MSG  TO WLI-R00-L10-DETALLE\n           PERFORM 61000100-ESC-R001\n           PERFORM 70000050-MENSAJE\n**      Fuera de Horario\n        ELSE\n**      Proceso forzado fuera de horario\n        IF W88-TASK-OPC-FUERZA\n           STRING \"INICIO PROCESO EN DOMINGO,\"\n                  \"FUERA DE HORARIO \" WS-FIN-TXT\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           MOVE WS-0101-TEXT-MSG  TO WLI-R00-L10-DETALLE\n           PERFORM 61000100-ESC-R001\n           PERFORM 70000050-MENSAJE\n           MOVE 1  TO W77-NO-PROCESO\n        ELSE\n**      No proceso en Domingo fuera de Horario\n           STRING \"NO PROCESO EN DOMINGO,\"\n                  \" FUERA DE HORARIO \" WS-FIN-TXT\n                  DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n           MOVE WS-0101-TEXT-MSG  TO WLI-R00-L10-DETALLE\n           PERFORM 61000100-ESC-R001\n           PERFORM 70000050-MENSAJE\n     ELSE\n*    Proceso Forzado en Domingo en semana que no corresponde\n*    Sin validar Horario\n     IF W88-TASK-OPC-FUERZA\n        STRING \"INICIO PROCESO EN DOMINGO,\"\n               \"EN SEMANA QUE NO CORRESPONDE \"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        MOVE WS-0101-TEXT-MSG  TO WLI-R00-L10-DETALLE\n        PERFORM 61000100-ESC-R001\n        PERFORM 70000050-MENSAJE\n        MOVE 1  TO W77-NO-PROCESO\n     ELSE\n**   No proceso en Domingo y semana que no corresponde\n        STRING \"NO PROCESO EN DOMINGO,\"\n               \"EN SEMANA QUE NO CORRESPONDE \"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        MOVE WS-0101-TEXT-MSG  TO WLI-R00-L10-DETALLE\n        PERFORM 61000100-ESC-R001\n        PERFORM 70000050-MENSAJE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class VentanaPlanchadoDecider implements JobExecutionDecider {\n\n    private final P290Properties props;\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        var ec = job.getExecutionContext();\n        LocalDate fecha = (LocalDate) ec.get(\"fechaDia\");\n        LocalTime hora = (LocalTime) ec.get(\"hora\");\n        boolean forzar = OpcionesTarea.de(job.getJobParameters()).forzarPlanchado();\n\n        boolean domingo = fecha.getDayOfWeek() == DayOfWeek.SUNDAY;\n        boolean semana = fecha.getDayOfMonth() > props.ventana().diaDesde()      // > 3\n                      && fecha.getDayOfMonth() < props.ventana().diaHasta();     // < 11\n        boolean horario = hora.isAfter(props.ventana().horaDesde());             // > 15:59:59\n\n        String motivo;\n        boolean procesa;\n        if (domingo && semana && horario) { procesa = true;   motivo = \"INICIO PROCESO\"; }\n        else if (forzar)                  { procesa = true;   motivo = \"INICIO PROCESO FORZADO\"; }\n        else                              { procesa = false;  motivo = \"NO PROCESO EN ESTA FECHA\"; }\n        log.info(\"{} {} {}\", motivo, fecha, hora);               // 61000100-ESC-R001 + mensaje\n        return new FlowExecutionStatus(procesa ? \"PROCESA\" : \"OMITE\");\n    }\n}\n\n# application.yml\np290:\n  ventana: { dia-desde: 3, dia-hasta: 11, hora-desde: \"15:59:59\" }",
+          "racional": "Las ramas anidadas del COBOL se reducen a tres condiciones: domingo, semana del 4 al 10 y hora posterior a las 15:59:59. Si las tres se cumplen procesa; si no, sólo procesa cuando la tarea viene forzada. Los límites, escritos en el código, pasan a propiedades. El <code>JobExecutionDecider</code> deja en la bitácora del job el motivo exacto, que hoy se escribe en el reporte R001.",
+          "reglas": [
+            "RN-S500-285"
+          ],
+          "riesgo": "La opción de forzado también permite correr en un día que no es domingo (rama de 10005000-VALIDA-FECHA, líneas 1158-1164), no sólo en domingo fuera de horario o de semana, como describe la regla del brain."
+        },
+        {
+          "id": "s4",
+          "titulo": "Exención del control de versiones en desarrollo",
+          "linea_ini": 1117,
+          "linea_fin": 1126,
+          "origen_codigo": " 10000000-LIBRERIAS.\n****************************************************************\n* CHANGE A LA LIBRERIA DE CONTROL DE VERSIONES.\n****************************************************************\n     PERFORM 10000100-VERSIONES.\n     IF W88-ES-DESARROLLO\n        NEXT SENTENCE\n     ELSE\n        PERFORM 20000100-CHECAME-VERSION.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class VersionGuard {\n\n    private final MaestroVersiones versiones;     // S100VERSIONES\n    private final Environment env;\n    private final BuildProperties build;\n\n    @EventListener(ApplicationReadyEvent.class)\n    void verifica() {\n        // W88-ES-DESARROLLO: hostname PBA o SIT. Aquí lo decide el perfil activo.\n        if (env.acceptsProfiles(Profiles.of(\"pba\", \"sit\"))) {\n            return;                                                // NEXT SENTENCE\n        }\n        if (!versiones.autorizada(\"S500P290\", build.getVersion())) {\n            throw new IllegalStateException(\"VER. EJECUTADA DIF. A VERSIONES\");\n        }\n    }\n}",
+          "racional": "En los ambientes de prueba (hostname PBA o SIT, según 00000000-TOMA-HOSTNAME) no se valida la versión del ejecutable contra S100. En Java esa decisión la toman los perfiles de Spring en lugar del nombre del host, lo que evita que una máquina de producción con nombre mal configurado se salte el control.",
+          "reglas": [
+            "RN-S500-290"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Catálogo de esquemas de comisión por producto",
+      "origen": {
+        "archivo": "S500_SOURCE_P290.txt",
+        "contexto": "PROCEDURE DIVISION · 20000310-LLENO-TABPRD"
+      },
+      "java": {
+        "archivo": "CatalogoEsquemaComision.java",
+        "contexto": "@Component · Map inmutable · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Tabla de 30 productos y excepciones de calificación virtual",
+          "linea_ini": 1433,
+          "linea_fin": 1467,
+          "origen_codigo": " 20000310-LLENO-TABPRD.\n     ADD  1 TO  WS-PRD.\n     IF WS-PRD > 30\n        MOVE \"B05 CON MAS DE 30 PRODUCTOS \"  TO  WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     MOVE B05-NUM-PRODUCTO        TO  WS-ESQCOM-PRD(WS-PRD)\n                                      WKS-B05-PRODUCTO\n                                      WS-MSG-PRD.\n     MOVE B05-NUM-INSTRUM         TO  WS-ESQCOM-INS(WS-PRD)\n                                      WKS-B05-INSTRUM\n                                      WS-MSG-INST.\n     MOVE B05-MONEDA              TO  WS-ESQCOM-MON(WS-PRD)\n                                      WKS-B05-MONEDA\n                                      WS-MSG-MDA.\n     MOVE B05-ESQ-COMIS           TO  WS-ESQCOM-IND(WS-PRD).\n     MOVE B05-ESQ-COMIS           TO  WS-MSG-N-02.\n     MOVE B05-NOMBRE-PROD         TO  WS-ESQCOM-NOMB(WS-PRD).\n     IF (WS05-88-PRD-0066-0011-001)\n     OR (WS05-88-PRD-0066-0017-001)\n         MOVE 0 TO WS-ESQCOM-IND(WS-PRD).\n     IF B05-ESQ-COMIS = 1 OR 2\n        IF (B05-NUM-PRODUCTO = 1)\n        OR (WS05-88-PRD-0066-0006-001)\n        OR (WS05-88-PRD-0066-0007-001)\n        OR (WS05-88-PRD-0066-0016-001)\n        OR (WS05-88-PRD-0066-0026-001)\n        OR (WS05-88-PRD-0066-0027-001)\n        OR (WS05-88-PRD-0066-0028-001)\n           MOVE 3 TO WS-ESQCOM-IND(WS-PRD).",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CatalogoEsquemaComision {\n\n    private final InstrumentoRepository b05;      // S500B05INSTRUMEN\n    private final P290Properties props;\n    private Map<LlaveProducto, EsquemaProducto> tabla;\n\n    @PostConstruct\n    void carga() {\n        var m = new LinkedHashMap<LlaveProducto, EsquemaProducto>();\n        for (Instrumento i : b05.findAll()) {\n            if (m.size() == props.maxProductos())                      // 30\n                throw new ProcesoAbortadoException(\"B05 CON MAS DE 30 PRODUCTOS\");\n            var llave = new LlaveProducto(i.producto(), i.instrumento(), i.moneda());\n            int ind = i.esquemaComision();                            // B05-ESQ-COMIS\n            if (props.calificacionCero().contains(llave)) {\n                ind = 0;                                              // 0066-0011-001, 0066-0017-001\n            }\n            if ((i.esquemaComision() == 1 || i.esquemaComision() == 2)\n                    && (i.producto() == 1 || props.calificacionTres().contains(llave))) {\n                ind = 3;                                              // 0066-0006/0007/0016/0026/0027/0028-001\n            }\n            m.put(llave, new EsquemaProducto(i.nombre(), ind, i.esquemaComision()));\n        }\n        tabla = Map.copyOf(m);\n    }\n\n    public int indicador(LlaveProducto llave) {\n        return Optional.ofNullable(tabla.get(llave)).map(EsquemaProducto::indicador).orElse(0);\n    }\n}",
+          "racional": "La tabla en memoria tiene capacidad fija de 30 productos y aborta si B05 trae más. En Java el límite deja de ser necesario, pero se conserva como propiedad para no cambiar el comportamiento sin decisión del negocio. Las excepciones por combinación de producto, instrumento y moneda, hoy en condiciones 88 compiladas, se llevan a dos listas en <code>application.yml</code>: las que fuerzan la calificación virtual a 0 y las que la fuerzan a 3 cuando el esquema de B05 es 1 o 2. El orden de evaluación se respeta: primero el 0 y luego el 3.",
+          "reglas": [
+            "RN-S500-286",
+            "RN-S500-287"
+          ],
+          "riesgo": "La regla del producto 1 aplica a cualquier instrumento y moneda de ese producto, a diferencia de las demás excepciones que son por combinación completa."
+        }
+      ]
+    },
+    {
+      "titulo": "Planchado del esquema tarifario contra el S016",
+      "origen": {
+        "archivo": "S500_SOURCE_P290.txt",
+        "contexto": "WORKING-STORAGE · 55000000-VAL-OR / 55100000 / 55200000"
+      },
+      "java": {
+        "archivo": "TipoActualizacion.java · ClasificadorPlanchado.java · PlanchadoProcessor.java",
+        "contexto": "enum · ItemProcessor · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Tipos de actualización 1 a 25 y qué campo usa el S016 o el valor por defecto",
+          "linea_ini": 415,
+          "linea_fin": 425,
+          "origen_codigo": "      02 WKS-TIPO-ACT         PIC 9(02) VALUE 0.\n         88 W88-USA-S016-ESQ  VALUE 03, 04, 06, 07, 08, 09, 11,\n                                    13, 14, 15.\n         88 W88-USA-S016-MAA  VALUE 02, 04, 05, 06, 08, 09,\n                                    17, 18, 20, 21.\n         88 W88-USA-DEF-ESQ   VALUE 16, 17, 18, 19, 21, 22,\n                                    23, 24, 25.\n         88 W88-USA-DEF-MAA   VALUE 10, 11, 12, 13, 14, 15, 22,\n                                    23, 24, 25.\n         88 W88-NO-ACT-ESQ    VALUE 01, 02, 05, 10, 12.\n         88 W88-NO-ACT-MAA    VALUE 01, 03, 07, 16, 19.",
+          "java_codigo": "/** WKS-TIPO-ACT: resultado de clasificar S016 contra B03. Las 88 dicen de dónde sale cada campo. */\npublic enum TipoActualizacion {\n    T01(NO, NO),        T02(NO, S016),     T03(S016, NO),     T04(S016, S016),   T05(NO, S016),\n    T06(S016, S016),    T07(S016, NO),     T08(S016, S016),   T09(S016, S016),   T10(NO, DEF),\n    T11(S016, DEF),     T12(NO, DEF),      T13(S016, DEF),    T14(S016, DEF),    T15(S016, DEF),\n    T16(DEF, NO),       T17(DEF, S016),    T18(DEF, S016),    T19(DEF, NO),\n    T20(NINGUNA, S016), // 20 no está en ninguna 88 de esquema: el esquema no se toca\n    T21(DEF, S016),     T22(DEF, DEF),     T23(DEF, DEF),     T24(DEF, DEF),     T25(DEF, DEF);\n\n    public enum Fuente { NO, S016, DEF, NINGUNA }\n    public final Fuente esquema;          // W88-USA-S016-ESQ / W88-USA-DEF-ESQ / W88-NO-ACT-ESQ\n    public final Fuente mediosAcceso;     // W88-USA-S016-MAA / W88-USA-DEF-MAA / W88-NO-ACT-MAA\n\n    TipoActualizacion(Fuente esq, Fuente maa) { this.esquema = esq; this.mediosAcceso = maa; }\n\n    public int codigo() { return ordinal() + 1; }\n}",
+          "racional": "Las seis condiciones 88 sobre <code>WKS-TIPO-ACT</code> funcionan como una tabla de decisión: para cada uno de los 25 tipos dicen si el esquema tarifario y los medios de acceso asignados toman el valor del S016, un valor por defecto o no cambian. En Java la tabla se vuelve un <code>enum</code> con dos atributos, de modo que la regla queda en un solo lugar y se puede probar exhaustivamente. Al reconstruirla aparece una inconsistencia: el tipo 20 no pertenece a ninguna de las 88 de esquema.",
+          "reglas": [
+            "RN-S500-288"
+          ],
+          "riesgo": "El tipo 20 ejecuta 55100000-ACT-ESQ-TARIFARIO (línea 1826) pero no está en W88-USA-S016-ESQ, W88-USA-DEF-ESQ ni W88-NO-ACT-ESQ, así que el esquema no se actualiza. Los tipos vecinos 17, 18 y 19 sí usan el valor por defecto; parece una omisión."
+        },
+        {
+          "id": "s7",
+          "titulo": "Clasificación de opción de esquema y rango de medios (primeros cuatro tipos)",
+          "linea_ini": 1732,
+          "linea_fin": 1752,
+          "origen_codigo": " 55000000-VAL-OR.\n     IF WKS-S016-OPC-ESQ = 1 OR 2\n        IF WKS-S016-RGO-MDAA = 1 OR 2 OR 3\n           IF B03-ESQ-TARIFARIO = 1 OR 2\n              IF B03-MDA-ASIGNADOS = 1 OR 2 OR 3\n                 IF WKS-S016-OPC-ESQ = B03-ESQ-TARIFARIO\n                AND WKS-S016-RES-MCC = B03-RESUMEN-MCC\n                    IF WKS-S016-RGO-MDAA = B03-MDA-ASIGNADOS\n                       MOVE 1 TO WKS-TIPO-ACT\n                    ELSE\n                       MOVE 2 TO WKS-TIPO-ACT\n                       PERFORM 55200000-ACT-MDA-ASIGNADOS\n                 ELSE\n                 IF WKS-S016-RGO-MDAA = B03-MDA-ASIGNADOS\n                    MOVE 3 TO WKS-TIPO-ACT\n                    PERFORM 55100000-ACT-ESQ-TARIFARIO\n                 ELSE\n                    MOVE 4 TO WKS-TIPO-ACT\n                    PERFORM 55100000-ACT-ESQ-TARIFARIO\n                    PERFORM 55200000-ACT-MDA-ASIGNADOS",
+          "java_codigo": "@Component\npublic class ClasificadorPlanchado {\n\n    private static boolean esqValido(int v) { return v == 1 || v == 2; }\n    private static boolean mdaValido(int v) { return v >= 1 && v <= 3; }\n\n    /** 55000000-VAL-OR completo: 25 hojas. Se muestran las que corresponden a las líneas citadas. */\n    public TipoActualizacion clasifica(EsquemaS016 s016, ContratoB03 b03) {\n        boolean mismoEsq = s016.opcionEsquema() == b03.esquemaTarifario()\n                        && s016.resumenMcc() == b03.resumenMcc();\n        boolean mismaMda = s016.rangoMedios() == b03.mediosAsignados();\n\n        if (esqValido(s016.opcionEsquema()) && mdaValido(s016.rangoMedios())\n                && esqValido(b03.esquemaTarifario()) && mdaValido(b03.mediosAsignados())) {\n            if (mismoEsq) return mismaMda ? T01 : T02;     // 1: nada; 2: sólo medios\n            return mismaMda ? T03 : T04;                   // 3: sólo esquema; 4: ambos\n        }\n        return clasificaResto(s016, b03, mismoEsq, mismaMda);   // tipos 5 a 25\n    }\n}",
+          "racional": "Cuando los cuatro valores (opción y rango del S016, esquema y medios del contrato) están en rango, el contrato sólo se modifica en lo que difiere del S016. La comparación de esquema incluye el resumen MCC, un detalle que no menciona la regla del brain. El resto del párrafo (líneas 1753-1850) cubre las combinaciones con valores fuera de rango y siempre termina en los tipos 5 a 25; en Java se implementa en <code>clasificaResto</code> con una prueba unitaria por hoja.",
+          "reglas": [
+            "RN-S500-288"
+          ]
+        },
+        {
+          "id": "s8",
+          "titulo": "Sobrescritura del contrato con valor del S016 o por defecto",
+          "linea_ini": 1925,
+          "linea_fin": 1966,
+          "origen_codigo": " 55100000-ACT-ESQ-TARIFARIO.\n    IF W88-USA-S016-ESQ\n       MOVE WKS-S016-OPC-ESQ         TO WKS-ESQ-NVO\n       MOVE WKS-S016-RES-MCC         TO WKS-RES-NVO\n       PERFORM 55100010-ACT-ESQ-B03\n    ELSE\n    IF W88-USA-DEF-ESQ\n       MOVE 1                        TO WKS-ESQ-NVO\n       MOVE 0                        TO WKS-RES-NVO\n       PERFORM 55100010-ACT-ESQ-B03.\n*****************************************************************\n 55100010-ACT-ESQ-B03.\n     IF B03-ESQ-TARIFARIO = WKS-ESQ-NVO\n    AND B03-RESUMEN-MCC   = WKS-RES-NVO\n        NEXT SENTENCE\n     ELSE\n        MOVE WKS-ESQ-NVO  TO B03-ESQ-TARIFARIO\n        MOVE WKS-RES-NVO  TO B03-RESUMEN-MCC\n        MOVE 1 TO WS-BAN-B03.\n***************************************************************\n* ACTUALIZACION DE MEDIOS DE ACCESO ASIGNADOS DEL S500\n*****************************************************************\n 55200000-ACT-MDA-ASIGNADOS.\n     IF W88-USA-S016-MAA\n        MOVE WKS-S016-RGO-MDAA        TO WKS-MDAA-NVO\n        PERFORM 55200010-ACT-MDA-B03\n     ELSE\n     IF W88-USA-DEF-MAA\n        MOVE 2                        TO WKS-MDAA-NVO\n        PERFORM 55200010-ACT-MDA-B03.\n*****************************************************************\n 55200010-ACT-MDA-B03.\n     IF B03-MDA-ASIGNADOS = WKS-MDAA-NVO\n        NEXT SENTENCE\n     ELSE\n        MOVE WKS-MDAA-NVO TO B03-MDA-ASIGNADOS\n        MOVE 1            TO WS-BAN-B03.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PlanchadoProcessor implements ItemProcessor<ContratoB03, ContratoB03> {\n\n    private final ClasificadorPlanchado clasificador;\n    private final EsquemaS016Client s016;                 // L422, opción 3\n    private final P290Properties props;\n\n    @Override\n    public ContratoB03 process(ContratoB03 b03) {\n        EsquemaS016 e = s016.consulta(b03.producto(), b03.instrumento(), b03.contrato());\n        TipoActualizacion t = clasificador.clasifica(e, b03);\n        boolean cambia = false;\n\n        switch (t.esquema) {\n            case S016 -> cambia |= b03.cambiaEsquema(e.opcionEsquema(), e.resumenMcc());\n            case DEF  -> cambia |= b03.cambiaEsquema(props.defecto().esquema(),       // 1\n                                                     props.defecto().resumenMcc());   // 0\n            default   -> { }\n        }\n        switch (t.mediosAcceso) {\n            case S016 -> cambia |= b03.cambiaMedios(e.rangoMedios());\n            case DEF  -> cambia |= b03.cambiaMedios(props.defecto().mediosAcceso());  // 2\n            default   -> { }\n        }\n        // WS-BAN-B03 = 1 sólo si algún valor cambió; con W88-TASK-NO-ACT se cuenta pero no se graba.\n        return cambia && props.actualizaBase() ? b03 : null;\n    }\n}\n// El writer es un RepositoryItemWriter; cada STORE de B03 iba en su propia transacción.",
+          "racional": "Cada actualización compara antes de escribir y sólo marca el contrato como modificado si el valor nuevo es distinto, de modo que el planchado es idempotente. Los valores por defecto (esquema 1 con resumen 0 y medios de acceso 2) están escritos en el código y pasan a propiedades. El modo de simulación de la tarea cuenta los contratos que cambiarían sin grabar; en Java el procesador devuelve <code>null</code> y el contrato no llega al writer. El fuente graba cada contrato en su propia transacción; en Spring Batch el chunk agrupa varias, lo que debe acordarse con el SME por el impacto en bloqueos de B03.",
+          "reglas": [
+            "RN-S500-288"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Reactivación a cuenta origen",
+      "origen": {
+        "archivo": "S500_SOURCE_P290.txt",
+        "contexto": "PROCEDURE DIVISION · 90000050 / 90001200"
+      },
+      "java": {
+        "archivo": "ReactivacionFlowConfig.java · GeneracionDominicalDecider.java",
+        "contexto": "Spring Batch Flow · SortedItemReader · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s9",
+          "titulo": "Fase de reactivación: lectura de B51, sort de pendientes y generación",
+          "linea_ini": 2263,
+          "linea_fin": 2276,
+          "origen_codigo": " 90000050-PROCESO-REACTIVA.\n     MOVE 0 TO W77-PROC-PLANCHADO.\n     PERFORM 20000012-ABRO-BASE-CONSULTA.\n     PERFORM 20000200-MUEVE-B02.\n     PERFORM 20000210-MUEVE-B00.\n     PERFORM 90001000-ABRE-ARCH-LIST.\n     PERFORM 90001200-VALIDA-DOMINGO.\n     IF W77-NO-PROCESO-GEN = 0\n        PERFORM 90002000-LEE-BASE-B51 UNTIL W77-EOF-B51 = 1\n        PERFORM 90002200-SORT-PTE\n        PERFORM 90003000-LEE-PTE-REACT.\n     PERFORM 90005000-FIN-REACTIVA.",
+          "java_codigo": "@Configuration\npublic class ReactivacionFlowConfig {\n\n    @Bean\n    Flow reactivacion(Step abreListados, GeneracionDominicalDecider dominical,\n                      Step pendientesB51, Step generaArchivos, Step finReactiva) {\n        return new FlowBuilder<Flow>(\"reactivacion\")\n            .start(abreListados)                                    // 90001000-ABRE-ARCH-LIST\n            .next(dominical).on(\"GENERA\").to(pendientesB51)         // 90002000 + 90002200-SORT-PTE\n                .next(generaArchivos)                               // I03 (S500), E01 (S084), E02 (S087), I04\n                .next(finReactiva)\n            .from(dominical).on(\"*\").to(finReactiva)                // 90005000-FIN-REACTIVA siempre\n            .build();\n    }\n}\n// generaArchivos usa un ClassifierCompositeItemWriter que enruta cada pendiente al archivo\n// del sistema destino y acumula los totales por producto, sistema y global para los trailers.",
+          "racional": "La reactivación abre la base sólo en consulta, recorre S500B51, ordena los pendientes y genera un archivo por sistema destino con sus cifras de control. El cierre con trailers se ejecuta aunque no haya generación. En Spring Batch el <code>SORT</code> intermedio se reemplaza por una lectura ordenada desde la base y la escritura a varios archivos por un <code>ClassifierCompositeItemWriter</code>.",
+          "reglas": [
+            "RN-S500-289"
+          ]
+        },
+        {
+          "id": "s10",
+          "titulo": "Generación sólo en domingo o forzada, con bandera de polaridad inversa",
+          "linea_ini": 2329,
+          "linea_fin": 2343,
+          "origen_codigo": " 90001200-VALIDA-DOMINGO.\n     IF W77-DSEM = 0\n        NEXT SENTENCE\n     ELSE\n     IF W88-TASK-FGEN\n        STRING \"NO ES DOMINGO, \" WS-FECHA-DIA\n               \"PROCESO FORZADO GEN-ARCHIVOS \"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n     ELSE\n        STRING \"NO ES DOMINGO, \" WS-FECHA-DIA\n               \"NO PROCESO GEN-ARCHIVOS \"\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        MOVE 1 TO W77-NO-PROCESO-GEN.",
+          "java_codigo": "@Component\npublic class GeneracionDominicalDecider implements JobExecutionDecider {\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        LocalDate fecha = (LocalDate) job.getExecutionContext().get(\"fechaDia\");\n        boolean forzar = OpcionesTarea.de(job.getJobParameters()).forzarGeneracion();   // W88-TASK-FGEN\n        boolean domingo = fecha.getDayOfWeek() == DayOfWeek.SUNDAY;\n        if (!domingo) {\n            log.info(\"NO ES DOMINGO, {} {}\", fecha,\n                     forzar ? \"PROCESO FORZADO GEN-ARCHIVOS\" : \"NO PROCESO GEN-ARCHIVOS\");\n        }\n        // W77-NO-PROCESO-GEN = 0 significa SÍ generar; aquí se usa un nombre positivo.\n        boolean genera = domingo || forzar;\n        return new FlowExecutionStatus(genera ? \"GENERA\" : \"OMITE\");\n    }\n}",
+          "racional": "La generación de archivos de reactivación corre cualquier domingo, sin la restricción de semana y horario que tiene el planchado, o cuando la tarea fuerza la generación. El fuente usa dos banderas con polaridad opuesta: <code>W77-NO-PROCESO = 1</code> significa que el planchado sí procesa, mientras que <code>W77-NO-PROCESO-GEN = 0</code> significa que la reactivación sí genera. En Java ambas se sustituyen por decisiones con nombre positivo para eliminar la ambigüedad.",
+          "reglas": [
+            "RN-S500-289"
+          ],
+          "riesgo": "La polaridad invertida de W77-NO-PROCESO frente a W77-NO-PROCESO-GEN (líneas 244-245) facilita errores al mantener el programa."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Tipo de actualización 20 sin efecto sobre el esquema",
+      "detalle": "En 55000000-VAL-OR el tipo 20 llama a 55100000-ACT-ESQ-TARIFARIO (línea 1826), pero el valor 20 no está en ninguna de las condiciones 88 de esquema (líneas 416-424). El esquema tarifario de esos contratos no se plancha."
+    },
+    {
+      "titulo": "Excepciones de producto compiladas",
+      "detalle": "Las combinaciones 0066-0011-001 y 0066-0017-001 (calificación 0) y el producto 1 con 0066-0006, 0007, 0016, 0026, 0027 y 0028-001 (calificación 3) están en condiciones 88 y en el párrafo 20000310-LLENO-TABPRD. Cualquier producto nuevo exige recompilar."
+    },
+    {
+      "titulo": "Ventana y valores por defecto escritos en el código",
+      "detalle": "Días 4 a 10, hora 15:59:59, límite de 30 productos, esquema por defecto 1 con resumen 0 y medios de acceso por defecto 2. Se trasladan a application.yml."
+    },
+    {
+      "titulo": "TASKVALUE inválido corre en modo de actualización",
+      "detalle": "Si el valor de la tarea no es válido, 00000000-TOMA-TASKVALUE lo pone en cero y el programa actualiza la base, en lugar de detenerse."
+    },
+    {
+      "titulo": "Siglo fijo en la fecha de máquina",
+      "detalle": "La fecha de seis dígitos se completa sumando 2000 al año (línea 1008)."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si el tipo de actualización 20 debe usar el esquema por defecto, como los tipos 17 a 19.",
+    "RN-S500-285 no menciona que la opción de forzado permite correr el planchado en cualquier día de la semana; revisar la regla.",
+    "RN-S500-288 no menciona que la comparación de esquema incluye el resumen MCC (WKS-S016-RES-MCC contra B03-RESUMEN-MCC).",
+    "Las rutinas 10000006-LOCSUP, 0000-CALL-HOSTNAME, 90000003-B03CONTRATOS-LOCKN y 90000003-B03CONTRATOS-STORE vienen de copybooks que no están en el fuente extraído.",
+    "Confirmar si el planchado puede agruparse en transacciones por chunk o si debe conservar una transacción por contrato.",
+    "El contenido exacto de los archivos de reactivación (I03, E01, E02, I04) no se revisó en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-285",
+    "RN-S500-286",
+    "RN-S500-287",
+    "RN-S500-288",
+    "RN-S500-289",
+    "RN-S500-290"
+  ]
+}

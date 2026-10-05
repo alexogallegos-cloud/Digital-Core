@@ -14,7 +14,7 @@ import pathlib
 import shutil
 import sys
 import textwrap
-from config import BANAMEX_DIR, DOCUMENTS_DIR, CORE_DOCS, SOURCE_GLOBS
+from config import BANAMEX_DIR, DOCUMENTS_DIR, CORE_DOCS, SOURCE_GLOBS, GEMCOGALT_DIR, GEMCOGALT_GLOBS
 
 # ─── Utilidades de conversión ─────────────────────────────────────────────────
 
@@ -101,7 +101,11 @@ def prepare():
     print(f"  Destino: {DOCUMENTS_DIR}\n")
 
     if DOCUMENTS_DIR.exists():
-        shutil.rmtree(DOCUMENTS_DIR)
+        import stat, os
+        def _force_remove(func, path, _):
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        shutil.rmtree(DOCUMENTS_DIR, onerror=_force_remove)
     DOCUMENTS_DIR.mkdir(parents=True)
 
     copied = 0
@@ -175,6 +179,29 @@ def prepare():
             errors += 1
 
     print(f"  {copied} archivos copiados, {converted} JSON→MD convertidos")
+
+    # ── GemCogAlt KB (Digital Brain v1.13 · 282 MDs) ─────────────────────────
+    print(f"\n[ 3/3 ] GemCogAlt KB ({GEMCOGALT_DIR.name}):")
+    if not GEMCOGALT_DIR.exists():
+        print(f"  ✗  Directorio no encontrado: {GEMCOGALT_DIR}")
+        errors += 1
+    else:
+        for pattern in GEMCOGALT_GLOBS:
+            for src in sorted(GEMCOGALT_DIR.glob(pattern)):
+                if not src.is_file():
+                    continue
+                rel = src.relative_to(GEMCOGALT_DIR)
+                dest = DOCUMENTS_DIR / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    content = src.read_text(encoding="utf-8", errors="replace")
+                    content = add_header(content, str(rel), "GEMCOGALT")
+                    dest.write_text(content, encoding="utf-8")
+                    copied += 1
+                except Exception as e:
+                    print(f"  ⚠  Error ({rel}): {e}")
+                    errors += 1
+        print(f"  ✓  {copied} archivos totales copiados desde GemCogAlt")
 
     # ── Resumen ───────────────────────────────────────────────────────────────
     all_files = list(DOCUMENTS_DIR.rglob("*"))

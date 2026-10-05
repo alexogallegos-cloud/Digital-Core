@@ -1,0 +1,328 @@
+{
+  "slug": "S151_P109",
+  "sistema": "S151",
+  "programa": "P109",
+  "nombre": "Motor de Asientos GL (GL Posting Engine)",
+  "funcion": "Programa batch multi-sistema de S151 que convierte los movimientos LOG151 de un sistema origen en asientos contables, cuadre y posición; recibe el número de sistema como parámetro (RUN #S151P109(SNNN) en WFL_LOTE SUB109) y opcionalmente la fecha en TASKVALUE.",
+  "resumen": "Lee el archivo LOG151 del sistema indicado, valida su header y selecciona los movimientos de alta autorizados o eliminados. Los autorizados con origen 1 o 3 se desglosan en hasta cinco claves de transacción, se ordenan y acumulan por una clave de 11 dimensiones y se traducen en partidas de cargo y abono mediante la cadena de catálogos INDS250, CAT7 y ESQCON. Con esas partidas genera MOVCONTABLES, la bitácora, el punteo hacia el sistema origen, el cuadre contable por cuenta y, según el tipo de base, la posición diaria en S151B72POSCONTA.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.contabilidad.motor",
+  "secciones": [
+    {
+      "titulo": "Estructura de salida y control del programa",
+      "origen": {
+        "archivo": "COBOL_P109.txt",
+        "contexto": "FILE SECTION · 000000-PROGRAMA · 10000-INICIO-PROGRAMA"
+      },
+      "java": {
+        "archivo": "MovimientoContable.java · MotorAsientosGl.java · CalendarioBancario.java",
+        "contexto": "@Entity · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "REG-MOVCONTABLES con REDEFINES de cuenta a entidad JPA",
+          "linea_ini": 436,
+          "linea_fin": 463,
+          "origen_codigo": " 01 REG-MOVCONTABLES.                                             018450\n    02 RMC-FILIAL                         PIC X(05).              018500\n    02 RMC-PRODUCTO                       PIC 9(04)    COMP.      018550\n    02 RMC-INSTRUMENTO                    PIC 9(02)    COMP.      018600\n    02 RMC-SUC-PROM                       PIC 9(04)    COMP.      018650\n    02 RMC-MONEDA                         PIC 9(04)    COMP.      018700\n    02 RMC-CTA-CONT                       PIC 9(12)    COMP.      018750\n    02 RMC-CTA6-CONT-R REDEFINES RMC-CTA-CONT.                    018800\n       04 RMC-CTA6-CONT                   PIC 9(06)    COMP.      018850\n       04 RMC-CTA6F-CONT                  PIC 9(06)    COMP.      018900\n    02 RMC-CTA1-CONT-R REDEFINES RMC-CTA-CONT.                    018950\n       04 RMC-CTA1-CONT                   PIC 9        COMP.      019000\n       04 RMC-CTA11-CONT                  PIC 9(11)    COMP.      019050\n    02 RMC-CAT4-CONT-R REDEFINES RMC-CTA-CONT.                    019100\n       04 RMC-CTA4-CONT                   PIC 9(04)    COMP.      019150\n       04 FILLER                          PIC 9(08)    COMP.      019200\n    02 RMC-IMPORTE                        PIC 9(14)V99 COMP.      019250\n    02 RMC-TIPO-MOV                       PIC 9        COMP.      019300\n    02 RMC-NAT-MOV                        PIC 9        COMP.      019350\n    02 RMC-FOLIO                          PIC 9(10)    COMP.      019400\n    02 RMC-SECTOR                         PIC 9(04)    COMP.      019450\n    02 RMC-ACTIVIDAD                      PIC 9(06)    COMP.      019500\n    02 RMC-BANCA                          PIC 9(02)    COMP.      019550\n    02 RMC-CAUSA                          PIC 9(06)    COMP.      019600\n    02 RMC-ORIGEN                         PIC 9(02)    COMP.      019650\n    02 RMC-AUT-S151                       PIC 9(08)    COMP.      019700\n    02 RMC-CVETRAN                        PIC 9(04)    COMP.      019750\n    02 RMC-BANCO                          PIC 9(04)    COMP.      019800",
+          "java_codigo": "/** REG-MOVCONTABLES: salida canónica del motor GL, una partida por registro. */\n@Entity\n@Table(name = \"MOV_CONTABLE\")\npublic class MovimientoContable {\n\n    @Id @GeneratedValue private Long id;\n\n    @Column(length = 5)  private String filial;           // X(05)\n    private int producto;                                  // 9(04) COMP\n    private int instrumento;                               // 9(02) COMP\n    private int sucPromotora;                              // 9(04) COMP\n    private int moneda;                                    // 9(04) COMP\n    @Column(length = 12) private String cuentaContable;   // 9(12): 12 dígitos con ceros a la izquierda\n\n    @Column(precision = 16, scale = 2)\n    private BigDecimal importe;                            // 9(14)V99 COMP, sin signo\n\n    private int tipoMov;                                   // 9\n    @Enumerated(EnumType.ORDINAL)\n    private Naturaleza naturaleza;                         // 9: 1 = cargo, 2 = abono\n    private long folio;\n    private int sector, actividad, banca, causa, origen;\n    private long autS151;\n    private int cveTran, banco;\n\n    /** RMC-CTA1-CONT (REDEFINES): primer dígito de la cuenta. */\n    public int grupoCuenta() { return cuentaContable.charAt(0) - '0'; }\n\n    /** RMC-CTA4-CONT (REDEFINES): cuenta de mayor de 4 dígitos. */\n    public String mayor()    { return cuentaContable.substring(0, 4); }\n\n    public void setImporte(BigDecimal v) {\n        if (v.signum() < 0 || v.setScale(0, RoundingMode.DOWN).precision() > 14)\n            throw new ImporteFueraDeRangoException(v);     // 9(14)V99 sin signo\n        this.importe = v.setScale(2, RoundingMode.UNNECESSARY);\n    }\n}",
+          "racional": "MOVCONTABLES es la salida que consumen el cuadre y los procesos posteriores. La cuenta <code>PIC 9(12)</code> se guarda como <code>String</code> de 12 dígitos y los dos <code>REDEFINES</code> que el programa usa (primer dígito y mayor de 4 dígitos) se exponen como métodos derivados en lugar de campos que comparten memoria. El importe <code>9(14)V99 COMP</code> es <code>BigDecimal</code> de escala 2 sin signo; el setter rechaza valores que no caben en el PIC en vez de truncarlos.",
+          "reglas": [
+            "RN-S151-057"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Ruteo del programa según el sistema origen",
+          "linea_ini": 7798,
+          "linea_fin": 7849,
+          "origen_codigo": "     IF W77-SISTEMA-PARAMETRO = 500                               153760\n        MOVE 501 TO WKS-BITA-SIS                                  153765\n        PERFORM 20001-PROCESA-MOVIMIENTOS                         153770\n        OPEN OUTPUT BITACORA                                      153775\n        PERFORM 30001-GENERA-BITACORA                             153780\n        CLOSE BITACORA WITH SAVE                                  153790\n        STOP RUN.                                                 153795\n     PERFORM 20000-PROCESA-MOVIMIENTOS                            153800\n     OPEN OUTPUT BITACORA                                         153850\n     IF W77-SISTEMA-PARAMETRO =264                                153855\n        MOVE WKS-FECHA-PROCESO TO WKS-DATLK-FECHA                 153860\n        MOVE W77-CSI-PROCESO   TO WKS-DATLK-NODO                  153865\n        OPEN OUTPUT DATALAKE                                      153870\n        MOVE WKS-FECHA-PROCESO TO BT2-HD-FEC                      153875\n        WRITE REG-DATALAKE     FROM WKS-BT2-HEADER.               153880\n     PERFORM 30000-GENERA-BITACORA.                               153900\n     CLOSE BITACORA WITH SAVE.                                    153950\n     IF W77-SISTEMA-PARAMETRO = 264                               153960\n        CLOSE DATALAKE WITH SAVE                                  153970\n        PERFORM 221220-ENVIO-INTEDTLK.                            153980\n*    IF W88-SISTEMA-ESQ-ETL                                       154010\n*       NEXT SENTENCE                                             154020\n*    ELSE                                                         154030\n     IF (WKS-B03-NOMBDSAL NOT = SPACES) OR                        154050\n        (W77-SISTEMA-PARAMETRO = 502 OR 702)                      154100\n        PERFORM 40000-GENERA-CUADRE-CONTABLE                      154150\n        IF W77-SISTEMA-PARAMETRO = 502 OR 702                     154200\n           NEXT SENTENCE                                          154250\n        ELSE                                                      154300\n        IF WKS-B03-TIPBD = 1 OR 2 OR 5 OR 6                       154350\n           PERFORM 50000-POSICION.                                154400\n*    IF W88-SISTEMA-ESQ-ETL                                       154410\n*       NEXT SENTENCE                                             154420\n*    ELSE                                                         154430\n        CLOSE MOVCONTASORT WITH PURGE                             154450\n        IF W77-ARCH-RESIDENT = 1                                  154500\n           CLOSE MOVCONTABLES WITH PURGE                          154550\n        ELSE                                                      154600\n           IF ATTRIBUTE RESIDENT OF MOVCONTABLES = 1              154650\n              OPEN OUTPUT MOVCONTABLES                            154700\n              CLOSE MOVCONTABLES WITH PURGE.                      154750\n     IF W77-SISTEMA-PARAMETRO = 701                               154950\n        CLOSE MOVSHDA     WITH SAVE                               155000\n        PERFORM 70000-REP-HACIENDA.                               155050\n     IF W77-SISTEMA-PARAMETRO NOT = 702 OR 502                    155150\n        PERFORM 60000-GENERA-RECHAZOS.                            155200",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class MotorAsientosGl {\n\n    private final P109Properties props;\n    private final ProcesoMovimientos movimientos;   // 20000 / 20001\n    private final Bitacora bitacora;                // 30000 / 30001\n    private final CuadreContable cuadre;            // 40000\n    private final PosicionContableService posicion; // 50000\n    private final ReporteHacienda hacienda;         // 70000\n    private final ReporteRechazos rechazos;         // 60000\n\n    /** 000000-PROGRAMA: ruteo por W77-SISTEMA-PARAMETRO (PROCEDURE DIVISION USING). */\n    public void ejecuta(int sistema, ContextoProceso ctx) {\n        if (sistema == 500) {                       // caja: ruta propia y STOP RUN\n            movimientos.procesaCaja(ctx);\n            bitacora.generaCaja(ctx);\n            return;\n        }\n        movimientos.procesa(ctx);\n        bitacora.genera(ctx, sistema == 264 ? Datalake.abre(ctx) : Datalake.NINGUNO);\n\n        boolean conCuadre = ctx.nombreBaseSaldos().isPresent() || sistema == 502 || sistema == 702;\n        if (conCuadre) {\n            cuadre.genera(ctx);\n            if (sistema != 502 && sistema != 702 && Set.of(1, 2, 5, 6).contains(ctx.tipoBd())) {\n                posicion.actualiza(ctx);\n            }\n        }\n        if (sistema == 701) {\n            hacienda.genera(ctx);\n        }\n        // Línea 7848: \"NOT = 702 OR 502\" en COBOL-85 se expande a (NOT = 702) OR (NOT = 502),\n        // que siempre es verdadero. Se replica tal cual hasta que el SME confirme la intención.\n        if (props.rechazos().replicarCondicionLegada() || (sistema != 702 && sistema != 502)) {\n            rechazos.genera(ctx);\n        }\n    }\n}",
+          "racional": "000000-PROGRAMA decide qué subprocesos corren según <code>W77-SISTEMA-PARAMETRO</code>: caja (500) toma una ruta propia y termina, SPEI (264) abre DATALAKE, el cuadre depende del nombre de base de saldos o de los sistemas 502 y 702, la posición del tipo de base, Hacienda del sistema 701 y RECHAZOS de una condición abreviada. En Java es un <code>@Service</code> orquestador con cada subproceso como dependencia transaccional. La condición de RECHAZOS se replica literalmente y se deja una propiedad para corregirla cuando el SME confirme la intención.",
+          "reglas": [
+            "RN-S151-032",
+            "RN-S151-042",
+            "RN-S151-037",
+            "RN-S151-036",
+            "RN-S151-035",
+            "RN-S151-043",
+            "RN-S151-050"
+          ],
+          "riesgo": "IF W77-SISTEMA-PARAMETRO NOT = 702 OR 502 es siempre verdadero bajo las reglas de condiciones abreviadas de COBOL-85: RECHAZOS se generaría también para 702 y 502, al contrario de lo que dice RN-S151-050."
+        },
+        {
+          "id": "s3",
+          "titulo": "Siguiente día hábil con THECALENDAR",
+          "linea_ini": 8059,
+          "linea_fin": 8081,
+          "origen_codigo": "     MOVE  WKS-FECHA-PROCESO  TO   WKS-FECHA1.                    161650\n     MOVE  13                 TO   WKS-FUNCION.                   161700\n     MOVE  \"00000001\"         TO   WKS-FECHA2.                    161750\n*    MOVE  3                  TO   WKS-FORMATO.                   161800\n*INICIA CODIGO DE RENOVACION CRONOS 2000                          161850\n     MOVE 13                  TO   WKS-FORMATO.                   161900\n*TERMINA CODIGO DE RENOVACION CRONOS 2000                         161950\n    CALL \"THECALENDAR IN LOCSUP\" USING                            162050\n          WKS-FUNCION, WKS-FECHA1, WKS-FECHA2, WKS-FORMATO.       162100\n    IF WKS-FUNCION = 0                                            162200\n       MOVE WKS-FECHA1    TO      WKS-FECHA-FUT                   162250\n    ELSE                                                          162300\n       MOVE SPACES                TO WLI-ENCAB-52                 162350\n       MOVE \"E\"     TO WLI-TIPO-LJ                                162400\n       MOVE 010105  TO CODIGO-LJ                                  162450\n       MOVE   \"ERROR AL CALCULAR FECHA DE DIA SIGUIENTE \"         162500\n                    TO WLI-TEXTO-LJ                               162550\n       PERFORM    000-030-IMPRIME-MENSAJE                         162600\n       MOVE WLI-TEXTO-LJ       TO TEXTO-LJ                        162620\n       CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,MENSAJE-LJ         162650\n       SET MYSELF(STATUS)      TO -1.                             162700",
+          "java_codigo": "/** Puerto hacia el calendario bancario que reemplaza a THECALENDAR IN LOCSUP. */\npublic interface CalendarioBancario {\n    /** Función 13: n días hábiles hacia adelante (excluye sábados, domingos y festivos Banxico). */\n    Optional<LocalDate> diasHabilesAdelante(LocalDate desde, int dias);\n    /** Función 15: n días hábiles hacia atrás (usada en 50000-POSICION). */\n    Optional<LocalDate> diasHabilesAtras(LocalDate desde, int dias);\n}\n\n// 10000-INICIO-PROGRAMA\n// Formato 13 (Cronos 2000) = AAAAMMDD; el formato 3 previo de 6 dígitos quedó comentado.\nLocalDate fechaFutura = calendario.diasHabilesAdelante(ctx.fechaProceso(), 1)\n        .orElseThrow(() -> {\n            alertas.operador(TipoMensaje.E, 10105, \"ERROR AL CALCULAR FECHA DE DIA SIGUIENTE \");\n            return new ProcesoAbortadoException(\"THECALENDAR función 13\");   // SET MYSELF(STATUS) TO -1\n        });\nctx.setFechaFutura(fechaFutura);                                              // WKS-FECHA-FUT",
+          "racional": "La librería LOCSUP se sustituye por un puerto <code>CalendarioBancario</code> cuya implementación debe cargar los festivos Banxico. La función 13 se usa al inicio para la fecha del día siguiente y la 15 en la posición para el día anterior. El formato 13 corresponde a la renovación Cronos 2000, así que las fechas ya son de 8 dígitos y no requieren pivote. Un error de la librería deja el programa con STATUS -1, que en Java es una excepción que detiene el step.",
+          "reglas": [
+            "RN-S151-054"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Lectura y selección de LOG151",
+      "origen": {
+        "archivo": "COBOL_P109.txt",
+        "contexto": "20000-PROCESA-MOVIMIENTOS · 21000-ESCOGE-MOVS · 21100-GRABA-ARCHIVOS"
+      },
+      "java": {
+        "archivo": "Log151ItemReader.java · SeleccionMovimientosProcessor.java · GrabaArchivos.java",
+        "contexto": "ItemReader · ItemProcessor · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Validación del header de LOG151 sin abort efectivo",
+          "linea_ini": 9992,
+          "linea_fin": 10018,
+          "origen_codigo": "     READ LOG151 INTO  A00-R00-HDR-MOV                            267950\n     IF A00-R00-HDR-HD OF A00-R00-HDR-MOV = \"HD\"                  268050\n        IF WKS-FECHA-PROCESO = A00-R00-HDR-FCH OF A00-R00-HDR-MOV 268100\n           NEXT SENTENCE                                          268150\n        ELSE                                                      268200\n           MOVE SPACES                    TO      WLI-ENCAB-52    268250\n           MOVE  \"O\"                      TO      WLI-TIPO-LJ     268300\n*          MOVE 010401                    TO      CODIGO-LJ       268350\n           STRING \"ERROR EN FECHAS,ARCHIVO : \" ,A00-R00-HDR-FCH OF268400\n                                                A00-R00-HDR-MOV   268450\n               \" DIFERENTE A FECHA DE PROCESO : \",                268500\n               WKS-FECHA-PROCESO                                  268550\n               DELIMITED BY SIZE                                  268600\n               INTO WLI-TEXTO-LJ                                  268650\n           PERFORM        000-030-IMPRIME-MENSAJE                 268700\n*          CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ    268750\n*          SET MYSELF(STATUS) TO -1                               268800\n     ELSE                                                         268850\n        MOVE SPACES                       TO   WLI-ENCAB-52       268900\n        MOVE  \"O\"                         TO      WLI-TIPO-LJ     268950\n        MOVE 010401                       TO      CODIGO-LJ       269000\n        STRING \"ERROR EN HEADER ARCHIVO : \" ,A00-R00-HDR-HD OF    269050\n                                             A00-R00-HDR-MOV      269100\n               DELIMITED BY SIZE                                  269150\n               INTO WLI-TEXTO-LJ                                  269200\n        PERFORM   000-030-IMPRIME-MENSAJE.                        269250",
+          "java_codigo": "// 20000-PROCESA-MOVIMIENTOS: lectura y validación del header de LOG151\nLog151Header hdr = log151.leeHeader();                     // READ LOG151 INTO A00-R00-HDR-MOV\n\nOptional<String> error =\n      !\"HD\".equals(hdr.tipo())                       ? Optional.of(\"ERROR EN HEADER ARCHIVO : \" + hdr.tipo())\n    : !hdr.fecha().equals(ctx.fechaProceso())        ? Optional.of(\"ERROR EN FECHAS,ARCHIVO : \" + hdr.fecha()\n                                                           + \" DIFERENTE A FECHA DE PROCESO : \" + ctx.fechaProceso())\n    : Optional.empty();\n\nerror.ifPresent(msg -> {\n    alertas.operador(TipoMensaje.O, msg);                  // 000-030-IMPRIME-MENSAJE\n    // En P109 el abort está comentado (SET MYSELF(STATUS) TO -1): el proceso continúa.\n    if (props.log151().abortarSiHeaderInvalido()) {        // default false = comportamiento actual\n        throw new HeaderLog151InvalidoException(msg);\n    }\n});",
+          "racional": "El programa exige que el primer registro sea <code>HD</code> y que su fecha sea la de proceso, pero en ambos casos solo imprime un mensaje: la instrucción que abortaba la tarea está comentada. La traducción conserva el aviso al operador y hace configurable el abort, con valor por defecto igual al comportamiento actual, para que el cambio de política sea una decisión explícita y no un efecto colateral de la migración.",
+          "reglas": [
+            "RN-S151-021"
+          ],
+          "riesgo": "RN-S151-021 afirma que el proceso se aborta; en el fuente el abort está comentado en las líneas 10008-10009 y un LOG151 de otra fecha se contabiliza igual."
+        },
+        {
+          "id": "s5",
+          "titulo": "Centinela FUNCION 99 y filtro de selección",
+          "linea_ini": 10448,
+          "linea_fin": 10463,
+          "origen_codigo": "     IF A00-R01-FUNCION = 1                                       280900\n        IF A00-R01-STATUS = 1 OR 2                                280950\n           PERFORM 21100-GRABA-ARCHIVOS                           281000\n           ADD 1                  TO W77-TP-REG-PROCESADOS        281050\n        ELSE                                                      281100\n           ADD 1                  TO W77-TP-REG-ELIMINADOS        281150\n     ELSE                                                         281200\n        ADD 1                     TO W77-TP-REG-ELIMINADOS.       281250\n     READ LOG151  INTO A00-R01-REGMOV AT END                      281350\n          MOVE 1                          TO W77-EOF.             281400\n     IF W77-EOF = 0                                               281550\n        IF A00-R01-FUNCION = 99                                   281600\n           MOVE 1                         TO W77-EOF.             281650",
+          "java_codigo": "/** LOG151: el fin lógico es el registro FUNCION = 99, no el fin físico del archivo. */\npublic class Log151ItemReader implements ItemReader<RegistroLog151> {\n    private final ItemReader<RegistroLog151> delegado;\n    private boolean fin;\n\n    @Override\n    public RegistroLog151 read() throws Exception {\n        if (fin) return null;\n        RegistroLog151 r = delegado.read();               // READ LOG151 ... AT END\n        if (r == null || r.funcion() == 99) {             // centinela: nunca se procesa como asiento\n            fin = true;\n            return null;\n        }\n        return r;\n    }\n}\n\n// 21000-ESCOGE-MOVS, tramo de selección (ItemProcessor)\n@Override\npublic RegistroLog151 process(RegistroLog151 r) {\n    if (r.funcion() == 1 && (r.status() == 1 || r.status() == 2)) {\n        contadores.procesados++;                          // W77-TP-REG-PROCESADOS\n        grabaArchivos.graba(r);                           // 21100-GRABA-ARCHIVOS\n        return r;\n    }\n    contadores.eliminados++;                              // W77-TP-REG-ELIMINADOS\n    return null;\n}",
+          "racional": "El fin del archivo es lógico: el registro con <code>FUNCION = 99</code> se trata como fin de datos y nunca se procesa. Ese comportamiento se encapsula en un <code>ItemReader</code> decorador para que el resto del step no lo conozca. El filtro de altas (<code>FUNCION = 1</code>) con <code>STATUS</code> 1 o 2 es un <code>ItemProcessor</code>; devolver <code>null</code> equivale a contar el registro como eliminado.",
+          "reglas": [
+            "RN-S151-022",
+            "RN-S151-023"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Punteo y generación de asiento solo para STATUS 1",
+          "linea_ini": 10610,
+          "linea_fin": 10643,
+          "origen_codigo": "        IF A00-R01-STATUS = 1                                     289200\n           PERFORM 21155-GRABA-PUNTEO.                            289300\n     IF A00-R01-STATUS = 1 AND                                    289350\n        (A00-R01-ORIGEN = 3 AND  W77-SISTEMA-PARAMETRO = 264)     289354\n        PERFORM 21155-GRABA-PUNTEO.                               289356\n*    IF W88-SISTEMA-ESQ-ETL                                       289360\n*       NEXT SENTENCE                                             289370\n*    ELSE                                                         289380\n     IF A00-R01-STATUS = 1                                        289400\n     IF A00-R01-ORIGEN = 1 OR = 3                                 289450\n        MOVE ZEROS                        TO WKS-CEROS1           289500\n        MOVE A00-R01-PRODUCTO             TO RMS-PRODUCTO         289550\n*                                            WKS-PROD-FOL         289600\n        MOVE A00-R01-INSTRUMENTO          TO RMS-INSTRUMENTO      289650\n*                                            WKS-INST-FOL         289700\n*       MOVE A00-R01-SECTOR               TO WKS-SECT-FOL         289750\n*       MOVE WKS-FOLIO-PASO               TO RMC-FOLIO            289800\n        MOVE A00-R01-SECTOR               TO RMS-SECTOR           289850\n        MOVE 0                            TO RMS-ACTIVIDAD        289900\n        MOVE A00-R01-BANCA                TO RMS-BANCA            289950\n        MOVE A00-R01-SUCPROM              TO RMS-SUC-PROM         290000\n        MOVE A00-R01-MONEDA               TO RMS-MONEDA           290050\n*       MOVE A00-R01-AUT-S151             TO RMC-AUT-S151         290100\n        MOVE A00-R01-ORIGEN               TO RMS-ORIGEN           290150\n        MOVE ZEROS                        TO RMS-BANCO            290200\n        MOVE A00-R01-IND-CONTA            TO RMS-IND-CONTA        290250\n        MOVE ZEROS                        TO RMS-FECVEN           290300\n        IF W77-SISTEMA-PARAMETRO = 087                            290350\n           MOVE A00-R01-FECVEN-087        TO RMS-FECVEN           290400\n           PERFORM 21115-VERIFICA-SISTEMA                         290450\n           PERFORM 21116-GRABA-MOVSORT-CONTA                      290500\n        ELSE                                                      290550\n           PERFORM 21115-VERIFICA-SISTEMA                         290600\n           PERFORM 21116-GRABA-MOVSORT-CONTA.                     290650",
+          "java_codigo": "// 21100-GRABA-ARCHIVOS, tramo final (dentro de IF A00-R01-ORIGEN = 1 OR = 2 abierto en L10585)\n@Transactional\npublic void graba(RegistroLog151 r) {\n    int sistema = ctx.sistema();\n    if (r.origen() == 1 || r.origen() == 2) {\n        bitacora.graba(r);                                     // 21110-GRABA-MOV-BITACORA\n        if (r.status() == 1) punteo.graba(r);                  // retroalimentación al origen\n    }\n    if (r.status() == 1 && r.origen() == 3 && sistema == 264) {\n        punteo.graba(r);\n    }\n    if (r.status() == 1 && (r.origen() == 1 || r.origen() == 3)) {   // STATUS 2 nunca genera asiento\n        MovimientoSort base = MovimientoSort.builder()\n                .producto(r.producto()).instrumento(r.instrumento())\n                .sector(r.sector()).actividad(0).banca(r.banca())\n                .sucProm(r.sucProm()).moneda(r.moneda()).origen(r.origen())\n                .indConta(r.indConta())\n                .banco(bancoPorSistema(r, sistema))               // 21115-VERIFICA-SISTEMA\n                .fecVen(sistema == 87 ? r.fecVen087() : 0)\n                .build();\n        movContaSort.addAll(desglosaCveTran(r, base));           // 21116-GRABA-MOVSORT-CONTA\n    }\n}",
+          "racional": "Este tramo cierra el bloque <code>IF A00-R01-ORIGEN = 1 OR = 2</code> que se abre en la línea 10585: con origen 1 o 2 el movimiento va a bitácora y, si está autorizado, a PUNTEO. SPEI agrega punteo para origen 3. Solo <code>STATUS = 1</code> con origen 1 o 3 llega a MOVCONTASORT, así que un movimiento eliminado (<code>STATUS = 2</code>) aparece en la bitácora pero no genera asiento ni punteo. Todo el método es una unidad <code>@Transactional</code> porque escribe en tres salidas.",
+          "reglas": [
+            "RN-S151-023",
+            "RN-S151-048"
+          ],
+          "riesgo": "El criterio de origen difiere entre salidas: SCIG y bitácora usan origen 1 o 2, el asiento GL usa 1 o 3. Debe confirmarse el significado de los orígenes 2 y 3."
+        }
+      ]
+    },
+    {
+      "titulo": "Motor de asientos — desglose, acumulación y esquema contable",
+      "origen": {
+        "archivo": "COBOL_P109.txt",
+        "contexto": "21115 / 21116 · 20001-PROCESA-MOVCONTA · 21120 / 21121"
+      },
+      "java": {
+        "archivo": "DesgloseMovimiento.java · AcumuladorAsientos.java · ResolucionEsquema.java",
+        "contexto": "ItemProcessor · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Banco por sistema y hasta cinco CVETRAN por movimiento",
+          "linea_ini": 10737,
+          "linea_fin": 10785,
+          "origen_codigo": " 21115-VERIFICA-SISTEMA.                                          294750\n*=======================                                          294800\n    IF W77-SISTEMA-PARAMETRO = 018 OR 17                          294850\n       IF A00-R01-BCO-S018 > 0                                    294900\n          MOVE A00-R01-BCO-S018   TO      RMS-BANCO               294950\n       ELSE                                                       295000\n          MOVE ZEROS              TO      RMS-BANCO.              295050\n     IF W77-SISTEMA-PARAMETRO = 703                               295100\n        IF A00-R01-BCOS-R NOT = SPACES                            295150\n           MOVE A00-R01-BCOS      TO      RMS-BANCO.              295200\n     IF W77-SISTEMA-PARAMETRO = 264                               295300\n        IF A00-R01-MONEDA = 1                                     295350\n           MOVE ZEROS             TO      RMS-BANCO               295400\n        ELSE                                                      295450\n           IF A00-R01-BCOS-R NOT = SPACES                         295500\n              MOVE A00-R01-BCOS   TO      RMS-BANCO.              295550\n 21116-GRABA-MOVSORT-CONTA.                                       295650\n*==========================                                       295700\n     IF A00-R01-CVETRAN1 > 0                                      295750\n        MOVE A00-R01-IMPORTE1    TO RMS-IMPORTE                   295800\n        MOVE A00-R01-CVETRAN1    TO RMS-CVETRAN                   295850\n        MOVE A00-R01-ESQCON1     TO RMS-ESQCON                    295900\n        WRITE REG-MOVCONTASORT.                                   295950\n     IF A00-R01-CVETRAN2 > 0                                      296050\n        MOVE A00-R01-IMPORTE2    TO RMS-IMPORTE                   296100\n        MOVE A00-R01-CVETRAN2    TO RMS-CVETRAN                   296150\n        MOVE A00-R01-ESQCON2     TO RMS-ESQCON                    296200\n        WRITE REG-MOVCONTASORT.                                   296250\n     IF A00-R01-CVETRAN3 > 0                                      296350\n        MOVE A00-R01-IMPORTE3    TO RMS-IMPORTE                   296400\n        MOVE A00-R01-CVETRAN3    TO RMS-CVETRAN                   296450\n        MOVE A00-R01-ESQCON3     TO RMS-ESQCON                    296500\n        WRITE REG-MOVCONTASORT.                                   296550\n     IF A00-R01-CVETRAN4 > 0                                      296650\n        MOVE A00-R01-IMPORTE4    TO RMS-IMPORTE                   296700\n        MOVE A00-R01-CVETRAN4    TO RMS-CVETRAN                   296750\n        MOVE A00-R01-ESQCON4     TO RMS-ESQCON                    296800\n        WRITE REG-MOVCONTASORT.                                   296850\n     IF A00-R01-CVETRAN5 > 0                                      296950\n        MOVE A00-R01-IMPORTE5    TO RMS-IMPORTE                   297000\n        MOVE A00-R01-CVETRAN5    TO RMS-CVETRAN                   297050\n        MOVE A00-R01-ESQCON5     TO RMS-ESQCON                    297100\n        WRITE REG-MOVCONTASORT.                                   297150",
+          "java_codigo": "/** 21115-VERIFICA-SISTEMA: de qué campo de LOG151 sale el banco del asiento. */\nstatic int bancoPorSistema(RegistroLog151 r, int sistema) {\n    int banco = 0;                                               // MOVE ZEROS TO RMS-BANCO\n    if (sistema == 18 || sistema == 17) {\n        banco = r.bancoS018() > 0 ? r.bancoS018() : 0;\n    }\n    if (sistema == 703 && !r.bancosTexto().isBlank()) {\n        banco = r.bancos();\n    }\n    if (sistema == 264) {                                        // SPEI\n        if (r.moneda() == 1) banco = 0;                          // pesos: sin dimensión banco\n        else if (!r.bancosTexto().isBlank()) banco = r.bancos();\n    }\n    return banco;\n}\n\n/** 21116-GRABA-MOVSORT-CONTA: un registro de MOVCONTASORT por cada CVETRAN mayor que cero. */\nstatic List<MovimientoSort> desglosaCveTran(RegistroLog151 r, MovimientoSort base) {\n    return IntStream.rangeClosed(1, 5)\n            .filter(i -> r.cveTran(i) > 0)\n            .mapToObj(i -> base.conPartida(r.cveTran(i), r.esqCon(i), cabeEn14Enteros(r.importe(i))))\n            .toList();\n}\n\n/** MOVE de 9(16)V99 a 9(14)V99: COBOL descarta los dos dígitos altos sin aviso. */\nstatic BigDecimal cabeEn14Enteros(BigDecimal v) {\n    if (v.compareTo(new BigDecimal(\"99999999999999.99\")) > 0) throw new ImporteFueraDeRangoException(v);\n    return v;\n}",
+          "racional": "Cada sistema guarda el banco en un campo distinto de LOG151 y SPEI en pesos lo fija en cero. Después, cada uno de los cinco pares CVETRAN, IMPORTE y ESQCON con clave mayor a cero produce un registro independiente en MOVCONTASORT. El importe de LOG151 es <code>9(16)V99</code> y el de MOVCONTASORT <code>9(14)V99</code>: el <code>MOVE</code> perdería los dígitos altos, y en Java se valida el rango en vez de truncar.",
+          "reglas": [
+            "RN-S151-024",
+            "RN-S151-034",
+            "RN-S151-049"
+          ],
+          "riesgo": "Truncamiento de alto orden en el MOVE de IMPORTE1..5 a RMS-IMPORTE si un importe supera 99,999,999,999,999.99."
+        },
+        {
+          "id": "s8",
+          "titulo": "Corte de control por la clave de 11 dimensiones",
+          "linea_ini": 10285,
+          "linea_fin": 10323,
+          "origen_codigo": " 20001-PROCESA-MOVCONTA.                                          277600\n*=======================                                          277650\n     MOVE RMS-FILIAL                      TO W77-FILIAL-SORT.     277700\n     MOVE RMS-ORIGEN                      TO W77-ORI-SORT.        277750\n     MOVE RMS-MONEDA                      TO W77-MON-SORT.        277800\n     MOVE RMS-PRODUCTO                    TO W77-PRO-SORT.        277850\n     MOVE RMS-INSTRUMENTO                 TO W77-INS-SORT.        277900\n     MOVE RMS-SUC-PROM                    TO W77-SUC-SORT.        277950\n     MOVE RMS-CVETRAN                     TO W77-CVE-SORT.        278000\n     MOVE RMS-ESQCON                      TO W77-ESQ-SORT.        278050\n     MOVE RMS-SECTOR                      TO W77-SEC-SORT.        278100\n     MOVE RMS-ACTIVIDAD                   TO W77-ACT-SORT.        278150\n     MOVE RMS-BANCA                       TO W77-BCA-SORT.        278200\n     MOVE RMS-BANCO                       TO W77-BCO-SORT.        278250\n     MOVE RMS-IND-CONTA                   TO W77-IND-SORT.        278300\n     MOVE RMS-FECVEN                      TO W77-FECVEN-SORT.     278350\n     PERFORM 20010-ACUMULA-IMPORTE UNTIL                          278400\n          RMS-FILIAL      NOT = W77-FILIAL-SORT OR                278450\n          RMS-ORIGEN      NOT = W77-ORI-SORT    OR                278500\n          RMS-MONEDA      NOT = W77-MON-SORT    OR                278550\n          RMS-PRODUCTO    NOT = W77-PRO-SORT    OR                278600\n          RMS-INSTRUMENTO NOT = W77-INS-SORT    OR                278650\n          RMS-SUC-PROM    NOT = W77-SUC-SORT    OR                278700\n          RMS-CVETRAN     NOT = W77-CVE-SORT    OR                278750\n          RMS-ESQCON      NOT = W77-ESQ-SORT    OR                278800\n          RMS-SECTOR      NOT = W77-SEC-SORT    OR                278850\n*         RMS-ACTIVIDAD   NOT = W77-ACT-SORT    OR                278900\n*         RMS-BANCA       NOT = W77-BCA-SORT    OR                278950\n          RMS-BANCO       NOT = W77-BCO-SORT    OR                279000\n*         RMS-IND-CONTA   NOT = W77-IND-SORT    OR                279050\n          RMS-FECVEN      NOT = W77-FECVEN-SORT OR                279100\n          W77-EOF             = 1.                                279150\n     PERFORM 21118-GRABA-MOVCONT.                                 279200\n     MOVE ZERO                             TO W77-IMP-SORT.       279250\n 20010-ACUMULA-IMPORTE.                                           279350\n*======================                                           279400\n     ADD RMS-IMPORTE                       TO W77-IMP-SORT.       279450\n     READ MOVCONTASORT AT END MOVE 1       TO W77-EOF.            279500",
+          "java_codigo": "/** Clave de corte de MOVCONTASORT: las 11 dimensiones del SORT SMOVCONTASORT. */\npublic record ClaveAsiento(String filial, int origen, int moneda, int banco, int sucProm,\n                           int fecVen, int producto, int instrumento, int sector,\n                           int cveTran, int esqCon) {\n    static ClaveAsiento de(MovimientoSort m) {\n        return new ClaveAsiento(m.filial(), m.origen(), m.moneda(), m.banco(), m.sucProm(),\n                m.fecVen(), m.producto(), m.instrumento(), m.sector(), m.cveTran(), m.esqCon());\n    }\n}\n\n/** 20001-PROCESA-MOVCONTA + 20010-ACUMULA-IMPORTE sobre un flujo ya ordenado por la clave. */\npublic void acumula(PeekingIterator<MovimientoSort> ordenados, Consumer<AsientoAcumulado> grabaMovCont) {\n    while (ordenados.hasNext()) {\n        MovimientoSort primero = ordenados.next();\n        ClaveAsiento clave = ClaveAsiento.de(primero);\n        BigDecimal suma = primero.importe();                     // W77-IMP-SORT 9(16)V99\n        while (ordenados.hasNext() && ClaveAsiento.de(ordenados.peek()).equals(clave)) {\n            suma = suma.add(ordenados.next().importe());         // ADD exacto, escala 2\n        }\n        // ACTIVIDAD, BANCA e IND-CONTA están fuera de la clave: se heredan del primer registro.\n        grabaMovCont.accept(new AsientoAcumulado(clave, suma,\n                primero.actividad(), primero.banca(), primero.indConta()));   // 21118-GRABA-MOVCONT\n    }\n}\n// Equivalente SQL si MOVCONTASORT se vuelve tabla de staging:\n//   SELECT <11 columnas>, SUM(importe) ... GROUP BY <11 columnas> ORDER BY <11 columnas>",
+          "racional": "Tras el <code>SORT</code>, el programa suma importes mientras no cambie ninguna de las 11 dimensiones y escribe un asiento por grupo. La clave se modela como <code>record</code>, cuya igualdad estructural sustituye la cadena de <code>NOT =</code>. Las condiciones de ACTIVIDAD, BANCA e IND-CONTA están comentadas en el fuente, por lo que esos valores se toman del primer registro del grupo; la traducción lo hace explícito.",
+          "reglas": [
+            "RN-S151-031",
+            "RN-S151-053"
+          ],
+          "riesgo": "Si un grupo mezcla registros con distinta ACTIVIDAD o BANCA, el asiento hereda los del primero y la diferencia se pierde."
+        },
+        {
+          "id": "s9",
+          "titulo": "Resolución CVETRAN a esquema contable",
+          "linea_ini": 10816,
+          "linea_fin": 10853,
+          "origen_codigo": "     IF WKS-TIPO-CAT = 2                                          298700\n        IF RMC-CVETRAN > 0                                        298750\n           IF WKS-PT-INDS250(RMC-CVETRAN) = 2                     298800\n              MOVE W77-IMP-SORT                   TO RMC-IMPORTE  298850\n              MOVE W77-SISTEMA-PARAMETRO          TO CAT-SIST     298900\n              MOVE RMC-CVETRAN                    TO CAT-CVETRA   298950\n              MOVE W77-ESQ-SORT                   TO CAT-ESQ      299000\n              MOVE W77-MON-SORT                   TO CAT-MON      299050\n              PERFORM 21121-VERIFICA-SISTEMA                      299100\n              MOVE W77-IND-SORT                   TO CAT-LIBRO    299150\n              MOVE 0                              TO CAT-CIA      299200\n              PERFORM 21121-LEE-ESQUEMA1                          299250\n           ELSE                                                   299300\n              NEXT SENTENCE                                       299350\n        ELSE                                                      299400\n           NEXT SENTENCE                                          299450\n     ELSE                                                         299500\n     IF RMC-CVETRAN > 0                                           299550\n        IF WKS-PT-INDS250(RMC-CVETRAN) = 2                        299600\n           MOVE W77-IMP-SORT                      TO RMC-IMPORTE  299650\n*          MOVE A00-R01-CVETRAN1                  TO RMC-CVETRAN  299700\n           MOVE WKS-PT-AGR-CONT(RMC-CVETRAN)      TO W77-IND      299750\n           MOVE W77-ESQ-SORT                      TO W77-IND2     299800\n***********IF ((W77-IND  = 0 OR > 200) OR                         299850\n***********    (W77-IND2 = 0 OR > 150))                           299900\n***********   NEXT SENTENCE                                       299950\n***********ELSE                                                   300000\n              PERFORM 21122-MUEVE-ESQUEMA                         300050\n              IF W77-IND3 = 0                                     300100\n                 MOVE SPACES                TO REG-REPORTE        300150\n                 MOVE RMC-CVETRAN           TO WSR-RD-CVETRA      300200\n                 MOVE W77-ESQ-SORT          TO WSR-RD-ESQCON      300250\n                 MOVE W77-IMP-SORT          TO WSR-RD-IMPORTE     300300\n                 MOVE \"ESQUEMA NO EXISTE\"   TO WSR-RD-LEY         300350\n                 PERFORM 21105-IMPRIME-ERRORES                    300400\n              ELSE                                                300450\n                 PERFORM 21121-MUEVE-CUENTAS-CONTABLES VARYING    300500\n                         W77-IND4 FROM 1 BY 1 UNTIL W77-IND4 > 10.300550",
+          "java_codigo": "/** 21120-GRABA-MOV-CONTABLE: CVETRAN -> agrupación contable -> esquema -> partidas. */\nvoid grabaMovContable(AsientoAcumulado a) {\n    int cve = a.clave().cveTran();\n    if (cve <= 0 || catalogos.inds250(cve) != 2) {\n        return;                                                   // no contabilizable, sin traza\n    }\n    if (catalogos.formatoCatalogoTransacciones() == 2) {          // WKS-TIPO-CAT = 2 (12020-CAT-TRANS)\n        esquemaPorCatalogo.resuelve(a);                           // 21121-LEE-ESQUEMA1 (ARCH-CAT)\n        return;\n    }\n    int agrupacion = catalogos.agrupacionContable(cve);           // WKS-PT-AGR-CONT -> W77-IND\n    int esqCon = a.clave().esqCon();                              // W77-IND2\n    // La validación de rango (IND 1..200, IND2 1..150) está comentada en el fuente.\n    Optional<Integer> esquema = cat7.findEsquema(agrupacion, esqCon);   // 21122-MUEVE-ESQUEMA\n    if (esquema.isEmpty()) {                                      // W77-IND3 = 0\n        errores.graba(ErrorAsiento.de(a, \"ESQUEMA NO EXISTE\"));   // 21105-IMPRIME-ERRORES\n        return;\n    }\n    for (int partida = 1; partida <= 10; partida++) {             // VARYING W77-IND4 FROM 1 BY 1\n        if (!mueveCuentasContables(a, esquema.get(), partida)) break;   // fin de partidas del esquema\n    }\n}",
+          "racional": "Solo las CVETRAN marcadas con 2 en la tabla INDS250 son contabilizables. Con <code>WKS-TIPO-CAT = 2</code>, que toma el formato del catálogo de transacciones en 12020-CAT-TRANS (línea 8897), el esquema se busca en ARCH-CAT por la ruta de 21121-LEE-ESQUEMA1; en otro caso se obtiene la agrupación contable, se busca el esquema en CAT7 y, si no existe, se registra ESQUEMA NO EXISTE en el reporte de errores. Los catálogos en memoria se vuelven repositorios con caché y el recorrido de hasta 10 partidas es un ciclo acotado.",
+          "reglas": [
+            "RN-S151-025",
+            "RN-S151-056"
+          ],
+          "riesgo": "La validación de rango de W77-IND y W77-IND2 está comentada (líneas 10839-10842); un valor fuera de rango indexaría fuera de las tablas en memoria."
+        },
+        {
+          "id": "s10",
+          "titulo": "Partida doble, cuenta por defecto y sector para C408",
+          "linea_ini": 10897,
+          "linea_fin": 10952,
+          "origen_codigo": "     IF W77-SISTEMA-PARAMETRO = 087                               302750\n        MOVE 087  TO      RMC-PRODUCTO                            302800\n                          WKS-PROD-FOL                            302850\n        MOVE WKS-FOLIO-PASO TO RMC-FOLIO.                         302900\n     IF W77-IND4 = 1                                              303102\n        MOVE W77-IND3                          TO WKS-EQ-IND      303104\n        MOVE W77-IND4                          TO WKS-EQ-IND2     303106\n        READ ARCH-ESQCON KEY IS KEY-ESQ INVALID KEY               303108\n             MOVE \"E\"                          TO TIPO-LJ         303110\n             MOVE 020202                       TO CODIGO-LJ       303112\n             MOVE \"ERROR READ, ARCHIVO ESQCON\" TO WKS-EQ-MSG-ERR  303114\n             MOVE WKS-EQ-IND                   TO WKS-EQ-IND-ERR  303116\n             MOVE WKS-EQ-IND2                  TO WKS-EQ-IND2-ERR 303118\n             MOVE WKS-ESQCON-ERROR             TO TEXTO-LJ        303120\n             PERFORM 000-030-IMPRIME-MENSAJE                      303122\n             CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ. 303124\n     IF WKS-EQ-NAT-MOV = 1 OR 2                                   303150\n        MOVE WKS-EQ-TIPO-MOV                TO RMC-TIPO-MOV       303200\n        MOVE WKS-EQ-NAT-MOV                 TO RMC-NAT-MOV        303250\n        MOVE WKS-EQ-CAUSA                   TO RMC-CAUSA          303300\n        MOVE WKS-EQ-CUENTA                  TO RMC-CTA-CONT       303350\n        IF RMC-CTA1-CONT = 0                                      303550\n           MOVE 5                                 TO RMC-CTA1-CONT303600\n           MOVE 0                                 TO RMC-BANCA    303650\n                                                     RMC-SECTOR   303700\n                                                     RMC-ACTIVIDAD303750\n                                                     WKS-SECT-FOL 303800\n           MOVE WKS-FOLIO-PASO                    TO RMC-FOLIO    303850\n           WRITE REG-MOVCONTABLES                                 303900\n        ELSE                                                      303950\n        IF W77-SISTEMA-PARAMETRO = 408                            304000\n           IF W77-SEC-SORT   = ZEROS                              304050\n              MOVE ZEROS                       TO RMC-ACTIVIDAD   304100\n                                                  RMC-BANCA       304150\n              IF W77-INS-SORT        = 10                         304200\n                 MOVE 31                       TO RMC-SECTOR      304250\n                 WRITE REG-MOVCONTABLES                           304300\n              ELSE                                                304350\n              IF W77-INS-SORT        = 20                         304400\n                 MOVE 32                       TO RMC-SECTOR      304450\n                 WRITE REG-MOVCONTABLES                           304500\n              ELSE                                                304550\n                 MOVE ZEROS                    TO RMC-SECTOR      304600\n                 WRITE REG-MOVCONTABLES                           304650\n           ELSE                                                   304700\n              MOVE W77-SEC-SORT                TO RMC-SECTOR      304750\n              MOVE W77-ACT-SORT                TO RMC-ACTIVIDAD   304800\n              MOVE W77-BCA-SORT                TO RMC-BANCA       304850\n              WRITE REG-MOVCONTABLES                              304900\n        ELSE                                                      304950\n           MOVE W77-SEC-SORT                   TO RMC-SECTOR      305000\n           MOVE W77-ACT-SORT                   TO RMC-ACTIVIDAD   305050\n           MOVE W77-BCA-SORT                   TO RMC-BANCA       305100\n           WRITE REG-MOVCONTABLES.                                305150",
+          "java_codigo": "/** 21121-MUEVE-CUENTAS-CONTABLES: una partida del esquema a MOVCONTABLES. */\nboolean mueveCuentasContables(AsientoAcumulado a, int esquema, int partida) {\n    MovimientoContable mc = a.nuevoMovimiento();\n    if (ctx.sistema() == 87) mc.setProducto(87);                  // cheques: producto fijo 087\n\n    // Partida 1: READ ARCH-ESQCON KEY IS KEY-ESQ. Siguientes: READ NEXT mientras sea el mismo esquema.\n    Optional<EsquemaContable> eq = esqcon.find(esquema, partida);\n    if (eq.isEmpty()) {\n        if (partida == 1) {\n            alertas.operador(TipoMensaje.E, 20202, \"ERROR READ, ARCHIVO ESQCON\");\n        }\n        return false;   // en el fuente el INVALID KEY no corta el ciclo; ver riesgo\n    }\n    EsquemaContable e = eq.get();\n    if (e.naturaleza() != 1 && e.naturaleza() != 2) {\n        return true;                                              // descarte silencioso, sin traza\n    }\n    mc.setTipoMov(e.tipoMov());\n    mc.setNaturaleza(Naturaleza.of(e.naturaleza()));\n    mc.setCausa(e.causa());\n    mc.setCuentaContable(e.cuenta());\n\n    if (mc.grupoCuenta() == 0) {                                  // cuenta sin grupo: se manda a control\n        mc.setCuentaContable(\"5\" + mc.getCuentaContable().substring(1));\n        mc.setBanca(0); mc.setSector(0); mc.setActividad(0);      // pierde la sectorización\n    } else if (ctx.sistema() == 408 && a.sector() == 0) {         // fallback C408\n        mc.setActividad(0); mc.setBanca(0);\n        mc.setSector(switch (a.clave().instrumento()) { case 10 -> 31; case 20 -> 32; default -> 0; });\n    } else {\n        mc.setSector(a.sector()); mc.setActividad(a.actividad()); mc.setBanca(a.banca());\n    }\n    mc.setFolio(ctx.folio());\n    movContables.save(mc);                                        // WRITE REG-MOVCONTABLES\n    return true;\n}",
+          "racional": "Cada partida del esquema produce un registro de MOVCONTABLES solo si la naturaleza es 1 (cargo) o 2 (abono); cualquier otro valor se descarta sin dejar rastro. Si la cuenta resuelta no tiene primer dígito, se fuerza al grupo 5 y se borran banca, sector y actividad. Para el sistema 408 sin sector se asigna 31 o 32 según el instrumento. Cheques (087) fija el producto 087. Los valores fijos 5, 31, 32 y 087 son candidatos a tabla de parámetros.",
+          "reglas": [
+            "RN-S151-026",
+            "RN-S151-051",
+            "RN-S151-027",
+            "RN-S151-052",
+            "RN-S151-041"
+          ],
+          "riesgo": "Con INVALID KEY en ARCH-ESQCON el fuente solo avisa y continúa con el contenido previo del buffer del archivo, lo que podría escribir una partida con la cuenta del esquema anterior. La versión Java corta el esquema; requiere validación del SME."
+        }
+      ]
+    },
+    {
+      "titulo": "Cuadre contable y posición DMSII",
+      "origen": {
+        "archivo": "COBOL_P109.txt",
+        "contexto": "40000-GENERA-CUADRE-CONTABLE · 54000-ACTUALIZA-POSICION"
+      },
+      "java": {
+        "archivo": "CuadreContable.java · PosicionContableService.java",
+        "contexto": "@Service · JPA @Lock"
+      },
+      "segmentos": [
+        {
+          "id": "s11",
+          "titulo": "Exclusión de la cuenta puente 1503 y signo de cargos",
+          "linea_ini": 14601,
+          "linea_fin": 14625,
+          "origen_codigo": "     IF W88-SIST-CEN-CONTABLE                                     389250\n        IF WS-CTA1-250-ANT NOT = 5                                389300\n           PERFORM 40005-VALIDA-CTA-1503                          389350\n        ELSE                                                      389400\n           NEXT SENTENCE                                          389450\n     ELSE                                                         389500\n     IF WS-CTA-250-ANT  = 150399000000                            389550\n        PERFORM 42400-ASIGNA-CENTRAL                              389600\n     ELSE                                                         389650\n     IF WS-CTA4-250-ANT = 1503                                    389700\n         MOVE 0                   TO WKS-TCP-CARGOS               389750\n                                     WKS-TCP-ABONOS               389800\n                                     WKS-TRA-CARGOS               389850\n                                     WKS-TRA-ABONOS               389900\n                                     WKS-AUT-CARGOS               389950\n                                     WKS-AUT-ABONOS               390000\n         MOVE 1                   TO W77-PAQ-VACIO.               390050\n     COMPUTE A00-R01-S250-CAR =    (WKS-TCP-CARGOS * -1)          390100\n     MOVE A00-R01-S250-CAR        TO A00-R01-S115-CAR             390150\n     MOVE WKS-TCP-ABONOS          TO A00-R01-S250-ABO             390200\n                                     A00-R01-S115-ABO             390250\n     ADD A00-R01-S115-CAR   TO WKS-TOT-CARM                       390300\n                               WKS-TP-115-CARGOS                  390350\n     ADD A00-R01-S115-ABO   TO WKS-TOT-ABOM                       390400\n                               WKS-TP-115-ABONOS                  390450",
+          "java_codigo": "// 40000-GENERA-CUADRE-CONTABLE: cierre del paquete de una cuenta\nString cuenta = paquete.cuentaAnterior();                         // WS-CTA-250-ANT (12 dígitos)\nif (ctx.sistemaCentralContable()) {                               // W88-SIST-CEN-CONTABLE\n    if (cuenta.charAt(0) != '5') validaCuenta1503(paquete);       // 40005-VALIDA-CTA-1503\n} else if (cuenta.equals(props.cuadre().cuentaCentral())) {       // 150399000000\n    asignaCentral(paquete);                                       // 42400-ASIGNA-CENTRAL\n} else if (cuenta.startsWith(props.cuadre().mayorPuente())) {     // 1503\n    paquete.ceroAcumuladores();   // TCP, TRA y AUT de cargos y abonos\n    paquete.marcaVacio();         // W77-PAQ-VACIO = 1\n}\n\nBigDecimal cargos = paquete.tcpCargos().negate();                 // COMPUTE ... * -1: exacto\nBigDecimal abonos = paquete.tcpAbonos();\ns250.setCargos(cargos);  s115.setCargos(cargos);                  // S9(16)V99\ns250.setAbonos(abonos);  s115.setAbonos(abonos);\ntotales.sumaCargos(cargos);                                       // WKS-TOT-CARM, WKS-TP-115-CARGOS\ntotales.sumaAbonos(abonos);                                       // WKS-TOT-ABOM, WKS-TP-115-ABONOS\n\n# application.yml\n# p109.cuadre:\n#   cuenta-central: \"150399000000\"\n#   mayor-puente: \"1503\"",
+          "racional": "Al cerrar el paquete de una cuenta, la 150399000000 se asigna a la central y cualquier otra del mayor 1503 se excluye poniendo en cero los seis acumuladores y marcando el paquete vacío. Para el sistema central contable la exclusión se delega a 40005. Los cargos se escriben con signo negativo mediante <code>COMPUTE ... * -1</code>, que es exacto y no requiere redondeo. Las cuentas fijas se mueven a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-028",
+            "RN-S151-038"
+          ]
+        },
+        {
+          "id": "s12",
+          "titulo": "Upsert de posición con LOCK y CREATE",
+          "linea_ini": 16680,
+          "linea_fin": 16722,
+          "origen_codigo": " 54000-ACTUALIZA-POSICION.                                        486450\n*========================                                         486500\n     MOVE 0                               TO W77-EOF              486600\n     MOVE WKS-LLAVE-CUADRE-CONT (W77-IND)  TO WKS-KEY-CUADRE-CONT 486700\n     LOCK B72SXPOSCONTA AT                                        486800\n          B72-SDO-KEYCSI  = W77-CSI-PROCESO       AND             486850\n          B72-SDO-KEYFEC  = WKS-FECHA-PROCESO     AND             486900\n          B72-SDO-KEYBCO  = WKS-KEY-BANCO         AND             486950\n          B72-SDO-KEYFID  = 0                     AND             487000\n          B72-SDO-KEYPRD  = WKS-KEY-PROD          AND             487050\n          B72-SDO-KEYINS  = WKS-KEY-INST          AND             487100\n          B72-SDO-KEYMON  = WKS-KEY-MONEDA        AND             487150\n          B72-SDO-KEYCTA  = WKS-KEY-CTA           AND             487200\n          B72-SDO-KEYCVEC = WKS-KEY-CAUSA         AND             487250\n          B72-SDO-KEYSEC  = WKS-KEY-SECTOR                        487300\n          ON EXCEPTION                                            487350\n             MOVE 1                       TO W77-EOF.             487400\n     IF W77-EOF = 1                                               487500\n        CREATE S151B72POSCONTA                                    487550\n        MOVE WKS-KEY-BANCO                TO B72-SDO-KEYBCO       487600\n        MOVE WKS-KEY-MONEDA               TO B72-SDO-KEYMON       487650\n        MOVE WKS-KEY-PROD                 TO B72-SDO-KEYPRD       487700\n        MOVE WKS-KEY-INST                 TO B72-SDO-KEYINS       487750\n        MOVE WKS-KEY-CTA                  TO B72-SDO-KEYCTA       487800\n        MOVE WKS-KEY-CAUSA                TO B72-SDO-KEYCVEC      487850\n        MOVE WKS-KEY-SECTOR               TO B72-SDO-KEYSEC       487900\n        MOVE W77-CSI-PROCESO              TO B72-SDO-KEYCSI       487950\n        MOVE WKS-FECHA-PROCESO            TO B72-SDO-KEYFEC       488000\n        MOVE 0                            TO B72-SDO-SDOANT.      488050\n     MOVE WKS-CARGOS-POS (W77-IND)  TO B72-SDO-CARGOS             488200\n     MOVE WKS-ABONOS-POS (W77-IND)  TO B72-SDO-ABONOS             488300\n     COMPUTE B72-SDO-SDOACT = B72-SDO-SDOANT - B72-SDO-CARGOS     488400\n                            + B72-SDO-ABONOS.                     488450\n     STORE S151B72POSCONTA.                                       488550",
+          "java_codigo": "public interface PosicionRepository extends JpaRepository<PosicionContable, PosicionId> {\n    @Lock(LockModeType.PESSIMISTIC_WRITE)                         // LOCK B72SXPOSCONTA\n    @Query(\"select p from PosicionContable p where p.id = :id\")\n    Optional<PosicionContable> findForUpdate(PosicionId id);\n}\n\n/** 54000-ACTUALIZA-POSICION: upsert de S151B72POSCONTA con los totales del día. */\n@Transactional\npublic void actualizaPosicion(LlaveCuadre k, BigDecimal cargos, BigDecimal abonos) {\n    var id = new PosicionId(ctx.csiProceso(), ctx.fechaProceso(), k.banco(),\n                            0,                                    // FID siempre 0 en la llave\n                            k.producto(), k.instrumento(), k.moneda(), k.cuenta(), k.causa(), k.sector());\n\n    PosicionContable p = repo.findForUpdate(id)\n            .orElseGet(() -> PosicionContable.nueva(id, BigDecimal.ZERO.setScale(2)));   // CREATE, SDOANT = 0\n\n    p.setCargos(cargos);                                          // MOVE: reemplaza, no acumula\n    p.setAbonos(abonos);\n    p.setSaldoActual(p.getSaldoAnterior().subtract(cargos).add(abonos));   // sin ROUNDED: escala 2 exacta\n    repo.save(p);                                                 // STORE S151B72POSCONTA\n}",
+          "racional": "El <code>LOCK</code> por la llave completa equivale a un <code>SELECT ... FOR UPDATE</code>; si falla, el programa crea el registro con saldo anterior en cero. La dimensión de fideicomiso existe pero siempre se busca con 0. Cargos y abonos se asignan con <code>MOVE</code>, no se suman, porque vienen ya totalizados de la tabla del cuadre; el saldo actual se recalcula como anterior menos cargos más abonos. La operación completa es una transacción por llave.",
+          "reglas": [
+            "RN-S151-058",
+            "RN-S151-046",
+            "RN-S151-040"
+          ],
+          "riesgo": "La rama CREATE no asigna B72-SDO-KEYFID y ni DELETE, CREATE ni STORE tienen manejo de excepción. La escala de B72-SDO-SDOACT viene del DASDL, que no está en el fuente."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Header de LOG151 inválido no detiene el proceso",
+      "detalle": "En 20000-PROCESA-MOVIMIENTOS (líneas 9992-10018) los errores de tipo de registro y de fecha solo imprimen un mensaje; el SET MYSELF(STATUS) TO -1 está comentado. Un LOG151 de otra fecha se contabiliza."
+    },
+    {
+      "titulo": "Condición abreviada siempre verdadera en RECHAZOS",
+      "detalle": "La línea 7848 (IF W77-SISTEMA-PARAMETRO NOT = 702 OR 502) se expande en COBOL-85 a NOT = 702 OR NOT = 502, que se cumple para cualquier sistema. Contradice RN-S151-050."
+    },
+    {
+      "titulo": "Lectura de ESQCON fallida continúa con datos previos",
+      "detalle": "En 21121-MUEVE-CUENTAS-CONTABLES (líneas 10905-10913) el INVALID KEY solo envía un mensaje; el IF siguiente evalúa WKS-EQ-NAT-MOV del último registro leído."
+    },
+    {
+      "titulo": "Truncamiento de importes",
+      "detalle": "IMPORTE1..5 de LOG151 son 9(16)V99 y se mueven a RMS-IMPORTE 9(14)V99; W77-IMP-SORT 9(16)V99 se mueve a RMC-IMPORTE 9(14)V99. En ambos casos COBOL descarta los dígitos altos sin aviso."
+    },
+    {
+      "titulo": "Validación de índices comentada",
+      "detalle": "El rango de W77-IND (1 a 200) y W77-IND2 (1 a 150) no se valida (líneas 10839-10842) antes de usar las tablas en memoria."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "CSI 12 mapeado a 10 (líneas 8012-8013), cuentas 1503 y 150399000000, grupo 5 por defecto, producto 087, sectores 31 y 32 para C408 y la lista de sistemas en las condiciones de ruteo. Se proponen como parámetros en application.yml o en tabla."
+    },
+    {
+      "titulo": "Fecha anterior sin validar en posición",
+      "detalle": "En 50000-POSICION (líneas 16227-16238) la llamada a THECALENDAR con función 15 no revisa el resultado, a diferencia de la de 10000-INICIO-PROGRAMA."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME si RECHAZOS debe excluir a 702 y 502 (RN-S151-050) o si el comportamiento real, siempre generar, es el esperado; revisar listados de producción de ambos sistemas.",
+    "RN-S151-021 dice que el header inválido aborta el proceso; en el fuente el abort está comentado. Definir la política destino.",
+    "RN-S151-056 describe TIPO-CAT = 2 como ruta directa a CAT7 sin INDS250; en el fuente esa ruta sigue exigiendo INDS250 = 2 y lee ARCH-CAT mediante 21121-LEE-ESQUEMA1 y 21500 (variante S701).",
+    "RN-S151-040 habla de acumular movimientos en 54000; el fuente asigna con MOVE los totales de la tabla del cuadre. Confirmar que una llave nunca aparece dos veces en WKS-LLAVE-CUADRE-CONT.",
+    "Significado de ORIGEN 2 y 3: SCIG y bitácora usan 1 o 2, el asiento GL usa 1 o 3.",
+    "Confirmar la semántica exacta de THECALENDAR funciones 13 y 15 (día hábil o natural) y la fuente de festivos.",
+    "Obtener el DASDL de S151B72POSCONTA para fijar precisión y escala de SDOANT, SDOACT, CARGOS y ABONOS.",
+    "WKS-TIPO-CAT se copia del formato del catálogo de transacciones (WKS-CAT-FORM, líneas 8887-8897); confirmar qué sistemas tienen formato 2 en el catálogo de catálogos."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-021",
+    "RN-S151-022",
+    "RN-S151-023",
+    "RN-S151-024",
+    "RN-S151-025",
+    "RN-S151-026",
+    "RN-S151-027",
+    "RN-S151-028",
+    "RN-S151-029",
+    "RN-S151-030",
+    "RN-S151-031",
+    "RN-S151-032",
+    "RN-S151-033",
+    "RN-S151-034",
+    "RN-S151-035",
+    "RN-S151-036",
+    "RN-S151-037",
+    "RN-S151-038",
+    "RN-S151-039",
+    "RN-S151-040",
+    "RN-S151-041",
+    "RN-S151-042",
+    "RN-S151-043",
+    "RN-S151-044",
+    "RN-S151-045",
+    "RN-S151-046",
+    "RN-S151-047",
+    "RN-S151-048",
+    "RN-S151-049",
+    "RN-S151-050",
+    "RN-S151-051",
+    "RN-S151-052",
+    "RN-S151-053",
+    "RN-S151-054",
+    "RN-S151-055",
+    "RN-S151-056",
+    "RN-S151-057",
+    "RN-S151-058",
+    "RN-S151-059",
+    "RN-S151-060",
+    "RN-S151-1171",
+    "RN-S500-279",
+    "RN-S500-280",
+    "RN-S500-281",
+    "RN-S500-282",
+    "RN-S500-283",
+    "RN-S500-284"
+  ]
+}

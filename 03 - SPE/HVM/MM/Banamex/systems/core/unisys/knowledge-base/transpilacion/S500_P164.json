@@ -1,0 +1,229 @@
+{
+  "slug": "S500_P164",
+  "sistema": "S500",
+  "programa": "P164",
+  "nombre": "Extracción de Límites y Pagos hacia Teradata y Réplica entre Coberturas",
+  "funcion": "Paso batch de Captación S500 que, según el TASKVALUE, extrae B52 (límites y acumulados de depósito y retiro), B24 (pagos ISI), B25 (pagos pendientes) o B03 (contratos dormidos) a archivos de interfaz, o ejecuta la réplica de acumulados de B52 con la cobertura contraparte mediante XFER.",
+  "resumen": "El TASKVALUE trae una fecha opcional AAAAMMDD y el tipo de proceso (1 a 5; 0 corre ISI, réplica, B52 y B25 en ese orden). La fecha base sale de B02-FECHA-LOTE o del TASKVALUE, y si el mes de la fecha siguiente es distinto al de la base la corrida se considera mensual. En extracción, B52 se exporta completo en la corrida mensual y sólo con fecha de actualización igual a la base en la diaria, con acumulados que se ponen en cero cuando no son del día o del mes; B25 exporta los pagos cuyo último pago es de la fecha base, limpiando nulos de la referencia. En réplica, arma un archivo con la cola B53, lo transfiere al host contraparte definido por una tabla fija de nombres de equipo, espera el archivo de la otra cobertura y aplica sus importes a B52.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration",
+  "paquete_java": "mx.banamex.s500.captacion.limites.interfaz",
+  "secciones": [
+    {
+      "titulo": "Parámetros de ejecución, layout de salida y topología de hosts",
+      "origen": {
+        "archivo": "S500_SOURCE_P164.txt",
+        "contexto": "WORKING-STORAGE · 40000500 / 40003000"
+      },
+      "java": {
+        "archivo": "P164Parametros.java · CtrlDepRetDetalle.java · TopologiaReplicaProperties.java",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "TASKVALUE con fecha y tipo de proceso a JobParameters validados",
+          "linea_ini": 805,
+          "linea_fin": 1877,
+          "origen_codigo": " 01  WKS-VALUE-PASO.\n     02 WKS-TASKVALUE       PIC 9(10).\n     02 RD-WKS-TASKVALUE    REDEFINES WKS-TASKVALUE.\n        04 WKS-TSK-FECH     PIC 9(08).\n        04 RD-WKS-TSK-FECH  REDEFINES WKS-TSK-FECH.\n           06 WKS-TSK-AA    PIC 9(04).\n           06 WKS-TSK-MM    PIC 9(02).\n           06 WKS-TSK-DD    PIC 9(02).\n        04 WKS-TSK-PROCESO  PIC 9(02).\n 40000500-TASK-VALUE.\n*--------------------\n MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-TASKVALUE.\n IF WKS-TSK-PROCESO = 3\n    IF WKS-TSK-FECH > 0\n       STRING \"ERROR TASKVALUE \", WKS-TASKVALUE\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n    ELSE\n       NEXT SENTENCE\n ELSE\n IF WKS-TSK-FECH > 0\n    IF (WKS-TSK-AA > 2009)\n   AND (WKS-TSK-MM > 0 AND < 13)\n   AND (WKS-TSK-DD > 0 AND < 32)\n       NEXT SENTENCE\n    ELSE\n       STRING \"ERROR TASKVALUE \", WKS-TASKVALUE\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "/** WKS-TASKVALUE PIC 9(10): AAAAMMDD (opcional, 0 si no viene) + tipo de proceso 9(02). */\npublic record P164Parametros(Optional<LocalDate> fecha, TipoProceso proceso) {\n\n    public enum TipoProceso { TODOS, CTRLDEPRET, ISILOANS, REPLICA, PGOSPENDPE, RDORMANT }  // 0..5\n\n    public static P164Parametros de(long taskValue) {\n        long fech = taskValue / 100;                  // WKS-TSK-FECH\n        int proc = (int) (taskValue % 100);           // WKS-TSK-PROCESO\n        if (proc > 5) throw new TaskValueInvalidoException(taskValue);   // el fuente no lo valida: cae en TODOS\n        var tipo = TipoProceso.values()[proc];\n        if (fech == 0) return new P164Parametros(Optional.empty(), tipo);\n        if (tipo == TipoProceso.REPLICA) {\n            throw new TaskValueInvalidoException(taskValue);   // réplica con fecha: no permitido\n        }\n        int aa = (int) (fech / 10000), mm = (int) (fech / 100 % 100), dd = (int) (fech % 100);\n        if (aa <= 2009 || mm < 1 || mm > 12 || dd < 1 || dd > 31) {\n            throw new TaskValueInvalidoException(taskValue);   // \"ERROR TASKVALUE\" + DMTERMINATE\n        }\n        return new P164Parametros(Optional.of(LocalDate.of(aa, mm, dd)), tipo);  // rechaza 31 de febrero\n    }\n}",
+          "racional": "El operador pasa en un solo número de diez dígitos la fecha de reproceso y el tipo de proceso. En Spring Batch se reciben como <code>JobParameters</code> y se validan al construir el <code>record</code>. Se conservan las tres reglas del fuente: la réplica no admite fecha, el año debe ser posterior a 2009, y mes y día deben estar en rango. <code>LocalDate.of</code> además rechaza fechas imposibles como el 31 de febrero, que el fuente deja pasar hasta la llamada a LOCSUP. Un tipo de proceso mayor que 5 en el original cae en la rama de todos los procesos; en Java se rechaza y se deja anotado en pendientes.",
+          "reglas": [
+            "RN-S500-292"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Registro de detalle CTRLDEPRET (330 bytes) a record",
+          "linea_ini": 1305,
+          "linea_fin": 1357,
+          "origen_codigo": " 01 WKS-CTRLDEPRET-DETALLE.\n    02 WKS-DET-TREG             PIC 9(01)  VALUE 2.\n    02 WKS-DET-NUM-CLIENTE      PIC 9(12).\n    02 WKS-DET-CSI              PIC 9(02).\n    02 WKS-DET-FEC-UPDATE       PIC 9(08).\n    02 WKS-DET-TIP-PER          PIC 9(02).\n    02 WKS-DET-UBI-GEO          PIC 9(02).\n    02 WKS-DET-ACUM-DEP-DIA     PIC 9(16)V99.\n    02 WKS-DET-ACUM-DEP-MEN     PIC 9(16)V99.\n    02 WKS-DET-ACUM-RET-DIA     PIC 9(16)V99.\n    02 WKS-DET-ACUM-RET-MEN     PIC 9(16)V99.\n    02 WKS-DET-FEC-CREA         PIC 9(08).\n    02 WKS-DET-FEC-ACUM         PIC 9(08).\n    02 WKS-DET-LIM-DEP-DIA      PIC 9(16)V99.\n    02 WKS-DET-LIM-DEP-MEN      PIC 9(16)V99.\n    02 WKS-DET-LIM-RET-DIA      PIC 9(16)V99.\n    02 WKS-DET-LIM-RET-MEN      PIC 9(16)V99.\n    02 WKS-DET-FEC-LIM-DIA      PIC 9(08).\n    02 WKS-DET-FEC-LIM-MEN      PIC 9(08).\n    02 WKS-DET-IND-BLOQUEO      PIC 9(02).\n    02 WKS-DET-FEC-BLOQUEO      PIC 9(08).\n    02 WKS-DET-SDO-CON-DEP      PIC 9(16)V99.\n    02 WKS-DET-INTE-RET-DIA     PIC 9(08).\n    02 WKS-DET-INTE-RET-MEN     PIC 9(08).\n    02 WKS-DET-FEC-AC-INTE      PIC 9(08).\n    02 WKS-DET-IND-REPLICA      PIC 9(02).\n    02 FILLER                   PIC X(73)  VALUE SPACES.",
+          "java_codigo": "/** WKS-CTRLDEPRET-DETALLE, tipo de registro 2. Importes 9(16)V99 sin signo, escala 2. */\npublic record CtrlDepRetDetalle(\n        String numCliente,            // 9(12)\n        int csi,                      // CSI del host que genera el archivo, no del cliente\n        LocalDate fecUpdate,\n        int tipoPersona, int ubiGeo,\n        BigDecimal acumDepDia, BigDecimal acumDepMen,\n        BigDecimal acumRetDia, BigDecimal acumRetMen,\n        LocalDate fecCrea, LocalDate fecAcum,\n        BigDecimal limDepDia, BigDecimal limDepMen,\n        BigDecimal limRetDia, BigDecimal limRetMen,\n        LocalDate fecLimDia, LocalDate fecLimMen,\n        int indBloqueo, LocalDate fecBloqueo,\n        BigDecimal sdoConDep,\n        long inteRetDia, long inteRetMen,   // 9(08): conteo de intentos, no importe\n        LocalDate fecAcInte, int indReplica) {\n\n    /** Formato fijo para Teradata: cada importe en 18 posiciones con 2 decimales implícitos. */\n    public String aLinea() {\n        return new FixedWidth(330)\n                .num(1, 2).num(12, numCliente).num(2, csi).fecha(fecUpdate)\n                .num(2, tipoPersona).num(2, ubiGeo)\n                .imp(18, acumDepDia).imp(18, acumDepMen).imp(18, acumRetDia).imp(18, acumRetMen)\n                // ... resto de campos en el orden del layout, FILLER X(73)\n                .toString();\n    }\n}",
+          "racional": "El detalle concentra para cada cliente los cuatro límites de depósito y retiro, sus acumulados diarios y mensuales, el bloqueo y el indicador de réplica. Los importes <code>9(16)V99</code> pasan a <code>BigDecimal</code> de escala 2 y en la salida se formatean con decimales implícitos, porque el consumidor en Teradata espera el layout de ancho fijo. El número de cliente se conserva como <code>String</code>. Las fechas se tratan como <code>LocalDate</code> y se escriben en AAAAMMDD.",
+          "reglas": [
+            "RN-S500-295"
+          ],
+          "riesgo": "WKS-DET-CSI recibe WKS-HED-CSI-ORI, el CSI del host que corre el paso (10 o 04), no un atributo del cliente; un consumidor que lo interprete como CSI del cliente se equivoca."
+        },
+        {
+          "id": "s3",
+          "titulo": "Tabla de hosts contraparte compilada a configuración",
+          "linea_ini": 1961,
+          "linea_fin": 2059,
+          "origen_codigo": "     IF WS-DH-HOSTNAME-VDM\n        MOVE 10          TO WKS-RET-CSIO\n                            WKS-ISI-CSIO\n                            WKS-HIS-CSI-ORI\n                            WKS-HED-CSI-ORI\n                            WKS-CSIL\n                            WKS-RDT-CSIO\n                            WKS-HED-CSI-ORI-R\n        MOVE 04          TO WKS-CSIF\n     ELSE\n        MOVE 04          TO WKS-RET-CSIO\n                            WKS-ISI-CSIO\n                            WKS-HIS-CSI-ORI\n                            WKS-HED-CSI-ORI\n                            WKS-CSIL\n                            WKS-RDT-CSIO\n                            WKS-HED-CSI-ORI-R\n        MOVE 10          TO WKS-CSIF.\n     IF WS-DH-NOM-EQUIPO = \"VDMBETA.  \"\n        MOVE \"VDMBETA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"ACYPBETA  \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"ACYPBETA. \"\n        MOVE \"ACYPBETA  \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"VDMBETA   \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"ACYPGAMA. \"\n        MOVE \"ACYPGAMA  \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"MONALFA   \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"MONALFA.  \"\n        MOVE \"MONALFA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"ACYPGAMA  \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"ACYPOMEGA.\"\n        MOVE \"ACYPOMEGA \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"VDMKAPPA  \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"VDMKAPPA. \"\n        MOVE \"VDMKAPPA  \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"ACYPOMEGA \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"VDMALFA.  \"\n        MOVE \"VDMALFA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"MONBETA   \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"MONBETA.  \"\n        MOVE \"MONBETA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"VDMALFA   \" TO WKS-HOST-DEST-XFER-XX.",
+          "java_codigo": "# application.yml\np164:\n  replica:\n    csi-por-host:                       # WS-DH-HOSTNAME-VDM decide 10 frente a 04\n      vdm:   { local: 10, foraneo: 4 }\n      otros: { local: 4,  foraneo: 10 }\n    contraparte:                         # WKS-HOST-ORIG-XFER-XX -> WKS-HOST-DEST-XFER-XX\n      VDMBETA: ACYPBETA\n      ACYPBETA: VDMBETA\n      ACYPGAMA: MONALFA\n      MONALFA: ACYPGAMA\n      ACYPOMEGA: VDMKAPPA\n      VDMKAPPA: ACYPOMEGA\n      VDMALFA: MONBETA\n      MONBETA: VDMALFA\n    pack: CAPTACION\n    usuario: S500\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p164.replica\")\npublic record TopologiaReplicaProperties(Map<String, Csi> csiPorHost, Map<String, String> contraparte,\n                                         String pack, String usuario) {\n    public record Csi(int local, int foraneo) {}\n\n    public String contraparteDe(String host) {\n        var destino = contraparte.get(host);\n        if (destino == null) throw new HostSinContraparteException(host);   // el fuente deja el host en blanco\n        return destino;\n    }\n}",
+          "racional": "La topología de réplica está escrita en el programa como una cadena de <code>IF</code> sobre el nombre del equipo, con pares recíprocos, y el CSI local y foráneo se decide por si el host es de Valle de México. Ambas cosas pasan a <code>application.yml</code>, de modo que agregar o retirar un host no requiera recompilar. A diferencia del fuente, un host que no está en la tabla se rechaza al inicio en vez de armar un comando de transferencia sin destino.",
+          "reglas": [
+            "RN-S500-293"
+          ],
+          "riesgo": "La cadena de IF no tiene rama final: en un host no listado WKS-HOST-ORIG-XFER-XX y WKS-HOST-DEST-XFER-XX quedan en blanco y el comando XFER se envía igual."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job, versión y fecha base",
+      "origen": {
+        "archivo": "S500_SOURCE_P164.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 40002000 / 40005000 / 50000000"
+      },
+      "java": {
+        "archivo": "P164JobConfig.java · TipoProcesoDecider.java · FechaBaseTasklet.java",
+        "contexto": "Job · JobExecutionDecider · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Despacho por tipo de proceso con JobExecutionDecider",
+          "linea_ini": 1723,
+          "linea_fin": 2291,
+          "origen_codigo": " 00000000-CONTROL-PROGRAMA.\n*****************************************************************\n    PERFORM 40000000-INICIO.\n    PERFORM 50000000-PROCESO.\n    PERFORM 70000000-FIN.\n 50000000-PROCESO.\n*=================\n  IF WKS-TSK-PROCESO = 1\n     PERFORM 50003000-ARCH-CTRLDEPRET\n  ELSE IF WKS-TSK-PROCESO = 2\n     PERFORM 50003000-ARCH-ISILOANS\n  ELSE IF WKS-TSK-PROCESO = 3\n     PERFORM 50004000-REPLICA\n  ELSE IF WKS-TSK-PROCESO = 4\n     PERFORM 50003000-ARCH-PGOSPENDPE\n  ELSE IF WKS-TSK-PROCESO = 5\n     PERFORM 50003000-ARCH-RDORMANT\n  ELSE\n     PERFORM 50003000-ARCH-ISILOANS\n     PERFORM 50004000-REPLICA\n     PERFORM 50003000-ARCH-CTRLDEPRET\n     PERFORM 50003000-ARCH-PGOSPENDPE.",
+          "java_codigo": "@Configuration\npublic class P164JobConfig {\n\n    @Bean\n    Job p164(JobRepository repo, Step inicio, TipoProcesoDecider decider,\n             Step ctrlDepRet, Step isiLoans, Flow replica, Step pgosPendPe, Step rdormant) {\n        Flow todos = new FlowBuilder<Flow>(\"todos\")           // ELSE: orden fijo del fuente\n                .start(isiLoans).next(replica).next(ctrlDepRet).next(pgosPendPe).build();\n        return new JobBuilder(\"S500P164\", repo)\n                .start(inicio)                                 // 40000000-INICIO\n                .next(decider)                                 // 50000000-PROCESO\n                    .on(\"CTRLDEPRET\").to(ctrlDepRet)\n                .from(decider).on(\"ISILOANS\").to(isiLoans)\n                .from(decider).on(\"REPLICA\").to(replica)\n                .from(decider).on(\"PGOSPENDPE\").to(pgosPendPe)\n                .from(decider).on(\"RDORMANT\").to(rdormant)\n                .from(decider).on(\"TODOS\").to(todos)\n                .end()\n                .build();                                      // 70000000-FIN: cierre por listener\n    }\n}\n\n@Component\nclass TipoProcesoDecider implements JobExecutionDecider {\n    @Override\n    public FlowExecutionStatus decide(JobExecution je, StepExecution se) {\n        var p = (P164Parametros) je.getExecutionContext().get(\"parametros\");\n        return new FlowExecutionStatus(p.proceso().name());\n    }\n}",
+          "racional": "La rutina principal sólo encadena inicio, proceso y fin; la decisión real está en 50000000-PROCESO, que elige un barrido según el tipo de proceso o, si es 0, corre cuatro en orden. Un <code>JobExecutionDecider</code> reproduce el despacho y el flujo TODOS conserva el orden del fuente (ISI, réplica, B52, B25). El tipo 5 (RDORMANT) no forma parte del flujo por omisión, igual que en el original.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Validación de versión exenta en hosts de prueba",
+          "linea_ini": 1911,
+          "linea_fin": 1931,
+          "origen_codigo": " 40002000-TITLE-LIBRERIAS.\n*-------------------------\n      IF NOT WS-DH-HOSTNAME-PBA\n      PERFORM 20000100-CHECAME-VERSION.\n      IF S000-CTR-CVEERROR < 0\n         MOVE \"ERROR DE VERSION \"    TO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n      PERFORM 10000006-LOCSUP.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ValidaVersionTasklet implements Tasklet {\n\n    private final HostInfo host;                    // 0000-CALL-HOSTNAME\n    private final VersionControlClient versiones;   // 20000100-CHECAME-VERSION\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        if (!host.esPruebas()) {                    // NOT WS-DH-HOSTNAME-PBA\n            var r = versiones.checa(\"S500P164\", \"25MTP004\");\n            if (r.cveError() < 0) {\n                throw new VersionInvalidaException(\"ERROR DE VERSION\");   // STATUS OF MYSELF = -1\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Fuera de los hosts de pruebas, el programa verifica con CHECAME-VERSION que la versión compilada sea la autorizada y, si no lo es, se termina cambiando su propio STATUS a -1. En Java la versión del artefacto se compara contra el registro de versiones y el fallo deja el job en FAILED. Se respeta la exención por ambiente, que en Spring se modela mejor con un perfil (<code>@Profile(\"!pruebas\")</code>) que con el nombre del equipo.",
+          "reglas": [
+            "RN-S500-296"
+          ],
+          "riesgo": "El punto al final de la línea 1919 cierra el IF: la revisión de S000-CTR-CVEERROR se ejecuta también en los hosts de prueba, con el valor que tenga ese campo sin haber llamado a CHECAME-VERSION."
+        },
+        {
+          "id": "s6",
+          "titulo": "Fecha base, fecha siguiente e indicador de corrida mensual",
+          "linea_ini": 2071,
+          "linea_fin": 2103,
+          "origen_codigo": "     PERFORM 90000002-B02CONTROL-FIND.\n     MOVE B02-FECHA-LOTE    TO WKS-FEC-BASE.\n     MOVE B02-FECHA-LINEA   TO WKS-FEC-PROX.\n     IF WKS-TSK-FECH > 0\n        MOVE WKS-TSK-FECH   TO WKS-FEC-BASE\n        PERFORM 20040300-PROYECTA-FECHA\n        MOVE WS-S006-FECHA1 TO WKS-FEC-PROX.\n     MOVE WKS-FEC-BASE      TO WKS-RET-FECHA.\n     MOVE WKS-FEC-BASE      TO WKS-ISI-FECHA.\n     MOVE WKS-FEC-BASE      TO WKS-RDT-FECHA.\n     IF WKS-MM-FPROX  = WKS-MM-FBASE\n        MOVE 0 TO WKS-ES-MENSUAL\n                  WKS-HED-IND-MENS\n     ELSE\n        MOVE 1 TO WKS-ES-MENSUAL\n                  WKS-HED-IND-MENS.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechaBaseTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository b02;   // S500B02CONTROL\n    private final CalendarioBancario calendario;    // LOCSUP función 13, formato 12\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        var p = (P164Parametros) ec.get(\"parametros\");\n        var control = b02.find().orElseThrow();\n\n        LocalDate base = control.fechaLote();\n        LocalDate prox = control.fechaLinea();\n        if (p.fecha().isPresent()) {                  // reproceso con fecha del operador\n            base = p.fecha().get();\n            prox = calendario.avanza(base, 1);        // 20040300-PROYECTA-FECHA\n        }\n        boolean mensual = prox.getMonthValue() != base.getMonthValue();   // WKS-ES-MENSUAL\n\n        ec.put(\"fechaBase\", base);\n        ec.put(\"esMensual\", mensual);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha base es la fecha de lote del control de Captación, salvo que el operador pase una por TASKVALUE; en ese caso la fecha siguiente se proyecta con LOCSUP. La corrida es mensual cuando la fecha siguiente cae en otro mes, es decir, en el último día de proceso del mes. Ese indicador decide si B52 se exporta completo o sólo el delta, y viaja también en el header del archivo.",
+          "reglas": [
+            "RN-S500-291"
+          ],
+          "riesgo": "Sólo se compara el mes (WKS-MM-FPROX contra WKS-MM-FBASE), no el año; no afecta en la práctica porque las fechas son consecutivas, pero la regla depende de que la fecha siguiente sea correcta."
+        }
+      ]
+    },
+    {
+      "titulo": "Extracción a Teradata y réplica entre coberturas",
+      "origen": {
+        "archivo": "S500_SOURCE_P164.txt",
+        "contexto": "PROCEDURE DIVISION · 50001100 / 50003500 / 50004000 / 00000000-VALIDA-NUL"
+      },
+      "java": {
+        "archivo": "B52Processor.java · AcumuladosVigentes.java · B25Processor.java · ReplicaFlowConfig.java",
+        "contexto": "ItemProcessor · IntegrationFlow · Spring Batch Flow"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Barrido de B52: completo en mensual, delta en diario",
+          "linea_ini": 2371,
+          "linea_fin": 2413,
+          "origen_codigo": " 50001100-BARRO-B52.\n*------------------\n     PERFORM 90000052-B52CTRLDEPRET-FINDN.\n     IF WS-STATUS-BASE = 0\n        NEXT SENTENCE\n     ELSE\n     IF WS-STATUS-BASE = 1\n        MOVE 1 TO WKS-FIN-B52\n     ELSE\n        MOVE \"ERROR AL HACER FIND NEXT A B52\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     IF WS-STATUS-BASE = 0\n        IF WKS-ES-MENSUAL = 1\n           PERFORM 50003300-WRITE-ARCHIVO\n           ADD 1 TO WKS-CONTADOR\n        ELSE\n           IF B52-FEC-UPDATE = WKS-FEC-BASE\n              PERFORM 50003300-WRITE-ARCHIVO\n              ADD 1 TO WKS-CONTADOR.",
+          "java_codigo": "@Component\n@StepScope\npublic class B52Processor implements ItemProcessor<B52CtrlDepRet, CtrlDepRetDetalle> {\n\n    @Value(\"#{jobExecutionContext['fechaBase']}\") private LocalDate fechaBase;\n    @Value(\"#{jobExecutionContext['esMensual']}\") private boolean esMensual;\n    @Value(\"#{jobExecutionContext['csiLocal']}\")  private int csiLocal;\n\n    @Override\n    public CtrlDepRetDetalle process(B52CtrlDepRet b52) {\n        if (!esMensual && !b52.fecUpdate().equals(fechaBase)) {\n            return null;                              // diario: sólo lo actualizado en la fecha base\n        }\n        return AcumuladosVigentes.aplica(b52, fechaBase, csiLocal);   // 50003300 + 50003500\n    }\n}\n// Reader: RepositoryItemReader sobre S500B52CTRLDEPRET (FIND NEXT desde BEGINNING).\n// Un status de base distinto de 0 y 1 aborta el step (DMTERMINATE).",
+          "racional": "El barrido recorre todo B52. En la corrida mensual escribe todos los registros y en la diaria sólo los que tienen fecha de actualización igual a la fecha base, que es el delta del día. El filtro se implementa devolviendo <code>null</code> desde el <code>ItemProcessor</code>, y el conteo que el fuente lleva en <code>WKS-CONTADOR</code> para el trailer lo da el <code>writeCount</code> del step.",
+          "reglas": [
+            "RN-S500-291"
+          ],
+          "riesgo": "En la corrida diaria un cliente cuyos acumulados cambiaron pero cuya B52-FEC-UPDATE no es la fecha base no se exporta; hay que confirmar si la fecha de actualización se mueve con cada acumulación."
+        },
+        {
+          "id": "s8",
+          "titulo": "Acumulados vigentes: se exportan en cero si no son del día o del mes",
+          "linea_ini": 2563,
+          "linea_fin": 2635,
+          "origen_codigo": " 50003500-LIMPIA-ACUMULADOS.\n    MOVE B52-FEC-ACUM  TO WKS-FEC-WOR.\n    IF B52-FEC-ACUM = WKS-FEC-BASE\n       MOVE B52-SDO-CON-DEP TO WKS-DET-SDO-CON-DEP\n    ELSE\n       MOVE 0 TO WKS-DET-SDO-CON-DEP.\n    IF B52-FEC-ACUM = WKS-FEC-BASE\n       MOVE B52-ACUM-DEP-DIA TO WKS-DET-ACUM-DEP-DIA\n       MOVE B52-ACUM-RET-DIA TO WKS-DET-ACUM-RET-DIA\n       MOVE B52-FEC-ACUM     TO WKS-DET-FEC-ACUM\n    ELSE\n       MOVE 0                TO WKS-DET-ACUM-DEP-DIA\n       MOVE 0                TO WKS-DET-ACUM-RET-DIA\n       MOVE 0                TO WKS-DET-FEC-ACUM.\n    IF WKS-AA-FWOR = WKS-AA-FBASE  AND\n       WKS-MM-FWOR = WKS-MM-FBASE\n       MOVE B52-ACUM-DEP-MEN TO WKS-DET-ACUM-DEP-MEN\n       MOVE B52-ACUM-RET-MEN TO WKS-DET-ACUM-RET-MEN\n       MOVE B52-FEC-ACUM     TO WKS-DET-FEC-ACUM\n    ELSE\n       MOVE 0                TO WKS-DET-ACUM-DEP-MEN\n       MOVE 0                TO WKS-DET-ACUM-RET-MEN\n       MOVE 0                TO WKS-DET-FEC-ACUM.\n    IF B52-FEC-AC-INTE = WKS-FEC-BASE\n       MOVE B52-INTE-RET-DIA TO WKS-DET-INTE-RET-DIA\n    ELSE\n       MOVE 0                TO WKS-DET-INTE-RET-DIA.\n    MOVE B52-FEC-AC-INTE  TO WKS-FEC-WOR.\n    IF WKS-AA-FWOR = WKS-AA-FBASE  AND\n       WKS-MM-FWOR = WKS-MM-FBASE\n       MOVE B52-INTE-RET-MEN TO WKS-DET-INTE-RET-MEN\n    ELSE\n       MOVE 0                TO WKS-DET-INTE-RET-MEN.",
+          "java_codigo": "public final class AcumuladosVigentes {\n\n    /** 50003500-LIMPIA-ACUMULADOS: el acumulado guardado sólo vale para su día o su mes. */\n    static CtrlDepRetDetalle aplica(B52CtrlDepRet b, LocalDate base, int csi) {\n        boolean delDia = b.fecAcum().equals(base);\n        boolean delMes = YearMonth.from(b.fecAcum()).equals(YearMonth.from(base));\n        LocalDate fecAcum = delMes ? b.fecAcum() : null;   // el bloque mensual decide la fecha final\n\n        boolean inteDia = b.fecAcInte().equals(base);\n        boolean inteMes = YearMonth.from(b.fecAcInte()).equals(YearMonth.from(base));\n\n        return new CtrlDepRetDetalle(b.numCliente(), csi, b.fecUpdate(), b.tipPer(), b.ubiGeo(),\n                delDia ? b.acumDepDia() : BigDecimal.ZERO.setScale(2),\n                delMes ? b.acumDepMen() : BigDecimal.ZERO.setScale(2),\n                delDia ? b.acumRetDia() : BigDecimal.ZERO.setScale(2),\n                delMes ? b.acumRetMen() : BigDecimal.ZERO.setScale(2),\n                b.fecCrea(), fecAcum,\n                b.limDepDia(), b.limDepMen(), b.limRetDia(), b.limRetMen(),\n                b.fecLimDia(), b.fecLimMen(), b.indBloqueo(), b.fecBloqueo(),\n                delDia ? b.sdoConDep() : BigDecimal.ZERO.setScale(2),\n                inteDia ? b.inteRetDia() : 0, inteMes ? b.inteRetMen() : 0,\n                b.fecAcInte(), b.indReplica());\n    }\n}",
+          "racional": "B52 guarda el último acumulado con su fecha, pero no lo reinicia al cambiar de día o de mes. Al exportar, el programa decide si el valor sigue vigente: los acumulados diarios y el saldo consolidado sólo si la fecha de acumulación es la base, y los mensuales sólo si es del mismo año y mes. Lo mismo aplica a los contadores de intentos de retiro. En Java la comparación de mes se hace con <code>YearMonth</code>, que hace explícito lo que el fuente compara con los dos dígitos de año y el mes.",
+          "reglas": [
+            "RN-S500-295"
+          ],
+          "riesgo": "La comparación de mes en el fuente usa sólo los dos dígitos del año (WKS-AA-FWOR y WKS-AA-FBASE) sin el siglo."
+        },
+        {
+          "id": "s9",
+          "titulo": "Pagos pendientes B25 con limpieza de nulos en la referencia",
+          "linea_ini": 2445,
+          "linea_fin": 5261,
+          "origen_codigo": "    IF WS-STATUS-BASE = 0\n      IF B25-FECHA-ULTPAGO = WKS-FEC-BASE\n         MOVE B25-REFER-ALFA TO WS-LEYENDA-A-VALIDAR\n         PERFORM 00000000-VALIDA-NUL VARYING WS-INDICE\n                 FROM 1 BY 1 UNTIL WS-INDICE > 40\n         MOVE WS-LEY-SIN-NULOS TO B25-REFER-ALFA\n         PERFORM 50003300-WRITE-ARCHIVO-B25\n         ADD 1 TO WKS-CONT-B25.\n 00000000-VALIDA-NUL.\n   IF WS-LEYENDA(WS-INDICE) = WS-NULO\n      MOVE \" \" TO WS-LEY(WS-INDICE)\n   ELSE\n      MOVE WS-LEYENDA(WS-INDICE) TO WS-LEY(WS-INDICE).",
+          "java_codigo": "@Component\n@StepScope\npublic class B25Processor implements ItemProcessor<B25PagoPendiente, PagoPendienteDetalle> {\n\n    private static final int LONG_REFER = 40;\n    @Value(\"#{jobExecutionContext['fechaBase']}\") private LocalDate fechaBase;\n\n    @Override\n    public PagoPendienteDetalle process(B25PagoPendiente b25) {\n        if (!b25.fechaUltPago().equals(fechaBase)) return null;\n        return PagoPendienteDetalle.de(b25.conReferAlfa(sinNulos(b25.referAlfa())));\n    }\n\n    /** 00000000-VALIDA-NUL: cada byte @00@ se sustituye por un espacio (no se elimina). */\n    static String sinNulos(String refer) {\n        var sb = new StringBuilder(LONG_REFER);\n        for (int i = 0; i < LONG_REFER; i++) {\n            char ch = i < refer.length() ? refer.charAt(i) : ' ';\n            sb.append(ch == '\\u0000' ? ' ' : ch);\n        }\n        return sb.toString();\n    }\n}",
+          "racional": "B25 se exporta sólo para los pagos cuyo último pago ocurrió en la fecha base. Antes de escribir, la referencia alfanumérica de 40 posiciones se recorre carácter por carácter y cada nulo se cambia por un espacio, para que la carga en Teradata no reciba bytes no imprimibles. La longitud se conserva, lo que mantiene el ancho fijo del registro.",
+          "reglas": [
+            "RN-S500-294"
+          ]
+        },
+        {
+          "id": "s10",
+          "titulo": "Réplica: transferencia al host contraparte y espera del archivo foráneo",
+          "linea_ini": 3035,
+          "linea_fin": 3713,
+          "origen_codigo": "*--- TRANSFIERE ARCHIVO REPLICA A LA OTRA COBERTURA\n     IF NOT WKS-REPLICA-FIN\n        MOVE 04                TO WKS-REPLICA-ACT\n        MOVE SPACES            TO WKS-ARCHIORIG-XFER-XX\n        STRING F04-TITLE DELIMITED BY \".\"\n               INTO WKS-ARCHIORIG-XFER-XX\n        MOVE WKS-ARCHIORIG-XFER-XX  TO WKS-ARCHIDEST-XFER-XX\n        MOVE 150               TO WS-TRF-TAMACOM\n        MOVE WKS-PARAM-XFER-XX TO WS-TRF-COMANDO\n        PERFORM 5002000-LLAMA-XFER.\n*--- ESPERA ARCHIVO REPLICA DE LA OTRA COBERTURA\n     IF NOT WKS-REPLICA-FIN\n        MOVE 05                TO WKS-REPLICA-ACT\n        CHANGE ATTRIBUTE TITLE OF F05-REPLICA-FOR TO F05-TITLE\n        MOVE 0                 TO WKS-F05-RESIDENTE-VA\n                                  WKS-F05-INTENTO\n        PERFORM 50004000-ARRIBO UNTIL WKS-F05-RESIDENTE\n                                   OR WKS-REPLICA-FIN.\n 50004000-ARRIBO.\n*----------------\n     IF ATTRIBUTE RESIDENT OF F05-REPLICA-FOR IS = VALUE TRUE\n        MOVE 1    TO WKS-F05-RESIDENTE-VA\n     ELSE\n        ADD  1    TO WKS-F05-INTENTO\n        WAIT AND RESET\n             300\n             ATTRIBUTE EXCEPTIONEVENT OF MYSELF\n             GIVING WKS-WAIT-EVENTO.\n     PERFORM 20221019-VALIDA-TIEMPO.\n     MOVE WKS-REPLICA-CONTADOR-MAX TO WKS-REPLICA-CONTADOR\n     PERFORM 50004000-REPLICA-FIN.",
+          "java_codigo": "@Configuration\n@RequiredArgsConstructor\npublic class ReplicaFlowConfig {\n\n    private final TopologiaReplicaProperties topologia;\n\n    /** Paso 04: ADD (S500)archivo AS (S500)archivo FROM CAPTACION,origen TO CAPTACION,destino. */\n    @Bean\n    IntegrationFlow enviaReplica(SessionFactory<SftpClient.DirEntry> sftpContraparte) {\n        return f -> f\n                .handle(Sftp.outboundAdapter(sftpContraparte, FileExistsMode.REPLACE)\n                        .remoteDirectory(topologia.pack()))\n                .log(LoggingHandler.Level.INFO, \"p164.replica\");\n    }\n\n    /** Paso 05: espera el F05 de la otra cobertura, revisando cada 300 s. */\n    @Bean\n    Step esperaArchivoForaneo(JobRepository repo, PlatformTransactionManager tx,\n                              ArriboArchivoTasklet arribo) {\n        return new StepBuilder(\"esperaArchivoForaneo\", repo).tasklet(arribo, tx).build();\n    }\n}\n\n@Component\n@RequiredArgsConstructor\nclass ArriboArchivoTasklet implements Tasklet {\n    private final P164Properties props;            // espera: 300s, max-espera: (no existe en el fuente)\n    private final ControlPasosRepository b00;      // S500B00CTRLPASO\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws Exception {\n        Path foraneo = (Path) ctx.getStepContext().getJobExecutionContext().get(\"f05\");\n        if (Files.exists(foraneo)) return RepeatStatus.FINISHED;            // RESIDENT = TRUE\n        if (b00.pasoTerminado(130, 181)) throw new FinForzadoException();  // WKS-REPLICA-FIN\n        Thread.sleep(props.espera().toMillis());                           // WAIT AND RESET 300\n        return RepeatStatus.CONTINUABLE;\n    }\n}",
+          "racional": "La réplica intercambia archivos de acumulados entre las dos coberturas: cada host transfiere el suyo con la librería XFER y espera el del otro, revisando cada cinco minutos si ya es residente. La salida de la espera sólo ocurre cuando llega el archivo o cuando la base de control B00 marca alguno de los pasos con 130 o 181. En el arquetipo A4 la transferencia es un adaptador de Spring Integration (SFTP o el mecanismo que sustituya a XFER) y la espera un <code>Tasklet</code> reintentable; se recomienda agregar un tiempo máximo, que el fuente no tiene.",
+          "reglas": [
+            "RN-S500-293"
+          ],
+          "riesgo": "No hay tiempo máximo de espera, y el ELSE con ERROR ARCHIVO NO ARRIBO (líneas 3097-3109) es inalcanzable: el ciclo sólo termina con el archivo presente o con WKS-REPLICA-FIN, y en ese caso el IF exterior ya no entra."
+        },
+        {
+          "id": "s11",
+          "titulo": "Actualización de B52 con error de STORE que no revierte la transacción",
+          "linea_ini": 3593,
+          "linea_fin": 3635,
+          "origen_codigo": " 50004000-B52-STORE.\n*-------------------\n     PERFORM                      90000000-BEGIN-TRANSACTION\n     IF WS-STATUS-BASE > 0\n        MOVE \"ERROR BEGIN TRANSACTION\" TO WS-F02-MSG\n        PERFORM 50009000-PROB-TIEMPO\n        CALL SYSTEM DMTERMINATE.\n     PERFORM                   90000052-B52CTRLDEPRET-STORE\n     IF WS-DB-ERROR\n        MOVE \"ERROR STORE B52\" TO WS-F02-MSG\n        PERFORM 50009000-PROB-TIEMPO\n        MOVE SPACES                    TO F02-REG\n        STRING WS-NUM-CLIENTE\n               DELIMITED BY SIZE INTO F02-REG\n        WRITE F02-REG.\n     PERFORM                      90000000-END-TRANSACTION\n     IF WS-STATUS-BASE > 0\n        MOVE \"ERROR END TRANSACTION\" TO WS-F02-MSG\n        PERFORM 50009000-PROB-TIEMPO\n        CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class ReplicaB52Service {\n\n    private final B52Repository b52;\n    private final ProblemasReplicaLog problemas;    // F02-PROBLEMAS\n\n    /** 50004000-B52-STORE. En el fuente un STORE fallido se registra y la transacción se cierra igual. */\n    @Transactional\n    public void guarda(B52CtrlDepRet registro) {\n        try {\n            b52.save(registro);\n        } catch (DataAccessException e) {\n            problemas.registra(\"ERROR STORE B52\", registro.numCliente());\n            throw e;                                // aquí se revierte; el original no\n        }\n    }\n}",
+          "racional": "Cada registro de réplica se aplica a B52 dentro de BEGIN y END TRANSACTION. Los errores de BEGIN y END terminan el programa, pero el error del STORE sólo se anota en el archivo de problemas con el número de cliente y el flujo continúa al END TRANSACTION. En Java el método es <code>@Transactional</code> y la excepción se propaga después de registrar el problema, de modo que el registro no queda a medias.",
+          "reglas": [],
+          "riesgo": "Con la lógica actual, un cliente cuyo STORE falla queda con acumulados distintos en las dos coberturas y el único rastro es una línea en PROBP164."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Espera de réplica sin tiempo máximo",
+      "detalle": "50004000-ARRIBO espera en ciclos de 300 segundos hasta que el archivo foráneo es residente o B00 marca fin de paso (130 o 181). No hay tope de intentos y el mensaje ERROR ARCHIVO NO ARRIBO (líneas 3097-3109) nunca se puede emitir."
+    },
+    {
+      "titulo": "Topología de hosts compilada",
+      "detalle": "Los ocho nombres de equipo y sus contrapartes (líneas 1999-2059), los CSI 10 y 04 y el pack CAPTACION están en el código; un host fuera de la tabla genera un comando XFER sin origen ni destino."
+    },
+    {
+      "titulo": "Validación de versión fuera de la exención",
+      "detalle": "En 40002000-TITLE-LIBRERIAS el punto de la línea 1919 hace que el IF de S000-CTR-CVEERROR (línea 1921) se evalúe también en hosts de prueba."
+    },
+    {
+      "titulo": "STORE de B52 sin reversa",
+      "detalle": "Un error al guardar B52 durante la réplica (líneas 3609-3623) se registra en F02-PROBLEMAS y la transacción se cierra con END TRANSACTION; los acumulados de ese cliente divergen entre coberturas."
+    },
+    {
+      "titulo": "Delta diario dependiente de B52-FEC-UPDATE",
+      "detalle": "La corrida diaria sólo exporta registros con fecha de actualización igual a la fecha base (línea 2409); los cambios de acumulados que no muevan esa fecha no llegan a Teradata hasta la corrida mensual."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si B52-FEC-UPDATE se actualiza cuando cambian los acumulados de depósito y retiro, o sólo cuando cambian límites o datos del cliente.",
+    "RN-S500-294 dice que VALIDA-NUL elimina los nulos; el fuente los sustituye por espacio (líneas 5255-5261) y conserva las 40 posiciones. Ajustar la redacción en el brain.",
+    "Un tipo de proceso mayor que 5 en el TASKVALUE no se valida y cae en la rama que corre ISI, réplica, B52 y B25; confirmar si es intencional.",
+    "Confirmar el significado de los valores 130 y 181 en B00-NUM-PASO-01..03 que terminan la réplica.",
+    "Los layouts de B52, B53 y B25 vienen de los COPY S500/INC/WOR/DAS/25MTP003 y S500/INC/PRO/25MTP002, que no están inlineados en el fuente; los tipos de los campos B52 se infirieron del layout de salida.",
+    "No se revisaron en detalle las reglas de suma y resta de acumulados foráneos (50004000-FORANEO-SUMA y FORANEO-RESTA) ni los barridos de B24 y B03."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-291",
+    "RN-S500-292",
+    "RN-S500-293",
+    "RN-S500-294",
+    "RN-S500-295",
+    "RN-S500-296"
+  ]
+}

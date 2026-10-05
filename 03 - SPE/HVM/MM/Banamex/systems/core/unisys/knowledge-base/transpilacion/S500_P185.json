@@ -1,0 +1,191 @@
+{
+  "slug": "S500_P185",
+  "sistema": "S500",
+  "programa": "P185",
+  "nombre": "Saldos promedio para S084",
+  "funcion": "Paso batch del S500 (PROGRAM-ID P185, 2005) que genera el archivo PROMEDIOS para el sistema S084 con el saldo promedio del ciclo de los contratos que cortaron el día hábil anterior y cuyo instrumento está marcado en B05 para envío.",
+  "resumen": "Abre S500BD01CAPTACION en INQUIRY, toma de B02CONTROL el CSI y la fecha de línea, y con LOCSUP obtiene la fecha de lote anterior. Carga en memoria los instrumentos de B05 (máximo 30) con su indicador de envío a S084 y escribe el header con sistema origen 0500 y destino 0084. Recorre B06HISTORICO y, para cada contrato cuya fecha real de corte es la fecha de lote anterior, busca el contrato en B03 y su instrumento en la tabla; si el instrumento tiene el indicador en 1, escribe el saldo promedio del ciclo 12 con contrato, producto, instrumento y moneda. Al final escribe un trailer con número de registros y suma de saldos.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.s084.promedios",
+  "secciones": [
+    {
+      "titulo": "Archivo PROMEDIOS de 24 bytes: header, datos y trailer",
+      "origen": {
+        "archivo": "S500_SOURCE_P185.txt",
+        "contexto": "WORKING-STORAGE · WKS-TIT-PROMS084 / WKS-E04-*"
+      },
+      "java": {
+        "archivo": "PromedioS084Record.java · PromediosProperties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Etiqueta y tres registros binarios con origen 0500 y destino 0084",
+          "linea_ini": 90,
+          "linea_fin": 119,
+          "origen_codigo": " 01  WKS-TIT-PROMS084.\n     02 FILLER                   PIC X(25) VALUE\n                                 \"S500/FILE/S084/PROMEDIOS/\".\n     02 WKS-TIT-CSI-E04          PIC 99.\n     02 FILLER                   PIC X     VALUE \"/\".\n     02 WKS-TIT-FEC-E04          PIC 9(06).\n     02 FILLER                   PIC X     VALUE \".\".\n 01  WKS-E04-R01-HEADER.\n     02 WKS-E04-R01-TPOREG       PIC 9(02)  COMP     VALUE 01.\n     02 WKS-E04-R01-SISORI       PIC 9(04)  COMP     VALUE 0500.\n     02 WKS-E04-R01-SISDES       PIC 9(04)  COMP     VALUE 0084.\n     02 WKS-E04-R01-CSIORIG      PIC 9(02)  COMP.\n     02 WKS-E04-R01-FEC-MOVTO    PIC 9(08)  COMP.\n     02 FILLER                   PIC X(14)           VALUE \" \".\n 01  WKS-E04-R02-DATOS.\n     02 WKS-E04-R02-TPOREG       PIC 9(02)     COMP  VALUE 02.\n     02 WKS-E04-R02-CONTRATO     PIC 9(12)     COMP.\n     02 WKS-E04-R02-PRODUCTO     PIC 9(04)     COMP.\n     02 WKS-E04-R02-INSTRUM      PIC 9(04)     COMP.\n     02 WKS-E04-R02-MONEDA       PIC 9(04)     COMP.\n     02 WKS-E04-R02-SDOPROM      PIC 9(12)V99  COMP.\n     02 FILLER                   PIC X(04)           VALUE \" \".\n 01  WKS-E04-R09-TRAILER.\n     02 WKS-E04-R09-TPOREG       PIC 9(02)     COMP  VALUE 09.\n     02 WKS-E04-R09-TOTREGS      PIC 9(08)     COMP  VALUE 0.\n     02 WKS-E04-R09-TOTDSOS      PIC 9(14)V99  COMP  VALUE 0.\n     02 FILLER                   PIC X(11).",
+          "java_codigo": "# application.yml\np185:\n  titulo: \"S500/FILE/S084/PROMEDIOS/{csi}/{fecha}.\"   # fecha PIC 9(06): AAMMDD\n  sistema-origen: 500\n  sistema-destino: 84\n\n// ---------------------------------------------------------------------------\n/** Registros de 24 bytes con campos COMP (binarios): se escriben con un codec, no como texto. */\npublic sealed interface PromedioS084Record\n        permits PromedioS084Record.Header, PromedioS084Record.Datos, PromedioS084Record.Trailer {\n\n    /** TPOREG 01. */\n    record Header(int sistemaOrigen, int sistemaDestino, int csiOrigen,\n                  LocalDate fechaMovto) implements PromedioS084Record {}\n\n    /** TPOREG 02. */\n    record Datos(String contrato,            // 9(12) COMP\n                 int producto, int instrumento, int moneda,\n                 BigDecimal saldoPromedio)    // 9(12)V99 COMP -> escala 2\n            implements PromedioS084Record {}\n\n    /** TPOREG 09. */\n    record Trailer(long totalRegistros,       // 9(08) COMP\n                   BigDecimal totalSaldos)    // 9(14)V99 COMP\n            implements PromedioS084Record {}\n}",
+          "racional": "El archivo para S084 tiene tres tipos de registro de 24 bytes, todos con campos <code>COMP</code>, así que no es un archivo de texto: en Java cada <code>record</code> se serializa con un codec binario que respeta el formato de MCP. El header declara de forma fija sistema origen 0500 y destino 0084, que es lo que S084 valida antes de consumir. Los literales y la ruta de la etiqueta pasan a <code>application.yml</code>; la fecha del nombre es de seis dígitos y pierde el siglo.",
+          "reglas": [
+            "RN-S500-540",
+            "RN-S500-541"
+          ],
+          "riesgo": "La conversión de COMP de MCP a binario en la plataforma destino debe acordarse con S084; un cambio de representación rompe la lectura del consumidor."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso, fecha de lote y catálogo de instrumentos",
+      "origen": {
+        "archivo": "S500_SOURCE_P185.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20000100 / 20000101 / 20000150 / 20000155"
+      },
+      "java": {
+        "archivo": "PromediosJobConfig.java · CatalogoInstrumentosS084.java",
+        "contexto": "Spring Batch Job · @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Principal a Job de un step con header y footer",
+          "linea_ini": 151,
+          "linea_fin": 157,
+          "origen_codigo": " 00000000-MAIN-PARAGRAPH.\n     PERFORM 10000000-INICIO.\n     PERFORM 10000100-TIT-LIBS.\n     PERFORM 20000100-ABRE-BASE.\n     PERFORM 50001000-PROCESO UNTIL W77-EOF-B06 = 1.\n     PERFORM 80000000-TERMINA.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class PromediosJobConfig {\n\n    @Bean\n    Job promediosS084(JobRepository repo, Step generaPromedios) {\n        return new JobBuilder(\"S500P185\", repo).start(generaPromedios).build();\n    }\n\n    @Bean\n    Step generaPromedios(JobRepository repo, PlatformTransactionManager tx,\n                         JpaPagingItemReader<Historico> b06Reader,\n                         PromedioProcessor processor,\n                         PromediosWriter writer) {           // header en open(), trailer en close()\n        return new StepBuilder(\"generaPromedios\", repo)\n                .<Historico, PromedioS084Record.Datos>chunk(720, tx)   // BLOCK CONTAINS 720 RECORDS\n                .reader(b06Reader)\n                .processor(processor)\n                .writer(writer)\n                .listener(writer)\n                .build();\n    }\n}",
+          "racional": "El programa es lineal: inicio, librerías, apertura con header, ciclo sobre B06 hasta fin y cierre con trailer. Encaja en un solo <code>Step</code> orientado a chunks. Aunque el arquetipo A3 sugiere JasperReports, la salida de P185 no es un reporte impreso sino un archivo de interfaz, por eso se usa un writer de archivo con header al abrir y trailer al cerrar, que es el equivalente de <code>20000600-GEN-HEADER</code> y <code>20000700-GEN-TRAILER</code>.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "CSI, fecha de línea y fecha de lote anterior",
+          "linea_ini": 186,
+          "linea_fin": 225,
+          "origen_codigo": " 20000100-ABRE-BASE.\n*===================\n     OPEN INQUIRY S500BD01CAPTACION.\n     PERFORM 90000002-B02CONTROL-FIND.\n     IF WS-STATUS-BASE > 0\n        STRING \"ERR FIND B02CONTROL \", WS-STATUS-BASE\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     MOVE B02-NUM-CSI           TO W77-MY-CSI\n                                   WKS-E04-R01-CSIORIG\n                                   WKS-TIT-CSI-E04.\n     MOVE B02-FECHA-LINEA       TO WS-FECHA-PROX\n                                   WKS-E04-R01-FEC-MOVTO\n                                   WKS-TIT-FEC-E04.\n     PERFORM 20000101-FECH-LOTE.\n     SET S500B05INSTRUMEN  TO  BEGINNING.\n     SET S500B06HISTORICO  TO  BEGINNING.\n     PERFORM 20000150-CARGA-B05 UNTIL W77-EOF-B05 = 1.\n     MOVE 1 TO W77-IND-INST.\n     OPEN OUTPUT E04-PROMS084.\n     PERFORM 20000600-GEN-HEADER.\n 20000101-FECH-LOTE.\n     MOVE WS-FECHA-PROX          TO WS-S006-FECHA1.\n     MOVE 1                      TO WS-S006-FECHA2.\n     MOVE 12                     TO WS-S006-FORMATO.\n     MOVE 15                     TO WS-S006-FUNCION.\n     PERFORM 20000102-LLAMA-LOCSUP.\n     MOVE WS-S006-FECHA1         TO WS-FECHA-LOTE-ANT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ControlPromediosTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository b02;   // OPEN INQUIRY\n    private final CalendarioBancario calendario;    // LOCSUP\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlCaptacion control = b02.findControl()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERR FIND B02CONTROL\"));\n        LocalDate fechaLinea = control.fechaLinea();\n        // LOCSUP función 15, formato 12, desplazamiento 1: fecha de lote anterior\n        LocalDate fechaLoteAnt = calendario.retrocede(fechaLinea, 1)\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERR CALL LOCSUP\"));\n\n        var jc = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        jc.put(\"csi\", control.numCsi());\n        jc.put(\"fechaLinea\", fechaLinea);         // header y nombre del archivo\n        jc.put(\"fechaLoteAnt\", fechaLoteAnt);     // filtro de corte sobre B06\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El header y el nombre del archivo llevan la fecha de línea, pero el filtro de contratos usa la fecha de lote anterior que devuelve LOCSUP. La traducción mantiene las dos fechas separadas en el <code>ExecutionContext</code>. Cualquier error de B02 o de LOCSUP termina el paso con <code>DMTERMINATE</code>, que en Java es una excepción que deja el step en FAILED.",
+          "reglas": [
+            "RN-S500-540"
+          ],
+          "riesgo": "El archivo se nombra y fecha con la fecha de línea mientras su contenido corresponde a los cortes de la fecha de lote anterior; S084 debe conocer esa diferencia."
+        },
+        {
+          "id": "s4",
+          "titulo": "Catálogo B05 en memoria con límite de 30 instrumentos",
+          "linea_ini": 75,
+          "linea_fin": 273,
+          "origen_codigo": " 01 WKS-TABLA-B05.\n    02 WKS-TAB-B05-PROD          OCCURS 30 TIMES.\n       04 WKS-TB05-NUM-PROD      PIC 9(04) COMP.\n       04 WKS-TB05-NUM-INST      PIC 9(04) COMP.\n       04 WKS-TB05-MONEDA        PIC 9(03) COMP.\n       04 WKS-TB05-SDO-S084      PIC 9(01) COMP.\n 20000150-CARGA-B05.\n     PERFORM 90000005-B05INSTRUMEN-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1                  TO W77-EOF-B05\n         ELSE\n           STRING \"ERR FIND A B07 \",WS-STATUS-BASE\n           DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF W77-EOF-B05 = 0\n        PERFORM 20000155-B05-A-MEMORIA.\n****************************************************************\n 20000155-B05-A-MEMORIA.\n     ADD 1 TO W77-IND-INST.\n     IF W77-IND-INST > 30\n        STRING \"MAS DE 30 INSTRUMENTOS EN LA BASE; IND-INSTRUM: \"\n               W77-IND-INST\n               DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     MOVE B05-NUM-PRODUCTO  TO WKS-TB05-NUM-PROD(W77-IND-INST).\n     MOVE B05-NUM-INSTRUM   TO WKS-TB05-NUM-INST(W77-IND-INST).\n     MOVE B05-MONEDA        TO WKS-TB05-MONEDA  (W77-IND-INST).\n     MOVE B05-ENV-SDOP-S084 TO WKS-TB05-SDO-S084(W77-IND-INST).",
+          "java_codigo": "/** WKS-TABLA-B05: instrumentos y su indicador de envío a S084. */\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class CatalogoInstrumentosS084 {\n\n    private static final int CAPACIDAD_ORIGEN = 30;     // OCCURS 30 TIMES\n    private final InstrumentoRepository b05;\n    private Map<ClaveInstrumento, Boolean> enviaS084;\n\n    @PostConstruct\n    void carga() {\n        List<Instrumento> todos = b05.findAll();\n        if (todos.size() > CAPACIDAD_ORIGEN) {\n            // Mismo comportamiento que el fuente: con más de 30 instrumentos el paso se detiene.\n            throw new ProcesoAbortadoException(\n                \"MAS DE 30 INSTRUMENTOS EN LA BASE; IND-INSTRUM: \" + (CAPACIDAD_ORIGEN + 1));\n        }\n        enviaS084 = todos.stream().collect(Collectors.toMap(\n                i -> new ClaveInstrumento(i.producto(), i.instrumento(), i.moneda()),\n                i -> i.envSdopS084() == 1));\n    }\n\n    public Optional<Boolean> enviaSaldo(int producto, int instrumento, int moneda) {\n        return Optional.ofNullable(enviaS084.get(new ClaveInstrumento(producto, instrumento, moneda)));\n    }\n}",
+          "racional": "Todos los instrumentos de B05 se cargan a una tabla de 30 posiciones con producto, instrumento, moneda y el indicador <code>B05-ENV-SDOP-S084</code>. Si llega el instrumento 31 el programa aborta, porque la tabla no tiene más espacio. En Java un <code>Map</code> no tiene ese límite; se conserva la validación de forma explícita para no cambiar el comportamiento sin decisión del SME, y queda documentada como límite heredado y no de negocio.",
+          "reglas": [
+            "RN-S500-542"
+          ],
+          "riesgo": "Dar de alta el instrumento número 31 en B05, aunque no sea de envío a S084, detiene la generación del archivo de promedios."
+        }
+      ]
+    },
+    {
+      "titulo": "Selección por fecha de corte, saldo del ciclo 12 y cifras de control",
+      "origen": {
+        "archivo": "S500_SOURCE_P185.txt",
+        "contexto": "PROCEDURE DIVISION · 50001000 / 50001100 / 50001200 / 50001500 / 80000000"
+      },
+      "java": {
+        "archivo": "PromedioProcessor.java · PromediosWriter.java",
+        "contexto": "ItemProcessor · ItemStreamWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Contratos de B06 que cortaron en la fecha de lote anterior",
+          "linea_ini": 297,
+          "linea_fin": 310,
+          "origen_codigo": " 50001000-PROCESO.\n*=================\n     PERFORM 90000006-B06HISTORICO-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1                  TO W77-EOF-B06\n         ELSE\n           STRING \"ERR FIND A B07; STATUS BASE: \",WS-STATUS-BASE\n           DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     IF B06-FECREAL-CORTE = WS-FECHA-LOTE-ANT\n        PERFORM 50001100-DAME-B03.",
+          "java_codigo": "@Bean\n@StepScope\nJpaPagingItemReader<Historico> b06Reader(EntityManagerFactory emf,\n        @Value(\"#{jobExecutionContext['fechaLoteAnt']}\") LocalDate fechaLoteAnt) {\n    return new JpaPagingItemReaderBuilder<Historico>()\n            .name(\"b06Historico\")\n            .entityManagerFactory(emf)\n            // IF B06-FECREAL-CORTE = WS-FECHA-LOTE-ANT\n            .queryString(\"select h from Historico h where h.fecRealCorte = :f order by h.id\")\n            .parameterValues(Map.of(\"f\", fechaLoteAnt))\n            .pageSize(720)\n            .build();\n}",
+          "racional": "El programa recorre B06HISTORICO completo con <code>FINDN</code> y solo procesa los registros cuya fecha real de corte coincide con la fecha de lote anterior. En Java el filtro se empuja a la consulta, lo que evita leer todo el histórico. El orden por identificador sustituye al orden físico del dataset; si S084 dependiera del orden de los registros habría que acordarlo.",
+          "reglas": [
+            "RN-S500-539"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Contrato en B03 e instrumento en la tabla, con abortos por faltantes",
+          "linea_ini": 314,
+          "linea_fin": 359,
+          "origen_codigo": " 50001100-DAME-B03.\n     MOVE B06-NUM-CONTRATO  TO WS-NUM-CONTRATO.\n     PERFORM 90000003-B03SXCTO-FIND.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           STRING \"NO EXISTE CTO EN B03 \", WS-NUM-CONTRATO\n                  DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE\n         ELSE\n           STRING \"ERR FINDN B03SXCTO STATUS=\",WS-STATUS-BASE\n                  \" CTO \" WS-NUM-CONTRATO\n                  DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n     PERFORM 50001200-DAME-B05.\n     IF WKS-TB05-SDO-S084(W77-IND-INST) = 1\n        PERFORM 50001500-GEN-ARCHIVO.\n*****************************************************************\n 50001200-DAME-B05.\n     IF WKS-TB05-NUM-PROD(W77-IND-INST) = B03-NUM-PRODUCTO\n    AND WKS-TB05-NUM-INST(W77-IND-INST) = B03-NUM-INSTRUM\n    AND WKS-TB05-MONEDA  (W77-IND-INST) = B03-MONEDA\n        NEXT SENTENCE\n     ELSE\n        PERFORM 50001210-BUSCA-INDICE\n         VARYING W77-IND-INST FROM 1 BY 1\n         UNTIL (W77-IND-INST > 30)\n          OR  (WKS-TB05-NUM-PROD(W77-IND-INST) = B03-NUM-PRODUCTO\n           AND WKS-TB05-NUM-INST(W77-IND-INST) = B03-NUM-INSTRUM\n           AND WKS-TB05-MONEDA  (W77-IND-INST) = B03-MONEDA).\n     IF W77-IND-INST > 30\n        MOVE B03-NUM-PRODUCTO    TO WS-MSG-PRD\n        MOVE B03-NUM-INSTRUM     TO WS-MSG-INST\n        MOVE B03-MONEDA          TO WS-MSG-MDA\n        STRING \"NO HAY INSTR EN B05 \", WS-MSG-PRD\n                                  \"-\", WS-MSG-INST\n                                  \"-\", WS-MSG-MDA\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class PromedioProcessor implements ItemProcessor<Historico, PromedioS084Record.Datos> {\n\n    private final ContratoRepository b03;\n    private final CatalogoInstrumentosS084 b05;\n\n    @Override\n    public PromedioS084Record.Datos process(Historico h) {\n        Contrato c = b03.findByNumContrato(h.numContrato())          // 90000003-B03SXCTO-FIND\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"NO EXISTE CTO EN B03 \" + h.numContrato()));\n        boolean envia = b05.enviaSaldo(c.producto(), c.instrumento(), c.moneda())\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"NO HAY INSTR EN B05 %d-%d-%d\".formatted(c.producto(), c.instrumento(), c.moneda())));\n        if (!envia) {\n            return null;                                            // WKS-TB05-SDO-S084 <> 1\n        }\n        return new PromedioS084Record.Datos(\n                \"%012d\".formatted(c.numContrato()), c.producto(), c.instrumento(), c.moneda(),\n                h.promCiclo(12).setScale(2, RoundingMode.DOWN));   // B06-PROM-CICLO(12)\n    }\n}",
+          "racional": "Por cada histórico seleccionado se lee el contrato en B03 y se busca su producto, instrumento y moneda en la tabla de B05, empezando por la última posición encontrada para ahorrar recorridos. Si el contrato no existe o el instrumento no está en la tabla, el programa aborta. Solo se escribe el registro cuando el indicador de envío a S084 vale 1. En Java la búsqueda es por llave en un <code>Map</code> y el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code>.",
+          "reglas": [
+            "RN-S500-539",
+            "RN-S500-542"
+          ],
+          "riesgo": "Un solo contrato de B06 sin registro en B03, o con un instrumento no dado de alta en B05, aborta todo el archivo de promedios del día."
+        },
+        {
+          "id": "s7",
+          "titulo": "Saldo promedio del ciclo 12 y acumulado para el trailer",
+          "linea_ini": 365,
+          "linea_fin": 373,
+          "origen_codigo": " 50001500-GEN-ARCHIVO.\n     MOVE B06-PROM-CICLO(12)     TO WKS-E04-R02-SDOPROM.\n     MOVE B03-NUM-CONTRATO       TO WKS-E04-R02-CONTRATO.\n     MOVE B03-NUM-PRODUCTO       TO WKS-E04-R02-PRODUCTO.\n     MOVE B03-NUM-INSTRUM        TO WKS-E04-R02-INSTRUM.\n     MOVE B03-MONEDA             TO WKS-E04-R02-MONEDA.\n     ADD  1                      TO WKS-E04-R09-TOTREGS.\n     ADD  WKS-E04-R02-SDOPROM    TO WKS-E04-R09-TOTDSOS.\n     PERFORM 50001550-ESC-ARCHS084.",
+          "java_codigo": "/** 50001500-GEN-ARCHIVO + 20000700-GEN-TRAILER */\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class PromediosWriter implements ItemStreamWriter<PromedioS084Record.Datos>, StepExecutionListener {\n\n    private static final BigDecimal TOPE_9_14_V99 = new BigDecimal(\"99999999999999.99\");\n    private final S084BinaryCodec codec;                           // header escrito en open()\n    private long totalRegistros;                                   // WKS-E04-R09-TOTREGS\n    private BigDecimal totalSaldos = BigDecimal.ZERO.setScale(2);  // WKS-E04-R09-TOTDSOS\n\n    @Override\n    public void write(Chunk<? extends PromedioS084Record.Datos> chunk) {\n        for (var d : chunk) {\n            totalRegistros++;\n            totalSaldos = totalSaldos.add(d.saldoPromedio());\n            if (totalSaldos.compareTo(TOPE_9_14_V99) > 0) {\n                throw new DesbordamientoAcumuladorException(totalSaldos);   // COBOL truncaría\n            }\n            codec.escribe(d);\n        }\n    }\n\n    @Override\n    public void close() {\n        codec.escribe(new PromedioS084Record.Trailer(totalRegistros, totalSaldos));\n        codec.cierra();                                            // CLOSE ... WITH SAVE\n    }\n}",
+          "racional": "De los doce promedios que guarda B06 se toma siempre la posición 12, que corresponde al ciclo más reciente. Cada registro escrito suma uno al contador y su saldo al total del trailer, que S084 usa para comprobar que recibió el archivo completo. La suma de importes de escala 2 es exacta; el acumulado <code>9(14)V99</code> no tiene <code>ON SIZE ERROR</code>, así que en Java se falla de forma explícita en lugar de perder dígitos.",
+          "reglas": [
+            "RN-S500-539",
+            "RN-S500-541"
+          ],
+          "riesgo": "WKS-E04-R02-SDOPROM es 9(12)V99 sin signo: si B06-PROM-CICLO(12) fuera negativo, el archivo lo enviaría como positivo."
+        },
+        {
+          "id": "s8",
+          "titulo": "Trailer escrito después de cerrar la base",
+          "linea_ini": 287,
+          "linea_fin": 389,
+          "origen_codigo": " 20000700-GEN-TRAILER.\n     WRITE E04-R00-PROMS084 FROM WKS-E04-R09-TRAILER INVALID KEY\n           MOVE WKS-E04-R09-TOTREGS  TO WS-MSG-N-08\n           STRING \"ERR WRITE TRAILER ARCH-E04\"\n                  \" NUM-REG \" WS-MSG-N-08\n                  DELIMITED BY SIZE INTO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           CALL SYSTEM DMTERMINATE.\n 80000000-TERMINA.\n     CLOSE S500BD01CAPTACION.\n     PERFORM 20000700-GEN-TRAILER.\n     CLOSE E04-PROMS084 WITH SAVE.",
+          "java_codigo": "@Override\npublic ExitStatus afterStep(StepExecution step) {\n    // 80000000-TERMINA: CLOSE S500BD01CAPTACION, GEN-TRAILER, CLOSE E04 WITH SAVE.\n    // El trailer depende solo de los acumuladores en memoria, no de la base.\n    step.getExecutionContext().putLong(\"totalRegistros\", totalRegistros);\n    step.getExecutionContext().put(\"totalSaldos\", totalSaldos);\n    return step.getExitStatus();\n}",
+          "racional": "El cierre cierra la base, escribe el trailer con los dos acumulados y cierra el archivo con <code>SAVE</code>. Como el trailer depende solo de memoria, el orden con la base es indiferente; en Java el trailer lo escribe el <code>close()</code> del writer y los totales se dejan además en el contexto del step para conciliación.",
+          "reglas": [
+            "RN-S500-541"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Abortos por un solo registro inconsistente",
+      "detalle": "50001100-DAME-B03 y 50001200-DAME-B05 terminan con DMTERMINATE si un contrato del histórico no existe en B03 o si su instrumento no está en la tabla de B05 (líneas 318-329 y 350-359)."
+    },
+    {
+      "titulo": "Límite estructural de 30 instrumentos",
+      "detalle": "20000155-B05-A-MEMORIA aborta al cargar el instrumento 31 (líneas 262-268), aunque no sea de envío a S084."
+    },
+    {
+      "titulo": "Fecha del archivo distinta a la de los cortes",
+      "detalle": "El header y el título llevan B02-FECHA-LINEA (líneas 201-203) y la selección usa la fecha de lote anterior calculada con LOCSUP (líneas 218-225)."
+    },
+    {
+      "titulo": "Saldos y acumulados sin signo ni protección",
+      "detalle": "WKS-E04-R02-SDOPROM y WKS-E04-R09-TOTDSOS no tienen signo y el ADD de la línea 372 no tiene ON SIZE ERROR."
+    },
+    {
+      "titulo": "Mensajes de error que citan otro dataset",
+      "detalle": "Los errores de B05 y B06 dicen \"ERR FIND A B07\" (líneas 252 y 304), lo que confunde el diagnóstico en operación."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar que B06-PROM-CICLO(12) es el ciclo más reciente y que no debe tomarse otra posición según la fecha de corte.",
+    "Confirmar con S084 la representación binaria (COMP) de los registros de 24 bytes en la plataforma destino.",
+    "Confirmar si B06-PROM-CICLO puede ser negativo (contratos con sobregiro) y cómo debe viajar.",
+    "Validar si LOCSUP función 15 con formato 12 retrocede un día hábil o natural; el encabezado del fuente habla de contratos que cortaron hoy en fecha hábil."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-539",
+    "RN-S500-540",
+    "RN-S500-541",
+    "RN-S500-542"
+  ]
+}

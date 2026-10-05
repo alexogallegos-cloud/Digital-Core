@@ -1,0 +1,210 @@
+{
+  "slug": "S500_P117",
+  "sistema": "S500",
+  "programa": "P117",
+  "nombre": "Depuración de Alertas, Saldos y Bitácora Maker-Checker",
+  "funcion": "Paso batch de S500 parametrizado por estructura (17, 18, 56 o 99) y opción (1 a 3) que depura estructuras de envío en S500BD04TARJETAS y S500BD01CAPTACION y emite los listados 001REPSALDOS y 001MAKERCHECK.",
+  "resumen": "P117 recibe un parámetro de 12 posiciones con la estructura a tratar, la opción y, para las opciones 2 y 3, una fecha. Obtiene la fecha de proceso de S500B02CONTROL proyectándola con LOCSUP, salvo que la fecha venga en el parámetro. Para la estructura 17 borra las alertas de S500B17PCTLALERTA en estatus 2 de la fecha proyectada; para la 56 vacía toda la bitácora S500B56MAKERCHEK a un archivo temporal, lo ordena por sucursal y estatus y emite el listado maker-checker con cortes por SIRH. Con las opciones 1 y 3 genera además el archivo SDOSBNE y lo envía por INTELAR; como la invocación del tratamiento de S500B18PENVIOSDOS está comentada, hoy ese archivo solo lleva header y trailer.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JasperReports",
+  "paquete_java": "mx.banamex.s500.depuracion.makerchecker",
+  "secciones": [
+    {
+      "titulo": "Parámetro de ejecución, fecha de proceso y despacho",
+      "origen": {
+        "archivo": "S500_SOURCE_P117.txt",
+        "contexto": "WORKING-STORAGE · 00000000-CONTROL-PROGRAMA / 10000000-INICIO / 20000000-PROCESO"
+      },
+      "java": {
+        "archivo": "P117Parametros.java · FechaProyectadaTasklet.java · DepuracionJobConfig.java",
+        "contexto": "record · Tasklet · Job con JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro de 12 posiciones con niveles 88 a un record validado",
+          "linea_ini": 245,
+          "linea_fin": 844,
+          "origen_codigo": " 01 WS-PARAM-VALUE             PIC X(12)        .\n 01 WS-PARAM-VALUE-R REDEFINES WS-PARAM-VALUE   .\n    02 WS-PARAM-VALUE-EST      PIC 9(02)        .\n       88 WS-88-P-VAL-EST-OK   VALUE 17,18,56,99.\n       88 WS-88-P-VAL-B17      VALUE 17         .\n       88 WS-88-P-VAL-B18      VALUE 18         .\n       88 WS-88-P-VAL-B56      VALUE 56         .\n       88 WS-88-P-VAL-AMBAS    VALUE 99         .\n    02 WS-PARAM-VALUE-OPC      PIC 9(02)        .\n       88 WS-88-P-VAL-OK       VALUE 1 THRU 3   .\n       88 WS-88-P-VAL-REPS     VALUE 1,3        .\n       88 WS-88-P-VAL-DEPU     VALUE 1,2        .\n       88 WS-88-P-VAL-CONF     VALUE 2,3        .\n       88 WS-88-P-VAL-1        VALUE 1          .\n       88 WS-88-P-VAL-2        VALUE 2          .\n       88 WS-88-P-VAL-3        VALUE 3          .\n    02 WS-PARAM-VALUE-FEC      PIC 9(08)        .\n   MOVE 0                 TO WS-VALIDA-VA.\n   IF WS-88-P-VAL-EST-OK\n      NEXT SENTENCE\n   ELSE\n      STRING \"ESTRUCTURA NO VALIDA = \" WS-PARAM-VALUE-EST\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      MOVE 1 TO WS-VALIDA-VA.\n   IF WS-88-SIN-ERROR\n      IF WS-88-P-VAL-OK\n         NEXT SENTENCE\n      ELSE\n         STRING \"OPCION NO VALIDA = \" WS-PARAM-VALUE-OPC\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         MOVE 1 TO WS-VALIDA-VA.\n   IF WS-88-SIN-ERROR\n      IF WS-88-P-VAL-1\n         NEXT SENTENCE\n      ELSE\n      IF WS-88-P-VAL-CONF AND WS-PARAM-VALUE-FEC > 0\n         NEXT SENTENCE\n      ELSE\n         STRING \"FECHA ES REQUERIDA = \" WS-PARAM-VALUE-FEC\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         MOVE 1 TO WS-VALIDA-VA.",
+          "java_codigo": "/** WS-PARAM-VALUE X(12): estructura 9(02), opción 9(02), fecha 9(08). */\npublic record P117Parametros(Estructura estructura, int opcion, Optional<LocalDate> fecha) {\n\n    public enum Estructura { B17, B18, B56, AMBAS }          // 88 WS-88-P-VAL-EST-OK 17,18,56,99\n\n    public boolean generaReporte() { return opcion == 1 || opcion == 3; }   // WS-88-P-VAL-REPS\n    public boolean depura()        { return opcion == 1 || opcion == 2; }   // WS-88-P-VAL-DEPU\n    public boolean fechaExterna()  { return opcion == 2 || opcion == 3; }   // WS-88-P-VAL-CONF\n\n    public static P117Parametros parse(String raw) {          // JobParameter \"param\", 12 caracteres\n        Estructura est = switch (raw.substring(0, 2)) {\n            case \"17\" -> Estructura.B17;\n            case \"18\" -> Estructura.B18;\n            case \"56\" -> Estructura.B56;\n            case \"99\" -> Estructura.AMBAS;\n            default   -> throw new ParametroInvalidoException(\"ESTRUCTURA NO VALIDA = \" + raw.substring(0, 2));\n        };\n        int opc = Integer.parseInt(raw.substring(2, 4));\n        if (opc < 1 || opc > 3) {\n            throw new ParametroInvalidoException(\"OPCION NO VALIDA = \" + raw.substring(2, 4));\n        }\n        long fec = Long.parseLong(raw.substring(4, 12));\n        if (opc != 1 && fec == 0) {\n            throw new ParametroInvalidoException(\"FECHA ES REQUERIDA = \" + raw.substring(4, 12));\n        }\n        Optional<LocalDate> f = (fec == 0) ? Optional.empty()\n                : Optional.of(LocalDate.parse(raw.substring(4, 12), DateTimeFormatter.BASIC_ISO_DATE));\n        return new P117Parametros(est, opc, f);\n    }\n}",
+          "racional": "El parámetro llega como un solo campo alfanumérico que se redefine en tres números, y las combinaciones válidas se expresan con niveles 88. En Java se vuelve un <code>record</code> construido desde un <code>JobParameter</code>, con enum para la estructura y métodos con nombre para cada nivel 88, lo que hace legible que la opción 1 reporta y depura, la 2 solo depura y la 3 solo reporta. Un parámetro inválido hace fallar el job antes de abrir la base, igual que <code>WS-VALIDA-VA</code> impide el resto del proceso.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Fecha proyectada desde S500B02CONTROL o desde el parámetro",
+          "linea_ini": 919,
+          "linea_fin": 960,
+          "origen_codigo": " 10000005-OBTB02-FECHA-CSI.\n*=================\n   PERFORM 90000002-B02CONTROL-FIND .\n   IF WS-STATUS-BASE > 0\n      MOVE DMSTATUS(DMCATEGORY)   TO WS-STATUS-BASE\n      STRING \"ERR FIND B02CONTROL \", WS-STATUS-BASE\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE .\n   MOVE B02-FECHA-LINEA     TO WS02-FECHA-LINEA  .\n   MOVE B02-NUM-CSI         TO WS02-NUM-CSI      .\n   MOVE B02-FECHA-LOTE      TO WS02-FECHA-LOTEA  .\n   MOVE WS02-FECHA-LINEA    TO WS-S006-FECHA1   .\n   MOVE 2                   TO WS-S006-FECHA2   .\n   MOVE 15                  TO WS-S006-FUNCION  .\n   MOVE 13                  TO WS-S006-FORMATO  .\n   MOVE WS-S006-FUNCION     TO WS-MSG-N-04      .\n   PERFORM 20000006-LOCSUP                      .\n   IF WS-88-P-VAL-CONF\n      MOVE WS-PARAM-VALUE-FEC  TO WS-FECHA-PROY\n   ELSE\n   IF WS-S006-FUNCION = 0\n      MOVE WS-S006-FECHA1      TO WS-FECHA-PROY\n   CANCEL \"LOCSUP\".",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class FechaProyectadaTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500B02CONTROL\n    private final CalendarioBancario calendario;         // reemplaza LOCSUP\n    @Value(\"#{jobParameters['param']}\") private String param;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var b02 = control.findControl().orElseThrow(() ->\n                new ProcesoAbortadoException(\"ERR FIND B02CONTROL\"));            // CALL SYSTEM DMTERMINATE\n        var p = P117Parametros.parse(param);\n        // LOCSUP función 15, formato 13, desplazamiento 2 (comentario: \"PROYECTA T-2\").\n        LocalDate proyectada = p.fechaExterna()\n                ? p.fecha().orElseThrow()                                         // MOVE WS-PARAM-VALUE-FEC\n                : calendario.retrocede(b02.fechaLinea(), 2)\n                        .orElseThrow(() -> new ProcesoAbortadoException(\"ERR CALL LOCSUP\"));\n        var exec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        exec.put(\"fechaProyectada\", proyectada);\n        exec.put(\"csi\", b02.numCsi());              // WS02-NUM-CSI: entra en el título de los archivos\n        exec.put(\"fechaLote\", b02.fechaLote());     // WS02-FECHA-LOTEA\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de proceso se obtiene de la fecha de línea del registro de control, retrocedida dos posiciones con LOCSUP, y se sustituye por la del parámetro en las opciones 2 y 3. El COBOL llama a LOCSUP en todos los casos y descarta su resultado si hay fecha externa; en Java solo se calcula cuando se necesita. El CSI y la fecha de lote se publican en el contexto del job porque forman parte del nombre de los archivos temporales.",
+          "reglas": [],
+          "riesgo": "Con fecha en el parámetro, un error de LOCSUP se ignora sin aviso porque la rama WS-88-P-VAL-CONF se evalúa antes que el resultado."
+        },
+        {
+          "id": "s3",
+          "titulo": "Despacho por estructura con la rama de B18 comentada",
+          "linea_ini": 790,
+          "linea_fin": 1037,
+          "origen_codigo": " 00000000-CONTROL-PROGRAMA.\n*****************************************************************\n   PERFORM 10000000-INICIO     .\n   IF WS-88-SIN-ERROR\n      PERFORM 20000000-PROCESO .\n   IF WS-88-SIN-ERROR\n      PERFORM 30000000-FIN     .\n   STOP RUN                    .\n 20000000-PROCESO.\n*=====================\n*  IF WS-88-P-VAL-B18 OR WS-88-P-VAL-AMBAS\n*     PERFORM 20000100-PROCESO-B18.\n   IF WS-88-P-VAL-B56 OR WS-88-P-VAL-AMBAS\n      PERFORM 20000100-PROCESO-B56.\n   IF WS-88-P-VAL-B17 OR WS-88-P-VAL-AMBAS\n      PERFORM 20000100-PROCESO-B17.",
+          "java_codigo": "@Bean\nJob depuracionP117(JobRepository repo, Step fechaProyectada, Step drenaMakerChecker,\n                   Step reporteMakerChecker, Step depuraAlertasB17, Step cierraYEnviaSdosbne,\n                   JobExecutionDecider porEstructura) {\n    // cierraYEnviaSdosbne siempre cierra el job; solo envía si la opción es 1 o 3, porque\n    // 10000007-OPEN-ARCH abre SDOSBNE con WS-88-P-VAL-REPS sin importar la estructura.\n    return new JobBuilder(\"S500P117\", repo)\n            .start(fechaProyectada)\n            .next(porEstructura)\n                .on(\"B56\").to(drenaMakerChecker).next(reporteMakerChecker).next(cierraYEnviaSdosbne)\n            .from(porEstructura)\n                .on(\"AMBAS\").to(drenaMakerChecker).next(reporteMakerChecker)\n                            .next(depuraAlertasB17).next(cierraYEnviaSdosbne)\n            .from(porEstructura)\n                .on(\"B17\").to(depuraAlertasB17).next(cierraYEnviaSdosbne)\n            .from(porEstructura)\n                .on(\"B18\").to(cierraYEnviaSdosbne)   // 20000100-PROCESO-B18 está comentado en el fuente\n            .end()\n            .build();\n}",
+          "racional": "La rutina principal valida, procesa y cierra, y el proceso elige qué estructuras tratar según el parámetro. En Spring Batch esa elección es un <code>JobExecutionDecider</code> con un flujo por estructura. Se respeta el orden del fuente: con la estructura 99 se trata primero la bitácora B56 y después las alertas B17. La rama de la B18 se modela tal como corre hoy, sin depuración; reactivarla es una decisión de negocio, no de traducción.",
+          "reglas": [
+            "RN-S500-376"
+          ],
+          "riesgo": "La estructura 99 se llama AMBAS pero no incluye la B18: el PERFORM está comentado en las líneas 1032-1033."
+        }
+      ]
+    },
+    {
+      "titulo": "Depuración de estructuras DMSII",
+      "origen": {
+        "archivo": "S500_SOURCE_P117.txt",
+        "contexto": "20000102-PROCESO-B17-2 · 20000101-PROCESO-B18-1 · 20000100-PROCESO-B56"
+      },
+      "java": {
+        "archivo": "DepuraAlertasProcessor.java · EnviosSaldosProcessor.java · DrenaMakerCheckerStep.java",
+        "contexto": "ItemProcessor · @Transactional · JdbcCursorItemReader"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Alertas B17: borrar las de estatus 2 de la fecha proyectada",
+          "linea_ini": 1067,
+          "linea_fin": 1100,
+          "origen_codigo": " 20000102-PROCESO-B17-2.\n*=================\n   MOVE S500B17PCTLALERTA TO WS-S500B17PCTLALERTA.\n   IF WS-DB-NOTFOUND\n      PERFORM 20000012-IMPRIME-MSJ-B17\n      MOVE 1           TO WS-TERMINA\n   ELSE\n   IF WS-DB-ERROR\n      MOVE 1 TO WS-ERR-CODE\n      STRING WS-TB-ERR-LIST (WS-ERR-CODE),\n             WS-TABDB-ERROR(WS-STATUS-BASE)\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n   ELSE\n      IF WS17P-ESTATUS-ALERTA = 2 AND\n         WS17P-FEC-MAQ = WS-FECHA-PROY\n         PERFORM 20000011-REGISTRA-TOTAL-B17\n         PERFORM 90400000-BEGIN-TRANSAC-NOAUD\n         PERFORM 90400017-B17PCTLALERTA-DELETE\n         IF WS-DB-ERROR\n            MOVE 1 TO WS-ERR-CODE\n            STRING WS-TB-ERR-LIST (WS-ERR-CODE),\n                   WS-TABDB-ERROR(WS-STATUS-BASE)\n                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n            PERFORM 70000050-MENSAJE\n            PERFORM 90400000-END-TRANSAC-NOAUD\n         ELSE\n            ADD 1  TO WS-TOTAL-DEP-DEP (WS-IND-DEPU)\n            PERFORM 90400000-END-TRANSAC-NOAUD.\n   PERFORM 90400017-B17ALERTAS-LN.\n   MOVE B17P-FEC-MAQ TO WS-FECHA-TRANS.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class DepuraAlertasProcessor implements ItemProcessor<AlertaB17, AlertaB17> {\n\n    private final AlertaB17Repository alertas;               // S500BD04TARJETAS.S500B17PCTLALERTA\n    private final TotalesDepuracion totales;                  // WS-TOTAL-DEP OCCURS 30\n    @Value(\"#{jobExecutionContext['fechaProyectada']}\") private LocalDate fechaProyectada;\n\n    @Override\n    @Transactional(propagation = Propagation.REQUIRES_NEW)    // BEGIN/END-TRANSAC-NOAUD por registro\n    public AlertaB17 process(AlertaB17 a) {\n        if (a.estatus() == 2 && a.fechaMaquina().equals(fechaProyectada)) {\n            totales.leido(a.fechaMaquina());                   // 20000011-REGISTRA-TOTAL-B17\n            alertas.delete(a);\n            totales.depurado(a.fechaMaquina());\n        }\n        return null;                                           // no hay salida a archivo\n    }\n}\n\n// Al terminar el step (ON NOTFOUND): 20000012-IMPRIME-MSJ-B17\n@AfterStep\nExitStatus mensaje(StepExecution se) {\n    log.info(totales.depurados() == 0\n            ? \"NO EXISTEN REGISTROS PARA LA FECHA : \" + fechaProyectada\n            : \"REGISTROS DEPURADOS EN S500B17PCTLALERTA: \" + totales.depurados());\n    return se.getExitStatus();\n}",
+          "racional": "Con la opción 2 el programa recorre la B17 con bloqueo y borra, una transacción por registro, solo las alertas con estatus 2 y fecha de máquina igual a la proyectada. En Java el borrado va en un <code>ItemProcessor</code> con <code>REQUIRES_NEW</code> para conservar la granularidad transaccional, y el mensaje final se emite en <code>@AfterStep</code>. Un error de base en el COBOL solo emite mensaje y sigue; aquí se registra y se cuenta como omisión con <code>skip</code> para no cambiar ese comportamiento.",
+          "reglas": [],
+          "riesgo": "Un error de DMSII al borrar no detiene el ciclo: se emite el mensaje y se continúa con el siguiente registro."
+        },
+        {
+          "id": "s5",
+          "titulo": "Envíos B18: estatus 2 se depura, estatus 1 se reporta (inactivo)",
+          "linea_ini": 1157,
+          "linea_fin": 1207,
+          "origen_codigo": " 20000101-PROCESO-B18-1.\n*=================\n   MOVE S500B18PENVIOSDOS TO WS-S500B18PENVIOSDOS.\n   PERFORM 20000098-GENERA-DET-ARCHSDOS.\n   IF WS-DB-NOTFOUND\n      MOVE 1 TO WS-TERMINA\n      CLOSE I01-ARCSDOS WITH SAVE\n   ELSE\n   IF WS-DB-ERROR\n      MOVE SPACES TO WS-DES-CODE\n      PERFORM 00000000-ERR-DB\n   ELSE\n   IF WS18P-EST-ENVIO = 2 AND\n     (WS18P-FECHA-TRANS < WS-FECHA-PROY OR\n      WS18P-FECHA-TRANS = WS-FECHA-PROY)\n      PERFORM 20000011-REGISTRA-TOTAL-B18\n      PERFORM 90400000-BEGIN-TRANSAC-NOAUD\n      PERFORM 90400018-B18PENVIOSDOS-DELETE\n      IF WS-DB-ERROR\n         MOVE SPACES TO WS-DES-CODE\n         PERFORM 00000000-ERR-DB\n         PERFORM 90400000-END-TRANSAC-NOAUD\n      ELSE\n         PERFORM 20000010-MUEVE-TEMP-1\n         ADD 1  TO WS-TOTAL-DEP-DEP (WS-IND-DEPU)\n         PERFORM 90400000-END-TRANSAC-NOAUD\n   ELSE\n   IF WS18P-EST-ENVIO = 1\n      PERFORM 20000010-MUEVE-TEMP-3.\n   PERFORM 90400018-B18PFECHA-LN.\n   MOVE B18P-FECHA-TRANS TO WS-FECHA-TRANS.\n   IF WS-DB-NOTFOUND\n      IF WS-TOTAL-DEP-DEP (1) = 0\n         STRING \"NO EXISTEN REGISTROS PARA LA FECHA : \"\n                WS-FECHA-PROY\n                DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         MOVE 1 TO WS-TERMINA",
+          "java_codigo": "/** 20000101-PROCESO-B18-1. Inactivo en el fuente: 20000000-PROCESO no lo invoca. */\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class EnviosSaldosProcessor implements ItemProcessor<EnvioSaldoB18, RegistroTemporal> {\n\n    private final EnvioSaldoB18Repository envios;\n    @Value(\"#{jobExecutionContext['fechaProyectada']}\") private LocalDate fechaProyectada;\n\n    @Override\n    @Transactional(propagation = Propagation.REQUIRES_NEW)\n    public RegistroTemporal process(EnvioSaldoB18 e) {\n        sdosbneWriter.detalle(e);                              // 20000098-GENERA-DET-ARCHSDOS\n        if (e.estatusEnvio() == 2 && !e.fechaTransaccion().isAfter(fechaProyectada)) {\n            envios.delete(e);                                  // ya enviado: se totaliza y se borra\n            return RegistroTemporal.depurado(e);               // MUEVE-TEMP-1, tipo 1\n        }\n        if (e.estatusEnvio() == 1) {\n            return RegistroTemporal.pendiente(e);              // MUEVE-TEMP-3, tipo 3: se conserva\n        }\n        return null;\n    }\n}\n// Opción 2, fin de datos sin depurados: \"NO EXISTEN REGISTROS PARA LA FECHA : \" + fechaProyectada",
+          "racional": "Las reglas del brain describen este bloque: un envío ya hecho (estatus 2) con fecha menor o igual a la proyectada se borra bajo transacción y un envío pendiente (estatus 1) solo se reporta. La traducción lo conserva como componente porque es la lógica documentada, pero se registra en el job como inactivo para no activar un borrado que hoy no ocurre. La opción 2 compara solo fechas iguales y emite el mensaje de guarda cuando no depuró nada.",
+          "reglas": [
+            "RN-S500-372",
+            "RN-S500-373"
+          ],
+          "riesgo": "Este párrafo no se ejecuta: el PERFORM 20000100-PROCESO-B18 está comentado (líneas 1032-1033)."
+        },
+        {
+          "id": "s6",
+          "titulo": "Bitácora maker-checker B56: drenado completo a archivo temporal",
+          "linea_ini": 1257,
+          "linea_fin": 1301,
+          "origen_codigo": " 20000100-PROCESO-B56.\n*=====================\n   MOVE 0                 TO WS-TERMINA, WS-STATUS-BASE\n   SET S500B56MAKERCHEK   TO BEGINNING.\n   PERFORM 90000056-B56MAKERCHEK-LOCKN\n   PERFORM 20000102-PROCESO-B56-1 UNTIL WS-TERMINA = 1.\n   CLOSE I01-ARCMAKRCHECK WITH SAVE\n   PERFORM 20000120-GENERA-REPORTE.\n*=====================\n20000102-PROCESO-B56-1.\n*=====================\n   IF WS-DB-NOTFOUND\n      MOVE 1 TO WS-TERMINA\n   ELSE\n   IF WS-DB-ERROR\n      PERFORM 00000000-ERR-DB\n   ELSE\n      PERFORM 90000000-BEGIN-TRANSACTION\n      PERFORM 90000056-B56MAKERCHEK-DELETE\n      IF WS-DB-ERROR\n         PERFORM 00000000-ERR-DB\n         PERFORM 90000000-END-TRANSACTIONNOAU\n      ELSE\n         PERFORM 20000104-MUEVE-B56-TEMP\n         PERFORM 90000000-END-TRANSACTIONNOAU.\n   PERFORM 90000056-B56MAKERCHEK-LOCKN.\n*=====================\n 20000104-MUEVE-B56-TEMP.\n*=====================\n    MOVE B56-NUM-AUT       TO I01-R-NUM-AUT\n    MOVE B56-SUC-PROMOTORA TO I01-R-SUC-PROMOTORA\n    MOVE B56-NUM-CONTRATO  TO I01-R-NUM-CONTRATO\n    MOVE B56-CLA-TRANS     TO I01-R-CLA-TRANS\n    MOVE B56-MONEDA        TO I01-R-MONEDA\n    MOVE B56-IMPORTE-OPER  TO I01-R-IMPORTE-OPER\n    MOVE B56-EST-TRAN      TO I01-R-EST-TRAN\n    MOVE B56-SUC-TRANS     TO I01-R-SUC-TRANS\n    MOVE B56-NOM-OPE       TO I01-R-NOM-OPE\n    MOVE B56-HRA-TRAN      TO I01-R-HRA-TRAN\n    MOVE B56-NOM-CHE       TO I01-R-NOM-CHE\n    MOVE B56-MED-ACC       TO I01-R-MDA\n    MOVE B56-USO-FUT-01    TO I01-R-NUM-INT\n    WRITE I01-R-ARCMAKRCHECK.",
+          "java_codigo": "@Bean\nStep drenaMakerChecker(JobRepository repo, PlatformTransactionManager tx,\n                       JpaCursorItemReader<MakerCheckerB56> lectorB56,   // SET B56 TO BEGINNING + LOCK NEXT\n                       MakerCheckerB56Repository b56) {\n    return new StepBuilder(\"drenaMakerChecker\", repo)\n            .<MakerCheckerB56, MakerCheckerB56>chunk(1, tx)      // una transacción por registro, como el COBOL\n            .reader(lectorB56)\n            .writer(new CompositeItemWriterBuilder<MakerCheckerB56>()\n                    .delegates(evidenciaWriter(),                // 20000104-MUEVE-B56-TEMP, primero la evidencia\n                               items -> b56.deleteAll(items))     // 90000056-B56MAKERCHEK-DELETE\n                    .build())\n            .build();\n}\n\n/** I01-ARCMAKRCHECK, 120 bytes. Importe 9(16)V99 a BigDecimal escala 2; contrato 9(16) como String. */\npublic record EvidenciaMakerChecker(int sucTrans, int estTran, int numInt, long numAut, int sucPromotora,\n                                    String contrato, int claveTrans, int moneda, BigDecimal importe,\n                                    long maker, LocalTime hora, long checker, int medioAcceso) {}",
+          "racional": "Cada registro de la bitácora se borra de la base y se copia al temporal con número de autorización, contrato, importe, estatus, sucursal, operador que capturó, hora y operador que autorizó. En Java se invierte el orden: primero se escribe la evidencia y después se borra, dentro del mismo chunk, y la evidencia va a un destino transaccional (tabla histórica o almacenamiento con confirmación) en vez de un archivo temporal. El importe <code>9(16)V99</code> pasa a <code>BigDecimal</code> con escala 2 y el contrato de 16 dígitos a <code>String</code>.",
+          "reglas": [
+            "RN-S500-374"
+          ],
+          "riesgo": "El borrado no depende de la opción ni de la fecha: con la opción 3 también se vacía la bitácora."
+        }
+      ]
+    },
+    {
+      "titulo": "Listado maker-checker y envío del archivo de saldos",
+      "origen": {
+        "archivo": "S500_SOURCE_P117.txt",
+        "contexto": "FILE SECTION · 20000120-SORT-ARCHTEMP · 20000123-* · 30000002-CLOSE-ARCH"
+      },
+      "java": {
+        "archivo": "SdosbneRecord.java · ReporteMakerCheckerStep.java · EnvioIntelarTasklet.java",
+        "contexto": "sealed interface · JasperReports · RetryTemplate"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Archivo SDOSBNE de 540 bytes con header, detalle y trailer",
+          "linea_ini": 98,
+          "linea_fin": 163,
+          "origen_codigo": "  FD I02-ARCSDOS\n     BLOCK  CONTAINS 120 RECORDS\n     RECORD CONTAINS 540 CHARACTERS\n     VALUE OF AREAS    1000\n     VALUE OF AREASIZE 3600\n            SECURITYTYPE IS PUBLIC\n            PROTECTION   IS PROTECTED\n            SAVEFACTOR   IS 99 .\n  01 I02-R-ARCSDOS                                       .\n     02 I02-R-TIP-REG                      PIC 9(02)     .\n     02 I02-R-REGISTRO                     PIC X(538)    .\n     02 I02-R-SDOS-HDR     REDEFINES I02-R-REGISTRO      .\n        03 I02-HDR-FECHA-ARCH              PIC 9(08)     .\n        03 I02-HDR-SISTEMA                 PIC X(04)     .\n        03 I02-HDR-DESCRIPCION             PIC X(10)     .\n        03 FILLER                          PIC X(516)    .\n     02 I02-R-SDOS-DET     REDEFINES I02-R-REGISTRO      .\n        03 I02-DET-EST-ENVIO               PIC 9(02)     .\n        03 I02-DET-TIPO-ENVIO              PIC 9(02)     .\n        03 I02-DET-FECHA-TRANS             PIC 9(08)     .\n        03 I02-DET-SUC-PROMOTORA           PIC 9(04)     .\n        03 I02-DET-NUM-CONTRATO            PIC 9(12)     .\n        03 I02-DET-HORA-TRANS              PIC 9(08)     .\n        03 I02-DET-IMPORTE-DISPONIBLE      PIC 9(16)V99  .\n        03 I02-DET-IMPORTE-ACTUAL          PIC 9(16)V99  .\n        03 I02-DET-SDO-PROTEGIDO           PIC 9(16)V99  .\n        03 I02-DET-SALDO-PENDIENTE         PIC 9(16)V99  .\n        03 I02-DET-AUT-PENDIENTE           PIC 9(16)V99  .\n        03 I02-DET-ASIGNACIONES-OTORGADAS  PIC 9(16)V99  .\n        03 I02-DET-ASIGNACIONES-RECIBIDAS  PIC 9(16)V99  .\n        03 I02-DET-DISPONIBLE-ASIGNADO     PIC 9(16)V99  .\n        03 I02-DET-TECHO-RECIBIDO          PIC 9(16)V99  .\n        03 I02-DET-TECHO-ASIGNADO          PIC 9(16)V99  .\n        03 I02-DET-TECHO-DISPONIBLE        PIC 9(16)V99  .\n        03 I02-DET-DISPONIBLE-ACTUAL       PIC 9(16)V99  .\n     02 I02-R-SDOS-TRL     REDEFINES I02-R-REGISTRO      .\n        03 I02-TRL-TOT-XENVIAR             PIC 9(08)     .\n        03 I02-TRL-TOT-ENVIADOS            PIC 9(08)     .\n        03 FILLER                          PIC X(522)    .",
+          "java_codigo": "/** I02-ARCSDOS: tipo 01 header, detalle (tipo = estatus de envío), 99 trailer. */\npublic sealed interface SdosbneRecord permits SdosbneRecord.Header, SdosbneRecord.Detalle, SdosbneRecord.Trailer {\n\n    record Header(LocalDate fechaArchivo, String sistema, String descripcion) implements SdosbneRecord {}\n    // sistema = \"S500\", descripcion = \"SALDOS BNE\" (20000097-GENERA-HDR-ARCHSDOS)\n\n    /** Todos los importes son 9(16)V99: 18 dígitos, BigDecimal escala 2, nunca long ni double. */\n    record Detalle(int estatusEnvio, int tipoEnvio, LocalDate fechaTransaccion, int sucPromotora,\n                   String contrato,                         // 9(12)\n                   LocalTime horaTransaccion,\n                   BigDecimal importeDisponible, BigDecimal importeActual, BigDecimal saldoProtegido,\n                   BigDecimal saldoPendiente,               // I02-DET-SALDO-PENDIENTE 9(16)V99\n                   BigDecimal autPendiente, BigDecimal asignacionesOtorgadas,\n                   BigDecimal asignacionesRecibidas, BigDecimal disponibleAsignado,\n                   BigDecimal techoRecibido, BigDecimal techoAsignado, BigDecimal techoDisponible,\n                   BigDecimal disponibleActual /* ... producto, instrumento, moneda, cliente, usos futuros */)\n            implements SdosbneRecord {}\n\n    record Trailer(long totalPorEnviar, long totalEnviados) implements SdosbneRecord {}   // 9(08) cada uno\n}",
+          "racional": "El archivo que se manda por INTELAR tiene un registro de 540 bytes con tres vistas <code>REDEFINES</code>. Se modela como <code>sealed interface</code> con un <code>record</code> por vista. Los importes son <code>PIC 9(16)V99</code>, 18 dígitos con dos decimales, que exceden la precisión exacta de un <code>double</code> y la capacidad de centavos en <code>long</code> con margen; por eso se usan <code>BigDecimal</code> de escala 2 y, en base relacional, <code>NUMERIC(18,2)</code>. Se omitió en el extracto la parte final del detalle con producto, cliente y usos futuros.",
+          "reglas": [
+            "RN-S500-375"
+          ],
+          "riesgo": "Los campos de importe no tienen signo; un saldo pendiente negativo en la B18 llegaría al archivo como positivo."
+        },
+        {
+          "id": "s8",
+          "titulo": "SORT por sucursal y estatus y conteo por estatus a JasperReports",
+          "linea_ini": 1755,
+          "linea_fin": 1901,
+          "origen_codigo": " 20000120-SORT-ARCHTEMP.\n*========================\n   SORT S01-ARCMAKRCHECK ON ASCENDING KEY S01-SUC-TRANS,\n                                          S01-EST-TRAN\n        USING  I01-ARCMAKRCHECK  RELEASE\n        GIVING I01-ARCMAKRCHECK  SAVE\n        MEMORY SIZE IS WS-MEMORY-SIZE WORDS\n        DISK   SIZE IS WS-DISK-SIZE   WORDS\n   OPEN INPUT I01-ARCMAKRCHECK\n   MOVE 0 TO WS-I01-FIN-ARCH.\n 20000123-CONT-STATUS-MOVS.\n*========================\n   ADD                  1    TO WS-CONT-LEIDOS\n   IF I01-R-EST-TRAN = 2\n      MOVE \"FINALIZADO\"      TO WS-DT-STATUS\n      ADD            1       TO WS-CONT-FINALIZADOS\n      ADD I01-R-IMPORTE-OPER TO WS-ACUM-IMP-TOTAL\n   ELSE\n   IF I01-R-EST-TRAN = 1\n      MOVE \"EN PROCESO\"      TO WS-DT-STATUS\n      ADD            1       TO WS-CONT-PROCESO.\n*========================\n 20000123-ASIGNA-MONEDA-MOV.\n*========================\n   IF I01-R-MONEDA =  01\n      MOVE \"MN\" TO WS-DT-MON\n   ELSE\n   IF I01-R-MONEDA =  05\n      MOVE \"DL\" TO WS-DT-MON\n   ELSE\n      MOVE \"--\" TO WS-DT-MON.",
+          "java_codigo": "@Bean\nStep reporteMakerChecker(JobRepository repo, PlatformTransactionManager tx,\n                         ReporteMakerCheckerService jasper) {\n    return new StepBuilder(\"reporteMakerChecker\", repo)\n            .tasklet((c, ctx) -> {\n                // SORT S01-ARCMAKRCHECK ON ASCENDING KEY S01-SUC-TRANS, S01-EST-TRAN\n                List<EvidenciaMakerChecker> filas = evidencia.leeDelDia().stream()\n                        .sorted(comparingInt(EvidenciaMakerChecker::sucTrans)\n                                .thenComparingInt(EvidenciaMakerChecker::estTran))\n                        .toList();\n                jasper.genera(\"001MAKERCHECK\", filas);   // grupo por SIRH = sucTrans, 58 líneas por hoja\n                return RepeatStatus.FINISHED;\n            }, tx).build();\n}\n\n/** Campos calculados del renglón: 20000123-CONT-STATUS-MOVS y 20000123-ASIGNA-MONEDA-MOV. */\nstatic String estatus(EvidenciaMakerChecker e) {\n    return switch (e.estTran()) {\n        case 2  -> \"FINALIZADO\";       // suma al total de importe de la sucursal\n        case 1  -> \"EN PROCESO\";\n        default -> \"\";                 // el COBOL deja el texto del renglón anterior\n    };\n}\nstatic String moneda(EvidenciaMakerChecker e) {\n    return switch (e.moneda()) { case 1 -> \"MN\"; case 5 -> \"DL\"; default -> \"--\"; };\n}",
+          "racional": "El listado ordena el temporal por sucursal y estatus, hace un corte por SIRH con leídos, finalizados, en proceso e importe de los finalizados, y pagina a 58 líneas. Es el patrón A3: los datos se preparan en Java y el formato de hoja, encabezados y cortes pasa a una plantilla JasperReports con un grupo por sucursal. El importe acumulado solo cuenta los movimientos finalizados. Los códigos de moneda 1 y 5 quedan en el código porque son catálogo de captación, pero conviene moverlos a configuración.",
+          "reglas": [
+            "RN-S500-374",
+            "RN-S500-376"
+          ],
+          "riesgo": "Un estatus distinto de 1 y 2 no limpia WS-DT-STATUS y hereda la leyenda del registro anterior; además no suma a ningún contador salvo leídos."
+        },
+        {
+          "id": "s9",
+          "titulo": "Cierre del archivo SDOSBNE y envío por INTELAR con tres intentos",
+          "linea_ini": 2061,
+          "linea_fin": 2106,
+          "origen_codigo": " 30000002-CLOSE-ARCH.\n*=====================\n   IF ATTRIBUTE OPEN OF I01-ARCSDOS = VALUE TRUE\n      CLOSE I01-ARCSDOS WITH PURGE .\n   IF ATTRIBUTE OPEN OF I02-ARCSDOS = VALUE TRUE\n      PERFORM 20000098-GENERA-TRL-ARCHSDOS\n      CLOSE I02-ARCSDOS WITH SAVE\n      WAIT(05)\n      MOVE ZEROES               TO WS-INTENTO-INTE WS-ARC-ENVIADO\n                                   WS-REPS-INTE\n      MOVE SPACES               TO WS-ID-ARCHI\n      MOVE I02-TIT-TEMP         TO WS-ID-ARCHI\n      PERFORM 30000004-ENVIA-INTELAR UNTIL WS-INTENTO-INTE > 2\n                                       OR  WS-ARC-ENVIADO  = 1.\n 30000004-ENVIA-INTELAR.\n*=====================\n   CALL \"INTELARSND IN ADMONXFERS\" USING   WS-ID-ARCHI\n                                   GIVING  WS-REPS-INTE.\n   IF WS-REPS-INTE > ZEROS\n      ADD  1 TO WS-INTENTO-INTE\n      MOVE 0 TO WS-ARC-ENVIADO\n      WAIT(02)\n      STRING \"ERROR: ARCHIVO \" WS-ID-ARCHI\n             \" NO ENVIADO,REALIZAR ENVIO MANUAL: \" WS-REPS-INTE\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n   ELSE\n      MOVE 1 TO WS-ARC-ENVIADO\n      STRING \"SE ENVIO: \" WS-ID-ARCHI\n             DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.\n   PERFORM 70000050-MENSAJE.\n   CANCEL \"ADMONXFERS\".",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EnvioIntelarTasklet implements Tasklet {\n\n    private final AdmonXfersClient xfers;          // CALL \"INTELARSND IN ADMONXFERS\"\n    private final P117Properties props;            // ruta: S500/FILE/INTS/50004S01/{csi}/{fecha}/P117/SDOSBNE\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        String archivo = props.rutaSdosbne(ctx);\n        sdosbneWriter.trailer();                   // 20000098-GENERA-TRL-ARCHSDOS antes del CLOSE WITH SAVE\n        sdosbneWriter.close();\n        RetryTemplate.builder()\n                .maxAttempts(3)                    // UNTIL WS-INTENTO-INTE > 2\n                .fixedBackoff(Duration.ofSeconds(2))   // WAIT(02)\n                .build()\n                .execute(r -> xfers.envia(archivo),\n                         r -> {                    // agotados los intentos: aviso, no aborto\n                             log.error(\"ERROR: ARCHIVO {} NO ENVIADO,REALIZAR ENVIO MANUAL\", archivo);\n                             c.setExitStatus(new ExitStatus(\"COMPLETED_WITH_MANUAL_SEND\"));\n                             return null;\n                         });\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al cerrar, el programa escribe el trailer, guarda el archivo, espera cinco segundos y lo envía con <code>INTELARSND</code>, reintentando hasta tres veces. Si los tres fallan no aborta: pide envío manual. En Java el reintento es un <code>RetryTemplate</code> y el caso de agotamiento deja un <code>ExitStatus</code> propio para que el orquestador lo vea, en lugar de quedar solo en la bitácora. La ruta del archivo pasa a <code>application.yml</code>.",
+          "reglas": [],
+          "riesgo": "El resultado se evalúa como WS-REPS-INTE > ZEROS: un código negativo se trata como envío exitoso."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Depuración de S500B18PENVIOSDOS desactivada",
+      "detalle": "En 20000000-PROCESO (líneas 1032-1033) el PERFORM 20000100-PROCESO-B18 está comentado. Con las opciones 1 y 3 el programa abre el archivo SDOSBNE (y con la estructura 18 también el listado 001REPSALDOS), escribe header y trailer en ceros y lo envía por INTELAR, sin leer ni depurar la B18. Las reglas RN-S500-372 y RN-S500-373 describen código que hoy no corre."
+    },
+    {
+      "titulo": "La bitácora maker-checker se borra con cualquier opción",
+      "detalle": "20000100-PROCESO-B56 (líneas 1257-1264) no consulta la opción del parámetro: con la opción 3, que en S500B17 y S500B18 significa solo reporte, también elimina todos los registros de S500B56MAKERCHEK. Tampoco filtra por fecha."
+    },
+    {
+      "titulo": "Evidencia de auditoría dependiente de un archivo temporal",
+      "detalle": "Cada registro de la B56 se borra y se escribe al temporal TEMP02 dentro de la misma transacción DMSII, pero el archivo no es transaccional. Si el paso cae después de cerrar transacciones y antes del CLOSE WITH SAVE de la línea 1263, la bitácora de quién capturó y quién autorizó se pierde."
+    },
+    {
+      "titulo": "Contador del trailer con subíndice del registro anterior",
+      "detalle": "En 20000098-GENERA-DET-ARCHSDOS (líneas 1319-1322) se suma 1 a WS-TOTAL-ARCHSDOS(I02-DET-EST-ENVIO) antes de mover el estatus del registro actual. El subíndice proviene del contenido previo del área del registro (en el primer detalle, del header), y la tabla solo tiene 2 ocurrencias. Hoy no se ejecuta porque la B18 está comentada; reactivarla expondría el error."
+    },
+    {
+      "titulo": "Estatus de renglón heredado en el listado",
+      "detalle": "20000123-CONT-STATUS-MOVS solo asigna FINALIZADO (2) o EN PROCESO (1). Un registro con otro estatus conserva en WS-DT-STATUS el texto del renglón anterior, porque la limpieza de la línea 1860 es sobre P01-R-ARCMAKRCHECK y no sobre la línea de detalle."
+    },
+    {
+      "titulo": "Envío INTELAR sin abortar y tabla de fechas acotada",
+      "detalle": "Si INTELARSND falla tres veces solo se emite un mensaje para envío manual. Los totales por fecha de depuración usan WS-TOTAL-DEP OCCURS 30 sin guarda de desborde."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si la depuración de S500B18PENVIOSDOS se desactivó a propósito y qué proceso la sustituye; mientras tanto, RN-S500-372 y RN-S500-373 describen comportamiento inactivo.",
+    "Los párrafos de acceso a base (90400017-B17ALERTAS-LN, 90400018-B18PFECHA-FN, 90000056-B56MAKERCHEK-LOCKN y las transacciones) vienen en el copybook S500/INC/PRO/25MTP005, que no está en el fuente. Se asumió que LN es LOCK NEXT y FN es FIND NEXT por el sufijo.",
+    "Confirmar el desplazamiento de LOCSUP función 15, formato 13 y FECHA2 = 2; el comentario de la línea 915 dice T-2, pero no se sabe si son días naturales o hábiles.",
+    "Validar si la opción 3 con estructura 56 o 99 debe borrar la bitácora maker-checker, o si es un defecto.",
+    "Las opciones 1 y 3 para S500B17 (párrafos 20000101-PROCESO-B17-1 y 20000103-PROCESO-B17-3) están vacías; confirmar que es intencional."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-786",
+    "RN-S151-787",
+    "RN-S151-788",
+    "RN-S151-789",
+    "RN-S151-790",
+    "RN-S500-372",
+    "RN-S500-373",
+    "RN-S500-374",
+    "RN-S500-375",
+    "RN-S500-376"
+  ]
+}

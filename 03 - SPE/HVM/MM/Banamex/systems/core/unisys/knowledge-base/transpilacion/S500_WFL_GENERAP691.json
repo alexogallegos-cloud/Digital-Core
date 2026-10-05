@@ -1,0 +1,148 @@
+{
+  "slug": "S500_WFL_GENERAP691",
+  "sistema": "S500",
+  "programa": "WFL_GENERAP691",
+  "nombre": "Generación del reorganizador (garbage) de S500BD01CAPTACION",
+  "funcion": "Job WFL de mantenimiento que operación ejecuta para generar y publicar el programa P691, que reorganiza cuatro estructuras de la base DMSII de captación.",
+  "resumen": "El job no reorganiza la base: borra el reorganizador anterior y el P691 publicado, ejecuta la utilería BUILDREORG con la descripción DASDL 25MTP001 de S500BD01CAPTACION y una tarjeta que ordena contratos, histórico, compensación y control de depósitos retenidos por su índice principal, con copia a una base de trabajo y cambio automático al terminar. Si la generación compila, espera a que aparezca el objeto, lo renombra como S500/OBJECT/P691/S500BD01CAPTACION/25MTP003 y termina. La reorganización física ocurre después, cuando se ejecuta ese P691.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "WFL",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.mantenimiento.reorg.captacion",
+  "secciones": [
+    {
+      "titulo": "Identidad del job y objetos de trabajo",
+      "origen": {
+        "archivo": "S500_WFL_LINEA.txt",
+        "contexto": "BEGIN JOB · FAMILY · FILE · STRING"
+      },
+      "java": {
+        "archivo": "ReorgCaptacionProperties.java · ObjetosReorg.java",
+        "contexto": "@ConfigurationProperties · registro de artefactos"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Identidad del job, base y familias de disco a propiedades",
+          "linea_ini": 2,
+          "linea_fin": 11,
+          "origen_codigo": "%% PARA GENERAR EL GARBAGE DE LA BASE S500BD01CAPTACION EN PRODUCCION %%          00001100\n%% GENERA EL PROGRAMA:                                                %%          00001200\n%%    (S500)REORGANIZATION/S500BD01CAPTACION                          %%          00001300\n%% Y LO CAMBIA A:                                                     %%          00001400\n%%    (S500)S500/OBJECT/P691/S500BD01CAPTACION/25MTP003               %%          00001500\n%% PARA LA VERSION 25MTP001 DE LA BASE S500BD01CAPTACION              %%          00001600\nBEGIN JOB S500/WFL/REORG/GARBAGE/S500BD01CAPTACION/25MTP003;                      00001800\nFAMILY DISK = CAPTACION OTHERWISE PACK;                                           00001900\nBDNAME = S500/LIST/CREAGARBAGE/CAPTACION/25MTP001;                                00002000",
+          "java_codigo": "# application.yml  (base, versiones y familias dejan de estar en el cuerpo del job)\ns500:\n  reorg:\n    captacion:\n      base: S500BD01CAPTACION\n      version-base: 25MTP001                # DESCRIPTION/S500BD01CAPTACION/25MTP001\n      version-objeto: 25MTP003              # S500/OBJECT/P691/S500BD01CAPTACION/25MTP003\n      familia-datos: CAPTACION              # FAMILY DISK = CAPTACION OTHERWISE PACK\n      familia-trabajo: REORG\n      listado: S500/LIST/CREAGARBAGE/CAPTACION/25MTP001\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"s500.reorg.captacion\")\npublic record ReorgCaptacionProperties(String base, String versionBase, String versionObjeto,\n                                       String familiaDatos, String familiaTrabajo, String listado,\n                                       List<EstructuraReorg> estructuras, boolean autoswap,\n                                       Duration intervaloSondeo, Duration tiempoMaximo) {}",
+          "racional": "El banner y la cabecera fijan en el fuente la base que se reorganiza, la versión de su descripción DASDL, la versión con la que se publica el objeto generado y las familias de disco. Como el job no recibe parámetros, cualquier cambio de versión exige editarlo. En el destino todo pasa a una clase de propiedades, de modo que el mismo job sirva para otra versión de la base o para otro ambiente. El listado se estampa con la versión de la base (25MTP001) y el objeto con la del job (25MTP003), lo que es coherente con el banner.",
+          "reglas": [],
+          "riesgo": "FAMILY DISK = CAPTACION OTHERWISE PACK hace que, si la familia CAPTACION no está disponible, las referencias a DISK se resuelvan en PACK sin aviso."
+        },
+        {
+          "id": "s2",
+          "titulo": "Archivos usados como sondas de existencia",
+          "linea_ini": 12,
+          "linea_fin": 19,
+          "origen_codigo": "FILE REORGANIZADOR(KIND=PACK,PACKNAME=CAPTACION),                                 00002100\n     GARBAGE(KIND=PACK,PACKNAME=CAPTACION);                                       00002200\nTASK T1;                                                                          00002300\nSTRING S1,S2;                                                                     00002400\nS1:=\"REORGANIZATION/S500BD01CAPTACION\";                                           00002500\nS2:=\"S500/OBJECT/P691/S500BD01CAPTACION/25MTP003\";                                00002600\nREORGANIZADOR(TITLE=#S1);                                                         00002700\nGARBAGE(TITLE=#S2);                                                               00002800",
+          "java_codigo": "/** REORGANIZADOR y GARBAGE no se leen ni escriben: solo se pregunta si existen. */\n@Component\n@RequiredArgsConstructor\nclass ObjetosReorg {\n\n    private final ArtifactRepository artefactos;     // registro de artefactos de mantenimiento\n    private final ReorgCaptacionProperties p;\n\n    /** S1 := \"REORGANIZATION/S500BD01CAPTACION\": nombre que produce el generador. */\n    String generado() { return \"REORGANIZATION/\" + p.base(); }\n\n    /** S2 := \"S500/OBJECT/P691/S500BD01CAPTACION/25MTP003\": nombre con el que se publica. */\n    String publicado() { return \"S500/OBJECT/P691/%s/%s\".formatted(p.base(), p.versionObjeto()); }\n\n    boolean existeGenerado()  { return artefactos.existe(generado()); }    // IS RESIDENT\n    boolean existePublicado() { return artefactos.existe(publicado()); }\n}",
+          "racional": "Los dos archivos que declara el job son manijas para preguntar al sistema si un objeto ya está en disco; nunca se abren. El primero es el nombre con el que la utilería <code>BUILDREORG</code> deja el programa reorganizador y el segundo el nombre definitivo con el que operación lo ejecuta después como paso P691. En Java se modelan como consultas de existencia sobre un registro de artefactos, sin simular archivos.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Generación del reorganizador con BUILDREORG",
+      "origen": {
+        "archivo": "S500_WFL_LINEA.txt",
+        "contexto": "REMOVE · RUN *SYSTEM/BUILDREORG · DATA CARD"
+      },
+      "java": {
+        "archivo": "GeneraReorganizadorTasklet.java · ReorgPlanGenerator.java · EstrategiaSwap.java",
+        "contexto": "Tasklet · CLUSTER / pg_repack · tabla sombra"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Borrado previo y generación del reorganizador",
+          "linea_ini": 20,
+          "linea_fin": 22,
+          "origen_codigo": "REMOVE #S1 FROM CAPTACION, #S2 FROM CAPTACION;                                    00002900\nRUN                *SYSTEM/BUILDREORG[T1];                                        00003000\nFILE DASDL = DESCRIPTION/S500BD01CAPTACION/25MTP001;                              00003100",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class GeneraReorganizadorTasklet implements Tasklet {\n\n    private final ObjetosReorg objetos;\n    private final ReorgPlanGenerator generador;      // sustituto de *SYSTEM/BUILDREORG\n    private final ReorgCaptacionProperties p;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        // En el WFL se borran S1 y S2 ANTES de generar; si la generación falla,\n        // el P691 vigente ya no existe. Aquí se genera primero y se publica al final.\n        ReorgPlan plan = generador.genera(objetos.generado(), p.estructuras());   // DATA CARD\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"planReorg\", plan);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El job borra primero el objeto generado anterior y el P691 publicado, y luego ejecuta <code>BUILDREORG</code> con la descripción DASDL de la base. La traducción invierte el orden: genera el plan nuevo y solo al final, en el paso de publicación, reemplaza el anterior. Así una falla de generación deja intacto el reorganizador vigente.",
+          "reglas": [],
+          "riesgo": "REMOVE #S2 elimina el P691 en producción antes de saber si la nueva generación compila. Si BUILDREORG falla, el banco se queda sin objeto de reorganización de la base de captación hasta corregir y volver a correr."
+        },
+        {
+          "id": "s4",
+          "titulo": "Tarjeta de datos: cuatro estructuras y su llave de orden",
+          "linea_ini": 23,
+          "linea_fin": 35,
+          "origen_codigo": "DATA CARD                                                                         00003200\n       GENERATE S500B03CONTRATOS ORDER BY B03SXCTO;                               00003300\n       S500B03CONTRATOS (COPY TO REORG COPY BACK=TRUE);                           00003320\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003340\n       GENERATE S500B06HISTORICO ORDER BY B06SXCTO;                               00003400\n       S500B06HISTORICO (COPY TO REORG COPY BACK=TRUE);                           00003420\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003440\n       GENERATE S500B12COMPEN    ORDER BY B12SXCTO;                               00003500\n       S500B12COMPEN    (COPY TO REORG COPY BACK=TRUE);                           00003520\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003540\n       GENERATE S500B52CTRLDEPRET ORDER BY B52SXCSIFECH;                          00003640\n       S500B52CTRLDEPRET (COPY TO REORG COPY BACK=TRUE);                          00003740\n       INTERNAL FILES (FAMILYNAME = REORG);                                       00003840",
+          "java_codigo": "# application.yml  (la tarjeta de datos de BUILDREORG pasa a una lista declarativa)\ns500:\n  reorg:\n    captacion:\n      estructuras:\n        - { nombre: S500B03CONTRATOS,  ordenar-por: B03SXCTO,     copia-y-regresa: true }\n        - { nombre: S500B06HISTORICO,  ordenar-por: B06SXCTO,     copia-y-regresa: true }\n        - { nombre: S500B12COMPEN,     ordenar-por: B12SXCTO,     copia-y-regresa: true }\n        - { nombre: S500B52CTRLDEPRET, ordenar-por: B52SXCSIFECH, copia-y-regresa: true }\n\n// ---------------------------------------------------------------------------\npublic record EstructuraReorg(String nombre, String ordenarPor, boolean copiaYRegresa) {}\n\n/** En la base destino, GENERATE ... ORDER BY equivale a reescribir la tabla en el orden del índice. */\n@Component\nclass ReorgPlanGenerator {\n    ReorgPlan genera(String id, List<EstructuraReorg> estructuras) {\n        var pasos = estructuras.stream()\n                .map(e -> new PasoReorg(e.nombre(),\n                        // PostgreSQL: CLUSTER s500_contratos USING b03sxcto; o pg_repack --order-by\n                        \"CLUSTER %s USING %s\".formatted(Tablas.de(e.nombre()), Indices.de(e.ordenarPor()))))\n                .toList();\n        return new ReorgPlan(id, pasos);\n    }\n}",
+          "racional": "La tarjeta de datos indica qué estructuras de la base se regeneran y por qué índice se ordenan: contratos, histórico y compensación por contrato, y control de depósitos retenidos por CSI y fecha. Todas se copian a la familia de trabajo y se regresan. En una base relacional el equivalente es reescribir cada tabla en el orden de su índice principal, con <code>CLUSTER</code> o una herramienta en línea como <code>pg_repack</code>. La lista se vuelve configuración para que agregar una estructura no requiera tocar el job.",
+          "reglas": [],
+          "riesgo": "Las cuatro estructuras son de las de mayor volumen de captación; la ventana real de indisponibilidad no la decide este job sino la ejecución posterior del P691 generado."
+        },
+        {
+          "id": "s5",
+          "titulo": "Base de trabajo y cambio automático (AUTOSWAP)",
+          "linea_ini": 36,
+          "linea_fin": 40,
+          "origen_codigo": "       GLOBAL USEREORGDB;                                                         00004420\n         INTERNAL FILES (FAMILYNAME = REORG);                                     00004440\n         REORGDBTITLE=S500BD01GARBAGE ON REORG;                                   00004460\n         AUTOSWAP=TRUE;                                                           00004480\n?                                                                                 00004500",
+          "java_codigo": "/** GLOBAL USEREORGDB + REORGDBTITLE + AUTOSWAP=TRUE: reorganizar en sombra y conmutar. */\n@Component\n@RequiredArgsConstructor\nclass EstrategiaSwap {\n\n    private final JdbcTemplate jdbc;\n    private final ReorgCaptacionProperties p;\n\n    void conmuta(PasoReorg paso) {\n        if (!p.autoswap()) {\n            throw new IllegalStateException(\"Swap manual requerido para \" + paso.tabla());\n        }\n        // Copia reorganizada en el esquema de trabajo (familia REORG -> esquema s500_reorg);\n        // el intercambio es un rename atómico dentro de una transacción.\n        jdbc.execute(\"\"\"\n            BEGIN;\n              ALTER TABLE s500.%1$s RENAME TO %1$s_old;\n              ALTER TABLE s500_reorg.%1$s SET SCHEMA s500;\n            COMMIT;\n            \"\"\".formatted(paso.tabla()));\n    }\n}",
+          "racional": "<code>USEREORGDB</code> pide que la reorganización se haga sobre una copia de la base (<code>S500BD01GARBAGE</code> en la familia REORG) y <code>AUTOSWAP=TRUE</code> que, al terminar, las estructuras reorganizadas sustituyan a las vivas sin intervención. El patrón destino es el de tabla sombra con conmutación atómica. Se conserva la conmutación automática detrás de una propiedad para que el equipo de base de datos pueda exigir un swap manual en producción.",
+          "reglas": [],
+          "riesgo": "Con AUTOSWAP=TRUE embebido en el objeto generado, la conmutación ocurre cuando alguien ejecute el P691, sin otra confirmación."
+        }
+      ]
+    },
+    {
+      "titulo": "Publicación del objeto P691",
+      "origen": {
+        "archivo": "S500_WFL_LINEA.txt",
+        "contexto": "IF T1 IS COMPILEDOK · DO ... UNTIL"
+      },
+      "java": {
+        "archivo": "PublicaReorganizadorTasklet.java",
+        "contexto": "Flow con transición condicional · sondeo con límite"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Espera activa de la compilación y publicación del objeto",
+          "linea_ini": 41,
+          "linea_fin": 49,
+          "origen_codigo": "IF T1 IS COMPILEDOK THEN                                                          00004600\n   DO                                                                             00004700\n   BEGIN                                                                          00004800\n      WAIT(15);                                                                   00004900\n      IF REORGANIZADOR IS RESIDENT THEN                                           00005000\n         CHANGE #S1 TO #S2 FROM CAPTACION;                                        00005100\n   END                                                                            00005200\n   UNTIL GARBAGE IS RESIDENT;                                                     00005300\nEND JOB.                                                                          00005400",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PublicaReorganizadorTasklet implements Tasklet {\n\n    private final ObjetosReorg objetos;\n    private final ArtifactRepository artefactos;\n    private final ReorgCaptacionProperties p;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws InterruptedException {\n        Instant limite = Instant.now().plus(p.tiempoMaximo());       // el WFL no tiene límite\n        while (!objetos.existePublicado()) {                         // UNTIL GARBAGE IS RESIDENT\n            if (Instant.now().isAfter(limite)) {\n                throw new IllegalStateException(\"No se publicó \" + objetos.publicado());\n            }\n            Thread.sleep(p.intervaloSondeo().toMillis());            // WAIT(15)\n            if (objetos.existeGenerado()) {\n                artefactos.renombra(objetos.generado(), objetos.publicado());   // CHANGE #S1 TO #S2\n            }\n        }\n        return RepeatStatus.FINISHED;\n    }\n}\n\n// El step solo corre si la generación terminó bien (IF T1 IS COMPILEDOK):\n// .start(genera).on(\"COMPLETED\").to(publica).from(genera).on(\"*\").fail()",
+          "racional": "Si la compilación del reorganizador termina bien, el job espera en ciclos de 15 segundos a que aparezca el objeto generado, lo renombra con el título definitivo del P691 y sale cuando ese título existe. En Spring Batch la condición <code>COMPILEDOK</code> es la transición del <code>Flow</code> entre el step de generación y el de publicación, y el ciclo de sondeo conserva el intervalo pero agrega un tiempo máximo.",
+          "reglas": [],
+          "riesgo": "Si la compilación falla no hay rama ELSE: el job termina sin error explícito y, por el REMOVE previo, sin P691. Si el CHANGE no logra renombrar, el ciclo no tiene salida."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Borrado del P691 antes de generar el nuevo",
+      "detalle": "La línea 20 elimina el objeto publicado antes de correr BUILDREORG. Una generación fallida deja la base de captación sin programa de reorganización."
+    },
+    {
+      "titulo": "Falla de compilación sin aviso",
+      "detalle": "El IF T1 IS COMPILEDOK de la línea 41 no tiene ELSE; el job termina normalmente aunque BUILDREORG haya fallado."
+    },
+    {
+      "titulo": "Ciclo de espera sin límite",
+      "detalle": "El DO ... UNTIL GARBAGE IS RESIDENT de las líneas 42-48 no tiene contador ni tiempo máximo."
+    },
+    {
+      "titulo": "Cambio automático embebido",
+      "detalle": "AUTOSWAP=TRUE (línea 39) queda dentro del P691 generado, que sustituye las estructuras de producción al ejecutarse."
+    },
+    {
+      "titulo": "Todo literal",
+      "detalle": "Base, versiones, familias CAPTACION y REORG y la lista de estructuras están en el fuente; el job no recibe parámetros."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario apunta a source/S500/extracted_source/S500_WFL_REORG_GARBAGE_S500BD01CAPTACION.txt, pero ese archivo contiene el job de S500BD04TARJETAS (P694). El job de S500BD01CAPTACION (P691), de 49 líneas y con la numeración del pseudocódigo, está en source/S500/extracted_source/S500_WFL_LINEA.txt; los segmentos se tomaron de ahí. Los nombres de los cuatro WFL de S500 en extracted_source están corridos: S500_WFL_REORG_GARBAGE_S500BD04TARJETAS.txt contiene S500/WFL/LOTE/26MTP002 y S500_WFL_LOTE.txt contiene S500/WFL/LINEA/24MTP005. Corregir el campo fuente del inventario de este y de los componentes S500 WFL afectados.",
+    "Confirmar quién y cuándo ejecuta el P691 generado, porque ahí ocurre la ventana de indisponibilidad.",
+    "Confirmar si la base destino permite reorganizar en línea (pg_repack o equivalente) o si se requiere una ventana como hoy.",
+    "Confirmar si la descripción DASDL 25MTP001 sigue siendo la versión vigente de S500BD01CAPTACION."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

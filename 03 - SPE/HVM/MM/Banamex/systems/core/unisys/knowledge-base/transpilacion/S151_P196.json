@@ -1,0 +1,208 @@
+{
+  "slug": "S151_P196",
+  "sistema": "S151",
+  "programa": "P196",
+  "nombre": "Depurador de Registros de Control Batch (DEPURACTL)",
+  "funcion": "Paso batch de mantenimiento de S151BD99CONTROL que depura o actualiza los registros de control de procesos S151B05PROCESOS y, según el TASKVALUE, también regresa o sincroniza la fecha de proceso de S151 en B01SISDIA.",
+  "resumen": "Recibe sistema, fecha, número de proceso, registro inicial y registro final como parámetro, y un modo en el TASKVALUE de la tarea. Consulta B01SISDIA del sistema (y lo crea con una fecha fija si falta el de S151). Con fecha de parámetro elimina o actualiza un B05 puntual mediante B05PROCESOS. Sin fecha calcula con THECALENDAR la fecha anterior a la de proceso y borra, en transacción no auditada, los B05 más antiguos de cada proceso de una tabla fija (cuatro procesos para S151 y nueve para el resto), con tratamiento especial para los procesos 196 y 197. El modo 1 regresa la fecha de proceso de S151 y el modo 2 copia a S151 la fecha contable de S500.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s151.control.depuracion",
+  "secciones": [
+    {
+      "titulo": "Parámetros y tablas de procesos",
+      "origen": {
+        "archivo": "COBOL_P196.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "ParametrosDepuracion.java · application.yml",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetro de entrada y tablas fijas PRELINEA y NNN",
+          "linea_ini": 708,
+          "linea_fin": 733,
+          "origen_codigo": " 01  WKS-PARAMETROS.                                              008900\n     03  WKS-PARAM-SISTEMA         PIC 9(03).                     009000\n     03  WKS-PARAM-FECHA           PIC 9(08).                     009100\n     03  WKS-PARAM-NUMPRO          PIC 9(03).                     009200\n     03  WKS-PARAM-NUMREGINI       PIC 9(02).                     009300\n     03  WKS-PARAM-REGFIN          PIC 9(03).                     009350\n                                                                  009400\n 01 WKS-PROCESOSNNN.                                              009500\n     03 FILLER                     PIC X(03) VALUE \"001\".         009600\n     03 FILLER                     PIC X(03) VALUE \"152\".         009700\n     03 FILLER                     PIC X(03) VALUE \"172\".         009800\n     03 FILLER                     PIC X(03) VALUE \"178\".         009900\n     03 FILLER                     PIC X(03) VALUE \"197\".         010000\n     03 FILLER                     PIC X(03) VALUE \"104\".         010010\n     03 FILLER                     PIC X(03) VALUE \"122\".         010020\n     03 FILLER                     PIC X(03) VALUE \"130\".         010030\n     03 FILLER                     PIC X(03) VALUE \"131\".         010040\n                                                                  010100\n 01 WKS-PROCESOSLIN.                                              010200\n     03 FILLER                     PIC X(03) VALUE \"000\".         010300\n     03 FILLER                     PIC X(03) VALUE \"052\".         010400\n     03 FILLER                     PIC X(03) VALUE \"195\".         010500\n     03 FILLER                     PIC X(03) VALUE \"196\".         010550\n                                                                  010600\n 01 WKS-TABLA-PROCESOS.                                           010700\n     03 WKS-PROCESO    OCCURS 10 TIMES PIC 9(03).                 010800",
+          "java_codigo": "/** WKS-PARAMETROS (USING de la PROCEDURE DIVISION) más el modo que llega en TASKVALUE. */\npublic record ParametrosDepuracion(\n        int sistema,                  // 9(03)\n        LocalDate fecha,              // 9(08) AAAAMMDD; null si viene en ceros (depuración masiva)\n        int numProceso,               // 9(03)\n        int numRegIni,                // 9(02)\n        int numRegFin,                // 9(03)\n        ModoDepuracion modo) {}       // TASKVALUE: 1 regresa fecha, 2 sincroniza con S500, otro depura\n\npublic enum ModoDepuracion {\n    REGRESA_FECHA, SINCRONIZA_S500, DEPURA;\n    static ModoDepuracion de(long taskValue) {\n        return taskValue == 1 ? REGRESA_FECHA : taskValue == 2 ? SINCRONIZA_S500 : DEPURA;\n    }\n}\n\n# application.yml  (WKS-PROCESOSLIN y WKS-PROCESOSNNN dejan de estar compilados)\np196:\n  procesos:\n    s151: [0, 52, 195, 196]                          # \"PRELINEA\", 4 procesos\n    otros: [1, 152, 172, 178, 197, 104, 122, 130, 131]  # \"NNN\", 9 procesos\n  proceso-registro-inicial-1: 196                    # W77-REGINI = 1\n  proceso-marca-reinicio: 197                        # se marca B05-SIS-FCHINI = 1\n  fecha-minima-valida: 4                             # B05-SIS-FCHPRO > 3",
+          "racional": "El parámetro llega como un grupo de campos numéricos y el modo como el <code>TASKVALUE</code> de la tarea; en Spring Batch ambos son parámetros del job, aquí agrupados en un <code>record</code> y un <code>enum</code>. Las dos listas de procesos son <code>FILLER</code> con valores literales que se copian sobre una tabla de 10 posiciones; pasan a <code>application.yml</code>, igual que los números de proceso con tratamiento especial y el umbral que evita borrar fechas centinela.",
+          "reglas": [
+            "RN-S151-902"
+          ],
+          "riesgo": "La tabla PRELINEA ocupa 12 bytes y se mueve como grupo sobre WKS-TABLA-PROCESOS de 30 bytes, de modo que las posiciones 5 a 10 quedan con espacios; el ciclo se limita a 4 posiciones, pero agregar un proceso exige ajustar a mano el FILLER y el límite del PERFORM."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso, fecha de proceso y calendario",
+      "origen": {
+        "archivo": "COBOL_P196.txt",
+        "contexto": "PROCEDURE DIVISION · 000100 / 000100-INICIALIZACION / 000210"
+      },
+      "java": {
+        "archivo": "DepuracionJobConfig.java · FechaProcesoService.java · CalendarioBancario.java",
+        "contexto": "Job · JobExecutionDecider · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s2",
+          "titulo": "Selección de modo por TASKVALUE a JobExecutionDecider",
+          "linea_ini": 740,
+          "linea_fin": 824,
+          "origen_codigo": " 000100-INICIO.                                                   011500\n     PERFORM 000100-INICIALIZACION.                               011600\n     IF WKS-MODO = 1                                              011700\n       PERFORM 000150-REGRESO-FECHA                               011750\n     ELSE IF WKS-MODO = 2                                         011760\n       PERFORM 000140-MANTEN-FECHA-S500                           011800\n     ELSE                                                         011900\n       PERFORM 000200-PROCESO.                                    012000\n     PERFORM 000300-FINALIZAR.                                    012100\n     STOP RUN.                                                    012200\n      MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-MODO.             018400",
+          "java_codigo": "@Configuration\npublic class DepuracionJobConfig {\n\n    /** 000100-INICIO: un solo programa con tres comportamientos según TASKVALUE. */\n    @Bean\n    Job depuraControl(JobRepository repo, Step inicializa, JobExecutionDecider porModo,\n                      Step regresaFecha, Step sincronizaS500, Step depura) {\n        return new JobBuilder(\"S151P196\", repo)\n                .start(inicializa)                                   // 000100-INICIALIZACION\n                .next(porModo)\n                    .on(\"REGRESA_FECHA\").to(regresaFecha)            // 000150-REGRESO-FECHA\n                .from(porModo).on(\"SINCRONIZA_S500\").to(sincronizaS500)  // 000140-MANTEN-FECHA-S500\n                .from(porModo).on(\"*\").to(depura)                    // 000200-PROCESO\n                .end()\n                .build();\n    }\n\n    @Bean\n    JobExecutionDecider porModo() {\n        return (job, step) -> new FlowExecutionStatus(\n                ModoDepuracion.de(job.getJobParameters().getLong(\"taskValue\", 0L)).name());\n    }\n}",
+          "racional": "La rutina principal elige entre tres caminos con el valor de <code>TASKVALUE</code> que asigna quien lanza la tarea; es un dato operativo que no forma parte del parámetro de negocio. En Spring Batch esa bifurcación es un <code>JobExecutionDecider</code> con tres transiciones, y el modo pasa a ser un parámetro explícito y visible en el <code>JobRepository</code>. El paso de inicialización es común a los tres caminos.",
+          "reglas": [],
+          "riesgo": "El modo se lee al final de 000100-INICIALIZACION (línea 824), después de abrir la base en UPDATE; un TASKVALUE distinto de 1 y 2 por error ejecuta la depuración masiva."
+        },
+        {
+          "id": "s3",
+          "titulo": "Consulta de B01SISDIA y alta automática con fecha fija",
+          "linea_ini": 783,
+          "linea_fin": 813,
+          "origen_codigo": "     MOVE ZERO                     TO W77-RESULT-LIBCON.          015500\n     MOVE 1                        TO WKS-B01-FUNCION             015600\n     IF WKS-PARAM-SISTEMA = 151                                   015700\n       MOVE 151                  TO WKS-B01-SISTEMA               015800\n     ELSE                                                         015900\n       MOVE WKS-PARAM-SISTEMA     TO WKS-B01-SISTEMA.             016000\n     MOVE WKS-NUMCSI               TO WKS-B01-CSI.                016100\n                                                                  016200\n     CALL \"CONSISDIA IN LIBCTL\" USING  WKS-S151B01SISDIA          016300\n                                GIVING W77-RESULT-LIBCON.         016400\n     IF W77-RESULT-LIBCON > 0                                     016500\n        IF WKS-PARAM-SISTEMA = 151 AND W77-RESULT-LIBCON = 1      016510\n           MOVE LOW-VALUES         TO WKS-S151B01SISDIA           016520\n           MOVE 19                 TO WKS-B01-FUNCION             016530\n           MOVE WKS-PARAM-SISTEMA  TO WKS-B01-SISTEMA             016540\n           MOVE WKS-NUMCSI         TO WKS-B01-CSI                 016550\n           MOVE 20150525           TO WKS-B01-FECPRO              016552\n                                      WKS-B01-FECPRO151           016554\n                                      WKS-B01-FECCON              016556\n           CALL \"MANTSISDIA IN LIBCTL\"                            016560\n              USING  WKS-S151B01SISDIA                            016570\n              GIVING W77-RESULT-LIBCON                            016580\n        ELSE                                                      016590\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1                017100\n     ELSE                                                         017200\n        MOVE  WKS-B01-FECPRO151       TO WKS-FECPRO151.           017300",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class FechaProcesoService {\n\n    private final LibreriaControl libCtl;            // CONSISDIA / MANTSISDIA IN LIBCTL\n    private final P196Properties props;\n\n    /** 000100-INICIALIZACION: fecha de proceso 151 del sistema; si S151 no tiene B01, se crea. */\n    @Transactional\n    public LocalDate fechaProceso151(int sistema, int csi) {\n        var r = libCtl.consisdia(sistema, csi);\n        if (r.ok()) return r.fecPro151();\n        if (sistema == 151 && r.resultado() == 1) {                 // registro no existe\n            var semilla = props.fechaSemillaB01();                 // p196.fecha-semilla-b01: 2015-05-25\n            var alta = libCtl.mantsisdia(19, sistema, csi, semilla, semilla, semilla);\n            if (!alta.ok()) throw new ProcesoAbortadoException(\"ERROR AL CREAR B01SISDIA\");  // cambio deliberado\n            return semilla;    // el COBOL no copia la semilla a WKS-FECPRO151 (ver riesgo)\n        }\n        throw new ProcesoAbortadoException(\"ERROR EN LLAMADO EN L001\");  // STATUS OF MYSELF = -1\n    }\n}",
+          "racional": "Antes de cualquier camino se consulta el estado del día del sistema en la librería de control. Si el sistema es 151 y el registro no existe, P196 lo crea con la función 19 de <code>MANTSISDIA</code> poniendo la misma fecha fija, 20150525, en fecha de proceso, fecha de proceso 151 y fecha contable. Es un valor de arranque compilado, así que pasa a propiedad. Cualquier otro error termina la tarea con <code>STATUS -1</code>, que en Java es una excepción que deja el job en FAILED.",
+          "reglas": [
+            "RN-S151-905"
+          ],
+          "riesgo": "En la rama de alta no se revisa el resultado de MANTSISDIA y no se asigna WKS-FECPRO151 (solo la rama ELSE de la línea 812 lo hace), de modo que la depuración posterior calcula su umbral sobre el valor que tuviera ese campo sin inicializar."
+        },
+        {
+          "id": "s4",
+          "titulo": "Fecha umbral con THECALENDAR de LOCSUP",
+          "linea_ini": 941,
+          "linea_fin": 967,
+          "origen_codigo": " 000210-PROYFEC-ANTHAB.                                           029300\n*======================                                           029400\n   MOVE WKS-FECPRO151            TO WKS-FECHA1.                   029500\n   MOVE 15                       TO W77-FUNCION                   029600\n                                    W77-FUN-CALE.                 029700\n   MOVE \"00000001\"               TO WKS-FECHA2.                   029800\n   MOVE 3                        TO W77-FORMATO.                  029900\n   MOVE 13                       TO W77-FORMATO.                  030000\n   CALL \"THECALENDAR IN LOCSUP\"    USING W77-FUNCION,             030100\n                                       WKS-FECHA1,                030200\n                                       WKS-FECHA2,                030300\n                                       W77-FORMATO.               030400\n   IF W77-FUNCION > 0                                             030500\n      MOVE W77-FUNCION              TO W77-ERROR                  030800\n      STRING \"FUNCION \"                                           030900\n             W77-FUN-CALE                                         031000\n             \" ERROR # \"                                          031100\n             W77-ERROR                                            031200\n             \" EN LLAMADO DE CALENDAR \"                           031300\n             WKS-FECHA1 \" \" WKS-FECHA2                            031400\n      DELIMITED BY SIZE                                           031500\n      INTO TEXTO-LJ                                               031600\n      CHANGE ATTRIBUTE STATUS OF MYSELF TO -1                     031700\n   ELSE                                                           031800\n      MOVE WKS-FECHA1               TO WKS-FEC-ANT.               031900",
+          "java_codigo": "/** 000210-PROYFEC-ANTHAB: THECALENDAR función 15, formato 13, desplazamiento 1. */\n@Component\n@RequiredArgsConstructor\npublic class CalendarioBancario {\n\n    private final CalendarioClient locsup;   // adaptador de THECALENDAR IN LOCSUP\n\n    public LocalDate fechaAnterior(LocalDate fechaProceso) {\n        var r = locsup.thecalendar(15, fechaProceso, 1, 13);\n        if (r.funcion() > 0) {\n            // El COBOL arma este texto pero no lo envía a LIB-DISP antes de STATUS -1.\n            throw new ProcesoAbortadoException(\n                \"FUNCION 15 ERROR # %d EN LLAMADO DE CALENDAR %s 00000001\".formatted(r.funcion(), fechaProceso));\n        }\n        return r.fecha();   // WKS-FEC-ANT\n    }\n}",
+          "racional": "El umbral de depuración se obtiene de la rutina de calendario de LOCSUP con la fecha de proceso, función 15 y un desplazamiento de 1. El resultado reemplaza a la fecha de entrada en <code>WKS-FECHA1</code> y se guarda en <code>WKS-FEC-ANT</code>. En Java se encapsula en un componente que llama al servicio de calendario bancario; un código de error aborta el paso. El <code>MOVE 3 TO W77-FORMATO</code> que precede al <code>MOVE 13</code> es código muerto y no se traduce.",
+          "reglas": [
+            "RN-S151-903"
+          ],
+          "riesgo": "Ante un error de calendario el programa construye el mensaje en TEXTO-LJ pero no llama a LIB-DISP antes de terminar con STATUS -1, así que la causa del aborto no queda en bitácora."
+        }
+      ]
+    },
+    {
+      "titulo": "Depuración y mantenimiento de S151B05PROCESOS",
+      "origen": {
+        "archivo": "COBOL_P196.txt",
+        "contexto": "PROCEDURE DIVISION · 000200 / 000220 / 000221 / 000400 / 000600 / 000230 / 000140"
+      },
+      "java": {
+        "archivo": "DepuracionB05Service.java · ProcesoB05Repository.java · SincronizaFechaS500Tasklet.java",
+        "contexto": "@Service @Transactional · JPA · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Eliminación o actualización puntual por parámetro",
+          "linea_ini": 829,
+          "linea_fin": 1136,
+          "origen_codigo": " 000200-PROCESO.                                                  018900\n*====================                                             019000\n    MOVE ZERO                        TO W77-RESULT-LIBCON.        019100\n    IF WKS-PARAM-FECHA > 0                                        019200\n         PERFORM 000230-ELIMINA-ACTUALIZA                         019300\n         MOVE WKS-PARAM-SISTEMA   TO WKS-B05-SISTEMA              019400\n         MOVE WKS-PARAM-FECHA     TO WKS-B05-FCHPRO               019500\n         MOVE WKS-PARAM-NUMPRO    TO WKS-B05-NUMPRO               019600\n         MOVE WKS-PARAM-NUMREGINI TO WKS-B05-NUMREGINI            019700\n         CALL \"B05PROCESOS IN LIBCTL\" USING  WKS-B05PROCESOS      019800\n                                      GIVING W77-RESULT-LIBCON    019900\n         IF W77-RESULT-LIBCON > 0                                 020000\n            MOVE \"I\"              TO TIPO-LJ                      020100\n            STRING \"NO SE ELIMINO/ACT B05 CON FECHA: \"            020300\n         ELSE                                                     020900\n            MOVE \"I\"              TO TIPO-LJ                      021000\n            MOVE 040101           TO CODIGO-LJ                    021100\n            STRING \"SE ELIMINO/ACT CORRECTAMENTE B05 CON FECHA: \" 021200\n 000230-ELIMINA-ACTUALIZA.                                        050550\n    IF WKS-PARAM-NUMPRO = 197 OR 196                              050600\n       MOVE 22                  TO WKS-B05-FUNCION                050700\n    ELSE                                                          050800\n       MOVE 37                  TO WKS-B05-FUNCION                050900\n       MOVE WKS-PARAM-REGFIN    TO WKS-B05-NUMREGFIN.             051000",
+          "java_codigo": "/** 000200-PROCESO con fecha > 0 + 000230-ELIMINA-ACTUALIZA. */\npublic void puntual(ParametrosDepuracion p) {\n    // 196 y 197 se eliminan (función 22); cualquier otro proceso se actualiza (función 37) con REGFIN\n    boolean elimina = p.numProceso() == 196 || p.numProceso() == 197;   // p196.procesos-eliminables\n    var r = libCtl.b05Procesos(elimina ? 22 : 37,\n                               p.sistema(), p.fecha(), p.numProceso(), p.numRegIni(),\n                               elimina ? null : p.numRegFin());\n    if (r.ok()) {\n        bitacora.info(\"SE ELIMINO/ACT CORRECTAMENTE B05 CON FECHA: %s SISTEMA: %d Y NUM. PROC : %d\"\n                .formatted(p.fecha(), p.sistema(), p.numProceso()));\n    } else {\n        bitacora.info(\"NO SE ELIMINO/ACT B05 CON FECHA: %s SISTEMA: %d NUM. PROC : %d\"\n                .formatted(p.fecha(), p.sistema(), p.numProceso()));   // no aborta: solo informa\n    }\n}",
+          "racional": "Con una fecha en el parámetro, P196 no depura en masa: arma una sola llamada a <code>B05PROCESOS</code> de la librería de control con sistema, fecha, número de proceso y registro inicial. La función depende del proceso: 22 (eliminar) para 196 y 197, y 37 (actualizar con registro final) para cualquier otro. El resultado solo se registra en bitácora, sin abortar, y así se conserva en Java.",
+          "reglas": [
+            "RN-S151-901"
+          ],
+          "riesgo": "Un fallo en la eliminación o actualización puntual solo deja un mensaje informativo y el paso termina normalmente, por lo que el job que lo invoca no se entera."
+        },
+        {
+          "id": "s6",
+          "titulo": "Depuración masiva: tabla de procesos según el sistema",
+          "linea_ini": 859,
+          "linea_fin": 871,
+          "origen_codigo": "    ELSE                                                          021900\n        IF WKS-PARAM-SISTEMA = 151                                022000\n           PERFORM 000210-PROYFEC-ANTHAB                          022100\n           MOVE WKS-PROCESOSLIN TO WKS-TABLA-PROCESOS             022200\n           PERFORM 000220-ELIMINA-B05 VARYING W77-IND             022300\n                             FROM 1 BY 1 UNTIL W77-IND > 4        022400\n           PERFORM 000220-ELI-B05-PRELIN500                       022500\n           PERFORM 000230-ACT-B05-P196-PRELINEA                   022550\n        ELSE                                                      022600\n           PERFORM 000210-PROYFEC-ANTHAB                          022700\n           MOVE WKS-PROCESOSNNN TO WKS-TABLA-PROCESOS             022800\n           PERFORM 000220-ELIMINA-B05 VARYING W77-IND             022900\n                             FROM 1 BY 1 UNTIL W77-IND > 9.       023000",
+          "java_codigo": "/** 000200-PROCESO sin fecha: depuración masiva. */\npublic void masiva(ParametrosDepuracion p, LocalDate fechaProceso151) {\n    LocalDate umbral = calendario.fechaAnterior(fechaProceso151);       // 000210\n    if (p.sistema() == 151) {\n        props.procesos().s151().forEach(proc -> depuraProceso(p.sistema(), proc, umbral));\n        eliminaPrelinea500(umbral);                                     // 000220-ELI-B05-PRELIN500\n        marcaP196Prelinea();                                            // 000230-ACT-B05-P196-PRELINEA\n    } else {\n        props.procesos().otros().forEach(proc -> depuraProceso(p.sistema(), proc, umbral));\n    }\n}",
+          "racional": "Sin fecha de parámetro, el programa calcula el umbral y recorre una de dos tablas fijas de procesos: cuatro para el sistema 151 y nueve para cualquier otro. Para S151 además depura el registro de prelínea del sistema 500 y deja marcado el proceso 196 del día contable. En Java las listas vienen de configuración y el orden de ejecución se conserva.",
+          "reglas": [
+            "RN-S151-902"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "LOCK FIRST y LOCK NEXT con DELETE no auditado, y marca del proceso 197",
+          "linea_ini": 873,
+          "linea_fin": 937,
+          "origen_codigo": " 000220-ELIMINA-B05.                                              023200\n*===========================                                      023300\n   MOVE ZERO                        TO WS-EOF                     023400\n                                       W77-REGINI                 023500\n   IF WKS-PROCESO(W77-IND) = 196                                  023520\n      MOVE 1                        TO W77-REGINI.                023540\n   PERFORM 000400-LOCK-B05SXPROCESO                               023600\n   BEGIN-TRANSACTION NO-AUDIT S151B99REINICTL                     023700\n   PERFORM 000221-PROCESO-ELI UNTIL WS-EOF = 1.                   023800\n                                                                  023900\n   IF WKS-PROCESO(W77-IND) = 197                                  024000\n      MOVE ZERO TO WS-EOF                                         024100\n         LOCK FIRST B05SXPROCESO                                  024200\n                        AT B05-SIS-SISTEMA = WKS-PARAM-SISTEMA    024300\n                       AND B05-SIS-FCHPRO = WKS-FEC-ANT           024400\n                       AND B05-SIS-NUMPRO = WKS-PROCESO(W77-IND)  024500\n                       ON EXCEPTION                               024600\n                          MOVE     1       TO WS-EOF.             024700\n   IF WS-EOF = 0                                                  024800\n      MOVE 1 TO B05-SIS-FCHINI                                    024900\n      STORE S151B05PROCESOS                                       024950\n END-TRANSACTION NO-AUDIT S151B99REINICTL.                        025500\n                                                                  025800\n 000221-PROCESO-ELI.                                              025900\n*==========================                                       026000\n PERFORM 000500-DELETE-B05PROCESOS                                026100\n PERFORM 000600-NEXT-B05PROCESOS.                                 026200\n                                                                  026300\n 000400-LOCK-B05SXPROCESO.                                        026400\n*==========================                                       026500\n  LOCK FIRST B05SXPROCESO AT B05-SIS-SISTEMA = WKS-PARAM-SISTEMA  026600\n                AND B05-SIS-FCHPRO < WKS-FEC-ANT                  026700\n                AND B05-SIS-FCHPRO > 3                            026750\n                AND B05-SIS-NUMPRO = WKS-PROCESO(W77-IND)         026800\n                AND B05-SIS-NUMREGINI = W77-REGINI                026900\n                ON EXCEPTION                                      027000\n                   MOVE     1       TO WS-EOF.                    027100\n                                                                  027200\n 000500-DELETE-B05PROCESOS.                                       027300\n*===========================                                      027400\n  DELETE S151B05PROCESOS                                          027500\n 000600-NEXT-B05PROCESOS.                                         028400\n*==========================                                       028500\n  LOCK NEXT B05SXPROCESO AT B05-SIS-SISTEMA = WKS-PARAM-SISTEMA   028600\n                AND B05-SIS-FCHPRO < WKS-FEC-ANT                  028700\n                AND B05-SIS-FCHPRO > 3                            028750\n                AND B05-SIS-NUMPRO = WKS-PROCESO(W77-IND)         028800\n                AND B05-SIS-NUMREGINI = W77-REGINI                028900",
+          "java_codigo": "public interface ProcesoB05Repository extends JpaRepository<ProcesoB05, ProcesoB05Id> {\n\n    /** LOCK FIRST/NEXT B05SXPROCESO AT ... sustituido por un DELETE con el mismo predicado. */\n    @Modifying\n    @Query(\"\"\"\n        delete from ProcesoB05 b\n         where b.sistema = :sis and b.numProceso = :proc and b.numRegIni = :regIni\n           and b.fchPro < :umbral and b.fchPro > :fechaMinima\"\"\")\n    int depura(int sis, int proc, int regIni, LocalDate umbral, int fechaMinima);\n\n    @Lock(LockModeType.PESSIMISTIC_WRITE)\n    Optional<ProcesoB05> findFirstBySistemaAndFchProAndNumProceso(int sis, LocalDate fch, int proc);\n}\n\n/** 000220-ELIMINA-B05: una transacción por proceso, como el BEGIN/END-TRANSACTION NO-AUDIT. */\n@Transactional\npublic void depuraProceso(int sistema, int proceso, LocalDate umbral) {\n    int regIni = (proceso == props.procesoRegistroInicial1()) ? 1 : 0;   // 196 busca NUMREGINI = 1\n    int borrados = repo.depura(sistema, proceso, regIni, umbral, props.fechaMinimaValida() - 1);\n    log.info(\"Proceso {}: {} B05 depurados\", proceso, borrados);\n    if (proceso == props.procesoMarcaReinicio()) {                       // 197: se conserva el del umbral\n        repo.findFirstBySistemaAndFchProAndNumProceso(sistema, umbral, proceso)\n            .ifPresent(b -> b.setFchIni(1));                             // STORE\n    }\n}",
+          "racional": "Para cada proceso de la tabla se bloquea el primer B05 que cumple sistema, número de proceso, registro inicial y fecha entre 4 y el umbral, y se borra uno por uno avanzando con <code>LOCK NEXT</code> hasta que ya no hay coincidencias. Todo ocurre dentro de una transacción no auditada sobre el dataset de reinicio. En SQL el ciclo equivale a un solo <code>DELETE</code> con el mismo predicado dentro de una transacción por proceso. El proceso 196 busca el registro inicial 1 en lugar de 0. El 197 también pasa por la depuración de sus registros anteriores al umbral; después, el registro con fecha igual al umbral no se borra sino que se marca con <code>B05-SIS-FCHINI = 1</code>.",
+          "reglas": [
+            "RN-S151-902",
+            "RN-S151-904"
+          ],
+          "riesgo": "Un error en DELETE solo se informa y el ciclo sigue con el siguiente registro; además todos los borrados de un proceso quedan en una sola transacción no auditada, sin pista DMSII para reconstruir lo eliminado."
+        },
+        {
+          "id": "s8",
+          "titulo": "Prelínea del sistema 500 y marca del proceso 196 del día contable",
+          "linea_ini": 969,
+          "linea_fin": 1130,
+          "origen_codigo": " 000220-ELI-B05-PRELIN500.                                        032100\n*=========================                                        032200\n   MOVE WKS-FEC-ANT TO WKS-FECPRO151.                             032300\n   PERFORM 000210-PROYFEC-ANTHAB                                  032400\n   MOVE 22                  TO WKS-B05-FUNCION                    032500\n   MOVE 500                 TO WKS-B05-SISTEMA                    032600\n   MOVE WKS-FEC-ANT         TO WKS-B05-FCHPRO                     032700\n   MOVE 001                 TO WKS-B05-NUMPRO                     032800\n   MOVE 3                   TO WKS-B05-NUMREGINI                  032900\n   CALL \"B05PROCESOS IN LIBCTL\" USING  WKS-B05PROCESOS            033000\n                              GIVING W77-RESULT-LIBCON.           033100\n 000230-ACT-B05-P196-PRELINEA.                                    047100\n*============================                                     047200\n    MOVE 151                   TO WKS-B01-SISTEMA                 047300\n    MOVE WKS-NUMCSI            TO WKS-B01-CSI                     047400\n    MOVE 01                    TO WKS-B01-FUNCION                 047500\n     CALL \"CONSISDIA IN LIBCTL\"                                   047600\n         USING  WKS-S151B01SISDIA                                 047700\n         GIVING W77-RESULT-LIBCON                                 047800\n      MOVE ZERO TO WS-EOF.                                        048700\n      BEGIN-TRANSACTION NO-AUDIT S151B99REINICTL                  048750\n      LOCK FIRST B05SXPROCESO                                     048800\n              AT B05-SIS-SISTEMA = 151                            048900\n             AND B05-SIS-NUMPRO  = 196                            049000\n             AND B05-SIS-FCHPRO = WKS-B01-FECCON                  049100\n                ON EXCEPTION                                      049200\n                    MOVE     1       TO WS-EOF.                   049300\n      IF WS-EOF = 0                                               049400\n         MOVE 1 TO B05-SIS-NUMREGINI                              049600\n         STORE S151B05PROCESOS                                    049700\n         END-TRANSACTION NO-AUDIT S151B99REINICTL.                050500",
+          "java_codigo": "/** 000220-ELI-B05-PRELIN500: dos días hacia atrás y eliminación vía librería de control. */\nvoid eliminaPrelinea500(LocalDate umbral) {\n    LocalDate umbral2 = calendario.fechaAnterior(umbral);        // reproyecta sobre WKS-FEC-ANT\n    var r = libCtl.b05Procesos(22, 500, umbral2, 1, 3, null);    // sistema 500, proceso 001, reg. ini. 3\n    if (!r.ok()) log.warn(\"B05 prelínea 500 no eliminado: {}\", r);   // el COBOL no revisa el resultado\n}\n\n/** 000230-ACT-B05-P196-PRELINEA: el 196 del día contable queda con NUMREGINI = 1. */\n@Transactional\nvoid marcaP196Prelinea() {\n    LocalDate fecCon = libCtl.consisdia(151, csi).fecCon();\n    repo.findFirstBySistemaAndFchProAndNumProceso(151, fecCon, 196)\n        .ifPresent(b -> b.setNumRegIni(1));                      // la próxima depuración lo alcanzará\n}",
+          "racional": "En S151, después de recorrer sus cuatro procesos, P196 vuelve a proyectar la fecha un día más atrás sobre el umbral ya calculado y pide a la librería de control eliminar el B05 del proceso 1 del sistema 500 con registro inicial 3. Luego toma la fecha contable de S151 y pone en 1 el registro inicial del B05 del proceso 196 de ese día, lo que lo deja dentro del criterio de la siguiente depuración. Los números 500, 1 y 3 son hardcodes que pasan a configuración.",
+          "reglas": [
+            "RN-S151-902"
+          ],
+          "riesgo": "000220-ELI-B05-PRELIN500 sobrescribe WKS-FECPRO151 y WKS-FEC-ANT al reproyectar, y no revisa el resultado de B05PROCESOS; un fallo deja el B05 de prelínea de S500 sin depurar y sin aviso."
+        },
+        {
+          "id": "s9",
+          "titulo": "Modo 2: sincronización de la fecha de S151 con la fecha contable de S500",
+          "linea_ini": 1021,
+          "linea_fin": 1088,
+          "origen_codigo": " 000140-MANTEN-FECHA-S500.                                        039600\n          MOVE    ZERO             TO   WS-EOF.                   039700\n          FIND FIRST B05SXPROCESO AT B05-SIS-SISTEMA = 151        039800\n                        AND B05-SIS-NUMPRO = 196                  039900\n                        AND B05-SIS-NUMREGINI = 0                 040000\n                        ON EXCEPTION                              040100\n                           MOVE     1       TO WS-EOF.            040200\n                                                                  040300\n    IF WS-EOF = 1                                                 040400\n       MOVE 500                   TO WKS-B01-SISTEMA              040500\n       MOVE WKS-NUMCSI            TO WKS-B01-CSI                  040600\n       MOVE 01                    TO WKS-B01-FUNCION              040700\n        CALL \"CONSISDIA IN LIBCTL\"                                040800\n            USING  WKS-S151B01SISDIA                              040900\n            GIVING W77-RESULT-LIBCON                              041000\n        ELSE                                                      041900\n           MOVE WKS-B01-FECCON            TO WKS-FECCON-S500      042000\n                                             WKS-FECPRO-S500      042100\n                                             WKS-FECPRO151-S500   042200\n           MOVE 151                       TO WKS-B01-SISTEMA      042300\n           MOVE WKS-NUMCSI                TO WKS-B01-CSI          042400\n           MOVE 01                        TO WKS-B01-FUNCION      042500\n            CALL \"CONSISDIA IN LIBCTL\"                            042600\n                USING  WKS-S151B01SISDIA                          042700\n                GIVING W77-RESULT-LIBCON                          042800\n           ELSE                                                   043700\n            MOVE 151                   TO WKS-B01-SISTEMA         043800\n            MOVE WKS-NUMCSI            TO WKS-B01-CSI             043900\n            MOVE 37                    TO WKS-B01-FUNCION         044000\n            MOVE WKS-FECCON-S500       TO WKS-B01-FECPRO          044100\n            MOVE WKS-FECPRO-S500       TO WKS-B01-FECCON          044200\n            MOVE WKS-FECPRO151-S500    TO WKS-B01-FECPRO151       044300\n            CALL \"MANTSISDIA IN LIBCTL\"                           044400\n                             USING  WKS-S151B01SISDIA             044500\n                             GIVING W77-RESULT-LIBCON             044600\n              ELSE                                                045500\n                MOVE 19              TO WKS-B05-FUNCION           045600\n                MOVE WKS-FECCON-S500 TO WKS-B05-FCHPRO            045700\n                MOVE 196             TO WKS-B05-NUMPRO            045800\n                MOVE 151             TO WKS-B05-SISTEMA           045900\n                MOVE 0               TO WKS-B05-NUMREGINI         046000\n               CALL \"B05PROCESOS IN LIBCTL\"                       046100\n               USING WKS-B05PROCESOS                              046200\n               GIVING W77-RESULT-LIBCON                           046300",
+          "java_codigo": "/** 000140-MANTEN-FECHA-S500: solo si aún no existe el B05 196 de S151 con registro inicial 0. */\n@Component\n@RequiredArgsConstructor\npublic class SincronizaFechaS500Tasklet implements Tasklet {\n\n    private final ProcesoB05Repository repo;\n    private final LibreriaControl libCtl;\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        if (repo.existsBySistemaAndNumProcesoAndNumRegIni(151, 196, 0)) return RepeatStatus.FINISHED;\n        int csi = csiDelHost();\n        LocalDate fecConS500 = libCtl.consisdia(500, csi).orElseThrow(\"ERROR CONSULTA FECHA 500\").fecCon();\n        libCtl.consisdia(151, csi).orElseThrow(\"ERROR EN CONSULTA 151\");\n        // Las tres fechas de S151 reciben el mismo valor: la fecha contable de S500.\n        libCtl.mantsisdia(37, 151, csi, fecConS500, fecConS500, fecConS500)\n              .orElseThrow(\"ERROR AL GRABAR FECHA 151\");\n        libCtl.b05Procesos(19, 151, fecConS500, 196, 0, null)           // alta del B05 196\n              .orElseThrow(\"ERROR AL CREAR REG B05 196\");\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "En el modo 2 el programa revisa si ya existe el B05 del proceso 196 de S151 con registro inicial 0; si no existe, consulta la fecha contable de S500, la escribe en S151 como fecha de proceso, fecha contable y fecha de proceso 151, y crea el B05 196 con esa fecha. Es un mecanismo para alinear el calendario de S151 con el de S500. Cada error aborta la tarea, igual que en Java. El modo 1 (000150-REGRESO-FECHA) es el inverso: si existe un B05 197 sin marca con programa terminado, retrocede un día la fecha de proceso 151.",
+          "reglas": [],
+          "riesgo": "Las variables WKS-FECCON-S500, WKS-FECPRO-S500 y WKS-FECPRO151-S500 reciben las tres el mismo valor (línea 1045) y después se cruzan sus nombres al moverlas a B01; si la intención era copiar tres fechas distintas de S500, hoy se copia solo la contable."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "El proceso 197 sí se depura",
+      "detalle": "El 197 está en la tabla NNN y pasa por el mismo ciclo de LOCK y DELETE que los demás procesos (líneas 879-881); solo el registro con fecha igual al umbral se conserva y se marca. Esto matiza la regla RN-S151-904, que dice que el 197 no se elimina."
+    },
+    {
+      "titulo": "Mensajes de error que no se emiten",
+      "detalle": "En 000210-PROYFEC-ANTHAB (líneas 953-965) el texto del error de calendario se arma pero no se envía a LIB-DISP antes de STATUS -1. La tarea aborta sin dejar la causa en bitácora."
+    },
+    {
+      "titulo": "Alta de B01 con fecha de 2015 y sin propagar",
+      "detalle": "Si falta el B01 de S151, se crea con 20150525 en sus tres fechas (líneas 799-801) sin revisar el resultado de MANTSISDIA, y WKS-FECPRO151 queda sin asignar para el cálculo del umbral."
+    },
+    {
+      "titulo": "Borrado sin auditoría y con errores silenciosos",
+      "detalle": "Los DELETE se hacen dentro de BEGIN-TRANSACTION NO-AUDIT y un error solo se informa. No hay forma de reconstruir desde DMSII qué registros de control se eliminaron."
+    },
+    {
+      "titulo": "Resultados de librería sin revisar",
+      "detalle": "B05PROCESOS en 000220-ELI-B05-PRELIN500 y la eliminación puntual con parámetro no abortan si fallan; el job que lanza a P196 termina en estado normal."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Listas de procesos PRELINEA y NNN, procesos 196 y 197, sistema 500 proceso 1 registro inicial 3, umbral de fecha mayor a 3, fecha semilla 20150525 y título de librería (S151)S151/OBJECT/L001/CONTROL/15MTP002 ON CMEMP. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar si THECALENDAR función 15, formato 13 y desplazamiento 1 retrocede un día hábil o un día natural; la regla RN-S151-903 dice día hábil pero el fuente no lo documenta.",
+    "Revisar la redacción de RN-S151-904: en el fuente el 197 también se depura para fechas anteriores al umbral y solo se preserva el registro de la fecha umbral.",
+    "Confirmar qué proceso lanza P196 con TASKVALUE 1 y 2 y en qué momento del día, porque esos modos modifican la fecha de proceso de S151.",
+    "Confirmar el valor inicial de WKS-FECPRO151 en MCP para el caso en que se crea el B01 de S151 (no tiene VALUE)."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-900",
+    "RN-S151-901",
+    "RN-S151-902",
+    "RN-S151-903",
+    "RN-S151-904",
+    "RN-S151-905"
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "slug": "S500_P181",
+  "sistema": "S500",
+  "programa": "P181",
+  "nombre": "Inventario de Captación y Archivos Analíticos de Saldos",
+  "funcion": "Paso batch nocturno de S500 que recorre los contratos de captación, arma y clasifica el archivo puente INVEPTE para P180 y genera los archivos de saldos de cheques y Cuenta Maestra para Datoteca, Genesis y Teradata.",
+  "resumen": "P181 abre S500BD01CAPTACION en consulta, obtiene la fecha de proceso del control B02 o del TASKVALUE de la tarea y carga a memoria hasta 30 combinaciones de producto, instrumento y moneda de B05, preparando una tabla de totales para cheques (producto 1) y otra para Cuenta Maestra (producto 66, o 500 con instrumento 1). Recorre B03 y, para cada contrato que no sea de ahorro, no esté migrado a S111 y ya esté abierto a la fecha, completa datos de B06, calcula días y saldo promedio anual cuando el corte cae en la fecha de proceso, y escribe un registro de 360 posiciones en INVEPTE. Ordena INVEPTE por nodo, sucursal, producto, instrumento, moneda y contrato y lo relee: el producto 1 va a CHESDOS y su adicional para Teradata, y todo lo demás a CMASDOS y su adicional. Cierra cada archivo con renglones de totales por producto y un trailer con el número de registros.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.captacion.inventario",
+  "secciones": [
+    {
+      "titulo": "Control del job y fecha de proceso",
+      "origen": {
+        "archivo": "S500_SOURCE_P181.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000-PRINCIPAL / 20002000 / 20002100 / 20002120"
+      },
+      "java": {
+        "archivo": "InventarioCaptacionJobConfig.java · FechaProcesoTasklet.java",
+        "contexto": "Spring Batch Job · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal y fecha forzada por TASKVALUE",
+          "origen_codigo": " 00000000-PRINCIPAL.\n     MOVE ATTRIBUTE HOSTNAME  OF MYSELF TO WKS-NAME-HOST.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WS-VAL-FEC.\n     MOVE \"P181\"              TO WS-0101-PASO-MSG.\n     MOVE \"25MTP004\"          TO WS-0101-MTP-MSG B91-IDPROG.\n     MOVE \"S500P181\"          TO W77-S000-MY-ID.\n     MOVE \"25MTP004\"          TO W77-S000-MY-VERSION.\n     MOVE 2                   TO W77-USO-LIBLJ.\n     PERFORM 10000000-LIBRERIAS  THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN       THRU 20000000-EXIT.\n     PERFORM 50000000-PROCESOS   THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO     THRU 70000000-EXIT.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class InventarioCaptacionJobConfig {\n\n    /** 00000000-PRINCIPAL: librerías, apertura, procesos y cierre. TASKVALUE pasa a parámetro \"fecha\". */\n    @Bean\n    Job inventarioCaptacion(JobRepository repo, Step fechaProceso, Step catalogoProductos,\n                            Step archivoPuente, Step ordenaPuente, Step archivosSaldos) {\n        return new JobBuilder(\"S500P181\", repo)\n                .start(fechaProceso)        // 20002000-FECHA-PRO\n                .next(catalogoProductos)    // 50001500-SUBO-B05-PROD + 50002000-CANCEL-LIB\n                .next(archivoPuente)        // 52000000-GENERO-ARCHPTE -> INVEPTE\n                .next(ordenaPuente)         // 80000000-SORT-INVEPTE\n                .next(archivosSaldos)       // 53000000-LEO-ARCHIVO -> CHESDOS, CMASDOS y adicionales\n                .build();\n    }\n}",
+          "racional": "La rutina principal ejecuta cuatro bloques con <code>PERFORM ... THRU</code> y termina. Antes de eso toma el <code>TASKVALUE</code> de la tarea, que si trae una fecha permite reprocesar un día distinto del registrado en B02. En Spring Batch esa fecha es un parámetro opcional del job y cada bloque es un step, de modo que el ordenamiento y la generación de archivos se pueden reiniciar sin volver a recorrer B03.",
+          "reglas": [],
+          "linea_ini": 683,
+          "linea_fin": 697
+        },
+        {
+          "id": "s2",
+          "titulo": "Fecha de proceso, detección de fin de mes y de fin de semana",
+          "origen_codigo": " 20002000-FECHA-PRO.\n  PERFORM 90000002-B02CONTROL-FIND\n  IF WS-STATUS-BASE > 0\n    IF WS-STATUS-BASE = 1\n       MOVE \"ERROR REG. DE CONTROL VACIO    \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n     PERFORM 20002100-PROY-FEC  THRU  20002100-EXIT.\n 20002100-PROY-FEC.\n    IF WS-VAL-FEC > 0\n       MOVE WS-VAL-FEC              TO WS-FECHA-PRO\n       MOVE WS-VAL-FEC              TO WS-S006-FECHA1\n       MOVE 1                       TO WS-S006-FECHA2\n       MOVE 13                      TO WS-S006-FORMATO\n       MOVE 13                      TO WS-S006-FUNCION\n       PERFORM 40000000-CALL-FECPRO THRU  40000000-EXIT\n       MOVE WS-S006-FECHA1          TO WS-FEC-PROX-AMD\n    ELSE\n       MOVE B02-FECHA-LOTE          TO WS-FECHA-PRO\n       MOVE B02-FECHA-LINEA         TO WS-FEC-PROX-AMD.\n    IF WS-PRO-MM NOT = WS-FEC-PROX-MM\n       MOVE 1                 TO WS-ES-MENSUAL.\n    PERFORM 20002120-SEMANAL    THRU 20002120-EXIT.\n 20002120-SEMANAL.\n    MOVE WS-FECHA-PRO          TO WS-S006-FECHA1.\n    MOVE 12                    TO WS-S006-FORMATO.\n    MOVE 6                     TO WS-S006-FUNCION.\n    PERFORM 40000000-CALL-FECPRO THRU  40000000-EXIT.\n    MOVE WS-S006-FECHA1          TO WS-DIASEM-HOY.\n     MOVE WS-FEC-PROX-AMD      TO WS-S006-FECHA1.\n     MOVE 12                   TO WS-S006-FORMATO.\n     MOVE 6                    TO WS-S006-FUNCION.\n     PERFORM 40000000-CALL-FECPRO THRU 40000000-EXIT.\n     MOVE WS-S006-FECHA1       TO WS-DIASEM-PROX.\n    IF WS-DIASEM-HOY > WS-DIASEM-PROX\n       MOVE 1                  TO WS-ES-SEMANAL.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechaProcesoTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository b02;   // S500B02CONTROL\n    private final CalendarioBancario calendario;     // LOCSUP\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var params = ctx.getStepContext().getJobParameters();\n        var control = b02.find().orElseThrow(() ->\n                new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));   // DMTERMINATE\n\n        LocalDate fechaPro, fechaProx;\n        if (params.get(\"fecha\") instanceof String f && !f.isBlank()) {          // WS-VAL-FEC > 0\n            fechaPro  = LocalDate.parse(f, DateTimeFormatter.BASIC_ISO_DATE);\n            fechaProx = calendario.siguienteHabil(fechaPro);                 // función 13, formato 13\n        } else {\n            fechaPro  = control.fechaLote();\n            fechaProx = control.fechaLinea();\n        }\n        boolean esMensual = fechaPro.getMonth() != fechaProx.getMonth();\n        boolean esSemanal = calendario.diaSemana(fechaPro) > calendario.diaSemana(fechaProx);\n\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaProceso\", fechaPro);\n        ec.put(\"csi\", control.numCsi());\n        ec.put(\"esMensual\", esMensual);    // calculado y publicado, aunque P181 no lo consulta (ver riesgo)\n        ec.put(\"esSemanal\", esSemanal);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de proceso sale del control B02 (fecha de lote y fecha de línea siguiente) o, si la tarea trae una fecha, de esa fecha y su siguiente día hábil. Con ellas el programa marca fin de mes cuando cambia el mes y fin de semana cuando el día de la semana siguiente es menor que el de hoy. En Java ambas marcas se calculan igual y se publican en el contexto del job. El día de la semana se toma del calendario bancario para conservar la numeración del original, en la que el domingo vale cero.",
+          "reglas": [
+            "RN-S500-389"
+          ],
+          "riesgo": "WS-ES-MENSUAL y WS-ES-SEMANAL se calculan, pero en este fuente no se consultan en ningún otro párrafo: los archivos y totales se generan igual en fin de mes y en día normal.",
+          "linea_ini": 794,
+          "linea_fin": 873
+        }
+      ]
+    },
+    {
+      "titulo": "Catálogo de productos, selección de contratos y archivo puente INVEPTE",
+      "origen": {
+        "archivo": "S500_SOURCE_P181.txt",
+        "contexto": "50001600-CARGO / 52200000-SEL / 52220060 / 52220070 / FD INVE-PTE / 80000000-SORT-INVEPTE"
+      },
+      "java": {
+        "archivo": "CatalogoProductosTasklet.java · SeleccionContratoProcessor.java · InventarioRecord.java",
+        "contexto": "Tasklet · ItemProcessor · record · ordenamiento externo"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Tabla de hasta 30 productos y su asignación a cheques o Cuenta Maestra",
+          "origen_codigo": " 50001600-CARGO.\n    ADD 1 TO WS-IND-B05.\n    IF WS-IND-B05 > 30\n       MOVE \"INST. TIENE MAS DE 30 PRDS \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n    MOVE B05-MA-TARJETA         TO WS-TB05-MAC(WS-IND-B05).\n    MOVE B05-NUM-PRODUCTO       TO WS-TB05-PRD(WS-IND-B05).\n    MOVE B05-NUM-INSTRUM        TO WS-TB05-INS(WS-IND-B05).\n    MOVE B05-MONEDA             TO WS-TB05-MON(WS-IND-B05).\n    IF B05-NUM-PRODUCTO = 1\n       MOVE B05-NUM-PRODUCTO    TO WS-TBTOT-PRD(WS-IND-B05)\n       MOVE B05-NUM-INSTRUM     TO WS-TBTOT-INS(WS-IND-B05)\n       MOVE B05-MONEDA          TO WS-TBTOT-MON(WS-IND-B05)\n       MOVE 0                   TO WS-TBTOT-MACE(WS-IND-B05)\n    ELSE\n    IF (B05-NUM-PRODUCTO = 66)\n    OR ((B05-NUM-PRODUCTO = 500) AND (B05-NUM-INSTRUM  = 1))\n       MOVE B05-NUM-PRODUCTO    TO WS-NUMCMA-PRD(WS-IND-B05)\n       MOVE B05-NUM-INSTRUM     TO WS-NUMCMA-INS(WS-IND-B05)\n       MOVE B05-MONEDA          TO WS-NUMCMA-MON(WS-IND-B05)\n       MOVE 0                   TO WS-NUMCMA-MACE(WS-IND-B05)\n                                   WS-NUMCMA-MECE(WS-IND-B05)\n                                   WS-NUMCMA-IGCE(WS-IND-B05)\n                                   WS-NUMCMA-SDOA(WS-IND-B05).\n 50002000-CANCEL-LIB.\n     PERFORM 40000300-CARGO-TABLA   THRU 40000300-EXIT.\n     CANCEL \"CTLVERS\".\n     CANCEL \"S080TARIFAS\".\n     CANCEL \"S080BD01CON\".",
+          "java_codigo": "# application.yml\np181:\n  max-productos: 30                      # WS-IND-B05 > 30 -> DMTERMINATE\n  familias:\n    cheques: [{ producto: 1 }]\n    cuenta-maestra: [{ producto: 66 }, { producto: 500, instrumento: 1 }]\n\n// ---------------------------------------------------------------------------\npublic enum Familia { CHEQUES, CUENTA_MAESTRA, SIN_TOTALES }\n\npublic record ProductoB05(int producto, int instrumento, int moneda, int medioAcceso) {}\n\n@Component\n@RequiredArgsConstructor\npublic class CatalogoProductos {\n\n    private final P181Properties props;\n    private final Map<ProductoB05Key, Integer> indice = new LinkedHashMap<>();   // INV-INDB05-S\n    private final Map<Integer, Familia> familiaPorIndice = new HashMap<>();\n\n    void carga(Stream<ProductoB05> b05) {\n        b05.forEach(p -> {\n            int i = indice.size() + 1;\n            if (i > props.maxProductos())\n                throw new ProcesoAbortadoException(\"INST. TIENE MAS DE 30 PRDS \");\n            indice.put(ProductoB05Key.of(p), i);\n            familiaPorIndice.put(i, props.familiaDe(p));   // 1 -> CHEQUES; 66, 500/1 -> CUENTA_MAESTRA\n        });\n    }\n}\n// 50002000-CANCEL-LIB (CANCEL \"CTLVERS\", \"S080TARIFAS\", \"S080BD01CON\"): en la JVM los clientes\n// de catálogo se liberan al terminar el step; no hace falta un equivalente explícito.",
+          "racional": "B05 se carga completo en una tabla de 30 posiciones, y el mismo índice sirve para dos tablas de totales: la de cheques se habilita solo para el producto 1 y la de Cuenta Maestra para el producto 66 o el 500 con instrumento 1. Más de 30 productos aborta el proceso. En Java el límite y la asignación de familia pasan a <code>application.yml</code>. Después de la carga, el original cancela tres librerías para liberar memoria en el MCP; en la JVM ese cuidado no aplica porque los recursos se liberan con el contexto del step.",
+          "reglas": [
+            "RN-S500-387",
+            "RN-S500-391"
+          ],
+          "linea_ini": 1034,
+          "linea_fin": 1077
+        },
+        {
+          "id": "s4",
+          "titulo": "Elegibilidad del contrato para el inventario",
+          "origen_codigo": " 52200000-SEL.\n     PERFORM 90000003-B03CONTRATOS-FINDN\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n            MOVE 1 TO WS-EOF-B03\n     IF WS-EOF-B03 = 0\n        MOVE B03-NUM-PRODUCTO  TO WS03-NUM-PRODUCTO\n        MOVE B03-NUM-INSTRUM   TO WS03-NUM-INSTRUM\n        MOVE B03-MONEDA        TO WS03-MONEDA\n        MOVE B03-NUM-CONTRATO  TO WS03-NUM-CONTRATO\n        IF WS03-88-PIM-PROD-A-SOR\n           MOVE ZERO TO B03-FEC-CAMBPROD.\n     IF WS-EOF-B03 = 0\n        IF (WS03-88-PIM-AHORROS)\n        OR (B03-FEC-APERTURA > WS-FECHA-PRO)\n        OR (B03-MIGR-S111 = 1)\n            NEXT SENTENCE\n        ELSE\n            PERFORM 52220000-GRABO-CTES THRU 52220000-EXIT\n            PERFORM 52230000-LLENO-SORT THRU 52230000-EXIT.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class SeleccionContratoProcessor implements ItemProcessor<ContratoB03, InventarioRecord> {\n\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fechaProceso;\n    private final HistoricoB06Repository b06;\n    private final InventarioMapper mapper;            // 52230000-LLENO-SORT\n\n    @Override\n    public InventarioRecord process(ContratoB03 c) {\n        var c2 = c.pimProductoASor() ? c.sinFechaCambioProducto() : c;   // WS03-88-PIM-PROD-A-SOR\n        if (c2.pimAhorros()                                   // WS03-88-PIM-AHORROS\n                || c2.fechaApertura().isAfter(fechaProceso)   // aún no abierto a la fecha\n                || c2.migradoS111()) {                        // B03-MIGR-S111 = 1\n            return null;                                      // NEXT SENTENCE: no entra al inventario\n        }\n        var hist = b06.findByContrato(c2.numContrato());      // 52240000-VE-B06\n        var calculos = hist.fechaRealCorte().equals(fechaProceso)\n                ? CalculosCiclo.de(c2, hist, fechaProceso)    // 52220050-CAL-CAMPOS\n                : CalculosCiclo.ninguno();\n        return mapper.toInventario(c2, hist, calculos);\n    }\n}",
+          "racional": "Cada contrato de B03 entra al inventario salvo que sea de ahorro, que su fecha de apertura sea posterior a la de proceso o que esté migrado a S111. Antes de evaluar, si el PIM pertenece al grupo que el fuente identifica como producto a SOR, se limpia la fecha de cambio de producto. Los cálculos del ciclo solo se hacen cuando el corte real del histórico coincide con la fecha de proceso. En Java el filtro es un <code>ItemProcessor</code> que devuelve <code>null</code> para descartar, que es el equivalente de <code>NEXT SENTENCE</code>.",
+          "reglas": [
+            "RN-S500-387"
+          ],
+          "riesgo": "Las condiciones WS03-88-PIM-AHORROS y WS03-88-PIM-PROD-A-SOR viven en un copybook que no está en el fuente; no se puede confirmar qué productos excluye.",
+          "linea_ini": 1113,
+          "linea_fin": 1143
+        },
+        {
+          "id": "s5",
+          "titulo": "Días transcurridos del año y saldo promedio anual",
+          "origen_codigo": " 52220060-CAL-DIASANUAL.\n     MOVE WS-FECHA-PRO            TO WS-FEC-PUENTE-AMD.\n     MOVE 01                      TO WS-PUENTE-MM.\n     MOVE 01                      TO WS-PUENTE-DD.\n     IF B03-FEC-APERTURA < WS-FEC-PUENTE-AMD\n        MOVE  WS-FEC-PUENTE-AMD   TO WS-S006-FECHA2\n     ELSE\n        MOVE B03-FEC-APERTURA     TO WS-S006-FECHA2.\n     MOVE B06-FEC-CICLOANT        TO WS-S006-FECHA1.\n     MOVE 12                      TO WS-S006-FORMATO\n     MOVE 02                      TO WS-S006-FUNCION.\n     PERFORM 40000000-CALL-FECPRO THRU 40000000-EXIT.\n     MOVE WS-S006-FECHA1          TO WS-DIAS-ANO.\n     IF B03-FEC-CAMBPROD = WS-B06-FECREAL-CORTE\n        NEXT SENTENCE\n     ELSE\n        ADD  1                    TO WS-DIAS-ANO.\n 52220070-CAL-SDOPROMAN.\n     IF WS-DIAS-ANO > 0\n        COMPUTE WS-SDO-PROMANUAL = B06-ACUM-PROMANU / WS-DIAS-ANO\n     ELSE\n        MOVE 0   TO  WS-SDO-PROMANUAL.",
+          "java_codigo": "public record CalculosCiclo(int diasAno, BigDecimal saldoPromedioAnual, boolean hoyEsCorte) {\n\n    /** 52220060 + 52220070. WS-SDO-PROMANUAL es S9(14)V99: COMPUTE sin ROUNDED trunca. */\n    static CalculosCiclo de(ContratoB03 c, HistoricoB06 h, LocalDate fechaProceso, CalendarioBancario cal) {\n        LocalDate inicioAno = fechaProceso.withDayOfYear(1);\n        LocalDate desde = c.fechaApertura().isBefore(inicioAno) ? inicioAno : c.fechaApertura();\n        int dias = cal.diasEntre(h.fechaCicloAnterior(), desde);     // LOCSUP función 02, formato 12\n        if (!Objects.equals(c.fechaCambioProducto(), h.fechaRealCorte())) {\n            dias += 1;\n        }\n        BigDecimal promedio = dias > 0\n                ? h.acumuladoPromedioAnual().divide(BigDecimal.valueOf(dias), 2, RoundingMode.DOWN)\n                : BigDecimal.ZERO.setScale(2);\n        return new CalculosCiclo(dias, promedio, true);\n    }\n\n    static CalculosCiclo ninguno() { return new CalculosCiclo(0, BigDecimal.ZERO.setScale(2), false); }\n}",
+          "racional": "Cuando hoy es corte del contrato, los días del año se cuentan desde el primero de enero o desde la apertura, lo que sea posterior, contra la fecha del ciclo anterior, y se suma un día salvo que el cambio de producto coincida con el corte. El saldo promedio anual es el acumulado de B06 entre esos días. El <code>COMPUTE</code> no tiene <code>ROUNDED</code>, por eso la división se trunca a dos decimales con <code>RoundingMode.DOWN</code>. El orden de los argumentos de LOCSUP se respeta tal cual (fecha del ciclo anterior primero).",
+          "reglas": [],
+          "riesgo": "WS-SDO-PROMANUAL es S9(14)V99 y se mueve a INV-SDOPROMANO-S, PIC 9(12)V99 sin signo (línea 210): un promedio negativo pierde el signo y uno muy grande pierde los dígitos altos.",
+          "linea_ini": 1173,
+          "linea_fin": 1204
+        },
+        {
+          "id": "s6",
+          "titulo": "INVEPTE con llaves de orden al inicio y SORT sobre sí mismo",
+          "origen_codigo": " 01 INVERSION-REG.\n    03 INV-NODO-S            PIC  9(02)              COMP.\n    03 INV-SUCURSAL-S        PIC  9(04)              COMP.\n    03 INV-PRODUCTO-S        PIC  9(04)              COMP.\n    03 INV-INSTRUMENTO-S     PIC  9(04)              COMP.\n    03 INV-MONEDA-S          PIC  9(02)              COMP.\n    03 INV-CONTRATO-S        PIC  9(12)              COMP.\n    03 INV-NUMCTE-S          PIC  9(12)              COMP.\n    03 INV-SDOANT-S          PIC S9(13)V99           COMP.\n    03 INV-SDOACT-S          PIC S9(13)V99           COMP.\n    03 INV-SDOBLO-S          PIC  9(12)V99           COMP.\n 80000000-SORT-INVEPTE.\n     COMPUTE WS-SORT-ESPACIO = (W77-TOT-REGINVE + 25) * 60 * 3.5\n     COMPUTE W77-MEMSIZE = ((W77-TOT-REGINVE / 16) * 62) + 1500.\n     IF W77-MEMSIZE < 400000\n        MOVE 400000 TO W77-MEMSIZE\n     ELSE\n     IF W77-MEMSIZE > 258435000\n        MOVE 258435000 TO W77-MEMSIZE.\n     SORT SORT-INVE ON ASCENDING KEY\n                                     SD-INV-NODO\n                                     SD-INV-SUCURSAL\n                                     SD-LLAVE-PRD\n                                     SD-INV-CONTRATO\n          USING    INVE-PTE    PURGE\n          GIVING   INVE-PTE    SAVE\n          MEMORY SIZE W77-MEMSIZE     WORDS\n          DISK   SIZE WS-SORT-ESPACIO WORDS.",
+          "java_codigo": "/** INVERSION-REG (360 posiciones). Desde ABR/2019 las llaves de orden van juntas al inicio. */\npublic record InventarioRecord(\n        int nodo, int sucursal,                 // 9(02), 9(04)\n        int producto, int instrumento, int moneda,\n        String contrato, String numCliente,     // 9(12) como String\n        BigDecimal saldoAnterior,               // S9(13)V99\n        BigDecimal saldoActual,                 // S9(13)V99\n        BigDecimal saldoBloqueado,              // 9(12)V99\n        /* ... 50 campos más: fechas, tasas, intereses, indicadores ... */\n        String raw) {\n\n    /** Equivale a SORT SORT-INVE ON ASCENDING KEY nodo, sucursal, llave PIM, contrato. */\n    public static final Comparator<InventarioRecord> ORDEN = Comparator\n            .comparingInt(InventarioRecord::nodo)\n            .thenComparingInt(InventarioRecord::sucursal)\n            .thenComparingInt(InventarioRecord::producto)\n            .thenComparingInt(InventarioRecord::instrumento)\n            .thenComparingInt(InventarioRecord::moneda)\n            .thenComparing(InventarioRecord::contrato);\n}\n\n@Bean\nStep ordenaPuente(JobRepository repo, PlatformTransactionManager tx, P181Properties p) {\n    // Ordenamiento externo por bloques: no depende de MEMORY SIZE / DISK SIZE calculados.\n    return new StepBuilder(\"ordenaPuente\", repo)\n            .tasklet(new ExternalSortTasklet<>(p.invepte(), InventarioRecord::parse,\n                    InventarioRecord.ORDEN, 500_000), tx)\n            .build();\n}",
+          "racional": "El archivo puente INVEPTE se reacomodó en 2019 para que nodo, sucursal, producto, instrumento, moneda y contrato queden contiguos al inicio y el SORT, aquí y en P180, use llaves simples. El original dimensiona memoria y disco del SORT con fórmulas y topes fijos según el número de registros. En Java el orden se expresa con un <code>Comparator</code> sobre los mismos campos y un ordenamiento externo por bloques, que no necesita esos cálculos. El orden por contrato numérico se conserva usando el contrato con ceros a la izquierda.",
+          "reglas": [
+            "RN-S500-390"
+          ],
+          "linea_ini": 197,
+          "linea_fin": 1994
+        }
+      ]
+    },
+    {
+      "titulo": "Archivos de saldos CHESDOS y CMASDOS, adicionales y totales",
+      "origen": {
+        "archivo": "S500_SOURCE_P181.txt",
+        "contexto": "53400100-ARCSDO / 53400200 / 53400220-SUMO / 53443100 / 53445000-TRAIL-ADDI"
+      },
+      "java": {
+        "archivo": "FamiliaClassifier.java · TotalesProductoListener.java · SaldosFooterCallback.java",
+        "contexto": "ClassifierCompositeItemWriter · FlatFileFooterCallback"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Ruteo por producto: cheques o Cuenta Maestra",
+          "origen_codigo": " 53400100-ARCSDO.\n      IF INV-PRODUCTO-S = 1\n         ADD 1               TO WS-NUMREG-CHE\n         PERFORM 53400200-ARCSDO-CHE THRU 53400200-EXIT\n      ELSE\n         ADD 1               TO WS-NUMREG-CMA\n         PERFORM 53400300-ARCSDO-CMA THRU 53400300-EXIT.\n 53400200-ARCSDO-CHE.\n     MOVE SPACES               TO REG-CTOCHE REG-BICASDOS.\n     MOVE 02                   TO BICA-TPOREG.\n     MOVE INV-PRODUCTO-S       TO BICA-PRD.\n     MOVE INV-INSTRUMENTO-S    TO BICA-INST.\n     MOVE INV-MONEDA-S         TO BICA-MON.\n     MOVE INV-CONTRATO-S       TO BICA-NUMCTO.\n     MOVE INV-NUMCTE-S         TO BICA-NUMCTE.\n     MOVE INV-STATUS-S         TO BICA-STACTA.\n     MOVE INV-SDOACT-S         TO BICA-SDOACTUAL.\n     MOVE INV-SDOANT-S         TO BICA-SDOANTERIOR.\n    WRITE REG-CTOCHE  FROM REG-BICASDOS  INVALID KEY\n          MOVE \"ERROR AL GRABAR DET SDOCHE \" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n    PERFORM 59400390-ARCH-ADD-CHE.\n    PERFORM 53400220-SUMO THRU 53400220-EXIT.",
+          "java_codigo": "@Bean\nClassifierCompositeItemWriter<InventarioRecord> archivosSaldos(\n        CompositeItemWriter<InventarioRecord> cheques,       // CHESDOS + ADICIONALCHEQ\n        CompositeItemWriter<InventarioRecord> cuentaMaestra) { // CMASDOS + ADICIONALCMAE\n    var w = new ClassifierCompositeItemWriter<InventarioRecord>();\n    // 53400100-ARCSDO: producto 1 a cheques; CUALQUIER otro producto a Cuenta Maestra.\n    w.setClassifier(r -> r.producto() == 1 ? cheques : cuentaMaestra);\n    return w;\n}\n\n@Bean\nCompositeItemWriter<InventarioRecord> cheques(FlatFileItemWriter<InventarioRecord> chesdos,\n                                             FlatFileItemWriter<InventarioRecord> adicionalCheq) {\n    // Cada detalle va a los dos archivos: BICA (270) para Datoteca/Genesis y TERA (540) para Teradata.\n    return new CompositeItemWriterBuilder<InventarioRecord>()\n            .delegates(chesdos, adicionalCheq)\n            .build();\n}\n\n/** REG-BICASDOS tipo 02: los saldos van con signo; el contrato y el cliente como texto. */\nstatic String bicaDetalle(InventarioRecord r) {\n    return Fixed.bica02(r.producto(), r.instrumento(), r.moneda(), r.contrato(), r.numCliente(),\n                        r.status(), r.saldoActual(), r.saldoAnterior() /* ... */);\n}",
+          "racional": "Al releer el inventario ordenado, el producto 1 se escribe en el archivo de saldos de cheques y en su adicional para Teradata; cualquier otro producto, en los de Cuenta Maestra. Cada detalle produce dos salidas con formatos distintos, de 270 y 540 posiciones, para destinatarios distintos. Es el patrón del arquetipo A3: un <code>ClassifierCompositeItemWriter</code> que elige la familia y un <code>CompositeItemWriter</code> por familia que escribe los dos archivos.",
+          "reglas": [
+            "RN-S500-387",
+            "RN-S500-388"
+          ],
+          "riesgo": "La regla del brain describe el producto 1 como ahorro; en el fuente el producto 1 es el que alimenta CHESDOS y los totales de cheques, y los ahorros se excluyen antes, en 52200000-SEL.",
+          "linea_ini": 1497,
+          "linea_fin": 1561
+        },
+        {
+          "id": "s8",
+          "titulo": "Totales por producto: saldos mayores, iguales y menores que cero",
+          "origen_codigo": " 53400220-SUMO.\n     IF INV-INDB05-S > 0 AND < 31\n        MOVE INV-INDB05-S   TO WS-IND-CH\n        ADD INV-SDOACT-S    TO WS-TBTOT-SDOA(WS-IND-CH)\n        IF INV-SDOACT-S > 0\n           ADD 1            TO WS-TBTOT-MACE(WS-IND-CH)\n        ELSE\n        IF INV-SDOACT-S = 0\n           ADD 1           TO WS-TBTOT-IGCE(WS-IND-CH)\n        ELSE\n           ADD 1            TO WS-TBTOT-MECE(WS-IND-CH)\n     ELSE\n        MOVE INV-INDB05-S   TO WS-MSG-N-02\n        STRING \"ERR AL SUMAR CHQS  IND=\", WS-MSG-N-02\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE.\n 53443100-LEO-CHE.\n     IF WS-TBTOT-PRD(WS-IND-TCH)   > 0\n        MOVE SPACES                     TO REG-CTOCHE\n                                           REG-BICASDOS\n        MOVE 03                         TO BICA-TPOREG\n        ADD  1                          TO WS-NUMREG-CHE\n        MOVE WS-TBTOT-PRD(WS-IND-TCH)   TO BICA-PRDNUM\n        MOVE WS-TBTOT-INS(WS-IND-TCH)   TO BICA-INSTNUM\n        MOVE WS-TBTOT-MON(WS-IND-TCH)   TO BICA-MONNUM\n        MOVE WS-TBTOT-MACE(WS-IND-TCH)  TO BICA-NUMSDOMAYOR\n        MOVE WS-TBTOT-IGCE(WS-IND-TCH)  TO BICA-NUMSDOIGUAL\n        MOVE WS-TBTOT-MECE(WS-IND-TCH)  TO BICA-NUMSDOMENOR\n        MOVE WS-TBTOT-SDOA(WS-IND-TCH)  TO BICA-TOTSDOACT\n        WRITE REG-CTOCHE  FROM REG-BICASDOS  INVALID KEY\n              MOVE \"ERROR AL GRABAR TOT SDOCHE \"\n                 TO WS-0101-TEXT-MSG\n              PERFORM 70000050-MENSAJE\n              CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "/** Totales por PIM (WS-TBTOT-* para cheques, WS-NUMCMA-* para Cuenta Maestra). */\npublic final class TotalProducto {\n    long mayores, iguales, menores;                       // MACE, IGCE, MECE\n    BigDecimal saldoActual = BigDecimal.ZERO.setScale(2); // SDOA, S9(14)V99 con signo\n\n    void suma(BigDecimal sdoAct) {\n        saldoActual = saldoActual.add(sdoAct);\n        switch (sdoAct.signum()) {\n            case 1  -> mayores++;\n            case 0  -> iguales++;\n            default -> menores++;\n        }\n    }\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class TotalesProductoListener implements ItemWriteListener<InventarioRecord> {\n    private final CatalogoProductos catalogo;\n    private final Map<ProductoB05Key, TotalProducto> totales = new LinkedHashMap<>();\n\n    @Override\n    public void afterWrite(Chunk<? extends InventarioRecord> items) {\n        for (var r : items) {\n            var k = ProductoB05Key.of(r);\n            if (!catalogo.tieneTotales(k)) {\n                log.warn(\"PIM {} sin renglón de totales en su familia\", k);   // ver riesgo\n            }\n            totales.computeIfAbsent(k, x -> new TotalProducto()).suma(r.saldoActual());\n        }\n    }\n}\n// Al cerrar, un renglón tipo 03 por PIM con totales, como 53443100-LEO-CHE.",
+          "racional": "Por cada detalle se suma su saldo actual al renglón de totales de su producto y se cuenta si el saldo es mayor, igual o menor que cero. Al final del archivo se escribe un renglón tipo 03 por producto con esos conteos y el saldo total. En Java los totales se acumulan en un listener de escritura y los renglones finales se emiten en el pie del archivo. La suma se hace con signo, igual que el acumulador <code>S9(14)V99</code> del original.",
+          "reglas": [
+            "RN-S500-388"
+          ],
+          "riesgo": "Solo los PIM de producto 1 tienen renglón de totales de cheques y solo 66 y 500/1 tienen renglón de Cuenta Maestra. Un contrato de otro producto llega a CMASDOS como detalle, pero su suma cae en una posición de tabla sin producto y no aparece en los totales del archivo.",
+          "linea_ini": 1631,
+          "linea_fin": 1844
+        },
+        {
+          "id": "s9",
+          "titulo": "Trailers con número de registros en los cuatro archivos",
+          "origen_codigo": " 53445000-TRAIL-ADDI.\n     MOVE SPACES                     TO REG-CTOCHE.\n     MOVE SPACES                     TO REG-BICASDOS.\n     MOVE 99                         TO BICA-TPOREG.\n     MOVE WS-NUMREG-CHE              TO BICA-NUMREG.\n     WRITE REG-CTOCHE FROM REG-BICASDOS INVALID KEY\n         MOVE \"ERROR ESCR TRAIL SDOCHE \" TO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CALL SYSTEM DMTERMINATE.\n     MOVE SPACES                     TO REG-CTOCMA.\n     MOVE SPACES                     TO REG-BICASDOS.\n     MOVE 99                         TO BICA-TPOREG.\n     MOVE WS-NUMREG-CMA              TO BICA-NUMREG.\n     WRITE REG-CTOCMA FROM REG-BICASDOS INVALID KEY\n       MOVE \"ERROR ESCR TRAIL SDOCMA \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n     MOVE W77-NUMREG-CHQ-AD          TO TERA-NUMREG.\n     WRITE REG-CTOCHEII FROM TERA-TRAILER INVALID KEY\n          MOVE \"ERR GRABAR TRL.ADIC CHEQ \" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n     MOVE W77-NUMREG-CMA-AD          TO TERA-NUMREG.\n     WRITE REG-CTOCMAII FROM TERA-TRAILER INVALID KEY\n          MOVE \"ERR GRABAR TRL.ADIC CHEQ \" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Component\n@StepScope\npublic class SaldosFooterCallback implements FlatFileFooterCallback {\n\n    private final Familia familia;\n    private final TotalesProductoListener totales;\n    private final AtomicLong registros;   // WS-NUMREG-CHE / -CMA: el writer de detalle lo incrementa por registro\n\n    public SaldosFooterCallback(Familia f, TotalesProductoListener t, AtomicLong contador) {\n        familia = f; totales = t; registros = contador;\n    }\n\n    @Override\n    public void writeFooter(Writer w) throws IOException {\n        for (var linea : totales.renglones(familia)) {      // tipo 03 por PIM\n            w.write(linea);\n            w.write(System.lineSeparator());\n            registros.incrementAndGet();\n        }\n        // Tipo 99: cuenta detalles y renglones de totales (no el header), como en el original.\n        w.write(Fixed.bicaTrailer(registros.get()));\n    }\n}\n// Los adicionales para Teradata llevan su propio trailer TERA con W77-NUMREG-CHQ-AD / -CMA-AD.",
+          "racional": "Cada uno de los cuatro archivos cierra con un trailer que lleva el número de registros: para CHESDOS y CMASDOS ese número incluye detalles y renglones de totales, porque el contador se incrementa también al escribir cada total; los adicionales para Teradata usan sus propios contadores. Un error de escritura aborta con <code>DMTERMINATE</code>. En Spring Batch el trailer es un <code>FlatFileFooterCallback</code> por archivo, y un error de escritura termina el step en FAILED.",
+          "reglas": [
+            "RN-S500-388"
+          ],
+          "riesgo": "El mensaje de error del trailer adicional de Cuenta Maestra dice CHEQ (copiado del de cheques); en bitácora no se distingue cuál de los dos falló.",
+          "linea_ini": 1890,
+          "linea_fin": 1923
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Indicadores de fin de mes y de semana sin uso",
+      "detalle": "WS-ES-MENSUAL (línea 844) y WS-ES-SEMANAL (línea 873) se calculan pero no se consultan en este fuente. RN-S500-389 afirma que gobiernan totales y envíos; en P181 no es así."
+    },
+    {
+      "titulo": "Productos sin renglón de totales",
+      "detalle": "Todo producto distinto de 1 va a CMASDOS, pero solo 66 y 500/1 tienen renglón de totales de Cuenta Maestra (líneas 1055-1063). Los demás productos aparecen en el detalle y no en los totales."
+    },
+    {
+      "titulo": "Pérdida de signo y dígitos en saldo promedio anual",
+      "detalle": "WS-SDO-PROMANUAL S9(14)V99 se mueve a INV-SDOPROMANO-S 9(12)V99 sin signo."
+    },
+    {
+      "titulo": "Límite fijo de 30 productos",
+      "detalle": "50001600-CARGO aborta con DMTERMINATE si B05 tiene más de 30 combinaciones de producto, instrumento y moneda. Un producto nuevo en el catálogo detiene el inventario nocturno."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Productos 1, 66 y 500/1, el límite de 30, las rutas INTS/50003S02, S691 e INVEPTE y las constantes de dimensionamiento del SORT están compiladas. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-387 llama ahorro al producto 1; en el fuente el producto 1 es cheques y los ahorros se excluyen por WS03-88-PIM-AHORROS. Revisar la redacción de la regla.",
+    "RN-S500-389 dice que el fin de mes gobierna los totales y el envío; confirmar si P180 o el WFL consumen esa condición, porque P181 no la usa.",
+    "Confirmar qué PIM cubren WS03-88-PIM-AHORROS, WS03-88-PIM-PROD-A-SOR y WS03-88-PIM-CTAGLOB (copybook S500/INC/WOR/DAS/25MTP005, no incluido).",
+    "Confirmar el orden de argumentos de LOCSUP función 02 en 52220060-CAL-DIASANUAL (fecha del ciclo anterior como FECHA1 y fecha desde como FECHA2) y el signo del resultado."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-387",
+    "RN-S500-388",
+    "RN-S500-389",
+    "RN-S500-390",
+    "RN-S500-391"
+  ]
+}

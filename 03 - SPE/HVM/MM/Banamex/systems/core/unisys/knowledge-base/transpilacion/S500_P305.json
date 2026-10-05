@@ -1,0 +1,188 @@
+{
+  "slug": "S500_P305",
+  "sistema": "S500",
+  "programa": "P305",
+  "nombre": "Depuración de Contratos Cancelados de Captación",
+  "funcion": "Paso batch de S500 que corre después de P127, recorre B03CONTRATOS y elimina de la base de captación los contratos cancelados o migrados sin saldo junto con sus estructuras dependientes; genera el archivo DEPURA para S016 y lo transfiere con P197.",
+  "resumen": "P305 toma la fecha de lote de S500B02CONTROL, proyecta un año y treinta días hacia atrás y, en producción o en cierre de mes, exige que B00CTRLPASO indique que la base es salida de P127. Carga en memoria las cifras de B09 por producto, instrumento y moneda. Recorre B03 con bloqueo y elige los contratos con estatus 3 o 4, o migrados de S111 hace más de treinta días, que no estén marcados como clon y no tengan registros en B25; según el producto exige saldos en cero y borra el contrato, sus movimientos B04, el histórico B06 y otras estructuras asociadas, sumando la depuración en la tabla de cifras. Cada contrato borrado se escribe en el archivo DEPURA con header y trailer, que al final se envía con P197 opción I1.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JPA",
+  "paquete_java": "mx.banamex.s500.captacion.depuracion",
+  "secciones": [
+    {
+      "titulo": "Control del paso, archivo DEPURA y precondición P127",
+      "origen": {
+        "archivo": "S500_SOURCE_P305.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE · 00000000 / 20000000 / 20000400-VAL-PASO"
+      },
+      "java": {
+        "archivo": "DepuracionJobConfig.java · PrecondicionP127Tasklet.java · DepuraFileWriter.java",
+        "contexto": "Job · Tasklet · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Archivo DEPURA hacia S016 y orden WFL de envío",
+          "linea_ini": 89,
+          "linea_fin": 350,
+          "origen_codigo": " FD DEPURA\n    BLOCK   CONTAINS   1068 RECORDS\n    RECORD  CONTAINS   60   CHARACTERS\n    VALUE OF                                                      004260\n            AREAS       IS 168\n            AREASIZE    IS 179424\n            PROTECTION  IS PROTECTED.\n 01 REG-DEPURA PIC X(60).\n 01 WKS-NOMBRE-ARCHIVO.\n    03 FILLER                         PIC X(14)\n      VALUE \"S016/FILE/S500\".\n    03 FILLER                         PIC X(01) VALUE \"/\".\n    03 WKS-NOM-ARCHIVO-CSI            PIC 9(02).\n    03 FILLER                         PIC X(01) VALUE \"/\".\n    03 FILLER                         PIC X(06) VALUE \"DEPURA\".\n    03 FILLER                         PIC X(01) VALUE \"/\".\n    03 WKS-NOM-ARCHIVO-FECHA          PIC 9(06).\n    03 FILLER                         PIC X(01) VALUE \".\".\n 01 WS-WFLP197.\n    03 FILLER              PIC X(11) VA \"BEGIN JOB; \".\n    03 FILLER              PIC X(06) VA \"START \".\n    03 WS-WFLP197-LOTE     PIC X(41).\n    03 FILLER              PIC X(17) VA \"(\"\"CORRESOLO P197 \".\n    03 WS-WFLP197-OPCION   PIC X(02).\n    03 FILLER              PIC X(01) VA \" \".\n    03 WS-WFLP197-FECHA    PIC 9(08).\n    03 FILLER              PIC X(12) VA \"\"\"); END JOB.\".",
+          "java_codigo": "# application.yml\np305:\n  archivo-depura: \"S016/FILE/S500/{csi}/DEPURA/{aammdd}.\"   # 60 bytes por registro\n  envio:\n    plantilla: \"BEGIN JOB; START {lote}(\\\"CORRESOLO P197 {opcion} {aaaammdd}\\\"); END JOB.\"\n    opcion: I1\n    lote-desde-ctlvers: S500JBATCH\n\n// ---------------------------------------------------------------------\n@Bean\n@StepScope\nFlatFileItemWriter<ContratoDepurado> depuraWriter(P305Properties p,\n        @Value(\"#{jobExecutionContext['csi']}\") int csi,\n        @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fecha) {\n    return new FlatFileItemWriterBuilder<ContratoDepurado>()\n            .name(\"depura\")\n            .resource(new FileSystemResource(p.archivoDepura()\n                    .replace(\"{csi}\", \"%02d\".formatted(csi))\n                    .replace(\"{aammdd}\", fecha.format(DateTimeFormatter.ofPattern(\"yyMMdd\")))))\n            .headerCallback(w -> w.write(DepuraLayout.header(\"0000S500\", \"0000S016\")))   // tipo 01\n            .lineAggregator(DepuraLayout::detalle)                                          // tipo 2\n            .footerCallback(w -> w.write(DepuraLayout.trailer(contador.total())))            // tipo 99\n            .build();\n}",
+          "racional": "El archivo DEPURA es secuencial de 60 bytes y su nombre se arma con el CSI de B02 y la fecha de proceso en seis dígitos. El envío se hace lanzando un WFL que arranca el lote resuelto en CTLVERS con <code>CORRESOLO P197 I1</code> y la fecha. Ruta, plantilla y opción se trasladan a <code>application.yml</code>. En Spring Batch el archivo es un <code>FlatFileItemWriter</code> con callbacks de header y trailer que reproducen los registros 01 y 99 que escribe el programa.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Rutina principal, ambiente de prueba y modo por TASKVALUE",
+          "linea_ini": 387,
+          "linea_fin": 473,
+          "origen_codigo": " 00000000-PRINCIPAL.\n   MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-MI-TASKVALUE.\n   PERFORM 10000000-LIBRERIAS          THRU 10000000-EXIT.\n   PERFORM 20000000-OPEN               THRU 20000000-EXIT.\n   PERFORM 50000000-PROCESOS           THRU 50000000-EXIT.\n   PERFORM 70000000-CIERRO             THRU 70000000-EXIT.\n   STOP RUN.\n 20000000-OPEN.\n     IF WS-DH-HOSTNAME-PBA OR WS-DH-HOSTNAME-SIT OR\n        WS-DH-HOSTNAME-UAT\n        MOVE 1 TO WS-PRUEBA.\n     PERFORM 30003000-VERSION-LOTE.\n     PERFORM 20000100-ABRO-BASE  THRU 20000100-EXIT.\n     PERFORM 20000200-FECHA-PRO  THRU 20000200-EXIT.\n     PERFORM 20000300-FECHA-DIA  THRU 20000300-EXIT.\n     PERFORM 20000350-PROY-ANO-ANT.\n     PERFORM 20000360-PROY-MES-ANT.\n     PERFORM 20000400-OPEN-DEPURA.\n     IF WKS-MI-TASKVALUE = 5\n        NEXT SENTENCE\n     ELSE\n     IF (WS-PRUEBA = 0) OR (WS-MENSUAL = 1)\n        PERFORM 20000400-VAL-PASO    THRU 20000400-EXIT.",
+          "java_codigo": "@Configuration\npublic class DepuracionJobConfig {\n\n    /** 00000000-PRINCIPAL: LIBRERIAS, OPEN, PROCESOS, CIERRO. */\n    @Bean\n    Job depuracionContratos(JobRepository repo, Step fechasYPrecondicion,\n                            Step cargaCifras, Step depuraContratos,\n                            Step depuracionesComplementarias, Step enviaDepura,\n                            JobExecutionDecider modo) {\n        return new JobBuilder(\"S500P305\", repo)\n                .start(fechasYPrecondicion)          // 20000200 .. 20000400\n                .next(cargaCifras)                   // 51000000-CAR-CIF\n                .next(depuraContratos)               // 53000000-BORROC\n                .next(modo).on(\"NORMAL\").to(depuracionesComplementarias)   // B04P, prealtas, B07/B08, B48, B49\n                .next(enviaDepura)\n                .from(modo).on(\"MASIVO\").to(enviaDepura)                   // TASKVALUE = 5\n                .end().build();\n    }\n\n    /** TASKVALUE 5 = borrado masivo de clones; 0 = depuración normal. */\n    @Bean\n    JobExecutionDecider modo() {\n        return (job, step) -> new FlowExecutionStatus(\n                job.getJobParameters().getLong(\"modo\", 0L) == 5 ? \"MASIVO\" : \"NORMAL\");\n    }\n}",
+          "racional": "El programa lee su propio <code>TASKVALUE</code> al arrancar: con 5 entra en modo de borrado masivo de contratos clonados, omite la validación de P127 y las depuraciones complementarias; con 0 hace la depuración normal. También detecta si corre en un host de pruebas, SIT o UAT, en cuyo caso solo valida P127 en cierre de mes. En Java el modo es un parámetro explícito del job y la bifurcación un <code>JobExecutionDecider</code>; el ambiente lo da el perfil de Spring y no el nombre del host.",
+          "reglas": []
+        },
+        {
+          "id": "s3",
+          "titulo": "Base salida de P127 y marca de paso para evitar doble corrida",
+          "linea_ini": 571,
+          "linea_fin": 664,
+          "origen_codigo": "     MOVE B02-FECHA-LOTE    TO WS-FECHA-MOV\n                               WS-FECHA-PRO.\n     MOVE B02-FECHA-LINEA   TO WS-FECHA-MEN.\n     IF WS-PRO-MM NOT = WS-MEN-MM\n        MOVE 1                 TO    WS-MENSUAL.\n 20000400-VAL-PASO.\n   IF B00-NUM-PASO-01 = 127 AND B00-NUM-PASO-02 = 127\n      AND B00-NUM-PASO-03 = 127\n      MOVE 0  TO                B00-NUM-PASO-01 B00-NUM-PASO-02\n                                B00-NUM-PASO-03\n   ELSE\n      MOVE \"ERROR BASE NO ES SALIDA DEL P127\" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n   PERFORM 90000000-BEGIN-TRANSACTION.\n   PERFORM 90000000-B00CTRLPASO-STORE.\n   PERFORM 90000000-END-TRANSACTIONSYNC.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PrecondicionP127Tasklet implements Tasklet {\n\n    private final ControlPasoRepository b00;     // S500B00CTRLPASO\n    private final ControlCaptacionRepository b02;\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var ctl = b02.find().orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));\n        boolean mensual = ctl.fechaLote().getMonthValue() != ctl.fechaLinea().getMonthValue();\n        boolean prueba = perfiles.esPrueba();\n        if (prueba && !mensual) return RepeatStatus.FINISHED;   // en pruebas solo se valida al cierre\n\n        var paso = b00.findForUpdate()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B00CTRLPASO VACIO\"));\n        if (!(paso.paso01() == 127 && paso.paso02() == 127 && paso.paso03() == 127)) {\n            throw new ProcesoAbortadoException(\"ERROR BASE NO ES SALIDA DEL P127\");   // DMTERMINATE\n        }\n        paso.limpia();      // MOVE 0: una segunda corrida ya no pasa esta validación\n        return RepeatStatus.FINISHED;  // END-TRANSACTION SYNC al confirmar la transacción\n    }\n}",
+          "racional": "Antes de borrar nada, el programa exige que los tres indicadores de paso de B00CTRLPASO valgan 127, es decir, que la base sea la salida de P127, y los pone en cero en una transacción sincronizada. Así una segunda ejecución por error se detiene en este punto. El cierre de mes se detecta porque el mes de la fecha de lote difiere del de la fecha de línea. En Java esto es un <code>Tasklet</code> transaccional al inicio del job, con bloqueo pesimista sobre el registro de control.",
+          "reglas": [],
+          "riesgo": "Los indicadores se ponen en cero antes de depurar: si el paso aborta a la mitad, la reejecución falla con BASE NO ES SALIDA DEL P127 y requiere intervención manual sobre B00CTRLPASO."
+        }
+      ]
+    },
+    {
+      "titulo": "Criterio de depuración por contrato",
+      "origen": {
+        "archivo": "S500_SOURCE_P305.txt",
+        "contexto": "PROCEDURE DIVISION · 53000000-BORROC / 53100000-BORRO-MOV / 53210000-ACUM-DEPU"
+      },
+      "java": {
+        "archivo": "CriterioDepuracion.java · CifrasDepuracion.java",
+        "contexto": "ItemProcessor · Predicate"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Selección: cancelado o migrado antiguo, sin clon y sin pagos pendientes",
+          "linea_ini": 796,
+          "linea_fin": 846,
+          "origen_codigo": " 53000000-BORROC.\n     MOVE ZERO TO W77-MIGRADO-SINSDO.\n  PERFORM 90000003-B03CONTRATOS-LOCKN.\n     IF WKS-MI-TASKVALUE = 5\n        NEXT SENTENCE\n     ELSE\n     IF WS-3VEZ = 0\n        IF B03-MIGR-S111 = 1\n           IF B03-FECHA-MIGRA < WKS-FEC-MES-ANT\n               MOVE 1 TO W77-MIGRADO-SINSDO.\n  IF WS-3VEZ = 0\n    MOVE WS-NUM-ACT03     TO W77-ID-ACTXX-MAPLI\n    MOVE \" \"              TO W77-ID-TXTA-LIB\n    PERFORM 70000950-ACT-REGPROC\n    IF (B03-STATUS = 3 OR 4)\n    OR (W77-MIGRADO-SINSDO = 1)\n       IF WKS-MI-TASKVALUE = 5\n          IF B03-MARCA-CLON = 2\n             MOVE B03-NUM-CONTRATO     TO   WS-CTOMOV\n                                            WS-CTODIG\n                                            WS-NUM-CONTRATO-CTROL\n                                            WS-NUM-CONTRATO\n             PERFORM 53100100-BORRA-MAS   THRU 53100100-EXIT\n             PERFORM 53100000-BORRO-MOV   THRU 53100000-EXIT\n          ELSE\n             NEXT SENTENCE\n       ELSE\n       IF B03-MARCA-CLON = 2\n          NEXT SENTENCE\n       ELSE\n          MOVE B03-NUM-CONTRATO        TO   WS-CTOMOV\n          MOVE B03-NUM-CONTRATO        TO   WS-CTODIG\n          PERFORM 53000500-VALIDA-B25  THRU 53000500-EXIT\n          IF WS-13VEZ = 0\n             NEXT SENTENCE\n          ELSE\n             PERFORM 53100000-BORRO-MOV   THRU 53100000-EXIT.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class CriterioDepuracion implements ItemProcessor<Contrato, Contrato> {\n\n    private final PagosPendientesRepository b25;          // S500B25PGOSPENDPE\n    @Value(\"#{jobExecutionContext['fechaMesAnterior']}\") private LocalDate hace30Dias;\n    @Value(\"#{jobParameters['modo'] ?: 0}\")              private long modo;\n\n    @Override\n    public Contrato process(Contrato b03) {\n        boolean masivo = modo == 5;\n        boolean migradoAntiguo = !masivo && b03.migradoS111() == 1\n                && b03.fechaMigra().isBefore(hace30Dias);      // W77-MIGRADO-SINSDO\n        boolean candidato = b03.status() == 3 || b03.status() == 4 || migradoAntiguo;\n        if (!candidato) return null;\n\n        if (masivo) {\n            return b03.marcaClon() == 2 ? b03 : null;          // solo clones\n        }\n        if (b03.marcaClon() == 2) return null;                 // los clones no se tocan en modo normal\n        if (b25.existsByContrato(b03.numContrato())) return null;   // 53000500-VALIDA-B25\n        return b03;\n    }\n}",
+          "racional": "Un contrato es candidato si tiene estatus 3 o 4, o si fue migrado de S111 hace más de treinta días. En modo normal se excluyen los contratos marcados como clon y los que tienen algún registro en B25; en modo masivo solo se procesan los clones. La condición de saldo no está aquí sino en el párrafo siguiente. En Java el criterio es un <code>ItemProcessor</code> que filtra devolviendo <code>null</code>, y el reader recorre B03 con bloqueo como hace <code>B03CONTRATOS-LOCKN</code>.",
+          "reglas": [],
+          "riesgo": "El nombre W77-MIGRADO-SINSDO sugiere migrado sin saldo, pero en este párrafo solo se revisa la marca de migración y la fecha; el saldo se valida después y no para todos los productos."
+        },
+        {
+          "id": "s5",
+          "titulo": "Condición de saldo por producto antes de borrar",
+          "linea_ini": 874,
+          "linea_fin": 888,
+          "origen_codigo": " 53100000-BORRO-MOV.\n    IF (B03-NUM-PRODUCTO = 500) AND (B03-NUM-INSTRUM = 6)\n       PERFORM 53200000-CHECO-INVAHO  THRU 53200000-EXIT\n    ELSE\n    IF (B03-NUM-PRODUCTO = 66) AND (B03-NUM-INSTRUM = 90)\n       IF (B03-SDO-ACTUAL = 0) AND (B03-SDOPROT-BLOQ = 0)\n          PERFORM 53300000-CHECO-INVRES THRU 53300000-EXIT\n       ELSE\n          NEXT SENTENCE\n    ELSE\n       IF (B03-SDO-ACTUAL = 0) AND (B03-SDO-FINCORTE = 0)\n      AND (B03-SDOPROT-BLOQ = 0)\n          PERFORM 53300000-CHECO-INVRES THRU 53300000-EXIT\n       ELSE\n          NEXT SENTENCE.",
+          "java_codigo": "/** 53100000-BORRO-MOV: qué saldos deben estar en cero según producto e instrumento. */\npublic enum TipoDepuracion { AHORRO, RESTO, NINGUNA }\n\npublic static TipoDepuracion clasifica(Contrato b03) {\n    int prd = b03.numProducto(), ins = b03.numInstrum();\n    boolean sinActualNiBloqueo = b03.sdoActual().signum() == 0 && b03.sdoProtBloq().signum() == 0;\n\n    if (prd == 500 && ins == 6) {\n        return TipoDepuracion.AHORRO;                     // inversión de ahorro: no se revisa saldo\n    }\n    if (prd == 66 && ins == 90) {\n        return sinActualNiBloqueo ? TipoDepuracion.RESTO : TipoDepuracion.NINGUNA;\n    }\n    return (sinActualNiBloqueo && b03.sdoFinCorte().signum() == 0)\n            ? TipoDepuracion.RESTO : TipoDepuracion.NINGUNA;\n}",
+          "racional": "La inversión de ahorro (producto 500, instrumento 6) se borra sin revisar saldos, tal como dice el comentario del fuente. El producto 66 instrumento 90 exige saldo actual y saldo protegido o bloqueado en cero. El resto exige además el saldo al corte en cero. Se traduce como una clasificación con <code>enum</code> porque cada tipo dispara un conjunto distinto de borrados. Las comparaciones de importe usan <code>signum()</code> sobre <code>BigDecimal</code> para no depender de la escala.",
+          "reglas": [],
+          "riesgo": "Un contrato de ahorro 500-6 migrado de S111 hace más de treinta días entra como candidato y se borra sin revisar su saldo. Si la marca de migración no implica saldo cero, se podría eliminar un contrato con saldo."
+        },
+        {
+          "id": "s6",
+          "titulo": "Acumulación de depuraciones en la tabla de cifras B09",
+          "linea_ini": 950,
+          "linea_fin": 1001,
+          "origen_codigo": " 53210000-ACUM-DEPU.\n    MOVE 0 TO WS-PRD1.\n    MOVE 0 TO WS-INDCIF.\n    PERFORM 53220000-PASO  VARYING\n                           WS-PRD1 FROM 1 BY 1\n            UNTIL (WS-PRD(WS-PRD1)  = B03-NUM-PRODUCTO)  AND\n                  (WS-INS(WS-PRD1)  = B03-NUM-INSTRUM )  AND\n                  (WS-MON(WS-PRD1)  = B03-MONEDA)        OR\n                  (WS-PRD1 > 30).\n    IF (WS-PRD1 < 31) AND (WS-PRD1 > 0)\n       MOVE WS-PRD1 TO WS-INDCIF\n    ELSE\n       MOVE B03-NUM-PRODUCTO                  TO WS-MSG-PRD\n       MOVE B03-NUM-INSTRUM                   TO WS-MSG-INST\n       MOVE B03-MONEDA                        TO WS-MSG-MDA\n       MOVE \"PROD B03 NO EN TABLA DE B09 \"    TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       PERFORM 53230000-DIS-PIM               THRU 53230000-EXIT\n       CALL SYSTEM DMTERMINATE.\n 53240000-SUMO.\n       ADD 1              TO  WS-ELI(WS-INDCIF).",
+          "java_codigo": "/** WS-TABLA de 30 posiciones cargada de B09CIFRAS por producto, instrumento y moneda. */\n@Component\n@JobScope\npublic class CifrasDepuracion {\n\n    private final Map<ClaveCifra, CifraB09> porClave = new LinkedHashMap<>();\n\n    void carga(CifraB09 c) {                                   // 51100000-LLENO-TABLA\n        if (porClave.size() == 30) {\n            throw new ProcesoAbortadoException(\"B09 CON MAS DE 30 PRODUCTOS\");\n        }\n        porClave.put(new ClaveCifra(c.producto(), c.instrumento(), c.moneda()), c);\n    }\n\n    /** 53210000-ACUM-DEPU + 53240000-SUMO. */\n    void suma(Contrato b03) {\n        var clave = new ClaveCifra(b03.numProducto(), b03.numInstrum(), b03.moneda());\n        var cifra = porClave.get(clave);\n        if (cifra == null) {\n            throw new ProcesoAbortadoException(\"PROD B03 NO EN TABLA DE B09 PRODUCTO INEXISTENTE ID=\"\n                    + clave);                                  // CALL SYSTEM DMTERMINATE\n        }\n        cifra.incrementaDepuradas();                           // ADD 1 TO WS-ELI\n    }\n}",
+          "racional": "Las cifras de control de B09 se cargan en una tabla de hasta treinta posiciones y cada contrato borrado suma uno a la posición de su producto, instrumento y moneda. Si la combinación no existe, el programa termina con <code>DMTERMINATE</code>. En Java la búsqueda secuencial se sustituye por un mapa con clave compuesta, con el mismo límite de treinta para no cambiar el comportamiento. Las cifras actualizadas se graban en B09 al cierre.",
+          "reglas": [],
+          "riesgo": "La condición UNTIL de la línea 955 evalúa WS-PRD(WS-PRD1) también cuando el índice ya vale 31, antes de comparar WS-PRD1 > 30; si el compilador no corta la evaluación, el acceso queda fuera de la tabla. Además, el abort ocurre después de haber decidido borrar, a la mitad de la depuración."
+        }
+      ]
+    },
+    {
+      "titulo": "Borrado de estructuras y envío",
+      "origen": {
+        "archivo": "S500_SOURCE_P305.txt",
+        "contexto": "PROCEDURE DIVISION · 53200000 / 53250000 / 53410000-DELETE / 70000700 / 53100400"
+      },
+      "java": {
+        "archivo": "BorradoContratoService.java · DepuracionB04P.java",
+        "contexto": "@Service · JPA · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Ahorro: contrato, movimientos e histórico",
+          "linea_ini": 896,
+          "linea_fin": 1024,
+          "origen_codigo": " 53200000-CHECO-INVAHO.\n     PERFORM 53210000-ACUM-DEPU  THRU 53210000-EXIT.\n     PERFORM 53240000-SUMO       THRU 53240000-EXIT.\n     MOVE 1                      TO   WS-BAN-B03.\n     PERFORM 53400000-BORRO      THRU 53400000-EXIT.\n     MOVE WS-CTOMOV              TO WS-NUM-CONTRATO WS-MSG-CTO\n     MOVE 0                      TO WS-4VEZ\n     PERFORM 53250000-MOV        THRU 53250000-EXIT\n     MOVE WS-CTOMOV              TO WS-NUM-CONTRATO WS-MSG-CTO\n     MOVE 0                      TO WS-5VEZ\n     PERFORM 53260000-HIS        THRU 53260000-EXIT.\n 53250000-MOV.\n   MOVE 0                                     TO WS-FEC-MOVTO\n   PERFORM 90000004-B04SXCTOFEC-LOCKF\n   IF WS-STATUS-BASE > 0\n     IF WS-STATUS-BASE = 1\n       MOVE 1                                 TO WS-4VEZ\n     ELSE\n       STRING \"ERROR AL HACER LOCK A B04 \",WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n     IF  WS-4VEZ = 0\n         MOVE 1 TO WS-BAN-B04\n         PERFORM 53400000-BORRO THRU 53400000-EXIT\n         PERFORM 53251000-NEXT  THRU 53251000-EXIT UNTIL\n                 WS-4VEZ = 1.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class BorradoContratoService {\n\n    private final ContratoRepository b03;\n    private final MovimientoRepository b04;\n    private final HistoricoRepository b06;\n    private final CifrasDepuracion cifras;\n    private final DepuraWriter depura;\n\n    /**\n     * 53200000-CHECO-INVAHO. En el fuente cada DELETE es una transacción DMSII propia;\n     * aquí se agrupa el contrato y sus dependientes en una sola para que el borrado sea atómico.\n     */\n    @Transactional\n    public void borraAhorro(Contrato c) {\n        cifras.suma(c);\n        b04.deleteByContrato(c.numContrato());     // 53250000-MOV + 53251000-NEXT: todos los B04\n        b06.deleteByContrato(c.numContrato());     // 53260000-HIS\n        b03.delete(c);                             // WS-BAN-B03\n        depura.escribe(c);                         // 20000500-MOVE-WRITE-DEPURA\n    }\n}",
+          "racional": "Para la inversión de ahorro el programa suma la depuración, borra el contrato y después recorre con bloqueo y borra todos sus movimientos en B04 y su histórico en B06. Cada borrado se hace con una bandera y una transacción separada en 53410000-DELETE. La traducción agrupa los borrados del contrato en un solo método <code>@Transactional</code> y borra primero los dependientes, de modo que un fallo no deje movimientos huérfanos. Es un cambio de granularidad de transacción que el SME debe aprobar.",
+          "reglas": [],
+          "riesgo": "En el fuente el contrato B03 se borra antes que sus movimientos y en otra transacción: un abort entre ambos deja movimientos B04 y registros B06 sin contrato."
+        },
+        {
+          "id": "s8",
+          "titulo": "Despacho del DELETE por bandera de estructura",
+          "linea_ini": 1184,
+          "linea_fin": 1300,
+          "origen_codigo": " 53410000-DELETE.\n    IF WS-BAN-B03P = ZEROS\n       PERFORM                    90000000-BEGIN-TRANSACTION.\n    IF WS-BAN-B03 = 1\n     PERFORM 90000003-B03CONTRATOS-DELETE\n     IF WS-STATUS-BASE > 0\n       STRING \"ERROR AL BORRAR B03 \" ,        WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n    IF WS-BAN-B04 = 1\n     PERFORM 90000004-B04MOVIMIENTO-DELETE\n     IF WS-STATUS-BASE > 0\n       STRING \"ERROR AL BORRA  B04 \" ,        WS-STATUS-BASE\n       DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n*INI FSW                  P07-410 SORIANA                 ABARBOSA\n    IF WS-BAN-B03P = ZEROS\n       PERFORM                    90000000-END-TRANSACTIONNOAU\n       PERFORM                    20000500-MOVE-WRITE-DEPURA",
+          "java_codigo": "/** 53410000-DELETE: una bandera por dataset. En Java cada repositorio borra lo suyo. */\nprivate void borra(Set<Estructura> marcadas, Contrato c) {\n    for (Estructura e : marcadas) {\n        try {\n            switch (e) {\n                case B03 -> b03.delete(c);\n                case B04 -> b04.deleteActual(c);\n                case B06 -> b06.deleteActual(c);\n                case B12 -> b12.deleteByContrato(c.numContrato());\n                case B20 -> b20.deleteByContrato(c.numContrato());\n                case B25 -> b25.deleteByContrato(c.numContrato());\n                case B26 -> b26.deleteByContrato(c.numContrato());\n                case B39 -> b39.deleteByContrato(c.numContrato());\n                case B48 -> b48.deleteByContrato(c.numContrato());\n                case B49 -> b49.deleteByContrato(c.numContrato());\n                case B50 -> b50.deleteByContrato(c.numContrato());\n                case B00, B09 -> { /* STORE, no DELETE: se graban al cierre */ }\n            }\n        } catch (DataAccessException ex) {\n            throw new ProcesoAbortadoException(\"ERROR AL BORRAR \" + e, ex);   // DMTERMINATE\n        }\n    }\n}",
+          "racional": "El párrafo de borrado recibe banderas para quince estructuras y ejecuta el <code>DELETE</code> o <code>STORE</code> de cada una dentro de una transacción, salvo las prealtas de Soriana que manejan la suya. Cualquier error termina el programa. El patrón de banderas globales se reemplaza por un conjunto explícito de estructuras y un <code>switch</code> exhaustivo sobre un <code>enum</code>, que hace imposible olvidar una. La transacción la abre el método que llama, como se explicó en el segmento anterior.",
+          "reglas": []
+        },
+        {
+          "id": "s9",
+          "titulo": "Depuración de B04P con más de un año y envío por P197",
+          "linea_ini": 1450,
+          "linea_fin": 1790,
+          "origen_codigo": " 70000700-BORRO-B04PTEF.\n    PERFORM 90400004-B04PTEF-LOCKN.\n    IF WS-14VEZ = 0\n       IF B04P-FEC-ACT < WKS-FEC-PROY\n          PERFORM  90400000-BEGIN-TRANSAC-NOAUD\n          PERFORM  90400004-B04PTEF-DELETE\n          IF WS-STATUS-BASE > 0\n             STRING \"ERROR EN DELETE  BD04/B04P \" , WS-STATUS-BASE\n             DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG\n             PERFORM 70000050-MENSAJE\n             CALL SYSTEM DMTERMINATE\n          ELSE\n             PERFORM        90400000-END-TRANSAC-NOAUD.\n 53100400-LLAMA-P197.\n     MOVE WS-FECHA-PRO              TO WS-WFLP197-FECHA.\n     MOVE \"I1\"                      TO WS-WFLP197-OPCION.\n     CALL SYSTEM WFL USING WS-WFLP197.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class DepuracionB04P implements Tasklet {\n\n    private final MovimientoPteRepository b04p;     // S500BD04TARJETAS / B04P\n    @Value(\"#{jobExecutionContext['fechaAnioAnterior']}\") private LocalDate haceUnAnio;\n\n    /** 70000700-BORRO-B04PTEF: solo en modo normal. */\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        int borrados = b04p.deleteByFechaActualizacionBefore(haceUnAnio);\n        c.incrementWriteCount(borrados);\n        return RepeatStatus.FINISHED;\n    }\n}\n\n/** 53100400-LLAMA-P197: el envío se delega al componente de intercambio (S500_P197, opción I1). */\n@Component\n@RequiredArgsConstructor\nclass EnviaDepuraTasklet implements Tasklet {\n    private final TransferenciaClient p197;\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fecha;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        p197.solicita(\"I1\", fecha);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "En modo normal, además de los contratos, el programa borra de B04P los registros cuya fecha de actualización es anterior a la fecha de proceso menos 365 días, con una transacción por registro. Al final cierra DEPURA, espera tres segundos y lanza el WFL que corre P197 con la opción I1 para transferir el archivo. En Java el borrado por antigüedad es una sola sentencia por rango de fecha y el envío se delega al componente equivalente a P197, que en este portal se transpila como intercambiador.",
+          "reglas": [],
+          "riesgo": "El año hacia atrás se calcula restando 365 días (20000350-PROY-ANO-ANT, función 10 de la librería de fechas) y no como un año calendario; en años bisiestos la ventana cambia en un día. El resultado del WFL de P197 no se revisa."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Borrado no atómico por contrato",
+      "detalle": "Cada DELETE de 53410000-DELETE abre y cierra su propia transacción, y el contrato B03 se borra antes que sus movimientos e histórico. Un DMTERMINATE intermedio deja registros dependientes sin contrato."
+    },
+    {
+      "titulo": "Contratos de ahorro sin revisión de saldo",
+      "detalle": "53100000-BORRO-MOV borra la inversión de ahorro 500-6 sin revisar saldos, y un contrato migrado de S111 hace más de treinta días entra como candidato aunque su estatus no sea 3 ni 4."
+    },
+    {
+      "titulo": "Reejecución bloqueada",
+      "detalle": "20000400-VAL-PASO pone en cero los indicadores 127 de B00CTRLPASO antes de depurar; una falla posterior impide reejecutar sin corregir la base a mano."
+    },
+    {
+      "titulo": "Posible índice fuera de rango",
+      "detalle": "La búsqueda de 53210000-ACUM-DEPU evalúa WS-PRD(31) en la condición UNTIL antes de detenerse."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Sistemas 0000S500 y 0000S016 del header, ruta S016/FILE/S500, opción I1 de P197, productos 500-6, 66-90 y 66-11, ventanas de 30 y 365 días y el límite de 30 productos. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario no trae reglas del brain para P305; ningún segmento cita reglas.",
+    "Confirmar si B03-MIGR-S111 = 1 implica que el contrato no recibió saldo, como dice el comentario de las líneas 790-794, o solo que fue migrado.",
+    "Confirmar que agrupar en una sola transacción el borrado del contrato y sus dependientes es aceptable para el volumen de B04.",
+    "Confirmar el significado de B03-MARCA-CLON = 2 y quién lanza el modo masivo con TASKVALUE 5.",
+    "No se revisaron en detalle 53320000-COMPEN, 53325000-SDOSBC, 53330000-DEVMEN, 53350000-PREALTA-SOR ni los borrados de B07, B08, B48 y B49; siguen el mismo patrón de bloqueo y DELETE."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-410",
+    "RN-S500-411",
+    "RN-S500-412",
+    "RN-S500-413",
+    "RN-S500-414",
+    "RN-S500-415"
+  ]
+}

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Brain Banamex — Crear cuenta</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(ellipse at top, #1a0533 0%, #0d0d1a 60%);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      color: #e0e0e0;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(161,0,255,0.25);
+      border-radius: 16px; padding: 48px 40px;
+      width: 100%; max-width: 420px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 48px rgba(0,0,0,0.5);
+    }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo svg { width: 40px; height: 40px; }
+    .logo h1 { font-size: 22px; font-weight: 700; color: #fff; margin-top: 12px; }
+    .logo p  { font-size: 13px; color: #888; margin-top: 4px; }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; margin-top: 20px; }
+    input {
+      width: 100%; padding: 12px 14px; border-radius: 8px;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      color: #fff; font-size: 15px; outline: none; transition: border .2s;
+    }
+    input:focus { border-color: #A100FF; }
+    .hint { font-size: 11px; color: #666; margin-top: 5px; }
+    button {
+      width: 100%; margin-top: 28px; padding: 13px;
+      background: #A100FF; color: #fff; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+    }
+    button:hover { opacity: .85; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .msg { margin-top: 16px; font-size: 13px; min-height: 18px; text-align: center; }
+    .msg.error { color: #ff6b6b; }
+    .msg.ok    { color: #4caf96; }
+    .links { text-align: center; margin-top: 24px; font-size: 13px; color: #888; }
+    .links a { color: #A100FF; text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="19" stroke="#A100FF" stroke-width="2"/>
+      <path d="M12 20 L20 12 L28 20 L20 28 Z" fill="#A100FF" opacity="0.8"/>
+      <circle cx="20" cy="20" r="4" fill="#fff"/>
+    </svg>
+    <h1>Crear cuenta</h1>
+    <p>Recibirás un código de verificación por correo</p>
+  </div>
+
+  <form id="form">
+    <label for="email">Correo electrónico</label>
+    <input type="email" id="email" placeholder="nombre@dominio.com" autocomplete="email" required>
+
+    <label for="password">Contraseña</label>
+    <input type="password" id="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required>
+    <div class="hint">Mínimo 8 caracteres, incluye mayúscula, número y símbolo.</div>
+
+    <label for="password2">Confirmar contraseña</label>
+    <input type="password" id="password2" placeholder="Repite la contraseña" autocomplete="new-password" required>
+
+    <button type="submit" id="btn">Crear cuenta</button>
+  </form>
+  <div class="msg" id="msg"></div>
+
+  <div class="links">
+    <a href="login.html">¿Ya tienes cuenta? Inicia sesión</a>
+  </div>
+</div>
+
+<script src="cognito-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<script>
+  const cfg  = window.COGNITO_CONFIG;
+  const pool = new AmazonCognitoIdentity.CognitoUserPool({
+    UserPoolId: cfg.userPoolId,
+    ClientId:   cfg.clientId
+  });
+
+  const form = document.getElementById('form');
+  const msg  = document.getElementById('msg');
+  const btn  = document.getElementById('btn');
+
+  form.onsubmit = function(e) {
+    e.preventDefault();
+    msg.className = 'msg';
+    msg.textContent = '';
+
+    const email  = document.getElementById('email').value.trim();
+    const pass1  = document.getElementById('password').value;
+    const pass2  = document.getElementById('password2').value;
+
+    if (pass1 !== pass2) {
+      msg.className = 'msg error';
+      msg.textContent = 'Las contraseñas no coinciden.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Creando cuenta…';
+
+    // Email también como atributo
+    const emailAttr = new AmazonCognitoIdentity.CognitoUserAttribute({
+      Name: 'email', Value: email
+    });
+
+    pool.signUp(email, pass1, [emailAttr], null, function(err, result) {
+      if (err) {
+        btn.disabled = false;
+        btn.textContent = 'Crear cuenta';
+        msg.className = 'msg error';
+        if (err.code === 'UsernameExistsException') {
+          msg.textContent = 'Este correo ya está registrado.';
+        } else if (err.code === 'InvalidPasswordException') {
+          msg.textContent = 'La contraseña no cumple los requisitos.';
+        } else {
+          msg.textContent = err.message || 'Error al crear la cuenta.';
+        }
+        return;
+      }
+      msg.className = 'msg ok';
+      msg.textContent = '¡Cuenta creada! Revisa tu correo para el código de verificación.';
+      setTimeout(() => {
+        window.location.href = 'verify.html?email=' + encodeURIComponent(email);
+      }, 1500);
+    });
+  };
+</script>
+</body>
+</html>

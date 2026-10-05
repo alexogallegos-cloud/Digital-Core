@@ -31,12 +31,18 @@ El proyecto tiene dos fases:
 | Campo | Valor |
 |-------|-------|
 | Regulador | Banco de México (Banxico) |
-| Marco | Normativa sobre Créditos Asociados a Nómina (CAN) |
-| Instrumentos | Por confirmar — cargar documentos en `source/docs/regulacion/` |
-| Plazo de cumplimiento | `[DATO-REQUERIDO]` — extraer de la circular |
-| Sanción por incumplimiento | `[DATO-REQUERIDO]` — extraer de la circular |
+| Marco | Normativa sobre Créditos Asociados a Nómina (CAN) — Art. 63 Bis 3 |
+| Instrumentos | Circular 3/2012 modificada por Circular 6/2025 (DOF 18-jul-2025, vigencia 29-ago-2025) · DE CAN v4.2 (Cecoban, 25-ago-2026) |
+| Plazo de cumplimiento | **29-jun-2027** — dictamen de auditoría interna a Banxico (Transitoria SEGUNDA, Circular 6/2025) |
+| Sanción por incumplimiento | Sin dictamen en fecha: el banco no puede otorgar ni designar nuevos CANs |
 
-> **Acción inmediata requerida:** cargar los documentos de la circular Banxico CAN en `source/docs/regulacion/` para activar los Digital Twins de análisis.
+### Decisión de Alcance — Art. 81 Bis EXCLUIDO (2026-09-21)
+
+El Art. 81 Bis 1 y 81 Bis 2 (Servicio de Nómina Interbancaria) quedan **fuera del alcance del proyecto CAN**. Son obligaciones pre-existentes (Circulares 15/2018 y 7/2019, vigentes desde 2018 y 1-ene-2020) sobre la conducta comercial del prestador del Servicio de Nómina — neutralidad interbancaria, tope de comisión al patrón, lineamientos de conducta ante el Comité de Auditoría. No usan el mecanismo Cecoban (usan SPEI) y no están atadas al deadline del 29-jun-2027, que es exclusivo del CAN.
+
+**Frontera con la portabilidad de nómina:** la portabilidad en sí (roles Ordenante/Receptora) se rige por el Art. 81 Bis y está fuera de alcance. Lo que SÍ es alcance CAN es el manejo de los CANs activos cuando el cliente cambia de Banco Ordenante — lo maneja el mecanismo Cecoban con los mensajes C-56 y C-57 (Flujo 7 de la propuesta).
+
+**Pendiente de gobernanza (no de build):** la Circular 6/2025 modificó el Art. 81 Bis 2 con vigencia 29-ago-2025; vale un check puntual de que BanCoppel ya satisface ese delta. Es tema de auditoría interna, no de desarrollo en Informix.
 
 ---
 
@@ -65,7 +71,7 @@ Seis DTs para la fase DISCOVER del proyecto CAN:
 | `dt-brecha-compliance/` | Gap analysis formal: obligaciones regulatorias CAN vs. capacidades actuales de BanCoppel; genera la lista de brechas con criticidad y fecha | Regulatory/Banxico · Industry Banking Accounting · Cybersecurity · SRE & AIOps | 0.1.0 |
 | `dt-roadmap-cambios/` | Traduce las brechas a requerimientos técnicos, User Stories y un roadmap de implementación; estima esfuerzo e impacto por sistema | Core Banking Transformation · Software Engineering · IT Operating Model · Framework — Integration Architecture | 0.1.0 |
 | `dt-de-can/` | Lee y estructura el DE CAN v4.2: especificaciones técnicas del Mecanismo Art. 63 Bis 3, catálogo de campos, flujos de mensajes interbancarios | Framework — Integration Architecture · Industry Payments → SPEI · Regulatory/Banxico | 0.1.0 |
-| `dt-nomina-interbancaria/` | Extrae Art. 81 Bis 1 y 81 Bis 2: Servicio de Nómina Interbancaria — portabilidad de nómina, obligaciones adicionales de Institución Ordenante/Receptora | Regulatory/Banxico · Industry Banking · Industry Payments → SPEI | 0.1.0 |
+| `dt-nomina-interbancaria/` | **[FUERA DE ALCANCE CAN — 2026-09-21]** Art. 81 Bis 1 y 81 Bis 2: Servicio de Nómina Interbancaria. Obligaciones pre-existentes de conducta comercial, no atadas al deadline CAN. Ver Decisión de Alcance en Contexto Regulatorio | Regulatory/Banxico · Industry Banking · Industry Payments → SPEI | 0.1.0 |
 
 ---
 

@@ -1,0 +1,235 @@
+{
+  "slug": "S500_P142",
+  "sistema": "S500",
+  "programa": "P142",
+  "nombre": "Extracción de Atributos de Contrato BD07 hacia Teradata",
+  "funcion": "Paso batch diario de S500 que recorre S500B01CONTRATOS de la base S500BD07ATRIBUCTA y deja el archivo CTOREP de 1200 bytes en el directorio de intercambio INTS para su envío a Teradata (créditos CAN).",
+  "resumen": "Abre S500BD07ATRIBUCTA en modo de consulta, toma la fecha de proceso del registro de control B02 (o del TASKVALUE de la tarea si viene informado) e identifica el CSI del equipo en que corre. Escribe un header tipo 1, un detalle tipo 2 por cada contrato de B01 cuyo primer dato numérico valga 0 o 1, con cinco grupos de atributos numéricos y cinco alfanuméricos, y un trailer tipo 9 con el número de detalles. Los contratos con un primer dato distinto quedan fuera del archivo y se anotan en el archivo PROBLEMAS, que es el único canal de errores no fatales.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Integration",
+  "paquete_java": "mx.banamex.s500.atributos.teradata",
+  "secciones": [
+    {
+      "titulo": "Estructura del archivo CTOREP (1200 bytes) y nombres de archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P142.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "CtorepRecord.java · P142Properties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Header, detalle y trailer de CTOREP como sealed interface",
+          "linea_ini": 13762,
+          "linea_fin": 13805,
+          "origen_codigo": "    02 WS-S080-L700CD-NIVEL-INI-I         PIC 9(02) COMP.\n    02 WS-S080-L700CD-FEC-INI-CONS-I      PIC 9(06) COMP.\n    02 FILLER                             PIC X(14).\n 77 WS-S080-L700CD-RESULT                 PIC S9(11) BINARY.\n 01 WS-S080-L700CD-PARAMETRO-SAL.\n    02 WS-S080-L700CD-NUM-REGS-S          PIC 9(02) COMP.\n    02 WS-S080-L700CD-CATALOGO-S          PIC 9(06) COMP.\n    02 WS-S080-L700CD-FEC-INI-CONS-S      PIC 9(06) COMP.\n    02 WS-S080-L700CD-NIVEL-INI-S         PIC 9(02) COMP.\n    02 WS-S080-L700CD-REGISTROS-S OCCURS 1 TO 10\n                      DEPENDING ON WS-S080-L700CD-NUM-REGS-S.\n       03 WS-S080-L700CD-CVE-REG-S        PIC X(12).\n       03 WS-S080-L700CD-CVE-REG-ASO-S    PIC X(12).\n       03 WS-S080-L700CD-TXT-LARGO-S      PIC X(40).\n       03 WS-S080-L700CD-TXT-CORTO-S      PIC X(20).\n       03 WS-S080-L700CD-TXT-PANTALLA-S   PIC X(12).\n       03 WS-S080-L700CD-TXT-ABRV-S       PIC X(05).\n       03 WS-S080-L700CD-FEC-ALTA-S       PIC 9(06) COMP.\n       03 WS-S080-L700CD-FEC-BAJA-S       PIC 9(06) COMP.\n       03 WS-S080-L700CD-FEC-ULTMOD-S     PIC 9(06) COMP.\n       03 FILLER                          PIC X(10).",
+          "java_codigo": "/** Registro fijo de 1200 bytes que P142 entrega a Teradata. Tipo en la posición 1. */\npublic sealed interface CtorepRecord\n        permits CtorepRecord.Header, CtorepRecord.Detalle, CtorepRecord.Trailer {\n\n    int LONGITUD = 1200;\n\n    String toFixed();\n\n    /** TREG = 1. FEC-GEN-ARCH recibe en la práctica la fecha de proceso (ver 40006000-OPEN-CTOREP). */\n    record Header(String sisOrigen, LocalDate fecGenArch, int csiOrigen) implements CtorepRecord {\n        public String toFixed() {\n            return Fixed.of(LONGITUD)\n                    .num(1, 1).alfa(sisOrigen, 4).fechaAmd(fecGenArch).num(csiOrigen, 2)\n                    .spaces(1185).build();\n        }\n    }\n\n    /** Grupo numérico: seis sellos de fecha/hora 9(08), DATO 9(12) y FILLER X(20) = 80 bytes. */\n    record GrupoNumerico(long fecProAct, long fecMaqAct, long horMaqAct,\n                         long fecProAct2, long fecMaqAct2, long horMaqAct2,\n                         long dato) {}\n\n    /** Grupo alfanumérico: seis sellos 9(08), DATO X(40) y FILLER X(20) = 108 bytes. */\n    record GrupoAlfa(long fecProAct, long fecMaqAct, long horMaqAct,\n                     long fecProAct2, long fecMaqAct2, long horMaqAct2,\n                     String dato) {}\n\n    /** TREG = 2. 77 bytes de cabecera + 5 x 80 + 5 x 108 + FILLER X(183) = 1200. */\n    record Detalle(int csiContrato, int csiCobertura,\n                   String numContrato,                 // 9(12): String para conservar ceros\n                   long fecProAlt, long fecMaqAlt, long horMaqAlt,\n                   long fecProAct, long fecMaqAct, long horMaqAct,\n                   int indPantalla, long fecActPan,\n                   List<GrupoNumerico> numericos,       // OCCURS 5 TIMES\n                   List<GrupoAlfa> alfas)               // OCCURS 5 TIMES\n            implements CtorepRecord {\n        public Detalle {\n            if (numericos.size() != 5 || alfas.size() != 5)\n                throw new IllegalArgumentException(\"CTOREP exige exactamente 5 grupos de cada tipo\");\n        }\n        public String toFixed() { return CtorepLayout.detalle(this); }\n    }\n\n    /** TREG = 9. Solo cuenta detalles: el header y el trailer no se incluyen. */\n    record Trailer(long totalDetalles) implements CtorepRecord {\n        public String toFixed() {\n            return Fixed.of(LONGITUD).num(9, 1).num(totalDetalles, 8).spaces(1191).build();\n        }\n    }\n}",
+          "racional": "Los tres grupos 01 son buffers independientes que se mueven a <code>CTOREP-REG</code> antes de cada <code>WRITE</code>. En Java cada uno es un <code>record</code> inmutable dentro de una <code>sealed interface</code> y conoce su propia serialización a ancho fijo, de modo que el adaptador de salida solo escribe <code>toFixed()</code>. Las longitudes suman exactamente 1200 bytes en los tres tipos (header 15 + 1185, detalle 77 + 400 + 540 + 183, trailer 9 + 1191) y el constructor compacto del detalle protege la cardinalidad fija de los dos <code>OCCURS 5</code>. No hay importes en este registro: todos los campos numéricos son fechas, horas, indicadores o el <code>DATO</code> de 12 dígitos, que se maneja como entero largo. El número de contrato se conserva como <code>String</code>.",
+          "reglas": [
+            "RN-S500-124"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Rutas de CTOREP y PROBLEMAS a application.yml",
+          "linea_ini": 13608,
+          "linea_fin": 13631,
+          "origen_codigo": "*                                                               *\n* CON ESTA CONSULTA SE OBTIENE LA INFORMACION REFERENTE  A  LOS *\n* REGISTROS DE DETALLE DE  UN  CATALOGO  DESCRIPTIVO;  DONDE  A *\n* PARTIR DE UN NUMERO DE CATALOGO Y LA CLAVE DE REGISTRO Y/O LA *\n* CLAVE DE REGISTRO ASOCIADO, SE PROPORCIONAN LAS DESCRIPCIONES *\n* SOLICITADAS.                                                  *\n*                                                               *\n* SI SE QUIERE CONSULTAR  A  PARTIR  DEL  PRIMER  REGISTRO  DEL *\n* CATALOGO, LA CLAVE DE REGISTRO / CLAVE DE  REGISTRO  ASOCIADO *\n* DEBE SER CERO.                                                *\n*                                                               *\n* PARAMETROS DE ENTRADA:                                        *",
+          "java_codigo": "# application.yml\np142:\n  sistema-origen: S500                                  # WKS-HED-SIS-ORI\n  ctorep: \"S500/FILE/INTS/50024S01/{csi}/{fecha}/CTOREP.\"   # WS-ETIQ-CTOREP\n  problemas: \"S500/FILE/INTS/50004S01/{csi}/{fecha}/PROBP142.\" # F02-TITLE-INTS\n  fecha-en-nombre: yyyyMMdd                             # WKS-RET-FECHA y F02-TIT-INTS-FEC son 9(8)\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p142\")\npublic record P142Properties(String sistemaOrigen, String ctorep, String problemas,\n                             String fechaEnNombre) {\n\n    /** Sustituye CSI (dos dígitos, 04 o 10) y fecha de proceso en la plantilla. */\n    public String resuelve(String plantilla, int csi, LocalDate fechaProceso) {\n        return plantilla\n                .replace(\"{csi}\", \"%02d\".formatted(csi))\n                .replace(\"{fecha}\", fechaProceso.format(DateTimeFormatter.ofPattern(fechaEnNombre)));\n    }\n}",
+          "racional": "La ruta de CTOREP fija en el código el prefijo <code>S500/FILE/INTS/50024S01/</code>, que corresponde al directorio de intercambio desde donde otro proceso toma el archivo para Teradata, y la ruta de PROBLEMAS fija <code>50004S01</code>. Ambas se trasladan a <code>application.yml</code> para cambiarlas por ambiente sin recompilar. El CSI y la fecha se insertan en el nombre igual que lo hacen <code>WKS-RET-CSIO</code> y <code>WKS-RET-FECHA</code>. El grupo <code>F02-TITLE</code>, con fecha de seis dígitos, se arma en 40006000-OPEN-PROB pero nunca se asigna al archivo, por lo que no se migra.",
+          "reglas": [
+            "RN-S500-137"
+          ],
+          "riesgo": "F02-TITLE (ruta S500/FILE/P142/PROB/) se llena y no se usa; el título real del archivo de problemas es F02-TITLE-INTS."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso, fecha de proceso y CSI del equipo",
+      "origen": {
+        "archivo": "S500_SOURCE_P142.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 40000000 / 20002100 / 40003000"
+      },
+      "java": {
+        "archivo": "ExtraccionAtributosJobConfig.java · FechaProcesoTasklet.java · HostCsiResolver.java",
+        "contexto": "Spring Batch Job · Tasklet · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal e inicio a definición de Job",
+          "linea_ini": 13901,
+          "linea_fin": 13931,
+          "origen_codigo": "     03 S422-78-MDA-HHVENC                PIC  9(004) COMP.\n     03 S422-78-MDA-PERIODO               PIC  9(002) COMP.\n     03 S422-78-MDA-SITUACION             PIC  X(004).\n     03 FILLER                            PIC  X(021).\n 01  S422-78-RCTR-SALIDA REDEFINES S422-78-CTR-SALIDA.\n     03 S422-78-CTR-ERROR                 PIC 9(004) COMP.\n     03 S422-78-CTR-ERRORTYPE             PIC 9(004) COMP.\n     03 S422-78-CTR-STRUCTURE             PIC 9(004) COMP.\n     03 FILLER                            PIC 9(102) COMP.\n$POP OMIT\n$SET OMIT = NOT S016L422R09\n********************************************************\n*  PARAMETROS               S016_L422_CTASREL (07)   ***",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P142Properties.class)\npublic class ExtraccionAtributosJobConfig {\n\n    /** 00000000-CONTROL-PROGRAMA: INICIO, PROCESO y FIN en secuencia. */\n    @Bean\n    Job extraccionAtributosTeradata(JobRepository repo,\n                                    Step validaVersion,        // 10000100 / 40002000 (CTLVERS, solo fuera de PBA)\n                                    Step fechaProceso,         // 40005000-VALIDO-FECHA-PRO\n                                    Step extraeContratos,      // 50002000-ARCH-CTOREP + trailer de 70000000-FIN\n                                    Step entregaIntercambio) { // publicación hacia Teradata (fuera de P142 hoy)\n        return new JobBuilder(\"S500P142\", repo)\n                .incrementer(new RunIdIncrementer())\n                .start(validaVersion)\n                .next(fechaProceso)\n                .next(extraeContratos)\n                .next(entregaIntercambio)\n                .build();\n    }\n\n    /** WS-VAL-FEC: el TASKVALUE de la tarea se vuelve un parámetro explícito del job. */\n    @Bean\n    JobParametersValidator parametrosP142() {\n        return params -> {\n            String f = params.getString(\"fechaProceso\");\n            if (f != null && !f.matches(\"\\\\d{8}\"))\n                throw new JobParametersInvalidException(\"fechaProceso debe ser AAAAMMDD\");\n        };\n    }\n}",
+          "racional": "El control del programa es una secuencia de tres <code>PERFORM</code> y el párrafo de inicio encadena versión, apertura de BD07, identificación del equipo, fecha de proceso y apertura de CTOREP. En Spring Batch cada bloque es un <code>Step</code> con reinicio y bitácora en el <code>JobRepository</code>. El <code>TASKVALUE</code> que el programa lee al arrancar como fecha de reproceso pasa a ser el parámetro de job <code>fechaProceso</code>, validado como AAAAMMDD, en lugar de un atributo de tarea que en el mismo programa también sirve como señal para cortar el archivo de problemas en la sección DECLARATIVES. El step <code>entregaIntercambio</code> materializa el envío que en Unisys hace otro proceso al recoger el archivo de INTS; es el punto propio del arquetipo A4.",
+          "reglas": [
+            "RN-S500-123",
+            "RN-S500-128"
+          ],
+          "riesgo": "El mismo TASKVALUE se usa como fecha de reproceso al inicio y como orden de cortar PROBLEMAS en DECLARATIVES (valor 1). Un valor 1 al arrancar se tomaría como fecha 00000001."
+        },
+        {
+          "id": "s4",
+          "titulo": "Fecha de proceso, fin de semana y fin de mes",
+          "linea_ini": 13933,
+          "linea_fin": 13977,
+          "origen_codigo": "*  CONSULTA B07CTACTA, MULTIPLE (NUMREG E/S)         ***\n********************************************************\n 01 E422-07-CTR-ENTRADA.\n    02 E422-07-CTR-NUMCSI           PIC 9(02) COMP.\n    02 E422-07-CTR-NUMSIST          PIC 9(04) COMP.\n    02 E422-07-CTR-NUMPASO          PIC 9(04) COMP.\n    02 E422-07-CTE-NUM              PIC 9(12) COMP.\n    02 E422-07-CTA-NUMPROD          PIC 9(04) COMP.\n    02 E422-07-CTA-CVEINST          PIC 9(04) COMP.\n    02 E422-07-CTO-NUM.\n          05 E422-07-CTA-NUMPREF    PIC 9(04) COMP.\n          05 E422-07-CTA-NUM        PIC 9(12) COMP.\n    02 E422-07-CTA-NUMPRODREL       PIC 9(04) COMP.\n    02 E422-07-CTA-CVEINSTREL       PIC 9(04) COMP.\n    02 E422-O7-CTA-CTONUMREL.\n          05 E422-07-CTA-NUMPREFREL PIC 9(04) COMP.\n          05 E422-07-CTA-NUMREL     PIC 9(12) COMP.\n    02 E422-07-CTR-CVERELCTA        PIC 9(02) COMP.\n    02 E422-07-CTR-NUMREG           PIC 9(02) COMP.\n    02 FILLER                       PIC X(18).\n** SIZE ENTRADA X(60)\n 01 S422-07-CTR-SALIDA.\n    02 S422-07-CTR-NUMREG           PIC 9(02) COMP.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class FechaProcesoTasklet implements Tasklet {\n\n    private final ControlAtributosRepository control;  // S500B02CONTROL (OPEN INQUIRY)\n    private final CalendarioBancario calendario;        // reemplaza THECALENDAR IN LOCSUP\n\n    @Value(\"#{jobParameters['fechaProceso']}\") private String fechaParametro;  // WS-VAL-FEC\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var b02 = control.findFirst()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR REG. DE CONTROL VACIO\"));\n\n        LocalDate fechaPro;\n        LocalDate fechaProx;\n        if (fechaParametro != null) {                         // IF WS-VAL-FEC > 0\n            fechaPro  = LocalDate.parse(fechaParametro, DateTimeFormatter.BASIC_ISO_DATE);\n            fechaProx = calendario.siguienteHabil(fechaPro);   // LOCSUP función 13, formato 13, +1\n        } else {\n            fechaPro  = b02.fechaLote();                       // B02-FECHA-LOTE\n            fechaProx = b02.fechaLinea();                      // B02-FECHA-LINEA\n        }\n\n        // WS-PRO-MM NOT = WS-FEC-PROX-MM\n        boolean esMensual = fechaPro.getMonthValue() != fechaProx.getMonthValue();\n        // 20002120-SEMANAL: LOCSUP función 6 devuelve 0=domingo .. 6=sábado\n        boolean esSemanal = diaSemanaUnisys(fechaPro) > diaSemanaUnisys(fechaProx);\n\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaProceso\", fechaPro);\n        ec.put(\"esSemanal\", esSemanal);   // calculados como en el fuente; P142 no los consume\n        ec.put(\"esMensual\", esMensual);\n        return RepeatStatus.FINISHED;\n    }\n\n    private static int diaSemanaUnisys(LocalDate d) {\n        return d.getDayOfWeek().getValue() % 7;           // DayOfWeek: 1=lunes .. 7=domingo\n    }\n}",
+          "racional": "Si la tarea trae fecha, esa es la de proceso y la próxima se calcula con LOCSUP; si no, ambas salen del registro B02. El cierre de mes se detecta cuando el mes de la próxima fecha difiere del de proceso y el cierre de semana cuando el día de la semana de hoy es mayor que el de la próxima fecha, con la numeración del comentario del fuente (0 domingo a 6 sábado), que en Java se reproduce con <code>getValue() % 7</code>. El acceso a B02 es de solo lectura, como el <code>OPEN INQUIRY</code>. Cada <code>CALL SYSTEM DMTERMINATE</code> se vuelve una excepción que deja el step en FAILED.",
+          "reglas": [
+            "RN-S500-126",
+            "RN-S500-127",
+            "RN-S500-128"
+          ],
+          "riesgo": "WKS-ES-SEMANAL y WKS-ES-MENSUAL se calculan pero ningún párrafo los lee después; además WKS-ES-MENSUAL solo se pone en 1 y nunca se regresa a 0."
+        },
+        {
+          "id": "s5",
+          "titulo": "CSI del equipo y tabla de pares de host",
+          "linea_ini": 14034,
+          "linea_fin": 14080,
+          "origen_codigo": "    02 FILLER                       PIC X(004).\n 01 S422-10-CTR-SALIDA.\n    02 S422-10-CTE-NUM              PIC 9(12)  COMP.\n    02 S422-10-CVE-INTERC           PIC 9(05)  COMP.\n    02 S422-10-FEC-ALTA             PIC 9(08)  COMP.\n    02 S422-10-FEC-ULTMOD           PIC 9(08)  COMP.\n    02 S422-10-CVE-STATUS           PIC 9(02)  COMP.\n 77 R422-10-CTR-ERROR               PIC S9(11) BINARY.\n$POP OMIT\n*INI FSW                  P07-120 REQ3                    ABARBOSA\n$SET OMIT = NOT S016L422R11\n********************************************************\n*  PARAMETROS          S016_L422_B07SXCTARELCREDCH   ***\n*  CONSULTA CREDICHEQUERA                            ***\n********************************************************\n 01 E422-127-CTR-ENTRADA.\n    03 E422-127-CTA-NUMPROREL     PIC 9(004) COMP.\n    03 E422-127-CTA-CVEINSREL     PIC 9(004) COMP.\n    03 E422-127-CTA-NUMPREREL     PIC 9(004) COMP.",
+          "java_codigo": "# application.yml\np142:\n  host:\n    csi-vdm: 10                       # WS-DH-HOSTNAME-VDM\n    csi-mty: 4                        # cualquier otro equipo\n    equipos-vdm: [VDMBETA, ACYPGAMA, ACYPOMEGA, VDMALFA]\n    # Pares origen-destino de WKS-PARAM-XFER-XX. P142 los calcula pero no invoca XFER.\n    pares-xfer:\n      VDMBETA: ACYPBETA\n      ACYPBETA: VDMBETA\n      ACYPGAMA: MONALFA\n      MONALFA: ACYPGAMA\n      ACYPOMEGA: VDMKAPPA\n      VDMKAPPA: ACYPOMEGA\n      VDMALFA: MONBETA\n      MONBETA: VDMALFA\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class HostCsiResolver {\n\n    private final P142HostProperties host;\n    private final HostInfo hostInfo;          // reemplaza CSIID OF SOPORTECOMS\n\n    /** WKS-RET-CSIO, WKS-HED-CSI-ORI y WKS-CSIL reciben el mismo valor. */\n    public int csiLocal() {\n        return host.equiposVdm().contains(hostInfo.nombreEquipo())\n                ? host.csiVdm()\n                : host.csiMty();\n    }\n\n    public Optional<String> destinoReplica() {\n        return Optional.ofNullable(host.paresXfer().get(hostInfo.nombreEquipo()));\n    }\n}",
+          "racional": "El CSI del equipo decide el nombre del archivo, el CSI de origen del header y el CSI de cobertura de cada detalle: 10 para los equipos de Valle de México y 04 para el resto. La lista de equipos y la tabla de ocho pares se compilaron en el programa con nombres de nodo fijos; en Java viven en <code>application.yml</code>, de modo que un cambio de infraestructura no obliga a recompilar. El IF anidado de ocho niveles se reemplaza por un mapa, que además deja explícito que un equipo desconocido no tiene par.",
+          "reglas": [
+            "RN-S500-136"
+          ],
+          "riesgo": "La tabla de pares llena WKS-HOST-ORIG-XFER-XX y WKS-HOST-DEST-XFER-XX, pero WKS-PARAM-XFER-XX y WS-WFL-COPY nunca se envían: P142 no replica el archivo a otro host. Cualquier equipo que no esté en la lista VDM, incluso uno nuevo, queda como CSI 04."
+        }
+      ]
+    },
+    {
+      "titulo": "Barrido de B01CONTRATOS, validación y escritura de CTOREP",
+      "origen": {
+        "archivo": "S500_SOURCE_P142.txt",
+        "contexto": "PROCEDURE DIVISION · 50001100 / 50002000 / 50003300 / 50003400 / 50009000"
+      },
+      "java": {
+        "archivo": "ContratoReader.java · ContratoCtorepProcessor.java · CtorepWriterConfig.java · ProblemasLog.java",
+        "contexto": "RepositoryItemReader · ItemProcessor · FlatFileItemWriter con footer"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Recorrido completo de B01 con FIND NEXT",
+          "linea_ini": 14160,
+          "linea_fin": 14187,
+          "origen_codigo": "             02    E422-96-CTA-NUMPREF          PIC 9(04) COMP.\n*Prefijo de la cuenta\n             02    E422-96-CTA-NUM              PIC 9(12) COMP.\n* Numero de la cuenta\n             02    E422-96-MDA-CVETIPO          PIC 9(02) COMP.\n* Numero de clave relativa\n             02    E422-96-OPCION               PIC 9(02) COMP.\n* Clave de opcion seleccionada\n*   00  Cualquier cuenta que encuentres\n*   10   \"  y con llave completa.\n*   01  Cuenta MDA-CVESTATUS = 21\n*   11   \"  y con llave completa.\n*   02  Cuenta MDA_CVESTATUS NEQ 21\n*   12   \"  y con llave completa.",
+          "java_codigo": "@Bean\nStep extraeContratos(JobRepository repo, PlatformTransactionManager tx,\n                     JpaPagingItemReader<ContratoAtributos> contratos,\n                     ContratoCtorepProcessor procesador,\n                     FlatFileItemWriter<CtorepRecord> ctorepWriter,\n                     ProblemasLog problemas) {\n    return new StepBuilder(\"extraeContratos\", repo)\n            .<ContratoAtributos, CtorepRecord>chunk(45, tx)   // BLOCK CONTAINS 45 RECORDS\n            .reader(contratos)\n            .processor(procesador)\n            .writer(ctorepWriter)\n            .listener(problemas)          // INICIA / TERMINA ARCHIVO PROBLEMAS\n            .build();\n}\n\n/** SET S500B01CONTRATOS TO BEGINNING + FIND NEXT hasta fin de conjunto, solo lectura. */\n@Bean\n@StepScope\nJpaPagingItemReader<ContratoAtributos> contratos(EntityManagerFactory emf) {\n    return new JpaPagingItemReaderBuilder<ContratoAtributos>()\n            .name(\"b01Contratos\")\n            .entityManagerFactory(emf)\n            .queryString(\"select c from ContratoAtributos c order by c.id\")  // orden físico del dataset\n            .pageSize(1000)\n            .transacted(false)            // OPEN INQUIRY: nunca se actualiza B01\n            .build();\n}",
+          "racional": "El barrido es un ciclo <code>PERFORM ... UNTIL WKS-FIN-B01 = 1</code> sobre <code>FIND NEXT</code>: el estado 1 marca fin de conjunto y cualquier otro estado distinto de cero aborta. En Spring Batch eso es un lector paginado de solo lectura cuyo fin natural es devolver <code>null</code>; un error de base de datos propaga la excepción y deja el step en FAILED, igual que el <code>DMTERMINATE</code>. El tamaño de chunk reproduce el <code>BLOCK CONTAINS 45 RECORDS</code> del FD de CTOREP. El orden del recorrido DMSII no está definido en el fuente, por lo que se ordena por la llave del contrato.",
+          "reglas": [
+            "RN-S500-123"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Filtro por primer dato numérico y aviso en PROBLEMAS",
+          "linea_ini": 14189,
+          "linea_fin": 14218,
+          "origen_codigo": "             02    E422-96-CTR-NUMCSI           PIC 9(02) COMP.\n             02    E422-96-CTE-NUM              PIC 9(12) COMP.\n             02    E422-96-MDA-CVETIT           PIC 9(02) COMP.\n             02    FILLER                       PIC X(33).\n* SIZE ENTRADA X(60)\n*--------- PARAMETRO DE SALIDA\n   01  S422-96-CTR-SALIDA.\n        02 S422-96-CTR-REGISTRO.\n           03 S422-96-CTR-ERR.\n              04 S422-96-CTR-ERROR        PIC 9(04) COMP.\n              04 S422-96-CTR-ERRORTIPO    PIC 9(04) COMP.\n              04 S422-96-CTR-ESTRUCTURA   PIC 9(04) COMP.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ContratoCtorepProcessor implements ItemProcessor<ContratoAtributos, CtorepRecord> {\n\n    private final HostCsiResolver host;\n    private final ProblemasLog problemas;\n\n    /** 50003300-WRITE-ARCHIVO. */\n    @Override\n    public CtorepRecord process(ContratoAtributos b01) {\n        long dato1 = b01.numericos().get(0).dato();          // B01-NUM-DATO(1)\n        if (dato1 != 0 && dato1 != 1) {\n            // El fuente pasa el valor a WKS-NUM-DATO PIC 9(02): solo se conservan dos dígitos.\n            problemas.anota(\"ERROR NUM DATO(1): %02d, EN CTO: %s\"\n                    .formatted(dato1 % 100, b01.numContrato()));\n            return null;                                     // no se escribe ni se cuenta\n        }\n        return new CtorepRecord.Detalle(\n                b01.csiContrato(), host.csiLocal(),          // CSI-COBERTURA = CSI del equipo\n                b01.numContrato(),\n                b01.fecProAlt(), b01.fecMaqAlt(), b01.horMaqAlt(),\n                b01.fecProAct(), b01.fecMaqAct(), b01.horMaqAct(),\n                b01.indPantalla(), b01.fecActPan(),\n                GrupoMapper.numericos(b01),                  // 50003300-LEO-NUM\n                GrupoMapper.alfas(b01));                     // 50003300-LEO-ALF\n    }\n}",
+          "racional": "Solo se exportan los contratos cuyo primer dato numérico es 0 o 1; los demás se anotan en PROBLEMAS y el programa sigue. En Spring Batch devolver <code>null</code> filtra el elemento, de modo que no llega al writer ni al contador del trailer, que es lo que ocurre con <code>ADD 1 TO WKS-CONTADOR</code> dentro de la rama válida. El CSI de cobertura no viene del contrato sino del equipo en que corre el paso. El mensaje reproduce el truncamiento a dos dígitos de <code>WKS-NUM-DATO</code> para que la bitácora sea comparable durante la convivencia.",
+          "reglas": [
+            "RN-S500-125"
+          ],
+          "riesgo": "STRING no limpia WS-F02-MSG antes de escribir; si el mensaje anterior era más largo, quedan restos al final. Además WKS-NUM-DATO es PIC 9(02) y el dato es de 12 dígitos en el registro de salida, así que el mensaje solo muestra los dos dígitos de menor orden."
+        },
+        {
+          "id": "s8",
+          "titulo": "Copia de los cinco grupos numéricos",
+          "linea_ini": 14220,
+          "linea_fin": 14244,
+          "origen_codigo": "           03 S422-96-CTE-NUM             PIC 9(12) COMP.\n           03 S422-96-CTA-NUMPROD         PIC 9(04) COMP.\n           03 S422-96-CTA-CVEINST         PIC 9(02) COMP.\n           03 S422-96-CTA-NUMCTO.\n              04 S422-96-CTA-NUMPREF      PIC 9(04) COMP.\n              04 S422-96-CTA-NUM          PIC 9(12) COMP.\n           03 S422-96-MDA-CVETIPO         PIC 9(02) COMP.\n           03 S422-96-MDA-SUBTIPO         PIC 9(02) COMP.\n           03 S422-96-MDA-CVETIT          PIC 9(02) COMP.\n           03 S422-96-MDA-NUMCTO.\n              04 S422-96-MDA-NUMPREF      PIC 9(04) COMP.\n              04 S422-96-MDA-NUM          PIC 9(12) COMP.",
+          "java_codigo": "final class GrupoMapper {\n\n    /** 50003300-LEO-NUM / 50003300-NUM-GRP: copia 1:1 de las cinco ocurrencias. */\n    static List<CtorepRecord.GrupoNumerico> numericos(ContratoAtributos b01) {\n        return IntStream.range(0, 5)\n                .mapToObj(i -> {\n                    var g = b01.numericos().get(i);\n                    return new CtorepRecord.GrupoNumerico(\n                            g.fecProAct(), g.fecMaqAct(), g.horMaqAct(),\n                            g.fecProAct2(), g.fecMaqAct2(), g.horMaqAct2(),\n                            g.dato());                    // WKS-DET-NUM-FILLER se serializa como espacios\n                })\n                .toList();\n    }\n\n    // alfas(...) es idéntico sobre B01-ALFA-* (50003300-LEO-ALF / ALF-GRP).\n}",
+          "racional": "Los dos párrafos de grupos copian campo a campo las cinco ocurrencias de B01 al detalle y limpian el FILLER de cada grupo. En Java es un mapeo directo con <code>IntStream</code> y el FILLER deja de existir como dato: lo produce la serialización a ancho fijo. La condición <code>IF WS-GRP &gt; 0</code> se omite porque el <code>PERFORM VARYING</code> arranca en 1 y nunca la hace falsa.",
+          "reglas": [
+            "RN-S500-124"
+          ],
+          "riesgo": "IF WS-GRP > 0 siempre es verdadero. Además el punto al final del primer MOVE cierra el IF, así que el resto de los MOVE no dependen de él; el comportamiento es el mismo, pero la sangría engaña al lector. El mismo patrón está en 50003300-ALF-GRP."
+        },
+        {
+          "id": "s9",
+          "titulo": "Escritura, trailer con conteo de detalles y cierre",
+          "linea_ini": 14272,
+          "linea_fin": 14299,
+          "origen_codigo": "$POP OMIT\n*\n$SET OMIT = NOT S016L422R13\n*****************************************************************\n* ENTRY POINT S016_L422_B04XCTECTA_PROD18                       *\n* DE LIBRERIA S016L422 PARA SABER SI UN CLIENTE TIENE \"PERMISO\" *\n* PARA OPERAR DEPOSITOS A SU CUENTA EN EFECTIVO CON MONEDA      *\n* ESTRANJERA                                                    *\n*****************************************************************\n 01 E422-114-CTR-ENTRADA.\n    03 E422-114-CTR-FILLER                PIC 9(004) COMP.\n    03 E422-114-CTE-NUM                   PIC 9(012) COMP.\n    03 E422-114-CTA-NUMPROD               PIC 9(004) COMP.",
+          "java_codigo": "@Bean\n@StepScope\nFlatFileItemWriter<CtorepRecord> ctorepWriter(P142Properties props, HostCsiResolver host,\n        @Value(\"#{jobExecutionContext['fechaProceso']}\") LocalDate fecha,\n        CtorepContador contador) {\n    String ruta = props.resuelve(props.ctorep(), host.csiLocal(), fecha);\n    return new FlatFileItemWriterBuilder<CtorepRecord>()\n            .name(\"ctorep\")\n            .resource(new FileSystemResource(ruta))\n            .lineAggregator(CtorepRecord::toFixed)\n            // 40006000-OPEN-CTOREP: header con la fecha de proceso, no la del reloj\n            .headerCallback(w -> w.write(\n                    new CtorepRecord.Header(props.sistemaOrigen(), fecha, host.csiLocal()).toFixed()))\n            // 50003400-TRAILER-CTOREP: total = detalles escritos (WKS-CONTADOR)\n            .footerCallback(w -> w.write(new CtorepRecord.Trailer(contador.total()).toFixed()))\n            .shouldDeleteIfExists(true)   // OPEN OUTPUT\n            .transactional(true)\n            .build();\n}\n\n/** Cuenta solo lo que llega al writer: los registros filtrados por el procesador no suman. */\n@Component\n@StepScope\nclass CtorepContador implements ItemWriteListener<CtorepRecord> {\n    private long total;\n    @Override public void afterWrite(Chunk<? extends CtorepRecord> items) { total += items.size(); }\n    long total() { return total; }\n}",
+          "racional": "Cada <code>WRITE</code> aborta el programa si falla y el trailer se escribe en 70000000-FIN con el contador de detalles antes de <code>CLOSE ... WITH SAVE</code>. Un <code>FlatFileItemWriter</code> con <code>headerCallback</code> y <code>footerCallback</code> reproduce la forma exacta del archivo: el header se emite al abrir y el trailer al cerrar el step con éxito. El conteo usa un listener sobre lo efectivamente escrito, que equivale a <code>ADD 1 TO WKS-CONTADOR</code> después de grabar. Las rutas salen de <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-124"
+          ],
+          "riesgo": "En 40005000 se hace ACCEPT WKS-HED-FEC-GEN-ARCH FROM DATE, pero 40006000-OPEN-CTOREP lo sobrescribe con WS-FECHA-PRO: el campo llamado fecha de generación lleva la fecha de proceso."
+        },
+        {
+          "id": "s10",
+          "titulo": "Archivo PROBLEMAS acumulativo con sello de tiempo",
+          "linea_ini": 14126,
+          "linea_fin": 14148,
+          "origen_codigo": " 77 R422-127-CTR-ERROR            PIC S9(11) BINARY.\n$POP OMIT\n*FIN FSW                  P07-120 REQ3                    ABARBOSA\n$SET OMIT = NOT S016L422R12\n*****************************************************************\n* PARAMETROS PARA ENTRY POINT S016_L422_B08SXCTECTATIPOTIT (96)**\n*  AMPLIACIÂ¿N DEL S016_L422_CTAMEDIO (61)                    ****\n*  YA QUE UTILIZA el MDA-CVETIT UN ELEMENTO MAS EN LA LLAVE     *\n*****************************************************************\n*   PARAMETRO DE ENTRADA :",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ProblemasLog implements StepExecutionListener {\n\n    private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern(\"dd/MM/yyyy HH:mm:ss\");\n    private final P142Properties props;\n    private final HostCsiResolver host;\n    private final Clock reloj;\n    private BufferedWriter out;\n\n    @Value(\"#{jobExecutionContext['fechaProceso']}\") private LocalDate fecha;\n\n    /** OPEN EXTEND si el archivo existe, OPEN OUTPUT si no. */\n    @Override\n    public void beforeStep(StepExecution se) {\n        Path p = Path.of(props.resuelve(props.problemas(), host.csiLocal(), fecha));\n        try {\n            out = Files.newBufferedWriter(p, StandardOpenOption.CREATE, StandardOpenOption.APPEND);\n        } catch (IOException e) { throw new UncheckedIOException(e); }\n        anota(\"INICIA ARCHIVO PROBLEMAS\");\n    }\n\n    /** 50009000-PROB-TIEMPO: renglón en blanco y renglón con fecha, hora y mensaje (80 bytes). */\n    public void anota(String mensaje) {\n        String renglon = SELLO.format(LocalDateTime.now(reloj)) + \" \" + mensaje;\n        try {\n            out.write(\" \".repeat(80)); out.newLine();\n            out.write(StringUtils.rightPad(StringUtils.left(renglon, 80), 80)); out.newLine();\n        } catch (IOException e) { throw new UncheckedIOException(e); }\n    }\n\n    @Override\n    public ExitStatus afterStep(StepExecution se) {\n        anota(\"TERMINA ARCHIVO PROBLEMAS\");\n        try { out.close(); } catch (IOException e) { throw new UncheckedIOException(e); }  // CLOSE WITH SAVE\n        return se.getExitStatus();\n    }\n}",
+          "racional": "PROBLEMAS es un archivo de 80 bytes que se abre en modo de extensión si ya existe, de modo que conserva lo de corridas anteriores de la misma fecha, y cada ejecución queda delimitada por los mensajes de inicio y término. En Java es un listener del step que abre con <code>APPEND</code> y antepone a cada mensaje la fecha y hora de máquina con el mismo formato. El envío del archivo por INTELARSND está comentado en el fuente y no se migra; si se requiere, se agrega como un adaptador de salida de Spring Integration.",
+          "reglas": [
+            "RN-S500-137"
+          ],
+          "riesgo": "PROBLEMAS se abre hasta 50001000-ARCH-PRO, pero los errores de 40001000-OPEN-BD07 y 40005000-VALIDO-FECHA-PRO ya ejecutan 50009000-PROB-TIEMPO, que escribe en F02-REG sin archivo abierto."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Escritura en PROBLEMAS antes de abrirlo",
+      "detalle": "Los errores de apertura de S500BD07ATRIBUCTA (líneas 14005-14009) y de B02 vacío (líneas 14089-14093) hacen PERFORM 50009000-PROB-TIEMPO, que escribe F02-REG, cuando F02-PROBLEMAS se abre hasta 50001000-ARCH-PRO (línea 14317). En esos casos el mensaje al archivo no puede quedar y la tarea podría terminar por un error de E/S antes del DMTERMINATE."
+    },
+    {
+      "titulo": "Indicadores de semana y mes calculados y no usados",
+      "detalle": "WKS-ES-SEMANAL y WKS-ES-MENSUAL (líneas 13646-13647) se calculan en 20002100-PROY-FEC y 20002120-SEMANAL, pero ningún otro párrafo los consulta. WKS-ES-MENSUAL además solo se pone en 1. Las reglas RN-S500-126 y RN-S500-127 describen una lógica que no cambia la salida de P142."
+    },
+    {
+      "titulo": "Replicación entre hosts sin efecto",
+      "detalle": "40003000-IDENTIFICA-HOST llena los pares de equipo origen y destino, pero WKS-PARAM-XFER-XX y WS-WFL-COPY no se envían a XFER ni a WFL, y el envío de PROBLEMAS por INTELARSND está comentado (líneas 14157-14158). P142 solo deja CTOREP en el directorio INTS; el transporte a Teradata ocurre fuera del programa."
+    },
+    {
+      "titulo": "Registros excluidos sin cifra de control",
+      "detalle": "Los contratos con B01-NUM-DATO(1) distinto de 0 y 1 se anotan en PROBLEMAS pero el trailer solo cuenta lo escrito; Teradata no recibe un total de leídos contra exportados para conciliar."
+    },
+    {
+      "titulo": "Hardcodes de rutas y equipos",
+      "detalle": "Prefijos S500/FILE/INTS/50024S01 y 50004S01, CSI 10 y 04 y los ocho nombres de equipo están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "La estructura de S500B01CONTRATOS no viene en el fuente (se invoca desde la DASDL de S500BD07ATRIBUCTA); confirmar tipos y longitudes de B01-NUM-DATO y B01-ALFA-DATO, y el orden físico del recorrido FIND NEXT.",
+    "Confirmar con SME qué proceso toma CTOREP de S500/FILE/INTS/50024S01 y lo entrega a Teradata; el step entregaIntercambio se dejó como punto de integración sin implementación definida.",
+    "Confirmar la semántica de LOCSUP función 13 con formato 13 (día hábil o natural siguiente) y por qué el día de la semana se pide con formato 12 sobre la misma fecha AAAAMMDD; el párrafo 40000000-CALL-FECPRO interpreta WS-S006-FUNCION mayor que cero después de la llamada como error.",
+    "Las reglas RN-S500-129 a RN-S500-135 describen constantes ISR, estructuras S151-0101/0103, interfaces S272LIBORDES y S408LINCRED que están en la WORKING-STORAGE heredada por copy y no se usan en la PROCEDURE DIVISION de P142; no se ligaron a ningún segmento. Revisar si deben seguir asociadas a P142 en el brain.",
+    "VDMBETA aparece a la vez en WS-DH-HOSTNAME-PBA, WS-DH-HOSTNAME-SIT y WS-DH-HOSTNAME-VDM; confirmar el ambiente real de ese equipo, porque decide si se valida versión con CTLVERS.",
+    "Confirmar si un TASKVALUE con valor 1 puede llegar al arranque, dado que la sección DECLARATIVES usa ese mismo valor para cortar PROBLEMAS."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-922",
+    "RN-S500-930",
+    "RN-S500-123",
+    "RN-S500-124",
+    "RN-S500-125",
+    "RN-S500-126",
+    "RN-S500-127",
+    "RN-S500-128",
+    "RN-S500-129",
+    "RN-S500-130",
+    "RN-S500-131",
+    "RN-S500-132",
+    "RN-S500-133",
+    "RN-S500-134",
+    "RN-S500-135",
+    "RN-S500-136",
+    "RN-S500-137"
+  ]
+}

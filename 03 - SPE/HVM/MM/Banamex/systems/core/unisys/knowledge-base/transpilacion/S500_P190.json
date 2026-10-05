@@ -1,0 +1,198 @@
+{
+  "slug": "S500_P190",
+  "sistema": "S500",
+  "programa": "P190",
+  "nombre": "Punteo de Conciliación S500 contra S151",
+  "funcion": "Paso batch de S500 que corre al cierre de línea y de batch: concilia movimiento a movimiento los archivos de captación contra el archivo contable de S151 y emite el reporte de punteo con faltantes y diferencias.",
+  "resumen": "P190 toma por TASKVALUE el tipo de proceso (línea, batch o ambos), y opcionalmente fecha y CSI; si no vienen, los lee de S500B02CONTROL. Concentra hasta tres archivos de captación de 60 bytes en uno solo, ordena ese archivo y el de S151 por la misma llave y los recorre en paralelo como un merge: un movimiento que solo existe de un lado se lista como faltante en S500 o en S151, salvo importes en cero, no contables y migración. Al final imprime por cargos, abonos y no contables el número e importe de cada sistema y la diferencia S500 menos S151. Con proceso 0 repite el punteo para batch después del de línea.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.conciliacion.punteo",
+  "secciones": [
+    {
+      "titulo": "Parámetros de ejecución y catálogo de claves",
+      "origen": {
+        "archivo": "S500_SOURCE_P190.txt",
+        "contexto": "00001000-VALIDA-TASKVALUE · 20000000-ABRE-BASE · WKS-TB-CLAVES"
+      },
+      "java": {
+        "archivo": "PunteoParametros.java · CatalogoClavesProtCob.java",
+        "contexto": "record · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "TASKVALUE con tipo de proceso, fecha y CSI a JobParameters validados",
+          "linea_ini": 706,
+          "linea_fin": 771,
+          "origen_codigo": " 00001000-VALIDA-TASKVALUE.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-TASK-VALUE.\n     IF WKS-TASK-PROC = 0 OR 1 OR 2\n        MOVE WKS-TASK-PROC TO W77-PROCESO\n        IF  WKS-TASK-FECHA-08 > 0\n        AND WKS-TASK-CSI      > 0\n            MOVE WKS-TASK-CSI       TO W77-MY-CSI\n            MOVE WKS-TASK-FECHA-08  TO WKS-FECHA-BATCH-08\n            PERFORM 00004000-VALIDA-FEC-TASKVALUE\n        ELSE\n            MOVE 1              TO W77-VEO-BASE\n     ELSE\n        STRING \"ERR TPO PROC EN VALUE\",\n               \" FECHA=\", WKS-TASK-FECHA-08,\n               \" CSI=\", WKS-TASK-CSI,\n               \" PROCESO=\", WKS-TASK-PROC\n        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     IF W77-PROCESO = 0\n        MOVE 1        TO WKS-TASK-PROC.\n     PERFORM 00002000-ARMA-PROCESO.\n 00004000-VALIDA-FEC-TASKVALUE.\n     IF  (WKS-AAAA-BATCH > 1994)\n     AND (WKS-MM-BATCH   > 0 AND < 13)\n     AND (WKS-DD-BATCH   > 0 AND < 32)\n     AND (W77-MY-CSI     = 04 OR 10)\n     ELSE\n        STRING \"ERR FECHA-CSI EN VALUE\"\n               \" FECHA=\", WKS-TASK-FECHA-08,\n               \" CSI=\", WKS-TASK-CSI,\n               \" PROCESO=\", WKS-TASK-PROC\n        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "/** TASKVALUE: proceso 0 = línea y después batch, 1 = línea (PLINEA), 2 = batch (PBATCH). */\npublic record PunteoParametros(int proceso, Optional<LocalDate> fecha, OptionalInt csi) {\n\n    /** csiValidos viene de punteo.csi-validos en application.yml (hoy 04 y 10). */\n    public static PunteoParametros de(int proceso, Optional<LocalDate> fecha, OptionalInt csi,\n                                      Set<Integer> csiValidos) {\n        if (proceso < 0 || proceso > 2) {\n            throw new ParametroInvalidoException(\"ERR TPO PROC EN VALUE PROCESO=\" + proceso);\n        }\n        if (fecha.isPresent() && csi.isPresent()) {                // 00004000-VALIDA-FEC-TASKVALUE\n            boolean ok = fecha.get().getYear() > 1994 && csiValidos.contains(csi.getAsInt());\n            if (!ok) throw new ParametroInvalidoException(\"ERR FECHA-CSI EN VALUE\");\n        }\n        return new PunteoParametros(proceso, fecha, csi);\n    }\n\n    /** Sin fecha o sin CSI en el TASKVALUE se toman de S500B02CONTROL (W77-VEO-BASE = 1). */\n    public boolean leeControl() { return fecha.isEmpty() || csi.isEmpty(); }\n\n    public List<String> pasos() {\n        return switch (proceso) {\n            case 0  -> List.of(\"PLINEA\", \"PBATCH\");   // 30000000-SEGDO-PUNTEO repite con batch\n            case 1  -> List.of(\"PLINEA\");\n            default -> List.of(\"PBATCH\");\n        };\n    }\n}",
+          "racional": "El tipo de proceso, la fecha y el CSI llegan empacados en el atributo TASKVALUE de la tarea. En Java son parámetros del job que se validan en una fábrica estática del <code>record</code>. Las validaciones de mes y día del COBOL quedan cubiertas al construir el <code>LocalDate</code>, y se conserva el piso de año 1994. Los CSI válidos pasan a <code>application.yml</code>. El proceso 0 se traduce en dos ejecuciones del mismo step, primero línea y luego batch, que es lo que hace 30000000-SEGDO-PUNTEO.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Claves de protección y cobranza desde S500B17CVESXFUN",
+          "linea_ini": 260,
+          "linea_fin": 849,
+          "origen_codigo": " 01  WKS-TB-CLAVES.\n     02 WKS-TB-B17          OCCURS 9999 TIMES.\n        04 WKS-TB-CVE       PIC 9(04)   COMP.\n        04 WKS-TB-ESPROTC   PIC 9(02)   COMP.\n        88 W88-TB-PROTCOB   VALUE 1.\n 20000000-ABRE-BASE.\n     OPEN INQUIRY S500BD01CAPTACION.\n     IF W77-VEO-BASE = 1\n        PERFORM 20001000-FECHA-BASE.\n     MOVE ALL @00@ TO WKS-TB-CLAVES.\n     SET S500B17CVESXFUN  TO BEGINNING.\n     PERFORM 20001400-SUBE-CVES UNTIL W77-EOF-B17 = 1.\n     CLOSE S500BD01CAPTACION.\n 20001410-METE-CVE-VAL.\n     MOVE B17-CLAVE-TRANS   TO W77-IND-B17.\n     IF W77-IND-B17 > 0 AND < 9999\n        MOVE B17-CLAVE-TRANS   TO WKS-TB-CVE(W77-IND-B17)\n        IF B17-TIPO-PAGO > 0\n           MOVE 1              TO WKS-TB-ESPROTC(W77-IND-B17).",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CatalogoClavesProtCob {\n\n    private final ClaveXFuncionRepository b17;     // S500BD01CAPTACION.S500B17CVESXFUN, solo lectura\n    private final PunteoProperties props;          // rangos-prot-cob: [4017-4018, 4330-4381]\n    private final Map<Integer, Boolean> claves = new HashMap<>();   // WKS-TB-CVE / WKS-TB-ESPROTC\n    private boolean usaRangosFijos;                                  // W77-USO-N88\n\n    @PostConstruct\n    void carga() {\n        try (Stream<ClaveXFuncion> s = b17.streamAll()) {             // FIND NEXT hasta NOTFOUND\n            s.filter(c -> c.clave() > 0 && c.clave() < 9999)           // misma guarda que el COBOL\n             .forEach(c -> claves.put(c.clave(), c.tipoPago() > 0));\n        } catch (DataAccessException e) {\n            log.warn(\"ERR B17CVESXFUN-FINDN USO NIVEIL 88 CVES PROT/COBRO\", e);\n            usaRangosFijos = true;                                     // no aborta; conserva lo ya cargado\n        }\n    }\n\n    /** 50003051-VE-PROTCOB: catálogo si la clave está cargada; rangos fijos solo tras un error. */\n    public boolean esProtCob(int clave) {\n        Boolean enCatalogo = claves.get(clave);\n        if (enCatalogo != null) return enCatalogo;\n        return usaRangosFijos && props.rangosProtCob().stream().anyMatch(r -> r.contiene(clave));\n    }\n}",
+          "racional": "El catálogo marca qué claves de transacción son de protección o cobranza, porque esos movimientos se parean por autorización S151 además de por llave de caja. El arreglo de 9999 posiciones subindexado por la clave se sustituye por un <code>Map</code> de clave a indicador. Si la lectura falla, el COBOL conserva lo ya cargado y, para las claves que faltan, cae a los rangos fijos del nivel 88; la traducción reproduce ese plan alterno con los rangos en configuración y deja constancia en bitácora.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Movimiento de 60 bytes y totales por categoría",
+      "origen": {
+        "archivo": "S500_SOURCE_P190.txt",
+        "contexto": "WKS-I01-R01-DATOS · 20006800-PASA-* · 50003110-SUMA-S500"
+      },
+      "java": {
+        "archivo": "MovimientoPunteo.java · ConcentraCaptacionStep.java · TotalesPunteo.java",
+        "contexto": "record · MultiResourceItemReader · acumulador"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Registro con niveles 88 por rango de clave a record y enum",
+          "linea_ini": 327,
+          "linea_fin": 354,
+          "origen_codigo": " 01  WKS-I01-R01-DATOS.\n     02 WKS-I01-R01-TPOREG       PIC 9(02).\n        88 W88-I01-R01-TPMIGRA   VALUE 11, 12, 13.\n     02 WKS-I01-R01-LLAVE        PIC 9(12)      COMP.\n     02 WKS-RD-I01-R01-LLAVE     REDEFINES WKS-I01-R01-LLAVE.\n        04 WKS-I01-R01-SUCTRA    PIC 9(04)      COMP.\n        04 WKS-I01-R01-CAJTRA    PIC 9(02)      COMP.\n        04 WKS-I01-R01-AUTTRA    PIC 9(06)      COMP.\n     02 WKS-I01-R01-CTO          PIC 9(12)      COMP.\n     02 WKS-I01-R01-PROD         PIC 9(04)      COMP.\n     02 WKS-I01-R01-INST         PIC 9(04)      COMP.\n     02 WKS-I01-R01-MONEDA       PIC 9(04)      COMP.\n     02 WKS-I01-R01-CLAVE        PIC 9(04)      COMP.\n        88 W88-I01-R01-CVEVAL    VALUE 0001 THRU 9999.\n        88 W88-I01-R01-CARGO     VALUE 2000 THRU 2999,\n                                       4000 THRU 4999.\n        88 W88-I01-R01-ABONO     VALUE 1000 THRU 1999,\n                                       3000 THRU 3999.\n        88 W88-I01-R01-NOCONT    VALUE 500  THRU 999.\n        88 W88-I01-R01-NC-TESO   VALUE 858  THRU 871,\n                                       875  THRU 884,\n                                       887  THRU 888.\n        88 W88-I01-R01-CONTABLE  VALUE 1000 THRU 4999.\n        88 W88-I01-R01-PROT-COB  VALUE 4017 THRU 4018,\n                                       4330 THRU 4381.\n     02 WKS-I01-R01-IMPORTE      PIC 9(10)V99   COMP.",
+          "java_codigo": "public enum Categoria { CARGO, ABONO, NO_CONTABLE }\n\n/** WKS-I01-R01-DATOS / WKS-E02-R01-DATOS: misma estructura para S500 y S151. */\npublic record MovimientoPunteo(int tipoRegistro,           // 11, 12, 13 = migración\n                               int sucursal, int caja, int autorizacion,   // LLAVE 9(12) COMP redefinida\n                               String contrato,           // 9(12)\n                               int producto, int instrumento, int moneda,\n                               int clave,\n                               BigDecimal importe,        // 9(10)V99 COMP -> escala 2\n                               long referencia, long autS151) {\n\n    public long llave() { return sucursal * 100_000_000L + caja * 1_000_000L + autorizacion; }\n\n    public boolean esMigracion()  { return tipoRegistro >= 11 && tipoRegistro <= 13; }\n    public boolean esContable()   { return clave >= 1000 && clave <= 4999; }\n    public boolean esNoContable() { return clave >= 500 && clave <= 999; }\n    /** W88-...-NC-TESO: 858-871, 875-884, 887-888, inyectados desde punteo.rangos-tesoreria. */\n    public boolean esTesoreria(List<RangoClave> tesoreria) {\n        return tesoreria.stream().anyMatch(r -> r.contiene(clave));\n    }\n\n    /** El orden de los IF del COBOL: abono, luego cargo, y todo lo demás es no contable. */\n    public Categoria categoria() {\n        if ((clave >= 1000 && clave <= 1999) || (clave >= 3000 && clave <= 3999)) return Categoria.ABONO;\n        if ((clave >= 2000 && clave <= 2999) || (clave >= 4000 && clave <= 4999)) return Categoria.CARGO;\n        return Categoria.NO_CONTABLE;\n    }\n}",
+          "racional": "La categoría contable del movimiento no viene en el registro: se deduce del rango de la clave de transacción mediante niveles 88. Abonos son 1000-1999 y 3000-3999, cargos 2000-2999 y 4000-4999, y cualquier otra clave cae en no contables. En Java esos rangos son métodos con nombre y un <code>enum</code>, y el importe <code>9(10)V99</code> pasa a <code>BigDecimal</code> con escala 2. La llave de 12 dígitos se compone de sucursal, caja y autorización, igual que el <code>REDEFINES</code>.",
+          "reglas": [
+            "RN-S500-751"
+          ],
+          "riesgo": "Claves menores a 500 o mayores a 4999 se cuentan como no contables en los totales aunque el nivel 88 W88-I01-R01-NOCONT solo cubre 500 a 999."
+        },
+        {
+          "id": "s4",
+          "titulo": "Concentración de hasta tres archivos de captación en uno",
+          "linea_ini": 1115,
+          "linea_fin": 1156,
+          "origen_codigo": " 20006800-PASA-01.\n     READ I01-ARCHS500-01 INTO WKS-I01-R01-DATOS\n          AT END MOVE 1 TO W77-EOF-S500.\n     IF W77-EOF-S500 = 0\n        IF WKS-I01-R01-TPOREG = 0 OR 99\n           NEXT SENTENCE\n        ELSE\n           WRITE I03-R00-ARCHS500 FROM WKS-I01-R01-DATOS\n           ADD 1 TO WKS-I01-R99-NUMREGS.\n*R4-COPIAS-2011 AGREGA MANEJO DEL 3er ARCHIVO PLINEA (P105)   -YCY\n 20006800-PASA-03.\n     READ I03-ARCHS500-03 INTO WKS-I01-R01-DATOS\n          AT END MOVE 1 TO W77-EOF-S500.\n     IF W77-EOF-S500 = 0\n        IF WKS-I01-R01-TPOREG = 0 OR 99\n           NEXT SENTENCE\n        ELSE\n           WRITE I03-R00-ARCHS500 FROM WKS-I01-R01-DATOS\n           ADD 1 TO WKS-I01-R99-NUMREGS.\n***********************************************************\n 20006900-GEN-TRL.\n     WRITE I03-R00-ARCHS500 FROM WKS-I01-R99-TRAILER.\n     MOVE WKS-I01-R99-NUMREGS  TO W77-LASTREC-S500.\n     ADD  10                   TO W77-LASTREC-S500.",
+          "java_codigo": "@Bean\nStep concentraCaptacion(JobRepository repo, PlatformTransactionManager tx,\n                        @Value(\"#{jobExecutionContext['entradasS500']}\") Resource[] entradas, // -01, -02, -03 (P105)\n                        FlatFileItemWriter<MovimientoPunteo> archS500Writer) {\n    var lector = new MultiResourceItemReaderBuilder<MovimientoPunteo>()\n            .name(\"captacionS500\")\n            .resources(entradas)\n            .delegate(movimiento60Reader())\n            .build();\n    return new StepBuilder(\"concentraCaptacion\", repo)\n            .<MovimientoPunteo, MovimientoPunteo>chunk(300, tx)        // BLOCK CONTAINS 300 RECORDS\n            .reader(lector)\n            .processor(m -> (m.tipoRegistro() == 0 || m.tipoRegistro() == 99) ? null : m)  // sin header ni trailer\n            .writer(archS500Writer)    // headerCallback: 20006700-GEN-HEADER; footerCallback: trailer 99 + conteo\n            .build();\n}",
+          "racional": "Los archivos de captación llegan separados (el tercero se agregó en 2011 para línea, según el comentario de la línea 1139) y se unen en <code>I03-ARCHS500</code> descartando sus headers y trailers y escribiendo un trailer con el conteo. Es un <code>MultiResourceItemReader</code> con un filtro en el processor y callbacks de header y footer en el writer. El conteo alimenta también el cálculo de espacio del SORT, que en Java no es necesario.",
+          "reglas": [
+            "RN-S500-751"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Totales por categoría con exclusión de contables en cero",
+          "linea_ini": 1432,
+          "linea_fin": 1446,
+          "origen_codigo": " 50003110-SUMA-S500.\n     IF  WKS-I01-R01-IMPORTE = 0\n     AND W88-I01-R01-CONTABLE\n         NEXT SENTENCE\n     ELSE\n     IF W88-I01-R01-ABONO\n        ADD 1                      TO WKS-TOT-500-NUMABO\n        ADD WKS-I01-R01-IMPORTE    TO WKS-TOT-500-IMPABO\n     ELSE\n     IF W88-I01-R01-CARGO\n        ADD 1                      TO WKS-TOT-500-NUMCGO\n        ADD WKS-I01-R01-IMPORTE    TO WKS-TOT-500-IMPCGO\n     ELSE\n        ADD 1                      TO WKS-TOT-500-NUMNOC\n        ADD WKS-I01-R01-IMPORTE    TO WKS-TOT-500-IMPNOC.",
+          "java_codigo": "/** Acumulador por sistema: número 9(08) e importe 9(16)V99 para cada categoría. */\npublic final class TotalesPunteo {\n\n    private final Map<Categoria, Long> numero = new EnumMap<>(Categoria.class);\n    private final Map<Categoria, BigDecimal> importe = new EnumMap<>(Categoria.class);\n\n    /** 50003110-SUMA-S500 / 50003210-SUMA-S151. */\n    public void suma(MovimientoPunteo m) {\n        if (m.importe().signum() == 0 && m.esContable()) {\n            return;                                    // contable en cero: no cuenta ni suma\n        }\n        numero.merge(m.categoria(), 1L, Long::sum);\n        importe.merge(m.categoria(), m.importe(), BigDecimal::add);   // suma exacta, escala 2\n    }\n\n    public long numero(Categoria c)        { return numero.getOrDefault(c, 0L); }\n    public BigDecimal importe(Categoria c) { return importe.getOrDefault(c, BigDecimal.ZERO.setScale(2)); }\n}",
+          "racional": "Cada registro leído de cualquiera de los dos lados se suma a su categoría antes de compararlo, de modo que los totales reflejan todo el archivo y no solo los pareados. Los movimientos contables con importe cero se excluyen del conteo, pero un no contable en cero sí se cuenta. Los acumuladores <code>9(16)V99</code> pasan a <code>BigDecimal</code>; la suma es exacta y no requiere modo de redondeo.",
+          "reglas": [
+            "RN-S500-751"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Punteo por merge y reporte de diferencias",
+      "origen": {
+        "archivo": "S500_SOURCE_P190.txt",
+        "contexto": "50003000-PROCESO-PUNTEO · 50003050-COMPARA · 50006000-TOTALES-REP · 60001000-ENCA-REPORTE"
+      },
+      "java": {
+        "archivo": "PunteoMergeTasklet.java · ComparadorPunteo.java · ReportePunteo.java",
+        "contexto": "Tasklet · Comparator · JasperReports"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Recorrido en paralelo de dos archivos ordenados (W77-SW-1VEZ)",
+          "linea_ini": 1301,
+          "linea_fin": 1355,
+          "origen_codigo": " 50003000-PROCESO-PUNTEO.\n     IF W77-SW-1VEZ = 0\n        PERFORM 50003100-LEE-S500\n        PERFORM 50003200-LEE-S151\n     ELSE\n     IF W77-SW-1VEZ = 2\n        PERFORM 50003100-LEE-S500\n     ELSE\n     IF W77-SW-1VEZ = 1\n        PERFORM 50003200-LEE-S151.\n     IF  W77-EOF-S500 = 1\n     AND W77-EOF-S151 = 1\n         MOVE 1  TO  W77-EOF-ARCHS.\n     IF W77-EOF-ARCHS = 0\n        PERFORM 50003050-COMPARA.\n**************************************************************\n 50003050-COMPARA.\n     MOVE 0  TO W77-SW-1VEZ.\n     IF W77-EOF-S500 = 1\n        MOVE 1  TO W77-SW-1VEZ\n     ELSE\n     IF W77-EOF-S151 = 1\n        MOVE 2  TO W77-SW-1VEZ.\n     IF W77-SW-1VEZ = 0\n        IF WKS-I01-R01-TPOREG > WKS-E02-R01-TPOREG\n           MOVE 1 TO W77-SW-1VEZ\n        ELSE\n        IF WKS-I01-R01-TPOREG  < WKS-E02-R01-TPOREG\n           MOVE 2 TO W77-SW-1VEZ.\n     IF W77-SW-1VEZ = 0\n        IF WKS-I01-R01-CLAVE > WKS-E02-R01-CLAVE\n           MOVE 1 TO W77-SW-1VEZ\n        ELSE\n        IF WKS-I01-R01-CLAVE < WKS-E02-R01-CLAVE\n           MOVE 2 TO W77-SW-1VEZ.\n     IF W77-SW-1VEZ = 0\n        IF WKS-I01-R01-IMPORTE > WKS-E02-R01-IMPORTE\n           MOVE 1 TO W77-SW-1VEZ\n        ELSE\n        IF WKS-I01-R01-IMPORTE < WKS-E02-R01-IMPORTE\n           MOVE 2 TO W77-SW-1VEZ.\n     IF W77-SW-1VEZ = 0\n        IF WKS-I01-R01-CTO > WKS-E02-R01-CTO\n           MOVE 1 TO W77-SW-1VEZ\n        ELSE\n        IF WKS-I01-R01-CTO < WKS-E02-R01-CTO\n           MOVE 2 TO W77-SW-1VEZ.",
+          "java_codigo": "/** Orden del merge: tipo de registro, clave, importe, contrato (los mismos del SORT). */\nstatic final Comparator<MovimientoPunteo> ORDEN =\n        Comparator.comparingInt(MovimientoPunteo::tipoRegistro)\n                  .thenComparingInt(MovimientoPunteo::clave)\n                  .thenComparing(MovimientoPunteo::importe)\n                  .thenComparing(MovimientoPunteo::contrato);\n\npublic void puntea(PeekableItemReader<MovimientoPunteo> s500, PeekableItemReader<MovimientoPunteo> s151) {\n    MovimientoPunteo a = siguiente(s500, totales500), b = siguiente(s151, totales151);\n    while (a != null || b != null) {                           // UNTIL W77-EOF-ARCHS = 1\n        int cmp = (a == null) ? 1 : (b == null) ? -1 : comparador.compara(a, b);\n        if (cmp > 0) {                                         // W77-SW-1VEZ = 1: S151 va atrás\n            faltaEnS151(b); b = siguiente(s151, totales151);\n        } else if (cmp < 0) {                                  // W77-SW-1VEZ = 2: S500 va atrás\n            faltaEnS500(a); a = siguiente(s500, totales500);\n        } else {                                               // pareados: avanzan los dos\n            a = siguiente(s500, totales500); b = siguiente(s151, totales151);\n        }\n    }\n}\n// siguiente(): lee, corta en el trailer 99 y suma a los totales de su sistema.",
+          "racional": "El punteo es un merge clásico de dos archivos ordenados por la misma llave: el indicador <code>W77-SW-1VEZ</code> dice cuál de los dos se lee en la siguiente vuelta. En Java el algoritmo se escribe de forma explícita con dos lectores y un <code>Comparator</code> compuesto en el mismo orden de campos que el COBOL. Que el lado mayor sea el que se reporta como faltante en el otro sistema es la lógica del original: si S500 va adelante, el registro de S151 no tiene pareja.",
+          "reglas": [
+            "RN-S500-751"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Pareo por llave o por autorización S151 y reglas de faltante",
+          "linea_ini": 1357,
+          "linea_fin": 1416,
+          "origen_codigo": "     IF W77-SW-1VEZ = 0\n        MOVE 0 TO W77-ES-PROTCOB\n        IF  WKS-TASK-PROC = 1\n            PERFORM 50003051-VE-PROTCOB.\n     IF W77-SW-1VEZ = 0\n        PERFORM 50003052-VAL-AUTORIZ.\n     IF W77-SW-1VEZ = 1\n        IF W88-E02-R01-NC-TESO\n           PERFORM 50005000-FALTA-S151\n        ELSE\n        IF (WKS-E02-R01-IMPORTE = 0)\n        OR (W88-E02-R01-NOCONT     )\n        OR (W88-E02-R01-TPMIGRA    )\n           NEXT SENTENCE\n        ELSE\n           PERFORM 50005000-FALTA-S151\n     ELSE\n     IF W77-SW-1VEZ = 2\n        IF W88-I01-R01-NC-TESO\n           PERFORM 50004000-FALTA-S500\n        ELSE\n        IF (WKS-I01-R01-IMPORTE = 0)\n        OR (W88-I01-R01-NOCONT     )\n        OR (W88-I01-R01-TPMIGRA    )\n           NEXT SENTENCE\n        ELSE\n           PERFORM 50004000-FALTA-S500.\n 50003052-VAL-AUTORIZ.\n     IF WKS-I01-R01-LLAVE > WKS-E02-R01-LLAVE\n        MOVE 1 TO W77-SW-1VEZ\n     ELSE\n     IF WKS-I01-R01-LLAVE < WKS-E02-R01-LLAVE\n        MOVE 2 TO W77-SW-1VEZ.\n     IF W77-SW-1VEZ > 0\n        IF W77-ES-PROTCOB = 1\n           MOVE ZERO TO W77-SW-1VEZ\n           IF WKS-I01-R01-AUTS151 > WKS-E02-R01-AUTS151\n              MOVE 1 TO W77-SW-1VEZ\n           ELSE\n           IF WKS-I01-R01-AUTS151 < WKS-E02-R01-AUTS151\n              MOVE 2 TO W77-SW-1VEZ.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ComparadorPunteo {\n\n    private final CatalogoClavesProtCob protCob;\n    private final PunteoProperties props;\n    @Value(\"#{jobExecutionContext['proceso']}\") private String proceso;   // PLINEA o PBATCH\n\n    int compara(MovimientoPunteo a, MovimientoPunteo b) {\n        int c = ORDEN.compare(a, b);\n        if (c != 0) return c;\n        int porLlave = Long.compare(a.llave(), b.llave());               // 50003052-VAL-AUTORIZ\n        boolean esProtCob = \"PLINEA\".equals(proceso) && protCob.esProtCob(a.clave());\n        return (porLlave != 0 && esProtCob)\n                ? Long.compare(a.autS151(), b.autS151())                 // protección y cobranza: autorización S151\n                : porLlave;\n    }\n\n    /** El faltante solo se reporta si es tesorería o si es contable, con importe y no es migración. */\n    boolean seReporta(MovimientoPunteo m) {\n        if (m.esTesoreria(props.rangosTesoreria())) return true;\n        return !(m.importe().signum() == 0 || m.esNoContable() || m.esMigracion());\n    }\n}",
+          "racional": "Cuando tipo, clave, importe y contrato coinciden, el par se confirma por la llave sucursal, caja y autorización; para las claves de protección y cobranza en línea se acepta como pareja un movimiento con distinta llave si coincide la autorización S151. Un registro sin pareja se lista como faltante solo si es de tesorería o es contable con importe distinto de cero y no proviene de migración. Ambas reglas quedan como métodos puros para poder probarlas con casos reales.",
+          "reglas": [
+            "RN-S500-751"
+          ],
+          "riesgo": "Los descartes no se cuentan en ningún total: un faltante con importe cero o no contable desaparece del reporte sin rastro."
+        },
+        {
+          "id": "s8",
+          "titulo": "Diferencia S500 menos S151 por número e importe",
+          "linea_ini": 1584,
+          "linea_fin": 1621,
+          "origen_codigo": "     MOVE \"C A R G O S \"             TO WLI-R01-L95-DATO.\n     MOVE WKS-TOT-500-NUMCGO         TO WLI-R01-L95-NUMS500.\n     MOVE WKS-TOT-500-IMPCGO         TO WLI-R01-L95-IMPS500.\n     MOVE WKS-TOT-151-NUMCGO         TO WLI-R01-L95-NUMS151.\n     MOVE WKS-TOT-151-IMPCGO         TO WLI-R01-L95-IMPS151.\n     COMPUTE WKS-TOT-DIF-NUMCGO = WKS-TOT-500-NUMCGO\n                                - WKS-TOT-151-NUMCGO.\n     MOVE WKS-TOT-DIF-NUMCGO         TO WLI-R01-L95-NUMDIFE.\n     COMPUTE WKS-TOT-DIF-IMPCGO = WKS-TOT-500-IMPCGO\n                                - WKS-TOT-151-IMPCGO.\n     MOVE WKS-TOT-DIF-IMPCGO         TO WLI-R01-L95-IMPDIFE.\n     WRITE R01-L00-PUNTEO  FROM WLI-R01-L95-TOTAL AFTER 4.\n     MOVE \"NO CONTABLES\"             TO WLI-R01-L95-DATO.\n     MOVE WKS-TOT-500-NUMNOC         TO WLI-R01-L95-NUMS500.\n     MOVE WKS-TOT-500-IMPNOC         TO WLI-R01-L95-IMPS500.\n     MOVE WKS-TOT-151-NUMNOC         TO WLI-R01-L95-NUMS151.\n     MOVE WKS-TOT-151-IMPNOC         TO WLI-R01-L95-IMPS151.\n     COMPUTE WKS-TOT-DIF-NUMNOC = WKS-TOT-500-NUMNOC\n                                - WKS-TOT-151-NUMNOC.\n     MOVE WKS-TOT-DIF-NUMNOC         TO WLI-R01-L95-NUMDIFE.\n     COMPUTE WKS-TOT-DIF-IMPNOC = WKS-TOT-500-IMPNOC\n                                - WKS-TOT-151-IMPNOC.\n     MOVE WKS-TOT-DIF-IMPNOC         TO WLI-R01-L95-IMPDIFE.\n     WRITE R01-L00-PUNTEO  FROM WLI-R01-L95-TOTAL AFTER 2.",
+          "java_codigo": "/** Fila de diferencia: los totales de cada sistema son sin signo; la diferencia es S9(08) y S9(16)V99. */\npublic record FilaPunteo(String concepto, long numS500, BigDecimal impS500,\n                         long numS151, BigDecimal impS151) {\n\n    public long difNumero()        { return numS500 - numS151; }\n    public BigDecimal difImporte() { return impS500.subtract(impS151); }   // escala 2, exacta\n    public boolean cuadra()        { return difNumero() == 0 && difImporte().signum() == 0; }\n}\n\nList<FilaPunteo> filas = Stream.of(Categoria.values())\n        .map(c -> new FilaPunteo(etiqueta(c),                    // \"C A R G O S \", \"A B O N O S \", \"NO CONTABLES\"\n                totales500.numero(c), totales500.importe(c),\n                totales151.numero(c), totales151.importe(c)))\n        .toList();\nif (filas.stream().anyMatch(not(FilaPunteo::cuadra))) {\n    contribution.setExitStatus(new ExitStatus(\"DESCUADRE\"));    // el COBOL solo lo imprime\n}",
+          "racional": "La diferencia por categoría es una resta directa de los totales de S500 menos los de S151, en número de movimientos y en importe, y se imprime con signo. En Java cada fila es un <code>record</code> con la diferencia calculada y un método que dice si cuadra. Se agrega un <code>ExitStatus</code> de descuadre para que el orquestador pueda reaccionar; el reporte sigue siendo el mismo. Se omitió en el extracto el bloque de abonos, idéntico a los otros dos.",
+          "reglas": [
+            "RN-S500-751",
+            "RN-S500-752"
+          ],
+          "riesgo": "El programa no cambia su estado de terminación ante una diferencia distinta de cero: el descuadre depende de la lectura humana del reporte."
+        },
+        {
+          "id": "s9",
+          "titulo": "Encabezado con sucursal y CSI compilados",
+          "linea_ini": 1634,
+          "linea_fin": 1645,
+          "origen_codigo": " 60001000-ENCA-REPORTE.\n     ADD 1                   TO W77-PAG-R01.\n     MOVE  W77-PAG-R01       TO WLI-R01-L03-NPAG.\n     IF W77-MY-CSI = 4\n        MOVE 3667                     TO WLI-R01-L04-SUC\n        MOVE \"CYSAU MTY CTROL PROD\"   TO WLI-R01-L05-NBSUC\n        MOVE \"C.S.I. MONTERREY\"       TO WLI-R01-L05-NCSI\n     ELSE\n        MOVE 3084                     TO WLI-R01-L04-SUC\n        MOVE \"PYCP JARDINES\"          TO WLI-R01-L05-NBSUC\n        MOVE \"C.S.I. MEXICO   \"       TO WLI-R01-L05-NCSI.",
+          "java_codigo": "# application.yml\npunteo:\n  csi-validos: [4, 10]\n  encabezado:\n    \"4\":       { sucursal: 3667, nombre: \"CYSAU MTY CTROL PROD\", csi: \"C.S.I. MONTERREY\" }\n    default:   { sucursal: 3084, nombre: \"PYCP JARDINES\",        csi: \"C.S.I. MEXICO   \" }\n\n// ---------------------------------------------------------------------------\npublic record Encabezado(int sucursal, String nombre, String csi) {}\n\nEncabezado encabezado(int csi) {\n    return props.encabezado().getOrDefault(String.valueOf(csi), props.encabezado().get(\"default\"));\n}",
+          "racional": "La sucursal y el nombre del centro de proceso que aparecen en cada hoja dependen de una bifurcación sobre el CSI: el 4 es Monterrey y cualquier otro se imprime como México. Se trasladan a <code>application.yml</code> con una entrada por defecto que reproduce la rama ELSE, para que agregar un centro no requiera recompilar. El resto del encabezado y la paginación a 50 líneas pasan a la plantilla del reporte.",
+          "reglas": [
+            "RN-S500-753"
+          ],
+          "riesgo": "Cualquier CSI distinto de 4, incluido uno no válido, se rotula como C.S.I. MEXICO."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Diferencia de totales sin control de cuadre",
+      "detalle": "50006000-TOTALES-REP (líneas 1584-1621) calcula S500 menos S151 por categoría y la imprime, pero el programa no cambia su estado ni emite mensaje si la diferencia es distinta de cero. El descuadre solo se detecta si alguien lee el reporte."
+    },
+    {
+      "titulo": "Exclusiones del punteo que no aparecen en ningún lado",
+      "detalle": "Un movimiento sin pareja con importe cero, clave no contable (500 a 999, salvo tesorería) o tipo de registro de migración (11, 12, 13) se descarta en silencio (líneas 1366-1386): no se lista ni se suma a las diferencias por faltante. Además, en los totales se omiten los movimientos contables con importe cero (líneas 1433-1435)."
+    },
+    {
+      "titulo": "Catálogo de claves subindexado por la clave",
+      "detalle": "WKS-TB-B17 OCCURS 9999 se llena y se consulta usando la clave de transacción como subíndice (líneas 846-849 y 1391-1392). La carga descarta la clave 9999 por la condición < 9999 aunque el nivel 88 W88-I01-R01-CVEVAL la acepta como válida."
+    },
+    {
+      "titulo": "Error de lectura del catálogo con plan alterno por rangos",
+      "detalle": "Si falla la lectura de S500B17CVESXFUN, el programa no aborta: marca W77-USO-N88 y la identificación de claves de protección y cobranza cae a los rangos fijos 4017-4018 y 4330-4381 del nivel 88 (líneas 1397-1399)."
+    },
+    {
+      "titulo": "Hardcodes de sucursal, CSI y rangos de claves",
+      "detalle": "Las sucursales 3667 y 3084, sus nombres, los CSI válidos 04 y 10 y los rangos de clave que definen cargo, abono, no contable y tesorería están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Los formatos de header de I01/I02/I03 y de E02-ARCHS151 y la lógica de validación de nombre y CSI (párrafos 20006100-VALIDA-*) no se transpilaron; revisar con el SME el contenido del header de S151.",
+    "La fecha de S151 pasa por 90000000-FECHA-2000 antes de imprimirse (línea 1544) y la de S500 no; el copybook S500/INC/PRO/25MTP002 que contiene ese párrafo no viene en el fuente, así que no se sabe qué pivote aplica.",
+    "Confirmar si CHANGE ATTRIBUTE STATUS OF MYSELF TO -1 en la validación del TASKVALUE termina el paso de inmediato o si continúa hasta el siguiente punto de verificación.",
+    "Confirmar si el descarte de faltantes con importe cero, no contables y migración es una regla vigente o un ajuste temporal.",
+    "La línea 673 tiene comentado el IF W77-VEO-BASE = 1 que condicionaba abrir la base; hoy la base siempre se abre para cargar el catálogo de claves."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-751",
+    "RN-S500-752",
+    "RN-S500-753"
+  ]
+}

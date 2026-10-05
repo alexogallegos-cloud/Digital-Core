@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Brain Banamex — Verificar cuenta</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(ellipse at top, #1a0533 0%, #0d0d1a 60%);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      color: #e0e0e0;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(161,0,255,0.25);
+      border-radius: 16px; padding: 48px 40px;
+      width: 100%; max-width: 420px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 48px rgba(0,0,0,0.5);
+    }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo svg { width: 40px; height: 40px; }
+    .logo h1 { font-size: 22px; font-weight: 700; color: #fff; margin-top: 12px; }
+    .logo p  { font-size: 13px; color: #888; margin-top: 4px; line-height: 1.6; }
+    .email-display {
+      margin: 0 0 24px; padding: 10px 14px;
+      background: rgba(161,0,255,0.1); border: 1px solid rgba(161,0,255,0.3);
+      border-radius: 8px; font-size: 13px; color: #ccc; text-align: center;
+    }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; margin-top: 20px; }
+    input {
+      width: 100%; padding: 14px; border-radius: 8px; text-align: center;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+      color: #fff; font-size: 28px; font-weight: 700; letter-spacing: 12px;
+      outline: none; transition: border .2s;
+    }
+    input:focus { border-color: #A100FF; }
+    button {
+      width: 100%; margin-top: 28px; padding: 13px;
+      background: #A100FF; color: #fff; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+    }
+    button:hover { opacity: .85; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .msg { margin-top: 16px; font-size: 13px; min-height: 18px; text-align: center; }
+    .msg.error { color: #ff6b6b; }
+    .msg.ok    { color: #4caf96; }
+    .resend {
+      text-align: center; margin-top: 20px; font-size: 13px; color: #888;
+    }
+    .resend a { color: #A100FF; text-decoration: none; cursor: pointer; }
+    .resend a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="19" stroke="#A100FF" stroke-width="2"/>
+      <path d="M12 20 L20 12 L28 20 L20 28 Z" fill="#A100FF" opacity="0.8"/>
+      <circle cx="20" cy="20" r="4" fill="#fff"/>
+    </svg>
+    <h1>Verificar cuenta</h1>
+    <p>Ingresa el código de 6 dígitos<br>que enviamos a tu correo</p>
+  </div>
+
+  <div class="email-display" id="emailDisplay">cargando…</div>
+
+  <form id="form">
+    <label for="code">Código de verificación</label>
+    <input type="text" id="code" inputmode="numeric" maxlength="6"
+           placeholder="000000" autocomplete="one-time-code" required>
+
+    <button type="submit" id="btn">Verificar</button>
+  </form>
+  <div class="msg" id="msg"></div>
+
+  <div class="resend">
+    ¿No recibiste el código? <a id="resendLink">Reenviar</a>
+  </div>
+</div>
+
+<script src="cognito-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<script>
+  const cfg  = window.COGNITO_CONFIG;
+  const pool = new AmazonCognitoIdentity.CognitoUserPool({
+    UserPoolId: cfg.userPoolId,
+    ClientId:   cfg.clientId
+  });
+
+  // Leer email de URL params
+  const params = new URLSearchParams(window.location.search);
+  const email  = params.get('email') || '';
+  document.getElementById('emailDisplay').textContent = email || '(correo no especificado)';
+
+  const form = document.getElementById('form');
+  const msg  = document.getElementById('msg');
+  const btn  = document.getElementById('btn');
+
+  form.onsubmit = function(e) {
+    e.preventDefault();
+    msg.className = 'msg';
+    msg.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Verificando…';
+
+    const code = document.getElementById('code').value.trim();
+    const user = new AmazonCognitoIdentity.CognitoUser({
+      Username: email, Pool: pool
+    });
+
+    user.confirmRegistration(code, true, function(err) {
+      if (err) {
+        btn.disabled = false;
+        btn.textContent = 'Verificar';
+        msg.className = 'msg error';
+        if (err.code === 'CodeMismatchException') {
+          msg.textContent = 'Código incorrecto. Inténtalo de nuevo.';
+        } else if (err.code === 'ExpiredCodeException') {
+          msg.textContent = 'El código expiró. Solicita uno nuevo.';
+        } else {
+          msg.textContent = err.message || 'Error al verificar.';
+        }
+        return;
+      }
+      msg.className = 'msg ok';
+      msg.textContent = '¡Cuenta verificada! Redirigiendo…';
+      setTimeout(() => {
+        window.location.href = 'login.html?verified=1';
+      }, 1200);
+    });
+  };
+
+  // Solo aceptar dígitos en el campo de código
+  document.getElementById('code').addEventListener('input', function() {
+    this.value = this.value.replace(/\D/g, '');
+  });
+
+  // Reenviar código
+  document.getElementById('resendLink').onclick = function() {
+    if (!email) return;
+    const user = new AmazonCognitoIdentity.CognitoUser({
+      Username: email, Pool: pool
+    });
+    user.resendConfirmationCode(function(err) {
+      msg.className = err ? 'msg error' : 'msg ok';
+      msg.textContent = err
+        ? (err.message || 'Error al reenviar.')
+        : 'Código reenviado. Revisa tu correo.';
+    });
+  };
+</script>
+</body>
+</html>

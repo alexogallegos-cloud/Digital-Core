@@ -1,0 +1,190 @@
+{
+  "slug": "S500_P005",
+  "sistema": "S500",
+  "programa": "P005",
+  "nombre": "Despachador de Fases de Captación y Depurador de Archivos",
+  "funcion": "Programa de S500 que el WFL arranca con un TASKVALUE distinto para cada fase del ciclo diario de captación (prebatch, prelínea, finbatch, recuperaciones, avisos de día, P020) y que, con TASKVALUE 23, ejecuta la depuración de archivos agregada por la iniciativa IBM-CHARITY.",
+  "resumen": "Según el TASKVALUE con que se invoca, P005 fija la actividad y el número de copia del monitor MAPLI, valida la versión, enlaza las librerías LOCSUP, S500L010CTRL y L040, y ejecuta una sola fase llamando a la librería de control L010; cualquier valor no previsto termina con estado -1. Con el monitor activo registra inicio, avance y fin en el grupo 06 BATCH DIARIO de MAPLI. La rama de depuración toma la fecha de línea de S500B02CONTROL, proyecta una fecha límite 90 días hábiles atrás, recorre el catálogo S500B10PDEPURA validando el patrón del nombre de cada archivo y su fecha de última depuración, borra del catálogo los registros marcados para eliminar y emite comandos REMOVE a través de WFL, dejando un reporte que se envía por INTELAR.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.batch.despachador",
+  "secciones": [
+    {
+      "titulo": "Despacho por TASKVALUE y telemetría MAPLI",
+      "origen": {
+        "archivo": "S500_SOURCE_P005.txt",
+        "contexto": "PROCEDURE DIVISION · 1010-INICIO · 2000-PREBATCH · 6000-DESPLIEGA-ERROR"
+      },
+      "java": {
+        "archivo": "FaseCaptacion.java · DespachadorFasesDecider.java · MonitorBatchListener.java",
+        "contexto": "enum · JobExecutionDecider · JobExecutionListener"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "TASKVALUE a enum de fases con número de copia MAPLI",
+          "linea_ini": 571,
+          "linea_fin": 612,
+          "origen_codigo": "     IF ATTRIBUTE TASKVALUE OF MYSELF = 1\n        MOVE \"PREBATCH\"  TO WKS-Q-ACTIV\n        MOVE 1           TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1           TO W77-SI-MONITOR\n        MOVE 6           TO W77-ID-INIGPO-MAPLI\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 2\n        MOVE \"PRELINEA\"  TO WKS-Q-ACTIV\n        MOVE 2           TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1           TO W77-SI-MONITOR\n        MOVE 0           TO W77-ID-INIGPO-MAPLI\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 3\n        MOVE \"FINBATCH\"  TO WKS-Q-ACTIV\n        MOVE 3           TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1           TO W77-SI-MONITOR\n        MOVE 0           TO W77-ID-INIGPO-MAPLI\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 5\n        MOVE \"REST24HRS\" TO WKS-Q-ACTIV\n        MOVE 5           TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1           TO W77-SI-MONITOR\n        MOVE 0           TO W77-ID-INIGPO-MAPLI\n*INI C DYR\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 6\n        MOVE \"CARGACATP020\" TO WKS-Q-ACTIV\n        MOVE 6              TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1              TO W77-SI-MONITOR\n        MOVE 0              TO W77-ID-INIGPO-MAPLI\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 7\n        MOVE \"INILINEAP020\" TO WKS-Q-ACTIV\n        MOVE 7              TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1              TO W77-SI-MONITOR\n        MOVE 0              TO W77-ID-INIGPO-MAPLI\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 8\n        MOVE \"INIBATCHP020\" TO WKS-Q-ACTIV\n        MOVE 8              TO W77-ID-NUM-COPIA-MAPLI\n        MOVE 1              TO W77-SI-MONITOR\n        MOVE 0              TO W77-ID-INIGPO-MAPLI.",
+          "java_codigo": "/** Valores de ATTRIBUTE TASKVALUE OF MYSELF que P005 reconoce. */\npublic enum FaseCaptacion {\n    PREBATCH(1, \"PREBATCH\", 1, 6, true),\n    PRELINEA(2, \"PRELINEA\", 2, 0, true),\n    FINBATCH(3, \"FINBATCH\", 3, 0, true),\n    GENERALOG(4, null, 0, 0, false),          // sin monitor\n    REST24HRS(5, \"REST24HRS\", 5, 0, true),\n    CARGA_CAT_P020(6, \"CARGACATP020\", 6, 0, true),\n    INI_LINEA_P020(7, \"INILINEAP020\", 7, 0, true),\n    INI_BATCH_P020(8, \"INIBATCHP020\", 8, 0, true),\n    RECUP_BASE_ORIGINAL(10, null, 0, 0, false),\n    RECUP_BASE_AUXILIAR(11, null, 0, 0, false),\n    CREA_CTRL_ARRIBOS(20, null, 0, 0, false),\n    AVISO_FIN_DIA(21, null, 0, 0, false),\n    AVISO_INI_DIA(22, null, 0, 0, false),\n    DEPURACION_ARCHIVOS(23, null, 0, 0, false),   // IBM-CHARITY\n    BAJA_LINEA(24, null, 0, 0, false),\n    INSTALA_L020(25, null, 0, 0, false),\n    SUBE_LINEA(26, null, 0, 0, false),\n    BAJA_ESCALONADA(50, null, 0, 0, false);\n\n    final int taskValue; final String actividad; final int copiaMapli;\n    final int inicioGrupo; final boolean monitor;\n\n    FaseCaptacion(int tv, String act, int copia, int iniGpo, boolean mon) {\n        taskValue = tv; actividad = act; copiaMapli = copia; inicioGrupo = iniGpo; monitor = mon;\n    }\n\n    static Optional<FaseCaptacion> of(int taskValue) {\n        return Arrays.stream(values()).filter(f -> f.taskValue == taskValue).findFirst();\n    }\n}",
+          "racional": "El programa usa el atributo <code>TASKVALUE</code> que le pone el WFL como parámetro de entrada. El primer bloque de <code>IF</code> encadenados asigna, para siete de las fases, el nombre de actividad, el número de copia en MAPLI y si el monitor se enciende; solo PREBATCH abre el grupo con valor 6. Todo eso cabe en un <code>enum</code> con atributos, de modo que la tabla queda en un solo lugar y el parámetro del job es el nombre de la fase en lugar de un número.",
+          "reglas": [
+            "RN-S500-638"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Alta en el monitor MAPLI grupo 06 BATCH DIARIO",
+          "linea_ini": 618,
+          "linea_fin": 639,
+          "origen_codigo": "     IF W77-SI-MONITOR = 1\n        PERFORM 1000038-S038L035\n        MOVE 1                   TO W77-ID-TPODSP-INFO-MAPLI\n        MOVE W77-ID-INIGPO-MAPLI TO W77-ID-ESINI-GRUPO-MAPLI\n        MOVE 06                  TO W77-ID-NUM-GRUPO-MAPLI\n        MOVE \"BATCH DIARIO\"      TO W77-ID-NOMB-LIB\n        PERFORM 70000950-INI-PGM-MAPLI\n        MOVE 1                   TO W77-ID-NUMREG-PROC\n        MOVE 01                  TO W77-ID-ACTXX-MAPLI\n                                    W77-ID-ACT01-MAPLI\n        MOVE WKS-ACTIVIDAD-MAPLI TO W77-ID-NOMB-LIB\n        MOVE \"PROCESO UNICO \"    TO W77-ID-TXTA-LIB\n        PERFORM 70000910-INIACT-MAPLI\n        MOVE ZEROS     TO WKS-TB-NUMACT-LIBS\n        MOVE 20        TO WKS-NUMACT-LIB(12)\n        MOVE 21        TO WKS-NUMACT-LIB(13)\n        MOVE 22        TO WKS-NUMACT-LIB(60)\n        MOVE 23        TO WKS-NUMACT-LIB(55)\n        MOVE 23        TO WKS-NUMACT-LIB(56).\n        MOVE 24        TO WKS-NUMACT-LIB(92).",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class MonitorBatchListener implements JobExecutionListener {\n\n    private final MonitorMapliClient mapli;   // S038L035 / 70000950-INI-PGM-MAPLI\n    private final MonitorProperties props;    // grupo: 6, nombre: \"BATCH DIARIO\"\n\n    @Override\n    public void beforeJob(JobExecution job) {\n        var fase = fase(job);\n        if (!fase.monitor) return;                                   // W77-SI-MONITOR\n        mapli.iniciaPrograma(props.grupo(), props.nombre(), fase.copiaMapli, fase.inicioGrupo);\n        mapli.iniciaActividad(1, \"PROCESO UNICO \");\n    }\n\n    @Override\n    public void afterJob(JobExecution job) {\n        if (!fase(job).monitor) return;\n        mapli.registraAvance(1, job.getStepExecutions().stream()\n                .mapToLong(StepExecution::getWriteCount).sum());      // 70000950-ACT-REGPROC\n        mapli.finActividad(1);\n        mapli.finPrograma();\n    }\n}\n\n# application.yml\nmonitor:\n  grupo: 6\n  nombre: \"BATCH DIARIO\"\n  actividades-por-libreria: {12: 20, 13: 21, 60: 22, 55: 23, 56: 23, 92: 24}",
+          "racional": "Cuando la fase lleva monitor, P005 da de alta el programa en el grupo 06 de MAPLI, abre la actividad 1 y carga la tabla que asocia posiciones de librería con números de actividad; al terminar registra avance y cierra. En Spring Batch es un <code>JobExecutionListener</code> con <code>beforeJob</code> y <code>afterJob</code>, y la consola MAPLI se sustituye por el cliente del monitor que se elija (por ejemplo métricas Micrometer). El grupo, el nombre y la tabla de actividades estaban compilados y pasan a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-640"
+          ],
+          "riesgo": "La línea 638 termina con punto el IF W77-SI-MONITOR = 1, así que MOVE 24 TO WKS-NUMACT-LIB(92) se ejecuta siempre, con o sin monitor. Además, W77-SI-MONITOR se declara sin VALUE (línea 88) y para TASKVALUE 4 y 10 en adelante depende del valor inicial que ponga el compilador."
+        },
+        {
+          "id": "s3",
+          "titulo": "Cadena de IF por TASKVALUE a JobExecutionDecider",
+          "linea_ini": 646,
+          "linea_fin": 727,
+          "origen_codigo": "     PERFORM 20000100-CHECAME-VERSION.\n     IF S000-CTR-CVEERROR < 0\n        MOVE \"ERROR DE VERSION \"    TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 1\n        PERFORM 2000-PREBATCH\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 2\n        PERFORM 3000-PRELINEA\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 3\n        PERFORM 4000-FINBATCH\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 4\n        PERFORM 5000-GENERALOG\n*INI C DYR\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 6\n        PERFORM 7000-CARGACATP020\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 7\n        PERFORM 3550-INI-LINEA-P020\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 8\n         PERFORM 6000-INIBATCHP020\n*FIN C DYR\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 5\n        PERFORM 5500-REST24HRS\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 10\n        PERFORM 10000-RECUP-BASE-ORIGINAL\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 11\n        PERFORM 11000-RECUP-BASE-AUXILIAR\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 20\n        PERFORM 20000-CREA-CTRL-ARRIBOS\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 21\n        PERFORM 21000-AVISO-FIN-DIA\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 22\n        PERFORM 22000-AVISO-INI-DIA\n     ELSE\n*** IBM-CHARITY INI\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 23\n        PERFORM 22000-DEPURACION-ARCHIVOS\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 24\n         MOVE 1 TO WS-I-AVISO-OPC\n*        PROCESO  \"BAJA LINEA\"\n         PERFORM 5000-BAJA-LINEA\n     ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 25\n         MOVE 2 TO WS-I-AVISO-OPC\n*        PROCESO \"INSTALA L020\"\n         PERFORM 5000-BAJA-LINEA\n    ELSE\n    IF ATTRIBUTE TASKVALUE OF MYSELF = 26\n        MOVE 3 TO WS-I-AVISO-OPC\n*       PROCESO \"SUBE LINEA\"\n        PERFORM 5000-BAJA-LINEA\n    ELSE\n     IF ATTRIBUTE TASKVALUE OF MYSELF = 50\n        PERFORM 5000-BAJA-ESCALONADA\n     ELSE\n*** IBM-CHARITY FIN\n        MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WS-MSG-N-04\n        STRING \"VALUE ERRONEO PARA EJECUTAR P005 \", WS-MSG-N-04\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        SET  MYSELF(STATUS) TO -1.",
+          "java_codigo": "@Component\npublic class DespachadorFasesDecider implements JobExecutionDecider {\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        int tv = job.getJobParameters().getLong(\"taskValue\").intValue();\n        return FaseCaptacion.of(tv)\n                .map(f -> new FlowExecutionStatus(f.name()))\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"VALUE ERRONEO PARA EJECUTAR P005 \" + tv));   // SET MYSELF(STATUS) TO -1\n    }\n}\n\n@Bean\nJob despachadorCaptacion(JobRepository repo, Step validaVersion, DespachadorFasesDecider decider,\n                         Map<String, Step> fases, MonitorBatchListener monitor) {\n    var flow = new FlowBuilder<SimpleFlow>(\"fases\").start(decider);\n    fases.forEach((nombre, paso) -> flow.from(decider).on(nombre).to(paso));\n    return new JobBuilder(\"S500P005\", repo)\n            .listener(monitor)\n            .start(validaVersion)                 // 20000100-CHECAME-VERSION\n            .next(flow.build()).end()\n            .build();\n}",
+          "racional": "Después de validar versión y enlazar librerías, una segunda cadena de <code>IF ... ELSE IF</code> ejecuta exactamente una fase. El arquetipo A5 lo resuelve con un <code>JobExecutionDecider</code> que devuelve el nombre de la fase y un <code>Flow</code> con una transición por cada una. El caso por defecto del fuente, que manda un mensaje y pone el estado de la tarea en -1, se traduce en una excepción que deja el job en FAILED. Las fases 24, 25 y 26 comparten párrafo y solo cambian <code>WS-I-AVISO-OPC</code>; en Java son tres valores del <code>enum</code> que pasan ese parámetro a un mismo step.",
+          "reglas": [
+            "RN-S500-638"
+          ],
+          "riesgo": "El TASKVALUE 4 (GENERALOG) y los valores 10 en adelante se despachan pero no aparecen en el primer bloque de IF, así que no fijan actividad ni monitor MAPLI; quedan sin telemetría en la consola."
+        },
+        {
+          "id": "s4",
+          "titulo": "Llamada a L010 y traducción del código de error",
+          "linea_ini": 743,
+          "linea_fin": 810,
+          "origen_codigo": " 2000-PREBATCH.\n     PERFORM 20000500-PREBATCH-CALL\n     IF WS-L010-RESULT > 0\n        MOVE \"ERROR EN LLAMADO PREBATCH\" TO\n              WS-RECHAZO\n        PERFORM  6000-DESPLIEGA-ERROR.\n 6000-DESPLIEGA-ERROR.\n     IF WS-L010-RESULT > 0\n        MOVE WS-L010-RESULT    TO WS-MSG-N-04\n        IF WS-IND-ERROR > 0 AND < 29\n           COMPUTE WS-IND-ERROR = WS-L010-RESULT - 10\n           STRING WS-RECHAZO, \" RSLT=\", WS-MSG-N-04,\n                  \" CAUSA: \", WS-ERR-L010(WS-IND-ERROR)\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        ELSE\n           STRING  WS-RECHAZO, \" RSLT=\", WS-MSG-N-04\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.\n     IF WS-L010-RESULT > 0\n        PERFORM 70000050-MENSAJE\n        SET MYSELF(STATUS) TO -1.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FasePrebatchTasklet implements Tasklet {\n\n    private final ControlBatchLibrary l010;   // S500L010CTRL, función PREBATCH\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        int resultado = l010.prebatch();\n        if (resultado > 0) {\n            throw new FaseCaptacionException(\"ERROR EN LLAMADO PREBATCH\", resultado,\n                    ErroresL010.causa(resultado));\n        }\n        return RepeatStatus.FINISHED;\n    }\n}\n\n/** WS-ERR-L010: 28 textos indexados por resultado - 10. */\nfinal class ErroresL010 {\n    private static final List<String> CAUSAS = cargaCatalogo();   // X(40) OCCURS 28\n\n    static Optional<String> causa(int resultado) {\n        int i = resultado - 10;                      // se calcula ANTES de validar el rango\n        return (i >= 1 && i <= CAUSAS.size()) ? Optional.of(CAUSAS.get(i - 1)) : Optional.empty();\n    }\n}",
+          "racional": "Cada fase es una llamada a la librería L010 seguida de una revisión del resultado; un valor mayor a cero arma un mensaje con la causa tomada de una tabla de 28 textos y termina con estado -1. En Java cada fase es un <code>Tasklet</code> y el error es una excepción con el código y la causa. La traducción calcula primero el índice y luego valida el rango, porque el fuente lo hace al revés.",
+          "reglas": [],
+          "riesgo": "En 6000-DESPLIEGA-ERROR la condición WS-IND-ERROR > 0 AND < 29 se evalúa antes del COMPUTE que asigna WS-IND-ERROR = WS-L010-RESULT - 10: la decisión usa el índice de una llamada anterior y puede mostrar la causa equivocada o indexar fuera de la tabla."
+        }
+      ]
+    },
+    {
+      "titulo": "Depuración de archivos IBM-CHARITY (TASKVALUE 23)",
+      "origen": {
+        "archivo": "S500_SOURCE_P005.txt",
+        "contexto": "10000-INICIO-DEPURACION · 50000-VALIDA-REGBDB10 · 50000-DEPURA-REGISTRO · 90000-ENVIA-DEPURACION-ARCH"
+      },
+      "java": {
+        "archivo": "DepuracionArchivosJobConfig.java · ElegibilidadDepuracion.java · RetencionArchivosService.java",
+        "contexto": "Spring Batch Step · ItemProcessor · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Fecha de proceso y fecha límite 90 días hábiles atrás",
+          "linea_ini": 1076,
+          "linea_fin": 1127,
+          "origen_codigo": "    MOVE    ZEROS                TO   WS-SEC-DIR\n                                      WS-FEC-PROCESO.\n    PERFORM   20000-ABRE-BD.\n    PERFORM 20000-RECUPERA-FECHAPROC.\n    IF  WS88-ERROR-B02\n        ACCEPT  WS-FEC-PROCESO   FROM DATE\n    ELSE\n        MOVE    B02-FECHA-LINEA  TO  WS-FEC-PROCESO\n        MOVE    B02-NUM-CSI      TO  WKS-NOD-DEPFIN.\n    MOVE    WS-FEC-PROCESO       TO  WKS-FEC-DEPTEM\n                                     WKS-FEC-DEPFIN\n                                     WKS-FEC-CONSULTA.\n***** PROYECTA FECHA LIMITE PARA ACTUALIZAR ARCHIVOS NO DEPURADOS\n    MOVE WS-FEC-PROCESO   TO  WS-LIBFEC-FECHAIN.\n    MOVE ZEROS            TO  WS-LIBFEC-FECHAOUT.\n    MOVE 65               TO  W77-LIBFEC-CVESEM.\n    MOVE 01               TO  W77-LIBFEC-CVEFEST.\n    MOVE -90              TO  W77-LIBFEC-INCREM.\n    PERFORM   90021000-PROYECTA-FECHA-HAB2K.\n    MOVE WS-LIBFEC-FECHAOUT TO  WS-FEC-LIM-DEP.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechasDepuracionTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500B02CONTROL, OPEN INQUIRY\n    private final CalendarioBancario calendario;         // 90021000-PROYECTA-FECHA-HAB2K\n    private final DepuracionProperties props;            // dias-habiles-retencion: 90\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        LocalDate proceso = control.findFechaLinea()\n                .orElseThrow(() -> new ProcesoAbortadoException(\n                        \"Sin registro S500B02CONTROL: no se depura con la fecha del sistema\"));\n        LocalDate limite = calendario.sumaHabiles(proceso, -props.diasHabilesRetencion());\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaProceso\", proceso);\n        ec.put(\"fechaLimite\", limite);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La depuración toma la fecha de línea de S500B02CONTROL como fecha de proceso y, con la librería de fechas S000LIBFEC, proyecta una fecha límite 90 días hábiles hacia atrás que decide qué archivos ya no se conservan. En Java la fecha de proceso y la límite se calculan en un <code>Tasklet</code> previo y se publican en el <code>ExecutionContext</code>. El número de días hábiles de retención pasa a propiedad. Se decidió no reproducir el respaldo a la fecha del sistema porque en una rutina que borra archivos es más seguro fallar.",
+          "reglas": [],
+          "riesgo": "Si no hay registro en S500B02CONTROL, el fuente usa ACCEPT WS-FEC-PROCESO FROM DATE (línea 1082). En COBOL85 DATE entrega AAMMDD de 6 dígitos, que en un campo PIC 9(08) queda como 00AAMMDD: la fecha de proceso y la fecha límite quedan fuera de rango y los criterios de depuración se evalúan contra una fecha inválida."
+        },
+        {
+          "id": "s6",
+          "titulo": "Elegibilidad del registro B10PDEPURA",
+          "linea_ini": 1309,
+          "linea_fin": 1343,
+          "origen_codigo": " 50000-VALIDA-REGBDB10.\n***=========================================\n  MOVE    1         TO  WS-REG-DEPURABLE.\n***** VALIDA SI YA SE PROCESO DURANTE EL DIA DE PROCESO\n  IF  WS-GEN-FECULT  <  WS-FEC-PROCESO\n      NEXT SENTENCE\n  ELSE\n      MOVE 0        TO  WS-REG-DEPURABLE\n      EXIT PERFORM.\n***** VALIDA QUE EL ID SEA VALIDO PARA DEPURACION\n  IF  WS-GEN-IDEDEP = 1 OR 3\n      NEXT SENTENCE\n  ELSE\n      MOVE     0                TO  WS-REG-DEPURABLE\n      MOVE     0004             TO  WS-COD-ERROR\n      MOVE     WS-GEN-NOM       TO  ERROR-0004-02\n      PERFORM  40000-ESCRIBE-PROBLEMA\n      EXIT PERFORM.\n  PERFORM 40000-VALIDA-FECHA-SECUENCIAL.\n  IF WS88-REG-DEPURABLE  AND WS-GEN-FECULT NOT > 0\n     PERFORM 90000-VALIDA-NOMBREDEP.\n  IF WS88-REG-DEPURABLE\n     NEXT SENTENCE\n  ELSE\n     MOVE     0010             TO  WS-COD-ERROR\n     MOVE     WS-GEN-NOM       TO  ERROR-0010-02\n     PERFORM  40000-ESCRIBE-PROBLEMA.",
+          "java_codigo": "public enum MarcaDepuracion { CONSERVAR, DEPURAR, ELIMINAR_REGISTRO }   // WS-REG-DEPURABLE 0, 1, 2\n\n@Component\n@RequiredArgsConstructor\npublic class ElegibilidadDepuracion {\n\n    private final DepuracionProperties props;   // ides-validos: [1, 3]\n    private final PatronNombreArchivo patron;\n\n    MarcaDepuracion evalua(ArchivoDepuracion r, LocalDate fechaProceso, BitacoraDepuracion bitacora) {\n        if (r.fechaUltimaDepuracion() != null\n                && !r.fechaUltimaDepuracion().isBefore(fechaProceso)) {\n            return MarcaDepuracion.CONSERVAR;                 // ya se procesó hoy\n        }\n        if (!props.idesValidos().contains(r.ideDepuracion())) {\n            bitacora.problema(4, r.nombre());                 // ID no válido para depuración\n            return MarcaDepuracion.CONSERVAR;\n        }\n        var marca = patron.valida(r.nombre());                // 40000-VALIDA-FECHA-SECUENCIAL\n        if (marca == MarcaDepuracion.DEPURAR && r.fechaUltimaDepuracion() == null) {\n            marca = patron.validaNombre(r.nombre());          // 90000-VALIDA-NOMBREDEP\n        }\n        if (marca != MarcaDepuracion.DEPURAR) {\n            bitacora.problema(10, r.nombre());\n        }\n        return marca;\n    }\n}\n\n/** El nombre es un patrón: '#' fecha de 6 u 8, '?' secuencial de 2 a 6, '%' copia de 2. */\n@Component\nclass PatronNombreArchivo {\n    private static final Pattern VALIDO = Pattern.compile(\n            \"^[^#?%]*(#{6}|#{8})?[^#?%]*(\\\\?{2,6})?[^#?%]*(%{2})?[^#?%]*$\");\n    MarcaDepuracion valida(String nombre) {\n        return VALIDO.matcher(nombre.strip()).matches()\n                ? MarcaDepuracion.DEPURAR : MarcaDepuracion.ELIMINAR_REGISTRO;\n    }\n}",
+          "racional": "Cada registro del catálogo de depuración pasa por tres filtros: no se reprocesa si ya se depuró en el día, solo se consideran los identificadores de depuración 1 y 3, y el nombre debe ser un patrón bien formado. El patrón usa <code>#</code> para la fecha, <code>?</code> para el secuencial y <code>%</code> para la copia; el fuente cuenta caracteres con <code>INSPECT TALLYING</code> y verifica que estén contiguos. En Java esa verificación se expresa con una expresión regular equivalente. Un patrón mal formado marca el registro con 2, que significa eliminarlo del catálogo sin tocar archivos.",
+          "reglas": [],
+          "riesgo": "Un nombre mal capturado en B10PDEPURA no genera alerta: el registro se borra del catálogo (marca 2) y deja de vigilarse la retención de esos archivos."
+        },
+        {
+          "id": "s7",
+          "titulo": "Borrado del registro de catálogo en transacción DMSII",
+          "linea_ini": 1266,
+          "linea_fin": 1287,
+          "origen_codigo": " 50000-DEPURA-REGISTRO.\n***=========================================\n   MOVE ZEROS    TO     WS-STATUS-BASE-ANT  WS-STATUS-BASE.\n   PERFORM 70000-BEGIN-TRANSACTION\n   PERFORM 70000-LOCK-B010\n   IF WS-STATUS-BASE = 0\n      PERFORM 70000-DELETE-B010\n      MOVE WS-STATUS-BASE   TO  WS-STATUS-BASE-ANT\n   ELSE\n      MOVE WS-STATUS-BASE   TO  WS-STATUS-BASE-ANT.\n   MOVE 0                TO  WS-STATUS-BASE\n   PERFORM 70000-END-TRANSACTION.\n   IF WS-STATUS-BASE-ANT > 0\n      MOVE     0001                 TO  WS-COD-ERROR\n      MOVE     WS-STATUS-BASE-ANT   TO  ERROR-0001-02\n      PERFORM  40000-ESCRIBE-PROBLEMA\n      MOVE     0007                 TO  WS-COD-ERROR\n      MOVE     WS-GEN-NOM           TO  ERROR-0007-02\n      PERFORM  40000-ESCRIBE-PROBLEMA.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class CatalogoDepuracionService {\n\n    private final ArchivoDepuracionRepository repo;   // S500B10PDEPURA en S500BD04TARJETAS\n    private final BitacoraDepuracion bitacora;\n\n    /** 50000-DEPURA-REGISTRO: LOCK y DELETE dentro de una transacción; el error se reporta y se sigue. */\n    @Transactional(propagation = Propagation.REQUIRES_NEW)\n    public void eliminaRegistro(ArchivoDepuracionId id, String nombre) {\n        try {\n            repo.findByIdForUpdate(id).ifPresent(repo::delete);   // LOCK + DELETE\n        } catch (DataAccessException e) {\n            bitacora.problema(1, e.getMessage());\n            bitacora.problema(7, nombre);\n            throw e;   // revierte solo esta transacción; el recorrido continúa\n        }\n    }\n}",
+          "racional": "Los registros marcados para eliminar se bloquean y borran en una transacción propia, y un error de DMSII se registra en el reporte de depuración con los códigos 0001 y 0007 sin detener el recorrido. En JPA esto es un método con <code>REQUIRES_NEW</code> para que cada borrado confirme o revierta por separado, como hace el par <code>BEGIN</code> y <code>END TRANSACTION</code> por registro del fuente. El bloqueo se traduce como lectura con bloqueo pesimista.",
+          "reglas": []
+        },
+        {
+          "id": "s8",
+          "titulo": "Plantillas de comandos WFL para borrar archivos",
+          "linea_ini": 406,
+          "linea_fin": 554,
+          "origen_codigo": " 01 WKS-WFL-NOM-INICIA.\n    03 FILLER                            PIC X(49) VALUE\n      \"BEGIN JOB LOTE; JOBSUMMARY=UNCONDITIONAL;START \".\n    03 WKS-WFL-NOM-PROCESO               PIC X(28).\n*      \"CHAR/WFL/DEPURACION/20MTP001\".\n    03 FILLER                            PIC X(15) VALUE\n       \" ON CAPTACION (\".\n    03 WKS-WFL-QUOTES-INICIAL            PIC X(01).\n    03 WKS-WFL-PARAMETRO1                PIC X(03).\n    03 FILLER                            PIC X(01) VALUE SPACE.\n    03 WKS-WFL-PARAMETRO2                PIC 9(06).\n    03 FILLER                            PIC X(01) VALUE SPACE.\n    03 WKS-WFL-PARAMETRO3                PIC 9(08).\n    03 FILLER                            PIC X(01) VALUE SPACE.\n    03 WKS-WFL-PARAMETRO4                PIC X(75).\n    03 WKS-WFL-QUOTES-FINAL              PIC X(01).\n    03 FILLER                            PIC X(03) VALUE \"); \".\n    03 FILLER                            PIC X(08) VALUE\n       \"END JOB \".\n  01 WFL-DEPURA.\n    02 FILLER       PIC X(20) VALUE \"BEGIN JOB DEPURA.   \"   .\n    02 FILLER       PIC X(01) VALUE @0D@.\n    02 LINEA.\n       03 SENTENCIA OCCURS 800 TIMES.\n          05 FILENAM   PIC X(75).\n    02 FILLER       PIC X(20) VALUE \"END JOB.\".",
+          "java_codigo": "/** Sustituye CALL SYSTEM WFL con REMOVE por una API de almacenamiento. */\npublic interface AlmacenArchivos {\n    boolean existe(String nombre);\n    boolean enUso(String nombre);            // 70000-VALIDA-USO-ARCHIVO\n    void elimina(Collection<String> nombres);\n}\n\n# application.yml\ndepuracion:\n  lote-maximo: 750                         # IND-FILE > 750 dispara el WFL (buffer de 800)\n  wfl-individual: \"CHAR/WFL/DEPURACION/20MTP001\"   # resuelto por CTLVERS como S500JBATCH\n  dias-habiles-retencion: 90\n  ides-validos: [1, 3]",
+          "racional": "El fuente arma dos tipos de comando WFL en memoria: un <code>BEGIN JOB LOTE</code> que arranca un WFL de depuración con cuatro parámetros para un archivo, y un <code>BEGIN JOB DEPURA</code> con hasta 800 líneas <code>REMOVE</code> separadas por retorno de carro. En la plataforma destino no tiene sentido generar texto de un lenguaje de control para borrar archivos: se reemplaza por una interfaz de almacenamiento con operaciones explícitas, que permite auditar cada borrado. El tamaño de lote y el nombre del WFL pasan a configuración.",
+          "reglas": []
+        },
+        {
+          "id": "s9",
+          "titulo": "Borrado por lote y envío del reporte de depurados",
+          "linea_ini": 1750,
+          "linea_fin": 1859,
+          "origen_codigo": "   IF WS-ABORT-DEP = 0\n      PERFORM  70000-VALIDA-USO-ARCHIVO\n      IF WS-ABORT-DEP = 0\n         MOVE 1   TO WS-IDE-ARCH-DEPURADOS\n         MOVE 1   TO WS-DEPURA-REGOK\n         MOVE 1 TO WS-FLGPDIR\n         PERFORM 90000-ENVIA-DEPURACION-ARCH\n         MOVE ZEROS TO WS-FLGPDIR\n         IF IND-FILE > 750\n             CALL SYSTEM WFL USING WFL-DEPURA\n             MOVE SPACES TO LINEA\n             MOVE ZEROS TO   IND-FILE.\n 90000-ENVIA-DEPURACION-ARCH.\n***=========================================\n  IF WS-FLGPDIR = 0  OR WS-POS-FIN > 66\n   MOVE \"REM\"         TO     WKS-WFL-PARAMETRO1\n   MOVE  ZEROS        TO     WKS-WFL-PARAMETRO2\n   MOVE  ZEROS        TO     WKS-WFL-PARAMETRO3\n   MOVE  WS-GEN-NOM   TO     WKS-WFL-PARAMETRO4\n   CALL  SYSTEM WFL   USING  WKS-WFL-NOM-INICIA\n  ELSE\n     ADD 1 TO IND-FILE\n     MOVE WS-GEN-NOM TO WS-GEN-NOM2\n     STRING \"REMOVE \", WS-GEN-NOM2, @0D@\n          DELIMITED BY SIZE INTO FILENAM(IND-FILE).\n   IF WS-IDE-ARCH-DEPURADOS = 1\n      PERFORM 90000-ESCRIBE-DEPURADOSTEM.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class EliminaArchivosWriter implements ItemWriter<ArchivoAEliminar> {\n\n    private final AlmacenArchivos almacen;\n    private final ReporteDepurados reporte;    // FILE-DEPTEM y FILE-DEPURADOS\n\n    @Override\n    public void write(Chunk<? extends ArchivoAEliminar> chunk) {   // chunk = lote-maximo\n        var nombres = new ArrayList<String>();\n        for (var a : chunk) {\n            if (almacen.enUso(a.nombre())) {          // WS-ABORT-DEP: no se borra\n                reporte.noDepurado(a.nombre());\n                continue;\n            }\n            nombres.add(a.nombre());                  // sin truncar: el nombre completo de 75\n        }\n        almacen.elimina(nombres);                     // CALL SYSTEM WFL USING WFL-DEPURA\n        nombres.forEach(reporte::depurado);           // 90000-ESCRIBE-DEPURADOSTEM\n    }\n}\n// Al final del job, 10000-ENVIO-ARCDEPURACION envía el reporte por INTELAR con un reintento a los 10 s.",
+          "racional": "Los archivos que pasaron las validaciones y no están en uso se acumulan como líneas <code>REMOVE</code> y se mandan a WFL al pasar de 750, o uno por uno con el WFL individual si el nombre es largo o la llamada viene de otra ruta. Spring Batch ya agrupa por chunk, así que el lote se configura con el tamaño de chunk y la verificación de uso se hace justo antes de borrar. Cada archivo eliminado se anota en el reporte que después viaja por INTELAR.",
+          "reglas": [],
+          "riesgo": "WS-GEN-NOM2, que recibe el nombre para la línea REMOVE, es PIC X(65) mientras el nombre es X(75). El corte a la ruta individual depende de WS-POS-FIN > 66; un nombre de exactamente 66 posiciones entraría al lote truncado en una. Además, el resultado de CALL SYSTEM WFL no se revisa: si el WFL falla, los archivos se reportan como depurados."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Depuración con fecha del sistema mal formada",
+      "detalle": "Sin registro en S500B02CONTROL se usa ACCEPT FROM DATE (línea 1082) sobre un campo de 8 dígitos; la fecha resultante no es AAAAMMDD y los criterios de retención y la fecha límite se calculan sobre ella."
+    },
+    {
+      "titulo": "Índice de error evaluado antes de calcularse",
+      "detalle": "6000-DESPLIEGA-ERROR (líneas 799-802) valida WS-IND-ERROR antes de asignarlo, por lo que la causa mostrada puede ser de otra llamada o indexar fuera de la tabla de 28 textos."
+    },
+    {
+      "titulo": "Borrado de archivos sin confirmar resultado",
+      "detalle": "Los CALL SYSTEM WFL de las líneas 1534, 1759 y 1851 no revisan resultado; el reporte de depurados puede listar archivos que siguen en disco."
+    },
+    {
+      "titulo": "Esperas fijas",
+      "detalle": "20000-PROCESO-VALIDACIONPDIR espera 600 segundos fijos (línea 1199) a que un WFL externo genere los archivos PDIR, sin verificar que hayan terminado."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Grupo MAPLI 06 y nombre BATCH DIARIO, tabla de actividades por librería, 90 días hábiles de retención, identificadores de depuración 1 y 3, lote de 750 y rutas S500/FILE/DEPTEM, (S500)S500/FILE/INTS/50004S01 y S500/FILE/PDIR están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el valor inicial de W77-SI-MONITOR (sin VALUE) para las fases que no lo asignan.",
+    "Confirmar qué representa WS-POS-FIN y si el límite de 66 protege correctamente contra el truncamiento a 65 posiciones de WS-GEN-NOM2.",
+    "Validar con el SME si, ante falta de S500B02CONTROL, la depuración debe abortar en lugar de usar la fecha del sistema.",
+    "El brain registra RN-S500-639 sobre la depuración de B10, pero no está en reglas_brain del inventario para este componente; por eso los segmentos de depuración no citan regla.",
+    "Confirmar si la espera fija de 600 segundos antes de validar PDIR sigue siendo suficiente o se debe sustituir por una señal del WFL generador."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-1010",
+    "RN-S151-1011",
+    "RN-S151-1012",
+    "RN-S151-1013",
+    "RN-S151-1014",
+    "RN-S151-1015",
+    "RN-S151-1016",
+    "RN-S151-1017",
+    "RN-S151-1018",
+    "RN-S151-1019",
+    "RN-S500-918",
+    "RN-S500-920",
+    "RN-S500-638",
+    "RN-S500-639",
+    "RN-S500-640"
+  ]
+}

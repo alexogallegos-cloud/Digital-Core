@@ -1,0 +1,198 @@
+{
+  "slug": "S151_P195",
+  "sistema": "S151",
+  "programa": "P195",
+  "nombre": "Extractor de Configuración de Control a Archivos Secuenciales",
+  "funcion": "Paso 25MTP001 del WFL EXTRAECTL de S151 que vuelca los seis datasets de la base de control S151BD99CONTROL a archivos planos fechados, para respaldo o transferencia; en Alta Disponibilidad se coordina con el registro B05 del propio paso.",
+  "resumen": "Obtiene el título de la librería S151-L001 con CTRLVERS y la fecha de proceso del sistema 151 con CONSISDIA. Abre S151BD99CONTROL en modo consulta y, si la tarea corre con TASKVALUE 1, verifica en B05PROCESOS si el paso 195 ya terminó para esa fecha y en tal caso finaliza sin regenerar. Recorre completos B01SISDIA, B02ARCINTER, B03SISMEN, B04SISTEM, B05PROCESOS y B09CONXSIS con FIND FIRST y FIND NEXT y escribe cada registro en su archivo (S151)S151/FILE/{dataset}/AAMMDD ON CMEMP, cuya fecha se toma del primer registro de B01SISDIA. En B03SISMEN copia campo por campo y expande hasta cinco ciclos mensuales. Al final, en Alta Disponibilidad, marca el B05 con estatus 1.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.control.extractor",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — registro B03SISMEN, nombres de archivo y fecha de rotulado",
+      "origen": {
+        "archivo": "COBOL_P195.txt",
+        "contexto": "FILE SECTION (FD A03-B03SISMEN) · WORKING-STORAGE (WKS-NOMARCH-*) · 02-00100-GENERA-B01SISDIA"
+      },
+      "java": {
+        "archivo": "SistemaMensualExport.java · P195Properties.java · FechaRotulado.java",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro A03-R00-SISMEN con tabla de cinco ciclos",
+          "linea_ini": 114,
+          "linea_fin": 135,
+          "origen_codigo": " 01  A03-R00-SISMEN.                                              008700\n     03 A03-R00-SISTEMA            PIC 9(04) COMP.                008800\n     03 A03-R00-MODSIS             PIC 9(02) COMP.                008900\n     03 A03-R00-RESCSI             PIC 9(02) COMP.                009000\n     03 A03-R00-TIPBD              PIC 9(02) COMP.                009100\n     03 A03-R00-NUMCICDIA          PIC 9(04) COMP.                009200\n     03 A03-R00-NUMCICMES          PIC 9(04) COMP.                009300\n     03 A03-R00-NOMBDSAL           PIC X(17).                     009400\n     03 A03-R00-STABDSAL           PIC 9(02) COMP.                009500\n     03 A03-R00-NOMBDMOVHI         PIC X(17).                     009600\n     03 A03-R00-SECOKHI            PIC 9(10) COMP.                009700\n     03 A03-R00-SECINFHI           PIC 9(10) COMP.                009800\n     03 A03-R00-SECERRHI           PIC 9(10) COMP.                009900\n     03 A03-R00-STABDMOVHI         PIC 9(02) COMP.                010000\n     03 A03-R00-CTL-MEN            OCCURS 5 TIMES.                010100\n        05 A03-R00-NOMBDMOV        PIC X(17).                     010200\n        05 A03-R00-NUMBDMOV        PIC 9(02) COMP.                010300\n        05 A03-R00-AAMM            PIC 9(06) COMP.                010402\n        05 A03-R00-SECOK           PIC 9(10) COMP.                010500",
+          "java_codigo": "/** A03-R00-SISMEN (241 bytes): configuración mensual por sistema. */\npublic record SistemaMensualExport(\n        int sistema, int modSis, int resCsi, int tipBd,\n        int numCicDia, int numCicMes,\n        String nomBdSal, int staBdSal,\n        String nomBdMovHi,\n        long secOkHi, long secInfHi, long secErrHi,   // 9(10) COMP\n        int staBdMovHi,\n        List<CicloMensual> ciclos) {                  // OCCURS 5, se llenan min(5, numCicMes)\n\n    /** A03-R00-CTL-MEN. AAMM pasó de 9(04) a 9(06) con Cronos 2000 (CCAAMM). */\n    public record CicloMensual(String nomBdMov, int numBdMov, YearMonth aamm,\n                               long secOk, long secInf, long secErr, int staBdMov) {}\n\n    public SistemaMensualExport {\n        if (ciclos.size() > 5) throw new IllegalArgumentException(\"CTL-MEN admite 5 ciclos\");\n    }\n}",
+          "racional": "El registro de salida de B03SISMEN tiene una parte fija por sistema y una tabla <code>OCCURS 5</code> con los datos de cada ciclo mensual. Se modela como un <code>record</code> con una lista acotada a cinco elementos. El campo AAMM se amplió a 6 dígitos en la renovación Cronos 2000 (la versión de 4 dígitos quedó comentada y se omitió del extracto), así que se traduce a <code>YearMonth</code>. Las secuencias de 10 dígitos caben en <code>long</code>.",
+          "reglas": [
+            "RN-S151-892"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Títulos de archivo con disco CMEMP compilado",
+          "linea_ini": 468,
+          "linea_fin": 508,
+          "origen_codigo": " 01  WKS-NOMARCH-B01SISDIA.                                       014600\n     03 FILLER                     PIC X(26)                      014700\n        VALUE \"(S151)S151/FILE/B01SISDIA/\".                       014800\n     03 WKS-FECHA-B01SISDIA        PIC 9(06).                     014900\n     03 FILLER                     PIC X(10)                      015000\n        VALUE \" ON CMEMP.\".                                       015100\n 01  WKS-NOMARCH-B02ARCINTER.                                     015300\n     03 FILLER                     PIC X(28)                      015400\n        VALUE \"(S151)S151/FILE/B02ARCINTER/\".                     015500\n     03 WKS-FECHA-B02ARCINTER      PIC 9(06).                     015600\n     03 FILLER                     PIC X(10)                      015700\n        VALUE \" ON CMEMP.\".                                       015800\n 01  WKS-NOMARCH-B03SISMEN.                                       016000\n     03 FILLER                     PIC X(26)                      016100\n        VALUE \"(S151)S151/FILE/B03SISMEN/\".                       016200\n     03 WKS-FECHA-B03SISMEN        PIC 9(06).                     016300\n     03 FILLER                     PIC X(10)                      016400\n        VALUE \" ON CMEMP.\".                                       016500\n 01  WKS-NOMARCH-B09CONXSIS.                                      017400\n     03 FILLER                     PIC X(27)                      017500\n        VALUE \"(S151)S151/FILE/B09CONXSIS/\".                      017600\n     03 WKS-FECHA-B09CONXSIS       PIC 9(06).                     017700\n     03 FILLER                     PIC X(10)                      017800\n        VALUE \" ON CMEMP.\".                                       017900",
+          "java_codigo": "# application.yml\np195:\n  usuario: S151\n  familia: CMEMP                       # \" ON CMEMP.\" en los seis WKS-NOMARCH-*\n  patron: \"({usuario}){usuario}/FILE/{dataset}/{fecha} ON {familia}.\"\n  datasets: [B01SISDIA, B02ARCINTER, B03SISMEN, B04SISTEM, B05PROCESOS, B09CONXSIS]\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p195\")\npublic record P195Properties(String usuario, String familia, String patron, List<String> datasets) {\n\n    /** Un solo patrón sustituye los seis grupos 01 WKS-NOMARCH-B0x. */\n    public String titulo(String dataset, FechaRotulado f) {\n        return patron.replace(\"{usuario}\", usuario)\n                     .replace(\"{dataset}\", dataset)\n                     .replace(\"{fecha}\", f.aammdd())\n                     .replace(\"{familia}\", familia);\n    }\n}",
+          "racional": "Cada archivo de salida tiene su propio grupo de nivel 01 que concatena el usuario S151, el nombre del dataset, una fecha de 6 dígitos y la familia de disco <code>CMEMP</code>, todo con <code>FILLER VALUE</code>. Los seis grupos son el mismo patrón, por lo que en Java se reducen a una plantilla en <code>application.yml</code>. Esto permite cambiar la familia de disco o el destino por ambiente sin recompilar, que es el punto débil del fuente para una transferencia entre plataformas.",
+          "reglas": [
+            "RN-S151-889"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Fecha de rotulado desde el primer B01SISDIA con conversión Cronos 2000",
+          "linea_ini": 940,
+          "linea_fin": 986,
+          "origen_codigo": " 02-00100-GENERA-B01SISDIA.                                       023800\n     MOVE ZERO                     TO W77-EOF.                    024000\n     FIND FIRST S151B01SISDIA                                     024100\n                ON EXCEPTION                                      024200\n                   IF DMSTATUS(NOTFOUND)                          024300\n                      MOVE 1       TO W77-EOF                     024400\n                   ELSE                                           024500\n                      PERFORM 900000-CHE-STA.                     024600\n     IF W77-EOF = 1                                               024700\n        MOVE ZERO                  TO WKS-FECHA-B01SISDIA         024800\n                                      WKS-FECHA-B02ARCINTER       024900\n                                      WKS-FECHA-B03SISMEN         025000\n                                      WKS-FECHA-B04SISTEM         025100\n                                      WKS-FECHA-B05SISTEMA        025150\n                                      WKS-FECHA-B09CONXSIS        025200\n     ELSE                                                         025300\n*INICIA CODIGO DE RENOVACION CRONOS 2000                          025710\n$SET OMIT=OLDCODE                                                 025715\n        MOVE B01-SIS-FECPRO        TO WKS-FECHA-B01SISDIA         025720\n                                      WKS-FECHA-B02ARCINTER       025725\n                                      WKS-FECHA-B03SISMEN         025730\n                                      WKS-FECHA-B04SISTEM         025735\n                                      WKS-FECHA-B05SISTEMA        025737\n                                      WKS-FECHA-B09CONXSIS.       025740\n$POP OMIT                                                         025743\n$SET OMIT=NOT OLDCODE                                             025746\n MOVE ZEROES TO A2K-FEC-CAMD-001                                  025749\n MOVE B01-SIS-FECPRO  TO A2K-FEC-CAMD-001                         025752\n PERFORM A2K-CONV-CAMD-TO-AMD THRU                                025755\n         A2K-CONV-CAMD-TO-AMD-EXIT                                025758\n MOVE A2K-FEC-AMD-001 TO            WKS-FECHA-B01SISDIA           025761\n                                    WKS-FECHA-B02ARCINTER         025764\n                                    WKS-FECHA-B03SISMEN           025767\n                                    WKS-FECHA-B04SISTEM           025770\n                                    WKS-FECHA-B05SISTEMA          025772\n                                    WKS-FECHA-B09CONXSIS.         025773\n$POP OMIT                                                         025819\n*TERMINA CODIGO DE RENOVACION CRONOS 2000                         025820\n     OPEN OUTPUT A01-B01SISDIA.                                   025900\n     PERFORM 02-00110-VACIA-B01SISDIA UNTIL W77-EOF = 1.          026000\n     CLOSE A01-B01SISDIA WITH SAVE.                               026100",
+          "java_codigo": "/** Fecha que rotula los seis archivos (AAMMDD). Ceros si B01SISDIA está vacío. */\npublic record FechaRotulado(LocalDate fecha) {\n\n    private static final DateTimeFormatter AAMMDD = DateTimeFormatter.ofPattern(\"yyMMdd\");\n\n    public String aammdd() { return fecha == null ? \"000000\" : fecha.format(AAMMDD); }\n\n    /**\n     * 02-00100-GENERA-B01SISDIA, rama NOT OLDCODE: B01-SIS-FECPRO viene en CCAAMMDD\n     * y A2K-CONV-CAMD-TO-AMD descarta el siglo. Se toma del PRIMER registro de B01,\n     * sea cual sea su sistema.\n     */\n    public static FechaRotulado dePrimerRegistro(Optional<SistemaDiario> primero) {\n        return new FechaRotulado(primero\n                .map(b01 -> LocalDate.parse(String.format(\"%08d\", b01.fecPro()),\n                                            DateTimeFormatter.BASIC_ISO_DATE))\n                .orElse(null));\n    }\n}",
+          "racional": "Todos los archivos se rotulan con la fecha de proceso del primer registro de B01SISDIA. El fuente conserva las dos versiones de la renovación Cronos 2000 con directivas <code>$SET OMIT</code>: la antigua movía la fecha tal cual y la vigente (<code>NOT OLDCODE</code>) convierte de CCAAMMDD a AAMMDD antes de rotular. En Java solo existe la rama vigente y la fecha se maneja como <code>LocalDate</code>; el formato de 6 dígitos queda únicamente en el nombre del archivo. Si B01 está vacío, los sufijos quedan en ceros, igual que hoy.",
+          "reglas": [
+            "RN-S151-890",
+            "RN-S151-891"
+          ],
+          "riesgo": "La fecha del nombre sale del primer registro de B01SISDIA, que puede ser de cualquier sistema, mientras que el control B05 usa la fecha de CONSISDIA del sistema 151. Si difieren, los archivos quedan rotulados con un día distinto al del control."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y Alta Disponibilidad",
+      "origen": {
+        "archivo": "COBOL_P195.txt",
+        "contexto": "00-0000-CONTROL · 08-01000-VERIFICA-B05 · 08-01200-ACTUALIZA-B05"
+      },
+      "java": {
+        "archivo": "ExtractorControlJobConfig.java · ControlEjecucionDecider.java",
+        "contexto": "Spring Batch Job · JobExecutionDecider"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Secuencia de extracción con verificación previa y marca final",
+          "linea_ini": 851,
+          "linea_fin": 867,
+          "origen_codigo": "     PERFORM 01-00100-ABRE-ENTRADA.                               020300\n     IF W77-VALUE = 1                                             020312\n       PERFORM 08-01000-VERIFICA-B05.                             020315\n     PERFORM 02-00100-GENERA-B01SISDIA.                           020400\n     PERFORM 03-00100-GENERA-B02ARCINTER.                         020500\n     PERFORM 04-00100-GENERA-B03SISMEN.                           020600\n     PERFORM 05-00100-GENERA-B04SISTEM.                           020700\n     PERFORM 07-00100-GENERA-B05SISTEMA.                          020750\n     PERFORM 06-00100-GENERA-B09CONXSIS.                          020800\n     IF W77-VALUE = 1                                             020807\n        PERFORM 08-01200-ACTUALIZA-B05.                           020810\n     PERFORM 01-00200-CIERRA-ENTRADA.                             020900",
+          "java_codigo": "@Bean\nJob extraeControlS151(JobRepository repo, ControlEjecucionDecider yaTerminado,\n                      Step exportaB01, Step exportaB02, Step exportaB03,\n                      Step exportaB04, Step exportaB05, Step exportaB09,\n                      Step marcaTerminado) {\n    Flow exportacion = new FlowBuilder<SimpleFlow>(\"exportacion\")\n            .start(exportaB01)          // calcula también la FechaRotulado\n            .next(exportaB02).next(exportaB03).next(exportaB04)\n            .next(exportaB05)           // mismo orden del fuente: B05 antes que B09\n            .next(exportaB09)\n            .next(marcaTerminado)       // solo hace algo en Alta Disponibilidad\n            .build();\n\n    return new JobBuilder(\"S151P195\", repo)\n            .start(yaTerminado).on(\"YA_TERMINADO\").end()      // 08-02000-FINALIZA-PROGRAMA\n            .from(yaTerminado).on(\"*\").to(exportacion)\n            .end()\n            .build();\n}",
+          "racional": "La rutina principal abre la base, verifica el control de Alta Disponibilidad si <code>TASKVALUE</code> es 1, ejecuta los seis volcados en orden fijo y, de nuevo solo en Alta Disponibilidad, actualiza el B05. En Spring Batch cada volcado es un <code>Step</code>, la verificación previa es un <code>JobExecutionDecider</code> que termina el job sin error si el paso ya se completó y la marca final es un step propio. El modo Alta Disponibilidad deja de depender de <code>TASKVALUE</code> y pasa a un parámetro del job.",
+          "reglas": [
+            "RN-S151-893",
+            "RN-S151-889"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Consulta, alta y actualización del registro B05 del paso 195",
+          "linea_ini": 1465,
+          "linea_fin": 1546,
+          "origen_codigo": " 08-01000-VERIFICA-B05.                                           040200\n***** CONSULTAR SI EXISTE B05 CON LA FECHA DEL DIA                040300\n     MOVE 01             TO WKS-B05-FUNCION                       040400\n     MOVE 151            TO WKS-B05-SISTEMA                       040500\n     MOVE WKS-FECHA-PROC TO WKS-B05-FCHPRO                        040600\n     MOVE 195            TO WKS-B05-NUMPRO                        040700\n     MOVE ZEROS          TO WKS-B05-FCHINI                        040800\n                            WKS-B05-NUMREGINI.                    040900\n     CALL \"B05PROCESOS IN S151-L001\" USING WKS-B05PROCESOS        041100\n                                     GIVING W77-RESULT-LIBCON.    041200\n                                                                  041300\n     IF W77-RESULT-LIBCON = 0                                     041400\n          IF WKS-B05-STAPGM = 0                                   041500\n              NEXT SENTENCE                                       041600\n          ELSE                                                    041700\n              PERFORM 08-02000-FINALIZA-PROGRAMA                  041800\n     ELSE                                                         041900\n          PERFORM 08-01100-CREA-B05.                              042000\n 08-01200-ACTUALIZA-B05.                                          046900\n     MOVE 37                      TO WKS-B05-FUNCION              047000\n     MOVE 151                     TO WKS-B05-SISTEMA              047100\n     MOVE WKS-FECHA-PROC          TO WKS-B05-FCHPRO               047200\n     MOVE 195                     TO WKS-B05-NUMPRO               047300\n     MOVE ZEROS                   TO WKS-B05-FCHINI               047400\n                                     WKS-B05-NUMREGINI            047500\n     MOVE 01                       TO WKS-B05-STAPGM.             047700\n                                                                  047800\n     CALL \"B05PROCESOS IN S151-L001\" USING WKS-B05PROCESOS        047900\n                                    GIVING W77-RESULT-LIBCON.     048000\n     IF W77-RESULT-LIBCON = 0                                     048100\n          NEXT SENTENCE                                           048200\n     ELSE                                                         048300",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ControlEjecucionDecider implements JobExecutionDecider {\n\n    private static final int SISTEMA = 151, NUM_PROCESO = 195;\n    private final ProcesosClient b05;            // \"B05PROCESOS IN S151-L001\": func 01, 19, 37\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution je, StepExecution se) {\n        if (!je.getJobParameters().getString(\"altaDisponibilidad\", \"N\").equals(\"S\")) {\n            return FlowExecutionStatus.COMPLETED;              // W77-VALUE distinto de 1\n        }\n        LocalDate fecha = FechaProceso.de(je);                // CONSISDIA del sistema 151\n        return b05.consulta(SISTEMA, fecha, NUM_PROCESO)       // función 01\n                .map(r -> r.staPgm() == 0\n                        ? FlowExecutionStatus.COMPLETED        // existe pendiente: regenera\n                        : new FlowExecutionStatus(\"YA_TERMINADO\"))\n                .orElseGet(() -> {\n                    b05.alta(SISTEMA, fecha, NUM_PROCESO);     // función 19; si falla, lanza excepción\n                    return FlowExecutionStatus.COMPLETED;\n                });\n    }\n}\n\n/** 08-01200-ACTUALIZA-B05: función 37 con STAPGM = 1 al terminar. */\n@Bean\nTasklet marcaTerminado(ProcesosClient b05) {\n    return (c, ctx) -> {\n        b05.cambiaEstatus(151, FechaProceso.de(ctx), 195, 1);\n        return RepeatStatus.FINISHED;\n    };\n}",
+          "racional": "En el esquema de clúster, el registro B05 del paso 195 para la fecha de proceso funciona como candado de idempotencia: si existe con estatus distinto de cero, el paso ya terminó y no se regenera; si no existe se da de alta, y al final se marca con estatus 1. Las tres operaciones se hacen con la librería S151-L001 por número de función. En Java se encapsulan en un cliente con métodos con nombre y el resultado de cada llamada se valida: el fuente solo escribe un mensaje si el alta o la actualización fallan y sigue adelante.",
+          "reglas": [
+            "RN-S151-893"
+          ],
+          "riesgo": "Si la función 19 (alta) o la 37 (actualización) fallan, P195 solo registra el error y termina como FIN NORMAL; en el siguiente reproceso el B05 seguirá en cero o inexistente y los archivos se regenerarán."
+        }
+      ]
+    },
+    {
+      "titulo": "Volcado de datasets DMSII y manejo de errores",
+      "origen": {
+        "archivo": "COBOL_P195.txt",
+        "contexto": "03-00100 / 03-00110 · 04-00110 / 04-00111 · 01-00100-ABRE-ENTRADA · 900000-CHE-STA"
+      },
+      "java": {
+        "archivo": "VolcadoDatasetStepFactory.java · SistemaMensualProcessor.java",
+        "contexto": "JdbcCursorItemReader · FlatFileItemWriter · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Patrón FIND FIRST y FIND NEXT a un step genérico por dataset",
+          "linea_ini": 1000,
+          "linea_fin": 1023,
+          "origen_codigo": " 03-00100-GENERA-B02ARCINTER.                                     027400\n     MOVE ZERO                     TO W77-EOF.                    027600\n     OPEN OUTPUT A02-B02ARCINTER.                                 027700\n     FIND FIRST S151B02ARCINTER                                   027800\n                ON EXCEPTION                                      027900\n                   IF DMSTATUS(NOTFOUND)                          028000\n                      MOVE 1       TO W77-EOF                     028100\n                   ELSE                                           028200\n                      PERFORM 900000-CHE-STA.                     028300\n     PERFORM 03-00110-VACIA-B02ARCINTER UNTIL W77-EOF = 1.        028400\n     CLOSE A02-B02ARCINTER WITH SAVE.                             028500\n 03-00110-VACIA-B02ARCINTER.                                      028700\n     MOVE S151B02ARCINTER          TO A02-R00-ARCINTER.           028900\n     WRITE A02-R00-ARCINTER.                                      029000\n     FIND NEXT S151B02ARCINTER                                    029100\n               ON EXCEPTION                                       029200\n                  MOVE 1           TO W77-EOF                     029300\n                  IF DMSTATUS(NOTFOUND)                           029400\n                     NEXT SENTENCE                                029500\n                  ELSE                                            029600\n                     PERFORM 900000-CHE-STA.                      029700",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class VolcadoDatasetStepFactory {\n\n    private final JobRepository repo;\n    private final PlatformTransactionManager tx;\n    private final DataSource controlS151;          // réplica relacional de S151BD99CONTROL (solo lectura)\n    private final P195Properties props;\n\n    /** Un step por dataset: recorre todo y escribe el registro tal cual (MOVE dataset TO registro). */\n    public <T> Step volcado(String dataset, RowMapper<T> mapper, LineAggregator<T> formato,\n                            FechaRotulado fecha) {\n        var lector = new JdbcCursorItemReaderBuilder<T>()\n                .name(dataset).dataSource(controlS151)\n                .sql(\"SELECT * FROM \" + dataset + \" ORDER BY ID\")   // orden físico del dataset\n                .rowMapper(mapper)\n                .build();\n        var escritor = new FlatFileItemWriterBuilder<T>()\n                .name(dataset + \"Writer\")\n                .resource(new FileSystemResource(props.titulo(dataset, fecha)))\n                .lineAggregator(formato)                            // layout fijo, sin separadores\n                .shouldDeleteIfEmpty(false)                         // el fuente deja el archivo vacío\n                .build();\n        return new StepBuilder(\"volcado\" + dataset, repo)\n                .<T, T>chunk(500, tx).reader(lector).writer(escritor)\n                .build();\n    }\n}",
+          "racional": "Cinco de los seis volcados son idénticos: abrir el archivo, <code>FIND FIRST</code>, escribir el registro completo del dataset y repetir con <code>FIND NEXT</code> hasta <code>NOTFOUND</code>. Como arquetipo A4 de intercambio, el patrón se encapsula en una fábrica que crea un step de Spring Batch por dataset con un lector de cursor y un writer de ancho fijo que respeta el layout que esperan los consumidores. El archivo se crea aunque el dataset esté vacío, igual que en el fuente. Solo B03SISMEN requiere un procesador propio.",
+          "reglas": [
+            "RN-S151-889"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "B03SISMEN: copia campo a campo, ciclos y asignación cruzada",
+          "linea_ini": 1038,
+          "linea_fin": 1091,
+          "origen_codigo": " 04-00110-VACIA-B03SISMEN.                                        031100\n*SE LIMPIAN VARIABLES DE NOMBRES DE BASES BDSAL Y BDMOVHI         031255\n     MOVE SPACES                   TO  A03-R00-NOMBDSAL           031260\n                                       A03-R00-NOMBDMOVHI.        031265\n     MOVE B03-SIS-SISTEMA          TO A03-R00-SISTEMA.            031300\n     MOVE B03-SIS-MODSIS           TO A03-R00-MODSIS.             031400\n     MOVE B03-SIS-RESCSI           TO A03-R00-RESCSI.             031500\n     MOVE B03-SIS-TIPBD            TO A03-R00-TIPBD.              031600\n     MOVE B03-SIS-NUMCICDIA        TO A03-R00-NUMCICDIA.          031700\n     MOVE B03-SIS-NUMCICMES        TO A03-R00-NUMCICMES.          031800\n     MOVE B03-SIS-NOMBDSAL         TO A03-R00-NOMBDSAL.           031900\n     MOVE B03-SIS-STABDSAL         TO A03-R00-STABDSAL.           032000\n     MOVE B03-SIS-NOMBDMOVHI       TO A03-R00-NOMBDMOVHI.         032100\n     MOVE B03-SIS-SECOKHI          TO A03-R00-SECOKHI.            032200\n     MOVE B03-SIS-SECINFHI         TO A03-R00-SECINFHI.           032300\n     MOVE B03-SIS-SECERRHI         TO A03-R00-SECINFHI.           032400\n     MOVE B03-SIS-STABDMOVHI       TO A03-R00-STABDMOVHI.         032500\n     PERFORM 04-00111-BASES-CICLO                                 032700\n             VARYING W77-IND FROM 1 BY 1                          032800\n             UNTIL   W77-IND > 5    OR                            032900\n                     W77-IND > B03-SIS-NUMCICMES.                 033000\n     WRITE A03-R00-SISMEN.                                        033200\n     PERFORM 04-00112-LIMPIA-VAR-BASES                            033355\n             VARYING W77-IND2  FROM 1 BY 1                        033360\n             UNTIL   W77-IND2 > 5    OR                           033365\n                     W77-IND2 > B03-SIS-NUMCICMES.                033370\n 04-00111-BASES-CICLO.                                            034200\n     MOVE B03-SIS-NOMBDMOV(W77-IND) TO A03-R00-NOMBDMOV(W77-IND). 034400\n     MOVE B03-SIS-NUMBDMOV(W77-IND) TO A03-R00-NUMBDMOV(W77-IND). 034500\n     MOVE B03-SIS-AAMM(W77-IND)     TO A03-R00-AAMM(W77-IND).     034600\n     MOVE B03-SIS-SECOK(W77-IND)    TO A03-R00-SECOK(W77-IND).    034700\n     MOVE B03-SIS-SECINF(W77-IND)   TO A03-R00-SECINF(W77-IND).   034800\n     MOVE B03-SIS-SECERR(W77-IND)   TO A03-R00-SECERR(W77-IND).   034900\n     MOVE B03-SIS-STABDMOV(W77-IND) TO A03-R00-STABDMOV(W77-IND). 035000",
+          "java_codigo": "/** 04-00110-VACIA-B03SISMEN + 04-00111-BASES-CICLO. */\n@Component\n@RequiredArgsConstructor\npublic class SistemaMensualProcessor implements ItemProcessor<SistemaMensualB03, SistemaMensualExport> {\n\n    private final P195Properties props;   // p195.b03.corregir-secerrhi: false\n\n    @Override\n    public SistemaMensualExport process(SistemaMensualB03 b) {\n        int n = Math.min(5, b.numCicMes());                      // UNTIL IND > 5 OR IND > NUMCICMES\n        List<CicloMensual> ciclos = b.ciclos().subList(0, n);   // los demás quedan en blanco\n\n        // Línea 1057: MOVE B03-SIS-SECERRHI TO A03-R00-SECINFHI. En el archivo actual el\n        // campo SECINFHI lleva el valor de SECERRHI y SECERRHI nunca se escribe.\n        long secInfHi = props.b03().corregirSecerrhi() ? b.secInfHi() : b.secErrHi();\n        long secErrHi = props.b03().corregirSecerrhi() ? b.secErrHi() : 0L;   // ver riesgo\n\n        return new SistemaMensualExport(b.sistema(), b.modSis(), b.resCsi(), b.tipBd(),\n                b.numCicDia(), b.numCicMes(), b.nomBdSal(), b.staBdSal(), b.nomBdMovHi(),\n                b.secOkHi(), secInfHi, secErrHi, b.staBdMovHi(), ciclos);\n    }\n}",
+          "racional": "A diferencia de los otros datasets, B03SISMEN no se copia como bloque: se mueve campo por campo y la tabla de ciclos se llena solo hasta el número de ciclos mensuales declarado, con tope de cinco; después se limpian esas posiciones para el siguiente sistema. La traducción hace lo mismo con una sublista, que deja las posiciones restantes vacías sin necesidad de un párrafo de limpieza. La asignación cruzada de la línea 1057 se reproduce por defecto para no cambiar el contenido del archivo que hoy reciben los consumidores, con una propiedad para corregirla.",
+          "reglas": [
+            "RN-S151-892",
+            "RN-S151-894"
+          ],
+          "riesgo": "A03-R00-SECERRHI nunca se asigna y el registro no se inicializa entre sistemas, por lo que ese campo conserva el contenido previo del buffer de salida. En Java se escribe 0 mientras no se autorice la corrección; hay que confirmar qué valor esperan los consumidores."
+        },
+        {
+          "id": "s8",
+          "titulo": "Errores DMSII: aborta al abrir, solo registra durante el recorrido",
+          "linea_ini": 919,
+          "linea_fin": 1196,
+          "origen_codigo": " 01-00100-ABRE-ENTRADA.                                           022000\n     OPEN INQUIRY S151BD99CONTROL                                 022200\n          ON EXCEPTION                                            022300\n             PERFORM 900000-CHE-STA                               022400\n             MOVE \"O\"                      TO TIPO-LJ             022500\n             MOVE 020103                   TO CODIGO-LJ           022600\n             MOVE \"TERMINACION ANORMAL DE PROCESO\" TO TEXTO-LJ    022700\n             CALL \"LJ IN LIB-DISP\"         USING CONTADOR-LJ      022800\n                                                 MENSAJE-LJ       022900\n             MOVE TIPO-LJ         TO      WLI-TIPO-LJ             022950\n             MOVE TEXTO-LJ        TO      WLI-TEXTO-LJ            022951\n             PERFORM 000-030-IMPRIME-MENSAJE                      022952\n             CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.             023000\n 900000-CHE-STA.                                                  068000\n     MOVE DMSTATUS(DMCATEGORY)            TO WKS-ERR-DMSII        069000\n     MOVE DMSTATUS(DMERRORTYPE)           TO WKS-ERR-BD           069100\n     MOVE DMSTATUS(DMSTRUCTURE)           TO WKS-ESTRUCT-BD       069200\n                                                                  069300\n     IF WKS-ERR-DMSII > ZEROS                                     070000\n        STRING  \"BASE DATOS  \" WKS-NOM-BDERR-DMSII                071000\n                \"ERROR EN BD \" WKS-LEY-ERR-DMSII(WKS-ERR-DMSII)   072000\n                           \" \" WKS-ERR-DMSII                      073000\n                \"TIPO        \" WKS-ERR-BD                         074000\n                \"ESTRUCTURA  \" WKS-ESTRUCT-BD                     075000\n        DELIMITED BY SIZE INTO TEXTO-LJ                           076000\n        CALL \"LJ IN LIB-DISP\" USING  CONTADOR-LJ, MENSAJE-LJ.     077000",
+          "java_codigo": "/** 01-00100-ABRE-ENTRADA: la falla al abrir sí termina la tarea (STATUS := -1). */\n@Component\nclass AperturaControlListener implements JobExecutionListener {\n    @Override\n    public void beforeJob(JobExecution je) {\n        if (!controlS151.disponible()) {\n            throw new IllegalStateException(\"TERMINACION ANORMAL DE PROCESO\");\n        }\n    }\n}\n\n/** 900000-CHE-STA: en el fuente solo escribe en LJ; aquí falla el step. */\n@Component\nclass ErrorDmsiiTranslator {\n    RuntimeException traduce(DataAccessException e, String dataset) {\n        return new VolcadoIncompletoException(\n                \"BASE DATOS S151BD99CONTROL ERROR EN BD \" + e.getMessage() + \" ESTRUCTURA \" + dataset, e);\n    }\n}\n// Resultado: un error de lectura a mitad del dataset deja el step en FAILED y el job\n// no marca el B05 como terminado, en lugar de entregar un archivo truncado.",
+          "racional": "El fuente trata distinto los dos tipos de error de base. Si no puede abrir S151BD99CONTROL, registra el mensaje y se pone a sí mismo en status -1, lo que termina la tarea. En cambio, un error en <code>FIND NEXT</code> distinto de <code>NOTFOUND</code> marca fin de datos y llama a <code>900000-CHE-STA</code>, que solo envía la descripción del error al log de operación. El archivo queda truncado y el programa termina como FIN NORMAL. En Java ambos casos fallan el job, para que el consumidor nunca reciba una exportación incompleta.",
+          "reglas": [
+            "RN-S151-889"
+          ],
+          "riesgo": "Un error de base durante el recorrido produce un archivo incompleto que P195 entrega como correcto y, en Alta Disponibilidad, marca el B05 como terminado. Un error en FIND FIRST distinto de NOTFOUND no pone W77-EOF en 1 y el bucle de volcado arranca con un buffer de dataset no válido."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Asignación cruzada en B03SISMEN",
+      "detalle": "La línea 1057 mueve B03-SIS-SECERRHI a A03-R00-SECINFHI, sobrescribiendo el valor de la línea anterior; A03-R00-SECERRHI nunca se llena. El archivo exportado trae la secuencia de error en el campo de información y un valor indeterminado en el de error."
+    },
+    {
+      "titulo": "Exportación truncada reportada como correcta",
+      "detalle": "900000-CHE-STA solo envía el error al log y el recorrido termina como si hubiera llegado al final. P195 cierra con FIN NORMAL DE PROCESO y, en Alta Disponibilidad, actualiza el B05 a estatus 1."
+    },
+    {
+      "titulo": "Dos fuentes de fecha",
+      "detalle": "Los archivos se rotulan con la fecha del primer registro de B01SISDIA y el control B05 usa la fecha de CONSISDIA del sistema 151; si CONSISDIA falla, WKS-FECHA-PROC no se asigna y el B05 se consulta con la fecha que haya en memoria."
+    },
+    {
+      "titulo": "Fallas de B05 no detienen el proceso",
+      "detalle": "08-01100-CREA-B05 y 08-01200-ACTUALIZA-B05 solo registran el error; el candado de idempotencia puede quedar inconsistente sin que el planificador se entere."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Familia de disco CMEMP en los seis títulos, sistema 151, número de proceso 195, título de respaldo (S151)S151/OBJECT/L001/CONTROL ON CMEMP y título de LIB-DISP. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con los consumidores del archivo B03SISMEN qué valor esperan hoy en SECINFHI y SECERRHI antes de activar la corrección de la línea 1057 (RN-S151-894).",
+    "Confirmar si la fecha de rotulado debe salir del registro de B01SISDIA del sistema 151 y no del primero del dataset.",
+    "El volcado de B05PROCESOS se hace antes de actualizar el B05 del propio paso, así que el archivo exportado muestra a P195 como no terminado; confirmar si es lo esperado.",
+    "Las rutinas del copybook Cronos 2000 (A2K-*) y el reporte V00-REPORTE2 no se transpilaron.",
+    "La equivalencia de S151BD99CONTROL como réplica relacional es una decisión de arquitectura destino; el fuente accede a DMSII en modo INQUIRY."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-889",
+    "RN-S151-890",
+    "RN-S151-891",
+    "RN-S151-892",
+    "RN-S151-893",
+    "RN-S151-894",
+    "RN-S500-743",
+    "RN-S500-744",
+    "RN-S500-745"
+  ]
+}

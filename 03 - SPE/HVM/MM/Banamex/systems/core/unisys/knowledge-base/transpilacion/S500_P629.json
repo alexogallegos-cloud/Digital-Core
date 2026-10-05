@@ -1,0 +1,168 @@
+{
+  "slug": "S500_P629",
+  "sistema": "S500",
+  "programa": "P629",
+  "nombre": "Inicialización de la Base BD06 TELETON y Preformateo de Logs",
+  "funcion": "Paso batch de S500 que, según el TASKVALUE, inicializa la base S500BD06TELETON para el día hábil siguiente y preformatea cuatro archivos de log de acceso directo, o apaga el indicador de Teletón en S500B02CONTROL.",
+  "resumen": "P629 identifica el equipo por HOSTNAME para distinguir pruebas (ACYPBETA) de producción y lee el TASKVALUE. Con 1 o 2 crea en S500BD06TELETON un registro global S500B00TGLOBAL con la fecha del siguiente día hábil, el CSI y un importe de supervisión fijo, y cuatro registros S500B01TCONTROL, uno por copia; después crea cuatro archivos S500/FILE/LOG/P045 de 540 bytes con 250,000 registros llenos de nueves y espacios (20,000 en pruebas). Con 3 solo pone en cero B02-ACT-TELETON en S500BD01CAPTACION, y con 0 no hace nada.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.teleton.inicializacion",
+  "secciones": [
+    {
+      "titulo": "Control del programa por equipo y TASKVALUE",
+      "origen": {
+        "archivo": "S500_SOURCE_P629_CARGABD06.txt",
+        "contexto": "PROCEDURE DIVISION · 0000-CONTROL-PROGRAM / 0000-CONT-PROCESO"
+      },
+      "java": {
+        "archivo": "InicializaTeletonJobConfig.java · AmbienteProperties.java",
+        "contexto": "Job · JobExecutionDecider · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Ambiente por HOSTNAME y opción por TASKVALUE a un decider",
+          "linea_ini": 209,
+          "linea_fin": 260,
+          "origen_codigo": " 0000-CONTROL-PROGRAM.\n*=====================\n     CHANGE ATTRIBUTE LIBACCESS        OF \"CTLVERS\" TO BYFUNCTION.\n     CHANGE ATTRIBUTE FUNCTIONNAME     OF \"CTLVERS\" TO \"CTLVERS\".\n     PERFORM 70000010-LINK-LIBLJ.\n     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO W77-MY-HOST.\n     IF W77-MY-HOST = \"ACYPBETA.\"\n*    OR W77-MY-HOST = \"VDMBETA. \"\n        MOVE 0                         TO WS-HOST-PROD\n     ELSE\n        MOVE 1                         TO WS-HOST-PROD.\n****** LLAMADO A VERSIONES PARA AUTOCHECAR LA VERSION ************\n     MOVE \"S500P629\"                 TO W77-S000-MY-ID.\n      MOVE \"25MTP004\"                 TO W77-S000-MY-VERSION.\n     IF WS-HOST-PROD = 0\n        MOVE ZERO TO W77-S000-STATUS\n     ELSE\n        CALL \"CHECAME IN CTLVERS\"\n             USING W77-S000-MY-ID\n                   W77-S000-MY-VERSION\n            GIVING W77-S000-STATUS.\n     IF W77-S000-STATUS < 0\n        MOVE \"ERROR EN VERSIONES S500P629\" TO TEXTO-LJ\n        PERFORM 70000050-MSG-LJ\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     MOVE ATTRIBUTE TASKVALUE OF MYSELF TO WKS-TASK-PARAMETRO.\n     IF W88-TASK-OK\n        NEXT SENTENCE\n     ELSE\n        STRING \"ERROR TASKVALUE RECIBIDO =\" WKS-TASK-PARAMETRO\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 70000050-MSG-LJ\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n     IF W88-TASK-TRES\n        PERFORM 99999-ACT-BD01.\n     IF W88-TASK-CERO OR W88-TASK-TRES\n           NEXT SENTENCE\n        ELSE\n           PERFORM 0000-CONT-PROCESO.\n      STOP RUN.",
+          "java_codigo": "# application.yml (el ambiente deja de deducirse del nombre del equipo)\nteleton:\n  productivo: true              # ACYPBETA = false\n  valida-version: true          # CHECAME IN CTLVERS solo en productivo\n  csi: 10                       # 04 en ACYPBETA\n  registros-log: 250000         # 20000 en ACYPBETA\n  importe-supervision: 10000\n\n// ---------------------------------------------------------------------------\n/** TASKVALUE: 0 = nada, 1 o 2 = inicializa BD06 y preformatea, 3 = apaga B02-ACT-TELETON. */\n@Component\npublic class OpcionTeletonDecider implements JobExecutionDecider {\n\n    @Override\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        long opcion = job.getJobParameters().getLong(\"opcion\");\n        return switch ((int) opcion) {\n            case 0    -> new FlowExecutionStatus(\"NADA\");\n            case 1, 2 -> new FlowExecutionStatus(\"INICIALIZA\");   // el fuente no distingue 1 de 2\n            case 3    -> new FlowExecutionStatus(\"APAGA_TELETON\");\n            default   -> throw new ParametroInvalidoException(\"ERROR TASKVALUE RECIBIDO =\" + opcion);\n        };\n    }\n}",
+          "racional": "El programa decide si está en producción comparando el nombre del equipo contra ACYPBETA, y con eso cambia la validación de versión, el CSI, el tamaño de los logs y la regla de fecha. En Java esas diferencias se vuelven propiedades por perfil de Spring, de modo que el comportamiento no dependa del nombre de una máquina. El TASKVALUE pasa a un parámetro del job evaluado por un <code>JobExecutionDecider</code>; se deja explícito que 1 y 2 hacen lo mismo.",
+          "reglas": [],
+          "riesgo": "Un equipo distinto de ACYPBETA, incluido VDMBETA, se trata como producción."
+        },
+        {
+          "id": "s2",
+          "titulo": "Secuencia de inicialización en una sola transacción y preformateo",
+          "linea_ini": 263,
+          "linea_fin": 288,
+          "origen_codigo": " 0000-CONT-PROCESO.\n     PERFORM 1000-FECHAS-TIT.\n     OPEN UPDATE S500BD06TELETON.\n     PERFORM 999-OL-BEGIN-TRANSACTION.\n     PERFORM 10000-ACTUALIZA-FECHAS.\n     PERFORM 12000-CREA-B01CONTROL\n             VARYING W77-NUM-COPIA FROM 1 BY 1\n               UNTIL W77-NUM-COPIA > 4.\n     PERFORM 999-OL-END-TRANSACTION-SYNC.\n     CLOSE S500BD06TELETON.\n     MOVE WS-FECHA-PROC                TO WKS-ETIL-FECHA.\n     MOVE 0                            TO W77-NCOPIA.\n     PERFORM 100-PARAM-GENARCH  VARYING W77-NCOPIA FROM 1 BY 1\n                                  UNTIL W77-NCOPIA > 4\n     STOP RUN.",
+          "java_codigo": "@Bean\nJob inicializaTeleton(JobRepository repo, OpcionTeletonDecider decider,\n                      Step inicializaBd06, Step preformateaLogs, Step apagaTeleton) {\n    return new JobBuilder(\"S500P629\", repo)\n            .start(decider)\n                .on(\"INICIALIZA\").to(inicializaBd06).next(preformateaLogs)\n            .from(decider)\n                .on(\"APAGA_TELETON\").to(apagaTeleton)\n            .from(decider)\n                .on(\"NADA\").end()\n            .end()\n            .build();\n}\n\n@Bean\nStep inicializaBd06(JobRepository repo, PlatformTransactionManager tx, InicializacionBd06 servicio) {\n    // OPEN UPDATE + BEGIN-TRANSACTION ... END-TRANSACTION SYNC: un solo commit\n    return new StepBuilder(\"inicializaBd06\", repo)\n            .tasklet((c, ctx) -> { servicio.inicializa(); return RepeatStatus.FINISHED; }, tx)\n            .build();\n}",
+          "racional": "Con la opción 1 o 2 el programa abre la base Teletón, crea el registro global y los cuatro controles dentro de una sola transacción con <code>SYNC</code>, cierra la base y luego genera los cuatro archivos de log. En Spring Batch son dos steps: el primero en una transacción y el segundo fuera de ella, igual que en el original, donde los archivos se escriben después del <code>END-TRANSACTION</code>.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Inicialización de S500BD06TELETON",
+      "origen": {
+        "archivo": "S500_SOURCE_P629_CARGABD06.txt",
+        "contexto": "10000-ACTUALIZA-FECHAS · 1100-OBTIENE-FECHA-PROC · 12000-CREA-B01CONTROL · 99999-ACT-BD01"
+      },
+      "java": {
+        "archivo": "InicializacionBd06.java · FechaProcesoTeleton.java · ApagaTeletonTasklet.java",
+        "contexto": "@Service @Transactional · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Registro global con fecha de línea, CSI e importe de supervisión",
+          "linea_ini": 291,
+          "linea_fin": 319,
+          "origen_codigo": " 10000-ACTUALIZA-FECHAS.\n*=======================\n     PERFORM 9101-S500B00TGLOBALES-CREA.\n     PERFORM 1100-OBTIENE-FECHA-PROC.\n     MOVE WS-FECHA-PROC        TO B00T-FEC-LINEA.\n      IF W77-MY-HOST = \"ACYPBETA.\"\n         MOVE 04       TO B00T-NUM-CSI\n      ELSE\n         MOVE 10       TO B00T-NUM-CSI.\n     MOVE 10000                        TO B00T-IMP-SUPERV.\n     MOVE ZEROS                        TO B00T-IMP-AUTORI\n                                          B00T-NUM-AUTORIZ\n                                          B00T-DIALOGO-B24\n                                          B00T-PASO-ENTRA\n                                          B00T-PASO-SALE\n                                          B00T-NUM-COPIAS(1)\n                                          B00T-NUM-COPIAS(2)\n                                          B00T-NUM-COPIAS(3)\n                                          B00T-NUM-COPIAS(4)\n                                          B00T-NUM-COPIAS(5).\n     PERFORM 9300-S500B00TGLOBALES-STORE.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class InicializacionBd06 {\n\n    private final GlobalTeletonRepository globales;    // S500B00TGLOBAL\n    private final ControlTeletonRepository controles;  // S500B01TCONTROL\n    private final FechaProcesoTeleton fechas;\n    private final TeletonProperties props;\n\n    @Transactional\n    public void inicializa() {\n        if (globales.existsByFechaLinea(fechas.siguienteHabil())) {\n            // El COBOL no lo verifica y duplicaría; aquí se hace idempotente.\n            throw new YaInicializadoException(fechas.siguienteHabil());\n        }\n        var g = new GlobalTeleton();\n        g.setFechaLinea(fechas.siguienteHabil());              // B00T-FEC-LINEA\n        g.setNumCsi(props.csi());                              // 04 o 10\n        g.setImporteSupervision(BigDecimal.valueOf(props.importeSupervision()));  // 10000\n        g.setImporteAutorizado(BigDecimal.ZERO);               // B00T-IMP-AUTORI y demás en cero\n        g.setNumCopias(new int[5]);                            // B00T-NUM-COPIAS(1..5)\n        globales.save(g);\n        IntStream.rangeClosed(1, 4)                            // 12000-CREA-B01CONTROL VARYING 1..4\n                 .mapToObj(ControlTeleton::nuevaCopia)\n                 .forEach(controles::save);\n    }\n}",
+          "racional": "El registro global de la base Teletón se crea con la fecha de línea del día hábil siguiente, el CSI del equipo, un importe de supervisión fijo y los contadores en cero. En Java es un servicio <code>@Transactional</code> sobre JPA que además agrega la verificación de existencia que el fuente tenía y quedó comentada, para que relanzar el paso no duplique registros. El CSI y el importe salen de <code>application.yml</code>. El PIC de B00T-IMP-SUPERV no viene en el fuente (está en el DASDL de BD06), por eso se usa <code>BigDecimal</code> sin fijar escala.",
+          "reglas": [],
+          "riesgo": "El CREATE de S500B00TGLOBAL no busca un registro previo: cada ejecución agrega uno nuevo."
+        },
+        {
+          "id": "s4",
+          "titulo": "Fecha de proceso: día de máquina y siguiente día hábil",
+          "linea_ini": 372,
+          "linea_fin": 548,
+          "origen_codigo": " 1100-OBTIENE-FECHA-PROC.\n*========================\n     ACCEPT WS-FECHA-HOY           FROM DATE.\n     ACCEPT WS-HORA                FROM TIME.\n     MOVE WS-FH-AAAA                 TO WS-FP-AAAA.\n     MOVE WS-FH-MM                   TO WS-FP-MM.\n     MOVE WS-FH-DD                   TO WS-FP-DD.\n     PERFORM 9999-VERIFICA-HABIL.\n     IF WS-HOST-PROD = 0\n        IF WS-LIBFEC-ESTATUS = 0\n           PERFORM 9999-SIGUIENTE-HABIL\n        ELSE\n           NEXT SENTENCE\n     ELSE\n        PERFORM 9999-SIGUIENTE-HABIL.\n     MOVE WS-FECHA-PROC TO B00T-FEC-LINEA.\n 9999-VERIFICA-HABIL.\n     MOVE 01            TO WS-LIBFEC-CVE-FEST\n     MOVE 65            TO WS-LIBFEC-CVE-SEMANA\n     MOVE WS-FECHA-PROC TO WS-LIBFEC-FEC-ENTRADA\n     MOVE ZEROS         TO WS-LIBFEC-ESTATUS\n     CALL \"CHECA_HABIL2K      IN FECHAS\"\n                        USING   WS-LIBFEC-FEC-ENTRADA,\n                                WS-LIBFEC-CVE-SEMANA,\n                                WS-LIBFEC-CVE-FEST,\n                        GIVING  WS-LIBFEC-ESTATUS .\n******************************************************************\n 9999-SIGUIENTE-HABIL.\n*=====================\n     MOVE WS-FECHA-PROC TO WS-LIBFEC-FEC-ENTRADA\n     MOVE 0             TO WS-LIBFEC-FEC-SALIDA\n     MOVE 01            TO WS-LIBFEC-CVE-FEST\n     MOVE 65            TO WS-LIBFEC-CVE-SEMANA\n     CALL \"DAME_SIGHAB2K IN FECHAS\"\n         USING\n          WS-LIBFEC-FEC-ENTRADA,\n          WS-LIBFEC-FEC-SALIDA ,\n          WS-LIBFEC-CVE-SEMANA ,\n          WS-LIBFEC-CVE-FEST\n     MOVE WS-LIBFEC-FEC-SALIDA  TO WS-FECHA-PROC.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechaProcesoTeleton {\n\n    private final CalendarioBancario calendario;   // S000LIBFEC: CHECA_HABIL2K / DAME_SIGHAB2K\n    private final TeletonProperties props;\n    private final Clock reloj;                     // ACCEPT ... FROM DATE, inyectable para pruebas\n\n    /** Clave de semana 65 y clave de festivos 01, tal como las pasa el COBOL a la librería. */\n    public LocalDate siguienteHabil() {\n        LocalDate hoy = LocalDate.now(reloj);      // NUMERIC-DATE MM/DD/AAAA, ya con siglo\n        if (props.productivo()) {\n            return calendario.siguienteHabil(hoy, 65, 1);\n        }\n        // Pruebas: solo avanza si hoy es hábil; un día inhábil se queda como está.\n        return calendario.esHabil(hoy, 65, 1) ? calendario.siguienteHabil(hoy, 65, 1) : hoy;\n    }\n}",
+          "racional": "La fecha se toma del reloj del sistema, que ya trae el año de cuatro dígitos, así que no hay pivote de siglo. En producción siempre se avanza al siguiente día hábil con la librería de fechas S000LIBFEC; en el equipo de pruebas solo se avanza si hoy es hábil. Las claves 65 y 01 que recibe la librería se conservan como argumentos del calendario. El reloj se inyecta como <code>Clock</code> para poder probar fines de semana y festivos.",
+          "reglas": [],
+          "riesgo": "La interpretación de WS-LIBFEC-ESTATUS = 0 como día hábil es una inferencia por el flujo; no está documentada en el fuente."
+        },
+        {
+          "id": "s5",
+          "titulo": "Cuatro controles por copia sin verificar existencia",
+          "linea_ini": 393,
+          "linea_fin": 404,
+          "origen_codigo": " 12000-CREA-B01CONTROL.\n*=======================\n**   PERFORM 9410-S500B01TCONTROL-FIND.\n**   IF W88-DB-NOTERROR\n**      MOVE \"YA FUE CREADO REG-CONTROL \" TO TEXTO-LJ\n**      PERFORM 70000050-MSG-LJ\n**      CALL SYSTEM DMTERMINATE.\n     PERFORM 9400-S500B01TCONTROL-CREATE.\n     MOVE W77-NUM-COPIA       TO B01T-NUM-COPIA.\n     PERFORM 9400-S500B01TCONTROL-STORE.",
+          "java_codigo": "@Entity\n@Table(name = \"s500b01t_control\")\npublic class ControlTeleton {\n\n    @Id @GeneratedValue\n    private Long id;\n\n    @Column(name = \"num_copia\", nullable = false)\n    private int numCopia;                                  // B01T-NUM-COPIA, 1..4\n\n    static ControlTeleton nuevaCopia(int copia) {\n        var c = new ControlTeleton();\n        c.numCopia = copia;\n        return c;\n    }\n}\n\n// Restricción que el COBOL no tiene y que reemplaza al FIND comentado:\n// ALTER TABLE s500b01t_control ADD CONSTRAINT uk_control_copia UNIQUE (fecha_linea, num_copia);",
+          "racional": "Por cada una de las cuatro copias se crea un registro de control con solo el número de copia. La búsqueda previa que abortaba si el control ya existía está comentada en el fuente. En el modelo relacional se sustituye por una restricción única por fecha y copia, que es más robusta que una verificación en código y protege también contra ejecuciones concurrentes.",
+          "reglas": [],
+          "riesgo": "Sin el FIND de las líneas 396-400, una reejecución deja ocho controles en lugar de cuatro."
+        },
+        {
+          "id": "s6",
+          "titulo": "Opción 3: apagar el indicador de Teletón en S500B02CONTROL",
+          "linea_ini": 574,
+          "linea_fin": 585,
+          "origen_codigo": " 99999-ACT-BD01.\n     PERFORM 999200-ABRE-BD01.\n     PERFORM 999201-LOCK-B02CONTROL.\n     MOVE 0 TO B02-ACT-TELETON.\n     PERFORM 999201-BEGIN-TRANS-NOAUD-BD01.\n     PERFORM 999201-STORE-B02CONTROL.\n     PERFORM 999201-END-TRANSAC-NOAUD-BD01.\n     PERFORM 999201-CLOSE-BD01CAP.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ApagaTeletonTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500BD01CAPTACION.S500B02CONTROL\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var b02 = control.findForUpdate()                // LOCK FIRST S500B02CONTROL\n                .orElseThrow(() -> new ProcesoAbortadoException(\"** ERROR LOCK S500B02CTRL **\"));\n        b02.setActTeleton(0);                            // MOVE 0 TO B02-ACT-TELETON\n        return RepeatStatus.FINISHED;                    // STORE + END-TRANSACTION al commit\n    }\n}",
+          "racional": "Con TASKVALUE 3 el programa bloquea el registro de control de captación, pone en cero el indicador de Teletón y lo guarda en una transacción sin auditoría. En Java es un <code>Tasklet</code> transaccional con lectura <code>FOR UPDATE</code>; cualquier excepción revierte, que es el equivalente al <code>DMTERMINATE</code> de cada paso del original.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Preformateo de los logs de acceso directo de P045",
+      "origen": {
+        "archivo": "S500_SOURCE_P629_CARGABD06.txt",
+        "contexto": "FILE-CONTROL · WKS-ETIQ-ARCHLOG · 100-PARAM-GENARCH"
+      },
+      "java": {
+        "archivo": "PreformateaLogsTasklet.java",
+        "contexto": "Tasklet · FileChannel"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Archivo relativo de 540 bytes con etiqueta por fecha y copia",
+          "linea_ini": 17,
+          "linea_fin": 107,
+          "origen_codigo": "     SELECT I01-LOG\n            ASSIGN                     TO DISK\n            ORGANIZATION               IS SEQUENTIAL\n            ACCESS MODE                IS RANDOM\n            ACTUAL KEY                 IS W77-LLAVE-LOG.\n******************************************************************\n DATA DIVISION.\n FILE SECTION.\n FD I01-LOG\n    BLOCK  CONTAINS 100 RECORDS\n    RECORD CONTAINS 540 CHARACTERS\n    VALUE OF\n           AREASIZE                    IS 4500\n           AREAS                       IS 1000\n           TITLE  WKS-ETIQ-ARCHLOG.\n   01 I01-R-00-REGISTRO.\n      02 I01-R-00-NUEVES              PIC 9(10).\n      02 I01-R-00-ESPACIOS            PIC X(530).\n 01 WKS-ETIQ-ARCHLOG.\n    02 FILLER                    PIC X(19) VALUE\n                                 \"S500/FILE/LOG/P045/\".\n    02 WKS-ETIL-FECHA            PIC 9(08).\n    02 FILLER                    PIC X(01) VALUE \"/\".\n    02 WKS-ETIL-NCOPIA           PIC 9(02).\n    02 FILLER                    PIC X(04) VALUE \" ON \".\n    02 WKS-ETIL-PACK             PIC X(10) VALUE \"LOGS      \".\n    02 FILLER                    PIC X(02) VALUE \" .\".",
+          "java_codigo": "# application.yml\nteleton:\n  log:\n    ruta: \"S500/FILE/LOG/P045/{fecha}/{copia}\"   # {fecha} AAAAMMDD, {copia} 2 dígitos\n    pack: LOGS\n    longitud-registro: 540\n    copias: 4\n\n// ---------------------------------------------------------------------------\n/** I01-R-00-REGISTRO: 10 nueves y 530 espacios; la posición es W77-LLAVE-LOG (ACTUAL KEY). */\nstatic final byte[] REGISTRO_VACIO = (\"9\".repeat(10) + \" \".repeat(530))\n        .getBytes(StandardCharsets.US_ASCII);",
+          "racional": "El log se declara como archivo secuencial con acceso aleatorio por <code>ACTUAL KEY</code>, es decir, un archivo relativo cuyo registro se ubica por número. Su título fija el sistema, el programa consumidor P045, la fecha y la copia, y se traslada a <code>application.yml</code>. El registro vacío es una constante de diez nueves y 530 espacios.",
+          "reglas": []
+        },
+        {
+          "id": "s8",
+          "titulo": "Cuatro copias de 250,000 registros escritos por llave",
+          "linea_ini": 322,
+          "linea_fin": 350,
+          "origen_codigo": " 100-PARAM-GENARCH.\n*==================\n     MOVE W77-NCOPIA                   TO WKS-ETIL-NCOPIA.\n     OPEN OUTPUT I01-LOG.\n     MOVE 9999999999                   TO I01-R-00-NUEVES.\n     MOVE SPACES                       TO I01-R-00-ESPACIOS.\n     IF WS-HOST-PROD = 0\n        PERFORM 100-GENERA-ARCHIVO\n                VARYING W77-LLAVE-LOG FROM 1 BY 1\n                  UNTIL W77-LLAVE-LOG > 20000\n     ELSE\n        PERFORM 100-GENERA-ARCHIVO\n                VARYING W77-LLAVE-LOG FROM 1 BY 1\n                  UNTIL W77-LLAVE-LOG > 250000.\n     CLOSE I01-LOG WITH SAVE.\n******************************************************************\n 100-GENERA-ARCHIVO.\n*===================\n      WRITE I01-R-00-REGISTRO INVALID KEY\n          STRING \"ERROR WRITE REGISTRO LOG REG=\" W77-LLAVE-LOG\n                 DELIMITED BY SIZE INTO TEXTO-LJ\n          PERFORM 70000050-MSG-LJ\n          CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class PreformateaLogsTasklet implements Tasklet {\n\n    private final TeletonProperties props;          // registros-log: 250000 o 20000\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws IOException {\n        LocalDate fecha = (LocalDate) ctx.getStepContext().getJobExecutionContext().get(\"fechaProceso\");\n        for (int copia = 1; copia <= props.log().copias(); copia++) {          // W77-NCOPIA 1..4\n            Path p = props.log().ruta(fecha, copia);\n            try (FileChannel ch = FileChannel.open(p, CREATE, TRUNCATE_EXISTING, WRITE)) {  // OPEN OUTPUT\n                ByteBuffer buf = ByteBuffer.wrap(REGISTRO_VACIO);\n                for (long llave = 1; llave <= props.registrosLog(); llave++) {  // W77-LLAVE-LOG\n                    buf.rewind();\n                    ch.write(buf, (llave - 1) * REGISTRO_VACIO.length);         // WRITE ... INVALID KEY\n                }\n            }                                                                   // CLOSE WITH SAVE\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Cada copia del log se abre como salida y se llena escribiendo el registro vacío en cada posición, de la 1 a la 250,000, para que P045 pueda después actualizar por llave sin extender el archivo. En Java el mismo efecto se logra con escrituras posicionales sobre un <code>FileChannel</code>; si el consumidor deja de ser P045 en el mainframe, este step desaparece, porque una tabla o un log estructurado no requieren preformateo. Un error de escritura en el COBOL termina la tarea, y aquí la <code>IOException</code> falla el step.",
+          "reglas": [],
+          "riesgo": "El tope de 250,000 registros por copia limita implícitamente cuántas operaciones puede registrar P045 en el día."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Reejecución crea registros de control duplicados",
+      "detalle": "La búsqueda que impedía crear de nuevo S500B01TCONTROL está comentada (líneas 396-400) y 10000-ACTUALIZA-FECHAS hace CREATE de S500B00TGLOBAL sin buscarlo antes. Si el paso se relanza con TASKVALUE 1 o 2, la base queda con un segundo registro global y cuatro controles más."
+    },
+    {
+      "titulo": "Ambiente decidido por nombre de equipo",
+      "detalle": "Solo ACYPBETA se trata como no productivo (línea 218; VDMBETA está comentado). En ese equipo se omite la validación de versión con CTLVERS, se asigna CSI 04 en lugar de 10, se preformatean 20,000 registros en vez de 250,000 y cambia la regla de la fecha de proceso. Cualquier equipo nuevo se considera producción."
+    },
+    {
+      "titulo": "Importe de supervisión compilado",
+      "detalle": "B00T-IMP-SUPERV se fija en 10000 (línea 305) sin parámetro ni catálogo. Es un umbral operativo de la base Teletón y debe moverse a configuración con control de cambios."
+    },
+    {
+      "titulo": "TASKVALUE 1 y 2 hacen lo mismo",
+      "detalle": "El nivel 88 distingue 0, 1, 2 y 3, pero el programa solo pregunta por 0 y 3 (líneas 252-258): 1 y 2 ejecutan el mismo proceso completo."
+    },
+    {
+      "titulo": "Archivos de otro programa",
+      "detalle": "Los archivos preformateados se titulan S500/FILE/LOG/P045/{fecha}/{copia}: P629 prepara el log de acceso directo que usa P045, y el tamaño de 250,000 registros es un tope implícito para ese programa."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el significado de WS-LIBFEC-ESTATUS que regresa CHECA_HABIL2K: en pruebas, con estatus 0 se toma el siguiente hábil y con otro valor se conserva la fecha del día (líneas 382-388); en producción siempre se toma el siguiente hábil.",
+    "Confirmar qué consume S500B00TGLOBAL.B00T-IMP-SUPERV y si el valor 10000 está expresado en pesos o en otra unidad.",
+    "El inventario no asigna reglas del brain a P629; se recomienda registrar al menos la regla de inicialización por día hábil siguiente y la de preformateo de logs de P045.",
+    "Confirmar si P045 sigue requiriendo el preformateo con nueves o si es un remanente de la migración desde S501 (comentario de la línea 8)."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01"
+}

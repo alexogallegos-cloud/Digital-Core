@@ -1,0 +1,151 @@
+{
+  "slug": "S500_P184",
+  "sistema": "S500",
+  "programa": "P184",
+  "nombre": "Inventario de Cuentas Productivas Especiales (INVENTACPE)",
+  "funcion": "Programa batch de reporte de S500 (25MTP004), con encabezado de proceso mensual, que emite en el CSI 10 el listado INVENTACPE de grupos corporativos CPE y sus cuentas a partir de la base S500BD01CAPTACION.",
+  "resumen": "Abre la base de captación en modo consulta, obtiene del registro de control B02 la fecha de proceso y el CSI, y solo continúa si el CSI es 10. Recorre los grupos corporativos de S500B37GRUPOCPE y, por cada uno, imprime con Report Writer una ficha con datos del corporativo y del contrato de pago, seguida de las cuentas de S500B39CTASCPE del mismo grupo con estatus 0 o 1. Al final imprime el total de grupos y de cuentas listados.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · JasperReports",
+  "paquete_java": "mx.banamex.s500.cpe.inventario",
+  "secciones": [
+    {
+      "titulo": "Formato del listado — título, Report Writer y totales",
+      "origen": {
+        "archivo": "S500_SOURCE_P184.txt",
+        "contexto": "WORKING-STORAGE · REPORT SECTION (RD INVENTACPE)"
+      },
+      "java": {
+        "archivo": "P184Properties.java · p184-inventario-cpe.jrxml · LineaInventarioCpe.java",
+        "contexto": "@ConfigurationProperties · JasperReports · sealed interface"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Título del listado armado con nodo fijo, fecha y número de mezcla",
+          "linea_ini": 56,
+          "linea_fin": 337,
+          "origen_codigo": " 01 WS-ETI-REP.\n    02 FILLER                     PIC  X(10) VALUE \"S500/LIST/\".\n    02 FILLER                     PIC  X(05) VALUE \"P184/\".\n    02 IMPREP-NODO                PIC  99    VALUE 10.\n    02 IMPREP-SUBNODO             PIC  99    VALUE 0.\n    02 FILLER                     PIC  X     VALUE \"/\".\n    02 IMPREP-TR                  PIC  X.\n    02 FILLER                     PIC  X(04) VALUE \"000/\".\n    02 IMPREP-FECHA               PIC  9(06).\n    02 FILLER                     PIC  X     VALUE \"/\".\n    02 IMPREP-MIX                 PIC  9(07).\n    02 IMPREP-LEY                 PIC  X(15).\n    02 FILLER                     PIC  X     VALUE \".\".\n 100-60-INICIALIZA-VARIAB.\n*-------------------------\n     MOVE WKS-FECHA-PROC                 TO IMPREP-FECHA\n     MOVE ATTRIBUTE MIXNUMBER OF MYSELF  TO IMPREP-MIX\n     MOVE \"R\"                            TO IMPREP-TR\n     MOVE \"/001INVENTACPE \"              TO IMPREP-LEY\n     SET IMPRESORA(USERBACKUPNAME)       TO VALUE TRUE\n     CHANGE ATTRIBUTE TITLE OF IMPRESORA TO WS-ETI-REP.",
+          "java_codigo": "# application.yml\np184:\n  listado:\n    # S500/LIST/P184/{nodo}{subnodo}/{tr}000/{aammdd}/{instancia}/001INVENTACPE .\n    titulo: \"S500/LIST/P184/1000/R000/{fecha:yyMMdd}/{instancia}/001INVENTACPE\"\n    csi-emisor: 10                    # solo el CSI 10 genera el reporte\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p184\")\npublic record P184Properties(Listado listado) {\n    public record Listado(String titulo, int csiEmisor) {}\n\n    /** IMPREP-FECHA es 9(06): MOVE desde 9(8) deja AAMMDD. IMPREP-MIX pasa a id de ejecución. */\n    public String titulo(LocalDate fechaProceso, long jobExecutionId) {\n        return listado.titulo()\n                .replace(\"{fecha:yyMMdd}\", fechaProceso.format(DateTimeFormatter.ofPattern(\"yyMMdd\")))\n                .replace(\"{instancia}\", \"%07d\".formatted(jobExecutionId));\n    }\n}",
+          "racional": "El nombre del archivo de impresión se compone en <code>WS-ETI-REP</code> con un nodo 10 y subnodo 0 fijos, el tipo <code>R</code>, la fecha de proceso y el número de mezcla de la tarea (<code>MIXNUMBER</code>). La fecha es un campo de 6 dígitos que recibe una de 8, de modo que el título lleva AAMMDD. En Java la plantilla pasa a <code>application.yml</code> y el número de mezcla se sustituye por el identificador de ejecución del job, que cumple la misma función de distinguir corridas.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Encabezado de página del Report Writer con literales institucionales",
+          "linea_ini": 134,
+          "linea_fin": 172,
+          "origen_codigo": " RD  INVENTACPE CONTROLS  ARE  FINAL\n     PAGE LIMIT      58\n     HEADING          1\n     FIRST DETAIL    11\n     LAST DETAIL     56\n     FOOTING         58.\n 01  WLI-ENCAB TYPE PH.\n     05  LINE NUMBER 1.\n         10  COLUMN 001 PIC X(33) VALUE\n            \"S500/P184/25MTP004/001INVENTACPE \".\n         10  COLUMN 058 PIC X(14) VALUE \"INVENTARIO CPE\".\n         10  COLUMN 108 PIC X(13) VALUE \"FECHA SALDOS:\".\n         10  COLUMN 122 PIC X(11) SOURCE WKS-FECPROC-EDIT.\n     05  LINE NUMBER 2.\n         10  COLUMN 001 PIC X(14) VALUE \"FECHA PROCESO:\".\n         10  COLUMN 016 PIC X(11) SOURCE WKS-FECMAQ-EDIT.\n         10  COLUMN 052 PIC X(26) VALUE\n            \"CUENTA PRODUCTIVA ESPECIAL\".\n         10  COLUMN 112 PIC X(21) VALUE \"TIPO PROCESO: MENSUAL\".\n     05  LINE NUMBER 4.\n         10  COLUMN 001 PIC X(04) VALUE \"3084\".\n         10  COLUMN 057 PIC X(15) VALUE \"MONEDA NACIONAL\".\n     05  LINE NUMBER 5.\n         10  COLUMN 001 PIC X(13) VALUE \"PYCP JARDINES\".\n         10  COLUMN 058 PIC X(13) VALUE \"C.S.I. MEXICO\".",
+          "java_codigo": "<!-- p184-inventario-cpe.jrxml : RD INVENTACPE  PAGE LIMIT 58, FIRST DETAIL 11, LAST DETAIL 56 -->\n<jasperReport name=\"INVENTACPE\" pageWidth=\"1000\" columnCount=\"1\" whenNoDataType=\"AllSectionsNoDetail\">\n  <parameter name=\"fechaSaldos\"   class=\"java.time.LocalDate\"/>   <!-- WKS-FECPROC-EDIT -->\n  <parameter name=\"fechaProceso\"  class=\"java.time.LocalDate\"/>   <!-- WKS-FECMAQ-EDIT -->\n  <parameter name=\"horaProceso\"   class=\"java.time.LocalTime\"/>\n  <parameter name=\"idListado\"     class=\"java.lang.String\"/>      <!-- S500/P184/25MTP004/001INVENTACPE -->\n  <parameter name=\"claveEntidad\"  class=\"java.lang.String\"/>      <!-- \"3084\" -->\n  <parameter name=\"nombreEntidad\" class=\"java.lang.String\"/>      <!-- \"PYCP JARDINES\" -->\n  <parameter name=\"nombreCsi\"     class=\"java.lang.String\"/>      <!-- \"C.S.I. MEXICO\" -->\n  <parameter name=\"periodicidad\"  class=\"java.lang.String\"/>      <!-- \"MENSUAL\" -->\n  <pageHeader>\n    <band height=\"108\">\n      <textField><reportElement x=\"0\"   y=\"0\"  width=\"33\" height=\"12\"/><textFieldExpression>$P{idListado}</textFieldExpression></textField>\n      <staticText><reportElement x=\"57\" y=\"0\" width=\"14\" height=\"12\"/><text>INVENTARIO CPE</text></staticText>\n      <textField><reportElement x=\"107\" y=\"0\" width=\"25\" height=\"12\"/>\n        <textFieldExpression>\"FECHA SALDOS: \" + $P{fechaSaldos}.format(java.time.format.DateTimeFormatter.ofPattern(\"dd/MMM/yyyy\", new java.util.Locale(\"es\",\"MX\"))).toUpperCase()</textFieldExpression></textField>\n      <textField><reportElement x=\"111\" y=\"12\" width=\"21\" height=\"12\"/><textFieldExpression>\"TIPO PROCESO: \" + $P{periodicidad}</textFieldExpression></textField>\n      <textField><reportElement x=\"0\" y=\"36\" width=\"4\" height=\"12\"/><textFieldExpression>$P{claveEntidad}</textFieldExpression></textField>\n      <textField><reportElement x=\"0\" y=\"48\" width=\"13\" height=\"12\"/><textFieldExpression>$P{nombreEntidad}</textFieldExpression></textField>\n      <textField><reportElement x=\"57\" y=\"48\" width=\"13\" height=\"12\"/><textFieldExpression>$P{nombreCsi}</textFieldExpression></textField>\n    </band>\n  </pageHeader>\n</jasperReport>",
+          "racional": "El reporte usa Report Writer: el <code>RD</code> fija una página de 58 líneas con detalle entre la 11 y la 56, y el encabezado de página (<code>TYPE PH</code>) imprime el identificador del listado con su versión, el título, las fechas de saldos y de proceso, y varias literales: la clave 3084, la entidad PYCP JARDINES, el CSI México, moneda nacional y el tipo de proceso mensual. En JasperReports el <code>RD</code> se vuelve la plantilla y cada literal institucional un parámetro que se llena desde configuración. Las columnas del original se conservan como posiciones x de los elementos.",
+          "reglas": [],
+          "riesgo": "La clave 3084, la entidad PYCP JARDINES, el nombre del CSI y la versión 25MTP004 están en el encabezado compilado; un cambio de cualquiera exige recompilar el programa."
+        },
+        {
+          "id": "s3",
+          "titulo": "Líneas de detalle de grupo y de cuenta con datos personales",
+          "linea_ini": 189,
+          "linea_fin": 231,
+          "origen_codigo": " 01  WLI-DETGPO TYPE DE.\n     05  LINE PLUS 1.\n     05  LINE PLUS 1.\n         10  COLUMN 004 PIC 9(10)  SOURCE B37-GRUPO.\n         10  COLUMN 016 PIC X(40)  SOURCE B37-NOMBRE.\n         10  COLUMN 058 PIC X(40)  SOURCE B37-CIUDAD.\n         10  COLUMN 092 PIC 9(05)  SOURCE B37-COD-POSTAL.\n         10  COLUMN 099 PIC X(34)  SOURCE B37-REPRES.\n     05  LINE PLUS 1.\n         10  COLUMN 001 PIC 9(04)  SOURCE WKS-MDA-SUCU.\n         10  COLUMN 005 PIC X(01)  VALUE \"/\".\n         10  COLUMN 006 PIC 9(08)  SOURCE WKS-MDA-CUEN.\n         10  COLUMN 016 PIC X(40)  SOURCE B37-DOMICILIO.\n         10  COLUMN 059 PIC 9(02)  SOURCE B37-TPO-PERS.\n         10  COLUMN 065 PIC 9(02)  SOURCE B37-OPCION.\n         10  COLUMN 067 PIC X(01)  VALUE \"-\".\n         10  COLUMN 068 PIC 9(02)  SOURCE B37-RANGO.\n         10  COLUMN 074 PIC 9(02)  SOURCE B37-CSI-CTO-PAGO.\n***      10  COLUMN 078 PIC 9(02)  SOURCE B37-STATUS.\n         10  COLUMN 078 PIC X(02)  VALUE SPACES.\n         10  COLUMN 082 PIC 9(04)  SOURCE B37-SUC-CTO-PAGO.\n         10  COLUMN 086 PIC 9(04)  VALUE \"-\".\n         10  COLUMN 087 PIC 9(12)  SOURCE B37-CTO-PAGO.\n         10  COLUMN 102 PIC 9(06)  SOURCE B37-FECH-VIG.\n         10  COLUMN 112 PIC 9(06)  SOURCE B37-FECH-ULACT.\n 01  WLI-DETCTA TYPE DE.\n     05  LINE PLUS 1.\n         10  COLUMN 001 PIC 9(04)  SOURCE WKS-MDA-SUCU.\n         10  COLUMN 005 PIC X(01)  VALUE \"/\".\n         10  COLUMN 006 PIC 9(08)  SOURCE WKS-MDA-CUEN.\n         10  COLUMN 016 PIC X(40)  SOURCE B39-NOMBRE.\n         10  COLUMN 059 PIC 9(02)  SOURCE B39-TPO-PERS.\n         10  COLUMN 068 PIC 9(02)  SOURCE B39-RGO-PAGADO.\n         10  COLUMN 074 PIC 9(02)  SOURCE B39-NUM-CSI.\n         10  COLUMN 078 PIC Z(01)9 SOURCE B39-STATUS.\n         10  COLUMN 082 PIC 9(04)  SOURCE B39-SUCPROM.\n         10  COLUMN 086 PIC X(01)  VALUE \"-\".\n         10  COLUMN 087 PIC 9(12)  SOURCE B39-CONTRATO.\n         10  COLUMN 126 PIC Z(03)9  SOURCE B39-SUB-GPO.",
+          "java_codigo": "/** Fila de grupo (WLI-DETGPO) y fila de cuenta (WLI-DETCTA). */\npublic sealed interface LineaInventarioCpe permits LineaInventarioCpe.Grupo, LineaInventarioCpe.Cuenta {\n\n    record Grupo(long grupo, String nombre, String ciudad, String codigoPostal, String representante,\n                 String sucursalPago, String cuentaPago,       // B37-MDA-PAGO: 9(04) + 9(08)\n                 String domicilio, int tipoPersona, int opcion, int rango, int csiContratoPago,\n                 int sucursalContratoPago, String contratoPago,\n                 LocalDate fechaVigencia, LocalDate fechaUltimaAct) implements LineaInventarioCpe {}\n\n    record Cuenta(String sucursal, String cuenta,               // B39-NUM-MDA: 9(04) + 9(08)\n                  String nombre, int tipoPersona, int rangoPagado, int csi, int status,\n                  int sucursalPromotora, String contrato, int subgrupo) implements LineaInventarioCpe {}\n\n    /** WKS-MDA-PAG REDEFINES: los 12 dígitos se parten en sucursal (4) y cuenta (8). */\n    static String[] partirMda(long mda) {\n        String s = \"%012d\".formatted(mda);\n        return new String[] { s.substring(0, 4), s.substring(4) };\n    }\n}\n// En la plantilla: banda de detalle con dos subreportes o un frame por tipo,\n// y PII (nombre, domicilio, representante) con enmascaramiento según el destino del listado.",
+          "racional": "Cada grupo corporativo ocupa una ficha de dos renglones con nombre, ciudad, código postal, representante, cuenta de pago, domicilio y los datos del contrato de pago; cada cuenta del grupo, un renglón con sucursal y cuenta, nombre del titular, tipo de persona, rango, CSI, estatus, sucursal promotora, contrato y subgrupo. Las cuentas MDA de 12 dígitos se imprimen partidas en sucursal y cuenta mediante un <code>REDEFINES</code>. En Java las dos líneas son variantes de una <code>sealed interface</code> y la partición del MDA una función explícita que conserva los ceros. El estatus del grupo está desactivado en el fuente y se imprime en blanco.",
+          "reglas": [],
+          "riesgo": "La línea 211 declara COLUMN 086 PIC 9(04) VALUE \"-\", que ocupa las columnas 86 a 89 y se encima con el contrato de pago que inicia en la 87. La salida exacta depende de cómo resuelva el compilador el traslape."
+        },
+        {
+          "id": "s4",
+          "titulo": "Totales finales de grupos y cuentas",
+          "linea_ini": 233,
+          "linea_fin": 239,
+          "origen_codigo": " 01  WLI-TOTALES TYPE CF FINAL.\n     05  LINE PLUS 3.\n         10  COLUMN 001 PIC X(29)  VALUE\n            \"TOTAL DE REGISTROS DE: GRUPOS\".\n         10  COLUMN 032 PIC Z(05)  SOURCE WS-TOTGPO.\n         10  COLUMN 042 PIC X(07)  VALUE \"CUENTAS\".\n         10  COLUMN 051 PIC Z(05)  SOURCE WS-TOTCTA.",
+          "java_codigo": "<!-- WLI-TOTALES TYPE CF FINAL: se emite con TERMINATE INVENTACPE -->\n<variable name=\"totalGrupos\"  class=\"java.lang.Integer\" calculation=\"Count\">\n  <variableExpression>$F{tipo} == \"GRUPO\" ? 1 : null</variableExpression>\n</variable>\n<variable name=\"totalCuentas\" class=\"java.lang.Integer\" calculation=\"Count\">\n  <variableExpression>$F{tipo} == \"CUENTA\" ? 1 : null</variableExpression>\n</variable>\n<summary>\n  <band height=\"36\">\n    <staticText><reportElement x=\"0\" y=\"24\" width=\"29\" height=\"12\"/>\n      <text>TOTAL DE REGISTROS DE: GRUPOS</text></staticText>\n    <textField pattern=\"#####\"><reportElement x=\"31\" y=\"24\" width=\"5\" height=\"12\"/>\n      <textFieldExpression>$V{totalGrupos}</textFieldExpression></textField>\n    <staticText><reportElement x=\"41\" y=\"24\" width=\"7\" height=\"12\"/><text>CUENTAS</text></staticText>\n    <textField pattern=\"#####\"><reportElement x=\"50\" y=\"24\" width=\"5\" height=\"12\"/>\n      <textFieldExpression>$V{totalCuentas}</textFieldExpression></textField>\n  </band>\n</summary>",
+          "racional": "El pie de control <code>FINAL</code> imprime, tres renglones después del último detalle, el total de grupos y de cuentas listados. En JasperReports es la banda <code>summary</code> con dos variables de conteo que calcula el propio motor, en lugar de contadores que el programa incrementa a mano.",
+          "reglas": [],
+          "riesgo": "WS-TOTGPO y WS-TOTCTA (líneas 44-45) no tienen VALUE ni se inicializan en el procedimiento; el total arranca del valor que tenga la memoria al cargar el programa. Los campos son 9(06) y se editan con Z(05), así que un total de 100,000 o más pierde el dígito alto en la impresión."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y recorrido de grupos y cuentas CPE",
+      "origen": {
+        "archivo": "S500_SOURCE_P184.txt",
+        "contexto": "PROCEDURE DIVISION · 000 / 100 / 200"
+      },
+      "java": {
+        "archivo": "InventarioCpeJobConfig.java · FechaProcesoTasklet.java · InventarioCpeReader.java",
+        "contexto": "Job · JobExecutionDecider · ItemReader · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Rutina principal: el reporte solo se emite en el CSI 10",
+          "linea_ini": 244,
+          "linea_fin": 264,
+          "origen_codigo": " 000-CONTROLA.\n*-------------\n    PERFORM 100-INICIA\n    IF B02-NUM-CSI = 10\n       PERFORM 200-REPORTA-GRUPOS UNTIL FIN-B37-GRUPOS\n       PERFORM 300-TERMINA\n    ELSE\n       PERFORM 310-CIERRA-BASE.\n    STOP RUN.\n*\n 100-INICIA.\n*-----------\n     PERFORM 100-10-VALIDA-VERSION\n     PERFORM 10000006-LOCSUP\n     PERFORM 100-30-OBTEN-FECHORA-MAQ\n     PERFORM 100-40-ABRE-BASE\n     PERFORM 100-50-OBTEN-FECHA-PROC\n     IF B02-NUM-CSI = 10\n        PERFORM 100-60-INICIALIZA-VARIAB\n        PERFORM 100-70-ABRE-ARCHIVOS\n        PERFORM 90000037-B37SXGPO-FINDN.",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P184Properties.class)\npublic class InventarioCpeJobConfig {\n\n    /** 000-CONTROLA + 100-INICIA. */\n    @Bean\n    Job inventarioCpe(JobRepository repo, Step validaVersion, Step fechaProceso,\n                      Step generaInventario, CsiEmisorDecider csi) {\n        return new JobBuilder(\"S500P184\", repo)\n                .start(validaVersion)                      // 100-10-VALIDA-VERSION\n                .next(fechaProceso)                        // 100-30 / 100-50: fechas y CSI de B02\n                .next(csi).on(\"EMITE\").to(generaInventario)\n                .from(csi).on(\"*\").end()                   // otro CSI: cierra la base y termina sin listado\n                .end().build();\n    }\n}\n\n@Component\n@RequiredArgsConstructor\nclass CsiEmisorDecider implements JobExecutionDecider {\n    private final P184Properties props;\n    public FlowExecutionStatus decide(JobExecution job, StepExecution step) {\n        int csi = job.getExecutionContext().getInt(\"csi\");                 // B02-NUM-CSI\n        return csi == props.listado().csiEmisor()\n                ? new FlowExecutionStatus(\"EMITE\") : FlowExecutionStatus.COMPLETED;\n    }\n}",
+          "racional": "El programa valida su versión, toma fecha y hora de máquina, abre la base en modo consulta y obtiene la fecha de proceso y el CSI del registro de control B02. Solo si el CSI es 10 inicializa el título, abre la impresora, posiciona el primer grupo y recorre los grupos; en cualquier otro CSI cierra la base y termina sin generar nada. En Spring Batch la condición es un <code>JobExecutionDecider</code> con el CSI emisor en configuración, y la salida sin reporte queda como una terminación normal explícita.",
+          "reglas": [],
+          "riesgo": "En un CSI distinto de 10 el programa termina sin mensaje ni listado; desde fuera no se distingue de una corrida exitosa."
+        },
+        {
+          "id": "s6",
+          "titulo": "Fecha de proceso desde B02 con LOCSUP y meses en español",
+          "linea_ini": 70,
+          "linea_fin": 328,
+          "origen_codigo": " 01  WT-MESES.\n     05 FILLER                    PIC X(3) VALUE \"ENE\".\n     05 FILLER                    PIC X(3) VALUE \"DIC\".\n 01  WT-MESES-R  REDEFINES\n     WT-MESES.\n     05  WT-MES  OCCURS 12 TIMES  PIC X(3).\n 100-50-OBTEN-FECHA-PROC.\n*------------------------\n     PERFORM  90000002-B02CONTROL-FIND.\n     IF WS-STATUS-BASE > 0\n        STRING \"ERR FIND B00CTRLPASO \", WS-STATUS-BASE\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     MOVE 15               TO  WS-S006-FUNCION\n     MOVE B02-FECHA-LINEA  TO  WS-S006-FECHA1\n     MOVE 1                TO  WS-S006-FECHA2\n     MOVE 12               TO  WS-S006-FORMATO\n     PERFORM  20000006-LOCSUP.\n     IF WS-S006-FUNCION > 0\n        MOVE   \"ERROR FUNCION 15 LOCSUP\"\n                                    TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n*\n     MOVE WS-S006-FECHA1  TO WKS-FECHA-PROC\n     MOVE WKS-FEC-AA-PROC TO WKS-AAAA-FPRC-EDIT\n     MOVE WKS-FEC-DD-PROC TO WKS-DD-FPRC-EDIT\n     MOVE WT-MES(WKS-FEC-MM-PROC)\n                          TO WKS-MM-FPRC-EDIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class FechaProcesoTasklet implements Tasklet {\n\n    private static final DateTimeFormatter DD_MMM_AAAA =\n            DateTimeFormatter.ofPattern(\"dd/MMM/yyyy\", Locale.forLanguageTag(\"es-MX\"));   // WT-MESES ENE..DIC\n\n    private final ControlCaptacionRepository b02;   // S500B02CONTROL, OPEN INQUIRY\n    private final CalendarioBancario calendario;    // reemplaza LOCSUP\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlCaptacion control = b02.find()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERR FIND B00CTRLPASO\"));  // DMTERMINATE\n        // LOCSUP función 15, formato 12, desplazamiento 1 sobre B02-FECHA-LINEA\n        LocalDate fechaProceso = calendario.retrocede(control.fechaLinea(), 1)\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR FUNCION 15 LOCSUP\"));\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"fechaSaldos\", fechaProceso);\n        ec.put(\"fechaSaldosEdit\", fechaProceso.format(DD_MMM_AAAA).toUpperCase(Locale.ROOT).replace(\".\", \"\"));\n        ec.putInt(\"csi\", control.numCsi());                                             // B02-NUM-CSI\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de saldos del encabezado sale del registro de control B02: se toma la fecha de línea y se proyecta con LOCSUP función 15, formato 12 y desplazamiento 1. Cualquier error al leer B02 o al proyectar la fecha termina el programa con <code>DMTERMINATE</code>. La fecha se edita como día, mes abreviado en español tomado de la tabla <code>WT-MESES</code> y año. En Java la tabla de meses se reemplaza por un <code>DateTimeFormatter</code> con locale es-MX, y LOCSUP por un servicio de calendario bancario.",
+          "reglas": [],
+          "riesgo": "El texto del error dice B00CTRLPASO aunque la lectura es sobre S500B02CONTROL, lo que puede confundir el diagnóstico."
+        },
+        {
+          "id": "s7",
+          "titulo": "Recorrido jerárquico grupo a cuentas con filtro de estatus",
+          "linea_ini": 344,
+          "linea_fin": 372,
+          "origen_codigo": " 200-REPORTA-GRUPOS.\n*-------------------\n     MOVE  B37-MDA-PAGO  TO  WKS-MDA-PAG\n     GENERATE  WLI-DETGPO\n     ADD 1 TO WS-TOTGPO\n     MOVE B37-GRUPO      TO WS-GRUPO\n     PERFORM  200-10-15-FINDFG-B39-CTAS\n     PERFORM  200-10-20-REPORTA-CUENTAS UNTIL FIN-B39-CTAS\n     PERFORM  90000037-B37SXGPO-FINDN\n     IF WS-DB-NOTFOUND\n        MOVE 1 TO WB-FIN-B37-GRUPOS.\n*\n 200-10-15-FINDFG-B39-CTAS.\n*-------------------------\n     MOVE 0 TO WB-FIN-B39-CTAS\n     PERFORM  90000039-B39SXGPOSBGMDA-FINDFG\n     IF WS-DB-NOTFOUND\n        MOVE 1 TO WB-FIN-B39-CTAS.\n*\n 200-10-20-REPORTA-CUENTAS.\n*--------------------------\n     MOVE  B39-NUM-MDA  TO  WKS-MDA-PAG\n     IF B39-STATUS = 0 OR 1\n        GENERATE  WLI-DETCTA\n        ADD 1 TO WS-TOTCTA.\n     PERFORM  90000039-B39SXGPOSBGMDA-FINDN\n     IF WS-DB-NOTFOUND\n     OR B39-GRUPO NOT = WS-GRUPO\n        MOVE 1 TO WB-FIN-B39-CTAS.",
+          "java_codigo": "/** 200-REPORTA-GRUPOS: un grupo B37 seguido de sus cuentas B39 con estatus 0 o 1. */\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass InventarioCpeReader implements ItemReader<List<LineaInventarioCpe>> {\n\n    private static final Set<Integer> ESTATUS_LISTADOS = Set.of(0, 1);\n    private final GrupoCpeRepository b37;     // SET SXGPO, orden por grupo\n    private final CuentaCpeRepository b39;    // SET SXGPOSBGMDA, por grupo, subgrupo y MDA\n    private Iterator<GrupoCpe> grupos;\n\n    @Override\n    public List<LineaInventarioCpe> read() {\n        if (grupos == null) grupos = b37.findAllByOrderByGrupo().iterator();   // 90000037-B37SXGPO-FINDN\n        if (!grupos.hasNext()) return null;                                    // FIN-B37-GRUPOS\n        GrupoCpe g = grupos.next();\n        List<LineaInventarioCpe> lineas = new ArrayList<>();\n        lineas.add(Lineas.deGrupo(g));                                         // GENERATE WLI-DETGPO\n        b39.findByGrupoOrderBySubgrupoAscNumMdaAsc(g.grupo()).stream()        // FINDFG + FINDN mientras B39-GRUPO = WS-GRUPO\n           .filter(c -> ESTATUS_LISTADOS.contains(c.status()))\n           .map(Lineas::deCuenta)                                              // GENERATE WLI-DETCTA\n           .forEach(lineas::add);\n        return lineas;\n    }\n}\n// Writer: ClassifierCompositeItemWriter que separa Grupo y Cuenta hacia el JRBeanCollectionDataSource.",
+          "racional": "Por cada grupo corporativo se imprime su ficha, se posiciona la primera cuenta del grupo y se recorren sus cuentas hasta que se acaban o cambia el número de grupo; solo se imprimen las de estatus 0 o 1. Después se avanza al siguiente grupo. En Java el corte por grupo lo resuelve la consulta por llave de grupo y el filtro de estatus es un conjunto explícito. El reader entrega por grupo la lista de líneas y un <code>ClassifierCompositeItemWriter</code> las separa por tipo para la plantilla del reporte.",
+          "reglas": [],
+          "riesgo": "El primer grupo se posiciona en 100-INICIA sin revisar NOTFOUND y WB-FIN-B37-GRUPOS no tiene valor inicial: con el dataset B37 vacío, el ciclo imprimiría una ficha con el contenido que tenga el área del registro."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Datos personales en un listado impreso",
+      "detalle": "El reporte imprime nombre, domicilio y representante de los corporativos y nombre de los titulares de cuenta (líneas 194-202 y 223). La versión destino debe definir control de acceso y enmascaramiento del listado."
+    },
+    {
+      "titulo": "Contadores y banderas sin inicializar",
+      "detalle": "WS-TOTGPO, WS-TOTCTA y WB-FIN-B37-GRUPOS no tienen VALUE (líneas 39-45) ni se ponen en cero; los totales y el ciclo dependen del estado inicial de la memoria."
+    },
+    {
+      "titulo": "Grupo fantasma con B37 vacío",
+      "detalle": "100-INICIA posiciona el primer grupo (línea 264) sin revisar NOTFOUND; si no hay grupos, el ciclo imprime una ficha con el contenido residual del área del registro."
+    },
+    {
+      "titulo": "Traslape de columnas en la ficha del grupo",
+      "detalle": "COLUMN 086 PIC 9(04) VALUE \"-\" (línea 211) se encima con el contrato de pago en la columna 87."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "CSI emisor 10, nodo 10, versión 25MTP004, clave 3084, PYCP JARDINES, C.S.I. MEXICO, MONEDA NACIONAL y TIPO PROCESO MENSUAL están compilados. Se trasladan a configuración. No hay credenciales en el fuente."
+    }
+  ],
+  "pendientes_revision": [
+    "Los párrafos 90000037-B37SXGPO-FINDN y 90000039-B39SXGPOSBGMDA-FINDFG/FINDN vienen del copybook S500/INC/PRO/25MTP002, que no está en el fuente; se asumió que FINDFG posiciona la primera cuenta del grupo WS-GRUPO. Confirmar.",
+    "Confirmar si la fecha que proyecta LOCSUP función 15 formato 12 es el día hábil anterior o el día natural anterior a B02-FECHA-LINEA.",
+    "El encabezado dice TIPO PROCESO: MENSUAL, pero el programa no contiene ninguna validación de calendario; la periodicidad depende del WFL que lo invoca.",
+    "El inventario no asigna reglas del brain a este componente; el pseudocódigo cita RN-S500-545 para el formato, pero no se puede usar aquí."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-543",
+    "RN-S500-544",
+    "RN-S500-545"
+  ]
+}

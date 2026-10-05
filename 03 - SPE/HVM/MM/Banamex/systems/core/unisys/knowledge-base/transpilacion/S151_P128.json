@@ -1,0 +1,199 @@
+{
+  "slug": "S151_P128",
+  "sistema": "S151",
+  "programa": "P128",
+  "nombre": "Reporte de Diferencias S264",
+  "funcion": "Paso batch diario de S151 para el sistema S264 que compara, por referencia, moneda y sucursal inicial, lo que se envía a S028 contra lo que se envía a S115 e imprime las diferencias en la bitácora 001S151DIFS264.",
+  "resumen": "Obtiene la fecha de proceso del sistema 264 con CONSISDIA (o del VALUE del WFL si viene informado) y abre el archivo diario S151/FILE/MOVS264/AAMMDD. En el INPUT PROCEDURE de un SORT filtra los movimientos activos y aprobados de origen local o foráneo y libera un registro por cada una de sus cinco claves de transacción menores a 2000. En el OUTPUT PROCEDURE agrupa por referencia, moneda y sucursal inicial, separa las claves 1 a 999 como envíos a S028 y las 1000 a 2998 como envíos a S115, y cuando los totales no cuadran imprime el detalle de ambos lados. Al final escribe la suma de diferencias por sistema y la de importes correctos.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.s264.diferencias",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos y parámetros del reporte",
+      "origen": {
+        "archivo": "COBOL_P128.txt",
+        "contexto": "FILE SECTION (SD S01-MOVTOS) · WORKING-STORAGE · 10000-INI"
+      },
+      "java": {
+        "archivo": "MovimientoS264.java · P128Properties.java",
+        "contexto": "record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro del SORT con REDEFINES de hora a record",
+          "linea_ini": 33,
+          "linea_fin": 60,
+          "origen_codigo": " 01 S01-REGMOV .                                                  002900\n    03 S01-FUNCION                 PIC  9(02)      COMP.          003000\n    03 S01-SISTEMA                 PIC  9(04)      COMP.          003100\n    03 S01-PRODUCTO                PIC  9(04)      COMP.          003200\n    03 S01-INSTRUMENTO             PIC  9(02)      COMP.          003300\n    03 S01-SUCPROM                 PIC  9(04)      COMP.          003400\n    03 S01-CONTRATO                PIC  9(16)      COMP.          003500\n    03 S01-CVETRAN                 PIC  9(04)      COMP.          003600\n    03 S01-IMPORTE                 PIC  9(14)V99   COMP.          003700\n    03 S01-FECMOV                  PIC  9(08)      COMP.          003800\n    03 S01-HORMOV                  PIC  9(06)      COMP.          003900\n    03 S01-HORMOV-R REDEFINES S01-HORMOV.                         004000\n       05 S01-HORAMV               PIC  9(02)      COMP.          004100\n       05 S01-MINUMV               PIC  9(02)      COMP.          004150\n       05 S01-SEGMOV               PIC  9(02)      COMP.          004200\n    03 S01-FECCONT                 PIC  9(08)      COMP.          004300\n    03 S01-FECVAL                  PIC  9(08)      COMP.          004400\n    03 S01-AUTORIZA                PIC  9(08)      COMP.          004500\n    03 S01-AUT3ER                  PIC  9(08)      COMP.          004600\n    03 S01-REFNUM                  PIC  9(20)      COMP.          004700\n    03 S01-CVEMDA                  PIC  9(02)      COMP.          004800\n    03 S01-NUMMDA                  PIC  9(20)      COMP.          004900\n    03 S01-CVEMDE                  PIC  9(02)      COMP.          005000\n    03 S01-SUC-INIC                PIC  9(04)      COMP.          005100\n    03 S01-CAJA-INIC               PIC  9(02)      COMP.          005200\n    03 S01-SUCOPER                 PIC  9(04)      COMP.          005300\n    03 S01-CAJAOPER                PIC  9(02)      COMP.          005400\n    03 S01-SUCTRAN                 PIC  9(04)      COMP.          005500",
+          "java_codigo": "/** S01-REGMOV: un movimiento de MOVS264 ya explotado a una sola clave de transacción. */\npublic record MovimientoS264(\n        int funcion, int sistema, int producto, int instrumento, int sucProm,\n        String contrato,                 // 9(16): String para conservar ceros\n        int cveTran,                     // 9(04): 1-999 S028, 1000-1999 S115\n        BigDecimal importe,              // 9(14)V99 COMP -> escala 2\n        LocalDate fecMov,                // 9(08) CCAAMMDD\n        LocalTime horMov,                // S01-HORMOV-R: HORAMV, MINUMV, SEGMOV\n        LocalDate fecCont, LocalDate fecVal,\n        long autoriza, long aut3er,\n        BigInteger refNum,               // 9(20): excede long, se usa BigInteger\n        int cveMda, String numMda,       // 9(20) -> String\n        int cveMde, int sucInic, int cajaInic, int sucOper, int cajaOper, int sucTran,\n        int origen, String nominaOpe) {\n\n    /** Llave de agrupación real del OUTPUT PROCEDURE (la CVETRAN solo ordena dentro del grupo). */\n    public record Grupo(int moneda, int sucInic, BigInteger refNum) {}\n\n    public Grupo grupo(int moneda) { return new Grupo(moneda, sucInic, refNum); }\n\n    public Destino destino() {\n        if (cveTran > 0 && cveTran < 1000) return Destino.S028;\n        if (cveTran > 999 && cveTran < 2999) return Destino.S115;\n        return Destino.NINGUNO;          // clave 0: posición vacía de la tabla de 5 claves\n    }\n}",
+          "racional": "El registro del SORT es un subconjunto del registro de 450 bytes de MOVS264 con una sola clave e importe. Se modela como <code>record</code> inmutable; el importe <code>9(14)V99</code> pasa a <code>BigDecimal</code> de escala 2 y la hora, que el fuente redefine en hora, minuto y segundo, a <code>LocalTime</code>. La referencia y el medio de acceso son de 20 dígitos y no caben en un <code>long</code>, por eso se usan <code>BigInteger</code> y <code>String</code>. La clasificación por destino, que el fuente hace con rangos de clave dentro de 46420-ACUMULA, queda en un método del propio registro.",
+          "reglas": [
+            "RN-S151-819"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Nombres de archivo, sistema 264 y CSI 12 a application.yml",
+          "linea_ini": 1448,
+          "linea_fin": 1744,
+          "origen_codigo": " 01 WKS-TIT-REP.                                                  011300\n     02  FILLER               PIC X(10) VALUE \"(S151)S151\".       011400\n     02  FILLER               PIC X(14) VALUE \"/FILE/MOVS264/\".   011500\n     02  WS-FEC-LOG           PIC 9(06).                          011600\n     02  FILLER               PIC X(04) VALUE \" ON \".             011700\n     02  WS-PACK-LOG          PIC X(17).                          011800\n     02  FILLER               PIC X(01) VALUE \".\".                011900\n                                                                  012000\n******************************************************************012100\n*                NOMBRES DE BACKUPS                              *012200\n******************************************************************012300\n 01  WKS-TIT-BITACORA.                                            012400\n     02  FILLER                     PIC X(15)   VALUE             012500\n                                    \"S264/LIST/P128/\".            012600\n     02  WS-CENTRO-IMPRESION        PIC 9(02).                    012700\n     02  FILLER                     PIC X(08)   VALUE \"00/R000/\". 012800\n     02  WKS-TB-FECHA               PIC 9(06).                    012900\n     02  FILLER                     PIC X(1)    VALUE \"/\".        013000\n     02  WKS-TB-MIX                 PIC 9(07).                    013100\n     02  FILLER                     PIC X(1)    VALUE \"/\".        013200\n     02  WS-TB-NOMBRE.                                            013300\n         04 FILLER                  PIC X(07)   VALUE \"001S151\".  013400\n         04 FILLER                  PIC X(07)   VALUE \"DIFS264\".  013500\n         04 FILLER                  PIC X(1)    VALUE \".\".        013600\n*    MOVE W77-SIST-PARAM                  TO WKS-B01-SISTEMA.     036200\n     MOVE 264                             TO WKS-B01-SISTEMA.     036300\n     MOVE 1                               TO WKS-B01-FUNCION.     036400\n     MOVE WKS-DH-NUMCSI                   TO WKS-B01-CSI.         036500\n                                                                  036600\n     CALL \"CONSISDIA IN S151LIBCONTROL\"                           036700\n          USING  WKS-S151B01SISDIA                                036800\n          GIVING W77-RESULT.                                      036900\n                                                                  037000\n     IF ATTRIBUTE VALUE OF MYSELF = 0                             037100\n        MOVE WKS-B01-FECPRO             TO WKS-FECHA-PROCESO      037200\n     ELSE                                                         037300\n        MOVE ATTRIBUTE VALUE OF MYSELF  TO WKS-FECHA-PROCESO.     037400\n     MOVE ATTRIBUTE STACKNO OF MYSELF   TO WKS-TB-MIX.            037500\n     MOVE \"001S151DIFS264\"              TO WSR-RB-E1-NOMB-REPORTE.037600\n     MOVE WKS-B01-NOMPACMOV             TO WS-PACK-LOG.           037700\n     MOVE WKS-FECA6                     TO WS-FEC-LOG             037800\n                                           WKS-TB-FECHA.          037900\n     MOVE WKS-DH-NUMCSI                 TO W77-CSI-PROCESO        038000\n                                           WS-CENTRO-IMPRESION.   038100\n     IF W77-CSI-PROCESO = 12    MOVE 10 TO W77-CSI-PROCESO        038200\n                                           WS-CENTRO-IMPRESION.   038300",
+          "java_codigo": "# application.yml\np128:\n  sistema-sisdia: 264                       # MOVE 264 TO WKS-B01-SISTEMA (el parámetro se ignora)\n  entrada: \"(S151)S151/FILE/MOVS264/{fecha6} ON {pack}.\"\n  bitacora: \"S264/LIST/P128/{csi}00/R000/{fecha6}/{mix}/001S151DIFS264.\"\n  nombre-reporte: \"001S151DIFS264\"\n  csi-redireccion:\n    12: 10                                  # el CSI 12 imprime y se reporta como 10\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p128\")\npublic record P128Properties(int sistemaSisdia, String entrada, String bitacora,\n                             String nombreReporte, Map<Integer, Integer> csiRedireccion) {\n\n    public int csiProceso(int csiHost) {\n        return csiRedireccion.getOrDefault(csiHost, csiHost);\n    }\n}\n\n/** Fecha de proceso: el VALUE del job (WFL) tiene prioridad sobre CONSISDIA. */\nLocalDate fechaProceso(JobParameters p, ControlDiarioClient consisdia, int csi) {\n    LocalDate forzada = p.getLocalDate(\"fechaProceso\");\n    if (forzada != null) return forzada;\n    var r = consisdia.consulta(props.sistemaSisdia(), 1, csi);\n    if (!r.ok()) throw new ProcesoAbortadoException(\"CONSISDIA \" + r.codigo());   // nuevo\n    return r.fechaProceso();\n}",
+          "racional": "El título de entrada, el de la bitácora y el nombre lógico del reporte están construidos con <code>FILLER VALUE</code>, y la consulta de fecha usa el sistema 264 fijo: la línea que tomaba el parámetro recibido está comentada. Todo se mueve a <code>application.yml</code>, incluida la regla que redirige el CSI 12 al 10 para impresión. La fecha del nombre de archivo es de 6 dígitos (AAMMDD), que es el particionamiento diario del archivo MOVS264. En Java se valida el resultado de CONSISDIA, que el fuente recibe en <code>W77-RESULT</code> pero nunca revisa.",
+          "reglas": [
+            "RN-S151-822"
+          ],
+          "riesgo": "W77-RESULT de CONSISDIA no se evalúa (línea 1730): si la librería falla, el programa sigue con la fecha y el pack que haya en memoria y puede abrir un archivo de otro día."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job — SORT, dimensionamiento y selección de movimientos",
+      "origen": {
+        "archivo": "COBOL_P128.txt",
+        "contexto": "20000-GENERA SECTION · 70000-CALCULA-ESPACIO · 30000-ESCOGE-MOV SECTION"
+      },
+      "java": {
+        "archivo": "DiferenciasS264JobConfig.java · ExplotaClavesProcessor.java",
+        "contexto": "Spring Batch Job · ItemProcessor"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "SORT con procedimientos y cálculo de espacio a dos steps",
+          "linea_ini": 1797,
+          "linea_fin": 1843,
+          "origen_codigo": " 20000-GEN-BITACORA.                                              043600\n     MOVE 48                      TO W77-FRAMESIZE                043715\n     MOVE 120                     TO W77-MAXRECSIZE               043725\n     COMPUTE W77-LASTRECORD       =                               043735\n            (ATTRIBUTE LASTRECORD OF A01-MOVS264                  043740\n                            +   1)                                043745\n                                                                  043750\n     PERFORM 70000-CALCULA-ESPACIO.                               043755\n     SORT S01-MOVTOS                                              043800\n           ON ASCENDING KEY S01-MONEDA                            043900\n                            S01-SUC-INIC                          044000\n                            S01-REFNUM                            044100\n                            S01-CVETRAN                           044200\n          MEMORY SIZE  W77-MEMORY-SIZE WORDS                      044300\n          DISK   SIZE  W77-DISK-SIZE   WORDS                      044400\n          INPUT  PROCEDURE 30000-ESCOGE-MOV                       044500\n          OUTPUT PROCEDURE 40000-REPORTA-MOV.                     044600\n     GO TO 20001-EXIT.                                            044700\n                                                                  100000\n 70000-CALCULA-ESPACIO.                                           100400\n     IF W77-FRAMESIZE             =   8                           100600\n        COMPUTE WS-CALC-WORD      =   W77-MAXRECSIZE              100700\n                                  /   6                           100800\n        IF WS-WORD-RES            >   ZEROS                       100900\n           COMPUTE W77-MAXRECSIZE =   WS-WORD-ENT                 101000\n                                  +   1                           101100\n        ELSE                                                      101200\n           COMPUTE W77-MAXRECSIZE =   WS-WORD-ENT                .101300\n                                                                  101400\n     COMPUTE W77-MEMORY-SIZE ROUNDED                              101500\n                                  =   (W77-MAXRECSIZE + 3)        101600\n                                  *   2000                        101700\n                                  +   1500                        101800\n                                                                  101900\n     COMPUTE W77-DISK-SIZE ROUNDED                                102000\n                                  =   W77-MAXRECSIZE              102100\n                                  *   W77-LASTRECORD              102200\n                                  *   3.5                        .102300",
+          "java_codigo": "@Configuration\npublic class DiferenciasS264JobConfig {\n\n    /** 20000-GEN-BITACORA: SORT ... INPUT PROCEDURE 30000 ... OUTPUT PROCEDURE 40000. */\n    @Bean\n    Job diferenciasS264(JobRepository repo, Step seleccionaMovimientos, Step reportaDiferencias) {\n        return new JobBuilder(\"S151P128\", repo)\n                .start(seleccionaMovimientos)   // INPUT PROCEDURE: filtra y explota a staging\n                .next(reportaDiferencias)       // OUTPUT PROCEDURE: lee ordenado y compara\n                .build();\n    }\n\n    /** El orden ASCENDING KEY del SORT pasa al ORDER BY del lector del segundo step. */\n    static final Map<String, Order> ORDEN = new LinkedHashMap<>() {{\n        put(\"MONEDA\", Order.ASCENDING);\n        put(\"SUC_INIC\", Order.ASCENDING);\n        put(\"REFNUM\", Order.ASCENDING);\n        put(\"CVETRAN\", Order.ASCENDING);\n        put(\"ID\", Order.ASCENDING);         // desempate estable; el SORT de MCP no lo garantiza\n    }};\n    // 70000-CALCULA-ESPACIO (MEMORY SIZE y DISK SIZE en palabras de 48 bits) no tiene\n    // equivalente: el motor de base de datos dimensiona el ordenamiento.\n}",
+          "racional": "El programa entero es un <code>SORT</code> con un procedimiento de entrada que selecciona y otro de salida que reporta. Se divide en dos steps unidos por una tabla de staging, y el orden de las cuatro llaves ascendentes pasa al <code>ORDER BY</code> del lector paginado. El cálculo de memoria y disco del SORT, que convierte bytes a palabras según el framesize de ClearPath y estima disco como tamaño por registros por 3.5, es específico de MCP y desaparece en la plataforma destino.",
+          "reglas": [
+            "RN-S151-821",
+            "RN-S151-819"
+          ]
+        },
+        {
+          "id": "s4",
+          "titulo": "Filtro de movimientos y explosión de hasta cinco claves",
+          "linea_ini": 1855,
+          "linea_fin": 1926,
+          "origen_codigo": " 30200-LEE-MOVS264.                                               045700\n     READ A01-MOVS264 INTO  A00-R01-REGMOV  AT END                045800\n          MOVE 1                  TO W77-EOF.                     045900\n     IF A00-R01-FUNCION = 99                                      046000\n          MOVE 1                  TO W77-EOF                      046100\n     ELSE                                                         046200\n          IF A00-R01-FUNCION = 1 AND A00-R01-STATUS = 1           046300\n             IF A00-R01-ORIGEN  = 1 OR 2                          046400\n                PERFORM 30300-ALSORT.                             046500\n                                                                  046600\n 30300-ALSORT.                                                    046700\n      MOVE A00-R01-AUT-S151     TO S01-AUT-S151.                  046800\n      MOVE A00-R01-REFNUM       TO S01-REFNUM.                    048100\n      MOVE A00-R01-SUC-INIC     TO S01-SUC-INIC.                  048500\n      IF A00-R01-CVETRAN1 < 2000                                  050900\n         MOVE A00-R01-CVETRAN1  TO S01-CVETRAN                    051000\n         MOVE A00-R01-IMPORTE1  TO S01-IMPORTE                    051100\n         RELEASE S01-REGMOV.                                      051200\n      IF A00-R01-CVETRAN2 < 2000                                  051300\n         MOVE A00-R01-CVETRAN2  TO S01-CVETRAN                    051400\n         MOVE A00-R01-IMPORTE2  TO S01-IMPORTE                    051500\n         RELEASE S01-REGMOV.                                      051600\n      IF A00-R01-CVETRAN5 < 2000                                  052500\n         MOVE A00-R01-CVETRAN5  TO S01-CVETRAN                    052600\n         MOVE A00-R01-IMPORTE5  TO S01-IMPORTE                    052700\n         RELEASE S01-REGMOV.                                      052800",
+          "java_codigo": "/** 30200-LEE-MOVS264 + 30300-ALSORT: un registro de entrada genera de 0 a 5 registros. */\n@Component\npublic class ExplotaClavesProcessor implements ItemProcessor<RegistroMovs264, List<MovimientoS264>> {\n\n    private static final int TOPE_CLAVE = 2000;\n\n    @Override\n    public List<MovimientoS264> process(RegistroMovs264 r) {\n        // El registro con FUNCION = 99 lo trata el lector como fin lógico de archivo.\n        boolean califica = r.funcion() == 1 && r.status() == 1\n                && (r.origen() == 1 || r.origen() == 2);\n        if (!califica) return null;                          // filtrado\n        List<MovimientoS264> salida = new ArrayList<>(5);\n        for (ClaveImporte ci : r.clavesImporte()) {          // CVETRAN1..5 / IMPORTE1..5\n            if (ci.clave() < TOPE_CLAVE) {                   // incluye la clave 0 de posiciones vacías\n                salida.add(MovimientoS264.de(r, ci.clave(), ci.importe()));\n            }\n        }\n        return salida;\n    }\n}\n// Writer: ListUnpackingItemWriter -> JdbcBatchItemWriter a la tabla de staging (RELEASE).",
+          "racional": "Solo entran movimientos con función 1, status 1 y origen local (1) o foráneo (2). Cada registro trae cinco pares de clave e importe y el programa libera uno por cada clave menor a 2000, copiando el resto de campos. En Spring Batch el procesador devuelve una lista y un <code>ListUnpackingItemWriter</code> la desempaqueta hacia staging. El tope 2000 se conserva tal cual: deja fuera las claves 2000 a 2998 aunque el reporte las clasificaría como S115.",
+          "reglas": [
+            "RN-S151-818"
+          ],
+          "riesgo": "La condición CVETRAN < 2000 libera también las posiciones vacías con clave 0, que inflan el SORT sin aportar nada, y excluye las claves 2000 a 2998 que 46420-ACUMULA sí consideraría de S115."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de comparación S028 contra S115",
+      "origen": {
+        "archivo": "COBOL_P128.txt",
+        "contexto": "40000-REPORTA-MOV SECTION · 41000 / 46420 / 46430 / 26450 / 26460 / 42000-TOTALES"
+      },
+      "java": {
+        "archivo": "ComparadorS028S115.java · ReporteDiferenciasWriter.java",
+        "contexto": "ItemProcessor con corte de control · JasperReports"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Corte de control por grupo y acumulación por destino",
+          "linea_ini": 1960,
+          "linea_fin": 1982,
+          "origen_codigo": " 41000-GEN-BITACORA.                                              056000\n     IF S01-REFNUM = W77-REFNUM  AND                              056200\n        S01-MONEDA = W77-MONEDA  AND                              056300\n        S01-SUC-INIC = W77-SUC-INIC                               056400\n       PERFORM 46420-ACUMULA                                      056500\n     ELSE                                                         056600\n       PERFORM 46430-IMPRIME                                      056700\n       PERFORM 46420-ACUMULA.                                     056800\n     RETURN S01-MOVTOS   AT END MOVE 1 TO W77-EOF.                056900\n                                                                  057000\n 46420-ACUMULA.                                                   057100\n   IF S01-CVETRAN > 0 AND S01-CVETRAN < 1000                      057200\n       ADD  1              TO W77-028                             057300\n       ADD  S01-IMPORTE    TO W77-TOT-IMP028                      057400\n       MOVE S01-IMPORTE    TO WKS-IMPORTE-028(W77-028)            057500\n       MOVE S01-CVETRAN    TO WKS-CVETRAN-028(W77-028)            057600\n    ELSE                                                          057700\n      IF S01-CVETRAN > 999 AND S01-CVETRAN < 2999                 057800\n       ADD  1              TO W77-115                             057900\n       ADD  S01-IMPORTE    TO W77-TOT-IMP115                      058000\n       MOVE S01-IMPORTE    TO WKS-IMPORTE-115(W77-115)            058100\n       MOVE S01-CVETRAN    TO WKS-CVETRAN-115(W77-115).           058200",
+          "java_codigo": "/** Acumulado de un grupo (referencia, moneda, sucursal inicial). */\nfinal class GrupoAcumulado {\n    final MovimientoS264.Grupo llave;\n    final List<ClaveImporte> s028 = new ArrayList<>();   // WKS-TABLA-P028 OCCURS 5000\n    final List<ClaveImporte> s115 = new ArrayList<>();   // WKS-TABLA-P115 OCCURS 5000\n    BigDecimal total028 = BigDecimal.ZERO.setScale(2);  // W77-TOT-IMP028 9(16)V99\n    BigDecimal total115 = BigDecimal.ZERO.setScale(2);\n\n    GrupoAcumulado(MovimientoS264.Grupo llave) { this.llave = llave; }\n\n    /** 46420-ACUMULA. */\n    void acumula(MovimientoS264 m) {\n        switch (m.destino()) {\n            case S028 -> { s028.add(new ClaveImporte(m.cveTran(), m.importe())); total028 = total028.add(m.importe()); }\n            case S115 -> { s115.add(new ClaveImporte(m.cveTran(), m.importe())); total115 = total115.add(m.importe()); }\n            case NINGUNO -> { }                         // clave 0: se ignora\n        }\n    }\n}\n\n/** 41000-GEN-BITACORA: si cambia la llave, se evalúa el grupo anterior y se abre uno nuevo. */\nvoid procesa(MovimientoS264 m, int moneda) {\n    var llave = m.grupo(moneda);\n    if (actual == null || !actual.llave.equals(llave)) {\n        if (actual != null) evaluaGrupo(actual);        // 46430-IMPRIME\n        actual = new GrupoAcumulado(llave);\n    }\n    actual.acumula(m);\n}",
+          "racional": "El OUTPUT PROCEDURE recorre el archivo ordenado con un corte de control por referencia, moneda y sucursal inicial; la clave de transacción ordena dentro del grupo pero no lo define. Las claves 1 a 999 se acumulan como envíos a S028 y las 1000 a 2998 como envíos a S115, guardando cada par en una tabla de 5000 posiciones. En Java las tablas son listas sin tope fijo y los totales <code>BigDecimal</code> de escala 2, con sumas exactas.",
+          "reglas": [
+            "RN-S151-818",
+            "RN-S151-819"
+          ],
+          "riesgo": "Las tablas tienen OCCURS 5000 y los contadores W77-028 y W77-115 son PIC 9(04) sin control de límite: un grupo con más de 5000 claves de un lado escribe fuera de la tabla."
+        },
+        {
+          "id": "s6",
+          "titulo": "Decisión de cuadre y registro de diferencias",
+          "linea_ini": 1984,
+          "linea_fin": 1999,
+          "origen_codigo": " 46430-IMPRIME.                                                   058400\n    IF W77-TOT-IMP028 = W77-TOT-IMP115                            058500\n       ADD W77-TOT-IMP028   TO W77-TOT-BIEN                       058600\n    ELSE                                                          058700\n       IF W77-028 > ZEROS                                         058800\n          PERFORM 26450-IMP-028 VARYING W77-J FROM 1 BY 1         058900\n             UNTIL (W77-J > W77-028)                              059000\n          PERFORM 26460-IMP-115 VARYING W77-J FROM 1 BY 1         059100\n             UNTIL (W77-J > W77-115)                              059200\n          MOVE SPACES TO V01-R01-BITACORA                         059300\n          WRITE V01-R01-BITACORA                                  059400\n          ADD 1               TO WS-NUM-LINEAS                    059500\n          ADD W77-TOT-IMP028  TO W77-MAL-028                      059600\n          ADD W77-TOT-IMP115  TO W77-MAL-115.                     059700\n    MOVE ZEROES               TO W77-TOT-IMP028, W77-TOT-IMP115.  059800\n    MOVE ZEROES               TO W77-115, W77-028.                059900",
+          "java_codigo": "/** 46430-IMPRIME. */\nvoid evaluaGrupo(GrupoAcumulado g) {\n    if (g.total028.compareTo(g.total115) == 0) {\n        totalCorrectas = totalCorrectas.add(g.total028);     // W77-TOT-BIEN\n        return;\n    }\n    // Comportamiento del fuente: solo se reporta si hubo al menos un envío a S028.\n    if (!g.s028.isEmpty() || props.reportarSoloS115()) {      // p128.reportar-solo-s115: false\n        g.s028.forEach(ci -> reporte.detalle(g, ci, g.llave.sucInic()));   // 26450-IMP-028\n        g.s115.forEach(ci -> reporte.detalle(g, ci, sucProm));              // 26460-IMP-115\n        reporte.lineaEnBlanco();\n        malS028 = malS028.add(g.total028);                     // W77-MAL-028\n        malS115 = malS115.add(g.total115);                     // W77-MAL-115\n    } else {\n        log.warn(\"Grupo {} con S115={} y sin envío a S028: el fuente no lo reporta\", g.llave, g.total115);\n    }\n}",
+          "racional": "Un grupo cuadra cuando el total enviado a S028 es igual al enviado a S115; su importe suma a las cantidades correctas. Si no cuadra, se imprimen todas las líneas de ambos lados y los totales se suman a las diferencias de cada sistema. La comparación usa <code>compareTo</code> para que dos importes con distinta escala se consideren iguales. Se conserva el detalle de que el fuente solo reporta cuando hubo envíos a S028, pero queda visible en bitácora y detrás de una propiedad para que el SME decida.",
+          "reglas": [
+            "RN-S151-820"
+          ],
+          "riesgo": "Si un grupo solo tiene envíos a S115 (W77-028 = 0), no cuadra pero no se imprime ni se suma a W77-MAL-115: la diferencia desaparece del reporte."
+        },
+        {
+          "id": "s7",
+          "titulo": "Líneas de detalle de cada lado y salto de página",
+          "linea_ini": 2035,
+          "linea_fin": 2051,
+          "origen_codigo": " 26460-IMP-115.                                                   063300\n     MOVE WKS-IMPORTE-115(W77-J)      TO WSR-IMPORTE.             063400\n     MOVE WKS-CVETRAN-115(W77-J)      TO WSR-CVETRAN.             063500\n     MOVE W77-SUC-PROM                TO WSR-SUC-PROM.            063600\n     WRITE V01-R01-BITACORA FROM WSR-LINEA-DETALLE.               063700\n     ADD 1                            TO WS-NUM-LINEAS.           063800\n     IF WS-NUM-LINEAS > 55                                        063900\n        PERFORM 41110-IMP-ENCAB.                                  064000\n                                                                  064100\n 26450-IMP-028.                                                   064200\n     MOVE WKS-IMPORTE-028(W77-J)      TO WSR-IMPORTE.             064300\n     MOVE WKS-CVETRAN-028(W77-J)      TO WSR-CVETRAN.             064400\n     MOVE W77-SUC-INIC                TO WSR-SUC-PROM.            064500\n     WRITE V01-R01-BITACORA FROM WSR-LINEA-DETALLE.               064600\n     ADD 1                            TO WS-NUM-LINEAS.           064700\n     IF WS-NUM-LINEAS > 55                                        064800\n        PERFORM 41110-IMP-ENCAB.                                  064900",
+          "java_codigo": "/** 26450-IMP-028 y 26460-IMP-115: misma línea WSR-LINEA-DETALLE, distinta sucursal. */\npublic record LineaDetalle(String localForaneo, int producto, int instrumento, int moneda,\n                           int hora, int minuto, String operador, BigInteger referencia,\n                           long autorizacion, int cveTran, BigDecimal importe, int sucursal) {}\n\n@Component\nclass ReporteDiferenciasWriter {\n    // IF WS-NUM-LINEAS > 55: el corte de hoja pasa al diseño del .jrxml\n    private final List<LineaDetalle> lineas = new ArrayList<>();   // JRBeanCollectionDataSource\n\n    void detalle(GrupoAcumulado g, ClaveImporte ci, int sucursal) {\n        lineas.add(g.cabecera().conClave(ci.clave(), ci.importe(), sucursal));\n        // La paginación la resuelve JasperReports con pageHeader; ya no se cuenta a mano.\n    }\n}",
+          "racional": "Cada lado imprime la misma línea de detalle con la clave y el importe tomados de su tabla. La paginación manual a 55 líneas con encabezado se sustituye por la banda <code>pageHeader</code> de JasperReports, que es el patrón del arquetipo A3. La sucursal se pasa como parámetro para dejar explícita una diferencia del fuente: el lado S028 imprime la sucursal inicial en la columna de sucursal promotora y el lado S115 imprime la promotora.",
+          "reglas": [
+            "RN-S151-820"
+          ],
+          "riesgo": "26450-IMP-028 mueve W77-SUC-INIC a WSR-SUC-PROM y 26460-IMP-115 mueve W77-SUC-PROM; la misma columna muestra datos distintos según el lado."
+        },
+        {
+          "id": "s8",
+          "titulo": "Totales finales y último grupo sin evaluar",
+          "linea_ini": 1953,
+          "linea_fin": 2079,
+          "origen_codigo": "     PERFORM 41110-IMP-ENCAB                                      055300\n     PERFORM 41500-MUEVE-DATOS.                                   055400\n     PERFORM 41000-GEN-BITACORA UNTIL W77-EOF > 0.                055500\n     PERFORM 42000-TOTALES.                                       055600\n     CLOSE V01-BITACORA.                                          055700\n     CLOSE A01-MOVS264.                                           055800\n 42000-TOTALES.                                                   066500\n    MOVE SPACES TO V01-R01-BITACORA.                              066700\n    WRITE V01-R01-BITACORA AFTER 3.                               066800\n    WRITE V01-R01-BITACORA FROM WSR-TOT-BITACORA.                 066900\n    MOVE W77-MAL-028           TO WSR-TOT-S028.                   067000\n    MOVE W77-MAL-115           TO WSR-TOT-S115.                   067100\n    MOVE \" DIFERENCIAS A :  \"  TO WSR-TOT-MENS.                   067200\n    WRITE V01-R01-BITACORA FROM WSR-TOTALES AFTER 1.              067300\n    MOVE W77-TOT-BIEN          TO WSR-TOT-S028.                   067400\n    MOVE W77-TOT-BIEN          TO WSR-TOT-S115.                   067500\n    MOVE \" CANT. CORRECTAS :\"  TO WSR-TOT-MENS.                   067600\n    WRITE V01-R01-BITACORA FROM WSR-TOTALES.                      067700",
+          "java_codigo": "/** Fin del OUTPUT PROCEDURE: 42000-TOTALES. */\n@AfterStep\nExitStatus cierra(StepExecution se) {\n    if (actual != null) {\n        if (props.evaluarUltimoGrupo()) {          // p128.evaluar-ultimo-grupo: false (fuente)\n            evaluaGrupo(actual);\n        } else {\n            log.warn(\"Último grupo {} sin evaluar, igual que en P128: S028={} S115={}\",\n                     actual.llave, actual.total028, actual.total115);\n        }\n    }\n    reporte.totales(\" DIFERENCIAS A :  \", malS028, malS115);          // 9(18)V99\n    reporte.totales(\" CANT. CORRECTAS :\", totalCorrectas, totalCorrectas);\n    return se.getExitStatus();\n}",
+          "racional": "Al llegar al fin del archivo ordenado el bucle termina y se imprimen dos renglones: la suma de diferencias de cada sistema y la suma de importes correctos, repetida en ambas columnas. El fuente no llama a 46430-IMPRIME después del último <code>RETURN</code>, así que el último grupo se acumula pero nunca se compara. La traducción conserva el resultado actual y lo deja registrado, con una propiedad para corregirlo cuando el SME lo autorice.",
+          "reglas": [
+            "RN-S151-820"
+          ],
+          "riesgo": "El último grupo del archivo ordenado nunca se evalúa: sus diferencias no aparecen ni en el detalle ni en los totales."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Último grupo sin comparar",
+      "detalle": "42000-IMPRIMIR termina el bucle de 41000-GEN-BITACORA con el fin del SORT y pasa directo a 42000-TOTALES (líneas 1955-1956) sin evaluar el grupo en curso. La diferencia del último grupo se pierde."
+    },
+    {
+      "titulo": "Grupos solo con S115 no se reportan",
+      "detalle": "En 46430-IMPRIME el detalle y la suma a W77-MAL-115 están dentro de IF W77-028 > ZEROS (líneas 1988-1997). Un grupo descuadrado sin envíos a S028 no aparece en el reporte."
+    },
+    {
+      "titulo": "Tablas de 5000 sin control de límite",
+      "detalle": "WKS-TABLA-P028 y WKS-TABLA-P115 tienen OCCURS 5000 (líneas 1477 y 1482) y se llenan sin validar el índice."
+    },
+    {
+      "titulo": "Resultado de CONSISDIA ignorado",
+      "detalle": "El CALL de la línea 1728 recibe W77-RESULT pero no se evalúa; una falla de la librería deja la fecha de proceso y el pack del archivo sin validar."
+    },
+    {
+      "titulo": "Rango de claves inconsistente",
+      "detalle": "30300-ALSORT solo libera claves menores a 2000 y 46420-ACUMULA define S115 como 1000 a 2998. Las claves 2000 a 2998 nunca llegan al reporte."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Sistema 264 fijo en CONSISDIA, redirección del CSI 12 al 10, título de librería de respaldo (S151)S151/OBJECT/L001/CONTROL ON CMEMP y nombre de reporte 001S151DIFS264. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si el último grupo sin evaluar y la omisión de grupos solo con S115 son defectos conocidos; la versión Java los conserva por defecto detrás de propiedades.",
+    "RN-S151-819 incluye la clave de transacción en la llave de agrupación; en el fuente la CVETRAN solo ordena y el corte de control usa referencia, moneda y sucursal inicial (líneas 1962-1964).",
+    "RN-S151-820 menciona WSR-TOT-S028 y WSR-TOT-S115 como totales del grupo; en el fuente son los totales globales del reporte (42000-TOTALES).",
+    "Confirmar si la sucursal impresa en el lado S028 (sucursal inicial) frente al lado S115 (promotora) es intencional.",
+    "W77-SIST-PARAM se declara pero el MOVE que lo usaba está comentado; confirmar si P128 solo corre para S264."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-818",
+    "RN-S151-819",
+    "RN-S151-820",
+    "RN-S151-821",
+    "RN-S151-822"
+  ]
+}

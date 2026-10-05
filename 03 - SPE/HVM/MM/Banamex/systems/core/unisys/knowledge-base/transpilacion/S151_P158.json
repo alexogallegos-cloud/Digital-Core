@@ -1,0 +1,270 @@
+{
+  "slug": "S151_P158",
+  "sistema": "S151",
+  "programa": "P158",
+  "nombre": "Generador de Estado de Cuenta por Contrato (MOVSXCONT)",
+  "funcion": "Paso 003 del cierre diario de S151 que, parametrizado por sistema (500, 408, 407, 84, 87, 17, 404), convierte los movimientos contables clasificados de LOG151 en los archivos MOVSXCONT que imprime el S050 y en el archivo de punteo contra S500.",
+  "resumen": "Recibe el número de sistema en PROCEDURE DIVISION USING y rechaza cualquiera fuera de la lista permitida. Lee LOG151 (movimientos del día producidos por P170) y su archivo de descripciones LOG151-COMP por llave. En el INPUT PROCEDURE de un SORT filtra cada movimiento, escribe un registro de punteo por clave de transacción en L07-DATOS y, si la transacción aplica a estado de cuenta, arma el registro S050 y lo dirige a MOVSXCONT, MOVSXCONT-500, MOVSXCONTCHEQ o los archivos TESOFE según producto y sistema, acumulando totales para el trailer. El OUTPUT PROCEDURE imprime los listados por nodo, sucursal y contrato; al final dispara por WFL los listados MOVXCONT y MOVXSCON y espera la residencia del archivo de P170.",
+  "arquetipo": "A3",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.edocta.movsxcont",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — llave del SORT, registro de trabajo y pivote Y2K",
+      "origen": {
+        "archivo": "COBOL_P158.txt",
+        "contexto": "FILE SECTION (SD ARCH-ORD) · WORKING-STORAGE · A2K-CPY-SECTION"
+      },
+      "java": {
+        "archivo": "LlaveOrden.java · MovimientoOrdenado.java · FechasCronos2k.java",
+        "contexto": "record Comparable · record · utilidad de fechas"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "KEY-PRINC de nueve campos a un record comparable",
+          "linea_ini": 75,
+          "linea_fin": 89,
+          "origen_codigo": " SD   ARCH-ORD.                                                   004600\n 01   REG-ARCH-ORD.                                               004700\n      03 KEY-PRINC.                                               004800\n         05 KEY-SUBNODO                  PIC 9(04) COMP.          004900\n         05 KEY-SUCPROM                  PIC 9(04) COMP.          005000\n         05 KEY-TIPO-PROD                PIC 9(02) COMP.          005100\n         05 KEY-CONTRATO                 PIC 9(16) COMP.          005200\n         05 KEY-PROD                     PIC 9(04) COMP.          005210\n         05 KEY-INSTRUM                  PIC 9(02) COMP.          005300\n         05 KEY-SUCOPER                  PIC 9(04) COMP.          005400\n         05 KEY-CAJAOPER                 PIC 9(02) COMP.          005500\n         05 KEY-AUTS151                  PIC 9(08) COMP.          005600\n*     03 KEY-CUERPO                      PIC X(459).              005700\n*INICIA CODIGO DE RENOVACION CRONOS 2000                          005701\n      03 KEY-CUERPO                      PIC X(739).              005702",
+          "java_codigo": "/** KEY-PRINC: SORT ARCH-ORD ON ASCENDING KEY, en este orden exacto. */\npublic record LlaveOrden(int subnodo,        // 9(04) COMP\n                         int sucProm,        // 9(04) COMP\n                         int tipoProd,       // 1 = producto 66, 2 = cualquier otro\n                         String contrato,    // 9(16): String para conservar ceros\n                         int prod,           // 0 salvo sistemas 407/408\n                         int instrum,\n                         int sucOper,\n                         int cajaOper,\n                         long autS151)       // 9(08) COMP\n        implements Comparable<LlaveOrden> {\n\n    private static final Comparator<LlaveOrden> ORDEN = Comparator\n            .comparingInt(LlaveOrden::subnodo)\n            .thenComparingInt(LlaveOrden::sucProm)\n            .thenComparingInt(LlaveOrden::tipoProd)\n            .thenComparing(LlaveOrden::contrato)          // misma longitud (lpad 16): orden numérico\n            .thenComparingInt(LlaveOrden::prod)\n            .thenComparingInt(LlaveOrden::instrum)\n            .thenComparingInt(LlaveOrden::sucOper)\n            .thenComparingInt(LlaveOrden::cajaOper)\n            .thenComparingLong(LlaveOrden::autS151);\n\n    @Override public int compareTo(LlaveOrden o) { return ORDEN.compare(this, o); }\n}\n\n/** REG-ARCH-ORD: llave + KEY-CUERPO X(739) (versión Cronos 2000; antes X(459)). */\npublic record MovimientoOrdenado(LlaveOrden llave, MovimientoSort cuerpo) {}",
+          "racional": "El SORT de P158 ordena por una sola llave compuesta de nueve campos binarios. En Java se modela como un <code>record</code> con un <code>Comparator</code> que respeta el orden de los niveles 05, de modo que el corte de control del OUTPUT PROCEDURE (nodo, sucursal, contrato) siga funcionando igual. El contrato <code>9(16)</code> se conserva como <code>String</code> con relleno a 16 posiciones para no perder ceros y mantener el orden numérico. El cuerpo deja de ser un <code>X(739)</code> opaco y pasa a ser un objeto tipado; la versión comentada <code>X(459)</code> es el formato previo a Cronos 2000.",
+          "reglas": [
+            "RN-S151-363",
+            "RN-S151-371",
+            "RN-S151-370"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "WKS-SORT-REG con dos REDEFINES y tabla de cinco claves",
+          "linea_ini": 691,
+          "linea_fin": 743,
+          "origen_codigo": " 01  WKS-SORT-REG.                                                017000\n     03  WKS-SORT-PROD                 PIC 9(04)    COMP.         017100\n     03  WKS-SORT-INST                 PIC 9(02)    COMP.         017200\n     03  WKS-SORT-FECCONT              PIC 9(08)    COMP.         017302\n     03  WKS-SORT-FECHVAL              PIC 9(08)    COMP.         017402\n     03  WKS-SORT-FECOPER              PIC 9(08)    COMP.         017406\n     03  WKS-SORT-SUCOPER              PIC 9(04)    COMP.         017500\n     03  WKS-SORT-CAJAOPER             PIC 9(02)    COMP.         017600\n     03  WKS-SORT-AUT                  PIC 9(08)    COMP.         017700\n     03  WKS-SORT-IND-DATADIC          PIC 9(02)    COMP.         017800\n     03  WKS-SORT-REFERENCIA           PIC 9(16)    COMP.         017900\n     03  WKS-SORT-REF-S087    REDEFINES WKS-SORT-REFERENCIA.      017952\n         05 WKS-SORT-REF-PM            PIC 9(02)    COMP.         017954\n         05 WKS-SORT-REF-NUMERO        PIC 9(14)    COMP.         017956\n     03  WKS-SORT-NUM-DES              PIC 9(08)    COMP.         018000\n     03  WKS-SORT-CVE-MEDACC           PIC 9(02)    COMP.         018100\n     03  WKS-SORT-MEDIO-ACC            PIC 9(16)    COMP.         018200\n     03  WKS-SORT-HORA                 PIC 9(06)    COMP.         018300\n     03  WKS-SORT-HORA-R REDEFINES WKS-SORT-HORA.                 018320\n         05 WKS-SORT-HORA-HH           PIC 9(02)    COMP.         018340\n         05 WKS-SORT-HORA-MM           PIC 9(02)    COMP.         018360\n         05 WKS-SORT-HORA-DD           PIC 9(02)    COMP.         018380\n     03  WKS-SORT-MONEDA               PIC 9(04)    COMP.         018400\n     03  WKS-SORT-STATUS               PIC 9(02)    COMP.         018500\n     03  WKS-SORT-BCO-ORI              PIC 9(05)    COMP.         018520\n     03  WKS-SORT-BCO-DES              PIC 9(05)    COMP.         018540\n     03  WKS-SORT-CVES-IMP             OCCURS 5 TIMES.            018600\n         05  WKS-SORT-CVE              PIC 9(04)    COMP.         018700\n         05  WKS-SORT-INDLEY           PIC 9(02)    COMP.         018800\n         05  WKS-SORT-IMP              PIC 9(14)V99 COMP.         018900\n     03  WKS-SORT-AUT-ANT-S151         PIC 9(08)    COMP.         019184\n     03  WKS-SORT-CTACON               PIC 9(02)    COMP.         019185",
+          "java_codigo": "/** WKS-SORT-REG: cuerpo del registro que viaja por el SORT. */\npublic record MovimientoSort(\n        int prod, int inst,\n        LocalDate fecCont, LocalDate fecValor, LocalDate fecOper,   // 9(08) CCAAMMDD (Cronos 2000)\n        int sucOper, int cajaOper, long autorizacion, int indDatosAdic,\n        Referencia referencia,                                   // 9(16) o PM(2)+NUMERO(14) para S087\n        long numDescripcion,                                     // apuntador a LOG151-COMP\n        int cveMedioAcceso, String medioAcceso,                  // 9(16) -> String\n        LocalTime hora,                                          // HH, MM y \"DD\" (segundos, por confirmar)\n        int moneda, int status, int bancoOrigen, int bancoDestino,\n        List<ClaveImporte> claves,                               // OCCURS 5, termina en la primera clave 0\n        byte[] datosAdicionales,                                 // X(540) copiado de LOG151-COMP\n        Subcuenta subcuenta,                                     // campos SUBC, solo sistema 500\n        long autAnteriorS151, int ctaCon) {\n\n    /** WKS-SORT-CVES-IMP: clave, indicador de leyenda e importe 9(14)V99. */\n    public record ClaveImporte(int clave, int indLeyenda, BigDecimal importe) {\n        public ClaveImporte {\n            importe = importe.setScale(2, RoundingMode.UNNECESSARY);   // V99: escala 2 exacta\n        }\n    }\n\n    /** WKS-SORT-REF-S087 REDEFINES WKS-SORT-REFERENCIA. */\n    public record Referencia(long valor) {\n        public int pm()       { return (int) (valor / 100_000_000_000_000L); }   // primeras 2 cifras\n        public long numero()  { return valor % 100_000_000_000_000L; }          // 14 cifras restantes\n    }\n}",
+          "racional": "El registro de trabajo tiene dos <code>REDEFINES</code>: la referencia, que para el sistema 87 se lee como un prefijo PM de 2 cifras más un número de 14, y la hora, partida en tres pares de dígitos. La referencia se modela como un valor con dos accesores en lugar de dos campos que compiten por la misma memoria. La tabla <code>OCCURS 5</code> de clave, indicador de leyenda e importe se vuelve una lista que termina en la primera clave cero, que es la condición <code>UNTIL</code> con la que el programa la recorre. Los importes <code>PIC 9(14)V99 COMP</code> pasan a <code>BigDecimal</code> de escala 2. Se omitieron del extracto las líneas comentadas de la versión de 6 dígitos y los campos de subcuenta, que se agrupan en el record <code>Subcuenta</code>.",
+          "reglas": [
+            "RN-S151-372",
+            "RN-S151-373",
+            "RN-S151-374",
+            "RN-S151-370"
+          ],
+          "riesgo": "El subcampo WKS-SORT-HORA-DD se llama \"DD\" pero ocupa la posición de los segundos; si en producción trae otra cosa, la conversión a LocalTime fallará y hay que tratarlo como texto."
+        },
+        {
+          "id": "s3",
+          "titulo": "Pivote de siglo A2K-BASE-YEAR explícito",
+          "linea_ini": 447,
+          "linea_fin": 13368,
+          "origen_codigo": " 01  A2K-BASE-YEAR                     PIC 9(02) VALUE 50.        011103\n A2K-OBTAIN-CENTURY.                                              018500\n      IF A2K-FEC-YEAR-AA < A2K-BASE-YEAR                          018600\n          MOVE 20 TO A2K-FEC-YEAR-CC                              018700\n      ELSE                                                        018800\n          MOVE 19 TO A2K-FEC-YEAR-CC.                             018900",
+          "java_codigo": "@Component\npublic class FechasCronos2k {\n\n    /** A2K-BASE-YEAR VALUE 50: AA < 50 es 20AA; AA >= 50 es 19AA. Ventana 1950-2049. */\n    private final int pivote;\n\n    public FechasCronos2k(@Value(\"${s151.fechas.pivote-siglo:50}\") int pivote) {\n        this.pivote = pivote;\n    }\n\n    /** A2K-OBTAIN-CENTURY. */\n    public int siglo(int aa) {\n        return (aa < pivote) ? 20 : 19;\n    }\n\n    /** A2K-CONV-AMD-TO-CAMD: AAMMDD de 6 dígitos a LocalDate con el pivote explícito. */\n    public LocalDate deAamMdd(int aammdd) {\n        int aa = aammdd / 10_000, mm = (aammdd / 100) % 100, dd = aammdd % 100;\n        return LocalDate.of(siglo(aa) * 100 + aa, mm, dd);\n    }\n\n    /** A2K-CONV-CAMD-TO-AMD: se usa para el nombre del backup (WKS-FECHA-BACKUP, 6 dígitos). */\n    public String aAamMdd(LocalDate f) {\n        return f.format(DateTimeFormatter.ofPattern(\"yyMMdd\"));\n    }\n}",
+          "racional": "El copybook Cronos 2000 decide el siglo con un pivote fijo de 50. En Java ese pivote queda explícito y configurable en <code>application.yml</code> (<code>s151.fechas.pivote-siglo</code>), en lugar de depender de la ventana por defecto de <code>DateTimeFormatter</code>, que usa otro criterio. Las fechas internas ya vienen en 8 dígitos y solo los nombres de archivo y backups vuelven a 6, que es donde se aplica la conversión inversa.",
+          "reglas": [
+            "RN-S151-389"
+          ],
+          "riesgo": "La ventana termina en 2049: un AA de 50 en adelante se interpreta como 19AA. No es inmediato, pero cualquier fecha de 6 dígitos que llegue de otro sistema con año 2050 se convertiría a 1950."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job — sistema permitido, SORT con procedimientos y cierre",
+      "origen": {
+        "archivo": "COBOL_P158.txt",
+        "contexto": "PROCEDURE DIVISION USING W77-SIST-PARAM · CHECA-DIA-HABIL · 000-010-PROCESO · 12750"
+      },
+      "java": {
+        "archivo": "EstadoCuentaJobConfig.java · SistemaPermitidoValidator.java",
+        "contexto": "Spring Batch Job · JobParametersValidator · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Lista de sistemas permitidos a JobParametersValidator",
+          "linea_ini": 9361,
+          "linea_fin": 9373,
+          "origen_codigo": "     IF W77-SIST-PARAM = 500 OR 408 OR 84 OR 87 OR 407 OR 404 OR  120200\n                         017                                      120250\n        NEXT SENTENCE                                             120300\n     ELSE                                                         120400\n        MOVE \"I\"    TO TIPO-LJ                                    120500\n        MOVE 020101 TO CODIGO-LJ                                  120600\n        MOVE  \"EL P158 NO CORRE PARA ESTE SISTEMA\" TO TEXTO-LJ    120700\n        MOVE TIPO-LJ      TO      WLI-TIPO-LJ                     120750\n        MOVE TEXTO-LJ     TO      WLI-TEXTO-LJ                    120751\n        PERFORM 000-030-IMPRIME-MENSAJE                           120752\n        CLOSE V00-REPORTE2 WITH SAVE                              120753\n        CALL\"LJ IN LIB-DISP\" USING CONTADOR-LJ,MENSAJE-LJ         120800\n        STOP RUN.                                                 120900",
+          "java_codigo": "# application.yml\ns151:\n  p158:\n    sistemas-permitidos: [500, 408, 84, 87, 407, 404, 17]\n    sistemas-solo-punteo: [17, 404]          # 88 W88-SOLO-PUNTEO VALUE 17,404\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class SistemaPermitidoValidator implements JobParametersValidator {\n\n    private final P158Properties props;\n\n    /** Equivale a PROCEDURE DIVISION USING W77-SIST-PARAM y al IF de 000-000-CHECA-DIA. */\n    @Override\n    public void validate(JobParameters params) throws JobParametersInvalidException {\n        Long sistema = params.getLong(\"sistema\");\n        if (sistema == null || !props.sistemasPermitidos().contains(sistema.intValue())) {\n            // STOP RUN tras escribir el mensaje en V00-REPORTE2 y en LJ\n            throw new JobParametersInvalidException(\"EL P158 NO CORRE PARA ESTE SISTEMA\");\n        }\n    }\n}",
+          "racional": "P158 es un solo programa que corre una vez por sistema y decide su comportamiento por el parámetro <code>W77-SIST-PARAM</code>. El parámetro pasa a ser un <code>JobParameter</code> y la lista de sistemas válidos, que hoy está compilada en el IF, se mueve a <code>application.yml</code>. El rechazo, que en COBOL escribe el mensaje y hace <code>STOP RUN</code>, se vuelve una excepción de validación que impide crear la ejecución del job. La lista de sistemas de solo punteo (17 y 404) también se externaliza porque condiciona qué archivos se generan.",
+          "reglas": [
+            "RN-S151-361"
+          ],
+          "riesgo": "El STOP RUN por sistema inválido termina sin código de error distinguible para el planificador; en Java la ejecución queda rechazada y es visible."
+        },
+        {
+          "id": "s5",
+          "titulo": "SORT con INPUT y OUTPUT PROCEDURE a dos steps",
+          "linea_ini": 9620,
+          "linea_fin": 9658,
+          "origen_codigo": " 000-010-PROCESO.                                                 135400\n     MOVE 1 TO W77-SIS-ENT.                                       135600\n     IF W77-SIST-PARAM = 407                                      135655\n        MOVE \"408\"                TO WLI-SISTEMA-ENV              135660\n     ELSE                                                         135665\n        MOVE W77-SIST-PARAM       TO WLI-SISTEMA-ENV.             135700\n     PERFORM 100-010-INICIALIZA-FECHAS.                           135800\n     PERFORM 100-015-ABRE-ARCH.                                   135900\n     PERFORM 100-020-INICIALIZA-HEADER.                           136000\n     PERFORM 100-025-CARGA-ESTRUCTURA.                            136100\n     PERFORM 100-030-INICIA-TABLA-TRANS                           136300\n     PERFORM 100-040-CARGA-CVES.                                  136400\n                                                                  136401\n     IF W77-SIST-PARAM = 500                                      136402\n        PERFORM 100-045-CARGA-CAT-TESOFE.                         136403\n                                                                  136404\n     PERFORM 100-050-OBTEN-TIT170.                                136405\n     MOVE ZEROS                   TO  W77-FIN                     136410\n     IF W77-ENCONTRADO = 1                                        136435\n        NEXT SENTENCE                                             136440\n     ELSE                                                         136445\n        OPEN    INPUT             LOG151                          136450\n        COMPUTE W77-LASTRECORD =                                  136455\n                        ( ATTRIBUTE LASTRECORD OF LOG151 + 1 )    136465\n        CLOSE   LOG151            WITH SAVE                  .    136470\n                                                                  136475\n     MOVE 8                       TO  W77-FRAMESIZE               136480\n     MOVE 762                     TO  W77-MAXRECSIZE              136485\n     PERFORM                      70000-CALCULA-ESPACIO           136490\n     SORT ARCH-ORD ON ASCENDING KEY KEY-PRINC                     136500\n          INPUT  PROCEDURE 150-005-ORDENA-REGISTROS               136600\n          OUTPUT PROCEDURE 200-000-EJECUTA-IMPRESION              136700\n          MEMORY SIZE IS W77-MEMORY-SIZE WORDS                    136800\n          DISK   SIZE IS W77-DISK-SIZE   WORDS                   .136900",
+          "java_codigo": "@Bean\nJob estadoCuentaPorContrato(JobRepository repo, SistemaPermitidoValidator validador,\n                            Step inicializa,        // 100-010 .. 100-050: fechas, headers, catálogos S080\n                            Step clasificaMovimientos,  // INPUT PROCEDURE 150-005-ORDENA-REGISTROS\n                            Step imprimeListados,   // OUTPUT PROCEDURE 200-000-EJECUTA-IMPRESION\n                            Step totalesYCierre) {  // TOTAL, CALL SYSTEM WFL, 12750-VALIDA-RESI170\n    return new JobBuilder(\"S151P158\", repo)\n            .validator(validador)\n            .start(inicializa)\n            .next(clasificaMovimientos)\n            .next(imprimeListados)\n            .next(totalesYCierre)\n            .build();\n}\n\n/**\n * El SORT intermedio se sustituye por una tabla de staging ordenada por la llave.\n * clasificaMovimientos escribe en ella (RELEASE) y imprimeListados la lee con\n * ORDER BY de los nueve campos de LlaveOrden (RETURN). 70000-CALCULA-ESPACIO\n * deja de ser necesario: el dimensionamiento lo hace la base de datos.\n */\n@Bean\nJdbcPagingItemReader<MovimientoOrdenado> lectorOrdenado(DataSource ds) {\n    return new JdbcPagingItemReaderBuilder<MovimientoOrdenado>()\n            .name(\"archOrd\").dataSource(ds).pageSize(1000)\n            .selectClause(\"SELECT *\").fromClause(\"FROM P158_ARCH_ORD\")\n            .sortKeys(LlaveOrden.SORT_KEYS)        // LinkedHashMap con los 9 campos ASC\n            .rowMapper(new MovimientoOrdenadoRowMapper())\n            .build();\n}",
+          "racional": "La rutina principal inicializa, carga catálogos y ejecuta un único <code>SORT</code> cuyo INPUT PROCEDURE contiene la lógica de negocio y cuyo OUTPUT PROCEDURE imprime. Spring Batch no tiene un SORT con procedimientos, así que se divide en dos steps unidos por una tabla de staging: el primero escribe lo que COBOL entrega con <code>RELEASE</code> y el segundo lee en el orden de <code>KEY-PRINC</code>. El cálculo dinámico de memoria y disco del SORT (<code>MEMORY SIZE</code>, <code>DISK SIZE</code>) desaparece. El cambio de sistema 407 a \"408\" para el reporte se conserva como dato derivado del parámetro.",
+          "reglas": [
+            "RN-S151-363",
+            "RN-S151-371"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Disparo de listados por WFL y espera de residencia del archivo de P170",
+          "linea_ini": 9715,
+          "linea_fin": 10658,
+          "origen_codigo": "     MOVE \"MOVXCONT\" TO WKS-LIST-NOM.                             148520\n     CALL SYSTEM WFL USING WKS-LIS-WFL.                           148540\n     IF W77-SIST-PARAM = 500                                      148560\n        MOVE \"MOVXSCON\" TO WKS-LIST-NOM                           148565\n        CALL SYSTEM WFL USING WKS-LIS-WFL.                        148570\n                                                                  148580\n     MOVE  \"I\"       TO TIPO-LJ                                   148600\n     MOVE  020201    TO CODIGO-LJ                                 148700\n     MOVE  \"FIN NORMAL DE PROCESO\" TO TEXTO-LJ, WLI-TEXTO-LJ      148800\n                                                                  148830\n     MOVE TIPO-LJ         TO      WLI-TIPO-LJ                     148850\n     PERFORM 000-030-IMPRIME-MENSAJE                              148852\n     CLOSE V00-REPORTE2 WITH SAVE                                 148854\n                                                                  148910\n     MOVE ZERO                    TO W77-FIN.                     148920\n     PERFORM 12750-VALIDA-RESI170 UNTIL W77-FIN = 1.              148930\n     OPEN INPUT I01-MOVIMIENTOS.                                  148940\n     CLOSE I01-MOVIMIENTOS WITH PURGE.                            148950\n                                                                  148960\n     STOP RUN.                                                    149000\n 12750-VALIDA-RESI170.                                            176084\n*=====================                                            176086\n    CHANGE ATTRIBUTE TITLE OF I01-MOVIMIENTOS TO WKS-TIT-INMOV.   176088\n    IF ATTRIBUTE RESIDENT OF I01-MOVIMIENTOS  = 0                 176090\n       WAIT (15)                                                  176092\n    ELSE                                                          176094\n       MOVE 1                           TO W77-FIN.               176096",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class TotalesYCierreTasklet implements Tasklet {\n\n    private final JobLauncher launcher;\n    private final Job listadoMovimientos;       // antes BEGIN JOB ... RUN P170 vía CALL SYSTEM WFL\n    private final ArchivoResidencia residencia; // ATTRIBUTE RESIDENT OF I01-MOVIMIENTOS\n    private final P158Properties props;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws Exception {\n        int sistema = ctx.getStepContext().getJobParameters().get(\"sistema\") instanceof Long l ? l.intValue() : 0;\n        lanza(\"MOVXCONT\", ctx);\n        if (sistema == 500) {\n            lanza(\"MOVXSCON\", ctx);             // listado con subcuentas, solo sistema 500\n        }\n        // 12750-VALIDA-RESI170: WAIT (15) mientras el archivo no exista. En COBOL no hay tope.\n        Path i01 = residencia.resuelve(props.tituloInmov(), ctx);\n        Awaitility.await().pollInterval(Duration.ofSeconds(15))\n                  .atMost(props.esperaMaximaP170())          // nuevo: tope configurable\n                  .until(() -> Files.exists(i01));\n        Files.delete(i01);                                  // OPEN INPUT ... CLOSE WITH PURGE\n        return RepeatStatus.FINISHED;\n    }\n\n    private void lanza(String listado, ChunkContext ctx) throws Exception {\n        launcher.run(listadoMovimientos, new JobParametersBuilder()\n                .addString(\"listado\", listado)\n                .addLocalDate(\"fechaProceso\", FechaProceso.de(ctx))\n                .toJobParameters());\n    }\n}",
+          "racional": "Al terminar el SORT, P158 genera por WFL un job que corre el programa de listados con el nombre MOVXCONT, y con MOVXSCON si el sistema es 500. En la arquitectura destino eso es lanzar otro job de Spring Batch con parámetros, o un paso del flujo orquestado. Después espera, en intervalos de 15 segundos y sin límite, a que exista el archivo I01 de P170 y lo purga. Se conserva la espera pero con un tope configurable, porque un bucle infinito en un paso de cierre bloquea toda la cadena sin aviso.",
+          "reglas": [
+            "RN-S151-382",
+            "RN-S151-381"
+          ],
+          "riesgo": "PERFORM 12750-VALIDA-RESI170 UNTIL W77-FIN = 1 no tiene tope: si P170 no genera el archivo, P158 queda en WAIT indefinidamente."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de clasificación del INPUT PROCEDURE",
+      "origen": {
+        "archivo": "COBOL_P158.txt",
+        "contexto": "150-005-ORDENA-REGISTROS SECTION · 150-010 / 150-025 / 150-085 / 150-100 / 150-091"
+      },
+      "java": {
+        "archivo": "MovimientoClassifierProcessor.java · DestinoS050Classifier.java · TesofeRouter.java",
+        "contexto": "ItemProcessor · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Filtro del movimiento: punteo y envío al SORT",
+          "linea_ini": 10782,
+          "linea_fin": 10833,
+          "origen_codigo": " 150-010-LEE-REGISTRO.                                            180000\n     MOVE  0  TO  W77-REGACT.                                     180200\n     IF A00-R01-FUNCION = 1 AND (A00-R01-STATUS = 1 OR = 2)       180300\n        IF W77-SIST-PARAM = 087                                   180310\n           MOVE A00-R01-AGRUP-DESV-PROD    TO W77-PRODUCTOS       180320\n           IF A00-R01-ORIGEN = 1 OR 3                             180330\n              MOVE  1  TO  W77-REGACT                             180340\n           ELSE                                                   180350\n              NEXT SENTENCE                                       180360\n        ELSE                                                      180370\n           MOVE A00-R01-PRODUCTO    TO W77-PRODUCTOS              180400\n           IF A00-R01-ORIGEN = 1 OR 3                             180500\n              MOVE  1  TO  W77-REGACT.                            180600\n                                                                  180700\n     IF (W77-SIST-PARAM = 407 OR W77-SIST-PARAM = 408) AND        180720\n        (A00-R01-TIPO-PROC > 79 AND A00-R01-TIPO-PROC < 90)       180740\n         NEXT SENTENCE                                            180760\n     ELSE                                                         180780\n     IF A00-R01-FUNCION = 1 AND A00-R01-STATUS = 1 AND            180800\n        A00-R01-TIPO-PROC > 19                                    180900\n             IF W77-SIST-PARAM = 500 AND                          180905\n                A00-R01-TIPO-PROC  = 40 OR 41 OR 42 OR 43         180910\n                  NEXT SENTENCE                                   180915\n             ELSE                                                 180920\n          PERFORM 150-030-DATOS-PUNTEO VARYING W77-IND FROM 1 BY 1181500\n              UNTIL W77-IND > 5 OR A00-R01-CVETRAN(W77-IND) = 0.  181600\n                                                                  181700\n                                                                  181800\n     IF W88-SOLO-PUNTEO                                           181820\n        NEXT SENTENCE                                             181840\n     ELSE                                                         181860\n     IF W88-REGACT                                                181900\n        IF (W77-SIST-PARAM = 407 OR W77-SIST-PARAM = 408) AND     181920\n           (A00-R01-TIPO-PROC > 79 AND A00-R01-TIPO-PROC < 90)    181940\n            NEXT SENTENCE                                         181960\n        ELSE                                                      181980\n        IF  W77-SIST-PARAM  = 500 AND                             181982\n         (A00-R01-TIPO-PROC > 39 AND A00-R01-TIPO-PROC < 44)      181984\n            NEXT SENTENCE                                         181988\n         ELSE                                                     181990\n           PERFORM 150-025-MUEVE-GRABA-SORT.                      182000\n                                                                  182100\n     READ LOG151 INTO A00-R01-REGMOV AT END MOVE 1 TO W77-FINLOG. 182200\n                                                                  182300\n     IF A00-R01-FUNCION = 99                                      182400\n        MOVE 1  TO  W77-FINLOG.                                   182500",
+          "java_codigo": "/** 150-010-LEE-REGISTRO. Devuelve las acciones a realizar con un movimiento de LOG151. */\nAcciones evalua(MovimientoLog151 m, int sistema) {\n    boolean activo = m.funcion() == 1 && (m.status() == 1 || m.status() == 2)\n            && (m.origen() == 1 || m.origen() == 3);                      // W77-REGACT\n    int productos = (sistema == 87) ? m.agrupDesvProd() : m.producto();  // W77-PRODUCTOS\n    boolean devolucionEspecial = (sistema == 407 || sistema == 408)\n            && m.tipoProc() > 79 && m.tipoProc() < 90;\n\n    // Punteo contra S500 (L07-DATOS). Se reproduce la precedencia real del IF de las\n    // líneas 10803-10804: (sistema = 500 AND tipo = 40) OR tipo = 41 OR tipo = 42 OR tipo = 43.\n    boolean excluyePunteo = (sistema == 500 && m.tipoProc() == 40)\n            || m.tipoProc() == 41 || m.tipoProc() == 42 || m.tipoProc() == 43;\n    boolean punteo = !devolucionEspecial\n            && m.funcion() == 1 && m.status() == 1 && m.tipoProc() > 19\n            && !excluyePunteo;\n\n    // Envío al SORT: aquí el fuente sí usa paréntesis y la exclusión 40-43 es solo para 500.\n    boolean alSort = !props.soloPunteo(sistema) && activo && !devolucionEspecial\n            && !(sistema == 500 && m.tipoProc() > 39 && m.tipoProc() < 44);\n\n    return new Acciones(productos, punteo, alSort);\n}\n// El lector termina con AT END o con el registro lógico de fin (A00-R01-FUNCION = 99).",
+          "racional": "Cada movimiento puede generar dos cosas independientes: registros de punteo para reconciliar con S500 y un registro hacia el SORT para el estado de cuenta. Las dos decisiones excluyen los procesos 80 a 89 de los sistemas 407 y 408. La traducción conserva literalmente la precedencia de la condición abreviada <code>A00-R01-TIPO-PROC = 40 OR 41 OR 42 OR 43</code> combinada con <code>AND</code>: en COBOL el <code>AND</code> se evalúa antes que el <code>OR</code>, por lo que los tipos 41, 42 y 43 quedan fuera del punteo para cualquier sistema, no solo para 500. La misma exclusión en la decisión del SORT sí está entre paréntesis. El registro con función 99 marca fin lógico del archivo.",
+          "reglas": [
+            "RN-S151-365",
+            "RN-S151-380"
+          ],
+          "riesgo": "La condición de las líneas 10803-10804 no lleva paréntesis y es inconsistente con la de las líneas 10824-10825. Si la intención era excluir 40-43 solo para el sistema 500, hoy los sistemas 408, 84 y 87 dejan de puntear los procesos 41 a 43."
+        },
+        {
+          "id": "s8",
+          "titulo": "Construcción de la llave de ordenamiento",
+          "linea_ini": 10838,
+          "linea_fin": 10866,
+          "origen_codigo": "     MOVE LOW-VALUES                  TO A00-R01-S050-REGMOV      183000\n     IF A00-R01-MONEDA < 1 OR A00-R01-MONEDA > 99                 183100\n        MOVE 1 TO A00-R01-MONEDA.                                 183200\n                                                                  183300\n     IF A00-R01-SUCPROM > 0                                       183400\n        MOVE WKS-TAB-NOD-SUB(A00-R01-SUCPROM) TO KEY-SUBNODO      183500\n     ELSE                                                         183600\n        COMPUTE KEY-SUBNODO = GLOB-CSI * 100 .                    184600\n                                                                  184700\n     MOVE A00-R01-SUCPROM     TO KEY-SUCPROM.                     184800\n     MOVE A00-R01-CONTRATO    TO KEY-CONTRATO.                    184900\n     IF A00-R01-PRODUCTO = 66                                     185000\n        MOVE 1                TO KEY-TIPO-PROD                    185100\n     ELSE                                                         185200\n        MOVE 2                TO KEY-TIPO-PROD.                   185300\n                                                                  185400\n     MOVE A00-R01-PRODUCTO    TO WKS-SORT-PROD.                   185500\n     IF W77-SIST-PARAM = 408 OR 407                               185502\n        MOVE A00-R01-PRODUCTO TO KEY-PROD                         185510\n     ELSE                                                         185520\n        MOVE ZERO             TO KEY-PROD.                        185530\n     IF W77-SIST-PARAM = 87                                       185600\n        MOVE 87               TO WKS-SORT-PROD.                   185700\n                                                                  185800\n     MOVE A00-R01-INSTRUMENTO TO WKS-SORT-INST KEY-INSTRUM.       185900\n     MOVE A00-R01-SUCOPER     TO WKS-SORT-SUCOPER                 186000\n                                 KEY-SUCOPER                      186100\n     MOVE A00-R01-CAJAOPER    TO WKS-SORT-CAJAOPER                186200\n                                 KEY-CAJAOPER                     186300",
+          "java_codigo": "/** 150-025-MUEVE-GRABA-SORT, armado de KEY-PRINC. */\nLlaveOrden llaveDe(MovimientoLog151 m, int sistema, EstructuraSucursales est, int globCsi) {\n    int moneda = (m.moneda() < 1 || m.moneda() > 99) ? 1 : m.moneda();  // saneo silencioso\n    int subnodo = (m.sucProm() > 0)\n            ? est.subnodoDe(m.sucProm())        // WKS-TAB-NOD-SUB(A00-R01-SUCPROM)\n            : globCsi * 100;                    // sin sucursal promotora: CSI del job\n    int tipoProd = (m.producto() == 66) ? 1 : 2;  // cuenta maestra primero en el listado\n    int prod = (sistema == 408 || sistema == 407) ? m.producto() : 0;\n    return new LlaveOrden(subnodo, m.sucProm(), tipoProd,\n            String.format(\"%016d\", m.contrato()), prod,\n            m.instrumento(), m.sucOper(), m.cajaOper(), m.autS151());\n}",
+          "racional": "La llave decide el orden de los listados: primero el subnodo de la sucursal promotora, que se obtiene de la estructura de sucursales cargada al inicio, o el CSI del job por cien si no hay promotora. El tipo de producto pone la cuenta maestra (producto 66) antes que el resto. El producto solo entra en la llave para los sistemas 407 y 408; para los demás vale cero. Una moneda fuera de 1 a 99 se fuerza a 1 sin aviso, comportamiento que se conserva pero conviene registrar.",
+          "reglas": [
+            "RN-S151-363",
+            "RN-S151-371"
+          ],
+          "riesgo": "Una moneda inválida se reescribe como pesos (1) sin dejar rastro, y el movimiento entra al estado de cuenta en moneda nacional."
+        },
+        {
+          "id": "s9",
+          "titulo": "Tipo contable de la transacción y decisión de estado de cuenta",
+          "linea_ini": 11007,
+          "linea_fin": 11849,
+          "origen_codigo": " 150-085-VERIFICA-CVE.                                            193900\n     IF WKS-SORT-CVE(W77-IND) > 0                                 194000\n        PERFORM 150-100-TIPO-CONTAB                               194100\n        IF W88-VALIDO                                             194200\n           IF A00-R01-IND-EDOCTA = 1                              194300\n              IF W77-SIST-PARAM =  500 AND A00-R01-CONTRATO  > 1  194310\n                 PERFORM 150-090-MUEVE-GRABA                      194312\n              ELSE                                                194314\n              IF W77-SIST-PARAM =  500                            194315\n                 NEXT SENTENCE                                    194316\n              ELSE                                                194317\n                 PERFORM 150-090-MUEVE-GRABA                      194318\n           ELSE                                                   194319\n             IF ( W77-SIST-PARAM = 407      AND                   194320\n                  A00-R01-SIST-ORIG = 500   AND                   194360\n                  A00-R01-CONTRATO  > 1 )                         194380\n                PERFORM 150-090-MUEVE-GRABA.                      194400\n 150-100-TIPO-CONTAB.                                             227600\n     MOVE WKS-SORT-CVE(W77-IND)  TO W77-CVETRAN.                  227700\n     MOVE WKS-INDEXTRAN(W77-CVETRAN) TO W77-INDEX.                227800\n                                                                  227900\n     IF W77-SIST-PARAM = 407                                      227965\n        MOVE 0            TO      W77-DATOS-GRALES                227970\n        IF A00-R01-APUDES > 0                                     227975\n           PERFORM 150-095-LEYENDAS-ESP.                          227980\n                                                                  227985\n     IF WKS-AS-EDOCTA(W77-INDEX) NOT = 5 OR                       228000\n        ( W77-SIST-PARAM = 407 AND A00-R01-SIST-ORIG = 500 )      228060\n        MOVE 3 TO W77-TIPOTRAN                                    228100\n        IF WKS-AS-APLSDO(W77-INDEX) = 1                           228200\n           MOVE 1 TO W77-TIPOTRAN                                 228300\n        ELSE                                                      228400\n           IF WKS-AS-APLSDO(W77-INDEX) = 2                        228500\n              MOVE 2 TO W77-TIPOTRAN                              228600\n           ELSE                                                   228700\n              NEXT SENTENCE                                       228800\n     ELSE                                                         228900\n        MOVE 0 TO W77-TIPOTRAN.                                   229000\n                                                                  229005\n     IF WKS-AS-INDGPO(W77-INDEX) = 5                              229010\n        MOVE 1 TO W77-IND-GPO                                     229015\n     ELSE                                                         229020\n        MOVE 0 TO W77-IND-GPO.                                    229025",
+          "java_codigo": "public enum TipoContable { NINGUNO, CARGO, ABONO, NO_CONTABLE }   // W77-TIPOTRAN 0, 1, 2, 3\n\n/** 150-100-TIPO-CONTAB sobre el catálogo de transacciones S080 cargado en memoria. */\nTipoContable tipoContable(Transaccion t, int sistema, MovimientoLog151 m) {\n    boolean devolucionDe500 = sistema == 407 && m.sistOrig() == 500;\n    if (t.asEdocta() != 5 || devolucionDe500) {\n        return switch (t.asAplsdo()) {\n            case 1 -> TipoContable.CARGO;\n            case 2 -> TipoContable.ABONO;\n            default -> TipoContable.NO_CONTABLE;\n        };\n    }\n    return TipoContable.NINGUNO;                // AS-EDOCTA = 5: no va a estado de cuenta\n}\n\n/** 150-085-VERIFICA-CVE: ¿se graba en el archivo S050? */\nboolean vaAEstadoCuenta(TipoContable tipo, MovimientoLog151 m, int sistema) {\n    if (tipo == TipoContable.NINGUNO) return false;          // NOT W88-VALIDO\n    if (m.indEdocta() == 1) {\n        return sistema != 500 || m.contrato() > 1;           // 500 exige contrato mayor a 1\n    }\n    return sistema == 407 && m.sistOrig() == 500 && m.contrato() > 1;\n}",
+          "racional": "Por cada una de las hasta cinco claves del movimiento, el programa resuelve la transacción en el catálogo S080 y obtiene si es cargo, abono o no contable según <code>AS-APLSDO</code>. Las transacciones con <code>AS-EDOCTA = 5</code> no aplican a estado de cuenta, salvo las devoluciones del sistema 407 cuyo origen es 500. Un enum sustituye los valores 0 a 3 y el <code>88 W88-VALIDO VALUE 1, 2, 3</code>. La segunda regla, que en el sistema 500 descarta contratos 0 y 1, queda como una condición explícita.",
+          "reglas": [],
+          "riesgo": "Cualquier valor de AS-APLSDO distinto de 1 y 2 se trata como no contable y sí se imprime en el estado de cuenta; conviene confirmar que el catálogo S080 no trae otros valores."
+        },
+        {
+          "id": "s10",
+          "titulo": "Separación MOVSXCONT y MOVSXCONT-500 por producto",
+          "linea_ini": 11771,
+          "linea_fin": 11788,
+          "origen_codigo": " 150-100-GRABA-MOVS.                                              221810\n   IF A00-R01-PRODUCTO = 66                                       221820\n         WRITE REG-MOVSXCONT     FROM A00-R01-S050-REGMOV         221830\n         COMPUTE W77-TOT-REG     = W77-TOT-REG     + 1            221835\n         COMPUTE W77-TOT-IMP     = W77-TOT-IMP     +              221840\n                                   WKS-SORT-IMP(W77-IND)          221845\n   ELSE                                                           221875\n        WRITE REG-MOVSXCONT-500 FROM A00-R01-S050-REGMOV          221880\n        COMPUTE W77-TOT-REG-500 = W77-TOT-REG-500 + 1             221885\n        COMPUTE W77-TOT-IMP-500 = W77-TOT-IMP-500 +               221890\n                                   WKS-SORT-IMP(W77-IND).         221895",
+          "java_codigo": "/** 150-100-GRABA-MOVS dentro de un ClassifierCompositeItemWriter. */\n@Bean\nClassifierCompositeItemWriter<RegistroS050> escritorS050(\n        FlatFileItemWriter<RegistroS050> movsxcont,\n        FlatFileItemWriter<RegistroS050> movsxcont500,\n        FlatFileItemWriter<RegistroS050> movsxcontCheq) {\n    var w = new ClassifierCompositeItemWriter<RegistroS050>();\n    w.setClassifier(r -> switch (r.destino()) {\n        case MOVSXCONT      -> movsxcont;      // producto 66 (cuenta maestra)\n        case MOVSXCONT_500  -> movsxcont500;   // resto de productos del sistema 500\n        case MOVSXCONT_CHEQ -> movsxcontCheq;  // producto 1 del sistema 500\n    });\n    return w;\n}\n\n/** Totales del trailer A00-R02-S050-TRAILER, uno por archivo. 9(16)V99 -> escala 2. */\npublic final class TotalesS050 {\n    private final Map<Destino, long[]> registros = new EnumMap<>(Destino.class);\n    private final Map<Destino, BigDecimal> importes = new EnumMap<>(Destino.class);\n\n    public void suma(Destino d, BigDecimal importe) {\n        registros.computeIfAbsent(d, k -> new long[1])[0]++;\n        importes.merge(d, importe, BigDecimal::add);   // suma exacta de escala 2\n    }\n}",
+          "racional": "Para el sistema 500 cada registro S050 que no es de cheques va a <code>MOVSXCONT</code> si el producto es 66 y a <code>MOVSXCONT-500</code> en cualquier otro caso, sumando registros e importe al total de ese archivo. Es el patrón del arquetipo A3 de enrutar salidas con <code>ClassifierCompositeItemWriter</code>. El acumulador queda en un objeto por archivo en vez de pares de variables <code>W77-TOT-*</code>. La variante comentada que separaba el instrumento 8 en <code>MOVSXCONT-668</code> se omite del extracto porque está inactiva.",
+          "reglas": [
+            "RN-S151-364",
+            "RN-S151-362"
+          ]
+        },
+        {
+          "id": "s11",
+          "titulo": "Copia a TESOFE por catálogo de servicios en CSI 10 y 32",
+          "linea_ini": 11567,
+          "linea_fin": 11604,
+          "origen_codigo": " 150-091-PREG-CUENTA-TESOFE.                                      217403\n     MOVE A00-R01-MDA-SUC TO WKS-CAT-MDA-SUC.                     217406\n     MOVE A00-R01-MDA-CTA TO WKS-CAT-MDA-CTA.                     217407\n     IF WKS-DH-NUMCSI = 10 OR 32                                  217408\n        IF WKS-IND-SERV      (WKS-INDICE-3) = 50           AND    217410\n           WKS-NOM-SERVABR   (WKS-INDICE-3) = \"TESOF\"             217412\n           IF (WKS-TES-CTO   (WKS-INDICE-3) = A00-R01-CONTRATO OR 217413\n               WKS-TES-SUCCTA(WKS-INDICE-3) = A00-R01-NUMMDA)  AND217414\n             WKS-TES-PRD    (WKS-INDICE-3) = A00-R01-PRODUCTO AND 217415\n             WKS-TES-INS    (WKS-INDICE-3) = A00-R01-INSTRUMENTO  217416\n             MOVE 100 TO WKS-INDICE-3                             217417\n             MOVE WKS-AS-APLSDO(W77-INDEX) TO A00-R01-S050-CNTTRAS217418\n             WRITE REG-MOVSXCONTESOF FROM A00-R01-S050-REGMOV     217419\n             ADD 1                      TO W77-TOT-REG-CHEQTESOF  217420\n             ADD WKS-SORT-IMP (W77-IND) TO W77-TOT-IMP-CHEQTESOF  217421\n           ELSE                                                   217422\n              NEXT SENTENCE                                       217423\n        ELSE                                                      217424\n        IF WKS-IND-SERV      (WKS-INDICE-3) = 51           AND    217425\n           WKS-NOM-SERVABR   (WKS-INDICE-3) = \"TESOF\"             217426\n           IF (WKS-TES-CTO   (WKS-INDICE-3) = A00-R01-CONTRATO OR 217427\n               WKS-TES-SUCCTA(WKS-INDICE-3) = WKS-CAT-NUMMDA)  AND217428\n               WKS-TES-PRD   (WKS-INDICE-3) = A00-R01-PRODUCTO AND217429\n               WKS-TES-INS    (WKS-INDICE-3) = A00-R01-INSTRUMENTO217430\n               MOVE 100 TO WKS-INDICE-3                           217431\n               MOVE ZEROS TO WKS-CAT-NUMMDA                       217432\n               MOVE WKS-AS-APLSDO(W77-INDEX)                      217433\n                                 TO A00-R01-S050-CNTTRAS          217434\n               WRITE REG-MOVSXCONTESOF2 FROM A00-R01-S050-REGMOV  217435\n               ADD 1                    TO W77-TOT-REG-CHEQTESOF2 217436\n               ADD WKS-SORT-IMP(W77-IND) TO W77-TOT-IMP-CHEQTESOF2217437\n           ELSE                                                   217438\n             NEXT SENTENCE                                        217439\n        ELSE                                                      217440\n           MOVE 100 TO WKS-INDICE-3                               217441\n     ELSE                                                         217442\n        MOVE 100 TO WKS-INDICE-3.                                 217443",
+          "java_codigo": "/** 150-091-PREG-CUENTA-TESOFE: además de MOVSXCONTCHEQ, ¿va a S502 o a S701? */\n@Component\n@RequiredArgsConstructor\npublic class TesofeRouter {\n\n    private final P158Properties props;            // csis-tesofe: [10, 32]\n    private final List<ServicioTesofe> catalogo;   // cat. 766 de S080, filtrado por \"TESOF\"\n\n    public Optional<Destino> destino(MovimientoLog151 m, int csi) {\n        if (!props.csisTesofe().contains(csi)) return Optional.empty();\n        for (ServicioTesofe s : catalogo) {          // la tabla viene ordenada por índice\n            if (!\"TESOF\".equals(s.nombreAbreviado()) || (s.indServ() != 50 && s.indServ() != 51)) {\n                return Optional.empty();             // MOVE 100 TO WKS-INDICE-3: corta el barrido\n            }\n            // Ojo: el servicio 50 compara la sucursal-cuenta contra A00-R01-NUMMDA y el 51\n            // contra WKS-CAT-NUMMDA. Se conserva la diferencia hasta que el SME la confirme.\n            String cuentaMda = (s.indServ() == 50) ? m.numMda() : m.catNumMda();\n            boolean coincide = (s.contrato().equals(m.contrato()) || s.sucCuenta().equals(cuentaMda))\n                    && s.producto() == m.producto() && s.instrumento() == m.instrumento();\n            if (coincide) {\n                return Optional.of(s.indServ() == 50 ? Destino.MOVSXCONT_ESOF     // S502 IMPUESTOS\n                                                     : Destino.MOVSXCONT_ESOF2);  // S701 PAGOS\n            }\n        }\n        return Optional.empty();\n    }\n}",
+          "racional": "Solo en los centros de servicio 10 y 32, los movimientos de cheques se comparan contra el catálogo de servicios TESOFE. Si el servicio es 50 se copian a <code>MOVSXCONTESOF</code> (S502, impuestos) y si es 51 a <code>MOVSXCONTESOF2</code> (S701, pagos), con el campo de aplicación de saldo de la transacción y acumulando su propio trailer. El barrido se corta en el primer elemento que no es TESOFE, lo que supone que el catálogo viene agrupado al principio de la tabla. Los CSI se mueven a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S151-377",
+            "RN-S151-378"
+          ],
+          "riesgo": "El servicio 50 compara contra A00-R01-NUMMDA y el 51 contra WKS-CAT-NUMMDA, que el párrafo pone en cero tras usarlo. Puede ser intencional o un error de copia; afecta qué pagos de TESOFE se detectan."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Precedencia de AND y OR en el filtro de punteo",
+      "detalle": "En 150-010-LEE-REGISTRO (líneas 10803-10804) la condición IF W77-SIST-PARAM = 500 AND A00-R01-TIPO-PROC = 40 OR 41 OR 42 OR 43 se evalúa como (500 y 40) o 41 o 42 o 43. Los procesos 41 a 43 no generan punteo en ningún sistema. La decisión equivalente para el SORT (líneas 10824-10825) sí usa paréntesis."
+    },
+    {
+      "titulo": "Espera sin límite del archivo de P170",
+      "detalle": "12750-VALIDA-RESI170 hace WAIT (15) hasta que exista I01-MOVIMIENTOS, sin contador. Si P170 falla, P158 queda colgado al final del cierre."
+    },
+    {
+      "titulo": "Comparación distinta entre servicios TESOFE 50 y 51",
+      "detalle": "En 150-091-PREG-CUENTA-TESOFE el servicio 50 compara la sucursal-cuenta con A00-R01-NUMMDA (línea 11575) y el 51 con WKS-CAT-NUMMDA (línea 11589). Una de las dos puede estar mal."
+    },
+    {
+      "titulo": "Saneo silencioso de moneda",
+      "detalle": "150-025-MUEVE-GRABA-SORT cambia a 1 cualquier moneda fuera de 1 a 99 sin registrar el caso (líneas 10839-10840)."
+    },
+    {
+      "titulo": "Hardcodes de sistemas, CSI y catálogos",
+      "detalle": "La lista de sistemas permitidos, los sistemas de solo punteo (17 y 404), los CSI de TESOFE (10 y 32), los productos 66, 1 y 500 y los nombres de listados MOVXCONT y MOVXSCON están compilados. Se trasladan a application.yml."
+    },
+    {
+      "titulo": "Ventana Y2K",
+      "detalle": "El pivote A2K-BASE-YEAR = 50 interpreta los años de 2 dígitos dentro de 1950-2049; fechas de 6 dígitos posteriores a 2049 se convertirían al siglo XX."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si la exclusión de los procesos 41 a 43 en el punteo para todos los sistemas (líneas 10803-10804) es intencional o un error de paréntesis.",
+    "Confirmar cuál de las dos comparaciones de cuenta en 150-091-PREG-CUENTA-TESOFE es la correcta (A00-R01-NUMMDA frente a WKS-CAT-NUMMDA).",
+    "Validar con datos de producción que WKS-SORT-HORA-DD corresponde a los segundos (RN-S151-374).",
+    "No se transpiló 150-090-MUEVE-GRABA (líneas 11026-11566), que clasifica por tipo de cuenta maestra y acumula cargos, abonos y no contables para el reporte TOTAL; es el párrafo más largo y requiere su propio análisis (RN-S151-383, RN-S151-369).",
+    "El significado exacto de AS-EDOCTA = 5 y AS-INDGPO = 5 en el catálogo S080 no está en el fuente; se infirió del uso.",
+    "El OUTPUT PROCEDURE de impresión (200-000 a 700-xxx) no se cubre en esta demostración."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-361",
+    "RN-S151-362",
+    "RN-S151-363",
+    "RN-S151-364",
+    "RN-S151-365",
+    "RN-S151-366",
+    "RN-S151-367",
+    "RN-S151-368",
+    "RN-S151-369",
+    "RN-S151-370",
+    "RN-S151-371",
+    "RN-S151-372",
+    "RN-S151-373",
+    "RN-S151-374",
+    "RN-S151-375",
+    "RN-S151-376",
+    "RN-S151-377",
+    "RN-S151-378",
+    "RN-S151-379",
+    "RN-S151-380",
+    "RN-S151-381",
+    "RN-S151-382",
+    "RN-S151-383",
+    "RN-S151-384",
+    "RN-S151-385",
+    "RN-S151-386",
+    "RN-S151-387",
+    "RN-S151-388",
+    "RN-S151-389",
+    "RN-S151-390"
+  ]
+}

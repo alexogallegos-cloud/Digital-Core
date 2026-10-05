@@ -1,0 +1,239 @@
+{
+  "slug": "S500_P144",
+  "sistema": "S500",
+  "programa": "P144",
+  "nombre": "Reconciliación de Marca Ordenante B01/B03",
+  "funcion": "Paso batch de S500 que recorre todos los contratos de BD07ATRIBUCTA, los cruza con BD01CAPTACION y genera el archivo de activación masiva de la marca de ordenante.",
+  "resumen": "Abre en modo consulta S500BD07ATRIBUCTA (B01CONTRATOS y B02CONTROL) y S500BD01CAPTACION (B03CONTRATOS). Toma la fecha de lote y de línea de B02, determina el CSI local por el nombre del host y recorre completo B01CONTRATOS. Por cada contrato del CSI local busca su par en B03: si no existe lo anota en el archivo de problemas y, si existe con un indicador de ordenante distinto, escribe un movimiento 0935 sin importe en BIT-ACTBANDERA. El archivo lleva encabezado MARCA MASIVA ORDENANTE y un trailer con el total de activaciones.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.atributos.marcaordenante",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — BIT-ACTBANDERA (240 bytes) y títulos de archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P144.txt",
+        "contexto": "WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "ActBanderaRecord.java · P144Properties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro BIT-ACTBANDERA de 240 bytes con tres vistas REDEFINES",
+          "linea_ini": 27615,
+          "linea_fin": 27703,
+          "origen_codigo": " 01 WS-ARCHSINCB03-REG               PIC X(240).\n 01 WS-ARCHSINCB03-HDR        REDEFINES   WS-ARCHSINCB03-REG.\n   02 WS-ARCHSINCB03-HDR-TIPREG      PIC 9(01).\n   02 WS-ARCHSINCB03-HDR-NODORI      PIC 9(02).\n   02 WS-ARCHSINCB03-HDR-FECPRO      PIC 9(06).\n   02 WS-ARCHSINCB03-HDR-SISCTE      PIC 9(12).\n   02 WS-ARCHSINCB03-HDR-NUMARC      PIC 9(04).\n   02 WS-ARCHSINCB03-HDR-DESCTE      PIC X(36).\n   02 WS-ARCHSINCB03-HDR-FILLER      PIC X(143).\n   02 WS-ARCHSINCB03-HDR-FINREG      PIC X(01).\n   02 WS-ARCHSINCB03-HDR-FILLER2     PIC X(35).\n 01 WS-ARCHSINCB03-TRL        REDEFINES   WS-ARCHSINCB03-REG.\n   02 WS-ARCHSINCB03-TRL-TIPREG               PIC 9(01).\n   02 WS-ARCHSINCB03-TRL-NUMABO               PIC 9(08).\n   02 WS-ARCHSINCB03-TRL-IMPABO               PIC 9(16)V99.\n   02 WS-ARCHSINCB03-TRL-NUMCAR               PIC 9(08).\n   02 WS-ARCHSINCB03-TRL-IMPCAR               PIC 9(16)V99.\n   02 WS-ARCHSINCB03-TRL-NUMNCO               PIC 9(08).\n   02 WS-ARCHSINCB03-TRL-FILLER               PIC X(143).\n   02 WS-ARCHSINCB03-TRL-FINREG               PIC X(01).\n   02 WS-ARCHSINCB03-TRL-FILLER2              PIC X(35).\n 01 WS-ARCHSINCB03-DET        REDEFINES   WS-ARCHSINCB03-REG.\n   07 WS-ARCHSINCB03-TIPO-REG                 PIC 9(01).\n   07 WS-ARCHSINCB03-NUM-SEC                  PIC 9(08).\n   07 WS-ARCHSINCB03-SUC                      PIC 9(04).\n   07 WS-ARCHSINCB03-CAJA                     PIC 9(02).\n   07 WS-ARCHSINCB03-NUMTRAN                  PIC 9(08).\n   07 WS-ARCHSINCB03-CLAVE-TRANS              PIC 9(04).\n   07 WS-ARCHSINCB03-TIPO-MOV                 PIC 9(01).\n   07 WS-ARCHSINCB03-TIPMEDACC                PIC 9(02).\n   07 WS-ARCHSINCB03-TARJETA                  PIC X(16).\n   07 WS-ARCHSINCB03-TARJETA-R REDEFINES WS-ARCHSINCB03-TARJETA.\n      10 WS-ARCHSINCB03-SUC-PROM              PIC 9(04).\n      10 WS-ARCHSINCB03-CTO                   PIC 9(12).\n   07 WS-ARCHSINCB03-IMPORTE                  PIC 9(14)V99.\n   07 WS-ARCHSINCB03-MONEDA                   PIC 9(03).\n   07 WS-ARCHSINCB03-REFERENCIA               PIC 9(12).\n   07 WS-ARCHSINCB03-MOV-FORZADO              PIC 9(01).\n   07 WS-SNC-ACTDATCTE.\n      08 WS-SNC-C935-IND-MARORD-A          PIC 9(02).\n      08 WS-SNC-C935-FEC-MARORD-A          PIC 9(08).\n   07 FILLER                               PIC X(152).",
+          "java_codigo": "/** WS-ARCHSINCB03-REG: 240 bytes, tres vistas REDEFINES discriminadas por el primer dígito. */\npublic sealed interface ActBanderaRecord permits ActBanderaRecord.Header,\n        ActBanderaRecord.Detalle, ActBanderaRecord.Trailer {\n\n    String toFixed();   // FlatFileItemWriter escribe exactamente 240 posiciones\n\n    /** WS-ARCHSINCB03-HDR, tipo 1. */\n    record Header(int nodoOrigen,          // 9(02)  CSI local\n                  String fecProcesoAmd,    // 9(06)  AAMMDD, sin siglo\n                  long sistema,            // 9(12)  500\n                  int numArchivo,          // 9(04)  9\n                  String descripcion)      // X(36)\n            implements ActBanderaRecord {\n        public String toFixed() {\n            return Fixed.of(240).num(1, 1).num(nodoOrigen, 2).str(fecProcesoAmd, 6)\n                    .num(sistema, 12).num(numArchivo, 4).str(descripcion, 36).spaces().build();\n        }\n    }\n\n    /** WS-ARCHSINCB03-DET, tipo 2: movimiento 0935 sin importe. */\n    record Detalle(long numSec, int sucursal, int caja, long numTran, int claveTrans,\n                   int tipoMov, int tipMedAcc,\n                   int sucPromotora,       // TARJETA-R: 9(04) ...\n                   String contrato,        // ... + 9(12); String para conservar ceros\n                   BigDecimal importe,     // 9(14)V99, escala 2\n                   int moneda, long referencia, int movForzado,\n                   int indMarcaOrdenante,  // WS-SNC-C935-IND-MARORD-A 9(02)\n                   String fecMarcaAmd)     // WS-SNC-C935-FEC-MARORD-A 9(08)\n            implements ActBanderaRecord {\n        public String toFixed() { return Fixed.detalle935(this); }   // FILLER X(152) a espacios\n    }\n\n    /** WS-ARCHSINCB03-TRL, tipo 9. */\n    record Trailer(long numAbonos, BigDecimal impAbonos, long numCargos, BigDecimal impCargos,\n                   long numNoContables)    // NUMNCO 9(08)\n            implements ActBanderaRecord {\n        public String toFixed() { return Fixed.trailer(this); }      // importes 9(16)V99\n    }\n}",
+          "racional": "El archivo de salida reusa el formato de sincronización hacia B03: un buffer de 240 bytes con encabezado, detalle y trailer que comparten memoria vía <code>REDEFINES</code>. En Java cada vista es un <code>record</code> dentro de una <code>sealed interface</code> y cada uno sabe serializarse a posiciones fijas, porque el consumidor del archivo espera el layout byte a byte. El campo <code>TARJETA</code> X(16) se redefine como sucursal promotora más contrato; el contrato <code>PIC 9(12)</code> se maneja como <code>String</code> para no perder ceros a la izquierda. Los importes <code>9(14)V99</code> y <code>9(16)V99</code> pasan a <code>BigDecimal</code> de escala 2 aunque P144 siempre los deja en cero.",
+          "reglas": [
+            "RN-S500-142",
+            "RN-S500-145"
+          ],
+          "riesgo": "WS-ARCHSINCB03-HDR-TIPREG, TRL-TIPREG y TIPO-REG son PIC 9(01): el MOVE 01 y el MOVE 02 del procedimiento quedan como '1' y '2' en el archivo, no como dos dígitos."
+        },
+        {
+          "id": "s2",
+          "titulo": "Títulos de archivo compilados a application.yml",
+          "linea_ini": 27227,
+          "linea_fin": 27281,
+          "origen_codigo": " 01 WS-ETIQ-ACTBAND.\n    02 FILLER             PIC X(15) VALUE \"S500/FILE/INTE/\".\n    02 FILLER             PIC X(08) VALUE \"50099E01\".\n    02 FILLER             PIC X(01) VALUE \"/\".\n    02 BIT-TIT-CSI        PIC 9(02).\n    02 FILLER             PIC X(01) VALUE \"/\".\n    02 BIT-TIT-FEC        PIC 9(08).\n    02 FILLER             PIC X(01) VALUE \"/\".\n    02 BIT-TIT-SIS        PIC 9(12).\n    02 FILLER             PIC X(01) VALUE \"/\".\n    02 BIT-TIT-SEC        PIC 9(04).\n    02 FILLER             PIC X(01) VALUE \".\".\n 01 F02-TITLE.\n    02 FILLER             PIC X(20) VALUE \"S500/FILE/P144/PROB/\".\n    02 F02-TIT-CSI        PIC 9(02).\n    02 FILLER             PIC X(01) VALUE \"/\".\n    02 F02-TIT-FEC        PIC 9(06).\n    02 FILLER             PIC X(01) VALUE \".\".\n 01 F02-TITLE-INTS.\n    02 FILLER             PIC X(15) VALUE \"S500/FILE/INTS/\".\n    02 FILLER             PIC X(08) VALUE \"50004S01\".\n    02 FILLER             PIC X(01) VALUE \"/\".\n    02 F02-TIT-INTS-CSI   PIC 9(02).\n    02 FILLER             PIC X(01)  VALUE \"/\".\n    02 F02-TIT-INTS-FEC   PIC 9(08).\n    02 FILLER             PIC X(10)  VALUE \"/PROBP144.\".",
+          "java_codigo": "# application.yml\np144:\n  actbandera:\n    # S500/FILE/INTE/50099E01/{csi}/{fechaLinea AAAAMMDD}/{sistema 9(12)}/{seccion 9(04)}.\n    titulo: \"S500/FILE/INTE/50099E01/{csi}/{fecha}/{sistema}/{seccion}.\"\n    sistema: 500\n    seccion: 9\n  problemas:\n    # F02-TITLE-INTS; F02-TITLE (S500/FILE/P144/PROB/) se llena pero nunca se usa\n    titulo: \"S500/FILE/INTS/50004S01/{csi}/{fecha}/PROBP144.\"\n    append-si-existe: true          # IF ATTRIBUTE RESIDENT ... OPEN EXTEND\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p144\")\npublic record P144Properties(ActBandera actbandera, Problemas problemas) {\n    public record ActBandera(String titulo, long sistema, int seccion) {}\n    public record Problemas(String titulo, boolean appendSiExiste) {}\n\n    public String tituloActBandera(int csi, LocalDate fechaLinea) {\n        return actbandera.titulo()\n                .replace(\"{csi}\", \"%02d\".formatted(csi))\n                .replace(\"{fecha}\", fechaLinea.format(DateTimeFormatter.BASIC_ISO_DATE))\n                .replace(\"{sistema}\", \"%012d\".formatted(actbandera.sistema()))\n                .replace(\"{seccion}\", \"%04d\".formatted(actbandera.seccion()));\n    }\n}",
+          "racional": "Las etiquetas fijan en el código el prefijo <code>S500/FILE/INTE/50099E01</code>, el sistema 500 y la sección 0009 del archivo de activaciones, y el prefijo <code>S500/FILE/INTS/50004S01</code> del archivo de problemas. Se trasladan a <code>application.yml</code> para cambiarlas por ambiente sin recompilar. El CSI y la fecha se sustituyen en tiempo de ejecución con el mismo ancho que los PIC originales (<code>9(02)</code>, <code>9(08)</code>, <code>9(12)</code>, <code>9(04)</code>). El título del archivo de problemas usa la fecha de lote y el de activaciones la fecha de línea.",
+          "reglas": [
+            "RN-S500-144"
+          ],
+          "riesgo": "F02-TITLE se llena en 40006000-OPEN-PROB pero inmediatamente se reemplaza el título por F02-TITLE-INTS; es código muerto que puede confundir en un incidente."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job, CSI local y fecha de proceso",
+      "origen": {
+        "archivo": "S500_SOURCE_P144.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 40003000 / 40005000"
+      },
+      "java": {
+        "archivo": "MarcaMasivaOrdenanteJobConfig.java · TopologiaCsi.java · ContextoEjecucionTasklet.java",
+        "contexto": "Spring Batch Job · @Component · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal e inicio a definición de Job",
+          "linea_ini": 27775,
+          "linea_fin": 27831,
+          "origen_codigo": " 00000000-CONTROL-PROGRAMA.\n*****************************************************************\n    PERFORM 40000000-INICIO.\n    PERFORM 50000000-PROCESO.\n    PERFORM 70000000-FIN.\n*================\n 40000000-INICIO.\n*================\n    MOVE 2                 TO W77-USO-LIBLJ\n    MOVE \"P144\"            TO WS-0101-PASO-MSG\n    MOVE \"25MTP004\"        TO WS-0101-MTP-MSG W77-S000-MY-VERSION\n    MOVE \"S500P144\"        TO W77-S000-MY-ID.\n    MOVE \" \"               TO WS-0101-TEXT-MSG.\n    PERFORM 10000100-VERSIONES\n    PERFORM 40001000-OPEN-BD\n    PERFORM 40003000-IDENTIFICA-HOST\n    PERFORM 40002000-TITLE-LIBRERIAS\n    PERFORM 40005000-VALIDO-FECHA-PRO\n    PERFORM 40006000-OPEN-ARCHIVOS.\n    ATTACH 000-INTERRUPCIONES-SECCION TO ATTRIBUTE EXCEPTIONEVENT\n                                      OF MYSELF\n    ALLOW  INTERRUPT.",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P144Properties.class)\npublic class MarcaMasivaOrdenanteJobConfig {\n\n    /** 00000000-CONTROL-PROGRAMA: INICIO, PROCESO y FIN en secuencia. */\n    @Bean\n    Job marcaMasivaOrdenante(JobRepository repo,\n                             Step validaVersion,       // 10000100-VERSIONES + 40002000-TITLE-LIBRERIAS\n                             Step contextoEjecucion,   // 40003000-IDENTIFICA-HOST + 40005000-VALIDO-FECHA-PRO\n                             Step reconciliaB01B03) {  // 40006000-OPEN-ARCHIVOS + 50000000-PROCESO + 70000000-FIN\n        return new JobBuilder(\"S500P144\", repo)\n                .start(validaVersion)\n                .next(contextoEjecucion)\n                .next(reconciliaB01B03)\n                .build();\n    }\n    // ATTACH ... EXCEPTIONEVENT / ALLOW INTERRUPT: el handler solo pone TASKVALUE en cero.\n    // En Spring Batch la interrupción se atiende con JobOperator.stop(); no hay equivalente que migrar.\n}",
+          "racional": "El programa es una secuencia fija de tres <code>PERFORM</code>; 40000000-INICIO a su vez valida versión, abre las dos bases, identifica el host, obtiene la fecha y abre los archivos. En Spring Batch eso se agrupa en tres <code>Step</code> encadenados, con bitácora y reinicio en el <code>JobRepository</code>. Los <code>MOVE</code> de identificación (<code>P144</code>, <code>25MTP004</code>, <code>S500P144</code>) pasan a ser el nombre del job y la versión del artefacto. La sección de interrupciones de DECLARATIVES solo limpia TASKVALUE y no tiene lógica de negocio.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "CSI local y pares de transferencia por nombre de host",
+          "linea_ini": 27985,
+          "linea_fin": 28067,
+          "origen_codigo": " 40003000-IDENTIFICA-HOST.\n*-------------------------\n     PERFORM 00000000-CHANGE-SOPCOMS.\n     PERFORM 0000-CALL-HOSTNAME.\n     IF WS-DH-HOSTNAME-VDM\n        MOVE 10          TO WKS-CSIL\n     ELSE\n        MOVE 04          TO WKS-CSIL.\n     IF WS-DH-NOM-EQUIPO = \"VDMBETA.  \"\n        MOVE \"VDMBETA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"ACYPBETA  \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"ACYPBETA. \"\n        MOVE \"ACYPBETA  \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"VDMBETA   \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"ACYPGAMA. \"\n        MOVE \"ACYPGAMA  \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"MONALFA   \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"MONALFA.  \"\n        MOVE \"MONALFA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"ACYPGAMA  \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"ACYPOMEGA.\"\n        MOVE \"ACYPOMEGA \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"VDMKAPPA  \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"VDMKAPPA. \"\n        MOVE \"VDMKAPPA  \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"ACYPOMEGA \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"VDMALFA.  \"\n        MOVE \"VDMALFA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"MONBETA   \" TO WKS-HOST-DEST-XFER-XX\n     ELSE\n     IF WS-DH-NOM-EQUIPO = \"MONBETA.  \"\n        MOVE \"MONBETA   \" TO WKS-HOST-ORIG-XFER-XX\n        MOVE \"VDMALFA   \" TO WKS-HOST-DEST-XFER-XX.",
+          "java_codigo": "# application.yml  (antes: cadena de IF anidados compilada; la misma tabla vive en P020 y P142)\nbanamex:\n  topologia:\n    csi-por-host:                  # WS-DH-HOSTNAME-VDM => 10; cualquier otro => 04\n      default: 4\n      vdm: [ \"VDMBETA\", \"ACYPGAMA\", \"ACYPOMEGA\", \"VDMALFA\" ]   # nivel 88 WS-DH-HOSTNAME-VDM\n    pares-xfer:\n      VDMBETA:   ACYPBETA\n      ACYPBETA:  VDMBETA\n      ACYPGAMA:  MONALFA\n      MONALFA:   ACYPGAMA\n      ACYPOMEGA: VDMKAPPA\n      VDMKAPPA:  ACYPOMEGA\n      VDMALFA:   MONBETA\n      MONBETA:   VDMALFA\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class TopologiaCsi {\n\n    private final TopologiaProperties props;    // compartida con P020 y P142\n    private final HostnameProvider hostname;    // reemplaza SOPORTECOMS / 0000-CALL-HOSTNAME\n\n    public int csiLocal() {\n        return props.csiPorHost().vdm().contains(hostname.nombre()) ? 10 : props.csiPorHost().defaultCsi();\n    }\n\n    public Optional<String> destinoXfer() {     // WKS-HOST-DEST-XFER-XX; sin coincidencia queda vacío\n        return Optional.ofNullable(props.paresXfer().get(hostname.nombre()));\n    }\n}",
+          "racional": "El CSI local (10 Valle de México, 04 Monterrey) y el par de hosts para transferencias se deducen del nombre del equipo con una cadena de <code>IF ... ELSE IF</code> literal. Esa tabla es configuración de topología, no lógica de negocio, así que pasa a <code>application.yml</code> y a un componente <code>TopologiaCsi</code> compartido por los programas que hoy la duplican. Se conserva la regla de que cualquier host que no sea de Valle cae en CSI 04, y un host fuera de la tabla deja el destino vacío en lugar de fallar.",
+          "reglas": [
+            "RN-S500-151"
+          ],
+          "riesgo": "Cualquier host no reconocido como VDM se trata como Monterrey (CSI 04) sin aviso, lo que en un servidor nuevo o renombrado generaría activaciones con la sucursal promotora equivocada. Además los nombres se comparan con punto y relleno de espacios ('VDMBETA.  ')."
+        },
+        {
+          "id": "s5",
+          "titulo": "Fecha de proceso desde B02CONTROL y sobreescritura por TASKVALUE",
+          "linea_ini": 28073,
+          "linea_fin": 28103,
+          "origen_codigo": " 40005000-VALIDO-FECHA-PRO.\n*--------------------------\n     PERFORM 90000002-B02CONTROL-FIND.\n     MOVE B02-FECHA-LOTE    TO WKS-FEC-BASE.\n     MOVE B02-FECHA-LINEA   TO WKS-FEC-PROX\n                               WKS-FEC-LINEA.\n     IF WKS-TSK-FECH > 0\n        MOVE WKS-TSK-FECH   TO WKS-FEC-BASE\n        PERFORM 20040300-PROYECTA-FECHA\n        MOVE WS-S006-FECHA1 TO WKS-FEC-PROX.\n     IF WKS-MM-FPROX  = WKS-MM-FBASE\n        MOVE 0 TO WKS-ES-MENSUAL\n     ELSE\n        MOVE 1 TO WKS-ES-MENSUAL.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ContextoEjecucionTasklet implements Tasklet {\n\n    private final ControlAtribuctaRepository control;   // S500B02CONTROL, OPEN INQUIRY\n    private final CalendarioBancario calendario;         // reemplaza S006 LOCSUP\n    private final TopologiaCsi topologia;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var b02 = control.findFirst()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B02CONTROL\"));\n        LocalDate fecBase  = b02.fechaLote();          // WKS-FEC-BASE\n        LocalDate fecLinea = b02.fechaLinea();         // WKS-FEC-LINEA\n        LocalDate fecProx  = b02.fechaLinea();         // WKS-FEC-PROX\n\n        // WKS-TSK-FECH > 0: en el fuente nadie carga TASKVALUE en WKS-VALUE-PASO, así que hoy\n        // nunca se cumple. Se expone como parámetro de job opcional para no perder la intención.\n        LocalDate forzada = ctx.getStepContext().getStepExecution()\n                .getJobParameters().getLocalDate(\"fechaProceso\");\n        if (forzada != null) {\n            fecBase = forzada;\n            fecProx = calendario.proyecta(forzada, 1, 13);   // LOCSUP función 13, formato 12, +1\n        }\n        boolean esMensual = fecProx.getMonthValue() != fecBase.getMonthValue();  // WKS-ES-MENSUAL (no se usa)\n\n        var ec = ctx.getStepContext().getStepExecution().getJobExecution().getExecutionContext();\n        ec.put(\"csiLocal\", topologia.csiLocal());\n        ec.put(\"fechaBase\", fecBase);\n        ec.put(\"fechaLinea\", fecLinea);\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La fecha de lote y la fecha de línea se toman del primer registro de <code>S500B02CONTROL</code>, abierto en modo consulta. El fuente prevé sobrescribir la fecha base con <code>WKS-TSK-FECH</code> y proyectar la siguiente con LOCSUP, y marcar si hay cambio de mes. En Java esto es un <code>Tasklet</code> de solo lectura que publica CSI y fechas en el <code>ExecutionContext</code>; el TASKVALUE se reemplaza por un parámetro de job opcional. Las fechas <code>PIC 9(08) COMP</code> pasan a <code>LocalDate</code>.",
+          "reglas": [
+            "RN-S500-147",
+            "RN-S500-148"
+          ],
+          "riesgo": "WKS-TSK-FECH solo aparece en su definición (línea 27357) y en este IF: ningún párrafo mueve MYSELF(TASKVALUE) a WKS-VALUE-PASO. La sobrescritura de fecha es inalcanzable y WKS-ES-MENSUAL se calcula pero nadie lo lee."
+        }
+      ]
+    },
+    {
+      "titulo": "Reconciliación B01/B03 y generación de activaciones 0935",
+      "origen": {
+        "archivo": "S500_SOURCE_P144.txt",
+        "contexto": "PROCEDURE DIVISION · 50001100 / 90000001 / 98000000 / 50009000 / 40006000 / 50003400"
+      },
+      "java": {
+        "archivo": "ComparaMarcaOrdenanteProcessor.java · ActivacionFactory.java · CierreListener.java",
+        "contexto": "RepositoryItemReader · ItemProcessor @StepScope · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Barrido completo de B01CONTRATOS sin filtro",
+          "linea_ini": 28337,
+          "linea_fin": 28383,
+          "origen_codigo": " 50001100-BARRO-B01.\n*------------------\n  PERFORM 90000001-B01CONTRATOS-FINDF.\n     IF WS-STATUS-BASE = 0\n        NEXT SENTENCE\n     ELSE\n     IF WS-STATUS-BASE = 1\n        MOVE 1 TO WKS-FIN-B01\n     ELSE\n        MOVE \"ERROR AL HACER FIND NEXT A B01\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     IF WS-STATUS-BASE = 0\n        PERFORM 90000001-WRITE-PROC-ARCH.\n*------------------------\n 50003000-ARCH-CTOREP.\n*------------------------\n     MOVE 0 TO WKS-CONTADOR.\n     SET S500B01CONTRATOS TO BEGINNING.\n     MOVE 0 TO WKS-FIN-B01.\n     PERFORM 50001100-BARRO-B01 UNTIL WKS-FIN-B01 = 1.",
+          "java_codigo": "@Bean\n@StepScope\nRepositoryItemReader<ContratoAtributo> lectorB01(ContratoAtributoRepository b01) {\n    // SET S500B01CONTRATOS TO BEGINNING + FIND NEXT hasta fin de conjunto:\n    // universo completo, sin filtro por fecha, estado ni producto.\n    return new RepositoryItemReaderBuilder<ContratoAtributo>()\n            .name(\"b01Contratos\")\n            .repository(b01)\n            .methodName(\"findAll\")\n            .sorts(Map.of(\"numContrato\", Sort.Direction.ASC))\n            .pageSize(1000)\n            .build();\n}\n\n@Bean\nStep reconciliaB01B03(JobRepository repo, PlatformTransactionManager tx,\n                      RepositoryItemReader<ContratoAtributo> lectorB01,\n                      ComparaMarcaOrdenanteProcessor procesador,\n                      FlatFileItemWriter<ActBanderaRecord> actBanderaWriter,\n                      ProblemasListener problemas) {\n    return new StepBuilder(\"reconciliaB01B03\", repo)\n            .<ContratoAtributo, ActBanderaRecord>chunk(1000, tx)\n            .reader(lectorB01)\n            .processor(procesador)\n            .writer(actBanderaWriter)          // header y trailer por callbacks\n            .listener(problemas)               // F02-PROBLEMAS: INICIA / TERMINA ARCHIVO\n            .transactionAttribute(soloLectura())\n            .build();\n}\n// Un error de DMSII distinto de fin de conjunto (STATUS-BASE > 1) aborta: aquí la excepción\n// del repositorio deja el step en FAILED, igual que CALL SYSTEM DMTERMINATE.",
+          "racional": "50003000-ARCH-CTOREP posiciona B01CONTRATOS al inicio y repite 50001100-BARRO-B01 hasta el fin de conjunto, sin ningún criterio de selección. El equivalente en Spring Batch es un <code>RepositoryItemReader</code> paginado sobre toda la tabla con orden estable por contrato. Las dos bases se abren en <code>OPEN INQUIRY</code>, por eso el step corre con transacción de solo lectura: el único efecto del programa es el archivo de salida.",
+          "reglas": [
+            "RN-S500-146",
+            "RN-S500-148"
+          ],
+          "riesgo": "El orden del barrido en DMSII es el del conjunto S500B01CONTRATOS, que no se ve en el fuente. Si el consumidor del archivo depende de ese orden, el sort de la paginación debe reproducirlo."
+        },
+        {
+          "id": "s7",
+          "titulo": "Búsqueda en B03 por índice y comparación de la marca de ordenante",
+          "linea_ini": 28825,
+          "linea_fin": 28899,
+          "origen_codigo": "90000001-WRITE-PROC-ARCH.\n   MOVE B01-NUM-CONTRATO      TO WKS-CONTRATO-B01.\n   MOVE B01-NUM-FECPROACT(1)  TO WKS-DATO-FECACT.\n   MOVE B01-NUM-DATO(1)       TO WKS-DATO-MATCH.\n   PERFORM 90000001-BUSCA-CTO\n   MOVE B03-NUM-CONTRATO    TO WKS-CONTRATO-B03.\n   PERFORM 98000000-COMPARACION.\n*************************************************************\n 90000001-BUSCA-CTO.\n      FIND B03SXCTO AT\n           B03-NUM-CONTRATO = WKS-CONTRATO-B01\n           ON EXCEPTION\n             PERFORM 90000001-CTO-NOEXISTE.\n*             MOVE DMSTATUS(DMCATEGORY) TO WS-STATUS-BASE.\n*************************************************************\n 90000001-CTO-NOEXISTE.\n   IF WKS-CSIL = B01-CSI-CONTRATO\n      STRING \"CTO NO EXISTE \"WKS-CONTRATO-B01 \" EN B03\"\n      DELIMITED BY SIZE  INTO WS-F02-MSG\n      PERFORM 50009000-PROB-TIEMPO\n   ELSE\n      NEXT SENTENCE.\n*************************************************************\n 98000000-COMPARACION.\n    IF WKS-CONTRATO-B01 = WKS-CONTRATO-B03\n      IF WKS-CSIL = B01-CSI-CONTRATO\n         IF WKS-DATO-MATCH NOT = B03-IND-MARORD\n            PERFORM 50009000-ESC-REGISTRO\n*         ELSE\n*            NEXT SENTENCE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ComparaMarcaOrdenanteProcessor implements ItemProcessor<ContratoAtributo, ActBanderaRecord> {\n\n    private final ContratoCaptacionRepository b03;      // índice B03SXCTO por número de contrato\n    private final ActivacionFactory activaciones;\n    private final ProblemasWriter problemas;\n    @Value(\"#{jobExecutionContext['csiLocal']}\") private int csiLocal;\n\n    @Override\n    public ActBanderaRecord process(ContratoAtributo b01) {\n        String contrato = b01.numContrato();            // WKS-CONTRATO-B01\n        int datoMatch   = b01.numDato(1);               // B01-NUM-DATO(1)\n        String fecAct   = b01.numFecProAct(1);          // B01-NUM-FECPROACT(1)\n        boolean local   = csiLocal == b01.csiContrato();\n\n        Optional<ContratoCaptacion> b03Reg = b03.findByNumContrato(contrato);   // FIND B03SXCTO AT\n        if (b03Reg.isEmpty()) {                          // 90000001-CTO-NOEXISTE\n            if (local) {\n                problemas.escribe(\"CTO NO EXISTE \" + contrato + \" EN B03\");\n            }\n            return null;                                 // contrato del otro CSI: se ignora en silencio\n        }\n        // 98000000-COMPARACION: mismo contrato, CSI local y marca distinta\n        if (local && datoMatch != b03Reg.get().indMarcaOrdenante()) {\n            return activaciones.nueva(contrato, datoMatch, fecAct);   // 50009000-ESC-REGISTRO\n        }\n        return null;                                     // sin diferencia: no se genera movimiento\n    }\n}",
+          "racional": "Por cada contrato de B01 se busca su par en B03 con el índice <code>B03SXCTO</code>. Si no existe y el contrato es del CSI local se deja constancia en el archivo de problemas; si es del otro CSI se ignora, porque su reconciliación corre en el otro nodo. Cuando existe, se genera una activación solo si el CSI es local y el indicador de ordenante de B01 difiere del de B03. En el <code>ItemProcessor</code> devolver <code>null</code> filtra el registro, que es lo que hace el programa en todas las ramas sin escritura. El <code>FIND ... AT</code> se vuelve una consulta derivada de Spring Data que regresa <code>Optional</code>.",
+          "reglas": [
+            "RN-S500-138",
+            "RN-S500-139",
+            "RN-S500-140",
+            "RN-S500-141",
+            "RN-S500-150"
+          ],
+          "riesgo": "Cualquier excepción del FIND (no solo registro inexistente, también un error de E/S o de bloqueo) se trata como contrato inexistente, porque el MOVE DMSTATUS está comentado en la línea 28859. Tras un FIND fallido el programa aún mueve B03-NUM-CONTRATO del área de registro anterior y depende de que no coincida con el contrato buscado."
+        },
+        {
+          "id": "s8",
+          "titulo": "Armado del movimiento 0935 con valores fijos",
+          "linea_ini": 28271,
+          "linea_fin": 28331,
+          "origen_codigo": " 50009000-ESC-REGISTRO.\n*--------------------\n   ADD 1               TO  WS-CONT.\n   IF WKS-CSIL = 10\n      MOVE 0432        TO WKS-SUC-PROMOTORA\n   ELSE\n      MOVE 0366        TO WKS-SUC-PROMOTORA.\n   MOVE SPACES TO WS-ARCHSINCB03-REG.\n   MOVE 02                  TO  WS-ARCHSINCB03-TIPO-REG.\n   MOVE WS-CONT             TO  WS-ARCHSINCB03-NUM-SEC.\n   MOVE 0511                TO  WS-ARCHSINCB03-SUC.\n   MOVE 05                  TO  WS-ARCHSINCB03-CAJA.\n   MOVE WS-CONT             TO  WS-ARCHSINCB03-NUMTRAN.\n   MOVE 0935                TO  WS-ARCHSINCB03-CLAVE-TRANS.\n   MOVE 03                  TO  WS-ARCHSINCB03-TIPO-MOV.\n   MOVE 00                  TO  WS-ARCHSINCB03-TIPMEDACC.\n   MOVE WKS-SUC-PROMOTORA      TO  WS-ARCHSINCB03-SUC-PROM.\n   MOVE WKS-CONTRATO-B01       TO  WS-ARCHSINCB03-CTO\n   MOVE ZEROS                  TO  WS-ARCHSINCB03-IMPORTE.\n   MOVE ZEROS                  TO  WS-ARCHSINCB03-MONEDA.\n   MOVE ZEROS                  TO  WS-ARCHSINCB03-REFERENCIA.\n   MOVE ZEROS                  TO  WS-ARCHSINCB03-MOV-FORZADO.\n   MOVE WKS-DATO-MATCH         TO  WS-SNC-C935-IND-MARORD-A.\n   MOVE WKS-DATO-FECACT        TO  WS-SNC-C935-FEC-MARORD-A.\n   WRITE REG-ARCH-SINC-B03     FROM WS-ARCHSINCB03-REG.\n*   MOVE WS-ARCHSINCB03-DET      TO REG-ARCH-SINC-B03.\n*   PERFORM 50003400-GRABA-ARCHIVO.\n   ADD 1 TO WKS-CONTADOR.",
+          "java_codigo": "# application.yml\np144:\n  movimiento:\n    clave-trans: 935\n    tipo-mov: 3\n    tipo-medio-acceso: 0           # CONTRATO\n    sucursal: 511\n    caja: 5\n    suc-promotora-por-csi:         # IF WKS-CSIL = 10 ... ELSE ...\n      \"10\": 432\n      default: 366\n\n// ---------------------------------------------------------------------------\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ActivacionFactory {\n\n    private final P144Properties props;\n    @Value(\"#{jobExecutionContext['csiLocal']}\") private int csiLocal;\n    private long consecutivo;                    // WS-CONT y WKS-CONTADOR llevan la misma cuenta\n\n    ActBanderaRecord.Detalle nueva(String contrato, int indMarcaOrdenante, String fecMarca) {\n        consecutivo++;\n        var m = props.movimiento();\n        return new ActBanderaRecord.Detalle(\n                consecutivo, m.sucursal(), m.caja(), consecutivo,      // NUM-SEC = NUMTRAN\n                m.claveTrans(), m.tipoMov(), m.tipoMedioAcceso(),\n                m.sucPromotora(csiLocal), contrato,\n                BigDecimal.ZERO.setScale(2), 0, 0L, 0,                 // importe, moneda, referencia, forzado\n                indMarcaOrdenante, fecMarca);\n    }\n\n    long generados() { return consecutivo; }     // alimenta TRL-NUMNCO\n}",
+          "racional": "Cada activación es un movimiento de transacción 0935 sin valor monetario: sucursal 0511, caja 05, tipo de movimiento 3 y medio de acceso contrato. Solo el contrato, el indicador de ordenante y su fecha de actualización vienen de B01, y la sucursal promotora depende del CSI local (0432 en Valle, 0366 en cualquier otro). Todos esos literales pasan a <code>application.yml</code>. El programa mantiene dos contadores que siempre se incrementan juntos; en Java queda uno solo que sirve como número de secuencia, número de transacción y total del trailer.",
+          "reglas": [
+            "RN-S500-142",
+            "RN-S500-143"
+          ],
+          "riesgo": "Sucursal, caja, sucursales promotoras y clave de transacción están compilados. Igual que con el CSI, cualquier CSI distinto de 10 recibe la sucursal promotora 0366."
+        },
+        {
+          "id": "s9",
+          "titulo": "Apertura del archivo de activaciones y encabezado",
+          "linea_ini": 28157,
+          "linea_fin": 28195,
+          "origen_codigo": " 40006000-OPEN-BITA.\n*-------------------\n   MOVE WKS-CSIL                TO BIT-TIT-CSI.\n   MOVE WKS-FEC-LINEA           TO BIT-TIT-FEC.\n   MOVE 500                     TO BIT-TIT-SIS.\n   MOVE 0009                    TO BIT-TIT-SEC.\n   OPEN OUTPUT BIT-ACTBANDERA.\n   MOVE SPACES             TO WS-ARCHSINCB03-REG.\n   MOVE 01                 TO WS-ARCHSINCB03-HDR-TIPREG.\n   MOVE WKS-CSIL           TO WS-ARCHSINCB03-HDR-NODORI.\n   MOVE WKS-FEC-LINEA-06   TO WS-ARCHSINCB03-HDR-FECPRO.\n   MOVE 500                TO WS-ARCHSINCB03-HDR-SISCTE.\n   MOVE \"MARCA MASIVA ORDENANTE\"  TO\n                                 WS-ARCHSINCB03-HDR-DESCTE.\n   MOVE  09                 TO WS-ARCHSINCB03-HDR-NUMARC.\n   WRITE REG-ARCH-SINC-B03     FROM WS-ARCHSINCB03-REG.",
+          "java_codigo": "@Bean\n@StepScope\nFlatFileItemWriter<ActBanderaRecord> actBanderaWriter(\n        P144Properties props, ResourceLoader rl,\n        @Value(\"#{jobExecutionContext['csiLocal']}\") int csi,\n        @Value(\"#{jobExecutionContext['fechaLinea']}\") LocalDate fechaLinea,\n        ActivacionFactory activaciones) {\n\n    var header = new ActBanderaRecord.Header(csi,\n            fechaLinea.format(DateTimeFormatter.ofPattern(\"yyMMdd\")),   // WKS-FEC-LINEA-06: trunca el siglo\n            props.actbandera().sistema(), props.actbandera().seccion(),\n            \"MARCA MASIVA ORDENANTE\");\n\n    return new FlatFileItemWriterBuilder<ActBanderaRecord>()\n            .name(\"bitActBandera\")\n            .resource((WritableResource) rl.getResource(props.tituloActBandera(csi, fechaLinea)))\n            .lineAggregator(ActBanderaRecord::toFixed)\n            .headerCallback(w -> w.write(header.toFixed()))             // OPEN OUTPUT + WRITE header\n            .footerCallback(w -> w.write(new ActBanderaRecord.Trailer(\n                    0, BigDecimal.ZERO.setScale(2), 0, BigDecimal.ZERO.setScale(2),\n                    activaciones.generados()).toFixed()))               // 50003400-TRAILER\n            .shouldDeleteIfExists(true)\n            .build();\n}",
+          "racional": "El archivo se crea con <code>OPEN OUTPUT</code> y recibe de inmediato un encabezado con el CSI de origen, la fecha de línea en seis dígitos, el sistema 500, el número de archivo 9 y la descripción MARCA MASIVA ORDENANTE. En Spring Batch el encabezado va en el <code>headerCallback</code> del <code>FlatFileItemWriter</code> y el trailer en el <code>footerCallback</code>, que se ejecuta al cerrar el step, igual que 70000000-FIN. La fecha del encabezado usa explícitamente el patrón <code>yyMMdd</code> porque el PIC 9(06) pierde el siglo.",
+          "reglas": [
+            "RN-S500-144"
+          ]
+        },
+        {
+          "id": "s10",
+          "titulo": "Trailer sin importes, cierre y bases",
+          "linea_ini": 28405,
+          "linea_fin": 28493,
+          "origen_codigo": "50003400-TRAILER.\n*----------------------------\n     MOVE SPACES TO WS-ARCHSINCB03-REG.\n     MOVE 9                  TO WS-ARCHSINCB03-TRL-TIPREG\n     MOVE ZEROS              TO WS-ARCHSINCB03-TRL-NUMABO\n     MOVE ZEROS              TO WS-ARCHSINCB03-TRL-IMPABO\n     MOVE ZEROS              TO WS-ARCHSINCB03-TRL-NUMCAR\n     MOVE ZEROS              TO WS-ARCHSINCB03-TRL-IMPCAR\n     MOVE WKS-CONTADOR            TO WS-ARCHSINCB03-TRL-NUMNCO.\n     WRITE REG-ARCH-SINC-B03     FROM WS-ARCHSINCB03-REG.\n     CLOSE BIT-ACTBANDERA WITH SAVE.\n*=============\n 70000000-FIN.\n*=============\n     PERFORM 50003400-TRAILER\n     PERFORM 70001000-CLOSE-BD01CAPTACION\n     PERFORM 70001000-CLOSE-BD07ATRIBUCTA.\n     STOP RUN.\n*-----------------------------\n 70001000-CLOSE-BD01CAPTACION.\n*-----------------------------\n   MOVE 0              TO WS-STATUS-BASE.\n   CLOSE S500BD01CAPTACION\n   ON EXCEPTION\n      MOVE \"ERROR AL ABRIR LA BD CAPTACION \" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n*-----------------------------\n70001000-CLOSE-BD07ATRIBUCTA.\n*-----------------------------\n   MOVE 0              TO WS-STATUS-BASE.\n   CLOSE S500BD07ATRIBUCTA\n   ON EXCEPTION\n      MOVE \"ERROR AL ABRIR LA BD CAPTACION \" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CierreListener implements StepExecutionListener {\n\n    @Override\n    public ExitStatus afterStep(StepExecution se) {\n        // CLOSE BIT-ACTBANDERA WITH SAVE: FlatFileItemWriter.close() vacía y conserva el archivo.\n        // El trailer (NUMABO, IMPABO, NUMCAR, IMPCAR en cero y NUMNCO = activaciones)\n        // ya lo escribió el footerCallback del writer.\n        // CLOSE S500BD01CAPTACION / S500BD07ATRIBUCTA: los gestiona el pool de conexiones.\n        if (se.getStatus() == BatchStatus.FAILED) {\n            log.error(\"P144 falló al cerrar recursos de {}\", se.getStepName());   // mensaje real del recurso\n        }\n        return se.getExitStatus();\n    }\n}",
+          "racional": "70000000-FIN escribe el trailer con los contadores de abonos y cargos en cero y el total de activaciones generadas, cierra el archivo con <code>WITH SAVE</code> y cierra las dos bases. En Java el trailer queda en el <code>footerCallback</code> y el cierre de archivo y conexiones lo hacen el writer y el pool al terminar el step. Los mensajes de error de cierre se generan con el nombre real del recurso que falló, en lugar del texto fijo del fuente.",
+          "reglas": [
+            "RN-S500-145",
+            "RN-S500-149"
+          ],
+          "riesgo": "Los dos párrafos de CLOSE informan 'ERROR AL ABRIR LA BD CAPTACION' aunque cierran, y el de BD07 nombra la base equivocada. El mismo texto aparece también en 40001000-OPEN-BD07 (línea 27933)."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Sobrescritura de fecha inalcanzable",
+      "detalle": "WKS-TSK-FECH (línea 27357) nunca se carga desde MYSELF(TASKVALUE); la interrupción incluso pone TASKVALUE en cero. El IF de la línea 28087 nunca se cumple y la proyección con LOCSUP función 13 es código muerto. WKS-ES-MENSUAL se calcula y no se usa."
+    },
+    {
+      "titulo": "Errores de DMSII tratados como inexistencia",
+      "detalle": "En 90000001-BUSCA-CTO (líneas 28849-28859) cualquier excepción del FIND sobre B03SXCTO ejecuta 90000001-CTO-NOEXISTE; el MOVE DMSTATUS está comentado. Un error de E/S o de bloqueo se reporta como contrato huérfano y el contrato se salta sin abortar."
+    },
+    {
+      "titulo": "Lectura del área de B03 tras un FIND fallido",
+      "detalle": "90000001-WRITE-PROC-ARCH (línea 28839) mueve B03-NUM-CONTRATO aun cuando el FIND falló. La comparación de la línea 28887 evita la escritura solo porque ese valor corresponde al contrato anterior; en Java se reemplaza por Optional."
+    },
+    {
+      "titulo": "Mensajes de error copiados",
+      "detalle": "40001000-OPEN-BD07, 70001000-CLOSE-BD01CAPTACION y 70001000-CLOSE-BD07ATRIBUCTA (líneas 27933, 28469 y 28489) emiten 'ERROR AL ABRIR LA BD CAPTACION' sin importar la base ni la operación."
+    },
+    {
+      "titulo": "Hardcodes de topología y movimiento",
+      "detalle": "CSI por nombre de host, ocho pares de transferencia, sucursales promotoras 0432 y 0366, sucursal 0511, caja 05, clave 0935, sistema 500 y sección 0009 están compilados. Cualquier host o CSI no reconocido cae en el valor de Monterrey sin aviso."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el tipo y dominio de B03-IND-MARORD y de B01-NUM-DATO(1): la estructura DMSII de S500BD01CAPTACION y S500BD07ATRIBUCTA no viene en el fuente y la comparación de la línea 28891 se hace entre un PIC 9(02) y un campo de tipo desconocido.",
+    "Confirmar la semántica del área de registro de B03 después de un FIND con excepción en DMSII, de la que depende la guarda de 98000000-COMPARACION.",
+    "Validar si la sobrescritura de fecha por TASKVALUE debe habilitarse (hoy es inalcanzable) o eliminarse; RN-S500-147 la describe como funcional.",
+    "RN-S500-149 ubica el mensaje equivocado solo en 70001000-CLOSE-BD07ATRIBUCTA; el fuente lo repite en 40001000-OPEN-BD07 y en el CLOSE de BD01. Ajustar la regla en el brain.",
+    "Confirmar el orden del conjunto S500B01CONTRATOS y si el consumidor de BIT-ACTBANDERA depende de él.",
+    "El nivel 88 WS-DH-HOSTNAME-VDM (líneas 17703-17705) incluye ACYPGAMA y ACYPOMEGA, cuyo prefijo sugiere Monterrey; confirmar que el CSI 10 es correcto para esos hosts."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-922",
+    "RN-S500-930",
+    "RN-S500-138",
+    "RN-S500-139",
+    "RN-S500-140",
+    "RN-S500-141",
+    "RN-S500-142",
+    "RN-S500-143",
+    "RN-S500-144",
+    "RN-S500-145",
+    "RN-S500-146",
+    "RN-S500-147",
+    "RN-S500-148",
+    "RN-S500-149",
+    "RN-S500-150",
+    "RN-S500-151",
+    "RN-S500-152"
+  ]
+}

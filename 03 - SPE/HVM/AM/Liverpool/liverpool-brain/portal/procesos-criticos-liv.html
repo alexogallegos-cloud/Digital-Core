@@ -1,0 +1,932 @@
+<!DOCTYPE html><html lang="es"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Procesos Críticos — Liverpool Brain</title><style>
+:root{--pink:#E00198;--sky:#87C3D3;--rose:#DA7AB0;--ink:#FFF0F8;--muted:#c09ab8;--muted2:#9070a0;
+--bg:#0d0408;--bg2:#130610;--panel:#1a0814;--txt:#f0e6ef;--line:rgba(224,1,152,.18)}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#0d0408,#200412 40%,#360820 65%,#200412);flex-shrink:0}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(224,1,152,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(224,1,152,.10) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,transparent,rgba(0,0,0,.5) 30%,rgba(0,0,0,.3) 70%,transparent)}
+.hero-glow{position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(224,1,152,.28),transparent 70%)}
+.hero-bar{position:relative;z-index:1;display:flex;align-items:center;gap:18px;padding:14px 28px 16px;border-bottom:1px solid rgba(224,1,152,.12)}
+.hero-logo{height:30px;width:auto;flex-shrink:0}
+.hero-bar .crumb{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.hero-bar .crumb em{color:var(--sky);font-style:normal}.hero-bar .sp{flex:1}
+.hero-bar .badge{font-size:9px;font-weight:800;letter-spacing:.1em;color:#0d0408;background:var(--sky);padding:2px 8px;border-radius:20px}
+.hero-bar a.back{font-size:11px;color:var(--muted);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none}
+.hero-bar a.back:hover{color:var(--txt);background:rgba(255,255,255,.07)}
+.hero-body{position:relative;z-index:1;padding:18px 28px 22px;display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap}
+.hero-title{flex:1;min-width:240px}
+.hero-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);margin-bottom:8px}
+.hero-h1{font-size:clamp(22px,4vw,32px);font-weight:900;letter-spacing:-.03em;line-height:1.1;background:linear-gradient(135deg,#fff 40%,rgba(224,1,152,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:10px;max-width:700px}
+.hero-stats{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-end}
+.stat-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:11px 16px;min-width:84px}
+.stat-block .sn{font-size:24px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,var(--sky),#b8e0ea);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.stat-block.pink .sn{background:linear-gradient(135deg,var(--pink),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-block.red .sn{background:linear-gradient(135deg,#fca5a5,#f87171);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-block .sl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+#fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 24px;background:var(--bg2);border-bottom:1px solid var(--line);flex-shrink:0}
+#q{background:var(--panel);border:1px solid rgba(224,1,152,.4);border-radius:7px;color:var(--txt);padding:5px 10px;font-size:12px;width:210px;outline:none}
+#q:focus{border-color:var(--sky)}
+.sep{width:1px;height:18px;background:rgba(255,255,255,.08)}
+.pill{border-radius:5px;padding:3px 9px;font-size:9.5px;font-weight:700;cursor:pointer;user-select:none;border:1px solid rgba(224,1,152,.25);color:var(--muted);background:rgba(224,1,152,.06);white-space:nowrap;transition:.15s}
+.pill.on{border-color:var(--sky);color:var(--sky);background:rgba(135,195,211,.12)}
+#info{margin-left:auto;font-size:9.5px;color:var(--muted)}
+#tip{position:fixed;z-index:99;max-width:360px;pointer-events:none;display:none;background:#0d0408;color:#e2d0df;border:1px solid rgba(224,1,152,.3);border-radius:7px;padding:8px 12px;font-size:11px;line-height:1.5;white-space:pre-wrap;box-shadow:0 12px 34px rgba(0,0,0,.6)}
+
+:root{--pink:#E00198;--sky:#87C3D3;--rose:#DA7AB0;--ink:#FFF0F8;--muted:#c09ab8;--muted2:#9070a0;
+--bg:#0d0408;--bg2:#130610;--panel:#1a0814;--txt:#f0e6ef;--line:rgba(224,1,152,.18)}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#0d0408,#200412 40%,#360820 65%,#200412);flex-shrink:0}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(224,1,152,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(224,1,152,.10) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,transparent,rgba(0,0,0,.5) 30%,rgba(0,0,0,.3) 70%,transparent)}
+.hero-glow{position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(224,1,152,.28),transparent 70%)}
+.hero-bar{position:relative;z-index:1;display:flex;align-items:center;gap:18px;padding:14px 28px 16px;border-bottom:1px solid rgba(224,1,152,.12)}
+.hero-logo{height:30px;width:auto;flex-shrink:0}
+.hero-bar .crumb{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.hero-bar .crumb em{color:var(--sky);font-style:normal}.hero-bar .sp{flex:1}
+.hero-bar .badge{font-size:9px;font-weight:800;letter-spacing:.1em;color:#0d0408;background:var(--sky);padding:2px 8px;border-radius:20px}
+.hero-bar a.back{font-size:11px;color:var(--muted);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none}
+.hero-bar a.back:hover{color:var(--txt);background:rgba(255,255,255,.07)}
+.hero-body{position:relative;z-index:1;padding:18px 28px 22px;display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap}
+.hero-title{flex:1;min-width:240px}
+.hero-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);margin-bottom:8px}
+.hero-h1{font-size:clamp(22px,4vw,32px);font-weight:900;letter-spacing:-.03em;line-height:1.1;background:linear-gradient(135deg,#fff 40%,rgba(224,1,152,.8));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:10px;max-width:700px}
+.hero-stats{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-end}
+.stat-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:11px 16px;min-width:84px}
+.stat-block .sn{font-size:24px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,var(--sky),#b8e0ea);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.stat-block.pink .sn{background:linear-gradient(135deg,var(--pink),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-block.red .sn{background:linear-gradient(135deg,#fca5a5,#f87171);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-block .sl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+#fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 24px;background:var(--bg2);border-bottom:1px solid var(--line);flex-shrink:0}
+#q{background:var(--panel);border:1px solid rgba(224,1,152,.4);border-radius:7px;color:var(--txt);padding:5px 10px;font-size:12px;width:210px;outline:none}
+#q:focus{border-color:var(--sky)}
+.sep{width:1px;height:18px;background:rgba(255,255,255,.08)}
+.pill{border-radius:5px;padding:3px 9px;font-size:9.5px;font-weight:700;cursor:pointer;user-select:none;border:1px solid rgba(224,1,152,.25);color:var(--muted);background:rgba(224,1,152,.06);white-space:nowrap;transition:.15s}
+.pill.on{border-color:var(--sky);color:var(--sky);background:rgba(135,195,211,.12)}
+#info{margin-left:auto;font-size:9.5px;color:var(--muted)}
+#tip{position:fixed;z-index:99;max-width:360px;pointer-events:none;display:none;background:#0d0408;color:#e2d0df;border:1px solid rgba(224,1,152,.3);border-radius:7px;padding:8px 12px;font-size:11px;line-height:1.5;white-space:pre-wrap;box-shadow:0 12px 34px rgba(0,0,0,.6)}
+
+    .filter-bar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .pill-btn {
+        border:none; padding:.3rem .8rem; border-radius:999px; cursor:pointer;
+        background:color-mix(in srgb, var(--c) 20%, white);
+        color:color-mix(in srgb, var(--c) 80%, black);
+        font-size:.8rem; font-weight:600;
+    }
+    .pill-btn:hover { background:var(--c); color:white; }
+    .cat-card { background:white; border-radius:.75rem; padding:1.5rem; margin-bottom:2rem; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    .cat-header { display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem; }
+    .cat-icon { font-size:1.5rem; }
+    .cat-title { font-size:1.1rem; font-weight:700; color:#1e293b; }
+    .cat-count { margin-left:auto; background:#f1f5f9; padding:.2rem .6rem; border-radius:999px; font-size:.8rem; color:#64748b; }
+    .cat-vcs { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .vc-badge { padding:.2rem .6rem; border-radius:999px; color:white; font-size:.75rem; font-weight:600; }
+    .proc-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+    .proc-table th { background:#f8fafc; color:#64748b; font-weight:600; text-align:left; padding:.5rem .75rem; border-bottom:2px solid #e2e8f0; }
+    .proc-table td { padding:.5rem .75rem; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+    .proc-table tr:hover td { background:#f8fafc; }
+    .proc-table tr.hidden { display:none; }
+    .pid { font-family:monospace; font-size:.75rem; color:#64748b; white-space:nowrap; }
+    .proc-name { font-weight:600; color:#1e293b; }
+    .proc-group { font-size:.75rem; color:#94a3b8; margin-top:.15rem; }
+    .proc-desc { font-size:.78rem; color:#475569; max-width:280px; }
+    .vc-chip { color:white; font-size:.72rem; font-weight:700; padding:.2rem .4rem; border-radius:.25rem; }
+    .vc-name { font-size:.7rem; color:#64748b; margin-top:.2rem; }
+    .brand-chip { font-size:.72rem; font-weight:700; padding:.2rem .4rem; border-radius:.25rem; }
+    .brand-liv { background:#e0f2fe; color:#0369a1; }
+    .brand-sbb { background:#fce7f3; color:#9d174d; }
+    .brand-both { background:#dcfce7; color:#166534; }
+    .act-badge { background:#fef3c7; color:#92400e; font-size:.7rem; padding:.1rem .35rem; border-radius:.25rem; margin-right:.2rem; }
+    .inc-badge { background:#fee2e2; color:#991b1b; font-size:.7rem; padding:.1rem .35rem; border-radius:.25rem; }
+    .sys-cell { max-width:200px; }
+    .sys-cat { display:inline-block; background:#dbeafe; color:#1d4ed8; font-size:.68rem; padding:.1rem .3rem; border-radius:.2rem; margin:.1rem .1rem 0 0; }
+    .sys-new { display:inline-block; background:#fef9c3; color:#a16207; font-size:.68rem; padding:.1rem .3rem; border-radius:.2rem; margin:.1rem .1rem 0 0; border:1px dashed #a16207; }
+    .table-wrap { overflow-x:auto; }
+    /* S2 */
+    .sys-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+    .sys-table th { background:#f8fafc; color:#64748b; font-weight:600; text-align:left; padding:.5rem .75rem; border-bottom:2px solid #e2e8f0; }
+    .sys-table td { padding:.5rem .75rem; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+    .sys-id { font-family:monospace; font-size:.75rem; color:#64748b; }
+    .togaf-badge { background:#ede9fe; color:#5b21b6; font-size:.72rem; padding:.2rem .4rem; border-radius:.25rem; }
+    .proc-refs { font-size:.75rem; color:#475569; }
+    /* S3 */
+    .vc-bars { display:flex; flex-direction:column; gap:.75rem; }
+    .vc-row { display:grid; grid-template-columns:14rem 1fr 16rem; align-items:center; gap:1rem; }
+    .vc-label { display:flex; align-items:center; gap:.5rem; }
+    .vc-lname { font-size:.82rem; color:#475569; }
+    .bar-track { background:#f1f5f9; border-radius:999px; height:.75rem; overflow:hidden; }
+    .bar-fill { height:100%; border-radius:999px; transition:width .3s; }
+    .vc-meta { font-size:.8rem; color:#64748b; }
+    section { margin-bottom:3rem; }
+    section h2 { font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:.5rem; }
+    .section-desc { color:#64748b; font-size:.85rem; margin-bottom:1.25rem; }
+    </style></head><body>
+<div class="hero"><div class="hero-grid"></div><div class="hero-glow"></div>
+  <div class="hero-bar"><img class="hero-logo" src="Liverpool_logo.png" alt="Liverpool" onerror="this.style.display='none'">
+    <span class="crumb">Portal → Procesos Críticos</span><span class="sp"></span>
+    <span class="badge">PROCESOS</span><a class="back" href="index.html">← Inicio</a></div>
+  <div class="hero-body"><div class="hero-title">
+    <div class="hero-label">Liverpool · Procesos Críticos</div><h1 class="hero-h1">Procesos Críticos</h1>
+    <div class="hero-sub">43 flujos de negocio levantados — mapeados al ETB y a sistemas del landscape</div></div>
+  <div class="hero-stats"><div class="stat-block blue"><div class="sn">43</div><div class="sl">Flujos documentados</div></div><div class="stat-block teal"><div class="sn">40</div><div class="sl">Sistemas involucrados</div></div><div class="stat-block red"><div class="sn">5</div><div class="sl">Sistemas nuevos (Regla B8)</div></div><div class="stat-block amber"><div class="sn">104</div><div class="sl">Actividades mapeadas</div></div><div class="stat-block purple"><div class="sn">17</div><div class="sl">Incidentes documentados</div></div></div></div></div>
+
+    <section>
+      <h2>Procesos críticos por categoría</h2>
+      <div class="filter-bar">
+        <span>Filtrar por ETB:</span>
+        <button class="pill-btn" onclick="filterVC('VC-01')" style="--c:#f59e0b">VC-01</button><button class="pill-btn" onclick="filterVC('VC-02')" style="--c:#10b981">VC-02</button><button class="pill-btn" onclick="filterVC('VC-03')" style="--c:#3b82f6">VC-03</button><button class="pill-btn" onclick="filterVC('VC-04')" style="--c:#8b5cf6">VC-04</button><button class="pill-btn" onclick="filterVC('VC-05')" style="--c:#ec4899">VC-05</button><button class="pill-btn" onclick="filterVC('VC-06')" style="--c:#ef4444">VC-06</button><button class="pill-btn" onclick="filterVC('VC-07')" style="--c:#6366f1">VC-07</button><button class="pill-btn" onclick="filterVC('VC-08')" style="--c:#14b8a6">VC-08</button><button class="pill-btn" onclick="filterVC('VC-09')" style="--c:#f97316">VC-09</button>
+        <button class="pill-btn" onclick="filterVC(null)">Todo</button>
+      </div>
+      
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">🏢</span>
+            <span class="cat-title">Back Office</span>
+            <span class="cat-count">11 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#6366f1">VC-07 Fundación Empresarial</span><span class="vc-badge" style="background:#f59e0b">VC-01 Desarrollo de Oferta</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Back-Office">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-01</td>
+              <td>
+                <div class="proc-name">Nómina</div>
+                <div class="proc-group">Recursos Humanos y Nómina</div>
+              </td>
+              <td><div class="proc-desc">Nóminas masivas (semanal y mensual) — 13 personas: 2 coordinadores, 8 especialistas</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP-HCM</span><span class="sys-new">Portal Mi Puerto</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-02</td>
+              <td>
+                <div class="proc-name">Portal de autoservicio Mi Puerto</div>
+                <div class="proc-group">Recursos Humanos y Nómina</div>
+              </td>
+              <td><div class="proc-desc">Aportaciones quincenales LVP y SBB, préstamos y retiros, finiquitos y primas de antigüedad</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Portal Mi Puerto</span><span class="sys-cat">SAP HCM</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-03</td>
+              <td>
+                <div class="proc-name">RRHH Talento (SuccessFactors)</div>
+                <div class="proc-group">Recursos Humanos y Nómina</div>
+              </td>
+              <td><div class="proc-desc">Ficha de talento y gestión de colaboradores</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SuccessFactors</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-04</td>
+              <td>
+                <div class="proc-name">RRHH Aprendizaje (SuccessFactors LMS)</div>
+                <div class="proc-group">Recursos Humanos y Nómina</div>
+              </td>
+              <td><div class="proc-desc">Gestión de programas de aprendizaje</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SuccessFactors</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-05</td>
+              <td>
+                <div class="proc-name">Desempeño y reclutamiento (SuccessFactors)</div>
+                <div class="proc-group">Recursos Humanos y Nómina</div>
+              </td>
+              <td><div class="proc-desc">Reclutamiento (Aira / LinkedIn) y ciclo de evaluación de desempeño</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SuccessFactors</span><span class="sys-new">Aira</span><span class="sys-new">LinkedIn</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-06</td>
+              <td>
+                <div class="proc-name">Promociones (BW PMR)</div>
+                <div class="proc-group">Recursos Humanos y Nómina</div>
+              </td>
+              <td><div class="proc-desc">Promociones internas de personal</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SAP-BW</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="LIV">
+              <td class="pid">PC-BO-07</td>
+              <td>
+                <div class="proc-name">Cuentas por pagar (SAP ECC FI)</div>
+                <div class="proc-group">Finanzas y Abastecimiento</div>
+              </td>
+              <td><div class="proc-desc">Generación de facturas electrónicas y proceso de pago</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC FI</span><span class="sys-new">Tumbleweed</span></td>
+            </tr>
+            <tr data-vc="VC-01" data-brand="BOTH">
+              <td class="pid">PC-BO-08</td>
+              <td>
+                <div class="proc-name">Abastecimiento (FI CO - MM)</div>
+                <div class="proc-group">Finanzas y Abastecimiento</div>
+              </td>
+              <td><div class="proc-desc">Alta de materiales Liverpool (SAP ECC) y Suburbia (S/4 HANA), soporte funcional</div></td>
+              <td><span class="vc-chip" style="background:#f59e0b">VC-01</span><div class="vc-name">Desarrollo de Oferta</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC MM</span><span class="sys-cat">SAP S/4HANA</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-BO-09</td>
+              <td>
+                <div class="proc-name">Mantenimiento (SAP PM)</div>
+                <div class="proc-group">Activos y Operaciones</div>
+              </td>
+              <td><div class="proc-desc">Gestión de órdenes de mantenimiento</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP PM</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="SBB">
+              <td class="pid">PC-BO-10</td>
+              <td>
+                <div class="proc-name">Gestión Inmobiliaria (SAP S/4 HANA Real Estate)</div>
+                <div class="proc-group">Activos y Operaciones</div>
+              </td>
+              <td><div class="proc-desc">Contratos de arrendamiento (Suburbia)</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-sbb">SBB</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP S/4HANA RE</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="LIV">
+              <td class="pid">PC-BO-11</td>
+              <td>
+                <div class="proc-name">Estacionamiento</div>
+                <div class="proc-group">Activos y Operaciones</div>
+              </td>
+              <td><div class="proc-desc">Administración de 27 estacionamientos</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">📱</span>
+            <span class="cat-title">Ola de Apps</span>
+            <span class="cat-count">7 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#10b981">VC-02 Cadena de Suministro</span><span class="vc-badge" style="background:#f59e0b">VC-01 Desarrollo de Oferta</span><span class="vc-badge" style="background:#8b5cf6">VC-04 Canales de Interacción</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Ola-de-Apps">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-OA-01</td>
+              <td>
+                <div class="proc-name">Control de inventarios</div>
+                <div class="proc-group">Inventarios y Recepción</div>
+              </td>
+              <td><div class="proc-desc">SAP ECC y VCM — programación de conteo, marbetes, captura, validación de diferencias y cierre (20 actividades mapeadas)</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">20 act.</span></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-OA-02</td>
+              <td>
+                <div class="proc-name">Recepción en tienda</div>
+                <div class="proc-group">Inventarios y Recepción</div>
+              </td>
+              <td><div class="proc-desc">Descarga de manifiesto de SAP, escaneo de tarima y contenedores en VCM, y ubicación en sección (17 actividades mapeadas)</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">17 act.</span></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC</span><span class="sys-cat">SAP EWM</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-OA-03</td>
+              <td>
+                <div class="proc-name">Consulta de inventarios en bodega de zapatería</div>
+                <div class="proc-group">Inventarios y Recepción</div>
+              </td>
+              <td><div class="proc-desc">SIBO y VCM — carga de existencias, escaneo de SKU, apartado y venta en piso (15 actividades, 3 incidentes)</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">15 act.</span><span class="inc-badge">3 inc.</span></td>
+              <td class="sys-cell"><span class="sys-new">SIBO</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-01" data-brand="LIV">
+              <td class="pid">PC-OA-04</td>
+              <td>
+                <div class="proc-name">Calificación de mercancías</div>
+                <div class="proc-group">Mercancía y Precios</div>
+              </td>
+              <td><div class="proc-desc">Extracción de calificaciones de barata desde ECC, procesamiento en módulo y calificación en piso (3 actividades mapeadas)</div></td>
+              <td><span class="vc-chip" style="background:#f59e0b">VC-01</span><div class="vc-name">Desarrollo de Oferta</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">3 act.</span></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-01" data-brand="LIV">
+              <td class="pid">PC-OA-05</td>
+              <td>
+                <div class="proc-name">Cambios de precios</div>
+                <div class="proc-group">Mercancía y Precios</div>
+              </td>
+              <td><div class="proc-desc">Extracción y carga del archivo de cambios, escaneo de SKU, captura en VCM e impresión de etiquetas (6 actividades mapeadas)</div></td>
+              <td><span class="vc-chip" style="background:#f59e0b">VC-01</span><div class="vc-name">Desarrollo de Oferta</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">6 act.</span></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-04" data-brand="LIV">
+              <td class="pid">PC-OA-06</td>
+              <td>
+                <div class="proc-name">Pantalla única</div>
+                <div class="proc-group">Atención y Servicios al Cliente</div>
+              </td>
+              <td><div class="proc-desc">Atención de primer contacto, validación del cliente y módulo de crédito y tarjetas (26 actividades, 7 incidentes)</div></td>
+              <td><span class="vc-chip" style="background:#8b5cf6">VC-04</span><div class="vc-name">Canales de Interacción</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">26 act.</span><span class="inc-badge">7 inc.</span></td>
+              <td class="sys-cell"><span class="sys-new">VPL-Vision-Plus</span><span class="sys-new">Siebel-CRM</span><span class="sys-new">Mainframe</span></td>
+            </tr>
+            <tr data-vc="VC-04" data-brand="LIV">
+              <td class="pid">PC-OA-07</td>
+              <td>
+                <div class="proc-name">Reparación de relojería, joyería y accesorios finos</div>
+                <div class="proc-group">Atención y Servicios al Cliente</div>
+              </td>
+              <td><div class="proc-desc">Creación de órdenes en VAS: guía de paquetería, proveedor, recepción y cobro (17 actividades, 7 incidentes)</div></td>
+              <td><span class="vc-chip" style="background:#8b5cf6">VC-04</span><div class="vc-name">Canales de Interacción</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td><span class="act-badge">17 act.</span><span class="inc-badge">7 inc.</span></td>
+              <td class="sys-cell"><span class="sys-new">VAS</span><span class="sys-cat">SAP ECC</span></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">🏪</span>
+            <span class="cat-title">Tiendas Omnicanal</span>
+            <span class="cat-count">6 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#3b82f6">VC-03 Comercio Unificado</span><span class="vc-badge" style="background:#10b981">VC-02 Cadena de Suministro</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Tiendas-Omnicanal">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-03" data-brand="LIV">
+              <td class="pid">PC-OC-01</td>
+              <td>
+                <div class="proc-name">Flujo de negocio omnicanal (Liverpool)</div>
+                <div class="proc-group">Flujo Omnicanal</div>
+              </td>
+              <td><div class="proc-desc">Venta, remisión, surtido en tienda o BOCE, empaque, envío, Click & Collect y entrega al cliente</div></td>
+              <td><span class="vc-chip" style="background:#3b82f6">VC-03</span><div class="vc-name">Comercio Unificado</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Sterling-OMS</span><span class="sys-new">ATG-Endeca</span><span class="sys-new">Digital-Platform</span><span class="sys-cat">SAP ECC</span></td>
+            </tr>
+            <tr data-vc="VC-03" data-brand="SBB">
+              <td class="pid">PC-OC-02</td>
+              <td>
+                <div class="proc-name">Suburbia omnicanal</div>
+                <div class="proc-group">Flujo Omnicanal</div>
+              </td>
+              <td><div class="proc-desc">Compra, surtido, recibo de material, empaque y almacenaje, y entrega del pedido</div></td>
+              <td><span class="vc-chip" style="background:#3b82f6">VC-03</span><div class="vc-name">Comercio Unificado</div></td>
+              <td><span class="brand-chip brand-sbb">SBB</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Sterling-OMS</span><span class="sys-cat">SAP EWM</span><span class="sys-new">Digital-Platform</span></td>
+            </tr>
+            <tr data-vc="VC-03" data-brand="LIV">
+              <td class="pid">PC-OC-03</td>
+              <td>
+                <div class="proc-name">Tiendas omnicanal — Tultitlán</div>
+                <div class="proc-group">Tiendas</div>
+              </td>
+              <td><div class="proc-desc">Flujo de negocio de tienda: recepción, surtido, empaque, envíos y devoluciones</div></td>
+              <td><span class="vc-chip" style="background:#3b82f6">VC-03</span><div class="vc-name">Comercio Unificado</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Sterling-OMS</span><span class="sys-new">VCM</span><span class="sys-cat">SAP EWM</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-OC-04</td>
+              <td>
+                <div class="proc-name">Fulfillment BOCE</div>
+                <div class="proc-group">Centros de Distribución y Fulfillment</div>
+              </td>
+              <td><div class="proc-desc">Centro de distribución centralizado: liberación de orden, picking, empacado, embarque y entrega a tienda o domicilio</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Sterling-OMS</span><span class="sys-cat">SAP EWM</span><span class="sys-new">Digital-Platform</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-OC-05</td>
+              <td>
+                <div class="proc-name">Resurtido BOCE</div>
+                <div class="proc-group">Centros de Distribución y Fulfillment</div>
+              </td>
+              <td><div class="proc-desc">Llegada a BOCE: descarga, escaneo, ubicación, verificación de inventario, picking y embarque a tienda</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP EWM</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-OC-06</td>
+              <td>
+                <div class="proc-name">Fulfillment CR (Big ticket y soft line)</div>
+                <div class="proc-group">Centros de Distribución y Fulfillment</div>
+              </td>
+              <td><div class="proc-desc">Big ticket y soft line: inventario, ruteo, TU de salida, manifiesto, entrega a domicilio y acuse de recibo</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP EWM</span><span class="sys-new">Sterling-OMS</span><span class="sys-new">IBM-IIB</span></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">🚚</span>
+            <span class="cat-title">Supply Chain</span>
+            <span class="cat-count">6 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#10b981">VC-02 Cadena de Suministro</span><span class="vc-badge" style="background:#8b5cf6">VC-04 Canales de Interacción</span><span class="vc-badge" style="background:#f97316">VC-09 Analítica e Inteligencia</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Supply-Chain">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-SC-01</td>
+              <td>
+                <div class="proc-name">Plan Liverpool — Recepción, almacenaje y surtido</div>
+                <div class="proc-group">Almacén y Distribución</div>
+              </td>
+              <td><div class="proc-desc">Importación, nacional y marketplace: proceso de recibo, descarga, inspección de calidad, almacenaje y surtido</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP EWM</span><span class="sys-new">IBM-IIB</span><span class="sys-new">Sterling-OMS</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-SC-02</td>
+              <td>
+                <div class="proc-name">Proceso logístico TMS</div>
+                <div class="proc-group">Almacén y Distribución</div>
+              </td>
+              <td><div class="proc-desc">Optimización y planeación de loads, generación de TUs en SAP EWM, tender a transportistas y recepción en destino</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP EWM</span><span class="sys-cat">SAP TM</span></td>
+            </tr>
+            <tr data-vc="VC-02" data-brand="LIV">
+              <td class="pid">PC-SC-03</td>
+              <td>
+                <div class="proc-name">Transferencias entre tienda</div>
+                <div class="proc-group">Almacén y Distribución</div>
+              </td>
+              <td><div class="proc-desc">Solicitud y autorización de transferencia, armado de contenedor, manifiesto, hoja de ruta y recepción en tienda</div></td>
+              <td><span class="vc-chip" style="background:#10b981">VC-02</span><div class="vc-name">Cadena de Suministro</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP EWM</span><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-04" data-brand="LIV">
+              <td class="pid">PC-SC-04</td>
+              <td>
+                <div class="proc-name">Óptica</div>
+                <div class="proc-group">Servicios en Tienda</div>
+              </td>
+              <td><div class="proc-desc">Solicitud de óptica: cotización, generación de órdenes, cobro en POS, envío a laboratorio y entrega al cliente</div></td>
+              <td><span class="vc-chip" style="background:#8b5cf6">VC-04</span><div class="vc-name">Canales de Interacción</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC</span><span class="sys-new">Base24</span><span class="sys-new">Bridgecore</span></td>
+            </tr>
+            <tr data-vc="VC-04" data-brand="LIV">
+              <td class="pid">PC-SC-05</td>
+              <td>
+                <div class="proc-name">Sastrería</div>
+                <div class="proc-group">Servicios en Tienda</div>
+              </td>
+              <td><div class="proc-desc">Solicitud de compostura: alta en módulo de sastrería, folio, asignación a operario y entrega al cliente</div></td>
+              <td><span class="vc-chip" style="background:#8b5cf6">VC-04</span><div class="vc-name">Canales de Interacción</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">VCM</span></td>
+            </tr>
+            <tr data-vc="VC-09" data-brand="LIV">
+              <td class="pid">PC-SC-06</td>
+              <td>
+                <div class="proc-name">Obtención de indicadores y medición de impactos</div>
+                <div class="proc-group">Indicadores</div>
+              </td>
+              <td><div class="proc-desc">Análisis causa raíz del incidente, identificación de KPIs, comparación contra baseline y cuantificación de impactos</div></td>
+              <td><span class="vc-chip" style="background:#f97316">VC-09</span><div class="vc-name">Analítica e Inteligencia</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SAP-BW</span><span class="sys-cat">SAP ECC</span></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">📄</span>
+            <span class="cat-title">Individual</span>
+            <span class="cat-count">5 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#ef4444">VC-06 Servicios Financieros</span><span class="vc-badge" style="background:#6366f1">VC-07 Fundación Empresarial</span><span class="vc-badge" style="background:#f97316">VC-09 Analítica e Inteligencia</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Individual">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-06" data-brand="LIV">
+              <td class="pid">PC-IND-01</td>
+              <td>
+                <div class="proc-name">Hub de pagos (24 billers)</div>
+                <div class="proc-group">Pagos de Servicios</div>
+              </td>
+              <td><div class="proc-desc">Orquestación de solicitudes de pago de servicios: flujo en aplicativo móvil y flujo en aplicativo WEB (24 billers activos)</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Digital-Platform</span><span class="sys-new">Base24</span><span class="sys-new">IBM-IIB</span></td>
+            </tr>
+            <tr data-vc="VC-06" data-brand="LIV">
+              <td class="pid">PC-IND-02</td>
+              <td>
+                <div class="proc-name">Flujo end to end Exstream (estados de cuenta)</div>
+                <div class="proc-group">Servicios Financieros</div>
+              </td>
+              <td><div class="proc-desc">Generación de estados de cuenta (EDC): actualización de banners, diseño, muestras, aprobación y paquete productivo</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Exstream</span><span class="sys-new">Mainframe</span><span class="sys-new">VPL-Vision-Plus</span></td>
+            </tr>
+            <tr data-vc="VC-06" data-brand="LIV">
+              <td class="pid">PC-IND-03</td>
+              <td>
+                <div class="proc-name">Préstamos personales (LiverCash / FacilCash)</div>
+                <div class="proc-group">Servicios Financieros</div>
+              </td>
+              <td><div class="proc-desc">Solicitud de préstamos personales (App Pocket y PC-Web) y disposición de efectivo en canales digitales vía CLABE SPEI</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">App Pocket</span><span class="sys-new">VPL-Vision-Plus</span><span class="sys-new">Mainframe</span><span class="sys-new">SPEI</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="BOTH">
+              <td class="pid">PC-IND-04</td>
+              <td>
+                <div class="proc-name">SuccessFactors — Sucesión y Desarrollo 360</div>
+                <div class="proc-group">Recursos Humanos</div>
+              </td>
+              <td><div class="proc-desc">Promociones internas, mesa de desarrollo, sucesión y planes de desarrollo interno, y evaluación de desarrollo 360</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SuccessFactors</span></td>
+            </tr>
+            <tr data-vc="VC-09" data-brand="LIV">
+              <td class="pid">PC-IND-05</td>
+              <td>
+                <div class="proc-name">Indicadores — Matriz por eslabón</div>
+                <div class="proc-group">Analítica e Indicadores</div>
+              </td>
+              <td><div class="proc-desc">Matriz de indicadores por eslabón de la cadena: compra y recepción, distribución, ventas, surtido, entrega y post venta</div></td>
+              <td><span class="vc-chip" style="background:#f97316">VC-09</span><div class="vc-name">Analítica e Inteligencia</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">SAP-BW</span><span class="sys-new">CDP-GCP</span></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">💳</span>
+            <span class="cat-title">Finanzas</span>
+            <span class="cat-count">5 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#ef4444">VC-06 Servicios Financieros</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Finanzas">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-06" data-brand="LIV">
+              <td class="pid">PC-FIN-01</td>
+              <td>
+                <div class="proc-name">Otorgamiento de crédito (Liverpool)</div>
+                <div class="proc-group">Otorgamiento de Crédito</div>
+              </td>
+              <td><div class="proc-desc">Procesos Mobile, APM, Manual y Solicitud en línea; validación y entrega de tarjeta; seguimiento de cuentas y créditos otorgados</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">VPL-Vision-Plus</span><span class="sys-new">FICO-TRIAD</span><span class="sys-new">Base24</span><span class="sys-new">Mainframe</span></td>
+            </tr>
+            <tr data-vc="VC-06" data-brand="SBB">
+              <td class="pid">PC-FIN-02</td>
+              <td>
+                <div class="proc-name">Otorgamiento de crédito y producto NF (Suburbia)</div>
+                <div class="proc-group">Otorgamiento de Crédito</div>
+              </td>
+              <td><div class="proc-desc">Fábrica de crédito, Tablet, Captura de módulo y Poket; comunicación y promociones; planeación de campaña del tarjetahabiente</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-sbb">SBB</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">VPL-Vision-Plus</span><span class="sys-new">FICO-TRIAD</span><span class="sys-new">App Pocket</span></td>
+            </tr>
+            <tr data-vc="VC-06" data-brand="BOTH">
+              <td class="pid">PC-FIN-03</td>
+              <td>
+                <div class="proc-name">Facturación</div>
+                <div class="proc-group">Facturación y Cobranza</div>
+              </td>
+              <td><div class="proc-desc">Portal de facturación: emisión, complementos de pago, factura global, sustituciones y cancelaciones</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-both">BOTH</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP FI</span><span class="sys-new">Tumbleweed</span></td>
+            </tr>
+            <tr data-vc="VC-06" data-brand="LIV">
+              <td class="pid">PC-FIN-04</td>
+              <td>
+                <div class="proc-name">Cobranza</div>
+                <div class="proc-group">Facturación y Cobranza</div>
+              </td>
+              <td><div class="proc-desc">Flujo de negocio con CyberFinancial: clasificación de cartera, cobranza administrativa y telefónica, moroso M1–M5 y M6–M9</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">Cyberfinancial</span><span class="sys-new">VPL-Vision-Plus</span><span class="sys-new">Mainframe</span></td>
+            </tr>
+            <tr data-vc="VC-06" data-brand="LIV">
+              <td class="pid">PC-FIN-05</td>
+              <td>
+                <div class="proc-name">Gestor de aclaraciones</div>
+                <div class="proc-group">Atención y Aclaraciones</div>
+              </td>
+              <td><div class="proc-desc">Centro de atención telefónica y tiendas (módulo de crédito): reclamación, dictamen y notificación al cliente</div></td>
+              <td><span class="vc-chip" style="background:#ef4444">VC-06</span><div class="vc-name">Servicios Financieros</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Siebel-CRM</span><span class="sys-new">VPL-Vision-Plus</span></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="cat-card">
+          <div class="cat-header">
+            <span class="cat-icon">🛍️</span>
+            <span class="cat-title">Retail</span>
+            <span class="cat-count">3 procesos</span>
+          </div>
+          <div class="cat-vcs"><span class="vc-badge" style="background:#3b82f6">VC-03 Comercio Unificado</span><span class="vc-badge" style="background:#6366f1">VC-07 Fundación Empresarial</span><span class="vc-badge" style="background:#f59e0b">VC-01 Desarrollo de Oferta</span></div>
+          <div class="table-wrap">
+          <table class="proc-table" id="tbl-Retail">
+            <thead><tr>
+              <th>ID</th><th>Proceso</th><th>Descripción</th>
+              <th>ETB</th><th>Marca</th><th>Vol.</th><th>Sistemas</th>
+            </tr></thead>
+            <tbody>
+            <tr data-vc="VC-03" data-brand="LIV">
+              <td class="pid">PC-RET-01</td>
+              <td>
+                <div class="proc-name">Punto de venta (Point of Sale)</div>
+                <div class="proc-group">Piso de Venta</div>
+              </td>
+              <td><div class="proc-desc">Venta en piso, devoluciones de compras de marketplace, pago de servicios y apartados</div></td>
+              <td><span class="vc-chip" style="background:#3b82f6">VC-03</span><div class="vc-name">Comercio Unificado</div></td>
+              <td><span class="brand-chip brand-liv">LIV</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-new">Base24</span><span class="sys-new">Bridgecore</span><span class="sys-cat">SAP ECC</span><span class="sys-new">Sterling-OMS</span></td>
+            </tr>
+            <tr data-vc="VC-07" data-brand="SBB">
+              <td class="pid">PC-RET-02</td>
+              <td>
+                <div class="proc-name">Control de ingresos (Suburbia)</div>
+                <div class="proc-group">Control de Ingresos</div>
+              </td>
+              <td><div class="proc-desc">Control de ingresos en SAP PDTA y auditoría de ventas: validaciones de cifras control y cierre de mes contable</div></td>
+              <td><span class="vc-chip" style="background:#6366f1">VC-07</span><div class="vc-name">Fundación Empresarial</div></td>
+              <td><span class="brand-chip brand-sbb">SBB</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP PDTA</span><span class="sys-cat">SAP FI</span></td>
+            </tr>
+            <tr data-vc="VC-01" data-brand="SBB">
+              <td class="pid">PC-RET-03</td>
+              <td>
+                <div class="proc-name">Gestión de productos en Web/App (Suburbia)</div>
+                <div class="proc-group">Producto y Canales Digitales</div>
+              </td>
+              <td><div class="proc-desc">Propuestas, modificaciones y alta de productos en la web: SAP ECC/S4H, Mirakl, Broker, Step, OMS, ATG y Akamai</div></td>
+              <td><span class="vc-chip" style="background:#f59e0b">VC-01</span><div class="vc-name">Desarrollo de Oferta</div></td>
+              <td><span class="brand-chip brand-sbb">SBB</span></td>
+              <td></td>
+              <td class="sys-cell"><span class="sys-cat">SAP ECC</span><span class="sys-cat">SAP S/4HANA</span><span class="sys-new">PIM-STEP</span><span class="sys-new">ATG-Endeca</span><span class="sys-new">Sterling-OMS</span><span class="sys-new">Mirakl</span><span class="sys-new">Akamai</span><span class="sys-new">Broker</span></td>
+            </tr></tbody>
+          </table>
+          </div>
+        </div>
+    </section>
+    <section>
+      <h2>Sistemas nuevos descubiertos — Regla B8</h2>
+      <p class="section-desc">Sistemas que aparecen en procesos críticos documentados pero no estaban en el catálogo de componentes. Por Regla B8, la evidencia operativa prueba su existencia en producción.</p>
+      <div class="table-wrap">
+      <table class="sys-table">
+        <thead><tr><th>ID</th><th>Sistema</th><th>TOGAF</th><th>Descripción</th><th>Procesos que lo usan</th></tr></thead>
+        <tbody>
+        <tr>
+          <td class="sys-id">LIV-VCM</td>
+          <td><strong>VCM — Visibilidad y Control de Mercancías</strong></td>
+          <td><span class="togaf-badge">channels</span></td>
+          <td>App de gestión de piso de tienda: inventarios, recepción, calificación de mercancías, cambios de precios. Usada en 6+ procesos críticos.</td>
+          <td class="proc-refs">Control de inventarios, Recepción en tienda, Consulta de inventarios en bodega de zapatería, Calificación de mercancías, Cambios de precios, Transferencias entre tienda, Sastrería, Tiendas omnicanal — Tultitlán, Resurtido BOCE</td>
+        </tr>
+        <tr>
+          <td class="sys-id">LIV-EXSTREAM</td>
+          <td><strong>OpenText Exstream — Generación de Estados de Cuenta</strong></td>
+          <td><span class="togaf-badge">processors</span></td>
+          <td>Generación de estados de cuenta (EDC) para LiverpoolCard: actualización de banners, diseño, muestras, aprobación y paquete productivo.</td>
+          <td class="proc-refs">—</td>
+        </tr>
+        <tr>
+          <td class="sys-id">LIV-SIBO</td>
+          <td><strong>SIBO — Inventarios Bodega Zapatería</strong></td>
+          <td><span class="togaf-badge">channels</span></td>
+          <td>Sistema de inventarios para bodega de zapatería: carga de existencias, escaneo SKU, apartado y venta en piso.</td>
+          <td class="proc-refs">Consulta de inventarios en bodega de zapatería</td>
+        </tr>
+        <tr>
+          <td class="sys-id">LIV-VAS</td>
+          <td><strong>VAS — Value Added Services (Relojería y Joyería)</strong></td>
+          <td><span class="togaf-badge">channels</span></td>
+          <td>Sistema de órdenes de servicio de valor agregado: relojería, joyería y accesorios finos. Gestiona guías de paquetería, proveedores y cobro.</td>
+          <td class="proc-refs">Reparación de relojería, joyería y accesorios finos</td>
+        </tr>
+        <tr>
+          <td class="sys-id">LIV-APP-POCKET</td>
+          <td><strong>App Pocket — Préstamos Personales</strong></td>
+          <td><span class="togaf-badge">channels</span></td>
+          <td>App móvil para solicitudes de préstamos personales (LiverCash / FacilCash) y disposición de efectivo via CLABE SPEI.</td>
+          <td class="proc-refs">Otorgamiento de crédito y producto NF (Suburbia), Préstamos personales (LiverCash / FacilCash)</td>
+        </tr></tbody>
+      </table>
+      </div>
+    </section>
+    <section>
+      <h2>Distribución de procesos por eslabón ETB</h2>
+      <p class="section-desc">Cada proceso crítico refuerza la evidencia de cobertura del eslabón ETB correspondiente.</p>
+      <div class="vc-bars">
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#f59e0b">VC-01</span>
+            <span class="vc-lname">Desarrollo de Oferta</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:33%;background:#f59e0b"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>4</strong> procesos · 9 actividades
+          </div>
+        </div>
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#10b981">VC-02</span>
+            <span class="vc-lname">Cadena de Suministro</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:75%;background:#10b981"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>9</strong> procesos · 52 actividades · 3 incidentes
+          </div>
+        </div>
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#3b82f6">VC-03</span>
+            <span class="vc-lname">Comercio Unificado</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:33%;background:#3b82f6"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>4</strong> procesos
+          </div>
+        </div>
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#8b5cf6">VC-04</span>
+            <span class="vc-lname">Canales de Interacción</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:33%;background:#8b5cf6"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>4</strong> procesos · 43 actividades · 14 incidentes
+          </div>
+        </div>
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#ef4444">VC-06</span>
+            <span class="vc-lname">Servicios Financieros</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:66%;background:#ef4444"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>8</strong> procesos
+          </div>
+        </div>
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#6366f1">VC-07</span>
+            <span class="vc-lname">Fundación Empresarial</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:100%;background:#6366f1"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>12</strong> procesos
+          </div>
+        </div>
+        <div class="vc-row">
+          <div class="vc-label">
+            <span class="vc-chip" style="background:#f97316">VC-09</span>
+            <span class="vc-lname">Analítica e Inteligencia</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:16%;background:#f97316"></div>
+          </div>
+          <div class="vc-meta">
+            <strong>2</strong> procesos
+          </div>
+        </div></div>
+    </section>
+<script>
+    function filterVC(vc) {
+        document.querySelectorAll('.proc-table tbody tr').forEach(tr => {
+            if (!vc || tr.dataset.vc === vc) tr.classList.remove('hidden');
+            else tr.classList.add('hidden');
+        });
+        // Hide cat-cards that become empty
+        document.querySelectorAll('.cat-card').forEach(card => {
+            const visible = card.querySelectorAll('tbody tr:not(.hidden)').length;
+            card.style.display = visible === 0 ? 'none' : '';
+        });
+    }
+    
+
+const _tip=document.createElement('div');_tip.id='tip';document.body.appendChild(_tip);
+document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-tip]');if(el){_tip.textContent=el.getAttribute('data-tip');_tip.style.display='block';}});
+document.addEventListener('mousemove',e=>{if(_tip.style.display==='block'){let x=e.clientX+14,y=e.clientY+14;const r=_tip.getBoundingClientRect();if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;_tip.style.left=x+'px';_tip.style.top=y+'px';}});
+document.addEventListener('mouseout',e=>{if(e.target.closest('[data-tip]'))_tip.style.display='none';});
+</script></body></html>

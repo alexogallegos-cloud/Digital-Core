@@ -1,0 +1,179 @@
+{
+  "slug": "S500_P176",
+  "sistema": "S500",
+  "programa": "P176",
+  "nombre": "Aplicación de prealtas TEF y altas o bloqueos del S111",
+  "funcion": "Paso batch de S500 que aplica el archivo de solicitudes del S111 (altas, bloqueos, desbloqueos y eliminaciones de tarjetas) o, en su segundo modo, el archivo de asignación TEF generado por P010.",
+  "resumen": "El modo 1 abre el archivo de 40 posiciones enviado por el S111 para la fecha a aplicar, valida que termine en trailer y que el header traiga la fecha y los sistemas correctos, y aplica cada solicitud: altas y eliminaciones de prealtas en la base de tarjetas BD04, bloqueos y desbloqueos de contratos del producto 66-11 en la base de captación, y prealtas TEF validadas contra los catálogos de BIN y TEF. Al terminar avanza la fecha del siguiente archivo en el control de prealtas. El modo 2 lee el archivo de asignación TEF y busca el contrato correspondiente. Emite un listado de rechazos y totales.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.tarjetas.prealtas",
+  "secciones": [
+    {
+      "titulo": "Estructura de datos — solicitud S111 y rutas de archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P176.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "SolicitudS111.java · Pan.java · P176Properties.java",
+        "contexto": "sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de 40 posiciones del S111 con tres REDEFINES",
+          "linea_ini": 78,
+          "linea_fin": 97,
+          "origen_codigo": " 01  E01-REG-S111-PREALTA.\n     02 E01-S111-TIP-REG          PIC  9(002).\n     02 E01-S111-HEADER.\n        04 E01-S111-HEAD-01.\n           06 E01-S111-HDR-FECHA     PIC  9(008).\n           06 E01-S111-HDR-SIS-ORI   PIC  X(004).\n           06 E01-S111-HDR-SIS-DES   PIC  X(004).\n        04 FILLER                 PIC  X(022).\n     02 E01-S111-DETALLE REDEFINES E01-S111-HEADER.\n        04 E01-S111-DET-TARJETA   PIC  9(016).\n        04 E01-S111-DET-CONTRATO  PIC  9(012).\n        04 E01-S111-DET-SUC-PROM  PIC  9(004).\n        04 FILLER                 PIC  X(006).\n     02 E01-S111-DETALLE2 REDEFINES E01-S111-HEADER.\n        04 E01-S111-DET2-TARJETA   PIC  9(016).\n        04 E01-S111-DET2-TEF       PIC  9(016).\n        04 FILLER                  PIC  X(006).\n     02 E01-S111-TRAILER REDEFINES E01-S111-HEADER.\n        04 E01-S111-TRL-NUM-REG   PIC  9(008).\n        04 FILLER                 PIC  X(030).",
+          "java_codigo": "/** E01-REG-S111-PREALTA: un registro de 40 bytes; la vista depende de E01-S111-TIP-REG. */\npublic sealed interface SolicitudS111\n        permits SolicitudS111.Header, SolicitudS111.Movimiento, SolicitudS111.PrealtaTef,\n                SolicitudS111.Trailer, SolicitudS111.Desconocido {\n\n    int tipo();\n\n    /** Tipo 00. Fecha AAAAMMDD y sistemas origen y destino. */\n    record Header(LocalDate fecha, String sisOrigen, String sisDestino) implements SolicitudS111 {\n        public int tipo() { return 0; }\n    }\n\n    /** Tipos 01 alta, 02 bloqueo, 03 desbloqueo, 04 eliminación (vista E01-S111-DETALLE). */\n    record Movimiento(int tipo, Pan tarjeta, String contrato, int sucPromotora) implements SolicitudS111 {}\n\n    /** Tipo 05: alta de prealta TEF (vista E01-S111-DETALLE2). */\n    record PrealtaTef(Pan tarjeta, String numTef) implements SolicitudS111 {\n        public int tipo() { return 5; }\n    }\n\n    /** Tipo 99. */\n    record Trailer(long numRegistros) implements SolicitudS111 {\n        public int tipo() { return 99; }\n    }\n\n    record Desconocido(int tipo, String raw) implements SolicitudS111 {}\n\n    static SolicitudS111 parse(String r) {\n        int tipo = Integer.parseInt(r.substring(0, 2));\n        return switch (tipo) {\n            case 0      -> new Header(LocalDate.parse(r.substring(2, 10), BASIC_ISO_DATE),\n                                      r.substring(10, 14), r.substring(14, 18));\n            case 1, 2, 3, 4 -> new Movimiento(tipo, Pan.of(r.substring(2, 18)),\n                                      r.substring(18, 30), Integer.parseInt(r.substring(30, 34)));\n            case 5      -> new PrealtaTef(Pan.of(r.substring(2, 18)), r.substring(18, 34));\n            case 99     -> new Trailer(Long.parseLong(r.substring(2, 10)));\n            default     -> new Desconocido(tipo, r);\n        };\n    }\n}\n\n/** El número de tarjeta nunca se imprime completo: toString() enmascara (PCI DSS 3.4). */\npublic record Pan(String value) {\n    public static Pan of(String v) { return new Pan(v); }\n    public String bin() { return value.substring(0, 6); }              // WS-ACC-BIN\n    @Override public String toString() { return value.substring(0, 6) + \"******\" + value.substring(12); }\n}",
+          "racional": "El archivo del S111 usa un solo registro de 40 posiciones con tres <code>REDEFINES</code> sobre el área posterior al tipo: header, detalle de altas, bloqueos y eliminaciones, detalle de prealtas TEF y trailer. En Java cada vista es un <code>record</code> de una <code>sealed interface</code> y el <code>switch</code> sobre el tipo hace explícito el caso desconocido, que el COBOL solo reporta en bitácora. El número de tarjeta se encapsula en un tipo <code>Pan</code> que se enmascara al convertirse en texto, porque el programa original lo escribe completo en bitácora y en el listado de rechazos. El contrato se conserva como <code>String</code> para no perder ceros.",
+          "reglas": [],
+          "riesgo": "El número de tarjeta (PIC 9(16)) viaja completo hacia los mensajes de bitácora y el listado de rechazos; en la migración debe enmascararse."
+        },
+        {
+          "id": "s2",
+          "titulo": "Rutas de entrada con fecha de seis dígitos",
+          "linea_ini": 174,
+          "linea_fin": 742,
+          "origen_codigo": " 01  WKS-ETIQ-S111-PREALTA.\n     02 FILLER                    PIC  X(030)     VALUE\n         \"(S500)S111/FILE/S500/PREALTAS/\".\n     02 WKS-ETIQ-S111-FECHA       PIC  9(006).\n     02 FILLER                    PIC  X(001)     VALUE \".\".\n 01 WKS-TIT-ASIG-TEF.\n    02 FILLER                    PIC  X(021)     VALUE\n        \"(S500)S500/FILE/S500/\".\n    02 WKS-EITQ-TEF-TIT          PIC  X(04)      VALUE \"TEF/\".\n    02 WKS-TEF-FECHA             PIC  9(006).\n    02 FILLER                    PIC  X(001)     VALUE \".\".\n     MOVE WKS-E01-FECHA-APLICAR   TO  WKS-ETIQ-S111-FECHA\n     OPEN INPUT E01-S111-PREALTAS                                .",
+          "java_codigo": "# application.yml\np176:\n  archivo-s111: \"(S500)S111/FILE/S500/PREALTAS/{fecha}.\"   # generado por S111\n  archivo-tef:  \"(S500)S500/FILE/S500/TEF/{fecha}.\"        # generado en línea por P010 del S500\n  formato-fecha-nombre: yyMMdd                              # PIC 9(006): el MOVE desde 9(008) trunca el siglo\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p176\")\npublic record P176Properties(String archivoS111, String archivoTef, String formatoFechaNombre) {\n    /** MOVE WKS-E01-FECHA-APLICAR TO WKS-ETIQ-S111-FECHA: AAAAMMDD a AAMMDD. */\n    public String resuelve(String plantilla, LocalDate fecha) {\n        return plantilla.replace(\"{fecha}\", fecha.format(DateTimeFormatter.ofPattern(formatoFechaNombre)));\n    }\n}",
+          "racional": "Los títulos de los dos archivos de entrada están compilados con el usercode, el sistema y el nodo. Se trasladan a <code>application.yml</code>. La fecha del nombre es <code>PIC 9(006)</code> y recibe la fecha a aplicar de ocho dígitos, así que el <code>MOVE</code> numérico conserva los seis dígitos de la derecha y el nombre queda con año de dos dígitos. El patrón <code>yyMMdd</code> deja ese truncamiento visible en lugar de ocultarlo.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job y validación del archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P176.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20000000 / 20101000 / 20102000 / 20200000"
+      },
+      "java": {
+        "archivo": "AltasBloqueosJobConfig.java · ValidaArchivoS111Listener.java",
+        "contexto": "JobExecutionDecider · StepExecutionListener"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Dos modos de proceso por parámetro y avance de la fecha de control",
+          "linea_ini": 434,
+          "linea_fin": 1216,
+          "origen_codigo": " 00000000-PRINCIPAL.\n*-------------------\n     PERFORM                      10000000-INICIO\n     IF WKS-PARAM-TIP-PROC = 1 AND WS-B02-DECOM-S111 = 0\n        PERFORM  20000000-PROCESO-PREA\n     ELSE\n     IF WKS-PARAM-TIP-PROC = 2\n        PERFORM  20000100-PROCESO-TEF.\n     PERFORM                      60000000-FIN\n     STOP RUN                                                    .\n 20000000-PROCESO-PREA.\n*----------------------\n     IF NOT W88-B01P-FIN\n        PERFORM                   20100000-PROCESO-ARCHIVO\n        IF WKS-E01-FECH-PROYECTADA > WKS-B01P-ULT-ARCHAPLI\n           PERFORM                20200000-PROCESO-BASE          .\n 20200000-PROCESO-BASE.\n*----------------------\n     PERFORM                      90400001-B01PCONTROL-LOCKF\n     PERFORM                      90400000-BEGIN-TRANSAC-NOAUD\n     MOVE WKS-E01-FECH-PROYECTADA TO  B01P-ULT-ARCHAPLI\n     PERFORM                      90400001-B01PCONTROL-STORE\n     PERFORM                      90400000-END-TRANSAC-NOAUD     .",
+          "java_codigo": "@Configuration\npublic class AltasBloqueosJobConfig {\n\n    /** 00000000-PRINCIPAL: el TASKVALUE trae fecha (CAMD) y tipo de proceso. */\n    @Bean\n    Job s500p176(JobRepository repo, Step inicio, JobExecutionDecider modo,\n                 Step aplicaS111, Step avanzaFechaControl, Step aplicaTef, Step fin) {\n        return new JobBuilder(\"S500P176\", repo)\n                .start(inicio)                                         // 10000000-INICIO\n                .next(modo)\n                    .on(\"PREALTAS\").to(aplicaS111).next(avanzaFechaControl).next(fin)\n                .from(modo).on(\"TEF\").to(aplicaTef).next(fin)\n                .from(modo).on(\"NINGUNO\").to(fin)                      // decomiso S111 activo u otro valor\n                .end().build();\n    }\n\n    @Bean\n    JobExecutionDecider modo() {\n        return (job, step) -> {\n            int tipo = job.getJobParameters().getLong(\"tipoProceso\").intValue();   // WKS-PARAM-TIP-PROC\n            boolean decomisoS111 = (Integer) job.getExecutionContext().get(\"decomisoS111\") != 0;   // B02-USO-FUTURO-05\n            if (tipo == 1 && !decomisoS111) return new FlowExecutionStatus(\"PREALTAS\");\n            if (tipo == 2) return new FlowExecutionStatus(\"TEF\");\n            return new FlowExecutionStatus(\"NINGUNO\");\n        };\n    }\n}\n\n/** 20200000-PROCESO-BASE: solo avanza si la fecha proyectada es posterior a la última aplicada. */\n@Transactional\npublic void avanzaFechaControl(LocalDate proyectada) {\n    ControlPrealtas ctl = controlRepo.findForUpdate();                  // LOCK B01PCONTROL\n    if (proyectada.isAfter(ctl.ultimoArchivoAplicado())) {\n        ctl.setUltimoArchivoAplicado(proyectada);                       // STORE\n    }\n}",
+          "racional": "El programa trabaja en dos modos según el dígito de tipo de proceso que llega en el <code>TASKVALUE</code>. El modo 1 aplica el archivo de altas, bloqueos y eliminaciones del S111, siempre que el indicador de decomiso del S111 en el registro de control (<code>B02-USO-FUTURO-05</code>) esté en cero. El modo 2 aplica el archivo de asignación TEF generado en línea por P010. Al terminar el modo 1, la fecha del siguiente archivo a solicitar se guarda en <code>B01PCONTROL</code> solo si avanza. En Spring Batch los modos son rutas de un <code>JobExecutionDecider</code> y el avance de fecha es un paso transaccional separado.",
+          "reglas": [],
+          "riesgo": "Con el decomiso del S111 activo y tipo 1, el programa termina sin procesar ni avisar; la ruta NINGUNO de la traducción deja constancia en el JobRepository."
+        },
+        {
+          "id": "s4",
+          "titulo": "Validación de trailer y header antes de aplicar",
+          "linea_ini": 831,
+          "linea_fin": 893,
+          "origen_codigo": " 20101000-VALIDA-ARCHIVO.\n*------------------------\n     MOVE ATTRIBUTE LASTRECORD OF E01-S111-PREALTAS\n                                  TO  WKS-E01-LASTRECORD\n     ADD  2                       TO  WKS-E01-LASTRECORD\n     COMPUTE WKS-KEY-E01          =   WKS-E01-LASTRECORD - 1\n     PERFORM                      70000300-LLAMA-ARCHIVO-CARGA\n     IF W88-E01-FILE-ERROR\n        MOVE WKS-KEY-E01          TO  WS-MSG-N-12\n        STRING \"ERROR: TRATO DE LEER TRAILER EN LLAVE \"\n                WS-MSG-N-12\n               DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     ELSE\n        IF (E01-S111-TIP-REG = 99)\n***    AND (E01-S111-TRL-NUM-REG = (WKS-E01-LASTRECORD + 1))\n           NEXT SENTENCE\n        ELSE\n           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA\n           MOVE WKS-KEY-E01       TO  WS-MSG-N-12\n           STRING \"ARCHIVO CON TRAILER ERRONEO \"\n                  \" LLAVE=\" WS-MSG-N-12 \" REG=\"\n                   E01-S111-TIP-REG, E01-S111-HEAD-01\n           DELIMITED BY SIZE INTO WS-0101-TEXT-MSG.\n     IF W88-E01-FILE-ERROR\n        PERFORM 70000050-MENSAJE\n        PERFORM  99000000-LLAMA-DMTERMINATE.\n     IF NOT W88-E01-FILE-ERROR\n        IF E01-S111-TIP-REG = ZEROS\n           IF E01-S111-HDR-FECHA = WKS-E01-FECHA-APLICAR\n              IF E01-S111-HDR-SIS-ORI = \"S111\"\n             AND E01-S111-HDR-SIS-DES = \"S500\"\n                 NEXT SENTENCE\n              ELSE\n                 MOVE 1           TO  WKS-E01-FILE-ERROR-VA\n                 STRING \"ERROR HEAD ORIGEN/DESTINO \"\n                        E01-S111-TIP-REG, E01-S111-HEAD-01\n                        DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n     IF W88-E01-FILE-ERROR\n        PERFORM 70000050-MENSAJE\n        PERFORM 99000000-LLAMA-DMTERMINATE.",
+          "java_codigo": "/** 20101000-VALIDA-ARCHIVO y 20102000-LEO-HEADER, antes de leer detalles. */\n@Component\n@RequiredArgsConstructor\npublic class ValidaArchivoS111Listener implements StepExecutionListener {\n\n    private final P176Properties props;\n\n    @Override\n    public void beforeStep(StepExecution step) {\n        Path archivo = Ctx.archivoS111(step);\n        List<String> lineas = Fixed.leeRegistros(archivo, 40);\n        SolicitudS111 ultimo = SolicitudS111.parse(lineas.get(lineas.size() - 1));   // ATTRIBUTE LASTRECORD\n        if (!(ultimo instanceof SolicitudS111.Trailer trailer)) {\n            throw new ArchivoInvalidoException(\"ARCHIVO CON TRAILER ERRONEO\");           // DMTERMINATE\n        }\n        // El fuente tiene comentada la comparación del conteo del trailer (línea 845).\n        long detalles = lineas.size() - 2;\n        if (trailer.numRegistros() != detalles) {\n            log.warn(\"Trailer S111 con {} registros y el archivo trae {}\", trailer.numRegistros(), detalles);\n            if (props.validarConteoTrailer()) throw new ArchivoInvalidoException(\"CONTEO DE TRAILER\");\n        }\n        LocalDate fechaAplicar = Ctx.fechaAplicar(step);\n        if (!(SolicitudS111.parse(lineas.get(0)) instanceof SolicitudS111.Header h)\n                || !h.fecha().equals(fechaAplicar)\n                || !\"S111\".equals(h.sisOrigen()) || !\"S500\".equals(h.sisDestino())) {\n            throw new ArchivoInvalidoException(\"ERROR HEADER\");\n        }\n    }\n}",
+          "racional": "Antes de aplicar cualquier solicitud el programa lee el último registro del archivo por llave relativa y exige que sea un trailer tipo 99; después lee el primero y exige un header tipo 00 con la fecha a aplicar y origen S111 y destino S500. Cualquier falla termina el programa con <code>DMTERMINATE</code>. En Java ambas validaciones van en un <code>StepExecutionListener</code> que corre antes de leer detalles y lanza excepción. La comparación del conteo del trailer está comentada en el fuente; se conserva desactivada por defecto y se deja detrás de una propiedad para que el SME decida encenderla.",
+          "reglas": [],
+          "riesgo": "Sin la validación del conteo (línea 845 comentada), un archivo truncado que conserve su trailer se aplica parcialmente sin aviso."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de aplicación de solicitudes",
+      "origen": {
+        "archivo": "S500_SOURCE_P176.txt",
+        "contexto": "PROCEDURE DIVISION · 20103000 / 20103020 / 20103021 / 20103050"
+      },
+      "java": {
+        "archivo": "SolicitudS111Processor.java · PrealtaService.java · BloqueoService.java · PrealtaTefService.java",
+        "contexto": "ItemProcessor · @Service @Transactional · JPA"
+      },
+      "segmentos": [
+        {
+          "id": "s5",
+          "titulo": "Despacho por tipo de solicitud",
+          "linea_ini": 929,
+          "linea_fin": 967,
+          "origen_codigo": " 20103000-LEO-DETALLE.\n*---------------------\n     ADD  1                       TO  WKS-KEY-E01\n     PERFORM                      70000300-LLAMA-ARCHIVO-CARGA\n     IF E01-S111-TIP-REG = 99\n     ELSE\n     IF E01-S111-TIP-REG = 1 OR 2 OR 3 OR 4\n        ADD  1                    TO  WKS-E01-REG-DETALLE\n        PERFORM                   20103010-VALIDA-COBERTURA\n        IF NOT W88-E01-SUC-ERROR\n           IF E01-S111-TIP-REG = 01\n              PERFORM          20103020-CGA-PREALTAS\n           ELSE\n           IF E01-S111-TIP-REG = 02 OR 03\n              PERFORM          20103030-CGA-BLOQUEO\n           ELSE\n           IF E01-S111-TIP-REG = 04\n              PERFORM          20103040-ELI-REGISTROS\n           ELSE\n              NEXT SENTENCE\n        ELSE\n           NEXT SENTENCE\n     ELSE\n     IF E01-S111-TIP-REG = 05\n        ADD 1       TO  WS-CONT-TOTREGS\n        IF E01-S111-DET2-TEF = 0\n           ADD 1    TO  WS-CONT-TEFCERO\n        ELSE\n           PERFORM    20103050-VAL-PREALTAS-TEF\n     ELSE",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class SolicitudS111Processor implements ItemProcessor<SolicitudS111, ResultadoSolicitud> {\n\n    private final CoberturaSucursal cobertura;     // 20103010-VALIDA-COBERTURA / S080\n    private final PrealtaService prealtas;\n    private final BloqueoService bloqueos;\n    private final PrealtaTefService tef;\n    private final ContadoresP176 cont;\n\n    /** 20103000-LEO-DETALLE. */\n    @Override\n    public ResultadoSolicitud process(SolicitudS111 s) {\n        return switch (s) {\n            case SolicitudS111.Movimiento m -> {\n                cont.detalles++;\n                Optional<Integer> csi = cobertura.csiDe(m.sucPromotora());\n                if (csi.isEmpty()) yield ResultadoSolicitud.rechazo(m, \"SUCURSAL ERRONEA\");\n                yield switch (m.tipo()) {\n                    case 1    -> prealtas.alta(m, csi.get());\n                    case 2, 3 -> bloqueos.aplica(m);\n                    case 4    -> prealtas.elimina(m);\n                    default   -> throw new IllegalStateException();\n                };\n            }\n            case SolicitudS111.PrealtaTef t -> {\n                cont.totalTef++;\n                yield t.numTef().chars().allMatch(ch -> ch == '0')\n                        ? ResultadoSolicitud.omitida(t, \"TEF EN CERO\")      // WS-CONT-TEFCERO\n                        : tef.valida(t);\n            }\n            case SolicitudS111.Trailer tr      -> ResultadoSolicitud.fin(tr);\n            case SolicitudS111.Header h        -> ResultadoSolicitud.ignorado(h);\n            case SolicitudS111.Desconocido d   -> ResultadoSolicitud.rechazo(d, \"REGISTRO ERRONEO\");\n        };\n    }\n}",
+          "racional": "Cada detalle se despacha por su tipo: 01 crea una prealta de tarjeta, 02 y 03 bloquean o desbloquean el contrato, 04 elimina la prealta, y 05 registra una prealta TEF si el número TEF no viene en cero. Los tipos 01 a 04 pasan antes por la validación de cobertura, que busca la sucursal promotora en el catálogo S080 y obtiene su centro de cómputo. En Java el <code>switch</code> sobre la <code>sealed interface</code> es exhaustivo y cada rama delega en un servicio transaccional. El registro de tipo desconocido se rechaza con mensaje igual que en el fuente.",
+          "reglas": [],
+          "riesgo": "El mensaje de registro erróneo (líneas 968-972) escribe el número de tarjeta completo en bitácora."
+        },
+        {
+          "id": "s6",
+          "titulo": "Alta de prealta en BD04 con duplicados tolerados",
+          "linea_ini": 1012,
+          "linea_fin": 1037,
+          "origen_codigo": " 20103020-CGA-PREALTAS.\n*----------------------\n     PERFORM                      90400003-B03PREALTAS-CREATE\n     PERFORM                      90400000-BEGIN-TRANSAC-NOAUD\n     MOVE E01-S111-DET-TARJETA    TO  B03P-TARJETA\n     MOVE E01-S111-DET-CONTRATO   TO  B03P-CONTRATO\n     MOVE E01-S111-DET-SUC-PROM   TO  B03P-SUC-PROM\n     MOVE WKS-E01-NUM-CSI         TO  B03P-NUM-CSI\n     MOVE WKS-B02-FECHA-LINEA     TO  B03P-FEC-PREALTA\n     PERFORM                      90400003-B03PREALTAS-STORE\n     IF WS-DB-ERROR\n        IF NOT WS-DB-DUPLICATES\n           MOVE 1                 TO  WKS-E01-FILE-ERROR-VA\n           MOVE \"ERROR AL GRABAR B03P\"\n                                  TO  WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n           PERFORM                99000000-LLAMA-DMTERMINATE\n        ELSE\n           FREE S500B03PREALTAS\n           STRING \"TARJETA YA EXISTE,\"\n                  \" NUMERO DE CONTRATO: \" E01-S111-DET-CONTRATO\n                  \" NUMERO DE TARJETA: \"  E01-S111-DET-TARJETA\n           DELIMITED BY SIZE INTO     WS-0101-TEXT-MSG\n           PERFORM 70000050-MENSAJE\n     ELSE\n        PERFORM                   90400000-END-TRANSAC-NOAUD     .",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class PrealtaService {\n\n    private final PrealtaRepository repo;        // S500BD04TARJETAS.S500B03PREALTAS\n    private final Clock clock;\n\n    /** 20103020-CGA-PREALTAS. Cada alta es una transacción independiente. */\n    @Transactional(propagation = Propagation.REQUIRES_NEW)\n    public ResultadoSolicitud alta(SolicitudS111.Movimiento m, int csi) {\n        if (repo.existsById(m.tarjeta().value())) {\n            // DMSII DUPLICATES: se libera el registro y se informa; no aborta.\n            return ResultadoSolicitud.aviso(m, \"TARJETA YA EXISTE\");          // Pan se enmascara al imprimirse\n        }\n        try {\n            repo.save(new Prealta(m.tarjeta().value(), m.contrato(), m.sucPromotora(), csi,\n                                  Ctx.fechaLinea()));                        // B03P-FEC-PREALTA = B02-FECHA-LINEA\n            return ResultadoSolicitud.aplicada(m);\n        } catch (DataIntegrityViolationException carrera) {\n            return ResultadoSolicitud.aviso(m, \"TARJETA YA EXISTE\");\n        }\n        // Cualquier otro error de base propaga y deja el step en FAILED (ERROR AL GRABAR B03P + DMTERMINATE).\n    }\n}",
+          "racional": "El alta crea el registro de prealta con tarjeta, contrato, sucursal, centro de cómputo y fecha línea, y lo graba dentro de una transacción sin auditoría. Si la tarjeta ya existe se libera el registro, se informa y se continúa; cualquier otro error de base termina el programa. En Java cada alta es una transacción propia con <code>REQUIRES_NEW</code>, la existencia previa se trata como aviso y el resto de errores se propaga para dejar el step en FAILED.",
+          "reglas": [],
+          "riesgo": "En la rama de duplicado (líneas 1029-1035) se ejecuta FREE pero no 90400000-END-TRANSAC-NOAUD: la transacción abierta en la línea 1015 queda sin cerrar hasta la siguiente solicitud. El mismo patrón está en 30100000-CGA-PREALTAS-TEF."
+        },
+        {
+          "id": "s7",
+          "titulo": "Bloqueo y desbloqueo restringidos al producto 66-11 con tipo 86",
+          "linea_ini": 1061,
+          "linea_fin": 1119,
+          "origen_codigo": "        IF B03-NUM-PRODUCTO = 66              AND\n           B03-NUM-INSTRUM = 11\n           PERFORM                90000006-B06SXCTO-LOCK\n 20103021-ACT-BLOQUEO.\n*---------------------\n     MOVE ZEROS                   TO  WKS-E01-STORE-BASES-VA\n     IF E01-S111-TIP-REG = 02\n        IF B03-STATUS = ZEROS\n           MOVE 1                 TO  WKS-E01-STORE-BASES-VA\n                                      B03-STATUS\n           MOVE 86                TO  B03-TIPO-BLOQUEO\n           MOVE ZEROS             TO  B03-FEC-CAMBPROD\n           MOVE WKS-B02-FECHA-LINEA\n                                  TO  B06-FEC-BLOQUEO\n        ELSE\n           NEXT SENTENCE\n     ELSE\n        IF B03-STATUS = 1                     AND\n           B03-TIPO-BLOQUEO = 86\n           MOVE 1                 TO  WKS-E01-STORE-BASES-VA\n           MOVE ZEROS             TO  B03-STATUS\n                                      B03-TIPO-BLOQUEO\n                                      B03-FEC-CAMBPROD\n                                      B06-FEC-BLOQUEO            .\n     IF W88-E01-STORE-BASES\n        PERFORM                   90000000-BEGIN-TRANSACTION\n        PERFORM                   90000003-B03CONTRATOS-STORE\n        PERFORM                   90000006-B06HISTORICO-STORE\n        PERFORM                   90000000-END-TRANSACTION",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class BloqueoService {\n\n    private static final int TIPO_BLOQUEO_S111 = 86;\n    private final ContratoRepository contratos;      // S500BD01CAPTACION.S500B03CONTRATOS\n    private final HistoricoRepository historicos;    // S500B06HISTORICO\n    private final BloqueoProperties props;           // producto 66, instrumento 11\n\n    /** 20103030-CGA-BLOQUEO + 20103021-ACT-BLOQUEO. */\n    @Transactional\n    public ResultadoSolicitud aplica(SolicitudS111.Movimiento m) {\n        Contrato c = contratos.findForUpdate(m.contrato())\n                .orElse(null);\n        if (c == null) return ResultadoSolicitud.aviso(m, \"NO EXISTE REG EN B03 DE BD01\");\n        if (c.producto() != props.producto() || c.instrumento() != props.instrumento()) {\n            return ResultadoSolicitud.aviso(m, \"CONTRATO NO PERTENECE AL PRODUCTO -A-\");\n        }\n        Historico h = historicos.findForUpdate(m.contrato())\n                .orElseThrow(() -> new AvisoException(\"NO EXISTE REG EN B06 DE BD01\"));\n        if (m.tipo() == 2 && c.status() == 0) {                       // bloqueo\n            c.setStatus(1);\n            c.setTipoBloqueo(TIPO_BLOQUEO_S111);\n            c.setFecCambioProducto(null);                             // MOVE ZEROS TO B03-FEC-CAMBPROD\n            h.setFecBloqueo(Ctx.fechaLinea());                        // B06-FEC-BLOQUEO\n        } else if (m.tipo() == 3 && c.status() == 1 && c.tipoBloqueo() == TIPO_BLOQUEO_S111) {\n            c.setStatus(0);                                           // desbloqueo\n            c.setTipoBloqueo(0);\n            c.setFecCambioProducto(null);\n            h.setFecBloqueo(null);\n        } else {\n            return ResultadoSolicitud.aviso(m, \"CONTRATO YA ESTA BLOQUEADO/DESBLOQUEADO\");\n        }\n        return ResultadoSolicitud.aplicada(m);   // B03 y B06 se graban juntos al confirmar la transacción\n    }\n}",
+          "racional": "El bloqueo solo aplica a contratos del producto 66 con instrumento 11, el que los mensajes llaman producto A. Un bloqueo tipo 02 pasa el contrato de vigente a bloqueado con tipo de bloqueo 86, limpia la fecha de cambio de producto y registra la fecha de bloqueo en el histórico. Un desbloqueo tipo 03 solo procede si el contrato está bloqueado con tipo 86, de modo que el S111 no puede quitar bloqueos puestos por otros motivos. El contrato y su histórico se graban juntos en una transacción, que en Java es un método <code>@Transactional</code> sobre dos repositorios JPA. El producto y el instrumento son hardcodes que pasan a propiedades.",
+          "reglas": [],
+          "riesgo": "Cuando no hay cambio (contrato ya bloqueado o desbloqueado), los registros B03 y B06 quedan con LOCK y el programa no ejecuta FREE en esa rama (líneas 1120-1129)."
+        },
+        {
+          "id": "s8",
+          "titulo": "Validación de BIN y búsqueda secuencial en tabla de 1000",
+          "linea_ini": 1168,
+          "linea_fin": 1194,
+          "origen_codigo": " 20103050-VAL-PREALTAS-TEF.\n*==========================\n  MOVE E01-S111-DET-TARJETA  TO  WS-TARJETA-PP.\n  PERFORM    20103060-VALIDAR-CATBIN-S080.\n  IF WKS-EXISTE-BIN                 = 1  AND\n     WKS-BIN-ASIG-C111(WS-IND-BIN)  = 2\n     PERFORM 20103070-VALIDAR-CAT-D215\n  ELSE\n     ADD  1   TO  WS-CONT-RECHAZOS\n     MOVE 1   TO  WS-TIPO-RECHA\n     PERFORM 60000100-IMPRIME-RECHAZO.\n 20103060-VALIDAR-CATBIN-S080.\n*==============================\n   MOVE ZEROS     TO  WKS-EXISTE-BIN.\n   MOVE 1         TO  WS-IND-BIN.\n   PERFORM  20103065-BUSCA-BIN-EN-TBL\n            UNTIL  WS-IND-BIN  = 1001      OR\n                   WS-ACC-BIN  = WKS-BIN-NUM (WS-IND-BIN).\n   IF WS-IND-BIN < 1001\n      MOVE 1                     TO  WKS-EXISTE-BIN.\n 20103065-BUSCA-BIN-EN-TBL.\n*==========================\n   ADD  1     TO  WS-IND-BIN.",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class PrealtaTefService {\n\n    private final Map<String, Bin> bines;          // catálogo S080 por L710 (10010250-CARGA-BINES), cargado al iniciar\n    private final CatalogoTefClient catalogoD215;  // 80050200-BUSCA-TEF / L700\n\n    /** 20103050-VAL-PREALTAS-TEF. */\n    public ResultadoSolicitud valida(SolicitudS111.PrealtaTef t) {\n        Bin bin = bines.get(t.tarjeta().bin());    // primeros 6 dígitos (WS-ACC-BIN)\n        if (bin == null || bin.asignacionC111() != 2) {\n            return ResultadoSolicitud.rechazo(t, \"NO EXISTE BIN\");          // WS-TIPO-RECHA = 1\n        }\n        return switch (catalogoD215.buscaTef(t.numTef())) {             // WS-S080-L700CD-RESULT\n            case 0, 1 -> alta(t);                                          // 30100000-CGA-PREALTAS-TEF\n            case 20   -> ResultadoSolicitud.rechazo(t, \"NO EXISTE TEF\");   // WS-TIPO-RECHA = 2\n            default   -> ResultadoSolicitud.ignorado(t);                   // el COBOL no hace nada\n        };\n    }\n}",
+          "racional": "La prealta TEF exige que el BIN de la tarjeta, sus primeros seis dígitos, exista en el catálogo de bines con asignación C111 igual a 2, y que el número TEF exista en el catálogo D215. El COBOL busca el BIN de forma secuencial en una tabla de hasta 1000 posiciones; en Java la tabla se carga una vez en un <code>Map</code> por BIN, con lo que la búsqueda deja de ser lineal. Los rechazos se cuentan y se imprimen en el listado <code>R01-RECHAZOS</code>.",
+          "reglas": [],
+          "riesgo": "El PERFORM UNTIL de las líneas 1185-1187 evalúa WKS-BIN-NUM(WS-IND-BIN) también cuando WS-IND-BIN llega a 1001; con una tabla de 1000 entradas el subíndice queda fuera de rango. Un resultado de L700 distinto de 0, 1 y 20 no se acepta ni se rechaza y no aparece en los totales."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Número de tarjeta completo en bitácora y listados",
+      "detalle": "Los mensajes de las líneas 968-972, 1004-1006, 1031-1034, 1055-1058, 1084-1087, 1123-1128, 1148-1151 y 1239-1242 escriben E01-S111-DET-TARJETA completo, y el listado de rechazos imprime WS-NUM-TAR PIC 9(16) (línea 1284). Es un hallazgo de PCI DSS; la versión Java enmascara el PAN por diseño."
+    },
+    {
+      "titulo": "Transacciones sin cerrar en duplicados",
+      "detalle": "En 20103020-CGA-PREALTAS y 30100000-CGA-PREALTAS-TEF la rama de DUPLICATES ejecuta FREE pero no END-TRANSAC (líneas 1029-1035 y 1237-1243). El comportamiento depende de cómo 90400000-BEGIN-TRANSAC-NOAUD trata una transacción ya abierta, código que no viene en el fuente."
+    },
+    {
+      "titulo": "Conteo del trailer sin validar",
+      "detalle": "La comparación de E01-S111-TRL-NUM-REG contra el número real de registros está comentada (línea 845). Un archivo incompleto con trailer se aplica sin aviso."
+    },
+    {
+      "titulo": "Subíndice fuera de rango en la búsqueda de BIN",
+      "detalle": "El ciclo de 20103060-VALIDAR-CATBIN-S080 evalúa la tabla con índice 1001 (líneas 1185-1187). La definición activa de WKS-BIN-TBL no está en el fuente; la versión comentada (líneas 407-423) tiene 1000 ocurrencias."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Producto 66 e instrumento 11 para bloqueos, tipo de bloqueo 86, medio de entrada 80 en B04P, fecha mínima 20070901 del parámetro y las rutas de archivo están compilados. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar el significado de B02-USO-FUTURO-05 como indicador de decomiso del S111 (WS-B02-DECOM-S111): el nombre del campo es genérico y el fuente no lo documenta.",
+    "Confirmar en el copy S500/INC/WOR/25MTP004 la definición activa de WKS-BIN-TBL y su número de ocurrencias.",
+    "Revisar con SME el modo 2 (20103030-LEO-DETALLE-TEF y 80000000-BUSCA-CONTR-B03): no se incluyó en esta demostración y su condición anidada sobre I01-TEF-DET-CSI (líneas 981-995) compara contra WKS-B02-NUM-CSI y B02-NUM-CSI, dos campos distintos.",
+    "Confirmar que la eliminación tipo 04 debe borrar la prealta por número de contrato (90400003-B03PSXCTO-LOCK) y no por tarjeta; si un contrato tiene varias tarjetas en prealta solo se elimina la primera que encuentre el LOCK.",
+    "Validar qué hace 90400000-BEGIN-TRANSAC-NOAUD cuando ya hay una transacción abierta, para medir el impacto real del caso de duplicados."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-510",
+    "RN-S500-511",
+    "RN-S500-512",
+    "RN-S500-513",
+    "RN-S500-514",
+    "RN-S500-515"
+  ]
+}

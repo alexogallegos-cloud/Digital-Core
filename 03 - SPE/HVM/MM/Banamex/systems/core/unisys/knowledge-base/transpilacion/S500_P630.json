@@ -1,0 +1,227 @@
+{
+  "slug": "S500_P630",
+  "sistema": "S500",
+  "programa": "P630",
+  "nombre": "Generación de archivos de donativos Teletón: S244, punteo contable y AMEX",
+  "funcion": "Paso batch del S500 (PROGRAM-ID S500P630, migrado de S501/P110 en 2016) que recorre los movimientos de donativos de la base S500BD06TELETON y genera tres archivos: movimientos con tarjeta para S244, punteo contra S151 y archivo de American Express; al final los transfiere y marca el paso 630 en B00TGLOBAL.",
+  "resumen": "Abre S500BD06TELETON en UPDATE y toma la fecha de línea y el CSI de B00TGLOBAL. Escribe el header y el header de negocio del archivo para S244, el header del punteo y abre el archivo AMEX. Recorre B02TMOVTOS: los movimientos con estatus 0 van al archivo S244 (con una referencia de 23 posiciones y dígito verificador calculado) y al punteo; los de estatus 15 van al punteo y al archivo AMEX con el importe editado como texto. Cierra con trailers de cargos y registros, transfiere los archivos por INTELAR y por el WFL P940, y si no hubo terminación anormal marca el paso 630 como entrada y salida.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.teleton",
+  "secciones": [
+    {
+      "titulo": "Archivos de salida, base Teletón y layout para S244",
+      "origen": {
+        "archivo": "S500_SOURCE_P630_TARINTERCAM.txt",
+        "contexto": "FILE-CONTROL · DATA-BASE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "TeletonFiles.java · S244Record.java · TransferenciaProperties.java",
+        "contexto": "FlatFileItemWriter · sealed interface · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Tres salidas secuenciales y cuatro datasets de S500BD06TELETON",
+          "linea_ini": 26,
+          "linea_fin": 99,
+          "origen_codigo": "     SELECT I04-MOVS244\n            ASSIGN TO    DISK\n            ORGANIZATION IS SEQUENTIAL\n            ACCESS MODE  IS RANDOM\n            ACTUAL KEY   IS W77-LLAVE-I04.\n     SELECT I08-PUNTEOS151\n            ASSIGN TO    DISK\n            ORGANIZATION IS SEQUENTIAL.\n     SELECT I09-AMEXMNL\n            ASSIGN TO    DISK\n            ORGANIZATION IS SEQUENTIAL\n            ACCESS MODE  IS RANDOM\n            ACTUAL KEY   IS W77-LLAVE-I09.\n DB S500BD06TELETON.\n 01 S500B00TGLOBAL.\n 01 S500B01TCONTROL.\n 01 S500B02TMOVTOS.\n 01 S500B91TREINICIO.",
+          "java_codigo": "/** Salidas del paso: un writer por archivo, escritos en el mismo recorrido de B02TMOVTOS. */\n@Configuration\npublic class TeletonFiles {\n\n    @Bean @StepScope\n    FlatFileItemWriter<S244Record> movs244(@Value(\"#{jobParameters['fechaLinea']}\") String f) {\n        return new FlatFileItemWriterBuilder<S244Record>()\n                .name(\"I04-MOVS244\").resource(salida(\"s244\", f))     // 100 bytes\n                .lineAggregator(S244Record::linea).build();\n    }\n\n    @Bean @StepScope\n    FlatFileItemWriter<PunteoRecord> punteo151(@Value(\"#{jobParameters['fechaLinea']}\") String f) {\n        return new FlatFileItemWriterBuilder<PunteoRecord>()\n                .name(\"I08-PUNTEOS151\").resource(salida(\"punteo151\", f))   // 48 bytes\n                .lineAggregator(PunteoRecord::linea).build();\n    }\n\n    @Bean @StepScope\n    FlatFileItemWriter<AmexRecord> amexMn(@Value(\"#{jobParameters['fechaLinea']}\") String f) {\n        return new FlatFileItemWriterBuilder<AmexRecord>()\n                .name(\"I09-AMEXMNL\").resource(salida(\"amex\", f))\n                .lineAggregator(AmexRecord::linea).build();\n    }\n}\n// Datasets: B00TGLOBAL (control y paso), B01TCONTROL, B02TMOVTOS (donativos), B91TREINICIO.",
+          "racional": "Los tres archivos se escriben en un solo recorrido de los movimientos. I04 e I09 se declaran con <code>ACCESS MODE IS RANDOM</code> y <code>ACTUAL KEY</code>, pero el programa solo escribe en orden creciente de llave, así que en Java basta un <code>FlatFileItemWriter</code> por archivo. La base de donativos es propia (<code>S500BD06TELETON</code>) y separada de la de captación; sus datasets pasan a entidades JPA.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Registro S244 de 100 bytes con referencia de 23 posiciones",
+          "linea_ini": 349,
+          "linea_fin": 399,
+          "origen_codigo": " 01  WKS-I04-R-00-REGISTRO.\n     02 WKS-I04-R-00-HEADER.\n        03 WKS-I04-NUMREG                PIC 9(06).\n        03 WKS-I04-TIPO-REGIS            PIC 9(01).\n        03 WKS-I04-SIST-DESTINO          PIC X(04).\n        03 WKS-I04-FPROCESO-AAMMDD       PIC 9(06).\n        03 WKS-I04-NOM-CADENA            PIC X(08).\n        03 WKS-I04-ORI-CADENA            PIC 9(02).\n        03 WKS-I04-NUM-VENTANA           PIC 9(02).\n        03 FILLER                        PIC X(71).\n     02 WKS-I04-R-02-DETALLE REDEFINES WKS-I04-R-00-HEADER.\n        03 WKS-I04-NUMREG02              PIC 9(06).\n        03 WKS-I04-TIPO-REGIS02          PIC 9(01).\n        03 WKS-I04-FECVAL-TRANS          PIC 9(06).\n        03 WKS-I04-FECVAL-TRANSR REDEFINES WKS-I04-FECVAL-TRANS.\n           04 FILLER                     PIC 9(01).\n           04 WKS-I04-FV-DIGANIO         PIC 9(01).\n           04 FILLER                     PIC 9(04).\n        03 WKS-I04-NATU-CONTABLE         PIC 9(02).\n        03 WKS-I04-TIPO-TRAN             PIC 9(02).\n        03 WKS-I04-NUM-AUTB24            PIC X(06).\n        03 WKS-I04-IMPORTE               PIC 9(09)V99.\n        03 WKS-I04-REF-23                PIC X(23).\n        03 WKS-I04-REF-23R REDEFINES WKS-I04-REF-23.\n           04 WKS-I04-RE-RESPAG          PIC 9(01).\n           04 WKS-I04-RE-BINADQ          PIC 9(06).\n           04 WKS-I04-RE-DIGANIO         PIC 9(01).\n           04 WKS-I04-RE-DIAJUL          PIC 9(03).\n           04 WKS-I04-RE-DATADQ          PIC 9(11).\n           04 WKS-I04-RE-DIGVER          PIC 9(01).\n        03 WKS-I04-NUM-TARJETA           PIC X(19).\n        03 WKS-I04-NUM-TARJETAR REDEFINES WKS-I04-NUM-TARJETA.\n           04 WKS-I04-DIG-TARJ           PIC 9(01).\n           04 FILLER                     PIC 9(18).\n        03 WKS-I04-STA-REGIS             PIC X(05).\n        03 WKS-I04-STA-REGISR   REDEFINES WKS-I04-STA-REGIS.\n           04 WKS-I04-STA-REG1           PIC X.\n           04 WKS-I04-STA-NUME           PIC X(04).\n        03 WKS-I04-HORA-TRAN             PIC 9(06).",
+          "java_codigo": "/** WKS-I04-R-00-REGISTRO: header, header de negocio, detalle y trailer en 100 bytes. */\npublic sealed interface S244Record\n        permits S244Record.Header, S244Record.HeaderNegocio, S244Record.Detalle, S244Record.Trailer {\n\n    String linea();\n\n    /** Tipo 3. */\n    record Detalle(int numReg,\n                   String fechaValorAammdd,        // 9(06): la fecha de máquina pierde el siglo\n                   int naturaleza, int tipoTran,\n                   String autorizacionB24,         // X(06)\n                   BigDecimal importe,             // 9(09)V99 -> escala 2\n                   Referencia23 referencia,\n                   String tarjeta,                 // X(19)\n                   String horaTran) implements S244Record {\n        public String linea() { return Fixed.s244Detalle(this); }\n    }\n\n    /** WKS-I04-REF-23R: 1 + 6 + 1 + 3 + 11 + 1 posiciones. */\n    record Referencia23(int respPago, String binAdquirente, int digitoAnio,\n                        int diaJuliano, String datoAdquirente, int digitoVerificador) {\n        String sinDigito() {\n            return \"%d%s%d%03d%s\".formatted(respPago, binAdquirente, digitoAnio, diaJuliano, datoAdquirente);\n        }\n    }\n\n    record Header(String sistemaDestino, String fechaAammdd, String cadena) implements S244Record {\n        public String linea() { return Fixed.s244Header(this); }\n    }\n    record HeaderNegocio(long numNegocio) implements S244Record {\n        public String linea() { return Fixed.s244Negocio(this); }\n    }\n    record Trailer(long cargos, BigDecimal importeCargos, long registros) implements S244Record {\n        public String linea() { return Fixed.s244Trailer(this); }\n    }\n}",
+          "racional": "El archivo para S244 comparte un buffer de 100 bytes entre cuatro vistas <code>REDEFINES</code>, y el detalle a su vez redefine la referencia de 23 posiciones y la tarjeta para extraer el primer dígito. Se traduce a una <code>sealed interface</code> con un <code>record</code> por vista y un <code>record</code> anidado para la referencia, que es la que lleva el dígito verificador. El importe <code>9(09)V99</code> pasa a <code>BigDecimal</code> con escala 2 y la tarjeta se conserva como texto.",
+          "reglas": [],
+          "riesgo": "WKS-I04-IMPORTE es 9(09)V99; si B02T-IMPORTE tiene más enteros, el MOVE de la línea 953 trunca el dígito alto sin aviso."
+        },
+        {
+          "id": "s3",
+          "titulo": "WFL de transferencia P940 armado en WORKING-STORAGE",
+          "linea_ini": 109,
+          "linea_fin": 125,
+          "origen_codigo": " 01 WKS-LANZA-TX940.\n    03 FILLER                         PIC X(37) VALUE\n        \"BEGIN JOB S500/WFL/COPIARCH/01MTP001;\".\n    03 WKS-ACCESS-TX940               PIC X(33) VALUE \" \".\n    03 FILLER                         PIC X(45) VALUE\n       \"START (S006)S006/WFL/P940/01MTP001 ON XFER (\".\n    03 FILLER                         PIC X(01) VALUE QUOTES.\n    03 WKS-TX940-LLAVE                PIC X(07).\n    03 FILLER                         PIC X(01) VALUE QUOTES.\n    03 FILLER                         PIC X(01) VALUE \",\".\n    03 FILLER                         PIC X(01) VALUE QUOTES.\n    03 WKS-TX940-FECHA                PIC 9(08).\n    03 FILLER                         PIC X(01) VALUE QUOTES.\n    03 FILLER                         PIC X(02) VALUE \");\".\n    03 FILLER                         PIC X(08) VALUE \"?END JOB\".\n 77 WKS-ACCESS-ACYPBETA               PIC X(33) VALUE",
+          "java_codigo": "# application.yml\np630:\n  transferencia:\n    llave: \"S501T01\"                       # WKS-TX940-LLAVE (línea 1305)\n    wfl: \"(S006)S006/WFL/P940/01MTP001\"\n  # La credencial del ambiente de pruebas ya no vive en el código:\n  # se inyecta desde el gestor de secretos y solo en el perfil de pruebas.\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class TransferenciaP940 {\n\n    private final TransferenciaProperties props;\n    private final MftClient mft;                 // transferencia gestionada en lugar de BEGIN JOB ... START P940\n    private final SecretProvider secretos;       // Vault / Key Vault / Secrets Manager\n\n    public void transfiere(LocalDate fechaLinea, String host) {\n        Optional<Credencial> cred = host.startsWith(\"ACYPBETA\")\n                ? Optional.of(secretos.credencial(\"p630.pruebas\"))\n                : Optional.empty();\n        mft.envia(props.llave(), fechaLinea, cred);\n    }\n}",
+          "racional": "El programa arma en memoria el texto completo de un WFL (<code>BEGIN JOB ... START P940 ... END JOB</code>) y lo ejecuta con <code>CALL SYSTEM WFL</code>. En Java ese paso es una llamada a un servicio de transferencia gestionada con la llave y la fecha como parámetros. La línea que sigue a <code>WKS-ACCESS-ACYPBETA</code> en el fuente (línea 126) contiene un <code>ACCESSCODE</code> con su contraseña en claro; no se reproduce aquí (equivale a <code>ACCESSCODE = ****</code>) y en la versión Java se obtiene de un gestor de secretos.",
+          "reglas": [],
+          "riesgo": "Credencial en claro en el fuente (línea 126). Debe rotarse y retirarse del código."
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y clasificación de movimientos por estatus",
+      "origen": {
+        "archivo": "S500_SOURCE_P630_TARINTERCAM.txt",
+        "contexto": "PROCEDURE DIVISION · 000-INICIO / 100-GENERA-ARCHIVO / 900 / 910"
+      },
+      "java": {
+        "archivo": "TeletonJobConfig.java · MovimientoTeletonClassifier.java",
+        "contexto": "Spring Batch Job · Classifier · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Inicio: versión omitida en hosts de prueba y apertura de la base",
+          "linea_ini": 749,
+          "linea_fin": 819,
+          "origen_codigo": "     MOVE ATTRIBUTE HOSTNAME OF MYSELF TO W77-MY-HOST.\n      MOVE \"S500P630\"                 TO W77-S000-MY-ID.\n      MOVE \"25MTP004\"                 TO W77-S000-MY-VERSION.\n      IF W77-MY-HOST = \"ACYPBETA. \"\n      OR W77-MY-HOST = \"VDMBETA.  \"\n         MOVE ZERO TO W77-S000-STATUS\n      ELSE\n         CALL \"CHECAME IN CTLVERS\"\n               USING W77-S000-MY-ID\n                     W77-S000-MY-VERSION\n               GIVING W77-S000-STATUS.\n      IF W77-S000-STATUS < 0\n         MOVE \"ERROR EN VERSIONES S500P630\" TO TEXTO-LJ\n         PERFORM 70000050-MSG-LJ\n         CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.\n      OPEN UPDATE S500BD06TELETON\n         ON EXCEPTION\n         MOVE \"ERROR OPEN_UPDATE BASE BD06TELETON \" TO TEXTO-LJ\n         PERFORM 70000050-MSG-LJ\n         PERFORM 999-MGS-DMSII\n         CALL SYSTEM DMTERMINATE.\n      MOVE 1 TO W77-OPEN-BD06.\n      PERFORM 997-S500B00TGLOBALES-FIND.\n      MOVE B00T-NUM-CSI TO W77-CPI-SOY-YO.\n     PERFORM 100-GENERA-ARCHIVO.\n     PERFORM 999999-FIN.\n      STOP RUN.",
+          "java_codigo": "@Configuration\npublic class TeletonJobConfig {\n\n    @Bean\n    Job donativosTeleton(JobRepository repo, Step generaArchivos, Step transfiere, Step marcaPaso) {\n        return new JobBuilder(\"S500P630\", repo)\n                .start(generaArchivos)     // 100-GENERA-ARCHIVO\n                .next(transfiere)          // 999999-FIN: INTELAR + P940\n                .next(marcaPaso)           // B00T-PASO-ENTRA / PASO-SALE = 630\n                .build();\n    }\n}\n\n// La validación de versión contra CTLVERS que el fuente omite en ACYPBETA y VDMBETA\n// se sustituye por la versión del artefacto; no se replica la excepción por host.",
+          "racional": "El arranque liga las librerías por función, valida la versión contra <code>CTLVERS</code> salvo en los hosts de prueba <code>ACYPBETA</code> y <code>VDMBETA</code>, abre la base en <code>UPDATE</code> y lee el registro global para obtener el CSI. En Spring Batch la secuencia es un <code>Job</code> de tres steps. La excepción por nombre de host no se replica, porque en la plataforma destino la versión la controla el pipeline de despliegue.",
+          "reglas": [],
+          "riesgo": "La validación de secuencia de pasos (B00T-PASO-SALE debe ser 45) está comentada (líneas 806-813); P630 corre aunque el paso anterior no haya terminado."
+        },
+        {
+          "id": "s5",
+          "titulo": "Headers del archivo S244 con negocio y cadena fijos",
+          "linea_ini": 832,
+          "linea_fin": 850,
+          "origen_codigo": "      MOVE 1              TO WKS-I04-NUMREG\n                             WKS-I04-TIPO-REGIS.\n      MOVE \"S244\"         TO WKS-I04-SIST-DESTINO.\n      MOVE B00T-FEC-LINEA TO WKS-I04-FPROCESO-AAMMDD.\n      MOVE \"TELETON\"      TO WKS-I04-NOM-CADENA.\n      MOVE 00             TO WKS-I04-ORI-CADENA.\n      MOVE 01             TO WKS-I04-NUM-VENTANA.\n      MOVE 1              TO W77-LLAVE-I04.\n      WRITE I04-R-00-REGISTRO FROM WKS-I04-R-00-HEADER\n          INVALID KEY\n          MOVE \"ERR AL GRABAR HEADS244 TAR MN\" TO TEXTO-LJ\n          PERFORM 70000050-MSG-LJ\n          CALL SYSTEM DMTERMINATE.\n      MOVE 2              TO WKS-I04-NUMREG01\n                             WKS-I04-TIPO-REGIS01.\n      MOVE \"        \"     TO WKS-I04-DET-NEGOCIO.\n      MOVE 1868876        TO WKS-I04-NUM-NEGOCIO.",
+          "java_codigo": "# application.yml\np630:\n  s244:\n    sistema-destino: \"S244\"\n    nombre-cadena: \"TELETON\"\n    origen-cadena: 0\n    num-ventana: 1\n    num-negocio: 1868876          # WKS-I04-NUM-NEGOCIO\n\n// ---------------------------------------------------------------------------\n@Bean\n@StepScope\nTasklet headersS244(P630Properties p, FlatFileItemWriter<S244Record> movs244,\n                    @Value(\"#{jobExecutionContext['fechaLinea']}\") LocalDate fechaLinea) {\n    return (contribution, ctx) -> {\n        String aammdd = fechaLinea.format(DateTimeFormatter.ofPattern(\"yyMMdd\"));   // 9(06)\n        movs244.write(Chunk.of(\n                new S244Record.Header(p.s244().sistemaDestino(), aammdd, p.s244().nombreCadena()),\n                new S244Record.HeaderNegocio(p.s244().numNegocio())));\n        return RepeatStatus.FINISHED;\n    };\n}",
+          "racional": "El archivo para S244 abre con dos registros: el header con sistema destino, fecha AAMMDD y nombre de la cadena, y un header de negocio con el número de afiliación del Teletón. Todos esos valores están compilados como literales y pasan a <code>application.yml</code>. La fecha de línea se recorta a seis dígitos, lo que el patrón <code>yyMMdd</code> deja explícito.",
+          "reglas": [],
+          "riesgo": "Cualquier falla de escritura en estos headers termina con CALL SYSTEM DMTERMINATE con archivos ya abiertos en salida."
+        },
+        {
+          "id": "s6",
+          "titulo": "Recorrido de B02TMOVTOS y destino por estatus",
+          "linea_ini": 906,
+          "linea_fin": 934,
+          "origen_codigo": " 900-LEE-B02.\n      PERFORM 997-S500B02TMOVTOS-FINDN.\n      IF W88-DB-NOTERROR\n         NEXT SENTENCE\n      ELSE\n      IF W88-DB-NOTFOUND\n         MOVE 1 TO W77-EOF-BASE\n      ELSE\n         MOVE \"ERROR FIND NEXT S500B02TMOVTOS \" TO TEXTO-LJ\n         PERFORM 70000050-MSG-LJ\n         PERFORM 999-MGS-DMSII\n         CALL SYSTEM DMTERMINATE.\n      IF W77-EOF-BASE = 0\n         PERFORM 910-GRABA-ARCHS.\n***********************************************************\n 910-GRABA-ARCHS.\n      MOVE B02T-AUTORIZA  TO WKS-AUTORIZACION.\n      IF B02T-STA-MOVTO = 0\n         PERFORM 930-GRABA-I04\n         PERFORM 960-GRABA-I08\n      ELSE\n      IF B02T-STA-MOVTO = 15\n         PERFORM 960-GRABA-I08\n         PERFORM 991-ASIGNA-VALORES-DETALLE\n         PERFORM 991-ESCRIBE-AMEXMN.",
+          "java_codigo": "/** 910-GRABA-ARCHS: cada movimiento va a uno o dos archivos según B02T-STA-MOVTO. */\n@Component\npublic class MovimientoTeletonClassifier\n        implements Classifier<MovimientoTeleton, ItemWriter<? super MovimientoTeleton>> {\n\n    private final ItemWriter<MovimientoTeleton> s244MasPunteo;    // 930-GRABA-I04 + 960-GRABA-I08\n    private final ItemWriter<MovimientoTeleton> punteoMasAmex;    // 960-GRABA-I08 + 991-ESCRIBE-AMEXMN\n    private final ItemWriter<MovimientoTeleton> ignorado = items -> {};\n\n    @Override\n    public ItemWriter<? super MovimientoTeleton> classify(MovimientoTeleton m) {\n        return switch (m.staMovto()) {\n            case 0  -> s244MasPunteo;      // tarjetas procesadas para S244\n            case 15 -> punteoMasAmex;      // American Express\n            default -> ignorado;           // cualquier otro estatus no se reporta\n        };\n    }\n}\n// Lector: JpaPagingItemReader sobre B02TMOVTOS; un error de lectura distinto de\n// NOTFOUND aborta el step, igual que CALL SYSTEM DMTERMINATE.",
+          "racional": "El recorrido <code>FINDN</code> termina en <code>NOTFOUND</code> y cualquier otro error aborta. Cada movimiento se dirige según su estatus: 0 va al archivo de S244 y al punteo, 15 va al punteo y al archivo de AMEX, y el resto se ignora. En Spring Batch es un <code>ClassifierCompositeItemWriter</code> con un <code>Classifier</code> por estatus, que es el patrón natural cuando un mismo lector alimenta varias salidas.",
+          "reglas": [],
+          "riesgo": "Los movimientos con estatus distinto de 0 y 15 no aparecen en ningún archivo ni en ningún contador; no hay forma de cuadrar el total de B02TMOVTOS contra las salidas."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de armado: referencia, dígito verificador e importe AMEX",
+      "origen": {
+        "archivo": "S500_SOURCE_P630_TARINTERCAM.txt",
+        "contexto": "PROCEDURE DIVISION · 930 / 935 / 940 / 991 / 993 / 999999"
+      },
+      "java": {
+        "archivo": "Referencia23Builder.java · AmexImporteFormatter.java · CierreTeletonTasklet.java",
+        "contexto": "ItemProcessor · utilidades puras · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Detalle S244 y referencia de 23 posiciones",
+          "linea_ini": 939,
+          "linea_fin": 991,
+          "origen_codigo": " 930-GRABA-I04.\n      COMPUTE WKS-I04-NUMREG02 = W77-LLAVE-I04 + 1.\n      MOVE 3                   TO WKS-I04-TIPO-REGIS02.\n      MOVE B02T-FEC-MAQUINA    TO WKS-I04-FECVAL-TRANS.\n      MOVE 1                   TO WKS-I04-NATU-CONTABLE.\n      IF B02T-AUT-B24 = \"000000\" OR \"      \"\n         MOVE 1                TO WKS-I04-TIPO-TRAN\n      ELSE\n         MOVE 0                TO WKS-I04-TIPO-TRAN.\n      MOVE B02T-AUT-B24        TO WKS-I04-NUM-AUTB24.\n      MOVE B02T-IMPORTE        TO WKS-I04-IMPORTE.\n      MOVE B02T-CUENTA-TARJ    TO WKS-I04-NUM-TARJETA.\n      PERFORM 935-ARMA-REF23.\n 935-ARMA-REF23.\n      MOVE 7                    TO WKS-I04-RE-RESPAG.\n      MOVE WKS-I04-FV-DIGANIO   TO WKS-I04-RE-DIGANIO.\n      MOVE 44444444444          TO WKS-I04-RE-DATADQ.\n      IF WKS-I04-DIG-TARJ = 3 OR 4\n         MOVE 454061            TO WKS-I04-RE-BINADQ\n      ELSE\n         MOVE 543006            TO WKS-I04-RE-BINADQ.\n      MOVE B02T-FEC-MAQUINA     TO W77-LIB-FEC-IN-2K.\n      CALL \"DAME_DIAJUL2K  IN FECHAS\"\n        USING\n             W77-LIB-FEC-IN-2K\n             WKS-LIB-FEC-OUT-2K.\n      MOVE WKS-LF-OUT-DIA       TO WKS-I04-RE-DIAJUL.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class Referencia23Builder {\n\n    private final P630Properties props;         // bin-visa-amex: 454061, bin-otros: 543006, dato-adquirente\n    private final CalendarioService fechas;     // DAME_DIAJUL2K IN FECHAS\n\n    public S244Record.Detalle detalle(MovimientoTeleton m, int numReg) {\n        String aammdd = m.fecMaquina().format(DateTimeFormatter.ofPattern(\"yyMMdd\"));\n        boolean sinAutB24 = m.autB24() == null || m.autB24().isBlank() || m.autB24().equals(\"000000\");\n        char primerDigito = m.cuentaTarjeta().charAt(0);\n        String bin = (primerDigito == '3' || primerDigito == '4') ? props.binVisaAmex() : props.binOtros();\n        int diaJuliano = fechas.diaJuliano(m.fecMaquina());\n        int digitoAnio = aammdd.charAt(1) - '0';               // WKS-I04-FV-DIGANIO\n        var sinDv = new S244Record.Referencia23(7, bin, digitoAnio, diaJuliano,\n                                                props.datoAdquirente(), 0).sinDigito();\n        var ref = new S244Record.Referencia23(7, bin, digitoAnio, diaJuliano,\n                                              props.datoAdquirente(), DigitoVerificador.mod10(sinDv));\n        return new S244Record.Detalle(numReg, aammdd, 1, sinAutB24 ? 1 : 0, m.autB24(),\n                                      Fixed.trunca(m.importe(), 9, 2), ref, m.cuentaTarjeta(),\n                                      m.horaMovto());\n    }\n}",
+          "racional": "Cada movimiento de estatus 0 genera un detalle tipo 3 con naturaleza contable 1 y tipo de transacción 1 cuando no trae autorización de B24. La referencia de 23 posiciones se compone de un indicador fijo 7, el BIN adquirente (454061 si la tarjeta empieza con 3 o 4, 543006 en otro caso), el último dígito del año, el día juliano que entrega la librería de fechas, un dato de adquirente fijo de once cuatros y un dígito verificador. Los BIN y el dato fijo se trasladan a propiedades.",
+          "reglas": [],
+          "riesgo": "El BIN adquirente se decide solo por el primer dígito de la tarjeta; una marca nueva con otro prefijo cae en 543006."
+        },
+        {
+          "id": "s8",
+          "titulo": "Dígito verificador módulo 10 con pesos 1 y 2",
+          "linea_ini": 997,
+          "linea_fin": 1048,
+          "origen_codigo": " 940-CALCULA-DIGITO.\n     COMPUTE WKS-RS-PESO(01) = WKS-DIG-REF23 (01) * 1.\n     COMPUTE WKS-RS-PESO(02) = WKS-DIG-REF23 (02) * 2.\n     COMPUTE WKS-RS-PESO(22) = WKS-DIG-REF23 (22) * 2.\n     COMPUTE WKS-SUMA-RS-PESO =\n             WKS-DG1-PESO(01) + WKS-DG2-PESO(01) +\n             WKS-DG1-PESO(02) + WKS-DG2-PESO(02) +\n             WKS-DG1-PESO(22) + WKS-DG2-PESO(22).\n     DIVIDE WKS-SUMA-RS-PESO BY 10 GIVING WKS-SUMA-RS-PESO\n            REMAINDER WKS-REMAINDER.\n     COMPUTE WKS-DIGITO-CALCULADO = 10 - WKS-REMAINDER.",
+          "java_codigo": "/** 940-CALCULA-DIGITO: Luhn sobre las primeras 22 posiciones de la referencia. */\npublic final class DigitoVerificador {\n\n    public static int mod10(String referencia22) {\n        int suma = 0;\n        for (int i = 0; i < 22; i++) {\n            int d = referencia22.charAt(i) - '0';\n            int peso = (i % 2 == 0) ? 1 : 2;         // posiciones impares x1, pares x2\n            int p = d * peso;\n            suma += (p / 10) + (p % 10);              // WKS-DG1-PESO + WKS-DG2-PESO\n        }\n        int residuo = suma % 10;                      // DIVIDE ... BY 10 REMAINDER\n        // 10 - residuo se guarda en PIC 9: con residuo 0 el 10 se trunca a 0.\n        return (10 - residuo) % 10;\n    }\n}",
+          "racional": "El dígito verificador multiplica cada una de las 22 posiciones por 1 y 2 alternados, suma los dígitos de cada producto, toma el residuo entre 10 y resta de 10. Es el algoritmo de Luhn. El resultado se guarda en <code>WKS-DIGITO-CALCULADO PIC 9</code>, de modo que cuando el residuo es 0 el valor 10 pierde el dígito alto y queda 0; en Java eso se escribe de forma explícita con <code>% 10</code> para no depender del truncamiento.",
+          "reglas": []
+        },
+        {
+          "id": "s9",
+          "titulo": "Importe AMEX editado carácter por carácter",
+          "linea_ini": 1079,
+          "linea_fin": 1121,
+          "origen_codigo": " 991-ASIGNA-VALORES-DETALLE.\n     ADD 1                              TO W77-LLAVE-I09\n     MOVE 9355195968                    TO WKS-R00-NUM-EST\n     MOVE SPACES                        TO WS-IMPORTE-AMEX\n     MOVE 1                             TO W77-I W77-J\n     MOVE 0                             TO W77-FIN\n     MOVE B02T-CUENTA-TARJ               TO WKS-R00-NUM-TARJETA\n     MOVE B02T-IMPORTE                   TO WS-IMPORTE-N\n     PERFORM 993-BUSCA-IMPORTE UNTIL W77-FIN=1\n     PERFORM 993-EDITA-IMPORTE UNTIL W77-I = 13\n     MOVE WS-IMPORTE-AMEX               TO WKS-R00-IMP-TRAN\n     MOVE \"MNX \"                        TO WKS-R00-IND-MON\n     MOVE B02T-AUT-B24                  TO WS-NUM-AUT-AMEX\n     MOVE WS-AUTO-AMEX                  TO WKS-R00-NUM-AUT-AMEX\n 993-BUSCA-IMPORTE.\n     IF WS-IMPORTE-R(W77-I) =\"0\"\n        ADD 1 TO W77-I\n     ELSE\n        MOVE 1 TO W77-FIN.\n***********************************************************\n 993-EDITA-IMPORTE.\n     IF W77-I = 11\n        MOVE \".\" TO WKS-IMP-AMEX (W77-J)\n        ADD 1 TO W77-J\n        MOVE WS-IMPORTE-R(W77-I) TO WKS-IMP-AMEX (W77-J)\n        ADD 1 TO W77-I W77-J.\n     MOVE WS-IMPORTE-R(W77-I) TO WKS-IMP-AMEX (W77-J)\n     ADD 1 TO W77-I W77-J.",
+          "java_codigo": "/** 993-BUSCA-IMPORTE + 993-EDITA-IMPORTE sobre WS-IMPORTE-N PIC 9(10)V99. */\npublic final class AmexImporteFormatter {\n\n    /** Quita ceros a la izquierda e inserta el punto antes de los dos decimales. */\n    public static String formatea(BigDecimal importe) {\n        String doce = \"%012d\".formatted(importe.setScale(2, RoundingMode.DOWN).unscaledValue());\n        int i = 0;\n        while (i < 12 && doce.charAt(i) == '0') i++;   // BUSCA-IMPORTE\n        if (i == 12) {\n            // En COBOL W77-I sigue avanzando fuera de la tabla OCCURS 12: importe cero no está soportado\n            throw new ImporteAmexInvalidoException(importe);\n        }\n        StringBuilder sb = new StringBuilder();\n        for (; i < 12; i++) {\n            if (i == 10) sb.append('.');               // W77-I = 11 en base 1\n            sb.append(doce.charAt(i));\n        }\n        return sb.toString();                          // ej. 1500.00 -> \"1500.00\"; 0.50 -> \".50\"\n        // 0.05 -> \"5\": se replica el defecto del fuente hasta que el SME decida (ver riesgo)\n    }\n}",
+          "racional": "El importe del archivo AMEX se arma como texto: se saltan los ceros a la izquierda del campo de 12 dígitos y se copian los restantes, insertando el punto decimal al llegar a la posición 11. La moneda se informa con el literal <code>MNX</code> y el número de establecimiento está fijo en el código. La traducción reproduce el mismo texto para importes de 1 peso o más.",
+          "reglas": [],
+          "riesgo": "Si el importe es menor a 0.10, BUSCA-IMPORTE salta la posición 11 y EDITA-IMPORTE no inserta el punto: 0.05 se escribe como 5. Si el importe es cero, W77-I rebasa la tabla de 12 posiciones."
+        },
+        {
+          "id": "s10",
+          "titulo": "Cierre, transferencia y marca del paso 630",
+          "linea_ini": 1269,
+          "linea_fin": 1313,
+          "origen_codigo": "     WAIT(3)\n     IF W77-FIN-ANORMAL = 0\n        MOVE WKS-TIT-I09-INTELAR     TO WS-ID-ARCHI\n        PERFORM 999-0080-CALL-INTELAR.\n      WAIT (5).\n      IF W77-FIN-ANORMAL = 0\n         PERFORM 999999-TRANSFIERE-P940.\n      WAIT (5).\n      IF W77-FIN-ANORMAL = 1\n          MOVE \"TERMINACION ANORMAL        \" TO TEXTO-LJ\n          PERFORM 70000050-MSG-LJ\n          CHANGE ATTRIBUTE STATUS OF MYSELF TO -1\n      ELSE\n         PERFORM 997-S500B00TGLOBALES-LOCK\n         MOVE 630 TO B00T-PASO-ENTRA\n         MOVE 630 TO B00T-PASO-SALE\n         PERFORM 999-OL-BEGIN-TRANSACTION\n         PERFORM 998-S500B00TGLOBAL-STORE\n         PERFORM 999-OL-END-TRANSACTION-SYNC.\n 999999-TRANSFIERE-P940.\n     MOVE \"S501T01\"                  TO WKS-TX940-LLAVE.\n     MOVE B00T-FEC-LINEA             TO WKS-TX940-FECHA.\n     MOVE SPACES                     TO WKS-ACCESS-TX940.\n     IF W77-MY-HOST = \"ACYPBETA. \"\n        MOVE WKS-ACCESS-ACYPBETA     TO WKS-ACCESS-TX940.\n     CALL SYSTEM WFL USING WKS-LANZA-TX940.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CierreTeletonTasklet implements Tasklet {\n\n    private final IntelarClient intelar;           // 999-0080-CALL-INTELAR\n    private final TransferenciaP940 p940;\n    private final GlobalTeletonRepository b00t;\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        // Los WAIT(3) y WAIT(5) del fuente separan llamadas a sistemas externos; aquí cada\n        // llamada es síncrona y su error detiene el step.\n        intelar.envia(tituloAmex(ctx));\n        p940.transfiere(fechaLinea(ctx), host());\n        GlobalTeleton g = b00t.findForUpdate();\n        g.setPasoEntra(630);\n        g.setPasoSale(630);                        // STORE + END-TRANSACTION SYNC\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Al cerrar los tres archivos el programa espera unos segundos, transfiere el archivo AMEX por INTELAR, lanza el WFL de P940 y, si no hubo terminación anormal, marca en B00TGLOBAL que el paso 630 entró y salió. En Java las esperas fijas desaparecen porque cada transferencia es síncrona y devuelve resultado; la marca del paso queda en una transacción al final, solo si ambas transferencias tuvieron éxito.",
+          "reglas": [],
+          "riesgo": "En el fuente la marca del paso 630 depende de W77-FIN-ANORMAL y no del resultado de INTELAR ni del WFL P940, que no se revisan; el paso puede quedar marcado como terminado sin que los archivos hayan salido."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Credencial en claro",
+      "detalle": "La línea 126 contiene un ACCESSCODE con usuario y contraseña del host ACYPBETA en un VALUE de WORKING-STORAGE. No se reproduce en este documento; debe rotarse y moverse a un gestor de secretos."
+    },
+    {
+      "titulo": "Importe AMEX mal editado para montos chicos o cero",
+      "detalle": "993-BUSCA-IMPORTE y 993-EDITA-IMPORTE (líneas 1107-1121) no insertan el punto decimal si el primer dígito distinto de cero está en la posición 12, y no tienen tope si el importe es cero."
+    },
+    {
+      "titulo": "Transferencias sin verificación",
+      "detalle": "999-0080-CALL-INTELAR y CALL SYSTEM WFL de P940 no revisan resultado; B00TGLOBAL se marca con el paso 630 aunque la transferencia falle."
+    },
+    {
+      "titulo": "Validación de secuencia de pasos comentada",
+      "detalle": "El control que exigía B00T-PASO-SALE = 45 antes de correr está comentado (líneas 806-813)."
+    },
+    {
+      "titulo": "Movimientos fuera de los estatus 0 y 15",
+      "detalle": "910-GRABA-ARCHS ignora en silencio cualquier otro estatus de B02TMOVTOS."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Número de negocio S244 1868876, número de establecimiento AMEX 9355195968, BIN adquirentes 454061 y 543006, dato adquirente 44444444444, moneda MNX, llave S501T01 y hosts ACYPBETA y VDMBETA."
+    }
+  ],
+  "pendientes_revision": [
+    "El inventario asocia el componente al archivo S500_SOURCE_P630_TARINTERCAM.txt; el fuente sí corresponde al programa de donativos Teletón (DB S500BD06TELETON, cadena TELETON, sistema S244), aunque el nombre del archivo sugiere tarjetas e intercambio.",
+    "Confirmar con AMEX si el indicador de moneda debe ser MNX (literal de la línea 1090) o MXN.",
+    "Confirmar la longitud de B02T-IMPORTE en S500BD06TELETON frente a WKS-I04-IMPORTE 9(09)V99 y WS-IMPORTE-N 9(10)V99.",
+    "Confirmar el formato que entrega DAME_DIAJUL2K (WKS-LIB-FEC-OUT-2K con día de 4 dígitos) y que el recorte a 3 posiciones del día juliano es correcto.",
+    "No hay reglas del brain asociadas a P630 en el inventario."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-581",
+    "RN-S151-582",
+    "RN-S151-583",
+    "RN-S151-584",
+    "RN-S151-585",
+    "RN-S151-586",
+    "RN-S151-587",
+    "RN-S151-588",
+    "RN-S151-589",
+    "RN-S151-590",
+    "RN-S500-037",
+    "RN-S500-038",
+    "RN-S500-039",
+    "RN-S500-040",
+    "RN-S500-041",
+    "RN-S500-042",
+    "RN-S500-043",
+    "RN-S500-044",
+    "RN-S500-045",
+    "RN-S500-046",
+    "RN-S500-047",
+    "RN-S500-048",
+    "RN-S500-049",
+    "RN-S500-050",
+    "RN-S500-051",
+    "RN-S500-052",
+    "RN-S500-053",
+    "RN-S500-054",
+    "RN-S500-055"
+  ]
+}

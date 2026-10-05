@@ -1,0 +1,204 @@
+{
+  "slug": "S500_P060",
+  "sistema": "S500",
+  "programa": "P060",
+  "nombre": "Servidor TransIT de Consulta de Contrato y Saldo",
+  "funcion": "Proceso en línea de larga duración que se registra en TransIT Open/OLTP (XATMI) y atiende dos servicios de consulta mientras el administrador no le indique terminar.",
+  "resumen": "Al arrancar arma el título de su TASKFILE con la fecha y el número de mix, se liga a las librerías de versiones y de saldos, y determina por el nombre del equipo si corre en Monterrey o en Valle de México. Con eso obtiene los designadores de dos servicios, S500_Con_Cto_M o S500_Con_Cto_V y S500_SdoParNac, y el del tipo de buffer X_OCTET. Después espera eventos de COMS en ciclos de 60 segundos; cuando llega un mensaje lo recibe con TP_SvcStart, valida servicio y tipo de buffer, invoca la librería S500L020 para consultar el contrato o el saldo y responde con TP_Return un buffer de 2000 bytes. Termina cuando TransIT devuelve el código 14.",
+  "arquetipo": "A4",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s500.linea.consultas",
+  "secciones": [
+    {
+      "titulo": "Arranque: ubicación, servicios y TASKFILE",
+      "origen": {
+        "archivo": "S500_SOURCE_P060.txt",
+        "contexto": "00000000-ALTA-TOLTP · 00000000-FORMA-ETIQ-TASKFILE"
+      },
+      "java": {
+        "archivo": "ServiciosConsultaConfig.java · application.yml",
+        "contexto": "@ConfigurationProperties · IntegrationFlow"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Sufijo geográfico por hostname y servicio de consulta de contrato",
+          "linea_ini": 158,
+          "linea_fin": 190,
+          "origen_codigo": " 00000000-ALTA-TOLTP.                                             101000\n*====================                                             102000\n    PERFORM 00000000-CHANGE-SOPCOMS.\n    PERFORM 0000-CALL-HOSTNAME.\n    IF WS-DH-HOSTNAME-MTY\n       MOVE 1                        TO WS-HOST                   104000\n    ELSE                                                          104100\n    IF WS-DH-HOSTNAME-VDM\n       MOVE 2                        TO WS-HOST                   104500\n    ELSE\n      STRING \"EQUIPO DESCONOCIDO \", WS-DH-NOM-EQUIPO\n             \" ASUMO COMO VDM \"\n             DELIMITED BY SIZE INTO TEXTO-LJ\n       PERFORM 00000000-DISPLAY\n       MOVE 2  TO WS-HOST.\n    IF WS88-HOST-MTY                                              104910\n       MOVE \"S500_Con_Cto_M  \"   TO WS-TOLTP-SNAME-O(1)           104920\n    ELSE                                                          104930\n       MOVE \"S500_Con_Cto_V  \"   TO WS-TOLTP-SNAME-O(1).          104940\n    MOVE WS-TOLTP-SNAME-O(1)     TO WS-TOLTP-NAME.                104970\n    PERFORM 00000000-GET-SERV-DES.                                105000\n    IF WS-TOLTP-RESULT NOT = 0                                    106000\n       MOVE WS-TOLTP-RESULT       TO WS-TEM                       107000\n       MOVE \" \"                   TO TEXTO-LJ                     108000\n       STRING \"ERROR Get_Designator_Using_Name: \"                 108100\n              WS-TEM                                              108200\n              DELIMITED BY SIZE INTO TEXTO-LJ                     108300\n       PERFORM 00000000-DISPLAY                                   108400\n       SET MYSELF(STATUS)         TO VALUE TERMINATED.            109000\n    MOVE WS-TOLTP-SD              TO WS-TOLTP-SD-ENUSO-OC(1).     110000",
+          "java_codigo": "# application.yml  (un perfil por plaza en lugar de deducirla del hostname)\np060:\n  plaza: V                                  # M = Monterrey, V = Valle de México\n  servicios:\n    consulta-contrato: \"S500_Con_Cto_{plaza}\"\n    saldo-nacion: \"S500_SdoParNac\"\n  longitud-respuesta: 2000\n\n@ConfigurationProperties(\"p060\")\npublic record P060Properties(Plaza plaza, Servicios servicios, int longitudRespuesta) {\n    public enum Plaza { M, V }\n    public record Servicios(String consultaContrato, String saldoNacion) {}\n\n    public String nombreConsultaContrato() {\n        return servicios.consultaContrato().replace(\"{plaza}\", plaza.name());\n    }\n}\n\n@Bean\nApplicationRunner validaPlaza(P060Properties p, HostInfo host) {\n    return args -> {\n        if (!host.plazaConocida()) {\n            log.warn(\"EQUIPO DESCONOCIDO {} ASUMO COMO VDM\", host.nombre());   // mismo aviso que el fuente\n        }\n    };\n}",
+          "racional": "El programa decide la plaza con el resultado de <code>0000-CALL-HOSTNAME</code> y, si el equipo no es de Monterrey ni de Valle de México, avisa y asume Valle. El sufijo <code>_M</code> o <code>_V</code> forma parte del nombre del servicio registrado. En el destino la plaza es una propiedad del despliegue y no una deducción del nombre del servidor, lo que evita que un equipo nuevo registre por omisión los servicios de Valle. Si no se obtiene el designador, el fuente termina la tarea con <code>SET MYSELF(STATUS) TO VALUE TERMINATED</code>; en Spring Boot el equivalente es fallar el arranque.",
+          "reglas": [
+            "RN-S500-241",
+            "RN-S500-242"
+          ],
+          "riesgo": "Un equipo con nombre no reconocido se registra como Valle de México sin detener el arranque; el único rastro es el mensaje en la librería LJ."
+        },
+        {
+          "id": "s2",
+          "titulo": "Buffer X_OCTET y servicio de saldo para nación",
+          "linea_ini": 192,
+          "linea_fin": 216,
+          "origen_codigo": "*   ---- Obtenemos designador de buffer X_OCTET                   112000\n    MOVE \"X_OCTET \"               TO WS-TOLTP-TIPO.               113000\n    MOVE \"                \"       TO WS-TOLTP-SUBTIPO.            114000\n    PERFORM 00000000-GET-BUFF-DES.                                115000\n    IF WS-TOLTP-RESULT NOT = 0                                    116000\n       MOVE WS-TOLTP-RESULT       TO WS-TEM                       117000\n       MOVE \" \"                   TO TEXTO-LJ                     118000\n       STRING \"Get_Buffer_Designator(X_OCTET) = \"                 118100\n              WS-TEM                                              118200\n              DELIMITED BY SIZE INTO TEXTO-LJ                     118300\n       PERFORM 00000000-DISPLAY                                   118400\n       SET MYSELF(STATUS) TO VALUE TERMINATED.                    119000\n     MOVE \"S500_SdoParNac  \"       TO WS-TOLTP-SNAME-O(2).\n     MOVE WS-TOLTP-SNAME-O(2)      TO WS-TOLTP-NAME.\n     PERFORM 00000000-GET-SERV-DES.\n     IF WS-TOLTP-RESULT NOT = 0\n        MOVE WS-TOLTP-RESULT       TO WS-TEM\n        MOVE \" \"                   TO TEXTO-LJ\n        STRING \"ERROR Get_Designator_Using_Name: S500_SdoParNac  \"\n               WS-TEM\n               DELIMITED BY SIZE INTO TEXTO-LJ\n        PERFORM 00000000-DISPLAY\n        SET MYSELF(STATUS)         TO VALUE TERMINATED.\n     MOVE WS-TOLTP-SD              TO WS-TOLTP-SD-ENUSO-OC(2).",
+          "java_codigo": "/** Los dos servicios quedan expuestos por un gateway de entrada con enrutamiento por nombre. */\n@Bean\nIntegrationFlow consultasS500(P060Properties p, ConnectionFactory mensajes) {\n    return IntegrationFlow\n            .from(Jms.inboundGateway(mensajes)\n                     .destination(\"s500.consultas\")\n                     .requestTimeout(60_000))                           // WS-ESPERACOMS-TIEMPO\n            .transform(Message.class, this::comoBytes)                  // X_OCTET: bytes sin tipado\n            .route(Message.class, m -> m.getHeaders().get(\"servicio\", String.class),\n                   r -> r.subFlowMapping(p.nombreConsultaContrato(), sf -> sf.handle(consultaContrato))\n                         .subFlowMapping(p.servicios().saldoNacion(),  sf -> sf.handle(saldoNacion))\n                         .defaultOutputToParentFlow())\n            .get();\n}",
+          "racional": "TransIT entrega el mensaje en un buffer <code>X_OCTET</code>, es decir bytes sin estructura declarada, y el programa obtiene una sola vez el designador de ese tipo para compararlo en cada mensaje. El segundo servicio, <code>S500_SdoParNac</code>, se registra sin sufijo de plaza. En Spring Integration ambos servicios se atienden con un gateway de entrada y un <code>route</code> por nombre de servicio, y el tipo de buffer equivale a recibir el cuerpo como <code>byte[]</code>.",
+          "reglas": [
+            "RN-S500-242",
+            "RN-S500-245"
+          ],
+          "riesgo": "El nombre S500_SdoParNac no lleva sufijo geográfico: si P060 corre en ambas plazas, las dos instancias registran el mismo nombre de servicio."
+        },
+        {
+          "id": "s3",
+          "titulo": "TASKFILE con fecha y número de mix",
+          "linea_ini": 75,
+          "linea_fin": 150,
+          "origen_codigo": " 01 WKS-TASKFILE-NOMBRE.                                          061200\n    02 FILLER             PIC X(60) VALUE \"FILE TASKFILE (USERBACK061250\n-                         \"UPNAME=TRUE,TITLE=S500/TASKFILE/P060/\".061300\n    02 WKS-TASKFILE-FEC   PIC 9(06).                              061350\n    02 WKS-TASKFILE-FEC-R REDEFINES WKS-TASKFILE-FEC.             061400\n       04 WKS-TASKFILE-FEC-AA PIC 9(02).                          061450\n       04 WKS-TASKFILE-FEC-MM PIC 9(02).                          061500\n       04 WKS-TASKFILE-FEC-DD PIC 9(02).                          061550\n    02 FILLER             PIC X(01) VALUE \"/\".                    061600\n    02 WKS-TASKFILE-MIX   PIC 9(07).                              061650\n    02 FILLER             PIC X(02) VALUE \");\".                   061700\n 00000000-FORMA-ETIQ-TASKFILE.                                    094050\n*=============================                                    094100\n     ACCEPT WS-FECHA-MAQ-MDA FROM TODAYS-DATE.                    094150\n     MOVE WS-FECHA-MAQ-MDA-AA            TO WKS-TASKFILE-FEC-AA.  094200\n     MOVE WS-FECHA-MAQ-MDA-MM            TO WKS-TASKFILE-FEC-MM.  094250\n     MOVE WS-FECHA-MAQ-MDA-DD            TO WKS-TASKFILE-FEC-DD.  094300\n     SET  MYSELF(OPTION)                 TO 1926.                 094350\n     MOVE ATTRIBUTE MIXNUMBER OF MYSELF  TO WKS-TASKFILE-MIX      094400\n                                            WS-NUMERO-MIX.        094450\n     SET  MYSELF(FILECARDS)              TO WKS-TASKFILE-NOMBRE.  094500",
+          "java_codigo": "# logback-spring.xml: el TASKFILE se sustituye por un archivo de log por instancia\n<appender name=\"TASKFILE\" class=\"ch.qos.logback.core.rolling.RollingFileAppender\">\n  <file>${LOG_DIR}/S500/TASKFILE/P060/${FECHA_AAMMDD}/${PID}.log</file>\n  ...\n</appender>\n\n@Component\nclass TaskfileNombre {\n    /** WKS-TASKFILE-FEC AAMMDD + WKS-TASKFILE-MIX 9(07). */\n    static String nombre(LocalDate hoy, long pid) {\n        return \"S500/TASKFILE/P060/%s/%07d\".formatted(\n                hoy.format(DateTimeFormatter.ofPattern(\"yyMMdd\")), pid);\n    }\n}",
+          "racional": "El programa arma una tarjeta de archivo (<code>FILECARDS</code>) que redirige su TASKFILE a <code>S500/TASKFILE/P060/{AAMMDD}/{mix}</code> con <code>USERBACKUPNAME=TRUE</code>, para que el archivo sobreviva al proceso y no choque con otras instancias del mismo día. En Java el equivalente es un appender de log por instancia que usa el identificador de proceso en lugar del número de mix. La fecha de seis dígitos se conserva solo en el nombre.",
+          "reglas": [
+            "RN-S500-244"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Ciclo de servicio y terminación",
+      "origen": {
+        "archivo": "S500_SOURCE_P060.txt",
+        "contexto": "MAIN · 00000000-OBTIENE-MSG · 00000000-VE-SIHAY-SERV"
+      },
+      "java": {
+        "archivo": "ServidorConsultasLifecycle.java",
+        "contexto": "SmartLifecycle · listener container"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Rutina principal: atender hasta fin de trabajo",
+          "linea_ini": 127,
+          "linea_fin": 248,
+          "origen_codigo": " MAIN-SECTION SECTION.\n MAIN.\n    PERFORM 00000000-FORMA-ETIQ-TASKFILE.\n    PERFORM 00000000-ALTA-DECLARATIVAS.\n    PERFORM 00000000-CHANGE-DCI-TR.\n    PERFORM 00000000-CHANGE-LIBRERIAS.\n    PERFORM 00000000-ALTA-TOLTP.\n    PERFORM 00000000-PROCESO\n            UNTIL WS88-EOJ.                                       091000\n    STOP RUN.                                                     093000\n 00000000-PROCESO.                                                121000\n*=================                                                122000\n    PERFORM 00000000-INI-VARS-PROC.                               123000\n    PERFORM 00000000-OBTIENE-MSG.                                 124000\n    IF NOT WS88-EOJ                                               125000\n       PERFORM 00000000-PROCESA-TRAN.                             126000",
+          "java_codigo": "/** MAIN: alta de declarativas, librerías y servicios; luego PROCESO UNTIL WS88-EOJ. */\n@Component\n@RequiredArgsConstructor\npublic class ServidorConsultasLifecycle implements SmartLifecycle {\n\n    private final DefaultMessageListenerContainer contenedor;  // reemplaza el ciclo ESPERACOMS\n    private volatile boolean activo;\n\n    @Override public void start() { contenedor.start(); activo = true; }   // 00000000-ALTA-TOLTP\n\n    /** WS-EOJ = 1: el contenedor deja de tomar mensajes y espera a que termine el que está en curso. */\n    @Override public void stop()  { contenedor.stop(); activo = false; }\n\n    @Override public boolean isRunning() { return activo; }\n}",
+          "racional": "El programa es un servidor: después del alta repite <code>00000000-PROCESO</code> hasta que se prende <code>WS-EOJ</code>. Cada vuelta inicializa banderas, espera un mensaje y, si no es fin de trabajo, lo procesa y responde. En Spring Boot ese ciclo lo administra un contenedor de listeners, y el fin ordenado es la parada del contexto vía <code>SmartLifecycle</code>, que deja terminar el mensaje en curso.",
+          "reglas": [
+            "RN-S500-243",
+            "RN-S500-246"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Espera de eventos COMS con timeout de 60 segundos",
+          "linea_ini": 250,
+          "linea_fin": 275,
+          "origen_codigo": " 00000000-OBTIENE-MSG.                                            128000\n*=====================                                            129000\n    MOVE 0                        TO WS-ESPERACOMS-TIPO-EVENTO.   130000\n    PERFORM 00000000-OBTEN-MSG-DE-COMS                            131000\n            UNTIL WS-ESPERACOMS-TIPO-EVENTO NOT = 0.              132000\n 00000000-OBTEN-MSG-DE-COMS.                                      134000\n*===========================                                      135000\n    CALL \"ESPERACOMS OF SOPORTECOMS\"                              136000\n       USING WS-ESPERACOMS-TIEMPO                                 137000\n       GIVING WS-ESPERACOMS-TIPO-EVENTO.                          138000\n    IF WS88-POR-MSG OR WS88-POR-EVENTO                            140000\n       PERFORM 00000000-VE-SIHAY-SERV                             141000\n    ELSE                                                          142000\n    IF WS88-POR-ACCEPT                                            143000\n       ACCEPT WS-TEXTO-DE-TRABAJO                                 144000\n       MOVE 0                        TO WS-ESPERACOMS-TIPO-EVENTO 145000\n    ELSE                                                          146000\n    IF WS88-POR-HI                                                147000\n       MOVE 0                        TO WS-ESPERACOMS-TIPO-EVENTO 148000\n    ELSE                                                          149000\n    IF WS88-POR-TIMEOUT                                           150000\n       MOVE 0                        TO WS-ESPERACOMS-TIPO-EVENTO 151000\n    ELSE                                                          152000\n       MOVE 0                        TO WS-ESPERACOMS-TIPO-EVENTO.155000",
+          "java_codigo": "@Bean\nDefaultMessageListenerContainer contenedor(ConnectionFactory cf) {\n    var c = new DefaultMessageListenerContainer();\n    c.setConnectionFactory(cf);\n    c.setDestinationName(\"s500.consultas\");\n    c.setReceiveTimeout(60_000);        // ESPERACOMS con WS-ESPERACOMS-TIEMPO = 60\n    c.setConcurrentConsumers(1);        // P060 atiende un mensaje a la vez\n    return c;\n}\n// Eventos 2 (ACCEPT de consola), 3 (HI) y 4 (timeout) solo reinician la espera;\n// el HI con TASKVALUE 1 se expone como endpoint de Actuator con las banderas del mensaje en curso.",
+          "racional": "<code>ESPERACOMS</code> regresa por mensaje, por evento, por entrada de consola, por interrupción HI o por timeout. Solo los dos primeros llevan a recibir el mensaje; los demás ponen el tipo de evento en cero y la espera se repite. El timeout de 60 segundos es el tiempo máximo de cada espera, no un límite de servicio al cliente. En Java esto equivale al <code>receiveTimeout</code> del contenedor. La interrupción HI con valor 1, que despliega si ya se procesó y envió el servicio, se traduce a un endpoint de diagnóstico.",
+          "reglas": [
+            "RN-S500-243"
+          ],
+          "riesgo": "En la rama de timeout el fuente no incrementa ningún contador; solo reinicia la espera. RN-S500-243 menciona un contador que no existe en este programa."
+        },
+        {
+          "id": "s6",
+          "titulo": "TP_SvcStart: truncamiento tolerado y código 14 de shutdown",
+          "linea_ini": 277,
+          "linea_fin": 300,
+          "origen_codigo": " 00000000-VE-SIHAY-SERV.                                          157000\n*=======================                                          158000\n*   ---- Asignamos maxima longitud de mensaje a recibir           160000\n*        y prendemos bandera de TPTRUNC                           161000\n    MOVE 2000                     TO WS-TOLTP-LEN.                162000\n    MOVE 0                        TO WS-TOLTP-FLAGS.              163000\n    MOVE WS-TOLTP-UNO             TO WS-TOLTP-FLAGS [0:32:1].     164000\n    PERFORM 00000000-SVCSTART.                                    165000\n*   ---- Analizamos resultado de TP_SVCSTART                      167000\n    MOVE WS-TOLTP-RESULT          TO WS-TOLTP-ERR-UNISYS[38:22:23]168000\n    MOVE WS-TOLTP-RESULT          TO WS-TOLTP-ERR-XATMI[15:15:16].169000\n    IF WS-TOLTP-ERR-UNISYS = 14                                   170000\n       MOVE 1                     TO WS-EOJ                       171000\n    ELSE                                                          172000\n*      ---- Si hay error y este no es de truncamiento,            173000\n*           desplegamos error y salimos                           174000\n       IF WS-TOLTP-RESULT < 0 AND WS-TOLTP-ERR-XATMI NOT = 127    175000\n          MOVE \"TP_SvcStart\"      TO WS-TOLTP-FUNCION-XATMI       176000\n          PERFORM 00000000-OBTEN-ERR-TRANSIT                      177000\n          MOVE \" \"                   TO TEXTO-LJ                  178000\n          MOVE WS-TOLTP-SCRATCH2     TO TEXTO-LJ                  178100\n          PERFORM 00000000-DISPLAY                                178200\n          MOVE 0                  TO WS-ESPERACOMS-TIPO-EVENTO.   179000",
+          "java_codigo": "/** 00000000-VE-SIHAY-SERV: recibe el mensaje con un tope de 2000 bytes (TPTRUNC). */\nbyte[] recibe(Message<byte[]> m) {\n    byte[] cuerpo = m.getPayload();\n    if (cuerpo.length > props.longitudRespuesta()) {\n        // El fuente activa TPTRUNC e ignora el error 127: procesa el mensaje truncado.\n        log.warn(\"Mensaje de {} bytes truncado a {}\", cuerpo.length, props.longitudRespuesta());\n        metricas.counter(\"p060.mensajes.truncados\").increment();\n        cuerpo = Arrays.copyOf(cuerpo, props.longitudRespuesta());\n    }\n    return cuerpo;\n}\n\n@EventListener(ContextClosedEvent.class)   // equivalente al resultado 14 de TP_SvcStart\nvoid finOrdenado() {\n    log.info(\"Fin ordenado de P060 solicitado por el administrador\");\n}",
+          "racional": "Antes de recibir, el programa fija la longitud máxima en 2000 bytes y prende el bit de truncamiento. Si TransIT devuelve el código Unisys 14, el servidor marca fin de trabajo. Cualquier otro error negativo se despliega y la espera continúa, excepto el 127 de XATMI, que corresponde al truncamiento y se acepta en silencio. La traducción conserva ese comportamiento pero lo hace visible con una advertencia y una métrica.",
+          "reglas": [
+            "RN-S500-246"
+          ],
+          "riesgo": "Un mensaje de más de 2000 bytes se procesa truncado sin aviso; la consulta se haría con datos incompletos."
+        }
+      ]
+    },
+    {
+      "titulo": "Validación, despacho a S500L020 y respuesta",
+      "origen": {
+        "archivo": "S500_SOURCE_P060.txt",
+        "contexto": "00000000-VALIDA-SERV · 00000000-PROCESA-SERV · 00000000-ENVIA-MSG"
+      },
+      "java": {
+        "archivo": "ConsultaContratoHandler.java · RespuestaS500.java",
+        "contexto": "@ServiceActivator · byte[] de 2000"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Validación del servicio invocado y del tipo de buffer",
+          "linea_ini": 302,
+          "linea_fin": 327,
+          "origen_codigo": " 00000000-PROCESA-TRAN.                                           181000\n*======================                                           182000\n     PERFORM 00000000-VALIDA-SERV.                                183000\n     IF WS88-CVE-SIN-ERROR                                        184000\n        PERFORM 00000000-PROCESA-SERV.                            185000\n     PERFORM 00000000-ENVIA-MSG.                                  186000\n 00000000-VALIDA-SERV.                                            188000\n*=====================                                            189000\n*   ---- Verificamos que el servicio invocado corresponda         191000\n*        al exportado                                             192000\n    IF WS-TOLTP-SVC = WS-TOLTP-SD-ENUSO-OC(1) OR\n       WS-TOLTP-SVC = WS-TOLTP-SD-ENUSO-OC(2)\n*      ---- Verificamos que el tipo de buffer sea X_OCTET         196000\n       IF WS-TOLTP-BD = WS-TOLTP-X-OCTET-BD                       197000\n          MOVE 0 TO WS-TOLTP-RCODE                                202000\n       ELSE                                                       203000\n          MOVE 1                          TO WS-CVE-ERROR-VA      204000\n          MOVE WS-TOLTP-BUFFER-INVAL      TO WS-TOLTP-RCODE       205000\n    ELSE                                                          206000\n       MOVE 2                             TO WS-CVE-ERROR-VA      207000\n       MOVE WS-TOLTP-SERV-DESC            TO WS-TOLTP-RCODE.      208000",
+          "java_codigo": "/** 00000000-VALIDA-SERV. WS-CVE-ERROR-VA: 1 buffer inválido, 2 designador inválido. */\npublic enum ErrorValidacion { NINGUNO, BUFFER_INVALIDO, SERVICIO_INVALIDO }\n\nErrorValidacion valida(Message<?> m) {\n    String servicio = m.getHeaders().get(\"servicio\", String.class);\n    if (!serviciosRegistrados.contains(servicio)) {\n        return ErrorValidacion.SERVICIO_INVALIDO;           // RCODE = WS-TOLTP-SERV-DESC\n    }\n    if (!(m.getPayload() instanceof byte[])) {\n        return ErrorValidacion.BUFFER_INVALIDO;             // RCODE = WS-TOLTP-BUFFER-INVAL\n    }\n    return ErrorValidacion.NINGUNO;\n}\n\n/** 00000000-PROCESA-TRAN: con error no se consulta, pero siempre se responde. */\nRespuestaS500 procesa(Message<byte[]> m) {\n    ErrorValidacion e = valida(m);\n    return (e == ErrorValidacion.NINGUNO) ? despacha(m) : RespuestaS500.error(e);\n}",
+          "racional": "Se valida primero que el servicio invocado sea uno de los dos registrados y después que el buffer sea <code>X_OCTET</code>. Cualquier error deja un código de retorno en la respuesta y se responde de todos modos, porque <code>00000000-PROCESA-TRAN</code> ejecuta <code>ENVIA-MSG</code> fuera del IF. La traducción mantiene esa garantía de respuesta: el cliente nunca queda esperando hasta su propio timeout.",
+          "reglas": [
+            "RN-S500-245"
+          ],
+          "riesgo": "Ante un buffer inválido el programa devuelve el código de error al cliente pero no registra nada en la librería de mensajes; RN-S500-245 dice que lo registra."
+        },
+        {
+          "id": "s8",
+          "titulo": "Despacho a la librería S500L020 según el servicio",
+          "linea_ini": 355,
+          "linea_fin": 368,
+          "origen_codigo": " 00000000-PROCESA-SERV.                                           230000\n*======================                                           231000\n    IF WS-TOLTP-SVC = WS-TOLTP-SD-ENUSO-OC(1)                     232100\n       MOVE 1                     TO WS-YA-PROCESE-SERV           232200\n       MOVE WS-TOLTP-BUFFER       TO WS-S500L020-0101-CTO         232400\n       PERFORM 20000500-S500L020CONTRATO                          232500\n       MOVE WS-S500L020-RESULT    TO WS-TOLTP-BUF-RESULT          232600\n       MOVE WS-S500L020-OUTPUT    TO WS-TOLTP-BUF-INFO\n    ELSE IF WS-TOLTP-SVC = WS-TOLTP-SD-ENUSO-OC(2)\n       MOVE 2                     TO WS-YA-PROCESE-SERV\n       MOVE WS-TOLTP-BUFFER       TO WS-S500L020-0101-CTO\n       PERFORM 20000500-S500L020SDOPARNAC\n       MOVE WS-S500L020-RESULT    TO WS-TOLTP-BUF-RESULT\n       MOVE WS-S500L020-OUTPUT    TO WS-TOLTP-BUF-INFO.",
+          "java_codigo": "/** 00000000-PROCESA-SERV: ambos servicios reciben el mismo layout de entrada (WS-S500L020-0101-CTO). */\nRespuestaS500 despacha(Message<byte[]> m) {\n    String servicio = m.getHeaders().get(\"servicio\", String.class);\n    PeticionContrato pet = PeticionContrato.desde(m.getPayload());\n\n    ResultadoL020 r = servicio.equals(props.nombreConsultaContrato())\n            ? librerias.consultaContrato(pet)       // 20000500-S500L020CONTRATO\n            : librerias.saldoParaNacion(pet);       // 20000500-S500L020SDOPARNAC\n    return RespuestaS500.ok(r.resultado(), r.salida());   // BUF-RESULT + BUF-INFO\n}\n\n/** S500L020 se expone como servicio reusable (arquetipo L), no como librería ligada en tiempo de ejecución. */\npublic interface ConsultasS500L020 {\n    ResultadoL020 consultaContrato(PeticionContrato p);\n    ResultadoL020 saldoParaNacion(PeticionContrato p);\n}",
+          "racional": "Según el designador del servicio, el buffer recibido se copia a la estructura de entrada de S500L020 y se invoca la consulta de contrato o la de saldo para nación. El resultado y la salida de la librería se copian a las dos partes del buffer de respuesta. En Java la librería se vuelve una interfaz de servicio con dos métodos, que conserva la firma que exponía S500L020 a sus programas llamadores.",
+          "reglas": [
+            "RN-S500-242"
+          ],
+          "riesgo": "La consulta de saldo para nación usa el mismo área de entrada que la consulta de contrato (WS-S500L020-0101-CTO); si los layouts difieren, el error solo aparecería en la librería."
+        },
+        {
+          "id": "s9",
+          "titulo": "Respuesta con TP_Return de longitud fija",
+          "linea_ini": 329,
+          "linea_fin": 346,
+          "origen_codigo": " 00000000-ENVIA-MSG.                                              210000\n*===================                                              211000\n    MOVE 1                                TO WS-YA-ENVIE-SERV     211100\n*   ---- Respondemos a llamador de servicio                       214000\n    MOVE 0                        TO WS-TOLTP-FLAGS.              215000\n    MOVE 2000                     TO WS-TOLTP-LEN.                215100\n    PERFORM 00000000-TPRETURN.                                    216000\n*   ---- Analizamos resultado de TP_RETURN                        218000\n    IF WS-TOLTP-RESULT < 0                                        219000\n       MOVE WS-TOLTP-RESULT TO WS-TOLTP-ERR-UNISYS [38:22:23]     220000\n       MOVE WS-TOLTP-RESULT TO WS-TOLTP-ERR-XATMI  [15:15:16]     221000\n       MOVE \"TP_Return  \" TO WS-TOLTP-FUNCION-XATMI               222000\n       PERFORM 00000000-OBTEN-ERR-TRANSIT                         223000\n       MOVE \" \"                   TO TEXTO-LJ                     224000\n       MOVE WS-TOLTP-SCRATCH2     TO TEXTO-LJ                     224100\n       PERFORM 00000000-DISPLAY.                                  224200",
+          "java_codigo": "/** 00000000-ENVIA-MSG: la respuesta siempre mide 2000 bytes. */\npublic record RespuestaS500(int rcode, int resultado, byte[] info) {\n\n    static final int LONGITUD = 2000;          // WS-TOLTP-LEN\n\n    public byte[] aBytes() {\n        ByteBuffer b = ByteBuffer.allocate(LONGITUD);\n        b.put(Layout.resultado(resultado));    // WS-TOLTP-BUF-RESULT\n        b.put(info, 0, Math.min(info.length, b.remaining()));\n        return b.array();                      // relleno con ceros hasta 2000\n    }\n}\n\n@ServiceActivator(inputChannel = \"respuestas\")\nbyte[] responde(RespuestaS500 r) {\n    try {\n        return r.aBytes();\n    } catch (RuntimeException e) {\n        log.error(\"TP_Return: {}\", e.getMessage());   // el fuente solo despliega y sigue\n        throw e;\n    }\n}",
+          "racional": "La respuesta se envía con longitud fija de 2000 bytes y sin banderas. Si <code>TP_Return</code> falla, el programa traduce el código de error de TransIT y lo despliega, pero continúa atendiendo. En Java la respuesta es un <code>record</code> que se serializa a un arreglo de tamaño fijo; el tamaño queda como constante porque es parte del contrato con los clientes de TransIT.",
+          "reglas": [
+            "RN-S500-242"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Truncamiento silencioso de mensajes",
+      "detalle": "El programa activa TPTRUNC con longitud 2000 e ignora el error XATMI 127 (línea 294). Un mensaje más largo se procesa truncado sin dejar rastro."
+    },
+    {
+      "titulo": "Plaza deducida del nombre del equipo",
+      "detalle": "Con un hostname no reconocido, P060 asume Valle de México y registra S500_Con_Cto_V (líneas 166-173). Un equipo nuevo en Monterrey atendería con el sufijo equivocado."
+    },
+    {
+      "titulo": "Servicio sin sufijo geográfico",
+      "detalle": "S500_SdoParNac se registra con el mismo nombre en ambas plazas (línea 205)."
+    },
+    {
+      "titulo": "Cierre de recursos fuera de este fuente",
+      "detalle": "Con el código 14 el programa sale del ciclo y ejecuta STOP RUN; no hay llamada visible a TP_Term ni estadísticas finales en este archivo. Si existen, están en el copybook S500/INC/PRO/25MTP002."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-243 menciona un contador de timeouts y RN-S500-246 menciona TP_Term y estadísticas finales; ninguno aparece en P060. Confirmar si viven en el copybook S500/INC/PRO/25MTP002 o si la redacción de las reglas debe ajustarse.",
+    "RN-S500-245 dice que el error de buffer se registra en la librería DISP; el fuente solo devuelve el código al cliente (líneas 323-324).",
+    "Confirmar si el layout de entrada de S500L020SDOPARNAC es el mismo que el de S500L020CONTRATO.",
+    "El transporte destino (JMS, Kafka o HTTP) depende de cómo se migren los clientes actuales de TransIT; el ejemplo usa JMS solo como referencia."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-241",
+    "RN-S500-242",
+    "RN-S500-243",
+    "RN-S500-244",
+    "RN-S500-245",
+    "RN-S500-246"
+  ]
+}

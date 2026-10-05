@@ -1,0 +1,209 @@
+{
+  "slug": "S151_P630",
+  "sistema": "S151",
+  "programa": "P630",
+  "nombre": "LEE-MOVSNNN, consulta y actualización del header de archivos de movimientos",
+  "funcion": "Utilería de soporte de S151 que se ejecuta a solicitud con el parámetro de tipo de archivo, fecha y sistema: muestra en el log la fecha del header de los archivos MOV, DES, CB2 y CTD de un sistema, o reescribe la fecha del header de uno de ellos.",
+  "resumen": "P630 recibe un parámetro de 12 posiciones con el tipo de archivo, una fecha AAMMDD y el número de sistema. Obtiene de S151B01SISDIA el pack donde residen los movimientos del sistema y arma el título (S151)S151/FILE/{tipo}S{sistema}/{fecha} ON {pack}. Con el tipo CON abre en lectura cada archivo (CB2 y CTD solo para S500, MOV y DES para todos), lee el primer registro y escribe su fecha en el log LJ. Con cualquier otro tipo abre ese archivo en I-O, lee el primer registro, le pone HD y la fecha del parámetro con el siglo 20 sumado, y lo reescribe.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.soporte.header",
+  "secciones": [
+    {
+      "titulo": "Parámetro, ruta del archivo y pack desde B01SISDIA",
+      "origen": {
+        "archivo": "COBOL_P630.txt",
+        "contexto": "WORKING-STORAGE · 000000-INIC-PROGRAMA · 020400-LIBRERIAS"
+      },
+      "java": {
+        "archivo": "HeaderParametros.java · RutaArchivoMovimientos.java · HeaderJobConfig.java",
+        "contexto": "record · @ConfigurationProperties · Job con decider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Título del archivo y parámetro de 12 posiciones",
+          "linea_ini": 315,
+          "linea_fin": 336,
+          "origen_codigo": " 01  WKS-ETI-S151-MOVANT.                                         009900\n     02 FILLER                     PIC X(16) VALUE                010000\n        \"(S151)S151/FILE/\".                                       010100\n     02 WKS-ETI-S151-FILE          PIC X(03).                     010120\n     02 WKS-ETI-S151-S             PIC X(01) VALUE \"S\".           010140\n     02 WKS-SIS-MOV                PIC 9(03).                     010200\n     02 FILLER                     PIC X(01) VALUE \"/\".           010300\n     02 WKS-SIS-FEC                PIC 9(06).                     010400\n     02 FILLER                     PIC X(06) VALUE \" ON \".        010450\n     02 WKS-SIS-PACK               PIC X(15).                     010500\n     02 FILLER                     PIC X(01) VALUE \".\".           010550\n 77  W77-I                         PIC 9(04).                     010700\n 77  W77-FIN                       PIC 9(02) COMP VALUE ZEROS.    010800\n 77   W77-TOT-870                  PIC 9(05).                     010820\n 77   W77-TOT-342                  PIC 9(05).                     010840\n 77   W77-TOT-SUC                  PIC 9(05).                     010860\n 01 WKS-PARAMETRO.                                                010900\n    03 WKS-FILE                    PIC X(03).                     010920\n    03 WKS-FECHA                   PIC 9(06).                     010940\n    03 WKS-SISTEMA                 PIC 9(03).                     010950",
+          "java_codigo": "# application.yml\np630:\n  ruta: \"(S151)S151/FILE/{tipo}S{sistema:000}/{fecha:yyMMdd} ON {pack}.\"\n\n// ---------------------------------------------------------------------------\nenum TipoArchivo { CON, MOV, DES, CB2, CTD }\n\n/** WKS-PARAMETRO: FILE X(03) + FECHA 9(06) + SISTEMA 9(03). */\nrecord HeaderParametros(TipoArchivo tipo, LocalDate fecha, int sistema) {\n\n    static HeaderParametros parse(String p) {\n        TipoArchivo t = TipoArchivo.valueOf(p.substring(0, 3));      // falla si no es un tipo conocido\n        LocalDate f = LocalDate.of(2000 + Integer.parseInt(p.substring(3, 5)),   // pivote fijo: siglo 20xx\n                                   Integer.parseInt(p.substring(5, 7)),\n                                   Integer.parseInt(p.substring(7, 9)));\n        return new HeaderParametros(t, f, Integer.parseInt(p.substring(9, 12)));\n    }\n}\n\n@Component\n@RequiredArgsConstructor\nclass RutaArchivoMovimientos {\n    private final P630Properties props;\n\n    String titulo(TipoArchivo tipo, int sistema, LocalDate fecha, String pack) {\n        return props.ruta().replace(\"{tipo}\", tipo.name())\n                .replace(\"{sistema:000}\", \"%03d\".formatted(sistema))\n                .replace(\"{fecha:yyMMdd}\", fecha.format(DateTimeFormatter.ofPattern(\"yyMMdd\")))\n                .replace(\"{pack}\", pack.strip());\n    }\n}",
+          "racional": "El título se arma pegando el tipo de archivo, la letra S, el sistema de tres dígitos y la fecha AAMMDD sobre el prefijo <code>(S151)S151/FILE/</code>, más el pack. En Java la plantilla va a <code>application.yml</code> y el parámetro se parsea a un <code>record</code>. El tipo pasa a un <code>enum</code>, con lo que un valor desconocido se rechaza al inicio; en el COBOL cualquier valor distinto de CON se trata como actualización. La fecha de 6 dígitos se convierte con el siglo 20xx fijo, igual que el fuente.",
+          "reglas": [
+            "RN-S151-585",
+            "RN-S151-583"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Bifurcación entre consulta y actualización",
+          "linea_ini": 383,
+          "linea_fin": 398,
+          "origen_codigo": " PROCEDURE DIVISION USING WKS-PARAMETRO.                          057000\n 000000-INIC-PROGRAMA.                                            058000\n     MOVE \"S151\"                  TO SISTEMA-LJ.                  059000\n     MOVE \"P630\"                  TO PASO-LJ.                     060000\n     MOVE \"002\"                   TO MTP-LJ.                      061000\n     MOVE \"I\"                     TO TIPO-LJ.                     062000\n     MOVE 020201                  TO CODIGO-LJ.                   063000\n     PERFORM 020400-LIBRERIAS.                                    064000\n     MOVE WKS-FECHA                 TO WKS-SIS-FEC.               066000\n     MOVE WKS-FILE                TO WKS-ETI-S151-FILE            067000\n     MOVE WKS-SISTEMA               TO WKS-SIS-MOV                068000\n     IF WKS-FILE = \"CON\"                                          069100\n        PERFORM 020400-CONSULTA                                   069150\n     ELSE                                                         069200\n        PERFORM 020400-ACTUALIZA.                                 069300\n     STOP RUN.                                                    069400",
+          "java_codigo": "@Bean\nJob headerArchivos(JobRepository repo, Step resuelvePack, Step consultaHeaders, Step actualizaHeader) {\n    JobExecutionDecider modo = (job, step) -> new FlowExecutionStatus(\n            job.getJobParameters().getString(\"tipo\").equals(\"CON\") ? \"CONSULTA\" : \"ACTUALIZA\");\n\n    return new JobBuilder(\"S151P630\", repo)\n            .start(resuelvePack)                                  // 020400-LIBRERIAS\n            .next(modo).on(\"CONSULTA\").to(consultaHeaders)        // 020400-CONSULTA\n            .from(modo).on(\"ACTUALIZA\").to(actualizaHeader)       // 020400-ACTUALIZA\n            .end()\n            .build();\n}",
+          "racional": "El párrafo principal resuelve librerías y pack, copia el parámetro a la etiqueta del archivo y decide el modo con un solo IF. En Spring Batch el modo es un <code>JobExecutionDecider</code> y cada rama un step, de modo que la bitácora del job deja claro si la corrida solo consultó o modificó un archivo, algo que hoy solo se ve en el log LJ.",
+          "reglas": [
+            "RN-S151-581"
+          ],
+          "riesgo": "No se valida el tipo: un valor como MOX entra a actualización y el OPEN I-O falla sobre un archivo inexistente."
+        },
+        {
+          "id": "s3",
+          "titulo": "Pack de movimientos desde S151B01SISDIA con error fatal",
+          "linea_ini": 459,
+          "linea_fin": 488,
+          "origen_codigo": "*********** OBTIENE NOMBRE DEL ARCHIVO DE MOVS ****************** 094000\n    MOVE \"S151L001CTL\"                 TO     WKS-CTLVER-LIBID.   095000\n    CALL \"DAME_TIT IN CTRLVERS\"        USING  WKS-CTLVER-LIBID    096000\n                                              WKS-CTLVER-NOMLIB   097000\n                                       GIVING W77-CTLVER-RESULT.  098000\n     IF W77-CTLVER-RESULT = 0                                     099000\n        CHANGE ATTRIBUTE TITLE         OF \"S151-L001\"             100000\n                                       TO WKS-CTLVER-NOMLIB       101000\n     ELSE                                                         102000\n        CHANGE ATTRIBUTE TITLE         OF \"S151-L001\" TO          103000\n               \"(S151)S151/OBJECT/L001/CONTROL ON CMEMP.\".        104000\n     MOVE WKS-SISTEMA                  TO WKS-B01-SISTEMA         106000\n     MOVE 01                           TO WKS-B01-FUNCION.        107000\n     CALL \"CONSISDIA IN S151-L001\"     USING  WKS-S151B01SISDIA   108000\n                                       GIVING W77-RESULT-B01.     109000\n     IF W77-RESULT-B01 > 0                                        111000\n        MOVE W77-RESULT-B01            TO W77-ERROR               112000\n        STRING \"NO PUEDO OBTENER FECHA DE PROCESO \"               113000\n               \" ERROR EN S151-L001 S\" WKS-SISTEMA                114000\n               \", ERR #\" W77-ERROR                                115000\n        DELIMITED BY SIZE INTO TEXTO-LJ                           116000\n        MOVE \"O\"                       TO TIPO-LJ                 117000\n        MOVE 020901                    TO CODIGO-LJ               118000\n        CALL \"LJ IN LIB-DISP\"          USING CONTADOR-LJ,         119000\n                                             MENSAJE-LJ           120000\n        SET MYSELF(STATUS) TO -1                                  121000\n     ELSE                                                         122000\n        MOVE WKS-B01-NOMPACMOV         TO WKS-SIS-PACK.           123000",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass ResuelvePackTasklet implements Tasklet {\n\n    private final ControlSistemaClient control;          // CONSISDIA IN S151-L001, función 1\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        RespuestaControl r = control.consultaDia(sistema);\n        if (r.codigo() > 0) {                                             // W77-RESULT-B01 > 0\n            throw new ProcesoAbortadoException(                           // SET MYSELF(STATUS) TO -1\n                    \"NO PUEDO OBTENER FECHA DE PROCESO ERROR EN S151-L001 S%03d, ERR #%02d\"\n                            .formatted(sistema, r.codigo()));\n        }\n        ControlDiario b01 = r.registro();\n        c.getStepExecution().getJobExecution().getExecutionContext()\n         .putString(\"pack\", b01.packMovimientos());                       // B01-NOMPACMOV\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El nombre de la librería de control se obtiene de CTRLVERS y, si falla, se usa un título fijo de respaldo, que en Java desaparece porque la dependencia la resuelve la configuración del servicio. Si el control diario no responde, el programa termina con estatus -1; aquí es una excepción que deja el job en FAILED. Del registro B01 solo se usa el pack de movimientos.",
+          "reglas": [
+            "RN-S151-586",
+            "RN-S151-585"
+          ],
+          "riesgo": "Se usa B01-NOMPACMOV para los cuatro tipos de archivo, aunque B01 trae también NOMPACDES (línea 355). Si los archivos DES residen en otro pack, P630 no los encuentra."
+        }
+      ]
+    },
+    {
+      "titulo": "Actualización del header",
+      "origen": {
+        "archivo": "COBOL_P630.txt",
+        "contexto": "FD A01-ERRSNNN · WKS-MOV-DATOS · 020400-ACTUALIZA"
+      },
+      "java": {
+        "archivo": "HeaderMovimientos.java · ActualizaHeaderTasklet.java",
+        "contexto": "record · Tasklet con FileChannel"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Header y detalle comparten los primeros bytes vía REDEFINES",
+          "linea_ini": 56,
+          "linea_fin": 68,
+          "origen_codigo": " 01  WKS-MOV-DATOS.                                               001000\n    03 WKS-MOV-ID-HD                   PIC X(02).                 001020\n    03 WKS-MOV-ID-R REDEFINES WKS-MOV-ID-HD.                      001040\n        05 WKS-MOV-FUNCION             PIC  9(02)      COMP.      001100\n        05 WKS-MOV-FORMATO             PIC  9(02)      COMP.      001200\n    03 WKS-MOV-FECHD                   PIC  9(08).                001220\n    03 WKS-MOV-FECHD-R REDEFINES WKS-MOV-FECHD.                   001240\n       05 WKS-MOV-SISTEMA              PIC  9(04)      COMP.      001300\n       05 WKS-MOV-PRODUCTO             PIC  9(04)      COMP.      001500\n       05 WKS-MOV-INSTRUMENTO          PIC  9(02)      COMP.      002100\n       05 WKS-MOV-SERVICIO             PIC  9(02)      COMP.      002600\n       05 WKS-MOV-TIPO-OPERACION       PIC  X(01).                002700\n       05 WKS-MOV-TIPO-MOVIMIENTO      PIC  9(02)      COMP.      002800",
+          "java_codigo": "/** Primeros 10 bytes del registro de 990 de A01-ERRSNNN. */\nsealed interface PrimerRegistro permits PrimerRegistro.Header, PrimerRegistro.Detalle {\n\n    /** WKS-MOV-ID-HD = \"HD\" + WKS-MOV-FECHD 9(08) AAAAMMDD. */\n    record Header(LocalDate fecha) implements PrimerRegistro {}\n\n    /** Mismos bytes leídos como FUNCION/FORMATO COMP + SISTEMA, PRODUCTO, ... COMP. */\n    record Detalle(byte[] crudo) implements PrimerRegistro {}\n\n    static PrimerRegistro de(byte[] r) {\n        boolean esHeader = r[0] == 'H' && r[1] == 'D';\n        return esHeader\n                ? new Header(LocalDate.parse(new String(r, 2, 8, StandardCharsets.ISO_8859_1),\n                                             DateTimeFormatter.BASIC_ISO_DATE))\n                : new Detalle(r);\n    }\n}",
+          "racional": "El mismo registro de 990 bytes sirve para el header y para los movimientos: los dos primeros bytes son <code>HD</code> en el header y función y formato binarios en un detalle, y los ocho siguientes son la fecha del header o sistema, producto, instrumento y otros campos <code>COMP</code> del detalle. La <code>sealed interface</code> obliga a distinguir ambos casos antes de escribir, cosa que el COBOL no hace.",
+          "reglas": [
+            "RN-S151-584"
+          ]
+        },
+        {
+          "id": "s5",
+          "titulo": "Reescritura de HD y fecha con el siglo sumado",
+          "linea_ini": 400,
+          "linea_fin": 416,
+          "origen_codigo": " 020400-ACTUALIZA.                                                069600\n     OPEN I-O    A01-ERRSNNN.                                     070000\n     READ A01-ERRSNNN INTO WKS-MOV-DATOS AT END MOVE 1 TO W77-FIN.071000\n*MUESTRA LA FECHA EN EL ARCHIVO ANTES DE ACTUALIZARLA             071100\n     STRING \"FECHA ARCHIVO \" WKS-MOV-FECHD                        071200\n     DELIMITED BY SIZE INTO TEXTO-LJ                              071300\n     MOVE \"I\"                       TO TIPO-LJ                    071400\n     MOVE 020101                    TO CODIGO-LJ                  071500\n     CALL \"LJ IN LIB-DISP\"          USING CONTADOR-LJ,            071600\n                                          MENSAJE-LJ.             071700\n*                                                                 071800\n     MOVE \"HD\"                      TO WKS-MOV-ID-HD.             072000\n     MOVE WKS-FECHA                 TO WKS-MOV-FECHD.             073000\n     ADD  20000000                  TO WKS-MOV-FECHD.             074000\n     REWRITE WKS-MOV-DATOS                                        075000\n             INVALID KEY DISPLAY \"ERROR EN GRABAR HD\".            076000\n     CLOSE A01-ERRSNNN WITH SAVE.                                 077000",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass ActualizaHeaderTasklet implements Tasklet {\n\n    private static final int LONG_REGISTRO = 990;\n    private final RutaArchivoMovimientos rutas;\n    private final ArchivosMcp archivos;            // adaptador al almacenamiento de archivos\n\n    @Value(\"#{jobParameters['tipo']}\")    private String tipo;\n    @Value(\"#{jobParameters['fecha']}\")   private LocalDate fecha;    // ya con el siglo 20xx\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;\n    @Value(\"#{jobExecutionContext['pack']}\") private String pack;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws IOException {\n        Path p = archivos.resuelve(rutas.titulo(TipoArchivo.valueOf(tipo), sistema, fecha, pack));\n        try (FileChannel ch = FileChannel.open(p, StandardOpenOption.READ, StandardOpenOption.WRITE)) {\n            ByteBuffer r = ByteBuffer.allocate(LONG_REGISTRO);\n            if (ch.read(r, 0) < LONG_REGISTRO) {\n                throw new ArchivoVacioException(p);                     // COBOL: AT END y aun así REWRITE\n            }\n            if (PrimerRegistro.de(r.array()) instanceof PrimerRegistro.Header h) {\n                log.info(\"FECHA ARCHIVO {}\", h.fecha());\n            } else {\n                throw new SinHeaderException(p);                        // cambio deliberado frente al COBOL\n            }\n            r.put(0, \"HD\".getBytes(StandardCharsets.ISO_8859_1));\n            r.put(2, fecha.format(DateTimeFormatter.BASIC_ISO_DATE).getBytes(StandardCharsets.ISO_8859_1));\n            ch.write(r.rewind(), 0);                                    // REWRITE WKS-MOV-DATOS\n            ch.force(true);                                             // CLOSE ... WITH SAVE\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El programa abre el archivo en I-O, registra en el log la fecha que trae el primer registro, le pone <code>HD</code>, mueve la fecha AAMMDD del parámetro y le suma 20000000 para formar AAAAMMDD, y reescribe. En Java se reescriben solo los primeros 10 bytes con un <code>FileChannel</code>. Se introducen dos validaciones que el COBOL no tiene: el archivo debe tener al menos un registro y ese registro debe ser un header. Ambas son cambios de comportamiento deliberados que debe aprobar el SME.",
+          "reglas": [
+            "RN-S151-583",
+            "RN-S151-584",
+            "RN-S151-587",
+            "RN-S151-588"
+          ],
+          "riesgo": "El fuente no verifica que el primer registro sea un header: si no lo es, sobrescribe función, formato, sistema, producto y los campos siguientes de un movimiento real. Si el REWRITE falla solo hay un DISPLAY y el archivo se cierra WITH SAVE con la fecha anterior. El ADD 20000000 asume siglo XXI."
+        }
+      ]
+    },
+    {
+      "titulo": "Consulta de fechas de header",
+      "origen": {
+        "archivo": "COBOL_P630.txt",
+        "contexto": "020400-CONSULTA · 020400-DESPLIEGA"
+      },
+      "java": {
+        "archivo": "ConsultaHeadersTasklet.java",
+        "contexto": "Tasklet de solo lectura"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "CB2 y CTD solo para S500; MOV y DES para todos",
+          "linea_ini": 418,
+          "linea_fin": 428,
+          "origen_codigo": " 020400-CONSULTA.                                                 079000\n*============================                                     079020\n     IF WKS-SISTEMA = 500                                         079040\n        MOVE \"CB2\" TO WKS-ETI-S151-FILE                           079060\n        PERFORM 020400-DESPLIEGA                                  079080\n        MOVE \"CTD\" TO WKS-ETI-S151-FILE                           079100\n        PERFORM 020400-DESPLIEGA.                                 079120\n     MOVE \"MOV\" TO WKS-ETI-S151-FILE                              079140\n     PERFORM 020400-DESPLIEGA                                     079160\n     MOVE \"DES\" TO WKS-ETI-S151-FILE                              079180\n     PERFORM 020400-DESPLIEGA.                                    079200",
+          "java_codigo": "# application.yml\np630:\n  consulta:\n    tipos-por-sistema:\n      \"500\": [CB2, CTD, MOV, DES]\n    tipos-por-defecto: [MOV, DES]\n\n// ---------------------------------------------------------------------------\n/** 020400-CONSULTA: lista de archivos a revisar según el sistema. */\nList<TipoArchivo> tiposAConsultar(int sistema) {\n    return props.consulta().tiposPorSistema()\n            .getOrDefault(String.valueOf(sistema), props.consulta().tiposPorDefecto());\n}",
+          "racional": "El sistema 500 es el único que tiene archivos CB2 y CTD además de MOV y DES, y esa excepción está compilada en un IF. En Java se vuelve una tabla en configuración, que es lo que permite agregar otro sistema sin recompilar. El orden de consulta se conserva.",
+          "reglas": [
+            "RN-S151-582",
+            "RN-S151-590"
+          ]
+        },
+        {
+          "id": "s7",
+          "titulo": "Lectura del primer registro y despliegue en el log",
+          "linea_ini": 430,
+          "linea_fin": 442,
+          "origen_codigo": " 020400-DESPLIEGA.                                                079240\n*================================                                 079260\nCHANGE ATTRIBUTE TITLE OF  A01-ERRSNNN TO WKS-ETI-S151-MOVANT.    079270\n     OPEN INPUT    A01-ERRSNNN.                                   079280\n     READ A01-ERRSNNN INTO WKS-MOV-DATOS AT END MOVE 1 TO W77-FIN.079300\n     CLOSE A01-ERRSNNN WITH RELEASE.                              079340\n     STRING \"FECHA ARCHIVO \" WKS-ETI-S151-FILE                    079342\n              \" : \" WKS-MOV-FECHD                                 079344\n     DELIMITED BY SIZE INTO TEXTO-LJ                              079346\n     MOVE \"I\"                       TO TIPO-LJ                    079348\n     MOVE 020101                    TO CODIGO-LJ                  079350\n     CALL \"LJ IN LIB-DISP\"          USING CONTADOR-LJ,            079352\n                                          MENSAJE-LJ.             079354",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass ConsultaHeadersTasklet implements Tasklet {\n\n    private final RutaArchivoMovimientos rutas;\n    private final ArchivosMcp archivos;\n    @Value(\"#{jobParameters['fecha']}\")   private LocalDate fecha;\n    @Value(\"#{jobParameters['sistema']}\") private Integer sistema;\n    @Value(\"#{jobExecutionContext['pack']}\") private String pack;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) throws IOException {\n        for (TipoArchivo t : tiposAConsultar(sistema)) {\n            Path p = archivos.resuelve(rutas.titulo(t, sistema, fecha, pack));\n            String fechaHeader = archivos.primerRegistro(p)               // OPEN INPUT + READ + CLOSE WITH RELEASE\n                    .map(r -> switch (PrimerRegistro.de(r)) {\n                        case PrimerRegistro.Header h -> h.fecha().toString();\n                        case PrimerRegistro.Detalle d -> \"SIN HEADER\";\n                    })\n                    .orElse(\"ARCHIVO VACIO O INEXISTENTE\");               // el COBOL repite la fecha anterior\n            log.info(\"FECHA ARCHIVO {} : {}\", t, fechaHeader);\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Por cada tipo se cambia el título del archivo, se abre en lectura, se lee solo el primer registro y se cierra <code>WITH RELEASE</code>, sin modificarlo; la fecha se escribe en el log LJ. Es un diagnóstico rápido después de una falla. La traducción reporta explícitamente cuando el archivo está vacío, no existe o no empieza con header.",
+          "reglas": [
+            "RN-S151-589",
+            "RN-S151-587"
+          ],
+          "riesgo": "Si un archivo está vacío, el AT END solo pone W77-FIN y el STRING usa el WKS-MOV-FECHD del archivo consultado antes, así que el log muestra una fecha que no es de ese archivo. Si el archivo no existe, el OPEN INPUT no tiene OPTIONAL ni manejo de excepción, por lo que en MCP la tarea queda detenida por falta de archivo hasta que intervenga el operador."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Reescritura sin validar el header",
+      "detalle": "020400-ACTUALIZA (líneas 400-416) no comprueba que el primer registro traiga HD ni que la lectura haya sido exitosa antes del REWRITE. En un archivo sin header se corrompe el primer movimiento."
+    },
+    {
+      "titulo": "Errores de grabación solo en DISPLAY",
+      "detalle": "Un REWRITE fallido solo emite DISPLAY ERROR EN GRABAR HD (línea 415), no deja mensaje en el log LJ y el programa termina normal."
+    },
+    {
+      "titulo": "Siglo fijo",
+      "detalle": "ADD 20000000 (línea 413) convierte AAMMDD a AAAAMMDD asumiendo siempre 20xx."
+    },
+    {
+      "titulo": "Fecha repetida en consulta",
+      "detalle": "En 020400-DESPLIEGA (líneas 434-437) un archivo vacío hereda en el log la fecha del archivo anterior."
+    },
+    {
+      "titulo": "Archivo público y hardcodes",
+      "detalle": "El FD declara SECURITYTYPE IS PUBLIC (línea 41). El prefijo (S151)S151/FILE/, la regla de S500 para CB2 y CTD y el título de respaldo de la librería L001 (línea 469) están compilados."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con el SME si las validaciones nuevas en la actualización (archivo no vacío y primer registro con HD) son aceptables o si existen archivos que deben recibir header sin tenerlo.",
+    "Confirmar en qué pack residen los archivos DES, CB2 y CTD; P630 usa el pack de MOV para todos.",
+    "En modo consulta la fecha del parámetro forma parte del título, así que solo se consultan los archivos de esa fecha; validar que así se usa en la operación.",
+    "Confirmar quién invoca P630 (WFL de soporte u operador) para definir si en la plataforma destino debe ser un job, un endpoint administrativo o ambos."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-581",
+    "RN-S151-582",
+    "RN-S151-583",
+    "RN-S151-584",
+    "RN-S151-585",
+    "RN-S151-586",
+    "RN-S151-587",
+    "RN-S151-588",
+    "RN-S151-589",
+    "RN-S151-590",
+    "RN-S500-037",
+    "RN-S500-038",
+    "RN-S500-039",
+    "RN-S500-040",
+    "RN-S500-041",
+    "RN-S500-042",
+    "RN-S500-043",
+    "RN-S500-044",
+    "RN-S500-045",
+    "RN-S500-046",
+    "RN-S500-047",
+    "RN-S500-048",
+    "RN-S500-049",
+    "RN-S500-050",
+    "RN-S500-051",
+    "RN-S500-052",
+    "RN-S500-053",
+    "RN-S500-054",
+    "RN-S500-055"
+  ]
+}

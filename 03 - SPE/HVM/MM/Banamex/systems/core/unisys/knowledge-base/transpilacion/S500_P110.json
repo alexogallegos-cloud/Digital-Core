@@ -1,0 +1,232 @@
+{
+  "slug": "S500_P110",
+  "sistema": "S500",
+  "programa": "P110",
+  "nombre": "Cuadre de Cancelaciones y Totales por Clave contra S151",
+  "funcion": "Paso batch de S500 que corre después de P105: unifica las tres copias de cancelaciones y de bloqueos por orden judicial, emite los listados de control y cuadra los totales por clave de S500 contra los que reporta S151.",
+  "resumen": "Verifica en B00CTRLPASO que las tres copias de P105 terminaron y toma la fecha y el CSI de proceso de B02CONTROL. Valida que el header de CANCELACION1, 2 y 3 traiga la fecha de proceso y copia sus detalles a un archivo único CANCELACIONES; hace lo mismo con los bloqueos por orden judicial. Carga en tablas internas los productos de B05INSTRUMEN y los indicadores de acumulación de B17CVESXFUN, consulta a S151 los totales por clave con la librería TOTXCVETRAS500 y a S408 los de líneas de crédito, y escribe todo en TOTCVE. Al final ordena TOTCVE, compara clave por clave lo calculado por S500 contra S151, imprime los listados y deja la última diferencia en el archivo de incidentes con TASKVALUE 99.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.cancelaciones.cuadre",
+  "secciones": [
+    {
+      "titulo": "Control del job — secuencia de pasos y fecha de proceso",
+      "origen": {
+        "archivo": "S500_SOURCE_P110.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20000150 / 20000200"
+      },
+      "java": {
+        "archivo": "CuadreCancelacionesJobConfig.java · ControlPasoTasklet.java · FechaProcesoTasklet.java",
+        "contexto": "Spring Batch Job · Tasklet · @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Rutina principal y TASKVALUE como código de salida",
+          "linea_ini": 4319,
+          "linea_fin": 4343,
+          "origen_codigo": " 00000000-PRINCIPAL.\n     MOVE 2                   TO W77-USO-LIBLJ.\n     MOVE \"S500P110\"          TO W77-S000-MY-ID.\n      MOVE \"25MTP006\"          TO W77-S000-MY-VERSION.\n     MOVE \"P110\"              TO WS-0101-PASO-MSG B91-IDPROG.\n      MOVE \"25MTP006\"          TO WS-0101-MTP-MSG.\n     PERFORM 10000000-LIBRERIAS       THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN            THRU 20000000-EXIT.\n     PERFORM 50000000-PROCESOS        THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO          THRU 70000000-EXIT.\n* MANEJO DE EXEPCION POR DIFERENCIAS\n     SET MYSELF (TASKVALUE)     TO W77-PAR-RESULT.\n     STOP RUN.",
+          "java_codigo": "@Configuration\npublic class CuadreCancelacionesJobConfig {\n\n    @Bean\n    Job cuadreCancelaciones(JobRepository repo,\n                            Step validaPaso,          // 20000150-VAL-PASO\n                            Step fechaProceso,        // 20000200-FECHA-PRO\n                            Step unificaCopias,       // 20000700 / 20001000\n                            Step cargaTablas,         // 20000800 / 20000850\n                            Step totalesPorClave,     // 50004000 .. 50004560\n                            Step cuadrePorClave) {    // 50005000 + 50006000\n        return new JobBuilder(\"S500P110\", repo)\n                .start(validaPaso).next(fechaProceso).next(unificaCopias)\n                .next(cargaTablas).next(totalesPorClave).next(cuadrePorClave)\n                .listener(new TaskValueListener())   // SET MYSELF (TASKVALUE) TO W77-PAR-RESULT\n                .build();\n    }\n}\n\n/** El WFL que sigue a P110 lee el TASKVALUE: 0 sin diferencias, 99 con diferencias. */\nclass TaskValueListener implements JobExecutionListener {\n    @Override\n    public void afterJob(JobExecution je) {\n        int taskValue = je.getExecutionContext().getInt(\"parResult\", 0);\n        je.setExitStatus(new ExitStatus(taskValue == 99 ? \"CON_DIFERENCIAS\" : \"COMPLETED\"));\n    }\n}",
+          "racional": "La rutina principal es la secuencia fija LIBRERIAS, OPEN, PROCESOS y CIERRO; cada bloque se vuelve un <code>Step</code>. Antes del <code>STOP RUN</code> el programa publica <code>W77-PAR-RESULT</code> como TASKVALUE, que el WFL usa para decidir el siguiente paso. En Spring Batch ese valor se traduce en un <code>ExitStatus</code> propio que un <code>JobExecutionDecider</code> del flujo superior puede evaluar.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Candado de secuencia: las tres copias de P105 deben haber terminado",
+          "linea_ini": 4633,
+          "linea_fin": 4683,
+          "origen_codigo": " 20000150-VAL-PASO.\n   PERFORM 90000000-B00CTRLPASO-LOCK.\n   IF WS-STATUS-BASE > 0\n     IF WS-STATUS-BASE = 1\n       MOVE \"ERROR B00CTRLPASO NO EXISTE \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n     ELSE\n       STRING \"ERROR AL HACER LOCK A B00CTRLPASO \" ,WS-STATUS-BASE\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n*R4-COPIAS-2011 AGREGA MANEJO DEL 3er CAMPO DE CONTROL DE B00 -YCY\n   IF B00-NUM-PASO-01 = 105 AND B00-NUM-PASO-02 = 105\n      AND B00-NUM-PASO-03 = 105\n      MOVE 0  TO                B00-NUM-PASO-01 B00-NUM-PASO-02\n                                B00-NUM-PASO-03\n   ELSE\n      MOVE \"ERROR BASE NO ES SALIDA DEL P105\" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n   PERFORM 90000000-BEGIN-TRANSACTION.\n   PERFORM 90000000-B00CTRLPASO-STORE.\n   PERFORM 90000000-END-TRANSACTIONSYNC.\n 20000150-EXIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ControlPasoTasklet implements Tasklet {\n\n    private static final int PASO_PREVIO = 105;           // p110.paso-previo\n    private final ControlPasoRepository controlPaso;      // S500B00CTRLPASO\n\n    @Override\n    @Transactional                                        // BEGIN-TRANSACTION ... END-TRANSACTION SYNC\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlPaso paso = controlPaso.findForUpdate()    // LOCK\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B00CTRLPASO NO EXISTE\"));\n\n        boolean p105Completo = paso.numPaso01() == PASO_PREVIO\n                && paso.numPaso02() == PASO_PREVIO\n                && paso.numPaso03() == PASO_PREVIO;       // R4-COPIAS-2011: tercera copia\n        if (!p105Completo) {\n            throw new ProcesoAbortadoException(\"ERROR BASE NO ES SALIDA DEL P105\");\n        }\n        paso.reinicia();                                   // MOVE 0 a los tres campos y STORE\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "P110 bloquea el registro de control de pasos y exige que las tres marcas valgan 105, es decir, que las tres copias de P105 hayan terminado. Si se cumple, las pone en cero y las guarda dentro de una transacción con sincronía; si no, termina con <code>DMTERMINATE</code>. En Java es un <code>Tasklet</code> transaccional con lectura <code>FOR UPDATE</code>; la excepción deja el step en FAILED y revierte el reinicio de las marcas.",
+          "reglas": [
+            "RN-S500-218"
+          ]
+        },
+        {
+          "id": "s3",
+          "titulo": "Fecha y CSI de B02CONTROL propagados a etiquetas de archivo",
+          "linea_ini": 4699,
+          "linea_fin": 4793,
+          "origen_codigo": " 20000200-FECHA-PRO.\n     PERFORM 90000002-B02CONTROL-FIND\n     IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 1\n       MOVE \"ERROR B02CONTROL NO EXISTE \" TO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE\n      ELSE\n       STRING \"ERROR AL HACER FIND A B02 \" ,WS-STATUS-BASE\n              DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n     MOVE 0              TO WS-CAN-SUBNODO  WS-CIF-SUBNODO\n                            WS-CVE-SUBNODO  WS-FVAL-SUBNODO\n                            WS-CAN-NUM      WS-FVAL-NUM\n                            WS-T408-SUBNODO WS-T408-NUM\n                            WS-XOJ-SUBNODO.\n     MOVE B02-FECHA-LOTE TO WS-FECHA-PRO    WS-CANCEL-FEC\n                            WS-CANCEL-FEC1  WS-CANCEL-FEC2\n                            WS-CAN-FECHA    WS-CIF-FECHA\n                            WS-CVE-FECHA    WS-FVAL-FECHA\n                            WS-CVE-FEC      WS-FVA-FECHA\n                            WS-T408-FECHA   WS-CANCEL-FEC3\n                            WS-XOJ-FECHA    WS-XOJUD-FEC\n                            WS-XOJUD-FEC1   WS-XOJUD-FEC2\n                            WS-XOJUD-FEC3   WS-FECHA-BLOQXOJ\n                            WS-EXTF-FEC\n** PARA ARCHIVO DE INCID.\n                            W-ETIQ-INCIDEN-FEC WKS-I06-01-FECHA.\n     MOVE B02-NUM-CSI    TO WS-CANCEL-CSIO  WS-CANCEL-CSID\n                            WS-CANCEL-CSIO1 WS-CANCEL-CSIO2\n                            WS-CANCEL-CSID1 WS-CANCEL-CSID2\n                            WS-CANCEL-CSIO3 WS-CANCEL-CSID3\n                            WS-XOJUD-CSIO   WS-XOJUD-CSIO1\n                            WS-XOJUD-CSIO2  WS-XOJUD-CSIO3\n                            WS-CANCEL-CSID  WS-CANCEL-CSID1\n                            WS-CANCEL-CSID2 WS-CANCEL-CSID3\n                            WS-XOJUD-CSID   WS-XOJUD-CSID1\n                            WS-XOJUD-CSID2  WS-XOJUD-CSID3\n                            WS-CVE-CSIO     WS-CVE-CSID\n                            WS-CIF-CI       WS-CVE-CI\n                            WS-FVAL-CI      WS-CAN-CI\n                            WS-FVA-CSIO     WS-FVA-CSID\n                            WS-CSI          WS-T408-CI\n                            WS-XOJ-CI       WS-EXTF-CSIO\n** PARA ARCHIVO DE INCID.\n                            W-ETIQ-INCIDEN-CSI WKS-I06-01-CSI.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass FechaProcesoTasklet implements Tasklet {\n\n    private final ControlCaptacionRepository control;   // S500B02CONTROL\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        Control b02 = control.find()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B02CONTROL NO EXISTE\"));\n\n        // Un solo objeto de contexto sustituye a las decenas de MOVE hacia WS-*-FEC y WS-*-CSI.\n        var proceso = new ContextoProceso(\n                Fechas.aaaammdd(b02.fechaLote()),   // B02-FECHA-LOTE, PIC 9(08)\n                b02.numCsi());                      // B02-NUM-CSI: origen y destino a la vez\n\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"proceso\", proceso);\n        return RepeatStatus.FINISHED;\n    }\n}\n\n/** Las etiquetas de archivo y los títulos de reporte se resuelven desde aquí. */\nrecord ContextoProceso(LocalDate fecha, int csi) {\n    String etiqueta(String plantilla) {\n        return plantilla.replace(\"{csi}\", \"%02d\".formatted(csi))\n                        .replace(\"{fecha}\", fecha.format(DateTimeFormatter.BASIC_ISO_DATE));\n    }\n}",
+          "racional": "Una sola lectura de B02CONTROL da la fecha de lote y el CSI, que se copian a todas las etiquetas de archivo, encabezados de reporte y al archivo de incidentes. En Java esa propagación por <code>MOVE</code> múltiple se reemplaza por un <code>record</code> en el <code>ExecutionContext</code> del job, del que cada lector y escritor resuelve su nombre de archivo. El CSI se usa a la vez como origen y destino en las etiquetas.",
+          "reglas": [
+            "RN-S500-220"
+          ],
+          "riesgo": "La lista de receptores de B02-NUM-CSI repite WS-CANCEL-CSID, WS-CANCEL-CSID1, WS-CANCEL-CSID2 y WS-CANCEL-CSID3. Es inofensivo, pero indica que la lista se mantuvo a mano."
+        }
+      ]
+    },
+    {
+      "titulo": "Unificación de copias y carga de tablas de referencia",
+      "origen": {
+        "archivo": "S500_SOURCE_P110.txt",
+        "contexto": "PROCEDURE DIVISION · 20000710 / 20000720 / 20000820 / 20000855"
+      },
+      "java": {
+        "archivo": "UnificaCopiasStepConfig.java · CancelacionRecord.java · TablasReferencia.java",
+        "contexto": "MultiResourceItemReader · ItemProcessor · @StepScope"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Header de la copia 1 contra la fecha de proceso y copia de detalles",
+          "linea_ini": 5039,
+          "linea_fin": 5107,
+          "origen_codigo": " 20000710-VAL-ARCCC1.\n    READ CANCELACION1  AT END\n      MOVE \"ARC. DE CAN. C1 SIN HEADER \" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n    IF  WS-CAN-FECPROC1 = WS-FECHA-PRO\n        PERFORM 20000720-VAL-DETC1       THRU 20000720-EXIT UNTIL\n        WS-16VEZ = 1\n    ELSE\n      MOVE \"FEC.HEAD.C1 DIFERENTE A PRO\" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n 20000710-EXIT.\n    EXIT.\n******************************************************************\n* VALIDO EL DETALLE DEL ARCHIVO DE CAN.GENERADO POR LA COPIA 1.\n******************************************************************\n 20000720-VAL-DETC1.\n    READ CANCELACION1  AT END\n      MOVE 1                             TO WS-16VEZ.\n    IF WS-16VEZ = 0\n       MOVE WS-CAN-PRDC1                 TO CAN-PRD\n       MOVE WS-CAN-INSC1                 TO CAN-INS\n       MOVE WS-CAN-MONC1                 TO CAN-MON\n       MOVE WS-CAN-SUCC1                 TO CAN-SUC\n       MOVE WS-CAN-CTOC1                 TO CAN-CTO\n       MOVE WS-CAN-IMPC1                 TO CAN-IMP\n       WRITE REG-CANCEL INVALID KEY\n          MOVE \"ERROR AL GRABAR DET.CANCEC1\" TO WS-0101-TEXT-MSG\n          PERFORM 70000050-MENSAJE\n          CALL SYSTEM DMTERMINATE.\n 20000720-EXIT.",
+          "java_codigo": "/** REG-CANCEL1: 43 bytes, tipo de registro 9(02) y dos vistas REDEFINES. */\nsealed interface CancelacionCopia permits CancelacionCopia.Header, CancelacionCopia.Detalle {\n    record Header(int sistema, LocalDate fecProceso) implements CancelacionCopia {}\n    record Detalle(int producto, int instrumento, int moneda, int sucursal,\n                   String contrato,                 // 9(12): String para conservar ceros\n                   BigDecimal importe)              // 9(12)V99 -> escala 2\n            implements CancelacionCopia {}\n}\n\n@Component\n@StepScope\nclass UnificaCopiaProcessor implements ItemProcessor<CancelacionCopia, Cancelacion> {\n\n    @Value(\"#{jobExecutionContext['proceso']}\") private ContextoProceso proceso;\n    private boolean headerLeido;\n\n    @Override\n    public Cancelacion process(CancelacionCopia r) {\n        if (!headerLeido) {                     // el primer registro siempre se trata como header\n            headerLeido = true;\n            var h = (CancelacionCopia.Header) r;\n            if (!h.fecProceso().equals(proceso.fecha())) {\n                throw new ProcesoAbortadoException(\"FEC.HEAD.C1 DIFERENTE A PRO\");\n            }\n            return null;\n        }\n        var d = (CancelacionCopia.Detalle) r;   // todo lo demás es detalle, sin revisar el tipo\n        return new Cancelacion(d.producto(), d.instrumento(), d.moneda(),\n                               d.sucursal(), d.contrato(), d.importe());\n    }\n}\n// Un archivo vacío aborta: \"ARC. DE CAN. C1 SIN HEADER\". Las copias 2 y 3 son el mismo procesador.",
+          "racional": "Cada copia se abre, se lee el primer registro como header y su fecha debe ser la de proceso; si no coincide, o si el archivo está vacío, el programa termina con <code>DMTERMINATE</code> sin procesar las demás copias. Los registros siguientes se copian campo a campo al archivo CANCELACIONES. El patrón se repite idéntico para las copias 2 y 3, por lo que en Java es un solo <code>ItemProcessor</code> con <code>@StepScope</code> aplicado a cada recurso. El importe <code>9(12)V99</code> pasa a <code>BigDecimal</code> con escala 2 y el contrato a <code>String</code>.",
+          "reglas": [
+            "RN-S500-219"
+          ],
+          "riesgo": "El ciclo de detalle no revisa WS-CAN-TR1C1: cualquier registro posterior al header, incluido un trailer si la copia lo trae, se escribe como detalle en CANCELACIONES."
+        },
+        {
+          "id": "s5",
+          "titulo": "Tabla de productos de B05INSTRUMEN con tope de 30",
+          "linea_ini": 5339,
+          "linea_fin": 5367,
+          "origen_codigo": " 20000820-LLENO.\n   ADD 1 TO WS-IND.\n   IF WS-IND > 30\n     MOVE \"INSTRUMEN CON MAS DE 30 PRDS \"      TO WS-0101-TEXT-MSG\n     PERFORM 70000050-MENSAJE\n     CALL SYSTEM DMTERMINATE.\n   MOVE B05-NUM-PRODUCTO               TO WS-408PRD(WS-IND)\n   MOVE B05-NUM-INSTRUM                TO WS-408INS(WS-IND)\n   MOVE B05-MONEDA                     TO WS-408MON(WS-IND)\n   MOVE 0                              TO WS-408ABO(WS-IND)\n   MOVE 0                              TO WS-408CAR(WS-IND)\n   MOVE 0                              TO WS-408NUMA(WS-IND)\n   MOVE 0                              TO WS-408NUMC(WS-IND).\n 20000820-EXIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass TablaProductos {\n\n    @Value(\"${p110.max-productos:30}\") private int maxProductos;   // OCCURS 30 en el fuente\n    private final InstrumentoRepository b05;\n\n    /** 20000800-CARGO-PRDS: los acumuladores de abonos y cargos de S408 arrancan en cero. */\n    List<AcumuladorProducto> carga() {\n        List<Instrumento> todos = b05.findAll();\n        if (todos.size() > maxProductos) {\n            throw new ProcesoAbortadoException(\"INSTRUMEN CON MAS DE 30 PRDS\");\n        }\n        return todos.stream()\n                .map(i -> new AcumuladorProducto(i.producto(), i.instrumento(), i.moneda(),\n                        BigDecimal.ZERO, BigDecimal.ZERO, 0, 0))   // WS-408ABO, CAR, NUMA, NUMC\n                .toList();\n    }\n}",
+          "racional": "Los productos e instrumentos de B05INSTRUMEN se cargan a una tabla interna con acumuladores en cero, que después reciben los totales de S408. La tabla tiene 30 posiciones: al intentar la 31 el programa termina. En Java la lista es dinámica y el tope se conserva como propiedad para no cambiar el comportamiento hasta que el SME confirme que puede retirarse.",
+          "reglas": [
+            "RN-S500-222"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Indicadores de acumulación por clave de B17CVESXFUN",
+          "linea_ini": 5415,
+          "linea_fin": 5449,
+          "origen_codigo": " 20000855-LEO-B17.\n     PERFORM 90000017-B17CVESXFUN-FINDN.\n     IF WS-STATUS-BASE > 0\n        IF WS-STATUS-BASE = 1\n           MOVE 1 TO WS-B17-FIN\n        ELSE\n           STRING \"ERROR FINDN A B17 \",WS-STATUS-BASE\n                   DELIMITED BY SIZE INTO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     IF WS-B17-FIN = 0\n        MOVE B17-CLAVE-TRANS  TO WS-CVE-B17\n        IF WS-CVE-B17 > 0 AND < 9999\n           MOVE B17-IND-ACUM-VAL\n             TO WS-B17-IND-ACUM-VAL(WS-CVE-B17).\n 20000855-EXIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass TablaAcumulacion {\n\n    private final ClavesPorFuncionRepository b17;   // S500B17CVESXFUN\n    private Map<Integer, Integer> indicador;         // WS-B17-IND-ACUM-VAL(clave)\n\n    @PostConstruct\n    void carga() {\n        indicador = b17.findAll().stream()\n                .filter(r -> r.claveTrans() > 0 && r.claveTrans() < 9999)   // misma guarda del fuente\n                .collect(Collectors.toMap(ClavePorFuncion::claveTrans,\n                                          ClavePorFuncion::indAcumVal,\n                                          (a, b) -> b));   // si se repite la clave gana la última\n    }\n\n    boolean acumula(int clave) { return indicador.getOrDefault(clave, 0) == 1; }\n}",
+          "racional": "Cada registro de B17 aporta el indicador de si una clave se acumula en los totales. El fuente indexa un arreglo directamente con el número de clave y solo acepta claves entre 1 y 9998; las demás se ignoran sin aviso. En Java el arreglo se vuelve un <code>Map</code> con la misma guarda, y una clave repetida conserva el último valor, como ocurría al sobrescribir la posición del arreglo.",
+          "reglas": [
+            "RN-S500-223"
+          ],
+          "riesgo": "Una clave 9999 o mayor en B17 se descarta en silencio y, por lo tanto, nunca se acumula. La indentación del ELSE en las líneas 5425-5433 sugiere lo contrario, pero el PERFORM y el DMTERMINATE sí pertenecen a la rama de error."
+        }
+      ]
+    },
+    {
+      "titulo": "Cuadre de totales por clave contra S151 e incidentes",
+      "origen": {
+        "archivo": "S500_SOURCE_P110.txt",
+        "contexto": "PROCEDURE DIVISION · 50004302 / 50004320 / 50006400 / 90009999"
+      },
+      "java": {
+        "archivo": "TotalesS151Client.java · CuadrePorClaveProcessor.java · IncidenteWriter.java",
+        "contexto": "@Retryable · ItemProcessor · FlatFileItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s7",
+          "titulo": "Decisión del operador ante error de S151: continuar o reintentar",
+          "linea_ini": 7177,
+          "linea_fin": 7209,
+          "origen_codigo": " 50004302-DECIDE.\n      ACCEPT WS-DECIDE.\n      IF WS-DECIDE = \"C\"\n         MOVE 1 TO WS-CICLO1\n         MOVE 1 TO WS-CICLO2\n      ELSE\n      IF WS-DECIDE = \"R\"\n         CANCEL \"TOTXCVETRAS500\"\n         WAIT (2)\n         PERFORM 10000151-TOTXCVE\n         MOVE 1 TO WS-CICLO2\n      ELSE\n         MOVE \"I\"                      TO W77-TIPO-DISP\n         MOVE \"DECISION INVALIDA \"     TO WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         MOVE \"E\"                      TO W77-TIPO-DISP.\n 50004302-EXIT.",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass TotalesS151Client {\n\n    private final TotXCveTraClient s151;   // TOTXCVETRAS500, FUNCION 06\n\n    /**\n     * En el fuente un resultado distinto de 0, 3, 4, 5 o 99 detiene el paso y espera\n     * un ACCEPT del operador: \"C\" continúa sin los totales, \"R\" recarga la librería y reintenta.\n     * Aquí el reintento es automático y la continuación es una política explícita.\n     */\n    @Retryable(retryFor = S151NoDisponibleException.class,\n               maxAttemptsExpression = \"${p110.s151.reintentos:3}\",\n               backoff = @Backoff(delay = 2000))       // WAIT (2)\n    ConsultaTotales consulta(ClaveConsulta k) {\n        return s151.totalesPorClave(k);\n    }\n\n    @Recover\n    ConsultaTotales sinS151(S151NoDisponibleException e, ClaveConsulta k) {\n        // Equivale a responder \"C\": se sigue sin totales de S151 y el cuadre mostrará diferencias.\n        log.error(\"S151 no respondió para {}; se continúa sin sus totales\", k);\n        return ConsultaTotales.vacia();\n    }\n}",
+          "racional": "Cuando la consulta a S151 falla, 40000000-CALL-S151 despliega el error y ejecuta 50004302-DECIDE hasta obtener una respuesta válida del operador. Con R se cancela la librería, se espera dos segundos y se vuelve a enlazar; con C se abandona la consulta y el proceso continúa. En un batch moderno no hay operador en consola, así que el reintento pasa a <code>@Retryable</code> con espera de dos segundos y la decisión de continuar se vuelve <code>@Recover</code>, con número de reintentos en <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-227"
+          ],
+          "riesgo": "El paso queda detenido en ACCEPT hasta que alguien responda; una respuesta distinta de C o R solo muestra DECISION INVALIDA y vuelve a esperar."
+        },
+        {
+          "id": "s8",
+          "titulo": "Totales de S151 a TOTCVE y reetiquetado del producto 66/15 a moneda 5",
+          "linea_ini": 7247,
+          "linea_fin": 7323,
+          "origen_codigo": " 50004320-LEO100.\n     ADD 1 TO WS-151.\n     IF WS-151 > 100\n        MOVE 1 TO WS-2\n     ELSE\n        IF WS-S151-0301-CLAVE-S(WS-151) = 0\n           MOVE 1 TO WS-1\n           MOVE 1 TO WS-2\n        ELSE\n           IF (WS-S151-0301-PASO-S(WS-151) < 11) OR\n              (WS-S151-0301-PASO-S(WS-151) = 90)\n              PERFORM 50004330-ACUM-151  THRU 50004330-EXIT\n              IF WS-CAMBIO = 1\n                 MOVE 66                           TO TCVE-PRD\n                 MOVE 15                           TO TCVE-INS\n                 MOVE 5                            TO TCVE-MON\n                 MOVE B09-LLAVE-BANCOS             TO TCVE-BAN\n                 MOVE WS-S151-0301-CLAVE-S(WS-151) TO TCVE-CVE\n                 MOVE WS-S151-0301-IMPMOVS-S(WS-151) TO TCVE-IMP\n                 MOVE 0                              TO TCVE-IMPFE\n                 MOVE 0                              TO TCVE-IMPFR\n                 MOVE WS-S151-0301-NUMMOVS-S(WS-151) TO TCVE-NUM\n                 MOVE 151                            TO TCVE-IDEN\n                 WRITE REG-TOTCVE\n              ELSE\n                 MOVE B09-NUM-PRODUCTO             TO TCVE-PRD\n                 MOVE B09-NUM-INSTRUM              TO TCVE-INS\n                 MOVE B09-MONEDA                   TO TCVE-MON\n                 MOVE B09-LLAVE-BANCOS             TO TCVE-BAN\n                 MOVE WS-S151-0301-CLAVE-S(WS-151)   TO TCVE-CVE\n                 MOVE WS-S151-0301-IMPMOVS-S(WS-151) TO TCVE-IMP\n                 MOVE 0                              TO TCVE-IMPFE\n                 MOVE 0                              TO TCVE-IMPFR\n                 MOVE WS-S151-0301-NUMMOVS-S(WS-151) TO TCVE-NUM\n                 MOVE 151                            TO TCVE-IDEN\n                 WRITE REG-TOTCVE\n           ELSE\n              NEXT SENTENCE.\n 50004320-EXIT.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass TotalesS151Processor implements ItemProcessor<ConsultaTotales, List<TotalPorClave>> {\n\n    private static final int IDEN_S151 = 151;\n    private static final int MAX_CLAVES = 100;            // WS-S151-0301-CLAVE-S OCCURS 100\n    private final CifrasControl cifras;                    // 50004330-ACUM-151\n\n    @Override\n    public List<TotalPorClave> process(ConsultaTotales c) {\n        var salida = new ArrayList<TotalPorClave>();\n        for (var r : c.renglones().subList(0, Math.min(MAX_CLAVES, c.renglones().size()))) {\n            if (r.clave() == 0) break;                     // fin de claves\n            if (r.paso() >= 11 && r.paso() != 90) continue;   // solo pasos < 11 o 90\n            cifras.acumula151(r);\n            // Consulta reetiquetada: 66/15 se pidió a S151 en moneda 1 y se registra como moneda 5.\n            int moneda = c.reetiquetada() ? 5 : c.moneda();\n            salida.add(new TotalPorClave(c.bancos(), c.producto(), c.instrumento(), moneda,\n                    r.clave(), IDEN_S151, r.numMovs(),\n                    r.impMovs(), BigDecimal.ZERO, BigDecimal.ZERO));   // TCVE-IMPFE y TCVE-IMPFR en 0\n        }\n        return salida;\n    }\n}",
+          "racional": "Cada respuesta de S151 trae hasta 100 renglones de totales por clave. Se toman los de paso menor a 11 o igual a 90, se acumulan para el listado de cifras de control y se escriben en TOTCVE con identificador 151, para cuadrarlos después contra los renglones con identificador 500 que calcula S500. Para el producto 66, instrumento 15 y moneda 5, 50004270-CON-S151 repite la consulta pidiendo moneda 1, y aquí esos totales se registran con producto 66, instrumento 15 y moneda 5. Los importes <code>9(14)V99</code> de TOTCVE pasan a <code>BigDecimal</code> con escala 2.",
+          "reglas": [
+            "RN-S500-226",
+            "RN-S500-227"
+          ],
+          "riesgo": "Si S151 devuelve 100 renglones sin una clave en cero, el ciclo termina sin poner WS-1 en 1 y 50004270-CON-S151 vuelve a consultar con los mismos parámetros. No se encontró en el fuente qué hace avanzar esa paginación."
+        },
+        {
+          "id": "s9",
+          "titulo": "Diferencia entre S500 y S151 por clave en campo sin signo",
+          "linea_ini": 8943,
+          "linea_fin": 8983,
+          "origen_codigo": "          ELSE\n             MOVE 1                 TO WS-VALE2\n             MOVE WS-CVEPASO1       TO WS-CVE-CVE\n             MOVE WS-NUMPASO1       TO WS-CVE-NUM2 WS-NUMTEM2\n             MOVE WS-IMPPASO1       TO WS-CVE-IMP2 WS-IMPTEM2\n             MOVE WS-NUMPASO2       TO WS-CVE-NUM1 WS-NUMTEM1\n             MOVE WS-IMPPASO2       TO WS-IMPTEM1\n             MOVE WS-IMPPASL2       TO WS-CVE-IMP1\n             MOVE WS-IMPPASL2       TO WS-IMPTEML1\n             MOVE WS-IMPPASFE2      TO WS-CVE-IMP1FE\n             MOVE WS-IMPPASFE2      TO WS-IMPTEMFE1\n             MOVE WS-IMPPASFR2      TO WS-CVE-IMP1FR\n             MOVE WS-IMPPASFR2      TO WS-IMPTEMFR1\n             COMPUTE WS-TCVE-NDIF = WS-NUMTEM1 - WS-NUMTEM2\n             COMPUTE WS-TCVE-IDIF = WS-IMPTEM1 - WS-IMPTEM2\n             MOVE  WS-TCVE-NDIF        TO   WS-CVE-NUM3\n             MOVE  WS-TCVE-IDIF        TO   WS-CVE-IMP3\n*EN CASO DE DIF REPORTA PARA IMP EN ARCH DE INCI\n             PERFORM 90009999-ARCH-INC-DIF\n             PERFORM 50006430-IMP-CVE  THRU 50006430-EXIT\n             MOVE 0                    TO   WS-12VEZ",
+          "java_codigo": "    /**\n     * TOTCVE se ordena por banco, producto, instrumento, moneda, clave e identificador,\n     * así que para una misma clave llega primero 151 (S151) y después 500 (S500).\n     */\n    private Diferencia compara(TotalPorClave s151, TotalPorClave s500) {\n        BigDecimal impS500 = s500.imp().add(s500.impFe()).add(s500.impFr());   // WS-IMPPASO2\n        BigDecimal impS151 = s151.imp().add(s151.impFe()).add(s151.impFr());   // WS-IMPPASO1\n        long numDif = (long) s500.num() - s151.num();\n        BigDecimal impDif = impS500.subtract(impS151);   // con signo y sin truncar\n\n        // Comportamiento del fuente, documentado para la prueba en paralelo:\n        // WS-TCVE-IDIF es PIC 9(12)V99 sin signo y recibe una resta de dos 9(14)V99.\n        BigDecimal impDifLegado = impDif.abs().remainder(new BigDecimal(\"1000000000000\"));\n\n        return new Diferencia(s500.clave(), numDif, impDif, impDifLegado);\n    }",
+          "racional": "Cuando dos registros consecutivos tienen la misma clave y distinto identificador, el programa los empareja: el importe de cada uno es la suma de importe, importe de fecha valor y otro importe. La diferencia se calcula como S500 menos S151 y se manda al listado y al archivo de incidentes. En Java la resta conserva el signo y la escala; el valor que produciría el COBOL se calcula aparte solo para comparar resultados en la prueba en paralelo.",
+          "reglas": [
+            "RN-S500-226"
+          ],
+          "riesgo": "WS-TCVE-IDIF (línea 1193) es PIC 9(12)V99 sin signo: se pierde el signo de la diferencia y, si excede doce enteros, los dígitos altos. WS-TCVE-NDIF es PIC 9(8) y tampoco tiene signo."
+        },
+        {
+          "id": "s10",
+          "titulo": "Archivo de incidentes: solo claves contables y una sola diferencia",
+          "linea_ini": 10241,
+          "linea_fin": 10277,
+          "origen_codigo": " 90009999-ARCH-INC-DIF.\n**SOLO CALVES CONTABLES Y DIFERENCIA DE IMPORTE\n     IF WS-CVE-CVE > 999  AND\n        WS-CVE-IMP3 > 0 THEN\n        MOVE WS-CVE-CVE  TO WKS-INC-CVE-CVE\n        MOVE WS-TCVE-IDIF TO WKS-INC-CVE-IMP\n        ADD 1               TO  WKS-I06-05-TOTREG\n        MOVE 1           TO WKS-HAY-DIF.\n*\n  90009999-ESCRIBE-INCIDENTE.\n    IF WKS-HAY-DIF = 1 THEN\n       MOVE   \" \" TO WKS-I06-05-DATINCID\n       STRING \" DIFERENCIA ENCONTRADA EN LA CLAVE \",\n               WKS-INC-CVE-CVE, \" POR UN IMPORTE \" ,\n                WKS-INC-CVE-IMP DELIMITED BY SIZE\n                INTO WKS-I06-05-DATINCID\n       MOVE 99             TO  W77-PAR-RESULT\n       WRITE FD-I06-INCIDENTE FROM WKS-I06-INCID-DATOS.\n     WRITE FD-I06-INCIDENTE FROM WKS-I06-INCID-TRAILER.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass IncidenteWriter implements ItemWriter<Diferencia>, StepExecutionListener {\n\n    private final FlatFileItemWriter<String> i06;      // I06-ARCH-INCIDENTE\n    private final List<Diferencia> diferencias = new ArrayList<>();\n\n    @Override\n    public void write(Chunk<? extends Diferencia> chunk) {\n        chunk.forEach(d -> {\n            if (d.clave() > 999 && d.impDif().signum() != 0) {   // solo claves contables\n                diferencias.add(d);                          // el fuente conserva solo la última\n            }\n        });\n    }\n\n    @Override\n    public ExitStatus afterStep(StepExecution se) {\n        diferencias.forEach(d -> i06.write(Chunk.of(\n            \" DIFERENCIA ENCONTRADA EN LA CLAVE %d POR UN IMPORTE %s\".formatted(d.clave(), d.impDif()))));\n        i06.write(Chunk.of(Trailer.incidentes(diferencias.size())));   // WKS-I06-05-TOTREG\n        if (!diferencias.isEmpty()) {\n            se.getJobExecution().getExecutionContext().putInt(\"parResult\", 99);\n        }\n        return se.getExitStatus();\n    }\n}",
+          "racional": "Cada diferencia con clave mayor a 999 incrementa el contador de incidentes y guarda la clave y el importe en un único juego de campos. Al cierre, 70000000-CIERRO ejecuta 90009999-ESCRIBE-INCIDENTE una sola vez: escribe un renglón de datos si hubo diferencias, pone el TASKVALUE en 99 y siempre escribe el trailer. En Java se conservan todas las diferencias y se escribe un renglón por cada una; el TASKVALUE 99 se mantiene para no alterar el flujo del WFL.",
+          "reglas": [
+            "RN-S500-224"
+          ],
+          "riesgo": "La condición WS-CVE-IMP3 > 0 compara un campo editado (ZZZ,ZZZ,ZZZ,ZZ9.99) contra un literal numérico. Con la regla ANSI 85 esa comparación es alfanumérica y el espacio inicial del campo es menor que el carácter 0, así que la condición sería falsa para casi cualquier importe y nunca se registrarían incidentes. Además, si hay varias diferencias, solo la última llega al archivo aunque el contador las cuente todas."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Incidentes posiblemente nunca registrados",
+      "detalle": "90009999-ARCH-INC-DIF (líneas 10245-10247) compara WS-CVE-IMP3, un campo numérico editado, contra 0. Según ANSI 85 la comparación es alfanumérica y los espacios de relleno la hacen falsa para importes menores a cien mil millones. Debe confirmarse con el compilador COBOL85 de MCP o con el histórico de archivos I06."
+    },
+    {
+      "titulo": "Solo la última diferencia llega al archivo de incidentes",
+      "detalle": "WKS-INC-CVE-CVE y WKS-INC-CVE-IMP son campos únicos que se sobrescriben con cada diferencia; 90009999-ESCRIBE-INCIDENTE se ejecuta una vez al cierre (línea 10011). El trailer cuenta todas las diferencias, pero el detalle muestra solo una."
+    },
+    {
+      "titulo": "Diferencia sin signo y con posible truncamiento",
+      "detalle": "WS-TCVE-IDIF es PIC 9(12)V99 sin signo y recibe la resta de dos PIC 9(14)V99. El listado no distingue si S500 está por arriba o por debajo de S151."
+    },
+    {
+      "titulo": "Intervención manual del operador",
+      "detalle": "Ante un error de S151 el paso queda en ACCEPT esperando C o R (50004302-DECIDE). Con C el cuadre continúa sin los totales de S151."
+    },
+    {
+      "titulo": "Detalle de copias sin validar tipo de registro",
+      "detalle": "20000720-VAL-DETC1 y sus equivalentes copian cualquier registro posterior al header sin revisar WS-CAN-TR1C1."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Paso previo 105, tope de 30 productos, rango de claves 1 a 9998, reetiquetado del producto 66, instrumento 15 y moneda 5, rangos de claves 1000 a 4999 para las cifras de control y pasos menores a 11 o 90 de S151. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "La descripción del inventario habla de cuadre contable de cajero (ATM); el fuente se refiere a cancelaciones, fechas valor, bloqueos por orden judicial y totales por clave, sin mencionar cajeros. Validar el nombre funcional con el SME.",
+    "Confirmar en el compilador COBOL85 de MCP cómo se evalúa WS-CVE-IMP3 > 0 sobre un campo editado y revisar si el archivo I06 histórico trae renglones de diferencia.",
+    "Confirmar por qué los totales de S151 del producto 66, instrumento 15 se piden en moneda 1 y se registran como moneda 5.",
+    "No se identificó en el fuente qué hace avanzar la consulta a S151 cuando devuelve 100 renglones completos; revisar el contrato de TOTXCVETRAS500 FUNCION 06.",
+    "RN-S500-224 menciona importes fuera de rango, errores de fecha valor y bloqueos judiciales incompletos como incidentes; en el fuente revisado el archivo I06 solo recibe diferencias por clave.",
+    "RN-S500-225 (EXTENDED-FILE) no se tradujo en esta demostración; la impresión ExtNet está en 50006010-IMPRIME-EXT."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-781",
+    "RN-S151-782",
+    "RN-S151-783",
+    "RN-S151-784",
+    "RN-S151-785",
+    "RN-S500-218",
+    "RN-S500-219",
+    "RN-S500-220",
+    "RN-S500-221",
+    "RN-S500-222",
+    "RN-S500-223",
+    "RN-S500-224",
+    "RN-S500-225",
+    "RN-S500-226",
+    "RN-S500-227"
+  ]
+}

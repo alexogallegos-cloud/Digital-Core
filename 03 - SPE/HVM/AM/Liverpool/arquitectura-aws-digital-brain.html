@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liverpool Digital Brain — Arquitectura AWS</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Calibri, Arial, sans-serif; background: #F1F5F9; min-height: 100vh; }
+
+.header {
+  background: linear-gradient(135deg, #6B21A8 0%, #4C1D95 100%);
+  color: white;
+  padding: 16px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 4px solid #FF9900;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.header-logo { height: 36px; object-fit: contain; }
+.header-logo-err { color: rgba(255,255,255,0.6); font-size: 13px; font-style: italic; }
+.header-center { text-align: center; }
+.header-title { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
+.header-sub { font-size: 12px; opacity: 0.8; margin-top: 3px; }
+
+.canvas-wrap {
+  padding: 24px;
+  background: white;
+  margin: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  overflow-x: auto;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  padding: 12px 24px;
+  background: #F8FAFC;
+  margin: 0 20px 20px;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  font-size: 12px;
+  color: #475569;
+}
+.legend-item { display: flex; align-items: center; gap: 7px; }
+.legend-swatch { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid; }
+.legend-note { margin-left: auto; font-size: 11px; color: #94A3B8; }
+
+.footer {
+  text-align: center;
+  padding: 12px;
+  font-size: 11px;
+  color: #94A3B8;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <img class="header-logo"
+       src="../../../../../Solutioning/Design - Studio/logos/Liverpool_logo.png"
+       alt="Liverpool"
+       onerror="this.outerHTML='<span class=header-logo-err>Liverpool</span>'">
+  <div class="header-center">
+    <div class="header-title">Liverpool Digital Brain — Arquitectura AWS</div>
+    <div class="header-sub">CloudFront · Cognito · API Gateway · Lambda · Bedrock · IAM · S3 &nbsp;|&nbsp; SPE-AM-003</div>
+  </div>
+  <img class="header-logo"
+       src="../../../../../Solutioning/Design - Studio/logos/Accenture_logo_white_letters.png"
+       alt="Accenture"
+       onerror="this.outerHTML='<span class=header-logo-err>Accenture</span>'">
+</div>
+
+<!-- DIAGRAM CANVAS -->
+<div class="canvas-wrap">
+<svg viewBox="0 0 1340 760" xmlns="http://www.w3.org/2000/svg"
+     style="width:100%;height:auto;min-width:900px;">
+<defs>
+
+  <!-- ── ARROWHEADS ──────────────────────────────────── -->
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10z" fill="#64748B"/>
+  </marker>
+  <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10z" fill="#BE123C"/>
+  </marker>
+  <marker id="arr-orange" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10z" fill="#C2410C"/>
+  </marker>
+  <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10z" fill="#15803D"/>
+  </marker>
+
+  <!-- ── DROP SHADOW ────────────────────────────────── -->
+  <filter id="sh" x="-15%" y="-15%" width="130%" height="130%">
+    <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.10"/>
+  </filter>
+
+  <!-- ══════════════════════════════════════════════════
+       AWS ICONS — embedded as <symbol>
+  ══════════════════════════════════════════════════ -->
+
+  <!-- CloudFront (purple #8C4FFF) -->
+  <symbol id="ic-cf" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#8C4FFF"/>
+    <path fill="#FFF" d="M55.122,52.123C55.122,50.469 53.776,49.123 52.122,49.123C50.468,49.123 49.122,50.469 49.122,52.123C49.122,53.777 50.468,55.123 52.122,55.123C53.776,55.123 55.122,53.777 55.122,52.123ZM57.122,52.123C57.122,54.88 54.879,57.123 52.122,57.123C49.365,57.123 47.122,54.88 47.122,52.123C47.122,49.366 49.365,47.123 52.122,47.123C54.879,47.123 57.122,49.366 57.122,52.123ZM30.392,37.692C30.392,36.038 29.046,34.692 27.392,34.692C25.737,34.692 24.392,36.038 24.392,37.692C24.392,39.346 25.737,40.692 27.392,40.692C29.046,40.692 30.392,39.346 30.392,37.692ZM32.392,37.692C32.392,40.449 30.148,42.692 27.392,42.692C24.635,42.692 22.392,40.449 22.392,37.692C22.392,34.935 24.635,32.692 27.392,32.692C30.148,32.692 32.392,34.935 32.392,37.692ZM39.73,22.007C39.73,23.661 41.076,25.007 42.73,25.007C44.385,25.007 45.73,23.661 45.73,22.007C45.73,20.352 44.385,19.007 42.73,19.007C41.076,19.007 39.73,20.352 39.73,22.007ZM37.73,22.007C37.73,19.25 39.974,17.007 42.73,17.007C45.487,17.007 47.73,19.25 47.73,22.007C47.73,24.764 45.487,27.007 42.73,27.007C39.974,27.007 37.73,24.764 37.73,22.007ZM66,40C66,30.727 61.028,22.148 53.012,17.509C51.575,17.799 50.185,18.196 48.451,18.823L47.771,16.942C48.676,16.616 49.486,16.352 50.266,16.126C47.046,14.737 43.548,14 40,14C38.311,14 36.649,14.175 35.025,14.492C36.201,15.18 37.244,15.866 38.257,16.634L37.048,18.227C35.62,17.145 34.14,16.228 32.197,15.21C22.378,18.298 15.306,26.958 14.183,37.128C16.242,36.711 18.219,36.484 20.414,36.43L20.463,38.429C18.163,38.486 16.187,38.73 14.027,39.205C14.018,39.47 14,39.738 14,40C14,48.658 18.283,56.636 25.327,61.447C24.074,57.716 23.45,54.19 23.45,50.746C23.45,48.782 23.788,47.169 24.145,45.462C24.228,45.067 24.312,44.665 24.394,44.248L26.357,44.635C26.273,45.059 26.187,45.47 26.103,45.873C25.753,47.545 25.45,48.989 25.45,50.746C25.45,54.654 26.308,58.695 28.054,63.083C31.773,65.014 35.789,66 40,66C42.756,66 45.446,65.56 48.012,64.714C49.019,62.727 49.766,60.852 50.39,58.699L52.311,59.256C51.855,60.826 51.332,62.253 50.709,63.677C52.323,62.951 53.85,62.053 55.283,61.005C54.938,60.159 54.568,59.318 54.159,58.499L55.948,57.604C56.296,58.3 56.615,59.012 56.92,59.728C62.705,54.775 66,47.66 66,40ZM68,40C68,48.727 64.034,56.799 57.121,62.149C55.409,63.479 53.552,64.583 51.589,65.472C50.756,65.85 49.908,66.2 49.036,66.494C46.156,67.493 43.113,68 40,68C35.4,68 30.832,66.854 26.788,64.686C17.667,59.806 12,50.347 12,40C12,39.314 12.018,38.792 12.059,38.309C12.74,26.625 20.756,16.512 32.001,13.166C34.562,12.393 37.255,12 40,12C44.808,12 49.539,13.238 53.684,15.579C62.513,20.525 68,29.884 68,40ZM37.314,25.463L36,23.956C33.758,25.912 32.014,27.989 29.977,31.126L31.655,32.215C33.583,29.244 35.223,27.288 37.314,25.463ZM34.275,38.427L33.625,40.318C38.218,41.895 42.225,44.411 46.234,48.236L47.615,46.789C43.389,42.758 39.15,40.101 34.275,38.427ZM47.646,26.668C51.398,32.39 53.511,38.671 53.925,45.338L51.929,45.462C51.536,39.146 49.533,33.192 45.975,27.765L47.646,26.668Z"/>
+  </symbol>
+
+  <!-- S3 (green #7AA116) -->
+  <symbol id="ic-s3" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#7AA116"/>
+    <g transform="translate(13,12)" fill="#FFF">
+      <path d="M47.836,30.893L48.22,28.189C51.761,30.31 51.807,31.186 51.806,31.21C51.8,31.215 51.196,31.719 47.836,30.893ZM45.893,30.353C39.773,28.501 31.25,24.591 27.801,22.961C27.801,22.947 27.805,22.934 27.805,22.92C27.805,21.595 26.727,20.517 25.401,20.517C24.077,20.517 22.999,21.595 22.999,22.92C22.999,24.245 24.077,25.323 25.401,25.323C25.983,25.323 26.511,25.106 26.928,24.761C30.986,26.682 39.443,30.535 45.608,32.355L43.17,49.561C43.163,49.608 43.16,49.655 43.16,49.702C43.16,51.217 36.453,54 25.494,54C14.419,54 7.641,51.217 7.641,49.702C7.641,49.656 7.638,49.611 7.632,49.566L2.538,12.359C6.947,15.394 16.43,17 25.5,17C34.556,17 44.023,15.4 48.441,12.374L45.893,30.353ZM2,8.478C2.072,7.162 9.634,2 25.5,2C41.364,2 48.927,7.161 49,8.478L49,8.927C48.13,11.878 38.33,15 25.5,15C12.648,15 2.843,11.868 2,8.913L2,8.478ZM51,8.5C51,5.035 41.066,0 25.5,0C9.934,0 0,5.035 0,8.5L0.094,9.254L5.642,49.778C5.775,54.31 17.861,56 25.494,56C34.966,56 45.029,53.822 45.159,49.781L47.555,32.884C48.888,33.203 49.985,33.366 50.866,33.366C52.049,33.366 52.849,33.077 53.334,32.499C53.732,32.025 53.884,31.451 53.77,30.84C53.511,29.456 51.868,27.964 48.522,26.055L50.898,9.293L51,8.5Z"/>
+    </g>
+  </symbol>
+
+  <!-- API Gateway (purple #8C4FFF) -->
+  <symbol id="ic-apigw" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#8C4FFF"/>
+    <path fill="#FFF" fill-rule="evenodd" d="M34.065 55.632H37V53.615H34.065V55.632ZM39 55.632H42V53.615H39V55.632ZM27 14.63L14 21.082V61.193L27 65.59V14.63ZM29 27.393V53.615H32V55.632H29V66.992C29 67.316 28.845 67.621 28.584 67.810C28.412 67.936 28.207 68 28 68C27.894 68 27.786 67.983 27.682 67.948L12.682 62.876C12.274 62.738 12 62.352 12 61.920V20.454C12 20.071 12.217 19.719 12.559 19.549L27.559 12.104C27.868 11.950 28.235 11.968 28.528 12.153C28.821 12.336 29 12.660 29 13.009V25.376H32V27.393H29ZM44 55.632H47V53.615H44V55.632ZM44.065 27.393H47V25.376H44.065V27.393ZM39.065 27.393H42V25.376H39.065V27.393ZM34.065 27.393H37V25.376H34.065V27.393ZM66 21.082L53 14.63V65.590L66 61.193V21.082ZM68 61.920C68 62.352 67.726 62.738 67.318 62.876L52.318 67.948C52.214 67.983 52.106 68 52 68C51.793 68 51.588 67.936 51.416 67.810C51.155 67.621 51 67.316 51 66.992V55.632H49.065V53.615H51V27.393H49.065V25.376H51V13.009C51 12.660 51.179 12.336 51.472 12.153C51.765 11.968 52.131 11.950 52.441 12.104L67.441 19.549C67.783 19.719 68 20.071 68 20.454V61.920ZM42.934 33.807L41.066 33.083L36.066 46.194L37.934 46.918L42.934 33.807ZM49.707 40.209C50.098 39.815 50.098 39.176 49.707 38.783L45.707 34.749L44.293 36.175L47.586 39.496L44.293 42.817L45.707 44.243L49.707 40.209ZM34.293 44.243L30.293 40.209C29.902 39.815 29.902 39.176 30.293 38.783L34.293 34.749L35.707 36.175L32.414 39.496L35.707 42.817L34.293 44.243Z"/>
+  </symbol>
+
+  <!-- Lambda (orange #ED7100) -->
+  <symbol id="ic-lambda" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#ED7100"/>
+    <path fill="#FFF" d="M28.008,66L15.591,66L29.324,37.296L35.546,50.106L28.008,66ZM30.22,34.553C30.051,34.208 29.7,33.989 29.318,33.989L29.315,33.989C28.929,33.99 28.578,34.211 28.412,34.558L13.098,66.569C12.95,66.879 12.971,67.243 13.155,67.534C13.337,67.824 13.658,68 14.002,68L28.642,68C29.03,68 29.382,67.777 29.548,67.428L37.564,50.528C37.693,50.254 37.692,49.937 37.559,49.665L30.22,34.553ZM64.995,66L52.659,66L32.867,24.57C32.701,24.222 32.349,24 31.962,24L23.89,24L23.899,14L39.72,14L59.42,55.429C59.586,55.777 59.939,56 60.326,56L64.995,56L64.995,66ZM65.998,54L60.96,54L41.259,12.571C41.094,12.223 40.741,12 40.353,12L22.898,12C22.345,12 21.896,12.447 21.895,12.999L21.884,24.999C21.884,25.265 21.989,25.519 22.178,25.707C22.365,25.895 22.62,26 22.887,26L31.329,26L51.122,67.43C51.289,67.778 51.639,68 52.026,68L65.998,68C66.552,68 67,67.552 67,67L67,55C67,54.448 66.552,54 65.998,54Z"/>
+  </symbol>
+
+  <!-- Cognito (red #DD344C) -->
+  <symbol id="ic-cognito" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#DD344C"/>
+    <path fill="#FFF" d="M16.964,35.808L29.869,35.808L29.869,33.825L16.964,33.825L16.964,35.808ZM61.376,50.231L62.779,51.633L55.407,58.994C55.213,59.187 54.959,59.284 54.705,59.284C54.451,59.284 54.197,59.187 54.004,58.994L50.295,55.291L51.699,53.890L54.705,56.891L61.376,50.231ZM65.944,55.694C65.718,57.557 64.959,59.291 63.747,60.709C62.886,61.716 61.799,62.548 60.604,63.115C59.001,63.876 57.220,64.164 55.446,63.948C53.721,63.738 52.095,63.058 50.740,61.982C48.137,59.916 46.822,56.711 47.222,53.409C47.601,50.288 49.492,47.566 52.280,46.127C53.616,45.438 55.080,45.084 56.570,45.084C56.952,45.084 57.337,45.108 57.721,45.155C60.834,45.534 63.550,47.437 64.981,50.243C65.840,51.926 66.172,53.811 65.944,55.694ZM66.750,49.344C65.018,45.948 61.732,43.646 57.962,43.187C55.681,42.908 53.403,43.317 51.369,44.366C47.996,46.106 45.709,49.398 45.251,53.171C44.768,57.161 46.358,61.036 49.505,63.535C51.146,64.837 53.117,65.661 55.205,65.916C55.667,65.972 56.130,66 56.592,66C58.271,66 59.930,65.629 61.456,64.906C62.902,64.220 64.218,63.213 65.257,61.995C66.723,60.280 67.643,58.184 67.916,55.932C68.191,53.657 67.788,51.379 66.750,49.344ZM26.891,41.756L30.862,41.756L30.862,39.773L26.891,39.773L26.891,41.756ZM16.964,41.756L24.905,41.756L24.905,39.773L16.964,39.773L16.964,41.756ZM16.106,15.983L60.508,15.983C61.677,15.983 62.628,17.139 62.628,18.561L62.628,25.895L59.650,25.895L59.650,20.939C59.650,20.392 59.206,19.948 58.657,19.948L35.825,19.948C35.276,19.948 34.832,20.392 34.832,20.939L34.832,25.895L13.985,25.895L13.985,18.561C13.985,17.163 14.957,15.983 16.106,15.983ZM47.256,25.608C49.561,25.608 51.436,27.461 51.436,29.739C51.436,31.241 50.608,32.623 49.273,33.347C48.007,34.034 46.480,34.025 45.230,33.348C43.901,32.622 43.076,31.240 43.076,29.739C43.076,27.461 44.950,25.608 47.256,25.608ZM13.985,47.108L13.985,27.878L34.832,27.878L34.832,44.729C34.832,45.278 35.276,45.721 35.825,45.721L46.203,45.721L46.203,43.738L37.912,43.738C37.998,39.771 40.636,36.344 44.434,35.250C46.189,36.070 48.285,36.078 50.067,35.249C52.229,35.873 54.121,37.318 55.293,39.254L56.992,38.227C55.789,36.243 53.963,34.695 51.845,33.795C52.838,32.694 53.422,31.263 53.422,29.739C53.422,26.368 50.655,23.625 47.256,23.625C43.856,23.625 41.090,26.368 41.090,29.739C41.090,31.257 41.668,32.683 42.654,33.784C40.000,34.900 37.928,36.992 36.818,39.573L36.818,21.930L57.665,21.930L57.665,37.790L59.650,37.790L59.650,27.878L62.628,27.878L62.629,42.747L64.615,42.747L64.614,18.561C64.614,16.046 62.772,14 60.508,14L16.106,14C13.841,14 12,16.046 12,18.561L12,47.108C12,49.623 13.841,51.668 16.106,51.668L42.774,51.668L42.774,49.686L16.106,49.686C14.957,49.686 13.985,48.506 13.985,47.108Z"/>
+  </symbol>
+
+  <!-- Bedrock (teal #01A88D) -->
+  <symbol id="ic-bedrock" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#01A88D"/>
+    <g transform="translate(12,12)" fill="#FFF">
+      <path d="M52,27C50.897,27 50,26.103 50,25C50,23.897 50.897,23 52,23C53.103,23 54,23.897 54,25C54,26.103 53.103,27 52,27ZM20.113,53.908L16.865,52.014L23.53,47.848L22.47,46.152L14.913,50.875L9,47.426L9,38.535L14.555,34.832L13.445,33.168L7.959,36.825L2,33.420L2,28.580L8.496,24.868L7.504,23.132L2,26.277L2,22.580L8,19.152L14,22.580L14,26.434L9.485,29.143L10.515,30.857L15,28.166L19.485,30.857L20.515,29.143L16,26.434L16,22.535L21.555,18.832C21.833,18.646 22,18.334 22,18L22,11L20,11L20,17.465L14.959,20.825L9,17.420L9,8.574L14,5.658L14,14L16,14L16,4.491L20.113,2.092L28,4.721L28,33.434L13.485,42.143L14.515,43.857L28,35.766L28,51.279L20.113,53.908ZM50,38C50,39.103 49.103,40 48,40C46.897,40 46,39.103 46,38C46,36.897 46.897,36 48,36C49.103,36 50,36.897 50,38ZM40,48C40,49.103 39.103,50 38,50C36.897,50 36,49.103 36,48C36,46.897 36.897,46 38,46C39.103,46 40,46.897 40,48ZM39,8C39,6.897 39.897,6 41,6C42.103,6 43,6.897 43,8C43,9.103 42.103,10 41,10C39.897,10 39,9.103 39,8ZM52,21C50.141,21 48.589,22.280 48.142,24L30,24L30,19L41,19C41.553,19 42,18.552 42,18L42,11.858C43.72,11.411 45,9.858 45,8C45,5.794 43.206,4 41,4C38.794,4 37,5.794 37,8C37,9.858 38.28,11.411 40,11.858L40,17L30,17L30,4C30,3.569 29.725,3.188 29.316,3.051L20.316,0.051C20.042,-0.039 19.744,-0.009 19.496,0.136L7.496,7.136C7.188,7.315 7,7.645 7,8L7,17.420L0.504,21.132C0.192,21.310 0,21.641 0,22L0,34C0,34.359 0.192,34.690 0.504,34.868L7,38.580L7,48C7,48.355 7.188,48.685 7.496,48.864L19.496,55.864C19.65,55.954 19.825,56 20,56C20.106,56 20.213,55.983 20.316,55.949L29.316,52.949C29.725,52.812 30,52.431 30,52L30,40L37,40L37,44.142C35.28,44.589 34,46.142 34,48C34,50.206 35.794,52 38,52C40.206,52 42,50.206 42,48C42,46.142 40.72,44.589 39,44.142L39,39C39,38.448 38.553,38 38,38L30,38L30,33L42.5,33L44.638,35.850C44.239,36.472 44,37.207 44,38C44,40.206 45.794,42 48,42C50.206,42 52,40.206 52,38C52,35.794 50.206,34 48,34C47.316,34 46.682,34.188 46.119,34.492L43.8,31.400C43.611,31.148 43.314,31 43,31L30,31L30,26L48.142,26C48.589,27.720 50.141,29 52,29C54.206,29 56,27.206 56,25C56,22.794 54.206,21 52,21Z"/>
+    </g>
+  </symbol>
+
+  <!-- IAM (red #DD344C) -->
+  <symbol id="ic-iam" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#DD344C"/>
+    <path fill="#FFF" d="M14,59L66,59L66,21L14,21L14,59ZM68,20L68,60C68,60.552 67.553,61 67,61L13,61C12.447,61 12,60.552 12,60L12,20C12,19.448 12.447,19 13,19L67,19C67.553,19 68,19.448 68,20ZM44,48L59,48L59,46L44,46L44,48ZM57,42L62,42L62,40L57,40L57,42ZM44,42L52,42L52,40L44,40L44,42ZM29,46C29,45.449 28.552,45 28,45C27.448,45 27,45.449 27,46C27,46.551 27.448,47 28,47C28.552,47 29,46.551 29,46ZM31,46C31,47.302 30.161,48.401 29,48.816L29,51L27,51L27,48.815C25.839,48.401 25,47.302 25,46C25,44.346 26.346,43 28,43C29.654,43 31,44.346 31,46ZM19,53.993L36.994,54L36.996,50L33,50L33,48L36.996,48L36.998,45L33,45L33,43L36.999,43L37,40.007L19.006,40L19,53.993ZM22,38.001L34,38.006L34,31C34.001,28.697 31.197,26.677 28,26.675L27.996,26.675C24.804,26.675 22.004,28.696 22.002,31L22,38.001ZM17,54.992L17.006,39C17.006,38.734 17.111,38.48 17.299,38.292C17.486,38.105 17.741,38 18.006,38L20,38.001L20.002,31C20.004,27.512 23.59,24.675 27.996,24.675L28,24.675C32.412,24.677 36.001,27.515 36,31L36,38.007L38,38.008C38.553,38.008 39,38.456 39,39.008L38.994,55C38.994,55.266 38.889,55.52 38.701,55.708C38.514,55.895 38.259,56 37.994,56L18,55.992C17.447,55.992 17,55.544 17,54.992ZM60,36L62,36L62,34L60,34L60,36ZM44,36L55,36L55,34L44,34L44,36Z"/>
+  </symbol>
+
+  <!-- Secrets Manager (red #DD344C) -->
+  <symbol id="ic-secrets" viewBox="0 0 80 80">
+    <rect width="80" height="80" fill="#DD344C"/>
+    <path fill="#FFF" d="M38.76,43.36C38.76,44.044 39.317,44.6 40,44.6C40.684,44.6 41.24,44.044 41.24,43.36C41.24,42.676 40.684,42.12 40,42.12C39.317,42.12 38.76,42.676 38.76,43.36ZM36.76,43.36C36.76,41.573 38.213,40.12 40,40.12C41.787,40.12 43.24,41.573 43.24,43.36C43.24,44.796 42.296,46.002 41,46.426L41,49L39,49L39,46.426C37.704,46.002 36.76,44.796 36.76,43.36ZM49,38L31,38L31,51L49,51L49,48L46,48L46,46L49,46L49,43L46,43L46,41L49,41L49,38ZM34,36L46,36L46,31C46.001,28.384 43.143,26.002 40.004,26L40.001,26C38.472,26 36.928,26.574 35.763,27.575C34.643,28.537 34,29.786 34,31.001L34,36ZM48,31.001L48,36L50,36C50.553,36 51,36.448 51,37L51,52C51,52.552 50.553,53 50,53L30,53C29.447,53 29,52.552 29,52L29,37C29,36.448 29.447,36 30,36L32,36L32,31C32.001,29.202 32.897,27.401 34.459,26.058C35.982,24.75 38.001,24 40.001,24L40.004,24C44.265,24.002 48.001,27.273 48,31.001ZM19.207,55.049L20.828,53.877C18.093,50.097 16.581,45.662 16.396,41L19,41L19,39L16.399,39C16.598,34.366 18.108,29.957 20.828,26.198L19.207,25.025C16.239,29.128 14.599,33.942 14.399,39L12,39L12,41L14.396,41C14.582,46.086 16.224,50.926 19.207,55.049ZM53.838,59.208C50.069,61.936 45.648,63.446 41,63.639L41,61L39,61L39,63.639C34.352,63.447 29.93,61.937 26.159,59.208L24.988,60.828C29.1,63.805 33.928,65.445 39,65.639L39,68L41,68L41,65.639C46.072,65.445 50.898,63.805 55.01,60.828L53.838,59.208ZM26.159,20.866C29.93,18.138 34.352,16.628 39,16.436L39,19L41,19L41,16.436C45.648,16.628 50.069,18.138 53.838,20.866L55.01,19.246C50.898,16.27 46.072,14.63 41,14.436L41,12L39,12L39,14.436C33.928,14.629 29.1,16.269 24.988,19.246L26.159,20.866ZM65.599,39C65.399,33.942 63.759,29.128 60.79,25.025L59.169,26.198C61.89,29.957 63.4,34.366 63.599,39L61,39L61,41L63.602,41C63.416,45.662 61.905,50.097 59.169,53.877L60.79,55.049C63.774,50.926 65.415,46.086 65.602,41L68,41L68,39L65.599,39Z"/>
+  </symbol>
+
+</defs>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     BACKGROUND ZONES
+════════════════════════════════════════════════════════════════ -->
+
+<!-- AWS Cloud outer boundary -->
+<rect x="188" y="30" width="1140" height="700" rx="12"
+      fill="#FFFBF0" stroke="#FF9900" stroke-width="2"/>
+<!-- AWS label + logo area -->
+<text x="1300" y="52" text-anchor="end" font-family="Calibri,Arial"
+      font-size="13" font-weight="700" fill="#B45309">AWS Cloud</text>
+
+<!-- Edge & Auth zone (dashed rose) -->
+<rect x="200" y="42" width="260" height="676" rx="8"
+      fill="#FFF1F2" stroke="#FECDD3" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="330" y="65" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="11" font-weight="600" fill="#9F1239">Edge &amp; Auth</text>
+
+<!-- Compute zone (dashed orange) -->
+<rect x="474" y="42" width="380" height="676" rx="8"
+      fill="#FFF7ED" stroke="#FED7AA" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="664" y="65" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="11" font-weight="600" fill="#C2410C">API &amp; Compute</text>
+
+<!-- Data & AI zone (dashed green) -->
+<rect x="868" y="42" width="448" height="676" rx="8"
+      fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="1092" y="65" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="11" font-weight="600" fill="#166534">Data &amp; AI</text>
+
+<!-- User zone label -->
+<text x="94" y="52" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="11" font-weight="600" fill="#1D4ED8">Usuarios</text>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ARROWS — drawn before nodes
+════════════════════════════════════════════════════════════════ -->
+
+<!-- 1. User → CloudFront (HTTPS) -->
+<path d="M148,230 L253,230" stroke="#64748B" stroke-width="1.8"
+      fill="none" marker-end="url(#arr)"/>
+<text x="200" y="221" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="10" fill="#475569">HTTPS</text>
+
+<!-- 2. User → Cognito (Login) -->
+<path d="M132,270 C132,530 253,520 253,520"
+      stroke="#BE123C" stroke-width="1.6" fill="none" marker-end="url(#arr-red)"/>
+<text x="172" y="430" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="10" fill="#BE123C">Login</text>
+
+<!-- 3. Cognito → CloudFront (JWT token) -->
+<path d="M330,490 C330,310 330,290 330,275"
+      stroke="#BE123C" stroke-width="1.6" fill="none"
+      stroke-dasharray="5,3" marker-end="url(#arr-red)"/>
+<text x="352" y="385" text-anchor="start" font-family="Calibri,Arial"
+      font-size="10" fill="#BE123C">JWT</text>
+
+<!-- 4. Cognito → API GW (authorizer) -->
+<path d="M405,530 C480,530 520,460 560,400"
+      stroke="#BE123C" stroke-width="1.4" fill="none"
+      stroke-dasharray="4,3" marker-end="url(#arr-red)"/>
+<text x="498" y="520" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="10" fill="#BE123C">Authorizer</text>
+
+<!-- 5. CloudFront → API GW (/api/*) -->
+<path d="M410,225 L508,290"
+      stroke="#C2410C" stroke-width="2" fill="none" marker-end="url(#arr-orange)"/>
+<text x="455" y="245" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="10" fill="#C2410C">/api/*</text>
+
+<!-- 6. CloudFront → S3 Portal (/* static) -->
+<path d="M360,265 L360,490"
+      stroke="#64748B" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+<text x="382" y="385" text-anchor="start" font-family="Calibri,Arial"
+      font-size="10" fill="#475569">/* → S3</text>
+
+<!-- 7. API GW → Lambda Query -->
+<path d="M620,265 L878,185"
+      stroke="#64748B" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+
+<!-- 8. API GW → Lambda Chat -->
+<path d="M640,310 L878,390"
+      stroke="#64748B" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+
+<!-- 9. API GW → Lambda Admin -->
+<path d="M620,345 L878,580"
+      stroke="#64748B" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+
+<!-- 10. Lambda Query → S3 brain -->
+<path d="M1000,180 L1070,180"
+      stroke="#15803D" stroke-width="1.6" fill="none" marker-end="url(#arr-green)"/>
+<text x="1035" y="170" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="10" fill="#15803D">brain.db</text>
+
+<!-- 11. Lambda Chat → Bedrock -->
+<path d="M1000,390 L1070,390"
+      stroke="#15803D" stroke-width="1.6" fill="none" marker-end="url(#arr-green)"/>
+<text x="1035" y="380" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="10" fill="#15803D">invoke</text>
+
+<!-- 12. Lambda Admin → IAM -->
+<path d="M1000,580 L1070,580"
+      stroke="#15803D" stroke-width="1.6" fill="none" marker-end="url(#arr-green)"/>
+
+<!-- 13. Secrets → Lambdas (dashed, shared API Keys) -->
+<path d="M1200,480 C1090,480 1020,420 960,380"
+      stroke="#64748B" stroke-width="1.2" fill="none"
+      stroke-dasharray="4,3" marker-end="url(#arr)"/>
+<text x="1085" y="502" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="9" fill="#64748B">API Keys</text>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SERVICE NODES
+     Each <g transform="translate(cx,cy)"> — icon at (-28,-28) size 56x56
+     Card: rect(-60,-60) 120x120 rounded
+════════════════════════════════════════════════════════════════ -->
+
+<!-- ── USER (person icon, outside AWS) ───────────────────── -->
+<g transform="translate(94,220)" filter="url(#sh)">
+  <rect x="-52" y="-52" width="104" height="120" rx="8" fill="white"/>
+  <!-- Person illustration -->
+  <circle cx="0" cy="-18" r="18" fill="#6B21A8"/>
+  <ellipse cx="0" cy="20" rx="26" ry="18" fill="#6B21A8"/>
+  <text y="82" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="13" font-weight="700" fill="#1E293B">Usuario</text>
+  <text y="97" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">Navegador</text>
+</g>
+
+<!-- ── CLOUDFRONT ────────────────────────────────────────── -->
+<g transform="translate(330,230)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="130" rx="8" fill="white"/>
+  <use href="#ic-cf" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="13" font-weight="700" fill="#1E293B">CloudFront</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">CDN + Routing</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">d1rozaht3ymfu0</text>
+</g>
+
+<!-- ── S3 PORTAL ──────────────────────────────────────────── -->
+<g transform="translate(330,560)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="130" rx="8" fill="white"/>
+  <use href="#ic-s3" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="13" font-weight="700" fill="#1E293B">S3</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">Portal HTML</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">index · vistas · data/</text>
+</g>
+
+<!-- ── COGNITO ────────────────────────────────────────────── -->
+<g transform="translate(330,560)" filter="url(#sh)">
+</g>
+<!-- Cognito separate position -->
+<g transform="translate(94,560)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-cognito" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="13" font-weight="700" fill="#1E293B">Cognito</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">User Pool</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">viewer · admin</text>
+  <text y="60" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">Hosted UI + JWT</text>
+</g>
+
+<!-- ── API GATEWAY ───────────────────────────────────────── -->
+<g transform="translate(570,310)" filter="url(#sh)">
+  <rect x="-65" y="-65" width="130" height="145" rx="8" fill="white"/>
+  <use href="#ic-apigw" x="-28" y="-58" width="56" height="56"/>
+  <text y="14" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="13" font-weight="700" fill="#1E293B">API Gateway</text>
+  <text y="28" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">REST API</text>
+  <text y="42" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#BE123C">Cognito JWT Authorizer</text>
+  <text y="56" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">8 endpoints</text>
+</g>
+
+<!-- ── LAMBDA QUERY ───────────────────────────────────────── -->
+<g transform="translate(940,180)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-lambda" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="12" font-weight="700" fill="#1E293B">Lambda</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#C2410C">brain-query</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">GET /coverage</text>
+  <text y="59" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">/components /search</text>
+</g>
+
+<!-- ── LAMBDA CHAT ────────────────────────────────────────── -->
+<g transform="translate(940,390)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-lambda" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="12" font-weight="700" fill="#1E293B">Lambda</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#C2410C">brain-chat</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">POST /api/chat</text>
+  <text y="59" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">RAG + Bedrock</text>
+</g>
+
+<!-- ── LAMBDA ADMIN ───────────────────────────────────────── -->
+<g transform="translate(940,585)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-lambda" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="12" font-weight="700" fill="#1E293B">Lambda</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#C2410C">brain-admin</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">reload brain.db</text>
+  <text y="59" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">grupo: admin</text>
+</g>
+
+<!-- ── S3 BRAIN ───────────────────────────────────────────── -->
+<g transform="translate(1160,180)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-s3" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="12" font-weight="700" fill="#1E293B">S3</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#15803D">liverpool-brain.db</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">SQLite read-only</text>
+  <text y="59" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">descarga → /tmp</text>
+</g>
+
+<!-- ── BEDROCK ────────────────────────────────────────────── -->
+<g transform="translate(1160,390)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-bedrock" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="12" font-weight="700" fill="#1E293B">Bedrock</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#0F766E">Claude Haiku 4.5</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">RAG chat</text>
+  <text y="59" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">us-east-1</text>
+</g>
+
+<!-- ── IAM ROLE ───────────────────────────────────────────── -->
+<g transform="translate(1160,585)" filter="url(#sh)">
+  <rect x="-60" y="-60" width="120" height="140" rx="8" fill="white"/>
+  <use href="#ic-iam" x="-28" y="-52" width="56" height="56"/>
+  <text y="18" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="12" font-weight="700" fill="#1E293B">IAM Role</text>
+  <text y="32" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">Lambda execution</text>
+  <text y="46" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">s3:GetObject</text>
+  <text y="59" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">bedrock:InvokeModel</text>
+</g>
+
+<!-- ── SECRETS MANAGER (smaller, companion) ──────────────── -->
+<g transform="translate(1290,390)" filter="url(#sh)">
+  <rect x="-48" y="-52" width="96" height="116" rx="8" fill="white"/>
+  <use href="#ic-secrets" x="-22" y="-46" width="44" height="44"/>
+  <text y="14" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="11" font-weight="700" fill="#1E293B">Secrets</text>
+  <text y="27" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="10" fill="#64748B">Manager</text>
+  <text y="40" text-anchor="middle" font-family="Calibri,Arial"
+        font-size="9" fill="#94A3B8">API Keys</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FLOW LABELS ON ARROWS
+════════════════════════════════════════════════════════════════ -->
+
+<!-- Label: GET endpoints annotation -->
+<text x="1065" y="158" text-anchor="middle" font-family="Calibri,Arial"
+      font-size="9" fill="#15803D">coverage · components · search · domains · rules</text>
+
+<!-- Region label bottom -->
+<text x="876" y="722" font-family="Calibri,Arial" font-size="11"
+      fill="#B45309" font-weight="600">us-east-1 (N. Virginia)</text>
+
+</svg>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:#FFF1F2;border-color:#FECDD3"></div>
+    Edge &amp; Auth
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:#FFF7ED;border-color:#FED7AA"></div>
+    API &amp; Compute
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:#F0FDF4;border-color:#86EFAC"></div>
+    Data &amp; AI
+  </div>
+  <div class="legend-item" style="margin-left:16px">
+    <svg width="30" height="12">
+      <line x1="0" y1="6" x2="24" y2="6" stroke="#64748B" stroke-width="1.8"
+            marker-end="url(#arr)"/>
+    </svg>
+    Flujo de datos
+  </div>
+  <div class="legend-item">
+    <svg width="30" height="12">
+      <line x1="0" y1="6" x2="24" y2="6" stroke="#BE123C" stroke-width="1.6"
+            stroke-dasharray="4,2" marker-end="url(#arr-red)"/>
+    </svg>
+    Auth / JWT
+  </div>
+  <div class="legend-item">
+    <svg width="30" height="12">
+      <line x1="0" y1="6" x2="24" y2="6" stroke="#64748B" stroke-width="1.2"
+            stroke-dasharray="3,2"/>
+    </svg>
+    Config / Secrets
+  </div>
+  <div class="legend-note">Liverpool Digital Brain · SPE-AM-003 · Accenture México · 2026</div>
+</div>
+
+<div class="footer">Arquitectura de referencia — sujeta a validación con arquitecto de soluciones AWS</div>
+
+</body>
+</html>

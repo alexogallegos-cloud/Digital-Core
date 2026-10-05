@@ -1,0 +1,203 @@
+{
+  "slug": "S500_P125",
+  "sistema": "S500",
+  "programa": "P125",
+  "nombre": "Conciliación de Devoluciones de Cheques e Intentos de Pago",
+  "funcion": "Paso batch de S500 que, con la fecha de proceso de S500B02CONTROL, clasifica las devoluciones de cheques del día por nodo, sucursal y moneda, y resume los intentos de pago de cheques con controles de seguridad.",
+  "resumen": "Lee el archivo de devoluciones de 180 bytes, asigna a cada detalle el nodo de impresión de su sucursal promotora y lo ordena por nodo, sucursal, moneda y contrato. Las devoluciones de cámara (clave 2002) van al reporte por sucursal promotora y, si el importe no excede el saldo disponible, también al consolidado; las demás claves van al reporte de ventanilla. Después lee el archivo de intentos de pago, valida su header contra el CSI y la fecha base, y emite un resumen por situación del cheque, nivel de seguridad lógica, código CHVV y causa CHECKBOLT, más un detalle de los intentos con error CHVV. Para cada nodo sin devoluciones genera reportes vacíos.",
+  "arquetipo": "A2",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s500.cheques.devoluciones",
+  "secciones": [
+    {
+      "titulo": "Registros de entrada y asignación de nodo",
+      "origen": {
+        "archivo": "S500_SOURCE_P125.txt",
+        "contexto": "WORKING-STORAGE · 80009000-PRIMER-SORT SECTION"
+      },
+      "java": {
+        "archivo": "IntentoPago.java · AsignadorNodo.java · P125Properties.java",
+        "contexto": "record · ItemProcessor · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Intento de pago de 120 bytes con códigos de seguridad",
+          "linea_ini": 385,
+          "linea_fin": 415,
+          "origen_codigo": " 01  WKS-REG-I02-HEADER.\n     02 WKS-DATOS-HEADER.\n        04 WKS-I02-R00-TIPO    PIC 9(02).\n        04 WKS-I02-R00-CSI     PIC 9(02).\n        04 WKS-I02-R00-FECH    PIC 9(08).\n     02 FILLER                 PIC X(78).\n 01  WKS-REG-I02-DATOS.\n     02 WKS-I02-TPO-REG         PIC 9(02).\n     02 WKS-I02-SUCPROM         PIC 9(04).\n     02 WKS-I02-CONTRATO        PIC 9(12).\n     02 WKS-I02-CHEQUERA        PIC 9(16).\n     02 RD-WKS-I02-CHEQUERA     REDEFINES WKS-I02-CHEQUERA.\n        04 WKS-I02-NUMPREF      PIC 9(04).\n        04 FILLER               PIC 9(05).\n        04 WKS-I02-NUMCTA       PIC 9(07).\n     02 WKS-I02-MONEDA          PIC 9(04).\n     02 WKS-I02-SEGLOG          PIC 9(02).\n     02 WKS-I02-SUCTRAN         PIC 9(04).\n     02 WKS-I02-CAJTRAN         PIC 9(02).\n     02 WKS-I02-NUMCHEQ         PIC 9(12).\n     02 WKS-I02-STAINI          PIC 9(02).\n     02 WKS-I02-STAFIN          PIC 9(02).\n     02 WKS-I02-IMPORTE         PIC 9(12)V99.\n     02 WKS-I02-NUMNOMI         PIC 9(08).\n     02 WKS-I02-CVEERR          PIC 9(04).\n     02 WKS-I02-CODCHVV         PIC 9(02).\n        88 WKS-88-I02-CODCHVV      VALUE 1, 2, 3.\n     02 WKS-I02-CAUCHBOL        PIC 9(02).\n     02 WKS-I02-PROTPRECAM      PIC 9(02).\n     02 FILLER                  PIC X(26).",
+          "java_codigo": "/** WKS-REG-I02-HEADER: tipo 1, CSI y fecha base del archivo de intentos de pago. */\npublic record HeaderIntentos(int tipo, int csi, LocalDate fechaBase) {}   // 9(08) AAAAMMDD\n\n/** WKS-REG-I02-DATOS. */\npublic record IntentoPago(\n        int tipoRegistro,\n        int sucursalPromotora,\n        String contrato,               // 9(12) como String: conserva ceros\n        String chequera,               // 9(16): prefijo 9(04) + 5 de relleno + cuenta 9(07)\n        int moneda,\n        int seguridadLogica,           // WKS-I02-SEGLOG 00 a 04\n        int sucursalOpera, int cajaOpera,\n        long numeroCheque,\n        int situacionInicial,          // índice 0..9 a WKS-TABLA-STATUS\n        int situacionFinal,\n        BigDecimal importe,            // 9(12)V99 -> escala 2\n        long nominaOperador,\n        int claveError,\n        int codigoChvv,                // 88 WKS-88-I02-CODCHVV 1, 2, 3 = error\n        int causaCheckbolt,\n        int codigoPrecamara) {\n\n    public String prefijo() { return chequera.substring(0, 4); }    // WKS-I02-NUMPREF\n    public String cuenta()  { return chequera.substring(9, 16); }   // WKS-I02-NUMCTA\n    public boolean conErrorChvv() { return codigoChvv >= 1 && codigoChvv <= 3; }\n}",
+          "racional": "El intento de pago trae, junto al cheque y su importe, la situación inicial y final del cheque y tres códigos de control: el nivel de seguridad lógica, el código CHVV y la causa CHECKBOLT con su código precámara. Se modela como <code>record</code>; la chequera <code>REDEFINES</code> se resuelve con métodos de acceso por posición y se guarda como <code>String</code> de 16 dígitos. El importe <code>9(12)V99</code> pasa a <code>BigDecimal</code> de escala 2. La condición 88 de error CHVV se vuelve un método con nombre.",
+          "reglas": [
+            "RN-S500-747",
+            "RN-S500-748"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Nodo de impresión forzado según el CSI de proceso",
+          "linea_ini": 2395,
+          "linea_fin": 2425,
+          "origen_codigo": " 80009200-LEE-DEVOLUCION.\n     READ I01-DEVOLUCION INTO S01-R00-REGSORT AT END\n          MOVE 1 TO W77-EOF-I00.\n     IF W77-EOF-I00 = 0\n        IF S01-R00-TPOREG = 1 OR 9\n           RELEASE S01-R00-REGSORT\n        ELSE\n            PERFORM  80009250-METE-NODOS\n            RELEASE  S01-R00-REGSORT.\n 80009250-METE-NODOS.\n     IF S01-R00-SUC-PROM = WKS-S080-NUMSUC\n        NEXT SENTENCE\n     ELSE\n        MOVE S01-R00-SUC-PROM     TO WKS-S080-NUMSUC\n        PERFORM 42000080-DATOS-S080.\n     MOVE WKS-S080-NODO-IMP       TO S01-R00-NODO.\n     IF W77-MY-CSI = 4\n        IF S01-R00-NODO = 01 OR 04 OR 06 OR 07 OR 61\n           NEXT SENTENCE\n        ELSE\n           MOVE 04                 TO S01-R00-NODO\n     ELSE\n     IF S01-R00-NODO = 09 OR 10\n        NEXT SENTENCE\n        ELSE\n           MOVE 10                 TO S01-R00-NODO.",
+          "java_codigo": "# application.yml\np125:\n  nodos-por-csi:                    # hoy compilado en 80009250-METE-NODOS\n    \"4\":  { validos: [1, 4, 6, 7, 61], default: 4 }    # Monterrey\n    \"10\": { validos: [9, 10],          default: 10 }   # Valle de México y cualquier otro CSI\n\n// ---------------------------------------------------------------------------\n@Component\n@StepScope\n@RequiredArgsConstructor\nclass AsignadorNodo implements ItemProcessor<Devolucion, Devolucion> {\n\n    private final CatalogoSucursales s080;     // 42000080-DATOS-S080 (S080 catálogo de sucursales)\n    private final P125Properties props;\n    @Value(\"#{jobExecutionContext['csi']}\") private int miCsi;\n\n    @Override\n    public Devolucion process(Devolucion d) {\n        if (d.tipoRegistro() == 1 || d.tipoRegistro() == 9) {\n            return d;                          // header y trailer pasan sin nodo\n        }\n        int nodo = s080.nodoImpresion(d.sucursalPromotora());   // cacheado por sucursal\n        var regla = props.nodosPara(miCsi == 4 ? 4 : 10);\n        return d.conNodo(regla.validos().contains(nodo) ? nodo : regla.porDefecto());\n    }\n}",
+          "racional": "Durante la entrada al SORT, cada detalle recibe el nodo de impresión de su sucursal promotora consultado en el catálogo del S080; la consulta solo se repite cuando cambia la sucursal. Si el nodo no pertenece al CSI que procesa, se fuerza al nodo principal (04 en Monterrey, 10 en cualquier otro caso). Los nodos válidos están compilados, igual que las listas <code>WKS-NODOS-VDM</code> y <code>WKS-NODOS-MTY</code> (líneas 961-967) que se usan para los reportes vacíos; se mueven a <code>application.yml</code>.",
+          "reglas": [],
+          "riesgo": "Una devolución de una sucursal cuyo nodo no está en la lista se reporta en el nodo principal sin aviso. La rama ELSE aplica las reglas de Valle de México a cualquier CSI distinto de 4."
+        }
+      ]
+    },
+    {
+      "titulo": "Clasificación de devoluciones por sucursal, ventanilla y consolidado",
+      "origen": {
+        "archivo": "S500_SOURCE_P125.txt",
+        "contexto": "50001000-PRIMER-SORT · 50001100-PROCESO-DEVOL · 50001200-PRIMER-DETALLE · 50001310"
+      },
+      "java": {
+        "archivo": "DevolucionesJobConfig.java · ClasificadorDevolucion.java",
+        "contexto": "Spring Batch Step · ClassifierCompositeItemWriter"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "SORT con INPUT PROCEDURE y lectura hasta el trailer",
+          "linea_ini": 1517,
+          "linea_fin": 1550,
+          "origen_codigo": "     SORT S01-SORTDEVOL ON ASCENDING KEY S01-R00-TPOREG\n                                         S01-R00-NODO\n                                         S01-R00-SUC-PROM\n                                         S01-R00-MONEDA\n                                         S01-R00-NUM-CONTRATO\n                                         S01-R00-NUM-MEDACC\n                                         S01-R00-FEC-DEVOL\n                                         S01-R00-HORA-DEV\n                                         S01-R00-NUM-CHEQUE\n          INPUT PROCEDURE 80009000-PRIMER-SORT\n          GIVING  I01-DEVOLUCION  SAVE\n                  MEMORY SIZE W77-TOT-MEMSIZE  WORDS\n                  DISK   SIZE W77-TOT-DISKSIZE WORDS.\n 50001100-PROCESO-DEVOL.\n     READ I01-DEVOLUCION INTO WKS-I00-R01-DEVOL AT END\n          MOVE 1 TO W77-EOF-I00.\n     IF WKS-I00-R01-TPOREG = 9\n        MOVE 1 TO W77-EOF-I00.\n     IF W77-EOF-I00 = 0\n        PERFORM 50001200-PRIMER-DETALLE\n        ADD 1   TO W77-TOT-LEIDOS\n     ELSE\n     IF W77-TOT-LEIDOS = 0\n        MOVE W77-MY-CSI   TO WKS-NODO-ANT\n        IF W77-TPO-PROCESO = 1\n           PERFORM 20008000-OPEN-REP-01.\n     IF W77-EOF-I00 = 1\n        PERFORM 50002000-TOTAL-SUC-01\n        PERFORM 50002500-TOTAL-NODO-01.",
+          "java_codigo": "@Bean\nStep clasificaDevoluciones(JobRepository repo, PlatformTransactionManager tx,\n                           JdbcCursorItemReader<Devolucion> devolucionesOrdenadas,\n                           ClasificadorDevolucion clasificador,\n                           ClassifierCompositeItemWriter<Devolucion> reportes) {\n    return new StepBuilder(\"clasificaDevoluciones\", repo)\n            .<Devolucion, Devolucion>chunk(500, tx)\n            .reader(devolucionesOrdenadas)\n            .processor(clasificador)\n            .writer(reportes)\n            .listener(new CortesDeControlListener())   // 50002000 / 50002500 al cambiar sucursal o nodo\n            .build();\n}\n\n/** Llave del SORT S01-SORTDEVOL; la carga previa (AsignadorNodo) llena una tabla de trabajo. */\n@Bean\nJdbcCursorItemReader<Devolucion> devolucionesOrdenadas(DataSource ds) {\n    return new JdbcCursorItemReaderBuilder<Devolucion>()\n            .name(\"devolucionesOrdenadas\")\n            .dataSource(ds)\n            .sql(\"\"\"\n                 SELECT * FROM p125_devolucion_trabajo\n                  WHERE tipo_registro <> 9          -- el trailer termina la lectura\n                  ORDER BY tipo_registro, nodo, suc_prom, moneda, num_contrato,\n                           num_medacc, fec_devol, hora_dev, num_cheque\n                 \"\"\")\n            .rowMapper(new DevolucionRowMapper())\n            .build();\n}",
+          "racional": "El programa ordena el archivo de devoluciones sobre sí mismo (<code>GIVING I01-DEVOLUCION SAVE</code>) usando una <code>INPUT PROCEDURE</code> que asigna el nodo antes de liberar cada registro. En Spring Batch el paso previo escribe a una tabla de trabajo y este step la lee con <code>ORDER BY</code> en el mismo orden de llaves. La lectura termina al llegar al fin de archivo o al trailer tipo 9; si no hubo detalles, el original abre los reportes del nodo propio para que salgan vacíos.",
+          "reglas": [
+            "RN-S500-746"
+          ],
+          "riesgo": "El SORT reemplaza el archivo de entrada original: si el paso falla después del SORT, la entrada ya no está en su orden de llegada."
+        },
+        {
+          "id": "s4",
+          "titulo": "Ruteo por clave de movimiento y saldo disponible",
+          "linea_ini": 1553,
+          "linea_fin": 1588,
+          "origen_codigo": " 50001200-PRIMER-DETALLE.\n     IF WKS-NODO-ANT = 0\n        MOVE WKS-I00-R01-NODO-PRM       TO WKS-NODO-ANT\n        MOVE WKS-I00-R01-SUC-PROMOTORA  TO WKS-SUC-ANT\n        MOVE WKS-I00-R01-MONEDA         TO WKS-MON-ANT\n        PERFORM 50006000-NOMBRE-SUC\n        PERFORM 20008000-OPEN-REP-01.\n     IF WKS-I00-R01-NODO-PRM  NOT = WKS-NODO-ANT\n        PERFORM 50002000-TOTAL-SUC-01\n        PERFORM 50002500-TOTAL-NODO-01\n        PERFORM 70008000-CLOSE-REP-01\n        MOVE WKS-I00-R01-NODO-PRM       TO WKS-NODO-ANT\n        MOVE WKS-I00-R01-SUC-PROMOTORA  TO WKS-SUC-ANT\n        MOVE WKS-I00-R01-MONEDA         TO WKS-MON-ANT\n        PERFORM 50006000-NOMBRE-SUC\n        PERFORM 20008000-OPEN-REP-01.\n     IF WKS-I00-R01-SUC-PROMOTORA NOT = WKS-SUC-ANT\n        PERFORM 50002000-TOTAL-SUC-01\n        MOVE WKS-I00-R01-SUC-PROMOTORA  TO WKS-SUC-ANT\n        MOVE WKS-I00-R01-MONEDA         TO WKS-MON-ANT\n        PERFORM 50006000-NOMBRE-SUC.\n     IF WKS-I00-R01-MONEDA NOT = WKS-MON-ANT\n        PERFORM 50002000-TOTAL-SUC-01\n        MOVE WKS-I00-R01-MONEDA    TO WKS-MON-ANT.\n     IF WKS-I00-R01-CVE-MOV = 2002\n        PERFORM 50001210-ARMA-DEVASUC\n        IF WKS-I00-R01-IMP-MOV > WKS-I00-R01-SDODISP\n           NEXT SENTENCE\n        ELSE\n           PERFORM 50001310-ARMA-DEVCONSDO\n     ELSE\n        PERFORM 50001230-ARMA-DEVENVENT.",
+          "java_codigo": "public enum ReporteDevolucion { DEVASUC, DEVCONSDO, DEVVENT }\n\n@Component\n@RequiredArgsConstructor\nclass ClasificadorDevolucion implements ItemProcessor<Devolucion, Devolucion> {\n\n    private final P125Properties props;   // clave-camara: 2002\n\n    /** 50001200-PRIMER-DETALLE: cámara va a sucursal promotora (y consolidado si alcanza el saldo). */\n    @Override\n    public Devolucion process(Devolucion d) {\n        if (d.claveMovimiento() == props.claveCamara()) {\n            d.agregaDestino(ReporteDevolucion.DEVASUC);\n            if (d.importe().compareTo(d.saldoDisponible()) <= 0) {\n                d.agregaDestino(ReporteDevolucion.DEVCONSDO);   // la devolución pudo cubrirse con saldo\n            }\n        } else {\n            d.agregaDestino(ReporteDevolucion.DEVVENT);         // cualquier otra clave: ventanilla\n        }\n        return d;\n    }\n}\n\n// Writer: ClassifierCompositeItemWriter con un JasperReports por destino (R01, R02, R03).",
+          "racional": "La decisión central del programa es la clave de movimiento: 2002 identifica la devolución de cámara, que se reporta en la sucursal promotora; cualquier otra clave se trata como devolución en ventanilla. Las devoluciones de cámara cuyo importe no excede el saldo disponible se repiten en el reporte consolidado, que informa cheques que se devolvieron teniendo fondos. La comparación usa <code>compareTo</code> sobre <code>BigDecimal</code> y el <code>ClassifierCompositeItemWriter</code> reparte cada devolución a sus reportes. Los cortes por nodo, sucursal y moneda que preceden al ruteo se implementan como listener de cortes de control.",
+          "reglas": [
+            "RN-S500-746"
+          ],
+          "riesgo": "La clave 2002 está compilada y cualquier clave distinta cae en ventanilla, incluidas claves nuevas o erróneas."
+        },
+        {
+          "id": "s5",
+          "titulo": "Totales del consolidado por moneda",
+          "linea_ini": 1703,
+          "linea_fin": 1713,
+          "origen_codigo": "     ADD 1                         TO WKS-TOTS-R03-NUM.\n     ADD WKS-I00-R01-IMP-MOV       TO WKS-TOTS-R03-IMP.\n     IF WKS-I00-R01-MONEDA = 1\n        ADD 1                      TO WKS-TOTN-R03-NUM-MN\n        ADD WKS-I00-R01-IMP-MOV    TO WKS-TOTN-R03-IMP-MN\n     ELSE\n        ADD 1                      TO WKS-TOTN-R03-NUM-DL\n        ADD WKS-I00-R01-IMP-MOV    TO WKS-TOTN-R03-IMP-DL.\n     PERFORM 60001220-ESC-DEVCONSDO.",
+          "java_codigo": "/** Totales del reporte consolidado: por sucursal y por nodo separados en MN y DL. */\npublic final class TotalesConsolidado {\n    private long numSucursal;  private BigDecimal impSucursal = BigDecimal.ZERO.setScale(2);\n    private long numMn;        private BigDecimal impMn       = BigDecimal.ZERO.setScale(2);\n    private long numDl;        private BigDecimal impDl       = BigDecimal.ZERO.setScale(2);\n\n    void suma(Devolucion d) {\n        numSucursal++;\n        impSucursal = impSucursal.add(d.importe());          // ADD ... TO WKS-TOTS-R03-IMP\n        if (d.moneda() == 1) {\n            numMn++;  impMn = impMn.add(d.importe());\n        } else {\n            numDl++;  impDl = impDl.add(d.importe());        // toda moneda distinta de 1\n        }\n    }\n}",
+          "racional": "Cada renglón del consolidado suma a los totales de la sucursal y a los del nodo separados por moneda. Las sumas entre importes de escala 2 son exactas en <code>BigDecimal</code>. Los acumuladores originales son <code>COMP</code> binarios; en Java no hay riesgo de desbordamiento con <code>BigDecimal</code>, pero conviene validar contra la capacidad del campo del reporte impreso.",
+          "reglas": [
+            "RN-S500-746"
+          ],
+          "riesgo": "Cualquier moneda distinta de 1 se acumula como dólares."
+        }
+      ]
+    },
+    {
+      "titulo": "Intentos de pago, CHVV y CHECKBOLT",
+      "origen": {
+        "archivo": "S500_SOURCE_P125.txt",
+        "contexto": "50007200-VALIDA-INTPAG · 50007510 · 50008000-CORTE-INTPAG · 50013300 · leyendas R04"
+      },
+      "java": {
+        "archivo": "IntentosPagoTasklet.java · ResumenIntentos.java · SeguridadCheque.java",
+        "contexto": "Tasklet · Collectors.groupingBy · enum"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Header del archivo de intentos contra CSI y fecha base",
+          "linea_ini": 1914,
+          "linea_fin": 1939,
+          "origen_codigo": " 50007200-VALIDA-INTPAG.\n     READ I02-INTPAGO INTO WKS-REG-I02-HEADER\n          AT END MOVE 1 TO W77-EOF-INTPAG.\n     IF W77-EOF-INTPAG   = 0\n    AND WKS-I02-R00-TIPO = 1\n        IF WKS-I02-R00-CSI     = W77-MY-CSI\n       AND WKS-I02-R00-FECH    = WKS-FEC-BASE-08\n           NEXT SENTENCE\n        ELSE\n           PERFORM 60004000-ESCREP-4 2 TIMES\n           STRING \"               \",\n                  \"ARCHIVO \", WKS-TIT-ARCH-I02,\n                  \" ERRONEO, HEADER \", WKS-DATOS-HEADER,\n                  \" (NO SE PROCESA) \"\n           DELIMITED BY SIZE INTO  WLI-R04-L08-DETALLE\n           PERFORM 60004000-ESCREP-4 2 TIMES\n            MOVE 1 TO W77-EOF-INTPAG\n     ELSE\n        PERFORM 60004000-ESCREP-4 2 TIMES\n        STRING \"               \",\n               \"ARCHIVO \", WKS-TIT-ARCH-I02,\n               \" SIN HEADER, (NO SE PROCESA) \"\n        DELIMITED BY SIZE INTO  WLI-R04-L08-DETALLE\n        PERFORM 60004000-ESCREP-4 2 TIMES\n        MOVE 1 TO W77-EOF-INTPAG.",
+          "java_codigo": "/** 50007200-VALIDA-INTPAG: si el header no corresponde, el archivo no se procesa. */\nOptional<String> validaHeader(Optional<HeaderIntentos> h, int miCsi, LocalDate fechaBase,\n                              String titulo) {\n    if (h.isEmpty() || h.get().tipo() != 1) {\n        return Optional.of(\"ARCHIVO %s SIN HEADER, (NO SE PROCESA)\".formatted(titulo));\n    }\n    if (h.get().csi() != miCsi || !h.get().fechaBase().equals(fechaBase)) {\n        return Optional.of(\"ARCHIVO %s ERRONEO, HEADER %s (NO SE PROCESA)\"\n                .formatted(titulo, h.get()));\n    }\n    return Optional.empty();   // header correcto: se procesan los detalles\n}\n// El mensaje se imprime en el reporte 004INTENTOPAGO y el job continúa (no aborta).",
+          "racional": "El archivo de intentos de pago debe traer un header tipo 1 con el CSI que procesa y la fecha base del día. Si falta o no coincide, el programa escribe la causa en el propio reporte y marca fin de archivo, sin abortar el job. En Java la validación devuelve el mensaje opcional y el tasklet decide escribirlo en el reporte y saltar los detalles, conservando ese comportamiento.",
+          "reglas": [],
+          "riesgo": "El segundo recorrido del archivo para el reporte CHVV (50013250-LEEHEADER-INTPAG, línea 2096) lee el header pero no lo valida: un archivo rechazado en el resumen sí alimenta el detalle de errores CHVV."
+        },
+        {
+          "id": "s7",
+          "titulo": "Resumen por llave de contingencia con corte de control",
+          "linea_ini": 1959,
+          "linea_fin": 1998,
+          "origen_codigo": " 50007510-COMPARA-LLAVES.\n     IF WKS-CONT-LLAVE-B = 0\n        MOVE WKS-CONT-LLAVE-A TO WKS-CONT-LLAVE-B.\n     IF WKS-CONT-LLAVE-A NOT = WKS-CONT-LLAVE-B\n        PERFORM 50008000-CORTE-INTPAG.\n     PERFORM 50007520-SUMA-INTPAG.\n 50007520-SUMA-INTPAG.\n     ADD 1                  TO WKS-TOT-CONT-NUM\n                               WKS-GRL-CONT-NUM.\n     ADD WKS-I02-IMPORTE    TO WKS-TOT-CONT-IMP\n                               WKS-GRL-CONT-IMP.\n 50008000-CORTE-INTPAG.\n     MOVE WKS-TOT-CONT-NUM            TO WLI-R04-L08-NUMCHQS.\n     MOVE WKS-TOT-CONT-IMP            TO WLI-R04-L08-IMPORTE.\n     MOVE WKS-L-SEGLOG-B              TO WLI-R04-L08-SEGLOG.\n     MOVE WKS-L-CODCVV-B              TO WLI-R04-L08-CODCHVV.\n     MOVE WKS-L-CAUCHBOL-B            TO WLI-R04-L08-CAUCHBOL.\n     MOVE WKS-L-PROTPRECAM-B          TO WLI-R04-L08-CODPRECAM.\n     COMPUTE W77-IND-SIT = WKS-L-SITINI-B + 1.\n     IF W77-IND-SIT  > 0 AND < 11\n        MOVE WKS-TB-STATUS(W77-IND-SIT) TO WLI-R04-L08-SITINI\n     ELSE\n        MOVE WKS-L-SITINI-B             TO WLI-R04-L08-SITININ.\n     COMPUTE W77-IND-SIT = WKS-L-SITFIN-B + 1.\n     IF W77-IND-SIT  > 0 AND < 11\n        MOVE WKS-TB-STATUS(W77-IND-SIT) TO WLI-R04-L08-SITFIN\n     ELSE\n        MOVE WKS-L-SITFIN-B             TO WLI-R04-L08-SITFINN.",
+          "java_codigo": "/** WKS-CONT-LLAVE: moneda + situación inicial + final + CHVV + seguridad lógica + CHECKBOLT + precámara. */\nrecord LlaveContingencia(int moneda, int sitInicial, int sitFinal, int chvv,\n                         int seguridadLogica, int causaCheckbolt, int precamara) {\n    static LlaveContingencia de(IntentoPago i) {\n        return new LlaveContingencia(i.moneda(), i.situacionInicial(), i.situacionFinal(),\n                i.codigoChvv(), i.seguridadLogica(), i.causaCheckbolt(), i.codigoPrecamara());\n    }\n}\n\nrecord Renglon(LlaveContingencia llave, long cheques, BigDecimal importe) {\n\n    private static final List<String> SITUACIONES = List.of(            // WKS-TABLA-STATUS\n            \"INEXISTENTE\", \"LIBERADO\", \"PROTEGIDO\", \"CANCELADO\", \"PREVENIDO\",\n            \"CERTIFICADO\", \"PROT C/IMPORTE\", \"REVOCADO\", \"NO LIBERADO\", \"PAGADO\");\n\n    /** Fuera de 0..9 se imprime el número, igual que WLI-R04-L08-SITININ. */\n    static String situacion(int codigo) {\n        return (codigo >= 0 && codigo < SITUACIONES.size())\n                ? SITUACIONES.get(codigo) : String.valueOf(codigo);\n    }\n}\n\n/** El archivo llega ordenado por la llave; el corte equivale a agrupar en orden. */\nMap<LlaveContingencia, Renglon> resume(Stream<IntentoPago> ordenados) {\n    return ordenados.collect(Collectors.groupingBy(LlaveContingencia::de, LinkedHashMap::new,\n            Collectors.collectingAndThen(Collectors.toList(), l -> new Renglon(\n                    LlaveContingencia.de(l.get(0)), l.size(),\n                    l.stream().map(IntentoPago::importe).reduce(BigDecimal.ZERO, BigDecimal::add)))));\n}",
+          "racional": "Tras ordenar por moneda, situación inicial y final, CHVV, seguridad lógica, causa CHECKBOLT y código precámara, el programa cuenta cheques y suma importes mientras la llave de 16 dígitos no cambie, y al cambiar imprime un renglón con las situaciones traducidas por tabla. Ese corte de control equivale a un <code>groupingBy</code> que conserva el orden de llegada con <code>LinkedHashMap</code>. Al cambiar de moneda se imprime además el total general y la leyenda de códigos de seguridad.",
+          "reglas": [
+            "RN-S500-747",
+            "RN-S500-748"
+          ],
+          "riesgo": "El primer registro se detecta comparando la llave anterior contra cero; un registro cuya llave completa sea cero no dispararía el arranque correcto del corte."
+        },
+        {
+          "id": "s8",
+          "titulo": "Detalle de intentos con error CHVV",
+          "linea_ini": 2101,
+          "linea_fin": 2137,
+          "origen_codigo": " 50013300-LEE-INTPAG.\n     READ I02-INTPAGO INTO WKS-REG-I02-DATOS\n          AT END MOVE 1 TO W77-EOF-INTPAG.\n     IF W77-EOF-INTPAG = 0\n        IF WKS-88-I02-CODCHVV\n           PERFORM 50013350-GENERA-DETALLE\n        ELSE\n           NEXT SENTENCE\n     ELSE\n        PERFORM 50013400-CORTE-CHVV.\n 50013350-GENERA-DETALLE.\n     IF WKS-L-MONEDA-B = ZEROS\n        MOVE WKS-I02-MONEDA     TO  WKS-L-MONEDA-B.\n     IF WKS-I02-MONEDA NOT = WKS-L-MONEDA-B\n        PERFORM 50013400-CORTE-CHVV\n        MOVE WKS-I02-MONEDA     TO  WKS-L-MONEDA-B\n        PERFORM 60006100-ENCA-REP-5.\n     ADD  1                      TO WKS-TOTS-R05-NUM.\n     ADD  WKS-I02-IMPORTE        TO WKS-TOTS-R05-IMP.\n     MOVE WKS-I02-SUCTRAN        TO WLI-R05-L08-SUCOPE\n     MOVE WKS-I02-CAJTRAN        TO WLI-R05-L08-CAJAOPE\n     MOVE WKS-I02-NUMNOMI        TO WLI-R05-L08-NOMIOPE\n     MOVE WKS-I02-SUCPROM        TO WLI-R05-L08-SUCPROM\n     MOVE WKS-I02-CONTRATO       TO WLI-R05-L08-NUMCTO\n     MOVE WKS-I02-NUMPREF        TO WLI-R05-L08-SUCMDA\n     MOVE WKS-I02-NUMCTA         TO WLI-R05-L08-CTAMDA\n     MOVE WKS-I02-NUMCHEQ        TO WLI-R05-L08-NUMCHQ\n     MOVE WKS-I02-IMPORTE        TO WLI-R05-L08-IMPORTE\n     MOVE WKS-ERR-CHVV (WKS-I02-CODCHVV)\n       TO WLI-R05-L08-CODCHVV.",
+          "java_codigo": "/** WKS-TABLA-ERRCVV: leyenda por código 1, 2 y 3. */\npublic enum ErrorChvv {\n    SIN_CODIGO_EN_S127(\"SIN CODIGO CHVV EN S127\"),\n    SIN_CODIGO_EN_CHEQUE(\"SIN CODIGO CHVV EN CHEQUE\"),\n    CODIGOS_DIFERENTES(\"CODIGOS CHVV DIFERENTES\");\n    final String leyenda;\n    ErrorChvv(String l) { leyenda = l; }\n    static ErrorChvv de(int codigo) { return values()[codigo - 1]; }   // solo se invoca con 1..3\n}\n\n/** 50013300 / 50013350: solo los intentos con CHVV 1, 2 o 3; corte y total por moneda. */\nvoid detalleChvv(Stream<IntentoPago> porMonedaYChequera, ReporteChvv r05) {\n    porMonedaYChequera\n        .filter(IntentoPago::conErrorChvv)\n        .collect(Collectors.groupingBy(IntentoPago::moneda, TreeMap::new, Collectors.toList()))\n        .forEach((moneda, lista) -> {\n            r05.encabezado(moneda);\n            lista.forEach(i -> r05.renglon(i.sucursalOpera(), i.cajaOpera(), i.nominaOperador(),\n                    i.sucursalPromotora(), i.contrato(), i.prefijo(), i.cuenta(),\n                    i.numeroCheque(), i.importe(), ErrorChvv.de(i.codigoChvv()).leyenda));\n            r05.total(lista.size(), lista.stream().map(IntentoPago::importe)\n                    .reduce(BigDecimal.ZERO, BigDecimal::add));\n        });\n}",
+          "racional": "Para el reporte 005 el archivo se vuelve a ordenar por moneda y chequera, y solo se listan los intentos cuyo código CHVV es 1, 2 o 3, con la leyenda del error, el operador que lo intentó y el cheque. El índice de la tabla de leyendas es el propio código, protegido por la condición 88; en Java el enum se indexa igual y el filtro previo garantiza el rango.",
+          "reglas": [
+            "RN-S500-747"
+          ]
+        },
+        {
+          "id": "s9",
+          "titulo": "Leyendas de seguridad lógica y CHECKBOLT",
+          "linea_ini": 782,
+          "linea_fin": 855,
+          "origen_codigo": " 01 WLI-R04-L80-FIN.\n     02 FILLER    PIC X(40)  VALUE\n     \" SEGURIDAD LOGICA :                     \".\n     02 FILLER    PIC X(40)  VALUE \" \".\n     02 FILLER    PIC X(40)  VALUE\n     \"CODIGO CHVV :                           \".\n 01 WLI-R04-L81-FIN.\n     02 FILLER    PIC X(40)  VALUE\n     \" 00 VALIDA CHEQUES PREVENIDOS           \".\n     02 FILLER    PIC X(40)  VALUE \" \".\n     02 FILLER    PIC X(40)  VALUE\n     \"VALOR DIFERENTE DE 1,2,3,4 DESCONOCIDO  \".\n 01 WLI-R04-L82-FIN.\n     02 FILLER    PIC X(40)  VALUE\n     \" 01 VALIDA CHEQUES PREVENIDOS Y PAGADOS \".\n     02 FILLER    PIC X(40)  VALUE \" \".\n     02 FILLER    PIC X(40)  VALUE\n     \"01 SIN CODIGO CHVV EN S127              \".\n 01 WLI-R04-L83-FIN.\n     02 FILLER    PIC X(40)  VALUE\n     \" 02 VALIDA CHEQUES PREVENIDOS, PAGADOS  \".\n     02 FILLER    PIC X(040) VALUE\n     \"E INEXISTENTES                          \".\n     02 FILLER    PIC X(040) VALUE\n     \"02 SIN CODIGO CHVV EN CHEQUE            \".\n 01 WLI-R04-L84-FIN.\n     02 FILLER    PIC X(040) VALUE\n     \" 03 VALIDA CHEQUES  PREVENIDOS, PAGADOS,\".\n     02 FILLER    PIC X(040) VALUE\n     \" INEXISTENTES Y NO LIBERADOS            \".\n     02 FILLER    PIC X(040) VALUE\n     \"03 CODIGOS CHVV DIFERENTES              \".\n 01 WLI-R04-L85-FIN.\n     02 FILLER    PIC X(40) VALUE\n     \" 04 VALIDA  CHEQUES   PREVENIDOS   E    \".\n     02 FILLER    PIC X(40) VALUE\n     \"INEXISTENTES                            \".\n 01 WLI-R04-L86-FIN.\n     02 FILLER    PIC X(40)  VALUE\n     \" CAUSA CHECKBOLT :                      \".\n     02 FILLER    PIC X(40)  VALUE \" \".\n     02 FILLER    PIC X(40)  VALUE\n     \"CODIGO PRECAMARA:                       \".\n 01 WLI-R04-L87-FIN.\n     02 FILLER    PIC X(40)  VALUE\n     \" VALOR DIFERENTE DE 1,2,3,4 DESCONOCIDO \".\n     02 FILLER    PIC X(40)  VALUE \" \".\n     02 FILLER    PIC X(40)  VALUE\n     \"01 INTENTO DE PAGO DE CHEQUE PROTEGIDO  \".\n     02 FILLER    PIC X(12)  VALUE\n     \" P/PRECAMARA\".\n 01 WLI-R04-L88-FIN.\n     02 FILLER    PIC X(040) VALUE\n     \" 01 CHECKBOLT INCORRECTO                \".\n 01 WLI-R04-L89-FIN.\n     02 FILLER    PIC X(040) VALUE\n     \" 02 CHECKBOLT NO CAPTURADO              \".\n 01 WLI-R04-L90-FIN.\n     02 FILLER    PIC X(040) VALUE\n     \" 03 CHECKBOLT INEXISTENTE               \".\n 01 WLI-R04-L91-FIN.\n     02 FILLER    PIC X(040) VALUE\n     \" 04 CHECKBOLT NO DISPONIBLE             \".",
+          "java_codigo": "/** Leyendas que P125 imprime al pie del reporte 004 (60004120-ESCLIN-SEG). */\npublic enum SeguridadLogica {\n    NIVEL_00(\"VALIDA CHEQUES PREVENIDOS\"),\n    NIVEL_01(\"VALIDA CHEQUES PREVENIDOS Y PAGADOS\"),\n    NIVEL_02(\"VALIDA CHEQUES PREVENIDOS, PAGADOS E INEXISTENTES\"),\n    NIVEL_03(\"VALIDA CHEQUES PREVENIDOS, PAGADOS, INEXISTENTES Y NO LIBERADOS\"),\n    NIVEL_04(\"VALIDA CHEQUES PREVENIDOS E INEXISTENTES\");\n    final String leyenda;\n    SeguridadLogica(String l) { leyenda = l; }\n}\n\npublic enum CausaCheckbolt {\n    INCORRECTO(1), NO_CAPTURADO(2), INEXISTENTE(3), NO_DISPONIBLE(4);\n    final int codigo;\n    CausaCheckbolt(int c) { codigo = c; }\n    static Optional<CausaCheckbolt> de(int c) {          // fuera de 1..4: DESCONOCIDO\n        return Arrays.stream(values()).filter(v -> v.codigo == c).findFirst();\n    }\n}\n\n/** Código precámara 01: intento de pago de cheque protegido para precámara. */\npublic static final int PRECAMARA_CHEQUE_PROTEGIDO = 1;",
+          "racional": "Los significados de la seguridad lógica (niveles 00 a 04), de las causas CHECKBOLT (01 a 04) y del código precámara solo existen en P125 como texto de leyenda que se imprime al pie del resumen cuando hay espacio en la hoja (línea 2294). En Java se vuelven <code>enum</code> para que el catálogo sea consultable por otros componentes y deje de depender de un renglón impreso.",
+          "reglas": [
+            "RN-S500-747",
+            "RN-S500-748"
+          ],
+          "riesgo": "P125 no aplica estas reglas; las agrupa y las describe. La validación del CHVV y del CHECKBOLT ocurre en el sistema que genera el archivo de intentos de pago."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "El detalle CHVV no respeta la validación de header",
+      "detalle": "50007200-VALIDA-INTPAG descarta un archivo con header erróneo para el resumen 004, pero 50013250-LEEHEADER-INTPAG (línea 2096) solo lee el header y el reporte 005 procesa los detalles de todos modos."
+    },
+    {
+      "titulo": "Nodos y claves compilados",
+      "detalle": "Los nodos válidos por CSI (líneas 2416-2425), las listas de nodos para reportes vacíos (líneas 961-967), la clave de cámara 2002 y el prefijo S500/LIST/P125/ están en el fuente. Se trasladan a application.yml."
+    },
+    {
+      "titulo": "Reportes vacíos para el nodo 00",
+      "detalle": "WKS-NODOS-VDM vale 1009000000, es decir nodos 10, 09, 00, 00 y 00. 70006200-GENERA-VACIO usa la posición del reporte como índice de nodo, de modo que en Valle de México puede generar reportes vacíos para el nodo 00."
+    },
+    {
+      "titulo": "Moneda binaria",
+      "detalle": "Los acumuladores separan moneda 1 contra cualquier otra; una moneda distinta de pesos y dólares se sumaría como dólares."
+    },
+    {
+      "titulo": "Archivo ordenado sobre sí mismo",
+      "detalle": "Los SORT de devoluciones e intentos usan GIVING sobre el mismo archivo de entrada con SAVE, por lo que el orden original se pierde y un reinicio a mitad del paso trabaja sobre el archivo ya ordenado."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-747 dice que un CHVV fuera de {1,2,3,4} se marca como DESCONOCIDO y que la escala determina contra qué estados se contrasta el cheque. En P125 esa escala corresponde a WKS-I02-SEGLOG y solo aparece como leyenda impresa (líneas 789-823); el código CHVV con error es 1, 2 o 3 (línea 412). Revisar la redacción de la regla.",
+    "RN-S500-748 describe la clasificación CHECKBOLT; en P125 los códigos solo se agrupan y se describen en la leyenda (líneas 825-855). Confirmar qué sistema la aplica.",
+    "Confirmar si las devoluciones con clave distinta de 2002 son siempre de ventanilla o si existen otras claves de cámara.",
+    "Confirmar el uso de los nodos 00 en WKS-NODOS-VDM para los reportes vacíos.",
+    "Los copybooks S500/INC/WOR/25MTP002 y S500/INC/PRO/25MTP002 (lectura de B02CONTROL y LOCSUP) no vienen en el fuente; no se tradujo el cálculo de la fecha base."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-746",
+    "RN-S500-747",
+    "RN-S500-748"
+  ]
+}

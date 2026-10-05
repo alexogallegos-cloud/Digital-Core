@@ -1,0 +1,145 @@
+{
+  "slug": "S500_L070",
+  "sistema": "S500",
+  "programa": "L070",
+  "nombre": "Servicio de validación de clonación de medio de acceso",
+  "funcion": "Librería ALGOL de S500 que los programas en línea y batch invocan para saber si un medio de acceso tiene registro de clonación en la base de tarjetas y obtener sus datos.",
+  "resumen": "Recibe en un buffer empacado el sistema que llama, el tipo de llave, el tipo y número de medio de acceso, y opcionalmente producto e instrumento. Valida la entrada, busca el medio en S500B12PCLONNING con una llave que depende del tipo de medio y, si lo encuentra, devuelve sucursal, producto, instrumento, moneda, centro de cómputo, cliente, estatus y fecha de alta. Para el sistema 127 rechaza los medios con estatus 1. Devuelve un código numérico de resultado entre 0 y 10.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.tarjetas.clonacion",
+  "secciones": [
+    {
+      "titulo": "Interfaz de la librería",
+      "origen": {
+        "archivo": "S500_SOURCE_L070.txt",
+        "contexto": "DEFINE de entrada y salida · S500L070_VALIDA_CLONING · EXPORT"
+      },
+      "java": {
+        "archivo": "ConsultaClonacion.java · MedioClonado.java · ValidaClonacionService.java",
+        "contexto": "record · @Service"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Parámetros de entrada y salida como dígitos de 4 bits",
+          "linea_ini": 96,
+          "linea_fin": 127,
+          "origen_codigo": "    DEFINE                                                              00096000\n                                                                        00097000\n       IDF_I_SISTEMA  = INTEGER ( POINTER (A_I_VACLO , 4 )      , 4  ) #00098000\n      ,IDF_I_TIPO_LLA = INTEGER ( POINTER (A_I_VACLO , 4 ) + 4  , 1  ) #00099000\n      ,IDF_I_TIPO_MDA = INTEGER ( POINTER (A_I_VACLO , 4 ) + 5  , 1  ) #00100000\n      ,DDF_I_MDA      = DOUBLE  ( POINTER (A_I_VACLO , 4 ) + 6  , 12 ) #00101000\n      ,IDF_I_PRODUCTO = INTEGER ( POINTER (A_I_VACLO , 4 ) + 18 , 4  ) #00102000\n      ,IDF_I_INSTRUME = INTEGER ( POINTER (A_I_VACLO , 4 ) + 22 , 4  ) #00103000\n      ;                                                                 00104000\n    DEFINE                                                              00111000\n                                                                        00112000\n       DF_O_SISTEMA     =  POINTER ( A_O_VACLO , 4 )              #     00113000\n      ,DF_O_TIPO_LLA    =  POINTER ( A_O_VACLO , 4 ) + 4          #     00114000\n      ,DF_O_TIPO_MDA    =  POINTER ( A_O_VACLO , 4 ) + 5          #     00115000\n      ,DF_O_MDA         =  POINTER ( A_O_VACLO , 4 ) + 6          #     00116000\n      ,DF_O_SUC_PROM    =  POINTER ( A_O_VACLO , 4 ) + 18         #     00117000\n      ,DF_O_PROD        =  POINTER ( A_O_VACLO , 4 ) + 22         #     00118000\n      ,DF_O_INST        =  POINTER ( A_O_VACLO , 4 ) + 26         #     00119000\n      ,DF_O_MONE        =  POINTER ( A_O_VACLO , 4 ) + 30         #     00120000\n      ,DF_O_FILLER      =  POINTER ( A_O_VACLO , 4 ) + 32         #     00121000\n      ,DF_O_CSI         =  POINTER ( A_O_VACLO , 4 ) + 33         #     00122000\n      ,DF_O_SUC_REF     =  POINTER ( A_O_VACLO , 4 ) + 35         #     00123000\n      ,DF_O_CLIENTE     =  POINTER ( A_O_VACLO , 4 ) + 39         #     00124000\n      ,DF_O_STATUS      =  POINTER ( A_O_VACLO , 4 ) + 51         #     00124500\n      ,DF_O_FEC_ALTA    =  POINTER ( A_O_VACLO , 4 ) + 53         #     00124600\n      ;                                                                 00125000",
+          "java_codigo": "/** Entrada de S500L070_VALIDA_CLONING: 26 dígitos empacados (POINTER(A_I_VACLO,4)). */\npublic record ConsultaClonacion(\n        int sistema,          // dígitos 0-3   IDF_I_SISTEMA\n        int tipoLlave,        // dígito  4     IDF_I_TIPO_LLA (solo 1 es válido)\n        int tipoMedio,        // dígito  5     IDF_I_TIPO_MDA (0 o 1)\n        String medioAcceso,   // dígitos 6-17  DDF_I_MDA, 12 dígitos: String para conservar ceros\n        int producto,         // dígitos 18-21\n        int instrumento) {    // dígitos 22-25\n\n    public static ConsultaClonacion desdeBuffer(byte[] ebcdic) {\n        Nibbles n = Nibbles.of(ebcdic);\n        return new ConsultaClonacion(n.integer(0, 4), n.integer(4, 1), n.integer(5, 1),\n                                     n.digits(6, 12), n.integer(18, 4), n.integer(22, 4));\n    }\n}\n\n/** Salida: 61 dígitos empacados dentro de A_O_VACLO[0:6] (7 palabras de 12 dígitos). */\npublic record MedioClonado(\n        int sistema, int tipoLlave, int tipoMedio, String medioAcceso,\n        int sucPromotora,     // dígitos 18-21  B12P-SUC-PROM\n        int producto, int instrumento,\n        int moneda,           // dígitos 30-31\n        int csi,              // dígitos 33-34  (dígito 32 es FILLER)\n        int sucReferencia,    // dígitos 35-38  B12P-SUC-P-REF\n        String cliente,       // dígitos 39-50  B12P-NUM-CLIENTE\n        int status,           // dígitos 51-52\n        LocalDate fechaAlta) {// dígitos 53-60  B12P-FEC-ALTA (formato a confirmar)\n\n    public byte[] aBuffer(int tamanoCaller) {\n        Nibbles n = Nibbles.ceros(84);                  // REPLACE ... BY 4\"0\" FOR SIZE*12\n        n.put(0, sistema, 4).put(4, tipoLlave, 1).put(5, tipoMedio, 1).putDigits(6, medioAcceso, 12)\n         .put(18, sucPromotora, 4).put(22, producto, 4).put(26, instrumento, 4).put(30, moneda, 2)\n         .put(33, csi, 2).put(35, sucReferencia, 4).putDigits(39, cliente, 12).put(51, status, 2)\n         .put(53, Fechas.aNumero(fechaAlta), 8);\n        return n.toBytes(Math.min(tamanoCaller, 42));  // se copia lo menor entre 42 bytes y el buffer del llamador\n    }\n}",
+          "racional": "La librería no recibe registros con nombre: recibe y devuelve arreglos EBCDIC que interpreta con apuntadores de 4 bits, es decir, cada posición es un dígito decimal empacado como en <code>COMP</code> de MCP. Los <code>DEFINE</code> fijan los desplazamientos en dígitos. En Java cada interfaz se vuelve un <code>record</code> con nombres y tipos, y un adaptador <code>Nibbles</code> traduce desde y hacia el buffer cuando el llamador sigue siendo COBOL o ALGOL. El medio de acceso y el cliente tienen 12 dígitos y se modelan como <code>String</code>. La salida se arma en ceros antes de llenarse, igual que <code>INICIALIZA_VARS</code>.",
+          "reglas": []
+        },
+        {
+          "id": "s2",
+          "titulo": "Punto de entrada exportado y vida de la librería",
+          "linea_ini": 160,
+          "linea_fin": 351,
+          "origen_codigo": "  INTEGER PROCEDURE S500L070_VALIDA_CLONING( EA_I_VACLON, EA_O_VACLON); 00158000\n  EBCDIC ARRAY EA_I_VACLON, EA_O_VACLON [*];                            00159000\n    INICIALIZA_VARS;                                                    00317000\n                                                                        00318000\n    CASE I_TIPO_LLA := IDF_I_TIPO_LLA OF                                00319000\n    BEGIN                                                               00320000\n         1    : CONSULTA_CLONING;                                       00321000\n         ELSE : I_RESULT := 2;                                          00322000\n    END;                                                                00323000\n                                                                        00324000\n    IF I_RESULT = 0 THEN                                                00325000\n       IF SIZE(EA_O_VACLON) > SIZE(A_O_VACLO)*6 THEN                    00326000\n          REPLACE EA_O_VACLON BY POINTER(A_O_VACLO)                     00327000\n                                                FOR (SIZE(A_O_VACLO)*6) 00328000\n       ELSE                                                             00329000\n          REPLACE EA_O_VACLON BY POINTER(A_O_VACLO)                     00330000\n                                                FOR (SIZE(EA_O_VACLON));00331000\n                                                                        00332000\n    S500L070_VALIDA_CLONING := I_RESULT;                                00333000\n  EXPORT   S500L070_VALIDA_CLONING                                      00343000\n          ;                                                             00344000\n                                                                        00345000\n  PROC_INICIO;                                                          00346000\n  FREEZE(TEMPORARY);                                                    00347000\n  PROC_FIN;                                                             00348000",
+          "java_codigo": "/** S500L070: servicio de validación de clonación de medio de acceso. Misma interfaz que exportaba la librería. */\n@Service\n@RequiredArgsConstructor\npublic class ValidaClonacionService {\n\n    private final ClonacionRepository b12p;   // S500BD04TARJETAS.S500B12PCLONNING, solo lectura\n\n    /**\n     * S500L070_VALIDA_CLONING. Devuelve el código de resultado y, solo si es 0, el medio clonado.\n     * Antes el llamador recibía el código como valor de la función y los datos en EA_O_VACLON.\n     */\n    public ResultadoClonacion validaCloning(ConsultaClonacion in) {\n        if (in.tipoLlave() != 1) {\n            return ResultadoClonacion.error(CodigoClonacion.TIPO_LLAVE_INVALIDO);   // 2\n        }\n        return consulta(in);                                                       // CONSULTA_CLONING\n    }\n}\n\npublic record ResultadoClonacion(CodigoClonacion codigo, Optional<MedioClonado> medio) {\n    static ResultadoClonacion error(CodigoClonacion c) { return new ResultadoClonacion(c, Optional.empty()); }\n}\n\npublic enum CodigoClonacion {\n    OK(0), NO_EXISTE(1), TIPO_LLAVE_INVALIDO(2), TIPO_MEDIO_INVALIDO(3), MEDIO_EN_CERO(4),\n    PRODUCTO_EN_CERO(5), INSTRUMENTO_EN_CERO(6), BLOQUEADO_SISTEMA_127(7), ERROR_BASE(10);\n    public final int valor;\n    CodigoClonacion(int v) { valor = v; }\n}\n// FREEZE(TEMPORARY) y SHARING = PRIVATE: el bean singleton sin estado sustituye el congelado;\n// la procedure solo usa variables locales, así que compartir la instancia es seguro.",
+          "racional": "La librería exporta una sola función entera que recibe el buffer de entrada y el de salida. Primero limpia las variables y después, si el tipo de llave es 1, ejecuta la consulta; cualquier otro tipo devuelve 2. Solo cuando el resultado es 0 copia la salida al buffer del llamador, limitada al menor de los dos tamaños. En Java es un <code>@Service</code> con un método del mismo nombre que devuelve un <code>record</code> con el código como <code>enum</code> y el medio como <code>Optional</code>, de modo que el llamador no puede leer datos de una consulta fallida. El <code>FREEZE(TEMPORARY)</code> mantiene la librería viva mientras tenga usuarios; en Spring ese papel lo cumple el ciclo de vida del bean.",
+          "reglas": [],
+          "riesgo": "Cuando el resultado no es 0 la librería no toca EA_O_VACLON: el llamador conserva lo que tenía su buffer, posiblemente datos de una consulta anterior."
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de validación y búsqueda",
+      "origen": {
+        "archivo": "S500_SOURCE_L070.txt",
+        "contexto": "CONSULTA_CLONING · VALIDA_ENTRADA · BUSCA_B12 · VALIDA_STATUS"
+      },
+      "java": {
+        "archivo": "ValidaClonacionService.java · ClonacionRepository.java",
+        "contexto": "Spring Data JPA · @Transactional(readOnly)"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Validación de entrada por tipo de medio",
+          "linea_ini": 207,
+          "linea_fin": 234,
+          "origen_codigo": "      PROCEDURE VALIDA_ENTRADA;                                         00204000\n      BEGIN                                                             00205000\n                                                                        00206000\n        I_SISTEMA  := IDF_I_SISTEMA  ;                                  00207000\n        I_TIPO_MDA := IDF_I_TIPO_MDA ;                                  00208000\n        D_MDA      := DDF_I_MDA      ;                                  00209000\n        I_PRODUCTO := IDF_I_PRODUCTO ;                                  00210000\n        I_INSTRUME := IDF_I_INSTRUME ;                                  00211000\n                                                                        00212000\n        IF I_TIPO_MDA = 0 OR                                            00213000\n           I_TIPO_MDA = 1 THEN                                          00214000\n           IF D_MDA > 0 THEN                                            00215000\n              I_RESULT := 0                                             00216000\n           ELSE                                                         00217000\n              I_RESULT := 4                                             00218000\n        ELSE                                                            00219000\n           I_RESULT := 3;                                               00220000\n                                                                        00221000\n        IF I_TIPO_MDA = 0 AND I_RESULT = 0 THEN                         00222000\n           IF I_PRODUCTO > 0 THEN                                       00223000\n              IF I_INSTRUME > 0 THEN                                    00224000\n                 I_RESULT := 0                                          00225000\n              ELSE                                                      00226000\n                 I_RESULT := 6                                          00227000\n           ELSE                                                         00228000\n              I_RESULT := 5;                                            00229000\n                                                                        00230000\n      END;                                                              00231000",
+          "java_codigo": "/** VALIDA_ENTRADA: el orden de las validaciones define qué código ve el llamador. */\nprivate Optional<CodigoClonacion> validaEntrada(ConsultaClonacion in) {\n    if (in.tipoMedio() != 0 && in.tipoMedio() != 1) {\n        return Optional.of(CodigoClonacion.TIPO_MEDIO_INVALIDO);                 // 3\n    }\n    if (new BigInteger(in.medioAcceso()).signum() <= 0) {\n        return Optional.of(CodigoClonacion.MEDIO_EN_CERO);                       // 4\n    }\n    if (in.tipoMedio() == 0) {                                                   // la llave incluye producto\n        if (in.producto() <= 0)    return Optional.of(CodigoClonacion.PRODUCTO_EN_CERO);     // 5\n        if (in.instrumento() <= 0) return Optional.of(CodigoClonacion.INSTRUMENTO_EN_CERO);  // 6\n    }\n    return Optional.empty();\n}",
+          "racional": "La entrada se valida en un orden fijo: el tipo de medio debe ser 0 o 1, el medio de acceso debe ser mayor que cero y, solo para el tipo 0, producto e instrumento deben venir informados porque forman parte de la llave de búsqueda. El ALGOL encadena <code>IF</code> sobre una misma variable de resultado; en Java se expresa con retornos tempranos que producen exactamente el mismo código para cada combinación.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Búsqueda en S500B12PCLONNING con llave variable",
+          "linea_ini": 236,
+          "linea_fin": 266,
+          "origen_codigo": "      PROCEDURE BUSCA_B12;                                              00233000\n      BEGIN                                                             00234000\n                                                                        00235000\n                                                                        00236000\n                                                                        00237000\n        IF I_TIPO_MDA = 0 THEN                                          00238000\n           FIND B12PCSXMDACTO AT B12P-MED-ACCESO  = I_TIPO_MDA  AND     00239000\n                                 B12P-CONT-CUENT  = D_MDA       AND     00240000\n                                 B12P-PRODUCTO    = I_PRODUCTO  AND     00241000\n                                 B12P-INSTRUMENTO = I_INSTRUME :R_DMERR 00242000\n        ELSE                                                            00243000\n           FIND B12PCSXMDACTO AT B12P-MED-ACCESO  = I_TIPO_MDA AND      00244000\n                                 B12P-CONT-CUENT  = D_MDA      :R_DMERR;00245000\n                                                                        00246000\n        IF R_DMERR.DMERROR = NOTFOUND THEN                              00247000\n           I_RESULT := 1                                                00248000\n        ELSE                                                            00249000\n        IF BOOLEAN(R_DMERR) THEN                                        00250000\n           I_RESULT := 10                                               00251000\n        ELSE                                                            00252000\n           GET S500B12PCLONNING (                                       00253000\n                                 I_PRODUCTO := B12P-PRODUCTO            00254000\n                                ,I_INSTRUME := B12P-INSTRUMENTO         00255000\n                                ,I_CSI      := B12P-CSI                 00256000\n                                ,I_MONEDA   := B12P-MONEDA              00257000\n                                ,I_SUC_PROM := B12P-SUC-PROM            00258000\n                                ,I_ESTATUS  := B12P-STATUS              00259000\n                                ,I_FEC_ALTA := B12P-FEC-ALTA            00259500\n                                ,I_SUC_REF  := B12P-SUC-P-REF           00260000\n                                ,D_CLIENTE  := B12P-NUM-CLIENTE         00261000\n                                );                                      00262000",
+          "java_codigo": "public interface ClonacionRepository extends Repository<MedioClonadoEntity, Long> {\n\n    /** FIND B12PCSXMDACTO con tipo de medio 0: medio + producto + instrumento. */\n    Optional<MedioClonadoEntity> findFirstByMedAccesoAndContCuentAndProductoAndInstrumento(\n            int medAcceso, String contCuent, int producto, int instrumento);\n\n    /** FIND B12PCSXMDACTO con tipo de medio 1: solo el medio. */\n    Optional<MedioClonadoEntity> findFirstByMedAccesoAndContCuent(int medAcceso, String contCuent);\n}\n\n/** BUSCA_B12. */\n@Transactional(readOnly = true)                 // OPEN INQUIRY\nEither<CodigoClonacion, MedioClonadoEntity> buscaB12(ConsultaClonacion in) {\n    try {\n        Optional<MedioClonadoEntity> r = (in.tipoMedio() == 0)\n                ? b12p.findFirstByMedAccesoAndContCuentAndProductoAndInstrumento(\n                        0, in.medioAcceso(), in.producto(), in.instrumento())\n                : b12p.findFirstByMedAccesoAndContCuent(in.tipoMedio(), in.medioAcceso());\n        return r.<Either<CodigoClonacion, MedioClonadoEntity>>map(Either::right)\n                .orElse(Either.left(CodigoClonacion.NO_EXISTE));                // NOTFOUND -> 1\n    } catch (DataAccessException e) {\n        log.error(\"S500/L070/002: ERROR DMSII en B12PCSXMDACTO\", e);          // hoy no se registra\n        return Either.left(CodigoClonacion.ERROR_BASE);                        // 10\n    }\n}",
+          "racional": "La búsqueda usa el mismo conjunto <code>B12PCSXMDACTO</code> con dos llaves distintas: para el tipo de medio 0 incluye producto e instrumento y para el tipo 1 solo el medio. Al encontrarlo toma producto, instrumento, centro de cómputo, moneda, sucursales, estatus, fecha de alta y cliente. En Java son dos consultas derivadas de Spring Data sobre una transacción de solo lectura, equivalente al <code>OPEN INQUIRY</code>. El registro no encontrado devuelve 1 y cualquier otro error de base devuelve 10.",
+          "reglas": [],
+          "riesgo": "Un error DMSII distinto de NOTFOUND se convierte en el código 10 sin pasar por DF_ERRORDB: no queda rastro en bitácora (líneas 253-254)."
+        },
+        {
+          "id": "s5",
+          "titulo": "Regla de estatus para el sistema 127 y orquestación de la consulta",
+          "linea_ini": 270,
+          "linea_fin": 311,
+          "origen_codigo": "      PROCEDURE VALIDA_STATUS;                                          00266000\n      BEGIN                                                             00267000\n                                                                        00268000\n        IF I_SISTEMA = 127 AND I_ESTATUS = 1 THEN                       00269000\n           I_RESULT := 7;                                               00270000\n                                                                        00271000\n      END;                                                              00272000\n      VALIDA_ENTRADA;                                                   00299000\n                                                                        00300000\n      IF I_RESULT = 0 THEN                                              00301000\n         BUSCA_B12;                                                     00302000\n                                                                        00303000\n      IF I_RESULT = 0 THEN                                              00304000\n         VALIDA_STATUS;                                                 00305000\n                                                                        00306000\n      IF I_RESULT = 0 THEN                                              00307000\n         MUEVE_B12;                                                     00308000",
+          "java_codigo": "private final ClonacionProperties props;   // sistema-bloqueo-estatus: 127\n\n/** CONSULTA_CLONING: VALIDA_ENTRADA, BUSCA_B12, VALIDA_STATUS y MUEVE_B12, cada paso solo si va en 0. */\nprivate ResultadoClonacion consulta(ConsultaClonacion in) {\n    Optional<CodigoClonacion> invalida = validaEntrada(in);\n    if (invalida.isPresent()) return ResultadoClonacion.error(invalida.get());\n\n    var b12 = buscaB12(in);\n    if (b12.isLeft()) return ResultadoClonacion.error(b12.getLeft());\n    MedioClonadoEntity e = b12.get();\n\n    // VALIDA_STATUS: solo el sistema 127 rechaza medios con estatus 1.\n    if (in.sistema() == props.sistemaConValidacionEstatus() && e.getStatus() == 1) {\n        return ResultadoClonacion.error(CodigoClonacion.BLOQUEADO_SISTEMA_127);   // 7\n    }\n    return new ResultadoClonacion(CodigoClonacion.OK, Optional.of(MedioClonado.de(in, e)));   // MUEVE_B12\n}",
+          "racional": "La consulta encadena cuatro pasos y cada uno solo corre si el anterior dejó el resultado en cero. La única regla de negocio sobre el registro encontrado es que, cuando el llamador es el sistema 127, un medio con estatus 1 se rechaza con código 7; para cualquier otro sistema el estatus se devuelve pero no se evalúa. El número de sistema está compilado y se traslada a una propiedad. En Java la cadena de <code>IF I_RESULT = 0</code> se vuelve una secuencia de retornos tempranos.",
+          "reglas": [],
+          "riesgo": "Para sistemas distintos de 127 la librería devuelve OK aunque el medio clonado tenga estatus 1; la responsabilidad de revisar el estatus queda en cada llamador."
+        }
+      ]
+    },
+    {
+      "titulo": "Ciclo de vida y manejo de errores",
+      "origen": {
+        "archivo": "S500_SOURCE_L070.txt",
+        "contexto": "DF_ERRORDB_DS · PROC_INICIO"
+      },
+      "java": {
+        "archivo": "ClonacionDataSourceConfig.java",
+        "contexto": "@Configuration · ApplicationRunner"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Apertura de la base y terminación ante error",
+          "linea_ini": 84,
+          "linea_fin": 145,
+          "origen_codigo": "      ,DF_ERRORDB_DS =                                                  00084000\n       IF BOOLEAN(R_DMERR) THEN                                         00085000\n       BEGIN                                                            00086000\n         DF_ERRORDB;                                                    00087000\n         MYSELF.STATUS:= -1;                                            00088000\n       END#                                                             00089000\n  PROCEDURE PROC_INICIO;                                                00128000\n  BEGIN                                                                 00129000\n                                                                        00130000\n    EBCDIC ARRAY  EA_MSGLJ[0:99]                                        00131000\n                 ;                                                      00132000\n                                                                        00133000\n    INTEGER  I_CONLJ                                                    00134000\n            ;                                                           00135000\n                                                                        00136000\n    REAL  R_DMERR                                                       00137000\n         ;                                                              00138000\n                                                                        00139000\n    OPEN INQUIRY S500BD04TARJETAS : R_DMERR;                            00140000\n    DF_ERRORDB_DS;                                                      00141000\n                                                                        00142000\n  END;                                                                  00143000",
+          "java_codigo": "@Configuration\npublic class ClonacionDataSourceConfig {\n\n    /**\n     * PROC_INICIO: OPEN INQUIRY S500BD04TARJETAS al cargar la librería. En Spring la conexión\n     * se valida al arrancar; si falla, el contexto no levanta (equivale a MYSELF.STATUS := -1).\n     */\n    @Bean\n    ApplicationRunner verificaBaseTarjetas(DataSource tarjetas) {\n        return args -> {\n            try (Connection c = tarjetas.getConnection()) {\n                c.setReadOnly(true);\n                if (!c.isValid(5)) throw new IllegalStateException(\"S500/L070/002: E>041001< ERROR DMSII\");\n            }\n        };\n    }\n}\n// PROC_FIN (CLOSE S500BD04TARJETAS) lo hace el pool de conexiones al cerrar el contexto.",
+          "racional": "La librería abre la base de tarjetas en modo consulta una sola vez, al iniciarse, y si la apertura falla escribe el mensaje <code>E>041001<</code> en bitácora con el error DMSII y la línea, y se termina a sí misma. En Spring la conexión se valida al arrancar la aplicación y un fallo impide que el contexto levante, que es el equivalente a terminar la tarea. El cierre de la base al descongelar la librería lo hace el pool de conexiones en el apagado.",
+          "reglas": []
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Salida sin limpiar en errores",
+      "detalle": "La copia a EA_O_VACLON solo ocurre con resultado 0 (líneas 328-334). Con cualquier otro código el buffer del llamador queda con su contenido previo; un llamador que no revise el código usaría datos ajenos."
+    },
+    {
+      "titulo": "Errores de base sin bitácora",
+      "detalle": "BUSCA_B12 convierte cualquier error DMSII distinto de NOTFOUND en el código 10 sin invocar DF_ERRORDB (líneas 250-254). Solo la apertura de la base registra el detalle."
+    },
+    {
+      "titulo": "Validación de estatus solo para el sistema 127",
+      "detalle": "VALIDA_STATUS (líneas 273-274) es la única regla sobre el registro encontrado y está compilada para el sistema 127; los demás sistemas reciben medios con estatus 1 como válidos."
+    },
+    {
+      "titulo": "Contrato binario implícito",
+      "detalle": "La interfaz depende de desplazamientos en dígitos de 4 bits (líneas 98-126) y de que el buffer del llamador mida al menos 42 bytes. Cualquier llamador que se migre por separado necesita el adaptador de nibbles."
+    }
+  ],
+  "pendientes_revision": [
+    "Confirmar con SME qué representan los tipos de medio 0 y 1 (por ejemplo contrato y tarjeta o cuenta) y el significado de los estatus de S500B12PCLONNING.",
+    "Confirmar el formato de B12P-FEC-ALTA (8 dígitos: AAAAMMDD o DDMMAAAA) para convertirlo a LocalDate.",
+    "Identificar qué programas llaman a S500L070_VALIDA_CLONING y si alguno usa el buffer de salida sin revisar el código de resultado.",
+    "El fuente solo acepta el tipo de llave 1; confirmar si el campo tipo de llave quedó reservado para usos futuros."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-891"
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "slug": "S500_L035",
+  "sistema": "S500",
+  "programa": "L035",
+  "nombre": "MAPLI, fachada de monitoreo de aplicaciones",
+  "funcion": "Librería ALGOL residente y compartida que publica a los programas de S500 la API de monitoreo MAPLI y delega cada llamada en la implementación MAPLICALL (S500_L036), con un interruptor que el operador puede apagar para que el monitoreo deje de afectar al negocio.",
+  "resumen": "Este componente se documenta solo con el pseudocódigo extraído, porque el fuente L035.alg no está cargado en source/. Según ese pseudocódigo, L035 exporta once puntos de entrada con los nombres S038L035_nn y cada uno delega en el procedimiento S038L035_nn_C de MAPLICALL si la liga está activa, o devuelve 99 si no lo está. Resuelve en ejecución, con CTLVER, el título del objeto L036 y fuerza su carga con un punto de entrada vacío. El único envoltorio con lógica propia es el conteo de registros de una estructura, que adapta la firma y traslada los códigos de error al rango 71 a 76. Un hilo de control atiende comandos del operador por TASKVALUE para suspender, rehacer o consultar la liga.",
+  "arquetipo": "L",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3",
+  "paquete_java": "mx.banamex.s500.monitoreo.mapli",
+  "secciones": [
+    {
+      "titulo": "Envoltorios de la API pública",
+      "origen": {
+        "archivo": "L035.alg (no disponible en source/) · pseudocódigo portal/pseudocodigo/S500_L035.html",
+        "contexto": "S038L035_01..34 · S038L035_06_NUM_REGS"
+      },
+      "java": {
+        "archivo": "MapliFachada.java",
+        "contexto": "@Service · AtomicBoolean · ObjectProvider"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Envoltorio uniforme: delegar en MAPLICALL o devolver 99",
+          "linea_ini": 101,
+          "linea_fin": 111,
+          "origen_codigo": "PROCEDIMIENTO Registrar_Inicio_Programa(buffer_entrada, buffer_salida) -> entero:  // S038L035_01_PROG_INI [L035 L101]\nSI liga_a_L036_activa                        // B_LLAMAL036\n   resultado := MAPLICALL.S038L035_01_PROG_INI_C(buffer_entrada, buffer_salida)\nSINO\n   resultado := 99                           // \"LIBRERIA MAPLI NO DISPONIBLE\" [L035 L12]\nFIN-SI\nRETORNAR resultado",
+          "java_codigo": "/** Fachada pública de MAPLI: mismos 11 puntos de entrada que exportaba L035. */\n@Service\n@RequiredArgsConstructor\npublic class MapliFachada implements MapliApi {\n\n    static final int LIBRERIA_NO_DISPONIBLE = 99;\n\n    private final ObjectProvider<MapliApi> implementacion;   // MAPLICALL = S500_L036 (MapliService)\n    private final AtomicBoolean ligaActiva = new AtomicBoolean(false);   // B_LLAMAL036, global (SHAREDBYALL)\n\n    /** S038L035_01_PROG_INI. Los envoltorios 02, 03, 04, 05, 30, 31, 32, 33 y 34 tienen la misma forma. */\n    @Override\n    public ResultadoMapli inicioPrograma(LlavePrograma llave, InicioPrograma in, Consumer<Integer> idSalida) {\n        return delega(api -> api.inicioPrograma(llave, in, idSalida));\n    }\n\n    private ResultadoMapli delega(Function<MapliApi, ResultadoMapli> llamada) {\n        if (!ligaActiva.get()) {\n            return ResultadoMapli.LIBRERIA_NO_DISPONIBLE;   // 99: el programa de negocio sigue corriendo\n        }\n        return llamada.apply(implementacion.getObject());\n    }\n}",
+          "racional": "Según el pseudocódigo, L035 no tiene lógica de monitoreo: cada uno de sus once puntos de entrada pregunta por el interruptor global <code>B_LLAMAL036</code> y, si está activo, llama al procedimiento homónimo con sufijo <code>_C</code> de la librería MAPLICALL (la implementación S500_L036); si no, devuelve 99 sin tocarla. En Java la fachada es un <code>@Service</code> que implementa la misma interfaz que el servicio de L036 y un solo método <code>delega</code> sustituye a los diez envoltorios idénticos. El interruptor es un <code>AtomicBoolean</code> porque en MCP la librería es compartida por todo el sistema. <br><b>Nota:</b> el fuente de L035 no está cargado; el bloque de origen es el pseudocódigo extraído (numeración [L035 Lnnn] del pseudocódigo), no código ALGOL literal.",
+          "reglas": [],
+          "riesgo": "El código 99 permite que los programas de negocio sigan sin monitoreo; ningún llamador distingue entre MAPLI apagada por operador y MAPLI caída."
+        },
+        {
+          "id": "s2",
+          "titulo": "Conteo de registros: adaptación de firma y traslado de códigos +70",
+          "linea_ini": 166,
+          "linea_fin": 200,
+          "origen_codigo": "PROCEDIMIENTO Contar_Registros_Estructura(buffer_entrada, buffer_salida) -> entero:  // S038L035_06_NUM_REGS [L035 L166]\nEBCDIC nombre_estructura[0:16]      // EA_ESTRUCTURA - 17 bytes  [L035 L172]\nEBCDIC titulo_base    [0:56]        // EA_BASE       - 57 bytes  [L035 L173]\nSI liga_a_L036_activa\n   salida_poblacion := REFERENCIA A buffer_salida[*]             // [L035 L182]\n   nombre_estructura := buffer_entrada       POR 17 bytes        // [L035 L184]\n   titulo_base       := buffer_entrada[17]   POR 56 bytes        // [L035 L185]\n   poblacion         := 0                                        // [L035 L186]\n   resultado_interno := 0                                        // [L035 L187]\n   LLAMAR MAPLICALL.S038L035_06_NUM_REGS_C(nombre_estructura, titulo_base,\n                                           poblacion, resultado_interno)   // [L035 L188]\n   SI resultado_interno > 0\n      resultado := resultado_interno + 70    // 1..6 -> 71..76  [L035 L190]\n   SINO\n      resultado := 0\n      salida_poblacion[0] := poblacion       // palabra binaria sobre arreglo EBCDIC [L035 L194]\n   FIN-SI\nSINO\n   resultado := 99\nFIN-SI",
+          "java_codigo": "    /** S038L035_06_NUM_REGS: único envoltorio con lógica propia. */\n    public ResultadoConteo numeroRegistros(byte[] entrada) {\n        if (!ligaActiva.get()) return ResultadoConteo.error(LIBRERIA_NO_DISPONIBLE);\n        String estructura = Ebcdic.texto(entrada, 0, 17);\n        String tituloBase = Ebcdic.texto(entrada, 17, 56).stripTrailing();   // L036 busca el fin en un blanco\n        var r = implementacion.getObject().cuentaPoblacion(estructura, tituloBase);\n        if (r.codigoInterno() > 0) {\n            return ResultadoConteo.error(r.codigoInterno() + OFFSET_ERRORES_ESTRUCTURA);   // 71..76\n        }\n        return ResultadoConteo.ok(r.poblacion());   // long tipado; el adaptador COBOL decide el formato\n    }\n\n    /** p. ej. 1 -> 71 NO SE ENCONTRO EL ARCHIVO DE CONTROL DE LA BASE ... 6 -> 76 ESTRUCTURA DESCONOCIDA. */\n    static final int OFFSET_ERRORES_ESTRUCTURA = 70;\n\n    public record ResultadoConteo(int codigo, long poblacion) {\n        static ResultadoConteo ok(long p)      { return new ResultadoConteo(0, p); }\n        static ResultadoConteo error(int c)    { return new ResultadoConteo(c, 0); }\n    }",
+          "racional": "Es el único envoltorio no trivial: recibe dos buffers y llama a un procedimiento de cuatro parámetros, separando 17 bytes de nombre de estructura y 56 de título de base. Los errores internos 1 a 6 se trasladan al rango 71 a 76 sumando 70, que es el espacio documentado en la cabecera de L036. En Java el desplazamiento es una constante con nombre y la población se devuelve tipada; el pseudocódigo indica que el original la escribe como palabra binaria de 48 bits sobre el buffer EBCDIC, distinto de todas las demás salidas, así que el formato hacia el COBOL debe resolverlo el adaptador. <br><b>Nota:</b> el fuente de L035 no está cargado; el bloque de origen es el pseudocódigo extraído (numeración [L035 Lnnn] del pseudocódigo), no código ALGOL literal.",
+          "reglas": [],
+          "riesgo": "El pseudocódigo señala que EA_BASE tiene 57 bytes y solo se copian 56: el último queda sin inicializar y L036 depende de encontrar un blanco al recorrer el título."
+        },
+        {
+          "id": "s3",
+          "titulo": "Identificación del CSI con retorno no inicializado en L036",
+          "linea_ini": 257,
+          "linea_fin": 267,
+          "origen_codigo": "PROCEDIMIENTO Dar_Numero_Y_Nombre_De_CSI(buffer_salida) -> entero:  // S038L035_34_NUMDECSI [L035 L257]\nSI liga_a_L036_activa\n   resultado := MAPLICALL.S038L035_34_NUMDECSI_C(buffer_salida)\nSINO\n   resultado := 99\nFIN-SI",
+          "java_codigo": "    /** S038L035_34_NUMDECSI: número de CSI (2) y nombre (20) del equipo donde corre MAPLI. */\n    public ResultadoMapli numeroDeCsi(Consumer<IdentificacionCsi> salida) {\n        return delega(api -> {\n            ResultadoMapli r = api.numeroDeCsi(salida);\n            return r == null ? ResultadoMapli.OK : r;   // L036 no asigna su resultado: se fija 0 explícito\n        });\n    }\n\n    public record IdentificacionCsi(int numero, String nombre) {}",
+          "racional": "La forma es la misma que la de los demás envoltorios, pero el pseudocódigo registra que el procedimiento de L036 al que delega nunca asigna su propio valor de retorno, de modo que la fachada devuelve al llamador un entero no inicializado. En Java el resultado se fija de forma explícita para que el código de retorno sea determinista; el número y el nombre del CSI viajan en un <code>record</code> tipado en lugar de 22 bytes EBCDIC. <br><b>Nota:</b> el fuente de L035 no está cargado; el bloque de origen es el pseudocódigo extraído (numeración [L035 Lnnn] del pseudocódigo), no código ALGOL literal.",
+          "reglas": [],
+          "riesgo": "Hoy el código de retorno de este punto de entrada es imprevisible; un llamador que lo evalúe puede tomar como error una respuesta correcta."
+        }
+      ]
+    },
+    {
+      "titulo": "Liga dinámica con L036 y control del operador",
+      "origen": {
+        "archivo": "L035.alg (no disponible en source/) · pseudocódigo portal/pseudocodigo/S500_L035.html",
+        "contexto": "PROC_DAME_TIT_S038L036 · PROC_LEVANTA · PROC_CONTROL · bloque externo"
+      },
+      "java": {
+        "archivo": "ResolutorVersionL036.java · MapliFachada.java · ControlMapliEndpoint.java",
+        "contexto": "@Component · @PostConstruct · Actuator @Endpoint"
+      },
+      "segmentos": [
+        {
+          "id": "s4",
+          "titulo": "Resolución del título de L036 vía CTLVER",
+          "linea_ini": 270,
+          "linea_fin": 288,
+          "origen_codigo": "PROCEDIMIENTO Resolver_Titulo_De_L036():  // PROC_DAME_TIT_S038L036 [L035 L270]\nidentificador_L036 := \"S500L036    \"   // EVA_ID_S038L036, 12 bytes  [L035 L273]\nEBCDIC titulo_devuelto[0:71]           // EA_TIT - 72 bytes          [L035 L274]\nSI CTLVER.DAME_TIT(identificador_L036, titulo_devuelto) < 0\n   LIMPIAR texto_mensaje                                   // DF_LIMPIAMSG\n   texto_mensaje := \"ERROR CALL CTLVER\"                    // [L035 L280]\n   DESPLEGAR texto_mensaje                                 // DF_DISPLAY\nSINO\n   MAPLICALL.TITLE := titulo_devuelto POR 72 bytes         // [L035 L284]\nFIN-SI\n//   MAPLICALL.TITLE := \"(S500)S500/OBJECT/L036/MAPLICALL/25MTP002.\"  comentado [L035 L285-L286]\n//   DELINKLIBRARY(CTLVER);                                           comentado [L035 L287]",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ResolutorVersionL036 {\n\n    private final CtlVerClient ctlver;           // LIBACCESS = BYFUNCTION, FUNCTIONNAME = \"CTLVERS\"\n    private final MapliProperties props;          // mapli.id-implementacion: \"S500L036\"\n\n    /** PROC_DAME_TIT_S038L036: la versión de la implementación se resuelve en ejecución. */\n    Optional<String> versionVigente() {\n        Optional<String> titulo = ctlver.titulo(props.idImplementacion());\n        if (titulo.isEmpty()) {\n            log.error(\"150721-03-S500-L035-25MTP002 ERROR CALL CTLVER\");   // DF_DISPLAY\n            // Comportamiento original: no desactiva la liga ni aborta; se conserva la versión previa.\n        }\n        return titulo;\n    }\n}",
+          "racional": "La fachada no tiene amarrada la versión de su implementación: pide a la librería de control de versiones el título asociado al identificador <code>S500L036</code> y lo asigna a MAPLICALL. El amarre estático por título quedó comentado, igual que la liberación de CTLVER. En Java la versión se resuelve con el mismo cliente de CTLVER que usan las otras traducciones y el identificador pasa a propiedad. Se conserva que una falla solo se registra, sin apagar la fachada, porque así lo describe el pseudocódigo. <br><b>Nota:</b> el fuente de L035 no está cargado; el bloque de origen es el pseudocódigo extraído (numeración [L035 Lnnn] del pseudocódigo), no código ALGOL literal.",
+          "reglas": [],
+          "riesgo": "Si CTLVER falla, MAPLICALL conserva el título anterior o el de compilación y la fachada sigue delegando sin aviso al llamador."
+        },
+        {
+          "id": "s5",
+          "titulo": "Levantar la liga al arrancar y FREEZE(CONTROL)",
+          "linea_ini": 291,
+          "linea_fin": 372,
+          "origen_codigo": "PROCEDIMIENTO Levantar_Liga():  // PROC_LEVANTA [L035 L291]\nliga_a_L036_activa := VERDADERO                 // B_LLAMAL036   [L035 L294]\nEJECUTAR Resolver_Titulo_De_L036()              // [L035 L295]\nLLAMAR MAPLICALL.S038L035_99_LEVANTA_C          // fuerza la carga efectiva de L036 [L035 L296]\nEXPORTAR  S038L035_01_PROG_INI , S038L035_02_PROG_FIN , S038L035_03_ACTI_INI\n        , S038L035_04_ACTI_FIN , S038L035_05_ACTU_REG , S038L035_06_NUM_REGS\n        , S038L035_30_USERXCSI , S038L035_31_AGRUPXUSER , S038L035_32_PROGSXAGRUP\n        , S038L035_33_ACTIXPROG , S038L035_34_NUMDECSI      // 11 entry points  [L035 L357-L368]\nEJECUTAR Levantar_Liga()                    // [L035 L370]\nCONGELAR(CONTROL, Hilo_De_Control_Del_Operador)   // [L035 L372]",
+          "java_codigo": "    // En MapliFachada\n    private final ResolutorVersionL036 resolutor;\n\n    /** PROC_LEVANTA: marca la liga activa, resuelve versión y fuerza la carga de L036. */\n    @PostConstruct\n    void levantaLiga() {\n        ligaActiva.set(true);\n        resolutor.versionVigente();\n        implementacion.getObject();   // S038L035_99_LEVANTA_C: instancia MapliService y su @PostConstruct\n                                       // (apertura de S500BD05MAPLI y recarga del registro)\n    }\n    // FREEZE(CONTROL, PROC_CONTROL): el singleton queda residente y el control del operador\n    // se publica como endpoint (ver ControlMapliEndpoint).",
+          "racional": "Al cargarse, la fachada exporta once puntos de entrada, uno menos que L036 porque el de levantamiento es interno, marca la liga como activa, resuelve el título y llama a un punto de entrada vacío de L036 cuyo único efecto es provocar su carga real, que abre la base de monitoreo. Después se congela en modo <code>CONTROL</code>, que la deja residente con un hilo de control para el operador. En Spring esa secuencia es un <code>@PostConstruct</code>: pedir el bean de implementación al <code>ObjectProvider</code> equivale a forzar la liga, y la residencia la da el ciclo de vida del singleton. <br><b>Nota:</b> el fuente de L035 no está cargado; el bloque de origen es el pseudocódigo extraído (numeración [L035 Lnnn] del pseudocódigo), no código ALGOL literal.",
+          "reglas": []
+        },
+        {
+          "id": "s6",
+          "titulo": "Hilo de control del operador a endpoint de Actuator",
+          "linea_ini": 301,
+          "linea_fin": 351,
+          "origen_codigo": "PROCEDIMIENTO Hilo_De_Control_Del_Operador():  // PROC_CONTROL [L035 L301]\nusuarios_de_libreria := 1                                        // [L035 L307]\nMIENTRAS comando_operador <> 4  Y  usuarios_de_libreria <> 0:    // [L035 L308]\n   evento_despertador := ESPERAR-Y-REINICIAR( (2), MYSELF.EXCEPTIONEVENT )   // [L035 L310]\n   usuarios_de_libreria := MYSELF.LIBRARYUSERS                   // [L035 L311]\n   SEGÚN evento_despertador:\n      CASO 2:\n         comando_operador := MYSELF.TASKVALUE                    // [L035 L315]\n         SEGÚN comando_operador:\n            CASO 1:  texto_mensaje := \"SE SUSPENDE LIGA A L036\"   // [L035 L319]\n                     liga_a_L036_activa := FALSO                 // [L035 L321]\n                     DESLIGAR-LIBRERIA(MAPLICALL)                // [L035 L322]\n            CASO 2:  EJECUTAR Resolver_Titulo_De_L036()          // [L035 L323]\n                     texto_mensaje := \"SE HACE LIGA A L036\"      // [L035 L325]\n                     liga_a_L036_activa := VERDADERO             // [L035 L327]\n                     LLAMAR MAPLICALL.S038L035_99_LEVANTA_C      // [L035 L328]\n            CASO 3:  SI liga_a_L036_activa  \"STATUS ACCESO A L036: CON\"   // [L035 L333]\n                     SINO                   \"STATUS ACCESO A L036: SIN\"   // [L035 L339]\n            OTRO CASO: (no hacer nada)                           // [L035 L342]\n         REINICIAR(MYSELF.EXCEPTIONEVENT)                        // [L035 L344]\nFIN-MIENTRAS\nMYSELF.STATUS := VALUE(GOINGAWAY)                                // [L035 L350]",
+          "java_codigo": "@Component\n@Endpoint(id = \"mapli\")\n@RequiredArgsConstructor\npublic class ControlMapliEndpoint {\n\n    private final MapliFachada fachada;\n\n    /** TASKVALUE 1, 2, 3 y 4 de PROC_CONTROL con los mismos textos de consola. */\n    @WriteOperation\n    public String comando(int taskValue) {\n        return switch (taskValue) {\n            case 1 -> { fachada.suspende(); yield \"SE SUSPENDE LIGA A L036\"; }   // DELINKLIBRARY\n            case 2 -> { fachada.levantaLiga(); yield \"SE HACE LIGA A L036\"; }\n            case 3 -> fachada.ligaActiva() ? \"STATUS ACCESO A L036: CON\" : \"STATUS ACCESO A L036: SIN\";\n            case 4 -> { fachada.suspende(); yield \"MAPLI RETIRADA\"; }            // en MCP: sin mensaje\n            default -> \"SIN ACCION\";\n        };\n    }\n\n    @ReadOperation\n    public Map<String, Object> estado() { return Map.of(\"ligaActiva\", fachada.ligaActiva()); }\n}",
+          "racional": "El hilo de control espera el evento de excepción de la librería y lee el <code>TASKVALUE</code> como comando: 1 suspende la liga con L036, 2 la rehace, 3 informa si hay acceso y 4 termina. Como la fachada es compartida por todo el sistema, el comando 1 deja sin monitoreo a todos los programas de S500 a la vez. En Spring Boot ese canal es un endpoint de Actuator protegido con los mismos códigos y textos. Según el pseudocódigo, el 4 no tiene rama propia y solo sale del ciclo; la traducción le da una respuesta explícita. Tampoco se replica que la librería se retire sola cuando ya no tiene usuarios, porque en un servicio Spring no aplica. <br><b>Nota:</b> el fuente de L035 no está cargado; el bloque de origen es el pseudocódigo extraído (numeración [L035 Lnnn] del pseudocódigo), no código ALGOL literal.",
+          "reglas": [],
+          "riesgo": "Tras el comando 1 no hay reintento automático: el monitoreo queda apagado hasta que el operador envíe el 2."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Interruptor global del monitoreo",
+      "detalle": "Según el pseudocódigo, la librería es SHAREDBYALL y B_LLAMAL036 es un solo indicador para todo el sistema: el comando de operador 1 deja sin monitoreo a todos los programas de S500 simultáneamente y no hay reintento automático."
+    },
+    {
+      "titulo": "Falla silenciosa al resolver la versión",
+      "detalle": "Si DAME_TIT de CTLVER falla, solo se despliega ERROR CALL CTLVER; la liga sigue activa con el título anterior."
+    },
+    {
+      "titulo": "Salida binaria en un buffer EBCDIC",
+      "detalle": "S038L035_06_NUM_REGS devuelve la población como palabra binaria sobre el arreglo de salida, a diferencia de las demás salidas que usan dígitos. El adaptador Java hacia COBOL debe respetar ese formato."
+    },
+    {
+      "titulo": "Apagado sin mensaje y autoextinción",
+      "detalle": "El comando 4 no tiene rama en el CASE y termina el ciclo sin aviso; además, la librería se retira sola cuando LIBRARYUSERS llega a cero."
+    }
+  ],
+  "pendientes_revision": [
+    "No hay fuente: S500_L035 tiene fuente null en el inventario. Todo el código de origen de este archivo es el pseudocódigo de portal/pseudocodigo/S500_L035.html y sus referencias [L035 Lnnn], no ALGOL literal; por eso el validador no puede verificarlo contra el fuente. Cargar L035.alg en source/S500 y rehacer los segmentos con código real.",
+    "El pseudocódigo asocia RN-S500-887 a esta librería, pero el inventario no le asigna reglas del brain; además el pseudocódigo señala que esa regla describe MAPLI como administración de mapas o pantallas, cuando la fuente indica monitoreo de aplicaciones. Revisar la regla en el brain.",
+    "Confirmar con el fuente real el desfase de 57 contra 56 bytes en EA_BASE y la escritura binaria de la población en S038L035_06_NUM_REGS.",
+    "Confirmar si el comando de operador 4 y la autoextinción por LIBRARYUSERS = 0 se usan en la operación actual."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-887"
+  ]
+}

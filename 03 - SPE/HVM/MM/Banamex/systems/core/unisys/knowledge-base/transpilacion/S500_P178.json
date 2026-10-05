@@ -1,0 +1,189 @@
+{
+  "slug": "S500_P178",
+  "sistema": "S500",
+  "programa": "P178",
+  "nombre": "Consolidador de Punteo y Acumulador de Comisiones Cobradas",
+  "funcion": "Paso batch de S500 que corre después de P170, une las seis copias de los archivos de punteo en línea y batch del CSI y acumula por contrato las comisiones e IVA cobrados en la estructura mensual B28 a B34 de S500BD01CAPTACION.",
+  "resumen": "Valida en S500B00CTRLPASO que la base sea salida de P170 y deja el paso en cero para que no se vuelva a correr si falla. Carga en memoria del dataset B17 las claves de cargo que generan comisión. Lee las tres copias de PLINEA (P105) y las tres de PBATCH (P130) del CSI y fecha de lote, exige que cada header traiga la fecha de lote y, de cada detalle con clave 2XXX o 4XXX marcada en B17, escribe en PTOTAL la clave de acumulación, el tipo de importe, el contrato y el importe. Ordena PTOTAL por contrato y clave, suma importe e IVA por grupo y los agrega al registro del contrato en la estructura mensual que corresponde al año y mes del lote, con commits cada 3,000 registros. Al terminar marca el paso 178 en B00.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch · Spring Data JPA",
+  "paquete_java": "mx.banamex.s500.comisiones.punteo",
+  "secciones": [
+    {
+      "titulo": "Estructuras de datos — registros de punteo y etiquetas de archivo",
+      "origen": {
+        "archivo": "S500_SOURCE_P178.txt",
+        "contexto": "FILE SECTION · WORKING-STORAGE"
+      },
+      "java": {
+        "archivo": "PunteoRecord.java · PunteoTotal.java · application.yml",
+        "contexto": "sealed interface · record · @ConfigurationProperties"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Registro de punteo con tres vistas REDEFINES a sealed interface",
+          "linea_ini": 130,
+          "linea_fin": 163,
+          "origen_codigo": " 01  REG-PUNTEOL1.\n   02 WS-HEAL1-TREG             PIC 9(02).\n   02 WS-HEADERL1.\n     03 WS-HEAL1-SORI           PIC 9(04).\n     03 WS-HEAL1-SDES           PIC 9(04).\n     03 WS-HEAL1-FECHA          PIC 9(08).\n     03 WS-HEAL1-CSIO           PIC 9(02).\n     03 WS-HEAL1-FPRO           PIC 9(08).\n     03 WS-HEAL1-HPRO           PIC 9(06).\n     03 WS-HEAL1-HPASO          PIC 9(04).\n     03 WS-HEAL1-HCOPIA         PIC 9(02).\n     03 FILLER                PIC X(20).\n   02 WS-DETALLEL1 REDEFINES WS-HEADERL1.\n     03 WS-DETL1-AUT            PIC 9(12) COMP.\n     03 WS-DETL1-NUMCTO         PIC 9(12) COMP.\n     03 WS-DETL1-PRD            PIC 9(04) COMP.\n     03 WS-DETL1-INS            PIC 9(04) COMP.\n     03 WS-DETL1-MON            PIC 9(04) COMP.\n     03 WS-DETL1-CVE            PIC 9(04) COMP.\n     03 WS-DETL1-IMP            PIC 9(10)V99 COMP.\n     03 WS-DETL1-REF            PIC 9(12)    COMP.\n     03 WS-DETL1-AUT151         PIC 9(08)    COMP.\n     03 WS-DETL1-FECMAQ         PIC 9(08)    COMP.\n     03 WS-DETL1-HORMAQ         PIC 9(06)    COMP.\n     03 WS-DETL1-TIPMOV         PIC 9(02)    COMP.\n     03 WS-DETL1-ORIGEN         PIC 9(04)    COMP.\n     03 WS-DETL1-TIPRO          PIC 9(02)    COMP.\n     03 WS-DETL1-BANCOS         PIC 9(06)    COMP.\n     03 FILLER                PIC X(05).\n     03 WS-DETL1-ENTREGA        PIC 9(02)    COMP.\n   02 WS-TRAILERL1 REDEFINES WS-HEADERL1.\n     03 WS-TRAL1-NREG           PIC 9(08)    COMP.\n     03 FILLER                PIC X(54).",
+          "java_codigo": "/** REG-PUNTEOL1 (igual para las seis entradas): tipo 2 dígitos y tres vistas de la misma área. */\npublic sealed interface PunteoRecord permits PunteoRecord.Header, PunteoRecord.Detalle, PunteoRecord.Trailer {\n\n    int tipoRegistro();                                      // WS-HEAL1-TREG PIC 9(02)\n\n    record Header(int tipoRegistro, int sisOrigen, int sisDestino,\n                  LocalDate fecha,                           // 9(08) AAAAMMDD: se compara con B02-FECHA-LOTE\n                  int csiOrigen, LocalDate fecProceso, LocalTime horProceso,\n                  int paso, int copia) implements PunteoRecord {}\n\n    record Detalle(int tipoRegistro,\n                   long autorizacion,\n                   String contrato,                           // 9(12) COMP: String para no perder ceros\n                   int producto, int instrumento, int moneda,\n                   int cveTran,                               // 9(04) COMP\n                   BigDecimal importe,                        // 9(10)V99 COMP -> escala 2\n                   long referencia, long aut151,\n                   LocalDate fecMaq, LocalTime horMaq,\n                   int tipMov, int origen, int tipoProceso,\n                   int bancos, int entrega) implements PunteoRecord {}\n\n    record Trailer(int tipoRegistro, long numRegistros) implements PunteoRecord {}   // 99; NREG no se valida\n}\n\n/** El COBOL decide la vista por posición: primer registro = header, tipo 99 = trailer, resto = detalle. */\nclass PunteoLineMapper {\n    static PunteoRecord mapea(byte[] reg, boolean primeroDelArchivo) {\n        int tipo = Layouts.tipo(reg);\n        if (primeroDelArchivo) return Layouts.header(reg);\n        return (tipo == 99) ? Layouts.trailer(reg) : Layouts.detalle(reg);\n    }\n}",
+          "racional": "Las seis entradas comparten el mismo layout: dos dígitos de tipo seguidos de un área que es header, detalle o trailer según la vista <code>REDEFINES</code>. En Java se modela como <code>sealed interface</code> con tres <code>record</code>. El programa no distingue el header por su tipo sino por posición (es la primera lectura de cada archivo), así que el lector de Java debe conservar esa regla. El importe <code>PIC 9(10)V99 COMP</code> pasa a <code>BigDecimal</code> con escala 2 y el contrato se conserva como <code>String</code>.",
+          "reglas": [],
+          "riesgo": "El trailer trae WS-TRAL1-NREG con el número de registros, pero ningún párrafo lo compara contra lo leído: un archivo de punteo truncado se procesa sin aviso."
+        },
+        {
+          "id": "s2",
+          "titulo": "Rutas de PLINEA, PBATCH y PTOTAL compiladas a application.yml",
+          "linea_ini": 409,
+          "linea_fin": 642,
+          "origen_codigo": " 01  REG-PUNTEOT.\n     02 WS-DETPT-CLAVE          PIC 9(04).\n     02 WS-DETPT-NUMCTO         PIC 9(12).\n     02 WS-DETPT-IMP            PIC 9(10)V99.\n     02 WS-DETPT-TIPO-IMP       PIC 9(01).\n     02 FILLER                  PIC X(07).\n 01 WS-ETIQ-PUNTEOL1.\n   02 FILLER             PIC X(22) VALUE \"S500/FILE/S500/PLINEA/\".\n   02 WS-PUNTEOL1-CSIO   PIC 99.\n   02 FILLER             PIC X     VALUE \"/\".\n   02 WS-PUNTEOL1-FEC    PIC 9(06).\n   02 WS-PUNTEOL1-COP    PIC X(03) VALUE \"/01\".\n 01 WS-ETIQ-PUNTEOB1.\n   02 FILLER             PIC X(22) VALUE \"S500/FILE/S500/PBATCH/\".\n   02 WS-PUNTEOB1-CSIO   PIC 99.\n   02 FILLER             PIC X     VALUE \"/\".\n   02 WS-PUNTEOB1-FEC    PIC 9(06).\n   02 WS-PUNTEOB1-COP    PIC X(03) VALUE \"/01\".\n 01 WS-ETIQ-PUNTEOT.\n   02 FILLER             PIC X(22) VALUE \"S500/FILE/S500/PTOTAL/\".\n   02 WS-PUNTEOT-CSIO    PIC 99.\n   02 FILLER             PIC X     VALUE \"/\".\n   02 WS-PUNTEOT-FEC     PIC 9(06).\n   02 FILLER             PIC X     VALUE \".\".",
+          "java_codigo": "# application.yml  (las rutas dejan de estar en WORKING-STORAGE)\np178:\n  fecha-en-nombre: yyMMdd                     # WS-PUNTEOL1-FEC PIC 9(06) recibe B02-FECHA-LOTE 9(08)\n  entradas:\n    plinea: \"S500/FILE/S500/PLINEA/{csi}/{fecha}/{copia}\"   # copias 01, 02 y 03 (P105)\n    pbatch: \"S500/FILE/S500/PBATCH/{csi}/{fecha}/{copia}\"   # copias 01, 02 y 03 (P130)\n    copias: [\"01\", \"02\", \"03\"]\n  salida:\n    ptotal: \"S500/FILE/S500/PTOTAL/{csi}/{fecha}.\"\n  commit-cada: 3000                           # WS-NUM-BEGIN = 3000\n\n// ---------------------------------------------------------------------------\n/** REG-PUNTEOT: 36 bytes; clave de acumulación, contrato, importe y tipo de importe. */\npublic record PunteoTotal(int claveAcumulacion,           // 9(04): B17-CVE-ACUM-COMI\n                          String contrato,                 // 9(12)\n                          BigDecimal importe,              // 9(10)V99\n                          TipoImporte tipo) {}             // 9(01): 1 comisión, cualquier otro IVA\n\npublic enum TipoImporte {\n    COMISION, IVA;\n    static TipoImporte de(int v) { return v == 1 ? COMISION : IVA; }   // 50005260-SUMO\n}",
+          "racional": "Las etiquetas fijan en el código el prefijo <code>S500/FILE/S500</code>, el nombre lógico de cada familia y la copia; el CSI y la fecha se llenan en tiempo de ejecución desde <code>S500B02CONTROL</code>. Se mueven a <code>application.yml</code> con la lista de copias, de modo que agregar o retirar una copia (como hizo el cambio R4-COPIAS-2011) deja de requerir recompilar. La fecha del nombre es <code>PIC 9(6)</code> y recibe la fecha de lote de 8 dígitos, lo que trunca el siglo; el patrón <code>yyMMdd</code> lo hace explícito. El tipo de importe solo distingue 1 (comisión) de cualquier otro valor, que se suma como IVA.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Control del paso y carga del catálogo B17",
+      "origen": {
+        "archivo": "S500_SOURCE_P178.txt",
+        "contexto": "PROCEDURE DIVISION · 00000000 / 20000000 / 20000500 / 20000700"
+      },
+      "java": {
+        "archivo": "ConsolidadorPunteoJobConfig.java · ControlPasoTasklet.java · CatalogoComisiones.java",
+        "contexto": "Spring Batch Job · Tasklet · @Component"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Rutina principal y apertura a definición de Job",
+          "linea_ini": 657,
+          "linea_fin": 713,
+          "origen_codigo": " 00000000-PRINCIPAL.\n     MOVE 2                TO W77-USO-LIBLJ.\n     MOVE \"S500P178\"       TO W77-S000-MY-ID.\n     MOVE \"25MTP004\"       TO W77-S000-MY-VERSION.\n     MOVE \"P178\"           TO WS-0101-PASO-MSG B91-IDPROG.\n     MOVE \"25MTP004\"       TO WS-0101-MTP-MSG.\n     PERFORM 10000000-LIBRERIAS THRU 10000000-EXIT.\n     PERFORM 20000000-OPEN      THRU 20000000-EXIT.\n     PERFORM 50000000-LEO-MOV   THRU 50000000-EXIT.\n     PERFORM 70000000-CIERRO    THRU 70000000-EXIT.\n     STOP RUN.\n 20000000-OPEN.\n     PERFORM 20000050-CHECO-VER THRU 20000050-EXIT.\n     PERFORM 20000100-ABRO-BASE THRU 20000100-EXIT.\n     PERFORM 20000200-FECHA-PRO THRU 20000200-EXIT.\n     PERFORM 20000500-VAL-PASO  THRU 20000500-EXIT.\n     PERFORM 20000600-OPEN-ARC  THRU 20000600-EXIT.\n     PERFORM 20000700-CARGO-B17 THRU 20000700-EXIT.",
+          "java_codigo": "@Configuration\n@EnableConfigurationProperties(P178Properties.class)\npublic class ConsolidadorPunteoJobConfig {\n\n    /** 00000000-PRINCIPAL + 20000000-OPEN. */\n    @Bean\n    Job consolidadorPunteo(JobRepository repo,\n                           Step validaVersion,      // 20000050-CHECO-VER\n                           Step fechaLote,          // 20000200: B02-FECHA-LOTE y B02-NUM-CSI\n                           Step controlPaso,        // 20000500-VAL-PASO: exige P170, deja B00 en 0\n                           Step cargaCatalogo,      // 20000700-CARGO-B17\n                           Step consolidaPunteo,    // 50001000 .. 50002800 -> PTOTAL\n                           Step ordenaPtotal,       // 50003000-SORT-PTOTAL\n                           Step acumulaComisiones,  // 50004000 + 50005000 -> B28..B34\n                           Step marcaPaso178) {     // 70000400-GRABO-PASO\n        return new JobBuilder(\"S500P178\", repo)\n                .start(validaVersion).next(fechaLote).next(controlPaso).next(cargaCatalogo)\n                .next(consolidaPunteo).next(ordenaPtotal).next(acumulaComisiones)\n                .next(marcaPaso178)\n                .build();\n    }\n}",
+          "racional": "La rutina principal y el párrafo de apertura son secuencias fijas de <code>PERFORM ... THRU</code>, por lo que cada bloque se convierte en un <code>Step</code> encadenado. El identificador <code>S500P178</code> y la versión <code>25MTP004</code> pasan a ser el nombre del job y la versión del artefacto. La apertura de la base en modo <code>UPDATE</code> se vuelve el <code>DataSource</code> transaccional del job.",
+          "reglas": []
+        },
+        {
+          "id": "s4",
+          "titulo": "Candado de secuencia en S500B00CTRLPASO: P170 antes, 178 al final",
+          "linea_ini": 787,
+          "linea_fin": 1672,
+          "origen_codigo": " 20000500-VAL-PASO.\n   PERFORM 90000000-B00CTRLPASO-LOCK.\n   IF WS-STATUS-BASE > 0\n    IF B00-NUM-PASO-01 = 170 AND B00-NUM-PASO-02 = 170\n       AND B00-NUM-PASO-03 = 170\n      MOVE 0  TO                B00-NUM-PASO-01 B00-NUM-PASO-02\n                                B00-NUM-PASO-03\n    ELSE\n      MOVE \"ERROR BASE NO ES SALIDA DEL P170\" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE\n      CALL SYSTEM DMTERMINATE.\n    PERFORM 90000000-BEGIN-TRANSACTION.\n    PERFORM 90000000-B00CTRLPASO-STORE.\n    PERFORM 90000000-END-TRANSACTIONSYNC.\n 70000400-GRABO-PASO.\n   SET S500B00CTRLPASO TO BEGINNING.\n   PERFORM 90000000-B00CTRLPASO-LOCK.\n   MOVE  178  TO  B00-NUM-PASO-01 B00-NUM-PASO-02 B00-NUM-PASO-03\n   PERFORM 51074520-BEGIN   THRU 51074520-EXIT.\n   PERFORM 90000000-B00CTRLPASO-STORE.\n   PERFORM 51074510-END     THRU 51074510-EXIT.",
+          "java_codigo": "/** 20000500-VAL-PASO y 70000400-GRABO-PASO sobre el registro de control de pasos. */\n@Component\n@RequiredArgsConstructor\npublic class ControlPasoTasklet implements Tasklet {\n\n    private static final int PASO_PREVIO = 170, ESTE_PASO = 178;   // p178.paso-previo / p178.paso\n    private final ControlPasoRepository control;                   // S500B00CTRLPASO\n\n    @Override\n    @Transactional\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        ControlPaso b00 = control.findForUpdate()\n                .orElseThrow(() -> new ProcesoAbortadoException(\"ERROR B00CTRLPASO VACIO\"));\n        // R4-COPIAS-2011: los tres campos de control deben venir de P170\n        if (!b00.todosEn(PASO_PREVIO)) {\n            throw new ProcesoAbortadoException(\"ERROR BASE NO ES SALIDA DEL P170\");\n        }\n        b00.marcaTodos(0);        // impide un segundo intento automático si este paso falla\n        return RepeatStatus.FINISHED;   // commit inmediato (END-TRANSACTION SYNC)\n    }\n\n    /** Step final: solo se alcanza si todo lo anterior terminó bien. */\n    @Transactional\n    public void marcaTerminado() {\n        control.findForUpdate().orElseThrow().marcaTodos(ESTE_PASO);\n    }\n}",
+          "racional": "B00 funciona como candado de secuencia entre pasos. Al iniciar, P178 exige que los tres campos de control valgan 170 y los pone en cero con un commit sincronizado; así, si el paso aborta a la mitad, una nueva ejecución automática se detiene en esta validación y obliga a revisión manual. Al final escribe 178 en los tres campos. En el destino se conserva el mismo protocolo con bloqueo pesimista y dos transacciones cortas, y además el <code>JobRepository</code> registra en qué step quedó la corrida.",
+          "reglas": [],
+          "riesgo": "Como las comisiones se suman sobre B28 con commits parciales cada 3,000 registros, reiniciar P178 a mano después de una falla, reponiendo 170 en B00, vuelve a sumar los grupos que ya se habían confirmado."
+        },
+        {
+          "id": "s5",
+          "titulo": "Catálogo B17 de claves de cargo que generan comisión",
+          "linea_ini": 486,
+          "linea_fin": 866,
+          "origen_codigo": "    02 WS-GUARDO-TOTXCVES OCCURS 9999.\n      03 WS-B17-CVEACUM-C         PIC 9(04) COMP.\n      03 WS-B17-TPOACUM-C         PIC 9(01) COMP.\n      03 WS-B17-TPO-MOV           PIC 9(01) COMP.\n 20000700-CARGO-B17.\n    PERFORM 20000800-LEO-B17 THRU 20000800-EXIT UNTIL\n    WS-5VEZ = 1.\n 20000800-LEO-B17.\n   PERFORM 90000017-B17CVESXFUN-FINDN\n   IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 1\n           MOVE 1                        TO WS-5VEZ\n    IF WS-5VEZ = 0\n     PERFORM 20000900-VAL-B17           THRU 20000900-EXIT.\n 20000900-VAL-B17.\n   IF ( B17-CLAVE-TRANS      > 0) AND\n      ( B17-TIPO-MOV         = 1) AND\n      ( B17-CVE-ACUM-COMI    > 0) AND\n      ( B17-TPO-ACUM-COMI    > 0) AND\n      ( B17-TPO-ACUM-COMI    < 3)\n      MOVE B17-CLAVE-TRANS     TO WS-IND\n      MOVE B17-CVE-ACUM-COMI   TO WS-B17-CVEACUM-C(WS-IND)\n      MOVE B17-TPO-ACUM-COMI   TO WS-B17-TPOACUM-C(WS-IND)\n      MOVE B17-TIPO-MOV        TO WS-B17-TPO-MOV(WS-IND).",
+          "java_codigo": "/** 20000800-LEO-B17 + 20000900-VAL-B17: tabla OCCURS 9999 indexada por clave a Map. */\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class CatalogoComisiones {\n\n    private final ClaveFuncionRepository b17;   // S500B17CVESXFUN\n    private Map<Integer, ReglaComision> porClave;\n\n    public record ReglaComision(int claveAcumulacion, int tipoAcumulacion, int tipoMov) {}\n\n    @PostConstruct\n    void carga() {\n        porClave = b17.findAll().stream()\n                .filter(r -> r.claveTrans() > 0\n                          && r.tipoMov() == 1                                 // cargo\n                          && r.cveAcumComi() > 0\n                          && r.tpoAcumComi() > 0 && r.tpoAcumComi() < 3)      // 1 comisión, 2 IVA\n                .collect(Collectors.toMap(ClaveFuncion::claveTrans,\n                        r -> new ReglaComision(r.cveAcumComi(), r.tpoAcumComi(), r.tipoMov()),\n                        (previa, ultima) -> ultima));                         // MOVE: gana la última leída\n    }\n\n    public Optional<ReglaComision> regla(int cveTran) { return Optional.ofNullable(porClave.get(cveTran)); }\n}",
+          "racional": "P178 recorre todo B17 con <code>FIND NEXT</code> y guarda en una tabla indexada por la clave de transacción solo las claves de cargo que tienen clave y tipo de acumulación de comisión válidos. En Java la tabla de 9,999 posiciones se sustituye por un <code>Map</code> por clave, lo que elimina el subíndice fuera de rango para claves mayores a 9,999. Si dos registros de B17 traen la misma clave, el COBOL se queda con el último; la función de fusión del <code>Map</code> reproduce ese criterio.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de consolidación y acumulación en B28",
+      "origen": {
+        "archivo": "S500_SOURCE_P178.txt",
+        "contexto": "PROCEDURE DIVISION · 50001100 / 50001210 / 50003000 / 50005000 / 50005500"
+      },
+      "java": {
+        "archivo": "PunteoProcessor.java · AcumuladorComisionesWriter.java · ComisionCobradaRepository.java",
+        "contexto": "ItemProcessor · ItemWriter con corte de control · JPA @Transactional"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Validación del header y filtro de claves 2XXX y 4XXX con comisión",
+          "linea_ini": 915,
+          "linea_fin": 989,
+          "origen_codigo": " 50001100-VAL-HEA.\n     READ PUNTEOL1  AT END\n        MOVE  \"ERROR ARCHIVO PLINEA  VACIO\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n     IF WS-HEAL1-FECHA = WS-FECHA-MOV\n        NEXT SENTENCE\n     ELSE\n        MOVE  \"FECEXT.E INT ARC.PLINEA DIF\" TO WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n 50001200-VAL-DET.\n     READ PUNTEOL1  AT END\n        MOVE 1                              TO WS-1VEZ.\n     IF WS-1VEZ = 0\n        IF WS-HEAL1-TREG = 99\n          NEXT SENTENCE\n        ELSE\n          PERFORM 50001210-VAL-CVE         THRU 50001210-EXIT.\n 50001210-VAL-CVE.\n   IF ((WS-DETL1-CVE > 1999) AND (WS-DETL1-CVE < 3000)) OR\n      ((WS-DETL1-CVE > 3999) AND (WS-DETL1-CVE < 5000))\n      MOVE WS-DETL1-CVE                 TO WS-IND1\n      MOVE WS-DETL1-CVE                 TO WS-MSG-CVE\n      PERFORM 50001230-CHECO-B17      THRU 50001230-EXIT.\n 50001230-CHECO-B17.\n   IF WS-B17-CVEACUM-C(WS-IND1) > 0\n      PERFORM 50001240-LLENO-ARCPLINEA     THRU 50001240-EXIT.\n 50001240-LLENO-ARCPLINEA.\n    MOVE SPACES                        TO REG-PUNTEOT\n    MOVE WS-B17-CVEACUM-C(WS-IND1)     TO WS-DETPT-CLAVE\n    MOVE WS-B17-TPOACUM-C(WS-IND1)     TO WS-DETPT-TIPO-IMP\n    MOVE WS-DETL1-NUMCTO               TO WS-DETPT-NUMCTO\n    MOVE WS-DETL1-IMP                  TO WS-DETPT-IMP\n 50001250-GRABO-ARC.\n   WRITE REG-PUNTEOT INVALID KEY\n      MOVE \"ERROR AL GRABAR ARC. PUNTEOT. \" TO WS-0101-TEXT-MSG\n      PERFORM 70000050-MENSAJE.",
+          "java_codigo": "@Component\n@StepScope\n@RequiredArgsConstructor\npublic class PunteoProcessor implements ItemProcessor<PunteoRecord, PunteoTotal> {\n\n    @Value(\"#{jobExecutionContext['fechaLote']}\") private LocalDate fechaLote;\n    private final CatalogoComisiones catalogo;\n\n    @Override\n    public PunteoTotal process(PunteoRecord r) {\n        if (r instanceof PunteoRecord.Header h) {                   // 50001100-VAL-HEA\n            if (!h.fecha().equals(fechaLote)) {\n                throw new ProcesoAbortadoException(\"FECEXT.E INT ARC.PLINEA DIF\");   // DMTERMINATE\n            }\n            return null;                                            // el header no va a PTOTAL\n        }\n        if (!(r instanceof PunteoRecord.Detalle d)) return null;    // trailer 99: se ignora\n        if (!esCargo(d.cveTran())) return null;                     // 50001210-VAL-CVE\n        return catalogo.regla(d.cveTran())                          // 50001230-CHECO-B17\n                .map(g -> new PunteoTotal(g.claveAcumulacion(), d.contrato(), d.importe(),\n                                          TipoImporte.de(g.tipoAcumulacion())))\n                .orElse(null);                                      // sin comisión: se descarta\n    }\n\n    /** Solo las claves de cargo 2000-2999 y 4000-4999 (p178.rangos-cargo). */\n    static boolean esCargo(int cve) {\n        return (cve > 1999 && cve < 3000) || (cve > 3999 && cve < 5000);\n    }\n}\n// El reader (ResourceAwareItemReaderItemStream) marca el primer registro de cada archivo\n// como header y aborta si el archivo está vacío: \"ERROR ARCHIVO PLINEA  VACIO\".",
+          "racional": "Cada uno de los seis archivos empieza con un header cuya fecha debe ser la fecha de lote del control; cualquier diferencia, o un archivo vacío, aborta el paso. Después cada detalle se filtra en dos etapas: la clave debe estar en los rangos de cargo 2XXX o 4XXX y además debe existir en el catálogo B17 con clave de acumulación. El registro que pasa se transforma en un renglón de PTOTAL con la clave de acumulación y el tipo de importe del catálogo. En Spring Batch esto es un <code>ItemProcessor</code> que devuelve <code>null</code> para filtrar; los seis archivos se leen con un <code>MultiResourceItemReader</code> en el orden PLINEA 1 a 3 y PBATCH 1 a 3.",
+          "reglas": [],
+          "riesgo": "50001250-GRABO-ARC declara INVALID KEY sobre un archivo secuencial y en caso de error solo envía un mensaje; el renglón se pierde y el paso sigue."
+        },
+        {
+          "id": "s7",
+          "titulo": "Orden por contrato y clave y corte de control con suma de comisión e IVA",
+          "linea_ini": 1404,
+          "linea_fin": 1499,
+          "origen_codigo": " 50003000-SORT-PTOTAL.\n     OPEN INPUT PUNTEOT.\n     MOVE ATTRIBUTE LASTRECORD OF PUNTEOT TO WS-LASTRECORD\n     CLOSE PUNTEOT.\n     COMPUTE WS-SORT-ESPACIO = (WS-LASTRECORD + 1) * 6 * 2.5\n     COMPUTE WS-AREA-ESPACIO = (9 * 2000 ) + 1500\n     SORT PUNTEO-SORT ON ASCENDING KEY CTOMOV-SORT CVEMOV-SORT\n     USING PUNTEOT GIVING PUNTEOT\n     MEMORY SIZE WS-AREA-ESPACIO WORDS\n     DISK   SIZE WS-SORT-ESPACIO WORDS.\n 50005000-LEO-SORT.\n     READ PUNTEOT  AT END\n        MOVE 1                              TO WS-3VEZ\n        MOVE 1                              TO WS-BAN-BEGIN\n        PERFORM 50005500-ACT-B28            THRU 50005500-EXIT.\n     IF WS-3VEZ = 0\n        MOVE    1                           TO WS-SIHAY\n        PERFORM 50005200-ACT-EST            THRU 50005200-EXIT.\n 50005200-ACT-EST.\n    IF WS-7VEZ = 0\n       MOVE WS-DETPT-NUMCTO       TO WS-CTO-ANT\n       MOVE WS-DETPT-CLAVE        TO WS-CVE-ANT\n       PERFORM 50005250-BUSCO     THRU 50005250-EXIT\n       MOVE 1                     TO WS-7VEZ.\n    IF (WS-DETPT-NUMCTO = WS-CTO-ANT) AND\n       (WS-DETPT-CLAVE  = WS-CVE-ANT)\n       PERFORM 50005260-SUMO      THRU 50005260-EXIT\n    ELSE\n       PERFORM 50005500-ACT-B28     THRU 50005500-EXIT\n       MOVE WS-DETPT-NUMCTO         TO   WS-CTO-ANT\n       MOVE WS-DETPT-CLAVE          TO   WS-CVE-ANT\n       MOVE 0                       TO   WS-SUM-IMP-COBRADO\n       MOVE 0                       TO   WS-SUM-IVA-COBRADO\n       PERFORM 50005250-BUSCO       THRU 50005250-EXIT\n       PERFORM 50005260-SUMO        THRU 50005260-EXIT.\n 50005260-SUMO.\n       IF WS-DETPT-TIPO-IMP = 1\n          ADD WS-DETPT-IMP          TO   WS-SUM-IMP-COBRADO\n       ELSE\n          ADD WS-DETPT-IMP          TO   WS-SUM-IVA-COBRADO.",
+          "java_codigo": "/** 50003000-SORT-PTOTAL: el SORT por CTOMOV-SORT, CVEMOV-SORT se delega a la base o a un step de ordenamiento. */\nrecord LlaveComision(String contrato, int claveAcumulacion) {}\n\nrecord GrupoComision(LlaveComision llave, BigDecimal comision, BigDecimal iva) {}\n\n/** 50005200-ACT-EST: corte de control sobre PTOTAL ordenado. */\n@RequiredArgsConstructor\npublic class AgrupadorComisionesReader implements ItemReader<GrupoComision> {\n\n    private static final BigDecimal TOPE_8V2 = new BigDecimal(\"99999999.99\");  // WS-SUM-*-COBRADO 9(08)V99\n    private final SingleItemPeekableItemReader<PunteoTotal> ordenado;\n\n    @Override\n    public GrupoComision read() throws Exception {\n        PunteoTotal p = ordenado.read();\n        if (p == null) return null;\n        var llave = new LlaveComision(p.contrato(), p.claveAcumulacion());\n        BigDecimal comision = BigDecimal.ZERO.setScale(2), iva = BigDecimal.ZERO.setScale(2);\n        do {\n            if (p.tipo() == TipoImporte.COMISION) comision = tope(comision.add(p.importe()));\n            else                                  iva      = tope(iva.add(p.importe()));\n            PunteoTotal sig = ordenado.peek();\n            p = (sig != null && llave.equals(new LlaveComision(sig.contrato(), sig.claveAcumulacion())))\n                    ? ordenado.read() : null;\n        } while (p != null);\n        return new GrupoComision(llave, comision, iva);\n    }\n\n    /** ADD sin ON SIZE ERROR truncaría el dígito alto en silencio. */\n    private static BigDecimal tope(BigDecimal v) {\n        if (v.compareTo(TOPE_8V2) > 0) throw new DesbordamientoAcumuladorException(v);\n        return v;\n    }\n}",
+          "racional": "PTOTAL se ordena por contrato y clave de acumulación con un <code>SORT ... USING ... GIVING</code> sobre el mismo archivo. Después, cada vez que cambia la pareja contrato y clave se escribe el grupo anterior y se reinician los acumuladores; según el tipo de importe, el renglón suma a la comisión o al IVA. En Spring Batch el corte de control es un lector que agrupa sobre un <code>SingleItemPeekableItemReader</code>. Los acumuladores son <code>PIC 9(08)V99</code> mientras que cada importe es <code>PIC 9(10)V99</code>; la versión Java falla si la suma excede la capacidad original en lugar de truncar.",
+          "reglas": [],
+          "riesgo": "Un solo importe de PTOTAL puede ser hasta cien veces mayor que la capacidad del acumulador y de los campos de B28 (PIC 9(08)V99), y el ADD no tiene ON SIZE ERROR."
+        },
+        {
+          "id": "s8",
+          "titulo": "LOCK o CREATE en la estructura mensual y suma con commit cada 3,000",
+          "linea_ini": 1422,
+          "linea_fin": 1566,
+          "origen_codigo": " 50004000-LEO-EST.\n     MOVE WS-FECHA-AA          TO WS-COMICOB-AA\n     MOVE WS-FECHA-MM          TO WS-COMICOB-MM\n     MOVE 0                    TO WS-NUM-EST\n     PERFORM 90000028-B28COMICOB-NO-DS.\n     IF (WS-COMICOB-DS > 0) AND\n        (WS-COMICOB-DS < 8)\n        MOVE WS-COMICOB-DS         TO WS-NUM-EST\n     ELSE\n        STRING \"VALOR DE EST. INVALIDO  \" ,WS-NUM-EST\n        DELIMITED BY SIZE INTO                 WS-0101-TEXT-MSG\n        PERFORM 70000050-MENSAJE\n        CALL SYSTEM DMTERMINATE.\n 50005300-B28-LOCK.\n   PERFORM 90000028-B28SXCTOCVE-LOCK\n   IF WS-STATUS-BASE > 0\n      IF WS-STATUS-BASE = 1\n         MOVE 1 TO WS-4VEZ\n      ELSE\n         STRING \"ERROR AL HACER LOCK A B28\",WS-STATUS-BASE\n         DELIMITED BY SIZE INTO             WS-0101-TEXT-MSG\n         PERFORM 70000050-MENSAJE\n         CALL SYSTEM DMTERMINATE.\n   MOVE WS-COMICOB-AREA                     TO WS-BONI-AREA.\n 50005400-CREATE-B28.\n    PERFORM 90000028-B28COMICOB-CREATE\n    IF WS-STATUS-BASE > 0\n       STRING \"ERROR AL HACER CREATE A B28\",WS-STATUS-BASE\n       DELIMITED BY SIZE INTO               WS-0101-TEXT-MSG\n       PERFORM 70000050-MENSAJE\n       CALL SYSTEM DMTERMINATE.\n    MOVE WS-DETPT-NUMCTO               TO   WS-B28-NUM-CONTRATO.\n    MOVE WS-DETPT-CLAVE                TO   WS-B28-CVE-ACUMULA.\n 50005500-ACT-B28.\n   IF (WS-6VEZ = 0) AND (WS-SIHAY = 1)\n     MOVE 1   TO WS-6VEZ\n     PERFORM 51074520-BEGIN  THRU 51074520-EXIT.\n   IF WS-SIHAY = 1\n     MOVE WS-NUM-EST                TO   WS-COMICOB-DS\n     ADD WS-SUM-IMP-COBRADO         TO   WS-B28-IMP-COBRADO\n     ADD WS-SUM-IVA-COBRADO         TO   WS-B28-IVA-COBRADO\n     MOVE WS-BONI-AREA              TO   WS-COMICOB-AREA\n     ADD  1                         TO   WS-NUM-BEGIN\n     MOVE 1                         TO   WS-BAN-B28\n     PERFORM 51074000-GRABO     THRU 51074000-EXIT.\n   IF (WS-NUM-BEGIN = 3000) OR (WS-BAN-BEGIN = 1)\n      PERFORM 51074500-BEGIN-END       THRU 51074500-EXIT.",
+          "java_codigo": "@Entity\n@Table(name = \"s500_comisiones_cobradas\")      // B28COMICOB .. B34COMICOB: una tabla con columna estructura\n@IdClass(ComisionCobradaId.class)\npublic class ComisionCobrada {\n    @Id int estructura;                        // 1..7, resuelta por año y mes del lote\n    @Id String contrato;                       // 9(12)\n    @Id int claveAcumulacion;                  // 9(04)\n    @Column(precision = 10, scale = 2) BigDecimal impCobrado, ivaCobrado, impBonif, ivaBonif;\n\n    static ComisionCobrada nueva(int est, LlaveComision k) {\n        var c = new ComisionCobrada();\n        c.estructura = est; c.contrato = k.contrato(); c.claveAcumulacion = k.claveAcumulacion();\n        c.impCobrado = c.ivaCobrado = c.impBonif = c.ivaBonif = BigDecimal.ZERO.setScale(2);\n        return c;\n    }\n}\n\n/** 50005250-BUSCO + 50005500-ACT-B28. El step usa chunk(3000): END/BEGIN TRANSACTION cada 3,000. */\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class AcumuladorComisionesWriter implements ItemWriter<GrupoComision> {\n\n    private final ComisionCobradaRepository repo;\n    @Value(\"#{jobExecutionContext['estructura']}\") private int estructura;   // 50004000-LEO-EST\n\n    @Override\n    public void write(Chunk<? extends GrupoComision> grupos) {\n        for (GrupoComision g : grupos) {\n            var id = new ComisionCobradaId(estructura, g.llave().contrato(), g.llave().claveAcumulacion());\n            ComisionCobrada b28 = repo.findByIdForUpdate(id)                   // LOCK B28SXCTOCVE\n                    .orElseGet(() -> ComisionCobrada.nueva(estructura, g.llave()));   // CREATE\n            b28.impCobrado = Importe.tope8v2(b28.impCobrado.add(g.comision()));    // ADD: acumula\n            b28.ivaCobrado = Importe.tope8v2(b28.ivaCobrado.add(g.iva()));\n            repo.save(b28);                                                    // STORE\n        }\n    }\n}",
+          "racional": "El año y mes de la fecha de lote determinan cuál de las siete estructuras mensuales (B28 a B34) recibe las comisiones; un número fuera de 1 a 7 aborta el paso. Para cada grupo se bloquea el registro por contrato y clave; si no existe se crea y los importes del grupo se suman a lo que ya tenía, de modo que el registro acumula comisiones de varios días. Las actualizaciones se confirman en transacciones de 3,000 registros, que en Spring Batch es el tamaño de chunk del step. En el destino las siete estructuras pueden quedar como una sola tabla con la estructura en la llave; esa decisión de diseño la debe validar el SME.",
+          "reglas": [],
+          "riesgo": "En 50005300 la línea 1517 copia el área del registro a WS-BONI-AREA aun cuando el LOCK no encontró el contrato. Si la rutina de LOCK del copybook no limpia el área, un contrato nuevo hereda los importes del registro leído antes y los suma."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Posible arrastre de importes en altas nuevas",
+      "detalle": "En 50005300-B28-LOCK (línea 1517) MOVE WS-COMICOB-AREA TO WS-BONI-AREA se ejecuta también cuando el contrato no existe; 50005400-CREATE-B28 solo asigna contrato y clave. Si el área no se limpia en la rutina del copybook S500/INC/PRO/25MTP002, el nuevo registro arranca con los importes del contrato anterior."
+    },
+    {
+      "titulo": "Trailer sin validar",
+      "detalle": "Los seis archivos traen un trailer 99 con el número de registros (WS-TRAL1-NREG y equivalentes) que no se compara en ningún punto. Un archivo incompleto pasa sin aviso."
+    },
+    {
+      "titulo": "Reproceso que duplica sumas",
+      "detalle": "B28 se actualiza con ADD y commits cada 3,000 grupos. El candado de B00 impide un reinicio automático, pero un reinicio manual después de una falla vuelve a sumar lo ya confirmado."
+    },
+    {
+      "titulo": "Capacidades sin control",
+      "detalle": "Importes de 9(10)V99 se suman en acumuladores y campos de B28 de 9(08)V99 sin ON SIZE ERROR, y la tabla de B17 de 9,999 posiciones se indexa directamente por la clave."
+    },
+    {
+      "titulo": "Escritura de PTOTAL sin control efectivo",
+      "detalle": "El WRITE de 50001250-GRABO-ARC solo envía un mensaje si falla y continúa, por lo que se pueden perder comisiones sin abortar."
+    },
+    {
+      "titulo": "Hardcodes",
+      "detalle": "Prefijos S500/FILE/S500/PLINEA, PBATCH y PTOTAL, copias 01 a 03, pasos 170 y 178, rangos de claves 2000-2999 y 4000-4999, y el lote de 3,000 transacciones. Se trasladan a application.yml."
+    }
+  ],
+  "pendientes_revision": [
+    "Revisar las rutinas 90000028-B28SXCTOCVE-LOCK, -CREATE y -STORE del copybook S500/INC/PRO/25MTP002, que no viene expandido en el fuente, para confirmar si el área del registro se limpia cuando el contrato no existe.",
+    "Confirmar la regla de 90000028-B28COMICOB-NO-DS que asigna la estructura 1 a 7 a partir del año y mes del lote; no está en el fuente.",
+    "Confirmar si WS-HEAL1-TREG = 99 identifica al trailer en todas las copias; el programa solo lo revisa en el detalle y no valida el header por tipo.",
+    "Validar con el SME si consolidar B28 a B34 en una sola tabla con columna de estructura es aceptable para los consumidores de esos datasets.",
+    "El inventario no asocia reglas del brain a P178."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-391",
+    "RN-S151-392",
+    "RN-S151-393",
+    "RN-S151-394",
+    "RN-S151-395",
+    "RN-S151-396",
+    "RN-S151-397",
+    "RN-S151-398",
+    "RN-S151-399",
+    "RN-S151-400",
+    "RN-S500-506",
+    "RN-S500-507",
+    "RN-S500-508",
+    "RN-S500-509"
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "slug": "S500_P091",
+  "sistema": "S500",
+  "programa": "P091",
+  "nombre": "Arranque en Línea del Envío Asíncrono de Cancelaciones",
+  "funcion": "Programa ALGOL de arranque que COMS ejecuta como tarea en línea: resuelve la versión vigente de la librería TIME_OUT (L091), prepara su archivo de diagnóstico y le cede el control llamando a ENVIA_CANCELACIONES con sus encabezados COMS.",
+  "resumen": "P091 no tiene lógica de negocio propia. Arma el identificador usercode.L091ASIN y pide a CTRLVERS el título de la librería TIME_OUT que debe usar; si la llamada falla, solo muestra un aviso y sigue con el título compilado. Obtiene de SOPORTECOMS el CSI del equipo, activa las opciones de volcado de la tarea y nombra su archivo de volcado S500/LIST/P091/ con el CSI y la hora. Después habilita el encabezado de entrada COMS en modo ONLINE, libera las librerías auxiliares y entrega a ENVIA_CANCELACIONES sus encabezados y los eventos de entrada y de tarea; la tarea vive mientras esa librería no regrese.",
+  "arquetipo": "A5",
+  "lenguaje_origen": "ALGOL",
+  "target": "Java 21 · Spring Boot 3 · Spring Integration",
+  "paquete_java": "mx.banamex.s500.cancelaciones.arranque",
+  "secciones": [
+    {
+      "titulo": "Contrato con COMS y con la librería TIME_OUT",
+      "origen": {
+        "archivo": "S500_SOURCE_P091.txt",
+        "contexto": "Bloque externo · declaraciones"
+      },
+      "java": {
+        "archivo": "EnvioCancelacionesPort.java · ComsCanal.java",
+        "contexto": "interfaz de puerto · record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Encabezados COMS y procedimiento externo ENVIA_CANCELACIONES",
+          "linea_ini": 1,
+          "linea_fin": 13,
+          "origen_codigo": "$ SET VERSION 99.01.00                                                  00000100\nBEGIN                                                                   00000200\nINPUTHEADER     COMSINHDR;                                              00000400\nOUTPUTHEADER    COMSOUTHDR;                                             00000500\nLIBRARY TIME_OUT(LIBACCESS = BYTITLE);                                  00000700\nPROCEDURE ENVIA_CANCELACIONES(COMS_IN,COMS_OUT,IN_EV,TSK_EV);           00000900\n    INPUTHEADER  COMS_IN;                                               00001000\n    OUTPUTHEADER COMS_OUT;                                              00001100\n    EVENT        IN_EV, TSK_EV;                                         00001200\n    LIBRARY TIME_OUT;                                                   00001300",
+          "java_codigo": "/** COMSINHDR / COMSOUTHDR + DCIINPUTEVENT / DCITASKEVENT: canal de entrada y salida en línea. */\npublic record ComsCanal(MessageChannel entrada, MessageChannel salida,\n                        SubscribableChannel eventosEntrada, SubscribableChannel eventosTarea) {}\n\n/**\n * LIBRARY TIME_OUT (LIBACCESS = BYTITLE): la librería L091 se liga por título.\n * En Java es un puerto implementado por el servicio que sustituya a L091.\n */\npublic interface EnvioCancelacionesPort {\n    /** Bloquea mientras el envío asíncrono esté activo, como la llamada ALGOL. */\n    void enviaCancelaciones(ComsCanal canal);\n}",
+          "racional": "El programa declara los dos encabezados COMS y un procedimiento externo que vive en la librería TIME_OUT, ligada por título. Esa firma es todo el contrato entre el wrapper y la lógica de negocio. En Java el par de encabezados y eventos se agrupa en un <code>record</code> de canales de Spring Integration, y el procedimiento externo se vuelve un puerto (<code>interface</code>) que implementará el servicio heredero de L091.",
+          "reglas": [
+            "RN-S500-776"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Librerías auxiliares CTRLVERS y SOPORTECOMS ligadas por función",
+          "linea_ini": 15,
+          "linea_fin": 29,
+          "origen_codigo": "PROCEDURE INICIA;                                                       00001500\n    BEGIN                                                               00001600\n    EBCDIC ARRAY E_MSG, TITULO[0:71], AUX[0:20];                        00001700\n      EBCDIC VALUE ARRAY MY_ID(\"25MTP002\");                             00001800\n    LIBRARY CTLVER(LIBACCESS=BYFUNCTION,FUNCTIONNAME=\"CTLVERS\"),        00002000\n            SHELL (LIBACCESS=BYFUNCTION,FUNCTIONNAME=\"SOPORTECOMS.\");   00002100\n    INTEGER PROCEDURE DAME_TIT(ID,TITULO);                              00002300\n        EBCDIC  ARRAY ID,TITULO[0];                                     00002400\n        LIBRARY CTLVER;                                                 00002500\n    PROCEDURE CSIID(INFO);                                              00002700\n        EBCDIC ARRAY INFO[0];                                           00002800\n        LIBRARY SHELL;                                                  00002900",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\nclass ArranqueDependencias {\n    final ControlVersionesClient ctlvers;   // LIBRARY CTLVER (FUNCTIONNAME=\"CTLVERS\"): DAME_TIT\n    final SoporteComsClient soporteComs;    // LIBRARY SHELL (FUNCTIONNAME=\"SOPORTECOMS.\"): CSIID\n}",
+          "racional": "Dentro del procedimiento de inicio se ligan por nombre de función dos librerías de soporte: control de versiones y SOPORTECOMS. Ambas se usan solo durante el arranque y después se desligan. En Spring son clientes inyectados; el ciclo de vida de ligado y desligado lo absorbe el contenedor.",
+          "reglas": []
+        }
+      ]
+    },
+    {
+      "titulo": "Inicio de la tarea y cesión del control",
+      "origen": {
+        "archivo": "S500_SOURCE_P091.txt",
+        "contexto": "PROCEDURE INICIA · cuerpo principal"
+      },
+      "java": {
+        "archivo": "ArranqueCancelacionesRunner.java · application.yml",
+        "contexto": "ApplicationRunner · Spring Integration"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Título de TIME_OUT resuelto por control de versiones",
+          "linea_ini": 31,
+          "linea_fin": 36,
+          "origen_codigo": "    REPLACE AUX BY MYSELF.USERCODE;                                     00003100\n    REPLACE E_MSG BY AUX UNTIL = \".\",\"L091ASIN\",48\"00\";                 00003200\n    IF DAME_TIT(E_MSG,TITULO) < 0 THEN                                  00003300\n        DISPLAY(\"ERROR AL LLAMAR A CONTROL DE VERSIONES\")               00003400\n    ELSE                                                                00003500\n        REPLACE TIME_OUT.TITLE BY TITULO FOR 72;                        00003600",
+          "java_codigo": "/** REPLACE E_MSG BY AUX UNTIL = \".\", \"L091ASIN\": identificador usercode.L091ASIN. */\nString resuelveVersionL091(String usercode) {\n    String id = usercode + \".L091ASIN\";\n    return ctlvers.dameTitulo(id)                       // DAME_TIT(E_MSG, TITULO)\n            .orElseGet(() -> {\n                log.warn(\"ERROR AL LLAMAR A CONTROL DE VERSIONES\");   // DISPLAY y continúa\n                return props.tituloL091PorDefecto();                  // título compilado\n            });\n}",
+          "racional": "El wrapper construye el identificador de la librería con el usercode de la tarea y el sufijo L091ASIN y le pide a control de versiones el título vigente; con él reasigna el título de TIME_OUT antes de la primera llamada. En Java eso equivale a elegir la implementación o la versión del servicio por configuración. Se conserva el comportamiento de no abortar si falla la consulta, pero el aviso queda en bitácora con nivel de advertencia.",
+          "reglas": [
+            "RN-S500-776"
+          ],
+          "riesgo": "Con la consulta fallida la tarea sigue con el título compilado de TIME_OUT."
+        },
+        {
+          "id": "s4",
+          "titulo": "CSI del equipo y opciones de volcado de la tarea",
+          "linea_ini": 38,
+          "linea_fin": 42,
+          "origen_codigo": "    CSIID(E_MSG);                                                       00003800\n    MYSELF.OPTIONS:=* & 1 [VALUE(BDBASE):1]                             00003900\n                      & 1 [VALUE(FAULT) :1]                             00004000\n                      & 1 [VALUE(DSED)  :1]                             00004100\n                      & 1 [VALUE(ARRAYS):1];                            00004200",
+          "java_codigo": "# application.yml: las opciones de volcado de MCP pasan a diagnóstico de la JVM\nserver:\n  shutdown: graceful\nmanagement:\n  endpoint.heapdump.enabled: true        # equivalente a OPTIONS ARRAYS / DSED\nlogging:\n  level.mx.banamex.s500.cancelaciones: INFO\n\n// JAVA_TOOL_OPTIONS: -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${DUMP_DIR}",
+          "racional": "Se obtiene el CSI con <code>CSIID</code> y se encienden las opciones BDBASE, FAULT, DSED y ARRAYS, que piden al MCP un volcado de diagnóstico si la tarea falla. No tienen traducción línea a línea: su equivalente operativo son las opciones de volcado de la JVM y los endpoints de diagnóstico de Spring Boot Actuator.",
+          "reglas": []
+        },
+        {
+          "id": "s5",
+          "titulo": "Archivo de volcado, ENABLE ONLINE y liberación de librerías",
+          "linea_ini": 43,
+          "linea_fin": 49,
+          "origen_codigo": "    REPLACE TITULO BY \"S500/LIST/P091/\",E_MSG FOR 2,                    00004300\n        \"00/R000/\",TIME(15).[15:48],\".\";                                00004400\n    REPLACE MYSELF.BDNAME BY TITULO;                                    00004500\n    ENABLE(COMSINHDR,\"ONLINE\");                                         00004600\n    DELINKLIBRARY(CTLVER);                                              00004700\n    DELINKLIBRARY(SHELL);                                               00004800\n    END INICIA;                                                         00004900",
+          "java_codigo": "@Bean\nIntegrationFlow cancelacionesEnLinea(ComsInboundAdapter coms) {   // ENABLE(COMSINHDR, \"ONLINE\")\n    return IntegrationFlow.from(coms)\n            .channel(\"cancelaciones.entrada\")\n            .get();\n}\n\n/** S500/LIST/P091/{csi}00/R000/{hora}. : directorio de volcados por CSI y hora de arranque. */\nPath rutaVolcado(int csi, LocalTime arranque) {\n    return Path.of(props.dirVolcados(), \"%02d00\".formatted(csi), \"R000\",\n                   arranque.format(DateTimeFormatter.ofPattern(\"HHmmss\")));\n}",
+          "racional": "El archivo de volcado se nombra con el prefijo del programa, las dos primeras posiciones de la respuesta de CSIID y la hora, y se asigna al atributo BDNAME de la tarea. Después se habilita el encabezado de entrada en modo ONLINE para que COMS entregue mensajes y se desligan las librerías auxiliares. En Java la habilitación es el arranque de un adaptador de entrada de Spring Integration y la ruta de volcados pasa a <code>application.yml</code>.",
+          "reglas": [
+            "RN-S500-776"
+          ]
+        },
+        {
+          "id": "s6",
+          "titulo": "Cuerpo principal: INICIA y llamada bloqueante a la librería",
+          "linea_ini": 51,
+          "linea_fin": 56,
+          "origen_codigo": "INICIA;                                                                 00005100\nENVIA_CANCELACIONES                                                     00005300\n    (COMSINHDR,COMSOUTHDR,MYSELF.DCIINPUTEVENT,MYSELF.DCITASKEVENT);    00005400\nEND.                                                                    00005600",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ArranqueCancelacionesRunner implements ApplicationRunner {\n\n    private final ArranqueDependencias deps;\n    private final EnvioCancelacionesPort envio;   // ENVIA_CANCELACIONES IN TIME_OUT\n    private final ComsCanal canal;\n\n    @Override\n    public void run(ApplicationArguments args) {\n        inicia();                                  // INICIA;\n        envio.enviaCancelaciones(canal);           // regresa solo al terminar el servicio\n    }\n}",
+          "racional": "El cuerpo del programa son dos sentencias: el procedimiento de inicio y la llamada a la librería, que no regresa mientras el envío asíncrono esté activo. Es el patrón de orquestador mínimo: un <code>ApplicationRunner</code> que prepara el entorno y cede el control al servicio. La aplicación termina cuando el servicio termina, igual que la tarea COMS al regresar ENVIA_CANCELACIONES.",
+          "reglas": [
+            "RN-S500-776"
+          ]
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Falla de control de versiones sin aborto",
+      "detalle": "Si DAME_TIT regresa un valor negativo (línea 33), P091 solo muestra un DISPLAY y continúa con el título de TIME_OUT que trae compilado. La tarea puede quedar ligada a una versión de L091 distinta de la registrada en CTRLVERS sin que nadie lo note."
+    },
+    {
+      "titulo": "Identificador de versión declarado y no usado",
+      "detalle": "MY_ID se declara con 25MTP002 (línea 18) pero ningún enunciado lo lee; la versión real que se valida es la de la librería, por el identificador usercode.L091ASIN de la línea 32."
+    },
+    {
+      "titulo": "Toda la funcionalidad vive en la librería",
+      "detalle": "La lógica de cancelaciones, el manejo de mensajes COMS y la terminación están en ENVIA_CANCELACIONES de TIME_OUT (L091). Migrar P091 sin L091 no aporta funcionalidad; ambos deben planearse juntos."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S500-776 dice que P093 activa $SET TADS; en el fuente de P093 esa línea está comentada con % (línea 2), por lo que ninguno de los dos wrappers compila en modo TADS. Revisar la redacción de la regla.",
+    "Confirmar el formato que regresa TIME(15).[15:48] en el nombre del archivo de volcado; se asumió que son seis caracteres de hora.",
+    "Confirmar qué campo de la respuesta de CSIID ocupa las dos primeras posiciones que se usan en el título (se asumió el número de CSI).",
+    "Transpilar L091 (TIME_OUT) para tener el comportamiento completo del envío asíncrono de cancelaciones."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S500-766",
+    "RN-S500-776"
+  ]
+}

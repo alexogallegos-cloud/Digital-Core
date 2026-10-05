@@ -1,0 +1,236 @@
+{
+  "slug": "S151_P677",
+  "sistema": "S151",
+  "programa": "P677",
+  "nombre": "Apertura del Día en los Datasets de Control B01, B03 y B04",
+  "funcion": "Paso batch de S151 que recibe sistema y fecha AAAAMMDD, valida que la fecha sea hábil y abre el día en los datasets de control: fechas de proceso y ventana de diez días en B01SISDIA, ciclo mensual en B03SISMEN y lectura del estatus de B04SISTEM.",
+  "resumen": "Resuelve el título de la librería de control con CTLVERS y lee B01SISDIA; si falla, termina. Con THECALENDAR valida que la fecha recibida sea hábil y obtiene su día de la semana, que se usa como posición del día en la tabla de diez días de B01. Fija fecha de proceso, contable y de proceso S151 con la fecha recibida y llena las demás posiciones con días anteriores retrocediendo en el calendario y saltando sábados y domingos; luego graba B01 con MANTSISDIA. En B03SISMEN busca el año y mes de la fecha entre los ciclos y, si no existe, reemplaza el más antiguo; marca la base de saldos en 1 salvo que esté en 99 y graba con MANTSISMEN. Por último lee B04SISTEM y, si su estatus es 3, invoca CONTROLES de L002 con la función 25.",
+  "arquetipo": "A1",
+  "lenguaje_origen": "COBOL85",
+  "target": "Java 21 · Spring Boot 3 · Spring Batch",
+  "paquete_java": "mx.banamex.s151.control.apertura",
+  "secciones": [
+    {
+      "titulo": "Parámetros y estructura de control del día",
+      "origen": {
+        "archivo": "COBOL_P677.txt",
+        "contexto": "WORKING-STORAGE · WKS-PARAMETROS / WKS-S151B01SISDIA"
+      },
+      "java": {
+        "archivo": "AperturaParametros.java · ControlDia.java",
+        "contexto": "record"
+      },
+      "segmentos": [
+        {
+          "id": "s1",
+          "titulo": "Sistema y fecha recibidos y la vista año-mes",
+          "linea_ini": 707,
+          "linea_fin": 715,
+          "origen_codigo": " 01  WKS-PARAMETROS.                                              007900\n     03 WKS-PARAM-SIS              PIC 9(04).                     008000\n     03 WKS-PARAM-FECHA            PIC 9(08).                     008100\n 01  WKS-FECHA-AMD.                                               008200\n     03 WKS-AM-AMD                 PIC 9(06).                     008300\n     03 WKS-AM-AMD-R REDEFINES WKS-AM-AMD.                        008400\n        05 WKS-AA-AMD              PIC 9(04).                     008500\n        05 WKS-MM-AMD              PIC 9(02).                     008600\n     03 WKS-DD-AMD                 PIC 9(02).                     008700",
+          "java_codigo": "/** PROCEDURE DIVISION USING WKS-PARAMETROS: sistema 9(04) y fecha AAAAMMDD 9(08). */\npublic record AperturaParametros(int sistema, LocalDate fecha) {\n\n    private static final DateTimeFormatter AAAAMMDD = DateTimeFormatter.BASIC_ISO_DATE;\n\n    public static AperturaParametros de(JobParameters p) {\n        return new AperturaParametros(p.getLong(\"sistema\").intValue(),\n                LocalDate.parse(p.getString(\"fecha\"), AAAAMMDD));   // la fecha trae siglo: sin pivote\n    }\n\n    /** WKS-AM-AMD: los primeros 6 dígitos de la fecha, es decir AAAAMM (no AAMM). */\n    public YearMonth cicloMensual() { return YearMonth.from(fecha); }\n}",
+          "racional": "El programa recibe dos parámetros fijos del WFL: el número de sistema y la fecha de proceso con siglo. El <code>MOVE</code> de la fecha al grupo <code>WKS-FECHA-AMD</code> es alfanumérico y deja en <code>WKS-AM-AMD</code> los seis primeros dígitos, que son año de cuatro dígitos y mes; ése es el valor que se compara contra los ciclos de B03. En Java ese dato es un <code>YearMonth</code>, lo que evita confundirlo con un AAMM. Como la fecha viene con siglo, no hace falta pivote.",
+          "reglas": [
+            "RN-S151-490"
+          ]
+        },
+        {
+          "id": "s2",
+          "titulo": "Registro B01SISDIA con ventana de diez días",
+          "linea_ini": 112,
+          "linea_fin": 133,
+          "origen_codigo": "    03 WKS-B01-CSI                 PIC 9(02).                     003000\n    03 WKS-B01-FECPRO              PIC 9(08).                     003102\n    03 WKS-B01-FECCON              PIC 9(08).                     003202\n    03 WKS-B01-FECPRO151           PIC 9(08).                     003302\n    03 WKS-B01-STAREG              PIC 9(02).                     003400\n    03 WKS-B01-NOMARCSAL           PIC X(34).                     003500\n    03 WKS-B01-NOMPACSAL           PIC X(17).                     003600\n    03 WKS-B01-NOMARCMOV           PIC X(34).                     003700\n    03 WKS-B01-NOMPACMOV           PIC X(17).                     003800\n    03 WKS-B01-NOMARCDES           PIC X(34).                     003900\n    03 WKS-B01-NOMPACDES           PIC X(17).                     004000\n    03 WKS-B01-NOMARCERR           PIC X(34).                     004100\n    03 WKS-B01-NOMPACERR           PIC X(17).                     004200\n    03 WKS-B01-NOMBDSEM            PIC X(17).                     004300\n    03 WKS-B01-STABDSEM            PIC 9(02).                     004400\n    03 WKS-B01-NUMARC              PIC 9(02).                     004500\n    03 WKS-B01-3ERNIV              PIC 9(02).                     004600\n    03 WKS-B01-CTL-DIA     OCCURS 10 TIMES.                       004700\n       05 WKS-B01-FECARCMOV        PIC 9(08).                     004802\n       05 WKS-B01-NIVARCMOV        PIC 9(08).                     004900\n       05 WKS-B01-NIVBDMOV         PIC 9(08).                     005000\n       05 WKS-B01-STAARCLOG        PIC 9(02).                     005100",
+          "java_codigo": "/** WKS-S151B01SISDIA: control del día de S151 (consultado con CONSISDIA, grabado con MANTSISDIA F37). */\npublic record ControlDia(\n        int csi,\n        LocalDate fecPro, LocalDate fecCon, LocalDate fecPro151,   // P677 les pone la misma fecha\n        int staReg,\n        String nomArcSal, String nomPacSal, String nomArcMov, String nomPacMov,\n        String nomArcDes, String nomPacDes, String nomArcErr, String nomPacErr,\n        String nomBdSem, int staBdSem,\n        int numArc,                    // WKS-B01-NUMARC: día de la semana de la fecha de proceso\n        int tercerNivel,\n        List<DiaCiclo> dias) {         // OCCURS 10\n\n    public static final int DIAS_VENTANA = 10;\n\n    public record DiaCiclo(LocalDate fecArcMov, long nivArcMov, long nivBdMov, int staArcLog) {\n        static DiaCiclo nuevo(LocalDate f) { return new DiaCiclo(f, 0, 0, 0); }\n    }\n}",
+          "racional": "B01SISDIA guarda las fechas del día, los nombres y packs de los archivos de movimientos, descripciones y errores, y una tabla de diez posiciones con la fecha, nivel y estatus del archivo de movimientos de cada día. En Java se modela como <code>record</code> con una lista de diez <code>DiaCiclo</code>. Las fechas de 8 dígitos se traducen a <code>LocalDate</code>; los niveles se conservan como enteros porque son contadores de la base y no importes.",
+          "reglas": [
+            "RN-S151-478",
+            "RN-S151-480"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Control del job, librerías y lectura inicial",
+      "origen": {
+        "archivo": "COBOL_P677.txt",
+        "contexto": "PROCEDURE DIVISION · 00-0000-CONTROL / 01-00050 / 01-00100"
+      },
+      "java": {
+        "archivo": "AperturaDiaJobConfig.java · LibControlResolver.java · LecturaControlTasklet.java",
+        "contexto": "Job · @Component · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s3",
+          "titulo": "Secuencia principal con mensajes de inicio y fin desactivados",
+          "linea_ini": 793,
+          "linea_fin": 826,
+          "origen_codigo": "  00-0000-CONTROL.                                                010100\n*=================                                                010200\n     MOVE WKS-PARAM-FECHA          TO WKS-FECHA-AMD.              010300\n     MOVE 0151                     TO SISTEMA-LJ.                 010400\n     MOVE \"0677\"                   TO PASO-LJ.                    010500\n     MOVE \"001\"                    TO MTP-LJ.                     010600\n     PERFORM 01-00050-LIBRERIAS.                                  010800\n     MOVE \"I\"                      TO TIPO-LJ.                    011000\n     MOVE 020101                   TO CODIGO-LJ.                  011100\n     STRING \"INICIO PROCESO FECHA : \"                             011200\n            WKS-PARAM-FECHA                                       011300\n     DELIMITED BY SIZE                                            011400\n     INTO TEXTO-LJ.                                               011500\n*    CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ.         011600\n     PERFORM 01-00100-ABRE-ENTRADA.                               011800\n     PERFORM 02-00100-GENERA-B01SISDIA.                           011900\n     PERFORM 02-00200-VERIFICA-B03SISMEN.                         012000\n     PERFORM 02-00300-VERIFICA-B04SISTEM.                         012050\n*     IF WKS-PARAM-SIS = 501                                      012070\n*        MOVE 3           TO WKS-B04-ESTATUS.                     012080\n     PERFORM 01-00300-CARGA-FECHAS.                               012100\n     IF WKS-B04-ESTATUS = 3                                       012120\n        PERFORM 01-00400-CIERRA-ARCHIVOS                          012150\n                VARYING W77-IND FROM 1 BY 1 UNTIL W77-IND > 10.   012170\n     MOVE \"I\"                      TO TIPO-LJ.                    012200\n     MOVE 020201                   TO CODIGO-LJ.                  012300\n     MOVE \"FIN NORMAL DE PROCESO\"  TO TEXTO-LJ.                   012400\n*    CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                     012500\n*                                MENSAJE-LJ.                      012600\n     STOP RUN.                                                    012700",
+          "java_codigo": "@Configuration\npublic class AperturaDiaJobConfig {\n\n    @Bean\n    Job aperturaDia(JobRepository repo, Step lecturaControl, Step generaB01, Step verificaB03,\n                    Step verificaB04, Step controlesL002, JobExecutionListener bitacora) {\n        return new JobBuilder(\"S151P677\", repo)\n                .listener(bitacora)            // INICIO / FIN NORMAL: en el fuente las llamadas a LJ están comentadas\n                .start(lecturaControl)         // 01-00100-ABRE-ENTRADA\n                .next(generaB01)               // 02-00100-GENERA-B01SISDIA\n                .next(verificaB03)             // 02-00200-VERIFICA-B03SISMEN\n                .next(verificaB04)             // 02-00300-VERIFICA-B04SISTEM\n                .next(controlesL002)           // 01-00300 + 01-00400, sólo con estatus 3\n                .build();\n    }\n}",
+          "racional": "La rutina principal ejecuta cinco pasos en secuencia y termina con <code>STOP RUN</code>; cualquier error intermedio cambia el STATUS de la tarea a -1, lo que la termina y detiene el ciclo batch del día. Cada bloque se vuelve un <code>Step</code> y cada terminación anormal una excepción que deja el job en FAILED. Los mensajes de inicio y fin al operador están comentados en el fuente; se proponen en un <code>JobExecutionListener</code> para no perder trazabilidad.",
+          "reglas": [
+            "RN-S151-476",
+            "RN-S151-489"
+          ],
+          "riesgo": "Las líneas 814-815 conservan comentado un forzado de WKS-B04-ESTATUS a 3 para el sistema 501, rastro de una prueba que no debe reactivarse."
+        },
+        {
+          "id": "s4",
+          "titulo": "Título de la librería de control con respaldo silencioso a una versión fija",
+          "linea_ini": 828,
+          "linea_fin": 850,
+          "origen_codigo": " 01-00050-LIBRERIAS.                                              012900\n*===================                                              013000\n     CHANGE ATTRIBUTE LIBACCESS    OF \"CTLVER\" TO BYFUNCTION.     013200\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"CTLVER\" TO \"CTLVERS\".      013300\n     CHANGE ATTRIBUTE LIBACCESS    OF \"LOCSUP\" TO BYFUNCTION.     013420\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"LOCSUP\" TO \"LOCSUP\".       013440\n     CHANGE ATTRIBUTE LIBACCESS    OF \"SOPORTECOMS\" TO BYFUNCTION.013500\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"SOPORTECOMS\" TO            013600\n                                      \"SOPORTECOMS\".              013700\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      013800\n            \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".      013900\n     MOVE \"S151L001CTL\"            TO WKS-LIBID.                  014100\n     CALL \"DAME_TIT IN CTLVER\"     USING  WKS-LIBID,              014200\n                                          WKS-NOMLIB              014300\n                                   GIVING W77-ERR-CTLVER.         014400\n     IF W77-ERR-CTLVER = 0                                        014500\n        CHANGE ATTRIBUTE TITLE  OF \"LIBCTL\" TO WKS-NOMLIB         014600\n     ELSE                                                         014700\n        CHANGE ATTRIBUTE TITLE  OF \"LIBCTL\" TO                    014800\n       \"(S151)S151/OBJECT/L001/CONTROL/02MTP011 ON CMEMP\".        014900",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\n@Slf4j\npublic class LibControlResolver {\n\n    private final ControlVersionesClient ctlvers;   // DAME_TIT IN CTLVER\n    private final P677Properties props;\n    // p677.libctl-respaldo: \"(S151)S151/OBJECT/L001/CONTROL/02MTP011 ON CMEMP\"\n    // p677.lib-disp: \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\"\n\n    public String libControl() {\n        var r = ctlvers.dameTitulo(\"S151L001CTL\");\n        if (r.error() != 0) {\n            log.warn(\"CTLVERS sin título para S151L001CTL ({}); se usa {}\", r.error(), props.libctlRespaldo());\n            return props.libctlRespaldo();         // el fuente cambia el título sin dejar mensaje\n        }\n        return r.titulo();\n    }\n}",
+          "racional": "Antes de acceder a los datasets de control, el programa pide a CTLVERS el título vigente de la librería S151L001CTL. Si no lo obtiene, usa una versión fija marcada 02MTP011 sin avisar. La traducción conserva el respaldo para no cambiar la operación, lo saca a <code>application.yml</code> y agrega un aviso en bitácora, porque operar con una librería de control de versión antigua no debería pasar inadvertido.",
+          "reglas": [],
+          "riesgo": "Si CTLVERS falla, P677 abre el ciclo del día con la librería de control 02MTP011 sin dejar ningún mensaje (líneas 846-850)."
+        },
+        {
+          "id": "s5",
+          "titulo": "Lectura de B01SISDIA como compuerta del ciclo",
+          "linea_ini": 853,
+          "linea_fin": 867,
+          "origen_codigo": " 01-00100-ABRE-ENTRADA.                                           015200\n*======================                                           015300\n     CALL \"CSIID OF SOPORTECOMS\" USING WKS-SOPORTECOMS.           015400\n     MOVE ZERO                     TO W77-RESULT-LIBCON.          015500\n     MOVE WKS-SOPCOMS-NUMCSI       TO WKS-B01-CSI.                015600\n     MOVE WKS-PARAM-SIS            TO WKS-B01-SISTEMA.            015700\n     MOVE 1                        TO WKS-B01-FUNCION.            015800\n     CALL \"CONSISDIA IN LIBCTL\" USING WKS-S151B01SISDIA           015900\n                                GIVING W77-RESULT-LIBCON.         016000\n     IF W77-RESULT-LIBCON > 0                                     016100\n        MOVE 020202           TO CODIGO-LJ                        016200\n        MOVE \"TERMINACION ANORMAL DEL PROGRAMA\" TO TEXTO-LJ       016300\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                  016400\n                                    MENSAJE-LJ                    016500\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  016600",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class LecturaControlTasklet implements Tasklet {\n\n    private final LibControlClient libctl;   // CONSISDIA IN LIBCTL\n    private final CsiProvider csi;           // CSIID OF SOPORTECOMS\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var p = (AperturaParametros) ctx.getStepContext().getJobExecutionContext().get(\"parametros\");\n        var r = libctl.consisdia(csi.numCsi(), p.sistema());        // función 1\n        if (r.resultado() > 0) {\n            throw new ProcesoAbortadoException(\"TERMINACION ANORMAL DEL PROGRAMA\");   // STATUS -1\n        }\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"controlDia\", r.controlDia());\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "La primera operación sobre datos es leer el control del día del sistema en el CSI donde corre el paso. Si la librería devuelve error, el programa termina de inmediato y el día no se abre. En Java es un <code>Tasklet</code> que publica el registro leído en el <code>ExecutionContext</code> para que el paso siguiente lo modifique y lo grabe.",
+          "reglas": [
+            "RN-S151-481",
+            "RN-S151-489"
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Reglas de apertura: día hábil, ventana de fechas y ciclos mensuales",
+      "origen": {
+        "archivo": "COBOL_P677.txt",
+        "contexto": "PROCEDURE DIVISION · 02-00110 / 02-00100 / 02-00130 / 02-00200 / 01-00300 / 01-00400 / 02-00300"
+      },
+      "java": {
+        "archivo": "CalendarioService.java · VentanaDiasService.java · CicloMensualTasklet.java · ControlesL002Tasklet.java",
+        "contexto": "@Service · Tasklet"
+      },
+      "segmentos": [
+        {
+          "id": "s6",
+          "titulo": "Validación de día hábil y día de la semana",
+          "linea_ini": 950,
+          "linea_fin": 989,
+          "origen_codigo": " 02-00110-DAME-DIA.                                               023900\n*==================                                               024000\n     MOVE WKS-PARAM-FECHA          TO WKS-FECHA1.                 024100\n     MOVE 13                       TO W77-FORMATO.                024200\n     MOVE 18                       TO W77-FUNCION.                024300\n     CALL \"THECALENDAR IN LOCSUP\" USING W77-FUNCION,              024400\n                                        WKS-FECHA1,               024500\n                                        WKS-FECHA2,               024600\n                                        W77-FORMATO.              024700\n     IF W77-FUNCION = ZERO AND                                    024800\n        WKS-FECHA1 = \"00000001\"                                   024900\n        NEXT SENTENCE                                             025000\n     ELSE                                                         025100\n        MOVE \"I\"                   TO TIPO-LJ                     025200\n        MOVE 050501                TO CODIGO-LJ                   025300\n        STRING \"LA FECHA \"                                        025400\n                WKS-PARAM-FECHA                                   025500\n                \" NO CORRESPONDE A UN DIA HABIL\"                  025600\n        DELIMITED BY SIZE                                         025700\n        INTO TEXTO-LJ                                             025800\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ       025900\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  026000\n     MOVE WKS-PARAM-FECHA          TO WKS-FECHA1.                 026200\n     MOVE 13                       TO W77-FORMATO.                026300\n     MOVE 6                        TO W77-FUNCION.                026400\n     CALL \"THECALENDAR IN LOCSUP\" USING W77-FUNCION,              026500\n                                        WKS-FECHA1,               026600\n                                        WKS-FECHA2,               026700\n                                        W77-FORMATO.              026800\n     IF W77-FUNCION > 0                                           026900\n        MOVE \"I\"                   TO TIPO-LJ                     027000\n        MOVE 030101                TO CODIGO-LJ                   027100\n        MOVE \"ERROR EN PARAMETRO FECHA \"                          027200\n                                   TO TEXTO-LJ                    027300\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                  027400\n                                    MENSAJE-LJ                    027500\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  027600\n     MOVE WKS-FECHA1               TO W77-NUMDIA                  027700\n                                      WKS-B01-NUMARC.             027800",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class CalendarioService {\n\n    private final CalendarioBancario calendario;   // THECALENDAR IN LOCSUP, formato 13\n\n    /** 02-00110-DAME-DIA: devuelve el día de la semana (0 domingo ... 6 sábado) de una fecha hábil. */\n    public int diaDeLaSemanaHabil(LocalDate fecha) {\n        var r18 = calendario.funcion18(fecha);    // ¿es día hábil?\n        if (r18.error() != 0 || !\"00000001\".equals(r18.valor())) {\n            throw new ProcesoAbortadoException(\"LA FECHA %s NO CORRESPONDE A UN DIA HABIL\"\n                    .formatted(fecha.format(DateTimeFormatter.BASIC_ISO_DATE)));\n        }\n        var r06 = calendario.funcion6(fecha);     // día de la semana\n        if (r06.error() > 0) throw new ProcesoAbortadoException(\"ERROR EN PARAMETRO FECHA \");\n        return Integer.parseInt(r06.valor());     // W77-NUMDIA y WKS-B01-NUMARC\n    }\n}",
+          "racional": "La fecha recibida sólo se acepta si THECALENDAR, con la función 18, responde sin error y con el valor 00000001, que es la respuesta de día hábil; cualquier otra respuesta termina la tarea. Después, con la función 6, se obtiene el día de la semana, que se guarda como número de archivo en B01 y se usa como posición del día en la ventana de diez. En Java ambas consultas se encapsulan en un servicio de calendario bancario que sustituye a LOCSUP.",
+          "reglas": [
+            "RN-S151-477",
+            "RN-S151-478"
+          ],
+          "riesgo": "RN-S151-477 describe la respuesta 00000001 como día inhábil; en el fuente es la única respuesta que permite continuar (líneas 959-971). La regla del brain está invertida."
+        },
+        {
+          "id": "s7",
+          "titulo": "Fechas del día y ventana de diez días hacia atrás",
+          "linea_ini": 908,
+          "linea_fin": 1027,
+          "origen_codigo": " 02-00100-GENERA-B01SISDIA.                                       019700\n*==========================                                       019800\n       MOVE WKS-PARAM-FECHA    TO WKS-B01-FECPRO                  019900\n                                  WKS-B01-FECCON                  020000\n                                  WKS-B01-FECPRO151               020100\n       PERFORM 02-00110-DAME-DIA                                  020200\n       MOVE WKS-PARAM-FECHA   TO WKS-B01-FECARCMOV(W77-NUMDIA)    020300\n                                  WKS-FECHA                       020400\n       MOVE ZERO              TO WKS-B01-NIVARCMOV(W77-NUMDIA)    020500\n                                 WKS-B01-NIVBDMOV(W77-NUMDIA)     020600\n                                 WKS-B01-STAARCLOG(W77-NUMDIA).   020700\n       IF W77-NUMDIA > 1                                          020800\n          COMPUTE W77-NUMDIA = W77-NUMDIA + 1                     020900\n          MOVE W77-NUMDIA         TO W77-IND                      021000\n          PERFORM 02-00130-FECHAS                                 021100\n                  UNTIL   W77-IND > 10                            021200\n          COMPUTE W77-NUMDIA = W77-NUMDIA - 2                     021300\n          MOVE 1                  TO W77-IND                      021400\n          PERFORM 02-00130-FECHAS                                 021500\n                  UNTIL   W77-IND > W77-NUMDIA                    021600\n          PERFORM 02-00105-GRABA-BASE                             021700\n       ELSE                                                       021800\n          COMPUTE W77-NUMDIA = W77-NUMDIA + 1                     021900\n          MOVE 2                  TO W77-IND                      022000\n          PERFORM 02-00130-FECHAS                                 022100\n                  UNTIL   W77-IND > 10                            022200\n          PERFORM 02-00105-GRABA-BASE.                            022300\n 02-00130-FECHAS.                                                 028000\n*================                                                 028100\n     MOVE WKS-FECHA                TO WKS-FECHA1.                 028200\n     MOVE \"00000001\"               TO WKS-FECHA2.                 028300\n     MOVE 8                        TO W77-FUNCION.                028400\n     MOVE 13                       TO W77-FORMATO.                028500\n     CALL \"THECALENDAR IN LOCSUP\" USING W77-FUNCION,              028600\n                                        WKS-FECHA1,               028700\n                                        WKS-FECHA2,               028800\n                                        W77-FORMATO.              028900\n     IF W77-FUNCION = 0                                           029000\n        MOVE WKS-FECHA1            TO WKS-FECHA                   029100\n        MOVE \"00000000\"            TO WKS-FECHA2                  029200\n        MOVE 6                     TO W77-FUNCION                 029300\n        MOVE 13                    TO W77-FORMATO                 029400\n        CALL \"THECALENDAR IN LOCSUP\"                              029500\n             USING W77-FUNCION,                                   029600\n                   WKS-FECHA1,                                    029700\n                   WKS-FECHA2,                                    029800\n                   W77-FORMATO                                    029900\n        IF WKS-FECHA1 = \"00000000\" OR WKS-FECHA1 = \"00000006\"     030000\n           NEXT SENTENCE                                          030100\n        ELSE                                                      030200\n           MOVE WKS-FECHA          TO WKS-B01-FECARCMOV(W77-IND)  030300\n           MOVE ZERO               TO WKS-B01-STAREG              030400\n                                      WKS-B01-NIVARCMOV(W77-IND)  030500\n                                      WKS-B01-NIVBDMOV(W77-IND)   030600\n                                      WKS-B01-STAARCLOG(W77-IND)  030700\n           COMPUTE W77-IND = W77-IND + 1                          030800\n     ELSE                                                         030900\n        MOVE \"I\"                   TO TIPO-LJ                     031000\n        MOVE 050501                TO CODIGO-LJ                   031100\n        MOVE \"ERROR EN LLAMADO A CALENDAR \"                       031200\n                                   TO TEXTO-LJ                    031300\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                  031400\n                                    MENSAJE-LJ                    031500\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO - 1.                 031600",
+          "java_codigo": "@Service\n@RequiredArgsConstructor\npublic class VentanaDiasService {\n\n    private final CalendarioService calendario;\n    private final CalendarioBancario lib;   // THECALENDAR función 8 (resta 1 día) y 6\n\n    /** 02-00100-GENERA-B01SISDIA. */\n    public ControlDia abreDia(ControlDia b01, LocalDate fecha) {\n        int numDia = calendario.diaDeLaSemanaHabil(fecha);\n        var dias = new ArrayList<>(b01.dias());\n        dias.set(numDia - 1, ControlDia.DiaCiclo.nuevo(fecha));          // posición del día actual\n\n        var cursor = new LocalDate[] { fecha };                           // WKS-FECHA\n        // Primero las posiciones posteriores al día actual, hasta la 10...\n        llena(dias, numDia + 1, ControlDia.DIAS_VENTANA, cursor);\n        // ...y luego, si el día es mayor que 1, las anteriores, siguiendo hacia atrás en el tiempo.\n        if (numDia > 1) llena(dias, 1, numDia - 1, cursor);\n\n        return b01.conFechas(fecha, fecha, fecha)                        // FECPRO, FECCON, FECPRO151\n                  .conNumArc(numDia).conDias(dias);                      // 02-00105-GRABA-BASE: MANTSISDIA F37\n    }\n\n    /** 02-00130-FECHAS: retrocede un día; sólo sábado (6) y domingo (0) se saltan. */\n    private void llena(List<ControlDia.DiaCiclo> dias, int desde, int hasta, LocalDate[] cursor) {\n        int ind = desde;\n        while (ind <= hasta) {\n            cursor[0] = lib.restaDias(cursor[0], 1);\n            int dow = lib.diaDeLaSemana(cursor[0]);\n            if (dow != 0 && dow != 6) {\n                dias.set(ind - 1, ControlDia.DiaCiclo.nuevo(cursor[0]));   // el fuente también pone WKS-B01-STAREG en 0\n                ind++;\n            }\n        }\n    }\n}",
+          "racional": "Las tres fechas del día reciben el mismo valor y la posición del día de la semana en la tabla recibe la fecha con niveles y estatus en cero. Las demás posiciones se llenan retrocediendo día por día: primero desde la posición siguiente hasta la 10 y, después, de la 1 a la anterior al día actual, continuando hacia atrás desde donde quedó. El resultado es una ventana circular de los últimos diez días que no son sábado ni domingo. La traducción conserva ese orden de llenado porque los programas que consultan FECARCMOV dependen de la posición.",
+          "reglas": [
+            "RN-S151-479",
+            "RN-S151-480"
+          ],
+          "riesgo": "El retroceso sólo descarta sábados y domingos (línea 1011); los días festivos entre semana quedan en la ventana como si fueran días de proceso. Si un error de THECALENDAR ocurre en el ciclo, la tarea termina sin haber grabado B01."
+        },
+        {
+          "id": "s8",
+          "titulo": "Ciclo mensual en B03SISMEN con reemplazo del más antiguo",
+          "linea_ini": 1030,
+          "linea_fin": 1083,
+          "origen_codigo": " 02-00200-VERIFICA-B03SISMEN.                                     031900\n*===========================                                      032000\n     MOVE WKS-PARAM-SIS            TO WKS-B03-SISTEMA.            032100\n     MOVE 1                        TO WKS-B03-FUNCION.            032200\n     CALL \"CONSISMEN IN LIBCTL\" USING  WKS-S151B03SISMEN          032300\n                                GIVING W77-RESULT-LIBCON.         032400\n     IF W77-RESULT-LIBCON > 0                                     032500\n        MOVE 020202           TO CODIGO-LJ                        032600\n        MOVE \"ERROR EN CONSISMEN  \" TO TEXTO-LJ                   032700\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                  032800\n                                    MENSAJE-LJ                    032900\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  033000\n    MOVE ZERO                      TO W77-ENCONTRADO              033200\n                                      W77-IND.                    033250\n    PERFORM 02-00210-BUSCA-BASE                                   033300\n            VARYING W77-IND FROM 1 BY 1                           033400\n            UNTIL   W77-IND > WKS-B03-NUMCICDIA OR                033500\n                    W77-ENCONTRADO = 1.                           033600\n    IF WKS-B03-STABDSAL = 99                                      033700\n       NEXT SENTENCE                                              033720\n    ELSE                                                          033740\n       MOVE 1                        TO WKS-B03-STABDSAL.         033800\n    IF W77-ENCONTRADO = 0 AND WKS-B03-NUMCICDIA > 0               034000\n       MOVE WKS-AM-AMD             TO W77-MAYOR                   034100\n       PERFORM 02-00220-BUSCA-MENOR                               034200\n               VARYING W77-IND FROM 1 BY 1                        034300\n               UNTIL   W77-IND > WKS-B03-NUMCICDIA                034400\n       IF W77-IND-MENOR > 0                                       034600\n          MOVE WKS-AM-AMD          TO WKS-B03-AAMM(W77-IND-MENOR).034700\n     MOVE WKS-PARAM-SIS            TO WKS-B03-SISTEMA.            034800\n     MOVE 37                       TO WKS-B03-FUNCION.            034900\n     CALL \"MANTSISMEN IN LIBCTL\" USING WKS-S151B03SISMEN          035000\n                                 GIVING W77-RESULT-LIBCON.        035100\n     IF W77-RESULT-LIBCON > 0                                     035200\n        MOVE 020202           TO CODIGO-LJ                        035300\n        MOVE \"ERROR EN MANTSISMEN \" TO TEXTO-LJ                   035400\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                  035500\n                                    MENSAJE-LJ                    035600\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  035700\n 02-00210-BUSCA-BASE.                                             035800\n*====================                                             035900\n     IF WKS-B03-AAMM(W77-IND) = WKS-AM-AMD                        036000\n        MOVE 1                     TO W77-ENCONTRADO.             036100\n 02-00220-BUSCA-MENOR.                                            036300\n*=====================                                            036400\n     IF WKS-B03-AAMM(W77-IND) = W77-MAYOR OR                      036500\n        WKS-B03-AAMM(W77-IND) < W77-MAYOR                         036600\n        MOVE WKS-B03-AAMM(W77-IND) TO W77-MAYOR                   036700\n        MOVE W77-IND               TO W77-IND-MENOR.              036800",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class CicloMensualTasklet implements Tasklet {\n\n    private static final int STABDSAL_EN_RECUPERACION = 99, STABDSAL_ABIERTA = 1;\n    private final LibControlClient libctl;   // CONSISMEN / MANTSISMEN IN LIBCTL\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var p = (AperturaParametros) ctx.getStepContext().getJobExecutionContext().get(\"parametros\");\n        var b03 = libctl.consismen(p.sistema()).orElseThrow(\n                () -> new ProcesoAbortadoException(\"ERROR EN CONSISMEN  \"));\n        var ciclos = b03.ciclos().subList(0, b03.numCicDia());          // OCCURS 99, vigentes NUMCICDIA\n        int aamm = Integer.parseInt(p.cicloMensual().format(DateTimeFormatter.ofPattern(\"yyyyMM\")));\n\n        boolean existe = ciclos.stream().anyMatch(ci -> ci.aamm() == aamm);\n        if (!existe && !ciclos.isEmpty()) {\n            // 02-00220-BUSCA-MENOR: en empate gana la última posición (\"=\" o \"<\")\n            int idx = IntStream.range(0, ciclos.size()).boxed()\n                    .reduce((a, b) -> ciclos.get(b).aamm() <= ciclos.get(a).aamm() ? b : a).orElseThrow();\n            ciclos.set(idx, ciclos.get(idx).conAamm(aamm));               // sólo cambia AAMM\n        }\n        if (b03.staBdSal() != STABDSAL_EN_RECUPERACION) b03 = b03.conStaBdSal(STABDSAL_ABIERTA);\n\n        if (libctl.mantsismen(b03).resultado() > 0) {                    // F37: se graba siempre\n            throw new ProcesoAbortadoException(\"ERROR EN MANTSISMEN \");\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Cada mes ocupa un renglón de la tabla de ciclos de B03. Si el año y mes de la fecha no están, el renglón con el menor valor se reasigna al mes actual; si la tabla no tiene ciclos vigentes no se agrega nada. Además la base de saldos se marca en 1 salvo que esté en 99. La grabación con MANTSISMEN ocurre siempre, haya o no cambio de ciclo. La traducción reproduce la regla de desempate del fuente, que toma la última posición cuando hay valores iguales.",
+          "reglas": [
+            "RN-S151-482",
+            "RN-S151-483",
+            "RN-S151-484"
+          ],
+          "riesgo": "Al reasignar el renglón más antiguo sólo se cambia WKS-B03-AAMM (línea 1062): nombre de base, contadores SECOK, SECINF, SECERR y estatus del mes anterior quedan en el renglón del mes nuevo."
+        },
+        {
+          "id": "s9",
+          "titulo": "Estatus 3 de B04: CONTROLES función 25 y cierre de archivos desactivado",
+          "linea_ini": 869,
+          "linea_fin": 907,
+          "origen_codigo": " 01-00300-CARGA-FECHAS.                                           016800\n*======================                                           016900\n     IF WKS-B04-ESTATUS NOT = 3                                   017000\n        NEXT SENTENCE                                             017020\n     ELSE                                                         017040\n        MOVE WKS-PARAM-SIS            TO WKS-SIS-L002             017100\n        MOVE WKS-LIBID-L002           TO WKS-LIBID                017200\n        CALL \"DAME_TIT IN CTLVER\"     USING  WKS-LIBID,           017300\n                                             WKS-NOMLIB           017400\n                                      GIVING W77-ERR-CTLVER       017500\n        IF W77-ERR-CTLVER = 0                                     017600\n           CHANGE ATTRIBUTE TITLE  OF \"LIB-L002\" TO WKS-NOMLIB    017700\n        ELSE                                                      017800\n           CHANGE ATTRIBUTE TITLE  OF \"LIB-L002\" TO               017900\n            \"(S151)S151/OBJECT/L002/REGISTRA ON CMEMP\".           018000\n     IF WKS-B04-ESTATUS = 3                                       018100\n        MOVE 0025                  TO WKS-DEL-FUNCION             018200\n        CALL \"CONTROLES IN LIB-L002\" USING  WKS-S151-DATOS        018300\n                                  GIVING WKS-S151-RESULT.         018400\n     IF WKS-S151-RESULT > 0 AND WKS-B04-ESTATUS = 3               018600\n        MOVE WKS-S151-RESULT       TO W77-ERROR                   018700\n        MOVE 051001                TO CODIGO-LJ                   018800\n        MOVE \"I\"                   TO TIPO-LJ                     018900\n        STRING \"ERROR # \" W77-ERROR                               019000\n               \" EN LLAMADO A L002\"                               019100\n        DELIMITED BY SIZE                                         019200\n        INTO TEXTO-LJ                                             019300\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ                   019400\n                                    MENSAJE-LJ                    019500\n        CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.                  019600\n 01-00400-CIERRA-ARCHIVOS.                                        019610\n*=========================                                        019615\n       MOVE LOW-VALUES            TO WKS-S151-DATOS.              019620\n       COMPUTE WKS-DEL-FUNCION = W77-IND + 9.                     019625\n*      CALL \"CONTROLES IN LIB-L002\" USING  WKS-S151-DATOS         019630\n*                                GIVING WKS-S151-RESULT.          019635",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class ControlesL002Tasklet implements Tasklet {\n\n    private static final int ESTATUS_GENERA_ARCHIVOS = 3, FUNCION_GENERA = 25;\n    private final ControlVersionesClient ctlvers;\n    private final RegistraClient l002;          // CONTROLES IN LIB-L002, se resuelve sólo si se usa\n    private final P677Properties props;         // p677.l002-respaldo: \"(S151)S151/OBJECT/L002/REGISTRA ON CMEMP\"\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        int estatus = (Integer) ctx.getStepContext().getJobExecutionContext().get(\"estatusB04\");\n        if (estatus != ESTATUS_GENERA_ARCHIVOS) return RepeatStatus.FINISHED;\n\n        var p = (AperturaParametros) ctx.getStepContext().getJobExecutionContext().get(\"parametros\");\n        String libId = \"S151L002R\" + \"%03d\".formatted(p.sistema() % 1000);   // WKS-SIS-L002 PIC 9(03)\n        String titulo = ctlvers.dameTitulo(libId).tituloO(props.l002Respaldo());\n\n        int r = l002.controles(titulo, FUNCION_GENERA);\n        if (r > 0) throw new ProcesoAbortadoException(\"ERROR # %d EN LLAMADO A L002\".formatted(r));\n\n        // 01-00400-CIERRA-ARCHIVOS: funciones 10 a 19. En el fuente el CALL está comentado,\n        // así que hoy no se cierra ningún archivo; se deja detrás de una propiedad.\n        if (props.cierraArchivosControl()) {\n            for (int i = 1; i <= 10; i++) l002.controles(titulo, i + 9);\n        }\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "Sólo cuando B04SISTEM está en estatus 3 el programa resuelve el título de la librería L002 del sistema, con un respaldo fijo si CTLVERS falla, e invoca CONTROLES con la función 25. El ciclo de cierre que recorre las funciones 10 a 19 existe, pero la llamada a la librería está comentada y sólo calcula el número de función. La traducción conserva la función 25, mantiene el cierre desactivado por defecto con <code>p677.cierra-archivos-control: false</code> y resuelve L002 de forma perezosa, como el fuente.",
+          "reglas": [
+            "RN-S151-486",
+            "RN-S151-487",
+            "RN-S151-488"
+          ],
+          "riesgo": "RN-S151-487 afirma que P677 cierra los archivos de control de cada día con las funciones 10 a 19; en el fuente el CALL CONTROLES de 01-00400-CIERRA-ARCHIVOS está comentado (líneas 906-907) y el ciclo no hace nada."
+        },
+        {
+          "id": "s10",
+          "titulo": "Lectura de B04SISTEM a nivel sistema sin revisar el resultado",
+          "linea_ini": 1085,
+          "linea_fin": 1093,
+          "origen_codigo": " 02-00300-VERIFICA-B04SISTEM.                                     037000\n*============================                                     037100\n     MOVE WKS-PARAM-SIS            TO WKS-B04-SISTEMA.            037200\n     MOVE 1                        TO WKS-B04-FUNCION.            037300\n     MOVE ZERO                     TO WKS-B04-PRODUCTO            037400\n                                      WKS-B04-INSTRUM             037500\n                                      W77-RESULT-LIBCON.          037550\n     CALL \"B04SISTEM  IN LIBCTL\" USING WKS-B04SISTEMA             037600\n                                 GIVING W77-RESULT-LIBCON.        037700",
+          "java_codigo": "@Component\n@RequiredArgsConstructor\npublic class EstatusSistemaTasklet implements Tasklet {\n\n    private final LibControlClient libctl;   // B04SISTEM IN LIBCTL\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var p = (AperturaParametros) ctx.getStepContext().getJobExecutionContext().get(\"parametros\");\n        var r = libctl.b04Sistem(p.sistema(), 0, 0);   // producto 0, instrumento 0: registro del sistema\n        if (r.resultado() > 0) {\n            // El fuente no revisa W77-RESULT-LIBCON después de esta llamada.\n            throw new ProcesoAbortadoException(\"ERROR EN B04SISTEM \" + r.resultado());\n        }\n        ctx.getStepContext().getStepExecution().getJobExecution()\n           .getExecutionContext().put(\"estatusB04\", r.estatus());\n        return RepeatStatus.FINISHED;\n    }\n}",
+          "racional": "El estatus del sistema se lee de B04SISTEM con producto e instrumento en cero, que corresponden al registro general del sistema, y decide si se generan archivos de control. Es la única llamada a la librería de control cuyo resultado el programa no evalúa. La traducción agrega la validación y lo deja indicado, porque un error aquí dejaría el estatus con el valor que tuviera el área de trabajo.",
+          "reglas": [
+            "RN-S151-485"
+          ],
+          "riesgo": "Si B04SISTEM falla, WKS-B04-ESTATUS conserva su valor inicial y P677 termina normal sin generar archivos de control y sin aviso."
+        }
+      ]
+    }
+  ],
+  "riesgos": [
+    {
+      "titulo": "Cierre de archivos de control comentado",
+      "detalle": "En 01-00400-CIERRA-ARCHIVOS el CALL CONTROLES está comentado (líneas 906-907); el PERFORM VARYING de las líneas 817-819 sólo calcula WKS-DEL-FUNCION diez veces."
+    },
+    {
+      "titulo": "Festivos dentro de la ventana de diez días",
+      "detalle": "02-00130-FECHAS sólo salta sábado y domingo (línea 1011); un festivo entre semana ocupa una posición de FECARCMOV como si hubiera sido día de proceso."
+    },
+    {
+      "titulo": "Resultados sin validar y respaldos silenciosos",
+      "detalle": "El resultado de B04SISTEM (líneas 1092-1093) no se revisa, y si CTLVERS falla se usan títulos fijos de LIBCTL (02MTP011) y L002 sin mensaje al operador (líneas 846-850 y 879-883)."
+    },
+    {
+      "titulo": "Renglón de ciclo reutilizado con datos del mes anterior",
+      "detalle": "Al reemplazar el ciclo más antiguo en B03SISMEN sólo se actualiza AAMM (línea 1062); contadores y estatus del mes reemplazado permanecen."
+    },
+    {
+      "titulo": "Mensajes de inicio y fin desactivados",
+      "detalle": "Las llamadas a LJ de INICIO PROCESO y FIN NORMAL DE PROCESO están comentadas (líneas 808 y 824-825); sólo se registran los errores."
+    }
+  ],
+  "pendientes_revision": [
+    "RN-S151-477 dice que la respuesta 00000001 de THECALENDAR F18 indica día inhábil; en el fuente es la respuesta que permite continuar. Corregir la regla en el brain.",
+    "RN-S151-484 dice que MANTSISMEN sólo se llama con NUMCICDIA mayor que cero y que NUMCICDIA cuenta días hábiles incrementados en 02-00130; en el fuente MANTSISMEN se llama siempre (líneas 1063-1066) y NUMCICDIA es el número de ciclos vigentes de B03, que P677 no incrementa.",
+    "RN-S151-487 describe un cierre de archivos de control que hoy no ocurre porque la llamada está comentada. Confirmar con SME si otro paso del WFL lo hace.",
+    "RN-S151-479 dice que el retroceso ocurre sólo si NUMDIA es mayor que 1; en el fuente siempre se llenan las posiciones posteriores al día actual y, si NUMDIA es mayor que 1, también las anteriores.",
+    "Confirmar si la ventana de FECARCMOV debe excluir festivos; LOCSUP F18 sí conoce los días inhábiles, pero 02-00130-FECHAS no la usa.",
+    "Confirmar el valor inicial de WKS-B04-ESTATUS cuando B04SISTEM falla y si algún paso posterior depende de que P677 detecte el error."
+  ],
+  "estado": "BORRADOR IA · pendiente revisión SME",
+  "generado": "2026-10-01",
+  "reglas_brain": [
+    "RN-S151-476",
+    "RN-S151-477",
+    "RN-S151-478",
+    "RN-S151-479",
+    "RN-S151-480",
+    "RN-S151-481",
+    "RN-S151-482",
+    "RN-S151-483",
+    "RN-S151-484",
+    "RN-S151-485",
+    "RN-S151-486",
+    "RN-S151-487",
+    "RN-S151-488",
+    "RN-S151-489",
+    "RN-S151-490"
+  ]
+}
