@@ -12,7 +12,7 @@
 -- Ver ADR-EB-006.
 --
 -- ESTRUCTURA:
---   CORE        — 17 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012)
+--   CORE        — 18 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013)
 --   SYSTEM      — brains de sistema productivo (hemisphere='run')
 --   PROJECT     — brains de proyecto de transformación (hemisphere='change')
 --   ENTERPRISE  — {industria}-brain (brain_type='enterprise')
@@ -26,7 +26,7 @@
 
 
 -- =============================================================================
--- CORE — obligatorio en todo brain (17 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012)
+-- CORE — obligatorio en todo brain (18 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013)
 --
 -- Cubre cinco contratos irrenunciables:
 --   identidad       → system_info
@@ -387,6 +387,9 @@ CREATE TABLE IF NOT EXISTS data_entities (
     entity_level    TEXT DEFAULT 'physical',  -- conceptual | logical | physical
     store           TEXT,               -- base de datos o esquema que la contiene
     technology_id   TEXT,               -- FK lógica a technology_components.id
+    -- Regla B42 — es el mecanismo de sensibilidad. Sin clasificar, una entidad
+    -- se trata como sensible y no como pública. El criterio lo fija dt-riesgo;
+    -- quien clasifica es dt-informacion.
     classification  TEXT,               -- public | internal | confidential | personal | sensitive
     regulation      TEXT,               -- JSON array: LFPDPPP, secreto bancario, PCI-DSS
     owner_id        TEXT,               -- FK lógica a stakeholders.id (data owner)
@@ -518,6 +521,39 @@ CREATE TABLE IF NOT EXISTS costs (
 CREATE INDEX IF NOT EXISTS ix_costs_entity ON costs(entity_table, entity_id);
 
 
+
+-- El objeto consulta (Regla B45 · ADR-EB-013). Sin identidad de consulta no hay
+-- dónde registrar el propósito que exige B42, no hay qué contar para medir el
+-- uso que pide B43, y una respuesta equivocada no se puede rastrear hasta el
+-- conocimiento que la produjo.
+-- Es el eslabón entre el conocimiento y la decisión: B37 traza de dónde viene
+-- lo que el brain sabe, B43 traza qué se decidió, y esta tabla une las puntas.
+CREATE TABLE IF NOT EXISTS queries (
+    id             TEXT PRIMARY KEY,
+    tier           TEXT NOT NULL DEFAULT 'bronze',
+    -- Etapa 1, admisión (Regla B42). El propósito es del PAR solicitante y
+    -- propósito: la misma persona que puede leer un hallazgo para documentar
+    -- una causa raíz no puede leerlo para comparar proveedores.
+    requester      TEXT,               -- rol en stakeholders, no nombre de persona
+    requester_org  TEXT,               -- cliente | consultora | tercero
+    purpose        TEXT NOT NULL,      -- sin propósito declarado no cruza frontera
+    -- Etapa 2, resolución (Reglas B35 y B27)
+    question       TEXT,
+    anchor_table   TEXT,               -- eslabón de la cadena que la ancla
+    anchor_id      TEXT,
+    -- Etapas 4 y 5, razonamiento y respuesta (Reglas B37 e B17)
+    tier_summary   TEXT,               -- JSON: cuánto de la respuesta es gold, silver, bronze
+    gaps_declared  TEXT,               -- JSON: qué faltó y se declaró en vez de rellenar
+    denied_reason  TEXT,               -- si la frontera la rechazó, por qué
+    -- Etapa 6, registro (Regla B43)
+    decision_id    TEXT,               -- FK lógica a decisions.id, si derivó en decisión
+    latency_ms     INTEGER,            -- eje de desempeño de B43
+    answered_at    TEXT,
+    asked_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_queries_purpose ON queries(purpose, asked_at);
+
+
 -- Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_log
 -- de Informix (22,425 filas de procedencia campo por campo) a todo el brain.
 -- Cada afirmación del brain tiene aquí su nivel, su fuente y quién la validó.
@@ -552,6 +588,9 @@ CREATE TABLE IF NOT EXISTS knowledge_lineage (
     --     circular, del incidente, del cutover. valid_to NULL = sigue siendo verdad.
     --   recorded_at = TIEMPO DEL BRAIN. Cuándo el brain lo supo. Automático.
     -- La diferencia entre ambos mide la latencia real del brain frente a su empresa.
+    -- Regla B42 — con qué propósito se expuso esta afirmación. Una política que
+    -- vive en un documento y no en el registro no es política: es una intención.
+    exposed_for    TEXT,               -- JSON: propósitos bajo los que se ha consultado
     valid_from     TEXT,               -- ISO date. NULL = verdad desde el origen del sistema
     valid_to       TEXT,               -- ISO date. NULL = sigue siendo verdad hoy
     recorded_at    TEXT NOT NULL
@@ -833,7 +872,24 @@ CREATE TABLE IF NOT EXISTS decisions (
     alternatives TEXT,
     consequences TEXT,
     status      TEXT,                  -- propuesto | aprobado | superseded
-    domain      TEXT
+    domain      TEXT,
+    -- Regla B43 · ADR-EB-013 — una decisión trazable guarda cuatro cosas.
+    -- Sin ellas el brain acumula consejos sin verificar su acierto, no mejora
+    -- y pierde el derecho a que le crean.
+    options_rejected TEXT,             -- JSON: qué se descartó y por qué
+    knowledge_refs   TEXT,             -- JSON: ids de knowledge_lineage que la sostienen
+    knowledge_tier   TEXT,             -- el nivel que ese conocimiento tenía AL DECIDIR.
+                                       -- Por B40 pudo cambiar después; lo que importa
+                                       -- para juzgar la decisión es lo que se sabía entonces
+    decided_by       TEXT,             -- rol accountable en stakeholders (B39)
+    decided_at       TEXT,
+    query_id         TEXT,             -- FK lógica a queries.id: qué consulta la motivó
+    -- El resultado es lo que vuelve aprendiz al brain. Si aconsejó y el KPI no
+    -- se movió como se esperaba, ese es su hallazgo más valioso.
+    outcome          TEXT,             -- logrado | parcial | no_logrado | pendiente
+    outcome_kpi_id   TEXT,             -- qué KPI debía moverse
+    outcome_measured_at TEXT,
+    outcome_notes    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_stories (

@@ -63,6 +63,22 @@ class SystemBrain:
             self._conn.execute("PRAGMA query_only=1")
         return self._conn
 
+    def _db_registro(self) -> sqlite3.Connection:
+        """
+        Conexión de escritura, y la única que existe en esta API.
+
+        `_db()` lleva `query_only=1` a propósito: un agente consulta el brain, no
+        lo edita, y el conocimiento solo entra por el pipeline (ADR-EB-002). La
+        excepción es el registro de consultas de B45, que por definición se
+        escribe al consultar y no se puede reconstruir desde el código fuente.
+
+        Se abre aparte y no se cachea, para que ninguna otra ruta de esta clase
+        pueda escribir por accidente a través de ella.
+        """
+        conn = sqlite3.connect(self._path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
     def close(self):
         if self._conn:
             self._conn.close()
@@ -719,6 +735,219 @@ class SystemBrain:
             if ver != esperada:
                 result.append({**entrada, "etb_version": ver, "gap": True})
         return result
+
+
+    # ── Regla B40 · el reloj del negocio ─────────────────────────────────────
+
+    def snapshot(self, fecha: str, entity_table: str | None = None) -> list[dict]:
+        """
+        El conocimiento tal como fue verdad en la empresa en esa fecha.
+
+        No es lo mismo que "lo que el brain sabía entonces": filtra por el reloj
+        del NEGOCIO (`valid_from` y `valid_to`), no por el del brain
+        (`recorded_at`). Sirve para reconstruir cómo estaba la arquitectura
+        antes de una ola de migración, o qué regulación estaba vigente cuando
+        ocurrió un incidente.
+
+        Un `valid_from` nulo se interpreta como verdad desde el origen del
+        sistema, y un `valid_to` nulo como vigente hoy.
+        """
+        db = self._db()
+        sql = ("SELECT * FROM knowledge_lineage "
+               "WHERE (valid_from IS NULL OR valid_from <= ?) "
+               "AND (valid_to IS NULL OR valid_to >= ?)")
+        params: list = [fecha, fecha]
+        if entity_table:
+            sql += " AND entity_table = ?"
+            params.append(entity_table)
+        return self._rows(db.execute(sql + " ORDER BY entity_table, entity_id",
+                                     params).fetchall())
+
+    def latencia_bitemporal(self) -> dict:
+        """
+        Cuánto tarda el brain en enterarse de lo que pasa en la empresa.
+
+        Es la medida honesta de frescura (Reglas B40 y B43, SLO-EB-05), más
+        exacta que la fecha del último build: un brain reconstruido ayer puede
+        tener conocimiento de hace seis meses.
+        """
+        db = self._db()
+        filas = db.execute(
+            "SELECT julianday(recorded_at) - julianday(valid_from) AS dias "
+            "FROM knowledge_lineage WHERE valid_from IS NOT NULL "
+            "AND recorded_at IS NOT NULL"
+        ).fetchall()
+        dias = sorted(f[0] for f in filas if f[0] is not None)
+        if not dias:
+            return {"n": 0, "mediana_dias": None,
+                    "nota": "ninguna afirmación declara valid_from"}
+        m = len(dias) // 2
+        mediana = dias[m] if len(dias) % 2 else (dias[m - 1] + dias[m]) / 2
+        return {"n": len(dias), "mediana_dias": round(mediana, 1),
+                "max_dias": round(dias[-1], 1),
+                "cumple_slo_eb_05": mediana <= 15}
+
+    # ── Regla B45 · el ciclo de vida de una consulta ─────────────────────────
+
+    #: Qué propósitos puede atender cada tipo de solicitante (Regla B42).
+    #: Lo que no está permitido, está negado.
+    PROPOSITOS = {
+        "cliente":    {"operar", "decidir", "auditar", "cumplimiento", "onboarding"},
+        "consultora": {"operar", "decidir", "auditar", "cumplimiento",
+                       "onboarding", "diagnostico", "modernizacion"},
+        "tercero":    {"operar"},
+    }
+
+    def abrir_consulta(self, pregunta: str, *, proposito: str,
+                       solicitante: str = "", organizacion: str = "consultora") -> dict:
+        """
+        Etapa 1 de B45: admisión. Devuelve la consulta con su identidad.
+
+        **Sin propósito declarado no cruza ninguna frontera** (Regla B42). La
+        autorización es del par solicitante y propósito, no del solicitante: la
+        misma persona que puede leer un hallazgo para documentar una causa raíz
+        no puede leerlo para comparar proveedores.
+        """
+        import uuid
+        from datetime import datetime, timezone
+
+        if not proposito:
+            raise ValueError(
+                "Toda consulta declara su propósito antes de cruzar una "
+                "frontera (Regla B42). Sin él, no se admite.")
+
+        permitidos = self.PROPOSITOS.get(organizacion, set())
+        negada = proposito not in permitidos
+        q = {
+            "id": f"Q-{uuid.uuid4().hex[:12]}",
+            "question": pregunta,
+            "purpose": proposito,
+            "requester": solicitante,
+            "requester_org": organizacion,
+            "asked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "denied_reason": (
+                f"'{proposito}' no está entre los propósitos permitidos para "
+                f"'{organizacion}': {sorted(permitidos)}" if negada else None),
+            "admitida": not negada,
+        }
+        return q
+
+    def responder(self, consulta: dict, filas: list[dict]) -> dict:
+        """
+        Etapas 4 y 5 de B45: razonamiento y respuesta.
+
+        El brain no devuelve lo que puede, devuelve lo que se necesita y dice
+        con qué certeza lo sostiene. Una respuesta que no distingue el hecho
+        irrefutable de la interpretación obliga a desconfiar de ambos.
+        """
+        from collections import Counter
+
+        if not consulta.get("admitida", False):
+            return {"query_id": consulta["id"], "datos": [],
+                    "denegada": consulta.get("denied_reason")}
+        resumen = dict(Counter(f.get("tier") or "bronze" for f in filas))
+        return {
+            "query_id": consulta["id"],
+            "datos": filas,
+            "tier_summary": resumen,
+            # Por B37 ninguna decisión de gate se sostiene sobre algo que no sea gold
+            "sostiene_decision_de_gate": bool(filas) and resumen.get("gold", 0) == len(filas),
+        }
+
+    def registrar_consulta(self, consulta: dict, respuesta: dict | None = None,
+                           decision_id: str | None = None) -> None:
+        """
+        Etapa 6 de B45: registro. Es lo que vuelve medibles a B42 y B43.
+
+        Sin esto no hay qué contar para el eje de uso, el propósito no queda en
+        ninguna parte, y una decisión equivocada no se puede rastrear hasta la
+        respuesta que la motivó.
+
+        **Escribe en brain.db, que el pipeline reconstruye (ADR-EB-002).** Un
+        rebuild borra el registro de consultas, y eso choca con B43, que necesita
+        la serie para medir el uso, y con B44, que exige que el registro
+        sobreviva al archivado. Mientras no haya una ruta de persistencia
+        decidida, `build-brain.py` preserva la tabla entre builds en lugar de
+        recrearla. Queda declarado como hueco en vez de escondido.
+        """
+        import json
+        from datetime import datetime, timezone
+
+        if "queries" not in self._table_names():
+            return
+        db = self._db_registro()
+        ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        db.execute(
+            "INSERT OR REPLACE INTO queries (id, tier, requester, requester_org, "
+            "purpose, question, tier_summary, denied_reason, decision_id, "
+            "answered_at, asked_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (consulta["id"], "gold", consulta.get("requester"),
+             consulta.get("requester_org"), consulta["purpose"],
+             consulta.get("question"),
+             json.dumps((respuesta or {}).get("tier_summary", {}), ensure_ascii=False),
+             consulta.get("denied_reason"), decision_id,
+             ahora if respuesta else None, consulta["asked_at"]))
+        db.commit()
+        db.close()
+
+    # ── Regla B43 · el brain se mide a sí mismo ──────────────────────────────
+
+    def autoevaluacion(self) -> dict:
+        """
+        Los cinco ejes de B43. El quinto es el que vuelve aprendiz al brain:
+        si aconsejó y el KPI no se movió, ese es su hallazgo más valioso.
+        """
+        db = self._db()
+        tablas = self._table_names()
+        r: dict = {}
+
+        if "queries" in tablas:
+            r["uso"] = {
+                "consultas": db.execute("SELECT COUNT(*) FROM queries").fetchone()[0],
+                "denegadas": db.execute(
+                    "SELECT COUNT(*) FROM queries WHERE denied_reason IS NOT NULL"
+                ).fetchone()[0],
+                "por_proposito": dict(db.execute(
+                    "SELECT purpose, COUNT(*) FROM queries GROUP BY purpose").fetchall()),
+            }
+            lat = db.execute(
+                "SELECT AVG(latency_ms) FROM queries WHERE latency_ms IS NOT NULL"
+            ).fetchone()[0]
+            r["desempeno"] = {"latencia_media_ms": round(lat, 1) if lat else None}
+
+        if "costs" in tablas:
+            r["costo"] = {
+                "registros": db.execute("SELECT COUNT(*) FROM costs").fetchone()[0],
+                "con_producto": db.execute(
+                    "SELECT COUNT(*) FROM costs WHERE product_id IS NOT NULL").fetchone()[0],
+            }
+
+        r["frescura"] = self.latencia_bitemporal()
+
+        if "decisions" in tablas:
+            cols = {x[1] for x in db.execute("PRAGMA table_info(decisions)")}
+            if "outcome" in cols:
+                tot = db.execute("SELECT COUNT(*) FROM decisions").fetchone()[0]
+                con_ev = db.execute(
+                    "SELECT COUNT(*) FROM decisions WHERE knowledge_refs IS NOT NULL"
+                ).fetchone()[0]
+                con_res = db.execute(
+                    "SELECT COUNT(*) FROM decisions "
+                    "WHERE outcome IS NOT NULL AND outcome != 'pendiente'"
+                ).fetchone()[0]
+                aciertos = db.execute(
+                    "SELECT COUNT(*) FROM decisions WHERE outcome = 'logrado'"
+                ).fetchone()[0]
+                r["trazabilidad_decision"] = {
+                    "decisiones": tot,
+                    "con_evidencia": con_ev,
+                    "con_resultado": con_res,
+                    "acierto": round(aciertos / con_res, 2) if con_res else None,
+                    "nota": ("Un brain que acumula consejos sin verificar su acierto "
+                             "no mejora y pierde el derecho a que le crean."),
+                }
+        return r
+
 
     def component(self, component_id: str) -> dict | None:
         """Detalle de un componente específico por ID canónico (db:sp_name)."""

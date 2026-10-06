@@ -36,9 +36,11 @@ CORE_TABLES = [
     "products", "kpis",                  # Regla B27 — orientación a producto y KPI
     # ADR-EB-009 — estructura TOGAF: stakeholders (B), datos (D) y tecnología (T)
     "stakeholders", "data_entities", "technology_components",
-    "suppliers", "measurements", "costs",   # ADR-EB-012                         # Regla B41 — poseída por dt-proveedores (ADR-EB-011)
+    "suppliers",                         # Regla B41 — de dt-proveedores (ADR-EB-011)
+    "measurements", "costs",             # Regla B43 — serie y costo (ADR-EB-012)
     "itom_layer", "cross_dependencies", "signals", "knowledge_gaps",
     "knowledge_lineage",                 # Regla B37 — calidad y linaje (ADR-EB-010)
+    "queries",                           # Regla B45 — objeto consulta (ADR-EB-013)
 ]
 
 EXTENSION_TABLES = {
@@ -101,7 +103,7 @@ TIERED_TABLES = [
     "rules", "vocabulary", "journeys", "regulatory_obligations", "external_systems",
     "applications", "waves", "risks", "decisions", "user_stories", "plateaus",
     "transitions", "readiness_gates", "slos", "findings", "suppliers",
-    "measurements", "costs",
+    "measurements", "costs", "queries",
 ]
 # Decisiones de gate que solo se sostienen sobre gold
 GOLD_GATES = {

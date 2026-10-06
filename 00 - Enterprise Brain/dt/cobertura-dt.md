@@ -208,11 +208,11 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 |----|-----------------|
 | `dt-arquitectura` | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus`, `federated_brains` |
 | `dt-informacion` | `data_entities`, `component_data`, `vocabulary` |
-| `dt-conocimiento` | `knowledge_lineage`, `knowledge_gaps`, `stakeholders`, `documents`, `rule_enrichment_log`, la columna `tier` en toda tabla |
+| `dt-conocimiento` | `knowledge_lineage`, `knowledge_gaps`, `queries`, `stakeholders`, `documents`, `rule_enrichment_log`, la columna `tier` en toda tabla |
 | `dt-configuracion` | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems`, `rules`, `component_capabilities`, `component_processes` |
 | `dt-cambio` | `transitions`, `readiness_gates`, el campo `target` de `slos` |
 | `dt-operacion` | `findings`, `signals`, el campo `current` de `slos`, `measurements` en su dimensión de servicio |
-| `dt-riesgo` | `regulatory_obligations`, `risks`, la columna `reg` de `rules` |
+| `dt-riesgo` | `regulatory_obligations`, `risks`, la columna `reg` de `rules`, la política de confidencialidad de B42 y la clasificación de `data_entities` |
 | `dt-valor` | `products`, `kpis`, `processes`, `journeys`, `costs`, `measurements` en su dimensión de negocio |
 | `dt-entrega` | `applications`, `waves`, `user_stories` |
 | `dt-proveedores` | `suppliers` |

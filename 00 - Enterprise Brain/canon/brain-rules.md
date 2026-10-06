@@ -18,14 +18,14 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 1 | **B25** | El brain es el espejo de la empresa, no su idealización | Fuente de verdad declarada en `system_info` |
 | 2 | **B29** | Los DTs construyen el brain en enjambre — como abejas | `build_agent` en `system_info` |
 | 3 | **B41** | 20 DTs canónicos en tres categorías: 10 de rol de TI, 6 de negocio y 4 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
-| 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | **Pendiente**: no hay columna de propósito ni filtro de acceso |
+| 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | `queries.purpose` NOT NULL · `knowledge_lineage.exposed_for` · `brain.py abrir_consulta()` (ADR-EB-013) |
 | 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |
-| 7 | **B45** | Toda consulta es un objeto con ciclo de vida de seis etapas | **Pendiente**: no existe tabla de consultas |
+| 7 | **B45** | Toda consulta es un objeto con ciclo de vida de seis etapas | Tabla `queries` · las seis etapas en `brain.py` (ADR-EB-013) |
 | 8 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
 | 9 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
 | 10 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
-| 11 | **B15** | CORE (17 tablas) + exactamente una extensión por `brain_type` | D1 del DT-Validador |
+| 11 | **B15** | CORE (18 tablas) + exactamente una extensión por `brain_type` | D1 del DT-Validador |
 | 12 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
 | 13 | **B36** | Frameworks complementarios: ETB da el north star, ITOM habilita, TOGAF gobierna | Trazas `itom_layer.process_id` y SLO a KPI |
 | 14 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del DT-Validador |
@@ -37,8 +37,8 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
 | 16 | **B37** | Calidad y linaje: gold, silver, bronze; los hechos irrefutables entran directo a gold | `knowledge_lineage` y D9 del DT-Validador |
-| 17 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | **Pendiente**: `decisions` no registra opciones, evidencia ni resultado |
-| 18 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | **Pendiente**: `snapshot(date)` no está implementado |
+| 17 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | `decisions` con evidencia y resultado · `brain.py autoevaluacion()` (ADR-EB-013) |
+| 18 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | `brain.py snapshot(date)` y `latencia_bitemporal()` · SLO-EB-05 |
 | 19 | **B17** | Ningún hueco se rellena con datos inventados — va a `knowledge_gaps` | `knowledge_gaps` con `resolution_action` |
 | 20 | **B30** | El `business_name` es el contrato de calidad de cada pieza de conocimiento | D3 del DT-Validador |
 | 21 | **B31** | El brain declara su corpus fuente (`source_of_truth`) | D1 advertencia si vacío |
@@ -163,11 +163,11 @@ El bank-brain del cliente es el único brain de tipo `enterprise`. Los demás so
 
 ### Schema y contrato (B15-B17)
 
-**B15 — CORE + una extensión**: todo brain implementa las 17 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
+**B15 — CORE + una extensión**: todo brain implementa las 18 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
 
 **El CORE tiene dos fundamentos legítimos** (ADR-EB-011). El primero es la destilación: una tabla entra cuando existe en tres o más brains independientes (ADR-EB-006), con la excepción acotada de ADR-EB-009 para `kpis`, `data_entities` y `technology_components`. El segundo es la implicación del roster: si un DT canónico obligatorio posee una tabla, esa tabla es CORE por consecuencia, y es el caso de `suppliers`. Hay un **tercer fundamento** (ADR-EB-012): una tabla entra cuando una regla vigente exige una capacidad que ninguna tabla sostiene, como ocurrió con `measurements` y `costs`. Exige tres condiciones simultáneas: que la regla ya esté aprobada y no se escriba junto con la tabla, que ninguna tabla existente pueda sostener la capacidad, y que el ADR nombre la frase exacta que queda incumplida sin ella. Existe porque la destilación tiene un punto ciego: solo canoniza lo que alguien ya construyó, y el canon puede prometer en una regla lo que su esquema no puede cumplir.
 
-El segundo fundamento es más exigente de lo que parece, porque solo aplica a tablas poseídas por un DT del roster y el roster solo crece con ADR. Ver ADR-EB-006, ADR-EB-009, ADR-EB-010, ADR-EB-011 y ADR-EB-012.
+El segundo fundamento es más exigente de lo que parece, porque solo aplica a tablas poseídas por un DT del roster y el roster solo crece con ADR. Ver ADR-EB-006, ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012 y ADR-EB-013.
 
 El CORE es el contrato de interoperabilidad: es lo que un brain debe exponer para que otro pueda federarlo. Un brain de proyecto no implementa `rules` y eso es correcto — su ontología es `applications`/`waves`/`risks`/`decisions`.
 

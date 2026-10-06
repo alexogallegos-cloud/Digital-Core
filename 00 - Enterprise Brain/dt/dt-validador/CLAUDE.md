@@ -48,7 +48,7 @@ Un brain que no pasa el DT-Validador **no puede activarse** (fase RELEASE bloque
 
 | Capa | Tablas exigidas | A quién aplica |
 |------|----------------|---------------|
-| CORE | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` | Todo brain |
+| CORE | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` · `queries` | Todo brain |
 | SYSTEM | `components` · `component_calls` · `component_data` · `rules` · `rule_enrichment_log` · `vocabulary` · `journeys` · `component_capabilities` · `component_processes` · `regulatory_obligations` · `external_systems` | `brain_type='system'` |
 | PROJECT | `applications` · `waves` · `risks` · `decisions` · `user_stories` | `brain_type='project'` |
 | ENTERPRISE | `federated_brains` · `documents` | `brain_type='enterprise'` |
@@ -299,7 +299,7 @@ El validador abre el brain.db en modo read-only (`mode=ro`) — no puede modific
 
 `baseline-2026-09-29.json` congela el resultado sobre los 16 brains con implementación real del estate al momento de adoptar el canon v2.0. En esa fecha el validador tenía seis dimensiones; hoy tiene 9, así que ese archivo solo es comparable en D1 a D6. Sirve para medir avance de la homologación en esas seis, no para D7, D8 ni D9.
 
-**El baseline vigente quedó obsoleto con ADR-EB-011.** El CORE pasó a 15 tablas y D1 ahora exige también `suppliers`, `component_processes` y `documents`, así que los tres baselines existentes miden un canon anterior. Hace falta uno nuevo antes de usar cualquiera como medida de avance.
+**Ningún baseline mide el canon vigente.** El CORE creció tres veces desde que se tomaron: `suppliers` con ADR-EB-011, `measurements` y `costs` con ADR-EB-012, y `queries` con ADR-EB-013, que lo dejan en 18 tablas. Los tres baselines existentes miden canones anteriores y ninguno sirve como medida de avance hasta que se tome uno nuevo. Conviene tomarlo después de la homologación, no antes: un baseline contra un canon que todavía se mueve se vuelve a quedar atrás.
 
 Al 2026-09-29 los 16 brains reprueban D1. Es el resultado correcto — mide la deuda real en vez de ocultarla.
 

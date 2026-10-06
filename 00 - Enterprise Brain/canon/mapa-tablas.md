@@ -1,14 +1,14 @@
 # Mapa de tablas del canon
 
-> Generado el 2026-10-05 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
+> Generado el 2026-10-06 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
-El canon son **40 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
+El canon son **41 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
 ## Resumen por capa
 
 | Capa | Tablas | A quién aplica |
 |------|--------|----------------|
-| **CORE** | 17 | Todo brain, sin excepción |
+| **CORE** | 18 | Todo brain, sin excepción |
 | **SYSTEM** | 11 | `brain_type='system'`, sistemas en operación |
 | **PROJECT** | 5 | `brain_type='project'`, proyectos de transformación |
 | **ENTERPRISE** | 2 | `brain_type='enterprise'`, el brain de nivel cliente |
@@ -33,12 +33,13 @@ El canon son **40 tablas**. Ningún brain las implementa todas: implementa el CO
 | `products` | `dt-valor` | 13 | B37 | `processes` |
 | `kpis` | `dt-valor` | 14 | B37 | `processes`, `products` |
 | `stakeholders` | `dt-conocimiento` | 15 | B37 | `capabilities` |
-| `data_entities` | `dt-informacion` | 13 | B30 B37 | `stakeholders`, `technology_components` |
+| `data_entities` | `dt-informacion` | 13 | B30 B37 B42 | `stakeholders`, `technology_components` |
 | `technology_components` | `dt-configuracion` | 16 | B36 B37 B38 | `itom_layer` |
 | `suppliers` | `dt-proveedores` | 17 | B22 B30 B37 B38 B39 | `itom_layer`, `processes`, `slos` |
 | `measurements` | `dt-operacion` | 15 | B22 B37 B40 | `kpis`, `processes` |
 | `costs` | `dt-valor` | 16 | B22 B27 B37 | `kpis`, `processes`, `products` |
-| `knowledge_lineage` | `dt-conocimiento` | 18 | B29 B40 | — |
+| `queries` | `dt-conocimiento` | 15 | B17 B27 B35 B37 B42 B43 | `decisions` |
+| `knowledge_lineage` | `dt-conocimiento` | 19 | B29 B40 B42 | — |
 
 ### SYSTEM
 
@@ -63,7 +64,7 @@ El canon son **40 tablas**. Ningún brain las implementa todas: implementa el CO
 | `applications` | `dt-entrega` | 13 | B22 B37 | `processes`, `waves` |
 | `waves` | `dt-entrega` | 9 | B37 | — |
 | `risks` | `dt-riesgo` | 13 | B22 B24 B37 | `processes` |
-| `decisions` | `dt-arquitectura` | 10 | B37 | — |
+| `decisions` | `dt-arquitectura` | 20 | B37 B39 B40 B43 | `queries` |
 | `user_stories` | `dt-entrega` | 11 | B22 B24 B37 | `processes` |
 
 ### ENTERPRISE
@@ -108,7 +109,7 @@ El conocimiento técnico se ancla en la cadena del negocio. Un componente que no
   `data_entities`, `component_data`
 
 **Fuera de la cadena** — gobierno, ontología, federación y calidad  
-  `capabilities`, `costs`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
+  `capabilities`, `costs`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
 
 ---
 
@@ -371,7 +372,7 @@ Stakeholders: quién decide, quién opera y a quién le importa (dominio B de TO
 
 ### `data_entities`
 
-**Capa**: CORE, **Dueño**: `dt-informacion`, **Reglas**: B30 B37
+**Capa**: CORE, **Dueño**: `dt-informacion`, **Reglas**: B30 B37 B42
 
 Entidades de datos (dominio D de TOGAF). Eslabón Datos de la cadena B27. Destilado de Informix sp_table_refs (200,761 referencias de SP a tabla). ADR-EB-009. La operación de estos datos la describe ITOM (information-analytics); TO
 
@@ -501,9 +502,35 @@ Costo de la tecnología del cliente (Reglas B41 y B43 · ADR-EB-012). FRONTERA: 
 
 **Se relaciona con**: `kpis` (por `kpi_id`), `processes` (por `process_id`), `products` (por `product_id`)
 
+### `queries`
+
+**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B17 B27 B35 B37 B42 B43
+
+El objeto consulta (Regla B45 · ADR-EB-013). Sin identidad de consulta no hay dónde registrar el propósito que exige B42, no hay qué contar para medir el uso que pide B43, y una respuesta equivocada no se puede rastrear hasta el c
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | TEXT | no |  |
+| `tier` | TEXT | sí |  |
+| `requester` | TEXT | no | rol en stakeholders, no nombre de persona |
+| `requester_org` | TEXT | no | cliente ,  consultora ,  tercero |
+| `purpose` | TEXT | sí | sin propósito declarado no cruza frontera |
+| `question` | TEXT | no |  |
+| `anchor_table` | TEXT | no | eslabón de la cadena que la ancla |
+| `anchor_id` | TEXT | no |  |
+| `tier_summary` | TEXT | no | JSON: cuánto de la respuesta es gold, silver, bronze |
+| `gaps_declared` | TEXT | no | JSON: qué faltó y se declaró en vez de rellenar |
+| `denied_reason` | TEXT | no | si la frontera la rechazó, por qué |
+| `decision_id` | TEXT | no | FK lógica a decisions.id, si derivó en decisión |
+| `latency_ms` | INTEGER | no | eje de desempeño de B43 |
+| `answered_at` | TEXT | no |  |
+| `asked_at` | TEXT | sí |  |
+
+**Se relaciona con**: `decisions` (por `decision_id`)
+
 ### `knowledge_lineage`
 
-**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B29 B40
+**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B29 B40 B42
 
 Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_log de Informix (22,425 filas de procedencia campo por campo) a todo el brain. Cada afirmación del brain tiene aquí su nivel, su fuente y quién la validó
 
@@ -524,6 +551,7 @@ Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_lo
 | `validated_at` | TEXT | no |  |
 | `superseded_by` | INTEGER | no | id del registro que lo reemplaza (no se borra nada) |
 | `notes` | TEXT | no |  |
+| `exposed_for` | TEXT | no | JSON: propósitos bajo los que se ha consultado |
 | `valid_from` | TEXT | no | ISO date. NULL = verdad desde el origen del sistema |
 | `valid_to` | TEXT | no | ISO date. NULL = sigue siendo verdad hoy |
 | `recorded_at` | TEXT | sí |  |
@@ -834,7 +862,7 @@ PROJECT — brains de proyecto de transformación (hemisphere='change') Referenc
 
 ### `decisions`
 
-**Capa**: PROJECT, **Dueño**: `dt-arquitectura`, **Reglas**: B37
+**Capa**: PROJECT, **Dueño**: `dt-arquitectura`, **Reglas**: B37 B39 B40 B43
 
 ADR dentro del brain. Convergencia Coppel + Unity + Santander CAN.
 
@@ -850,6 +878,18 @@ ADR dentro del brain. Convergencia Coppel + Unity + Santander CAN.
 | `consequences` | TEXT | no |  |
 | `status` | TEXT | no | propuesto ,  aprobado ,  superseded |
 | `domain` | TEXT | no |  |
+| `options_rejected` | TEXT | no | JSON: qué se descartó y por qué |
+| `knowledge_refs` | TEXT | no | JSON: ids de knowledge_lineage que la sostienen |
+| `knowledge_tier` | TEXT | no | el nivel que ese conocimiento tenía AL DECIDIR. |
+| `decided_by` | TEXT | no | rol accountable en stakeholders (B39) |
+| `decided_at` | TEXT | no |  |
+| `query_id` | TEXT | no | FK lógica a queries.id: qué consulta la motivó |
+| `outcome` | TEXT | no | logrado ,  parcial ,  no_logrado ,  pendiente |
+| `outcome_kpi_id` | TEXT | no | qué KPI debía moverse |
+| `outcome_measured_at` | TEXT | no |  |
+| `outcome_notes` | TEXT | no |  |
+
+**Se relaciona con**: `queries` (por `id`)
 
 ### `user_stories`
 

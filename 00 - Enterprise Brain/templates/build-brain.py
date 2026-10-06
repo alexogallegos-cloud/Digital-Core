@@ -103,10 +103,21 @@ class BrainBuilder:
             self.db = sqlite3.connect(self.db_path)
         self.db.row_factory = sqlite3.Row
 
+    #: Tablas cuyo contenido NO se deriva de `source/` y por lo tanto un rebuild
+    #: no puede recrear. El registro de consultas de B45 ocurre al consultar y
+    #: no existe en ningún archivo fuente: si el DROP lo borra, B43 pierde la
+    #: serie con que mide el uso y B44 pierde lo que debía sobrevivir al
+    #: archivado. Se preserva entre builds, y es la única excepción a la
+    #: idempotencia dura.
+    RUNTIME_TABLES = ("queries",)
+
     def init_schema(self):
         """
         Idempotencia dura: DROP explícito antes de CREATE. Un rebuild produce
         siempre el mismo resultado, sin drift acumulado de corridas anteriores.
+
+        Las tablas de `RUNTIME_TABLES` se preservan y se reinsertan después,
+        porque su contenido no se puede reconstruir desde el código fuente.
         """
         schema = SCHEMA_PATH.read_text(encoding="utf-8")
         existing = [
@@ -114,6 +125,16 @@ class BrainBuilder:
                 "SELECT name FROM sqlite_master WHERE type IN ('table','view')"
             )
         ]
+
+        preservado: dict[str, list] = {}
+        for t in self.RUNTIME_TABLES:
+            if t in existing:
+                filas = self.db.execute(f'SELECT * FROM "{t}"').fetchall()
+                if filas:
+                    preservado[t] = ([k[0] for k in self.db.execute(
+                        f'SELECT * FROM "{t}" LIMIT 0').description],
+                        [tuple(f) for f in filas])
+
         for t in existing:
             if t.startswith("sqlite_"):
                 continue
@@ -123,6 +144,19 @@ class BrainBuilder:
             except sqlite3.Error:
                 self.db.execute(f'DROP TABLE IF EXISTS "{t}"')
         self.db.executescript(schema)
+
+        for t, (cols, filas) in preservado.items():
+            # Si el esquema cambió las columnas, se reinserta solo lo que sigue
+            # existiendo: perder una columna es preferible a perder el registro.
+            vigentes = {c[1] for c in self.db.execute(f'PRAGMA table_info("{t}")')}
+            idx = [i for i, c in enumerate(cols) if c in vigentes]
+            lista = ", ".join(f'"{cols[i]}"' for i in idx)
+            marcas = ", ".join("?" for _ in idx)
+            self.db.executemany(
+                f'INSERT OR REPLACE INTO "{t}" ({lista}) VALUES ({marcas})',
+                [tuple(f[i] for i in idx) for f in filas])
+            print(f"  {t}: {len(filas)} filas preservadas del build anterior")
+
         self.db.commit()
 
     def close(self):

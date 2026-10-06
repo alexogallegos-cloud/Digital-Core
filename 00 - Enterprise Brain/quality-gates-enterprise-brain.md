@@ -42,7 +42,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| Schema canónico presente | Las 17 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
+| Schema canónico presente | Las 18 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
 | Ontología anclada | `SELECT COUNT(*) FROM ontology_bindings WHERE role='primary'` devuelve exactamente 1 (Reglas B20, B21) | **SÍ** |
 | Corpus fuente declarado | `system_info.source_of_truth` no vacío (Regla B31) | **SÍ** si el estado es `active` |
 | Estudio histórico iniciado | `knowledge-base/history/` existe con al menos las cinco dimensiones esbozadas (Regla B26) | NO (advertencia) |

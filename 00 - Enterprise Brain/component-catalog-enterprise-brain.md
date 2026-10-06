@@ -104,7 +104,7 @@ Los scaffolds no son deuda: son la Regla B9 operando — todo sistema descubiert
 
 ## Estado de Homologación
 
-Baseline vigente: `dt/dt-validador/baseline-2026-10-01.json`, que mide **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y **9 dimensiones**. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
+Baseline vigente: `dt/dt-validador/baseline-2026-10-01.json`, que mide un **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y **9 dimensiones**. El canon vigente exige **18** (ADR-EB-012 y ADR-EB-013), así que ese baseline mide un canon anterior. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
 
 Los 11 brains de sistema y de proyecto reprueban D8 (puente Change–Run, ADR-EB-008); ninguno implementa el contrato común. Siete tienen piezas propias del lado Change y ninguno el lado Run con ruteo.
 
