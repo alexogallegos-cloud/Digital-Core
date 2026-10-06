@@ -19,7 +19,7 @@
 
 ## Principio Rector
 
-El DT-Validador **reporta, no corrige**. Su función es ejecutar las 9 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuales el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
+El DT-Validador **reporta, no corrige**. Su función es ejecutar las 9 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
 
 Un brain que no pasa el DT-Validador **no puede activarse** (fase RELEASE bloqueada). Un brain ACTIVE que falla el DT-Validador en OBSERVE entra en estado STALE hasta que se corrija.
 
@@ -73,7 +73,7 @@ El `brain_type` se lee de `system_info`. Si el brain aún no lo declara (pre-hom
 ```sql
 SELECT
     COUNT(*) as total,
-    COUNT(CASE WHEN description IS NOT NULL AND description != '' THEN 1 END) as con_descripcion,
+    COUNT(CASE WHEN description IS NOT NULL AND description != '' THEN 1 END) as con_descripción,
     COUNT(CASE WHEN primary_capability IS NOT NULL THEN 1 END) as con_etb,
     ROUND(100.0 * COUNT(CASE WHEN primary_capability IS NOT NULL THEN 1 END) / COUNT(*), 1) as etb_pct
 FROM components;
@@ -219,7 +219,7 @@ python templates/callosum.py --enterprise bank-brain/digital-brain/bank-brain.db
 - Fila marcada gold sin registro vigente en `knowledge_lineage` que la respalde.
 
 **Hallazgos no bloqueantes**:
-- Gold de código, log o monitoreo sin `source_version`: si la fuente cambia, el brain no sabrá degradarlo.
+- Gold de código, log o monitoreo sin `source_versión`: si la fuente cambia, el brain no sabrá degradarlo.
 - Silver sin revisión en más de 90 días: va a la cola HITL (`brain.py hitl_queue()`).
 
 **Métrica reportada**: distribución porcentual de gold, silver y bronze en todas las tablas de conocimiento, y número de registros de linaje.
@@ -232,7 +232,7 @@ El DT-Validador emite un reporte estructurado al final de cada ejecución:
 
 ```
 DT-VALIDADOR REPORT
-Sistema: {slug} · Build: {built_at} · Versión brain: {version}
+Sistema: {slug} · Build: {built_at} · Versión brain: {versión}
 ══════════════════════════════════════════════════════════
 
 [PASS/FAIL] D1 Schema Integridad    — {tablas} tablas presentes
