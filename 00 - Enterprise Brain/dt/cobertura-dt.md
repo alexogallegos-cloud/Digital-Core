@@ -206,10 +206,10 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 
 | DT | Tablas que posee |
 |----|-----------------|
-| `dt-arquitectura` | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus` |
+| `dt-arquitectura` | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus`, `federated_brains` |
 | `dt-informacion` | `data_entities`, `component_data`, `vocabulary` |
-| `dt-conocimiento` | `knowledge_lineage`, `knowledge_gaps`, `stakeholders`, `documents`, la columna `tier` en toda tabla |
-| `dt-configuracion` | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems` |
+| `dt-conocimiento` | `knowledge_lineage`, `knowledge_gaps`, `stakeholders`, `documents`, `rule_enrichment_log`, la columna `tier` en toda tabla |
+| `dt-configuracion` | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems`, `rules`, `component_capabilities`, `component_processes` |
 | `dt-cambio` | `transitions`, `readiness_gates`, el campo `target` de `slos` |
 | `dt-operacion` | `findings`, `signals`, el campo `current` de `slos` |
 | `dt-riesgo` | `regulatory_obligations`, `risks`, la columna `reg` de `rules` |

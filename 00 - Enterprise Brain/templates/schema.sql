@@ -555,7 +555,7 @@ CREATE TABLE IF NOT EXISTS rules (
     sub_tipo      TEXT,
     clase         TEXT NOT NULL,       -- NEGOCIO|INFRAESTRUCTURA|ENSAMBLAJE|PRESENTACION
     condicion     TEXT,
-    fragmento     TEXT,                -- código fuente Bronze
+    fragmento     TEXT,                -- fragmento del código fuente, tal como se extrajo
 
     -- ADR-EB-004: sintetizado leyendo el fuente completo, nunca transcrito.
     business_name TEXT NOT NULL,
