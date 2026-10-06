@@ -235,8 +235,15 @@ class CanonValidator:
             (None, rf"\b(?!{dims_real}\b)(\d{{1,2}})\s+dimensiones(?!\s+bloqueante)",
              f"son {dims_real} dimensiones"),
             (None, rf"\b(?!{dts_real}\b)(\d{{1,2}})\s+DTs? canónicos", f"son {dts_real} DTs canónicos"),
+            # El conteo de reglas se deriva del cuerpo de brain-rules.md.
+            # Faltaba este chequeo: al agregar B44 y B45 el HTML siguió
+            # diciendo 43 y nada lo detectó.
+            # Solo el conteo del CANON. Un "8,955 reglas" de un brain son reglas
+            # de negocio y no tienen relación: por eso se exige el calificador.
+            (None, rf"\b(?!{reglas_real}\b)(\d{{2,3}})\s+reglas\s+(?:canónicas|viven|en \d+ niveles)",
+             f"son {reglas_real} reglas del canon"),
         ]
-        for p in self.docs("md"):
+        for p in self.docs("md", "html"):
             txt = p.read_text(encoding="utf-8", errors="ignore")
             for _, mal, msg in chequeos:
                 for m in re.finditer(mal, txt):
@@ -287,6 +294,29 @@ class CanonValidator:
                          + (f"; inventa {sorted(sobran)[:5]}" if sobran else ""),
                          f"{self.rel(p)}:{ln}")
 
+    # ── D7 · Corrupcion de escape ─────────────────────────────────────────
+    def d7_escapes(self):
+        """
+        Busca bytes de retroceso (0x08) en archivos de texto.
+
+        Aparecen cuando un parche escribe \\b dentro de una cadena Python no
+        cruda, donde \\b es el caracter de retroceso y no el limite de palabra
+        de una expresion regular. El sintoma es traicionero: el archivo compila,
+        el patron deja de casar y nada lo reporta. Ocurrio dos veces en este
+        mismo validador y en ambas dejo un filtro inservible.
+        """
+        for p in self.docs("py", "md", "sql", "html", "json"):
+            try:
+                txt = p.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            if "\x08" in txt:
+                ln = txt.count("\n", 0, txt.index("\x08")) + 1
+                self.add("escapes", SEV_BLOQ,
+                         f"{txt.count(chr(8))} byte(s) de retroceso: un parche escribió "
+                         f"\\b en una cadena no cruda y el patrón quedó inservible",
+                         f"{self.rel(p)}:{ln}")
+
     # ── D6 · Guardas que no pueden fallar ─────────────────────────────────
     def d6_guardas(self):
         """Una verificación que no puede dar negativo no verifica nada."""
@@ -333,6 +363,7 @@ class CanonValidator:
         "cifras": ("Cifras consistentes", "d4_cifras"),
         "ddl": ("DDL fuera del esquema", "d5_ddl"),
         "guardas": ("Guardas que pueden fallar", "d6_guardas"),
+        "escapes": ("Escapes sin corromper", "d7_escapes"),
     }
 
     def run(self, solo=None):

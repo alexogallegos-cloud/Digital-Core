@@ -89,6 +89,17 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 | `brain.db` ignorado | `git check-ignore digital-brain/brain.db` devuelve positivo (Regla P5) | **SÍ** |
 | SLOs con KPI | `SELECT COUNT(*) FROM slos WHERE kpi_id IS NULL` reportado. Cada SLO de TI debería declarar el KPI de negocio que habilita (Regla B36) | NO (advertencia) |
 
+### ITERATE y fin de vida
+
+| Gate | Criterio medible | Bloqueante |
+|------|-----------------|-----------|
+| Archivado con huecos resueltos | Ningún `knowledge_gap` abierto queda sin transferir ni sin `resolution_action` que declare por qué ya no es contestable (Reglas B17 y B44) | **SÍ** |
+| Vecinos notificados | Cada brain que lo federa marcó la federación como archivada, y cerró su lado de `cross_dependencies` con `valid_to` en lugar de borrarlo (Reglas B5 y B44) | **SÍ** |
+| Historia preservada | El brain archivado sigue respondiendo `snapshot(date)` sobre su periodo de vigencia (Reglas B40 y B44) | **SÍ** |
+| Ventana cumplida | Pasó la ventana que fijó el cliente desde el cutover, por defecto doce meses | **SÍ** |
+
+El archivado es decisión de nivel A3 y no baja de ahí por historial (Regla B39): apagar la memoria de un sistema es irreversible.
+
 ### OPERATE y OBSERVE
 
 | Gate | Criterio medible | Bloqueante |
@@ -129,6 +140,7 @@ Estas reglas forman parte del canon pero **no tienen implementación**, así que
 | **B42** | Ninguna consulta cruza una frontera sin propósito declarado y autorizado | `brain.py` no tiene parámetro de propósito ni filtro de acceso; `knowledge_lineage` no tiene columna de propósito |
 | **B43** | Toda decisión de gate queda trazable a su evidencia y a su resultado | No existe registro de decisiones con opciones descartadas, conocimiento que las sostuvo y desenlace |
 | **B40** | Consulta de estado en una fecha dada | `snapshot(date)` no existe en `brain.py` |
+| **B45** | Ninguna consulta cruza una frontera sin propósito declarado, y toda decisión se rastrea hasta la respuesta que la motivó | No existe el objeto consulta: ni tabla, ni identificador, ni registro |
 
 ---
 

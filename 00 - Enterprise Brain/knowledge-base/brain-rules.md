@@ -1,10 +1,10 @@
 # Brain Rules — Reglas Canónicas del Enterprise Brain
 
-> Versión 2.9 · 2026-10-05 · Asset Enterprise Brain · Digital Core · Accenture México
+> Versión 3.0 · 2026-10-05 · Asset Enterprise Brain · Digital Core · Accenture México
 
 Estas reglas son el estándar de implementación de todo Enterprise Brain. No son opcionales — son el contrato de interoperabilidad entre brains de distintos sistemas y proyectos.
 
-Los números de regla (B1-B43, V1-V2, P1-P5) son **IDs estables** referenciados en código (`schema.sql`, `validate.py`, `callosum.py`, `build-brain.py`). El índice a continuación organiza esos mismos IDs por alcance, importancia y granularidad para navegación y aprendizaje — sin cambiar los identificadores.
+Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados en código (`schema.sql`, `validate.py`, `callosum.py`, `build-brain.py`). El índice a continuación organiza esos mismos IDs por alcance, importancia y granularidad para navegación y aprendizaje — sin cambiar los identificadores.
 
 ---
 
@@ -21,67 +21,69 @@ Los números de regla (B1-B43, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | **Pendiente**: no hay columna de propósito ni filtro de acceso |
 | 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |
-| 7 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
-| 8 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
-| 9 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
-| 10 | **B15** | CORE (15 tablas) + exactamente una extensión por `brain_type` | D1 del DT-Validador |
-| 11 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
-| 12 | **B36** | Frameworks complementarios: ETB da el north star, ITOM habilita, TOGAF gobierna | Trazas `itom_layer.process_id` y SLO a KPI |
-| 13 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del DT-Validador |
-| 14 | **B4** | Federación via SQLite ATTACH — sin servidor entre brains | `federated_brains` + ATTACH |
+| 7 | **B45** | Toda consulta es un objeto con ciclo de vida de seis etapas | **Pendiente**: no existe tabla de consultas |
+| 8 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
+| 9 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
+| 10 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
+| 11 | **B15** | CORE (15 tablas) + exactamente una extensión por `brain_type` | D1 del DT-Validador |
+| 12 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
+| 13 | **B36** | Frameworks complementarios: ETB da el north star, ITOM habilita, TOGAF gobierna | Trazas `itom_layer.process_id` y SLO a KPI |
+| 14 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del DT-Validador |
+| 15 | **B4** | Federación via SQLite ATTACH — sin servidor entre brains | `federated_brains` + ATTACH |
 
 ### Nivel 2 — Honestidad y Calidad del Conocimiento
 > Alcance: todo dato que entra al brain. Impacto: si se rompe, el brain miente. Granularidad: contratos de calidad del dato.
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 15 | **B37** | Calidad y linaje: gold, silver, bronze; los hechos irrefutables entran directo a gold | `knowledge_lineage` y D9 del DT-Validador |
-| 16 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | **Pendiente**: `decisions` no registra opciones, evidencia ni resultado |
-| 17 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | **Pendiente**: `snapshot(date)` no está implementado |
-| 18 | **B17** | Ningún hueco se rellena con datos inventados — va a `knowledge_gaps` | `knowledge_gaps` con `resolution_action` |
-| 19 | **B30** | El `business_name` es el contrato de calidad de cada pieza de conocimiento | D3 del DT-Validador |
-| 20 | **B31** | El brain declara su corpus fuente (`source_of_truth`) | D1 advertencia si vacío |
-| 21 | **B32** | Transición sin `run_owner` no puede cerrar (cutover/done) | D8 bloqueante |
-| 22 | **B5** | Cross-deps declaradas en ambos lados con evidencia cuantificada | `cross_dependencies` bilateral |
+| 16 | **B37** | Calidad y linaje: gold, silver, bronze; los hechos irrefutables entran directo a gold | `knowledge_lineage` y D9 del DT-Validador |
+| 17 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | **Pendiente**: `decisions` no registra opciones, evidencia ni resultado |
+| 18 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | **Pendiente**: `snapshot(date)` no está implementado |
+| 19 | **B17** | Ningún hueco se rellena con datos inventados — va a `knowledge_gaps` | `knowledge_gaps` con `resolution_action` |
+| 20 | **B30** | El `business_name` es el contrato de calidad de cada pieza de conocimiento | D3 del DT-Validador |
+| 21 | **B31** | El brain declara su corpus fuente (`source_of_truth`) | D1 advertencia si vacío |
+| 22 | **B32** | Transición sin `run_owner` no puede cerrar (cutover/done) | D8 bloqueante |
+| 23 | **B5** | Cross-deps declaradas en ambos lados con evidencia cuantificada | `cross_dependencies` bilateral |
 
 ### Nivel 3 — Ontología y Semántica
 > Alcance: el modelo de conocimiento del brain. Impacto: sin ontología, los hallazgos no se pueden agregar ni comparar entre brains. Granularidad: contratos de semántica.
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 23 | **B27** | Cadena de valor: Productos → KPIs → Procesos → Apps → Infra → Datos | `products` + `kpis` en CORE |
-| 24 | **B28** | TOGAF es el gobierno de la arquitectura: da estructura (BDAT), método (ADM) y gobierno | Cada tabla mapeada a un dominio BDAT |
-| 25 | **B22** | Todo conocimiento ata a un proceso de negocio (`process_id`) | D7 del DT-Validador |
-| 26 | **B19** | La ontología de la industria la suministra el Industry SME, no el brain | `system_info.industry_sme` |
-| 27 | **B20** | Cada empresa compone su propia ontología (multi-industria es la norma) | `ontology_bindings` multi-fila |
-| 28 | **B23** | El ITOM lo ancla `itom_layer`; el SME lo prescribe — el brain no inventa | `itom_layer` + `itom_sme` |
-| 29 | **B2** | Capabilities embebidas + ontología declarada en `system_info` | `capabilities` + `capability_model` |
-| 30 | **B33** | El enterprise brain expone `value_chain()` federada | Método en `brain.py` enterprise |
+| 24 | **B27** | Cadena de valor: Productos → KPIs → Procesos → Apps → Infra → Datos | `products` + `kpis` en CORE |
+| 25 | **B28** | TOGAF es el gobierno de la arquitectura: da estructura (BDAT), método (ADM) y gobierno | Cada tabla mapeada a un dominio BDAT |
+| 26 | **B22** | Todo conocimiento ata a un proceso de negocio (`process_id`) | D7 del DT-Validador |
+| 27 | **B19** | La ontología de la industria la suministra el Industry SME, no el brain | `system_info.industry_sme` |
+| 28 | **B20** | Cada empresa compone su propia ontología (multi-industria es la norma) | `ontology_bindings` multi-fila |
+| 29 | **B23** | El ITOM lo ancla `itom_layer`; el SME lo prescribe — el brain no inventa | `itom_layer` + `itom_sme` |
+| 30 | **B2** | Capabilities embebidas + ontología declarada en `system_info` | `capabilities` + `capability_model` |
+| 31 | **B33** | El enterprise brain expone `value_chain()` federada | Método en `brain.py` enterprise |
 
 ### Nivel 4 — Estructura y Federación
 > Alcance: cómo se organizan y nombran los brains. Impacto: sin estructura correcta, los loaders genéricos fallan y los análisis cross-brain son inconsistentes. Granularidad: convenciones arquitectónicas.
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 31 | **B13** | Hemisferio declarado en `system_info.hemisphere` (change/run) | `system_info.hemisphere` |
-| 32 | **B14** | `brain_type` declarado en `system_info` (enterprise/project/system) | `system_info.brain_type` |
-| 33 | **B18** | El brain de cliente se nombra por industria: `{industria}-brain` | Carpeta + `slug` |
-| 34 | **B16** | Homologar por vista (`CREATE VIEW`), no por migración de datos | Vista canónica sobre tabla histórica |
-| 35 | **B7** | Capability gap = 0 antes de decommission (`[BREAK-GLASS]` si no) | `bank-brain.capability_gap()` |
-| 36 | **B3** | El bank-brain detecta desalineación ETB vía `capability_alignment()` | Método enterprise en `brain.py` |
-| 37 | **B6** | Sistemas externos con suficiente complejidad siguen la estructura canónica | `external_systems` |
+| 32 | **B13** | Hemisferio declarado en `system_info.hemisphere` (change/run) | `system_info.hemisphere` |
+| 33 | **B14** | `brain_type` declarado en `system_info` (enterprise/project/system) | `system_info.brain_type` |
+| 34 | **B18** | El brain de cliente se nombra por industria: `{industria}-brain` | Carpeta + `slug` |
+| 35 | **B16** | Homologar por vista (`CREATE VIEW`), no por migración de datos | Vista canónica sobre tabla histórica |
+| 36 | **B7** | Capability gap = 0 antes de decommission (`[BREAK-GLASS]` si no) | `bank-brain.capability_gap()` |
+| 37 | **B3** | El bank-brain detecta desalineación ETB vía `capability_alignment()` | Método enterprise en `brain.py` |
+| 38 | **B6** | Sistemas externos con suficiente complejidad siguen la estructura canónica | `external_systems` |
 
 ### Nivel 5 — Historia, Descubrimiento y Propagación
 > Alcance: cómo crece el brain a partir de evidencia nueva. Impacto: sin estas reglas el brain no puede ser bootstrapeado desde cero ni enriquecerse con descubrimientos. Granularidad: protocolo operativo.
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 38 | **B26** | Todo brain comienza con el estudio histórico de la organización | **Pendiente**: la carpeta no existe en el asset |
-| 39 | **B8** | Evidencia operativa es prueba de existencia de un sistema | `system_info` semilla |
-| 40 | **B9** | Acción inmediata al descubrir un sistema significativo | Estructura canónica vacía + CLAUDE.md |
-| 41 | **B10** | Knowledge Interlock: conocimiento descubierto se propaga a ambos extremos | Commits en ≥ 2 `build-brain.py` |
-| 42 | **B11** | Seeds push: el brain emite evidencia a sus vecinos sin esperar | `seeds/{receptor}-seed.json` |
-| 43 | **B12** | Un sistema descubierto arranca con `brain.db` inicializado desde seeds | `brain.db` mínimo desde B9 |
+| 39 | **B26** | Todo brain comienza con el estudio histórico de la organización | **Pendiente**: la carpeta no existe en el asset |
+| 40 | **B44** | El brain sobrevive al sistema que refleja y se archiva con reglas propias | `status='archived'` y `snapshot(date)` vigente |
+| 41 | **B8** | Evidencia operativa es prueba de existencia de un sistema | `system_info` semilla |
+| 42 | **B9** | Acción inmediata al descubrir un sistema significativo | Estructura canónica vacía + CLAUDE.md |
+| 43 | **B10** | Knowledge Interlock: conocimiento descubierto se propaga a ambos extremos | Commits en ≥ 2 `build-brain.py` |
+| 44 | **B11** | Seeds push: el brain emite evidencia a sus vecinos sin esperar | `seeds/{receptor}-seed.json` |
+| 45 | **B12** | Un sistema descubierto arranca con `brain.db` inicializado desde seeds | `brain.db` mínimo desde B9 |
 
 **Siete reglas no tienen artefacto verificable hoy, y el índice lo declara.** Cinco esperan implementación (B38, B39, B40, B42, B43), una espera un artefacto del asset (B26) y una es un principio y no una regla auditable (B34). `quality-gates-enterprise-brain.md` lista en su sección de gates no exigibles qué falta para poder exigir cada una. Mientras el índice prometía artefactos inexistentes, el canon no se podía usar para auditar nada, y B42 quedaba autorrefutada: dice que una política que vive en un documento y no en el filtro no es política sino intención.
 
@@ -358,7 +360,7 @@ Al razonar el puente entre Unity e Informix (2026-10-01) aparecieron tres ruptur
 - Unity da por terminados D01, D02 y D04 hacia Transact, pero Informix sigue con 5,743 SPs activos en esos dominios.
 - Esas tres transiciones cerradas no tienen `run_owner` ni readiness, porque el PRR de Unity está registrado por capability y no por transición.
 
-### Verdad, transformación y razonamiento (B25-B43)
+### Verdad, transformación y razonamiento (B25-B45)
 
 **B25 — El brain es el espejo de la empresa, no su idealización**: el Enterprise Brain no modela lo que la empresa debería ser — refleja lo que es. De ahí viene su nombre: *Enterprise* Brain, no *Target* Brain ni *Future* Brain. Cada hemisferio alimenta de su fuente de verdad natural y no de otra:
 
@@ -808,6 +810,54 @@ Toda decisión trazable registra cuatro cosas: las opciones que se consideraron 
 **El brain es también un producto con KPIs.** La cadena de valor de B27 se aplica al propio brain: su producto es el razonamiento que entrega, sus KPIs son estos cinco ejes, y los procesos que lo mueven son las fases de su lifecycle. Un brain que no puede declarar su propio impacto está pidiendo inversión sin evidencia, que es justo lo que le reprocha a cualquier iniciativa que analiza.
 
 Dueños: `dt-validador` mide los cinco ejes en OBSERVE, `dt-conocimiento` responde por la trazabilidad de decisión y `dt-valor` por el costo y el impacto en KPIs.
+
+**B44 — El brain sobrevive al sistema que refleja, y se archiva con reglas propias**: el canon tenía regla de nacimiento (B12) y ninguna de muerte. Un brain cuyo sistema se apaga no desaparece con él, y confundir los dos eventos es el error que esta regla evita.
+
+**Son dos eventos distintos, separados en el tiempo.** El sistema se apaga cuando pasa su gate de decommission (B7). El brain se archiva después, cuando ya nadie necesita interrogarlo sobre el presente. Entre uno y otro hay una ventana en la que el sistema ya no existe y el brain sigue siendo la única fuente que puede explicar cómo era.
+
+**Por qué el brain sobrevive.** La Regla B40 permite reconstruir el estado del conocimiento en cualquier fecha pasada con `snapshot(date)`. Si el brain muere con el sistema, se pierde la capacidad de responder cómo estaba la arquitectura antes de la migración, qué regla gobernaba una operación que hoy se disputa, o qué obligación regulatoria aplicaba cuando ocurrió un incidente. En industria regulada esa capacidad tiene valor de retención, no solo histórico.
+
+| Estado | Qué significa | Qué puede hacer |
+|--------|--------------|-----------------|
+| `active` | El sistema está vivo y el brain lo refleja | Todo |
+| `stale` | El corpus cambió y el brain no se ha reconstruido (SLO-EB-01) | Responde, declarando su desfase |
+| `archived` | El sistema se apagó y el brain cerró su ciclo | Solo lectura. Sigue sirviendo `snapshot(date)` sobre su periodo de vigencia |
+
+**Cuatro cosas hay que resolver antes de archivar**, y ninguna se resuelve borrando:
+
+| Qué queda abierto | Cómo se cierra |
+|-------------------|----------------|
+| Los `knowledge_gaps` sin resolver | Se transfieren al brain que hereda el dominio, o se cierran con `resolution_action` que declare por qué ya no son contestables. Nunca se borran (B17) |
+| Las filas de `federated_brains` que lo apuntan | Cada vecino marca la federación como archivada. El `ATTACH` sigue siendo válido en modo lectura |
+| Las `cross_dependencies` declaradas en ambos lados (B5) | El vecino cierra su lado con `valid_to`, no lo elimina: la dependencia existió y el registro lo prueba |
+| Los seeds que emitió (B11) | Se quedan donde están. Un seed es evidencia entregada, no un préstamo |
+
+**Nada se borra; todo se cierra con fecha.** Archivar un brain es ponerle `valid_to` a su vigencia operativa, igual que a cualquier otra afirmación (B40). El `brain.db` se conserva, deja de reconstruirse desde el pipeline y queda fuera del alcance del DT-Validador, porque medirlo contra el canon vigente no dice nada útil: refleja un sistema que ya no existe.
+
+**Quién lo decide.** El archivado exige el rol accountable del sistema en Run y la ventana que fije el cliente, que por defecto es de doce meses después del cutover. Es decisión de nivel A3 (B39) y no baja de ahí por historial: apagar la memoria de un sistema es irreversible.
+
+**B45 — Toda consulta es un objeto con ciclo de vida**: hasta aquí el canon gobernaba con detalle cómo se construye el conocimiento y casi nada cómo se consume. Esa asimetría dejaba sin piso a tres reglas simultáneas: B42 exige registrar el propósito de cada consulta, B43 exige medir el uso y trazar las decisiones, y B35 exige evaluar el resultado esperado. Las tres presuponen un objeto que el canon nunca definió.
+
+**La consulta tiene identidad.** Sin un identificador no hay dónde registrar el propósito, no hay qué contar para medir uso, y una respuesta equivocada no se puede rastrear hasta el conocimiento que la produjo. Es la pieza que vuelve verificables a B42 y B43 en lugar de declarativas.
+
+Seis etapas, cada una gobernada por una regla que ya existe:
+
+| Etapa | Qué ocurre | Regla |
+|-------|-----------|-------|
+| **1 Admisión** | Se adjuntan identidad, rol y **propósito**. Sin propósito declarado, la consulta no cruza ninguna frontera | B42 |
+| **2 Resolución** | El brain determina qué significa la pregunta, qué eslabón de la cadena la ancla y qué política aplica | B35, B27, B42 |
+| **3 Recuperación** | Se lee de la fuente autorizada. Lo que vive en otra herramienta se lee por referencia, no se copia | B38, B4 |
+| **4 Razonamiento** | Se compone la respuesta y se declara con qué nivel de certeza se sostiene cada parte | B37 |
+| **5 Respuesta** | Se entrega con su resumen de niveles y con lo que faltó: los huecos se declaran, no se rellenan | B17, B35 |
+| **6 Registro** | Se guarda qué se preguntó, para qué, qué conocimiento se usó y qué se decidió después | B43 |
+
+**Tres reglas de la consulta.**
+
+- **El propósito es parte de la consulta, no del solicitante.** La misma persona que puede leer un hallazgo para documentar una causa raíz no puede leerlo para comparar proveedores. La autorización es del par solicitante y propósito (B42), y eso solo es registrable si la consulta existe como objeto.
+- **Una respuesta sin nivel de certeza está incompleta.** El brain no devuelve lo que puede: devuelve lo que se necesita, y dice con qué confianza lo sostiene. Una respuesta que no distingue el hecho irrefutable de la interpretación obliga a desconfiar de ambos.
+- **La consulta es el eslabón entre el conocimiento y la decisión.** B37 traza de dónde viene lo que el brain sabe; B43 traza qué se decidió y con qué resultado. La consulta es lo que une ambas puntas: sin ella, una decisión equivocada no se puede rastrear hasta la respuesta que la motivó.
+
+**Qué falta para cumplirla.** No existe tabla de consultas, ni columna de propósito en `knowledge_lineage`, ni filtro en `brain.py`. Esta regla declara el contrato; `quality-gates-enterprise-brain.md` lista en sus gates no exigibles qué hace falta para poder auditarlo.
 
 ---
 
