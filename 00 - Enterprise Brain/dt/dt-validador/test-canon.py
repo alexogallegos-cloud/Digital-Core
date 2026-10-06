@@ -13,6 +13,7 @@ Uso:
 
 Exit: 0 si todos los casos se comportan como se espera, 1 si alguno falla.
 """
+import re
 import shutil
 import subprocess
 import sys
@@ -62,7 +63,9 @@ caso("rango de DoD incompleto", "cifras", 1,
      archivo=B / "CLAUDE.md")
 
 caso("cifra del CORE mal", "cifras", 1,
-     mutar=lambda t: t.replace("15 tablas del CORE", "12 tablas del CORE", 1),
+     # Se deriva la cifra en vez de escribirla: con "15" a mano, el caso dejó de
+     # inyectar nada el día que el CORE pasó a 17 y la suite falló en silencio.
+     mutar=lambda t: re.sub(r"\b\d{1,2}(?= tablas del CORE)", "7", t, count=1),
      archivo=B / "canon" / "brain-rules.md")
 
 caso("conteo de reglas desfasado", "cifras", 1,

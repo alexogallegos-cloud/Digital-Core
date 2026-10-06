@@ -2,13 +2,13 @@
 
 > Generado el 2026-10-05 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
-El canon son **38 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
+El canon son **40 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
 ## Resumen por capa
 
 | Capa | Tablas | A quién aplica |
 |------|--------|----------------|
-| **CORE** | 15 | Todo brain, sin excepción |
+| **CORE** | 17 | Todo brain, sin excepción |
 | **SYSTEM** | 11 | `brain_type='system'`, sistemas en operación |
 | **PROJECT** | 5 | `brain_type='project'`, proyectos de transformación |
 | **ENTERPRISE** | 2 | `brain_type='enterprise'`, el brain de nivel cliente |
@@ -36,6 +36,8 @@ El canon son **38 tablas**. Ningún brain las implementa todas: implementa el CO
 | `data_entities` | `dt-informacion` | 13 | B30 B37 | `stakeholders`, `technology_components` |
 | `technology_components` | `dt-configuracion` | 16 | B36 B37 B38 | `itom_layer` |
 | `suppliers` | `dt-proveedores` | 17 | B22 B30 B37 B38 B39 | `itom_layer`, `processes`, `slos` |
+| `measurements` | `dt-operacion` | 15 | B22 B37 B40 | `kpis`, `processes` |
+| `costs` | `dt-valor` | 16 | B22 B27 B37 | `kpis`, `processes`, `products` |
 | `knowledge_lineage` | `dt-conocimiento` | 18 | B29 B40 | — |
 
 ### SYSTEM
@@ -106,7 +108,7 @@ El conocimiento técnico se ancla en la cadena del negocio. Un componente que no
   `data_entities`, `component_data`
 
 **Fuera de la cadena** — gobierno, ontología, federación y calidad  
-  `capabilities`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `ontology_bindings`, `plateaus`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
+  `capabilities`, `costs`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
 
 ---
 
@@ -445,6 +447,59 @@ Proveedores y socios estratégicos (Regla B41 · ADR-EB-011). Dueño: DT-Proveed
 | `source_doc` | TEXT | no |  |
 
 **Se relaciona con**: `itom_layer` (por `itom_layer_id`), `processes` (por `process_id`), `slos` (por `slo_id`)
+
+### `measurements`
+
+**Capa**: CORE, **Dueño**: `dt-operacion`, **Reglas**: B22 B37 B40
+
+Serie de medición (Regla B43 · ADR-EB-012). Tercer fundamento del CORE: una regla vigente exige una capacidad que ninguna tabla sostenía. `kpis.current` y `slos.current` guardan el valor VIGENTE, que es lo que casi toda consulta n
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | INTEGER | no |  |
+| `tier` | TEXT | sí | Regla B37 |
+| `entity_table` | TEXT | sí | kpis ,  slos ,  technology_components ,  components |
+| `entity_id` | TEXT | sí |  |
+| `metric` | TEXT | no | cuando la entidad mide varias cosas |
+| `value_num` | REAL | no | valor numérico, el caso normal |
+| `value_text` | TEXT | no | cuando la medición no es numérica |
+| `unit` | TEXT | no | %, ms, MXN, transacciones, GB |
+| `measured_at` | TEXT | sí | ISO date o datetime |
+| `period_start` | TEXT | no | para métricas de ventana |
+| `period_end` | TEXT | no |  |
+| `source_type` | TEXT | no | monitoring ,  job_run ,  report ,  manual ,  forecast |
+| `source_ref` | TEXT | no |  |
+| `process_id` | TEXT | no | Regla B22 |
+| `recorded_at` | TEXT | sí |  |
+
+**Se relaciona con**: `kpis` (por `id`), `processes` (por `process_id`)
+
+### `costs`
+
+**Capa**: CORE, **Dueño**: `dt-valor`, **Reglas**: B22 B27 B37
+
+Costo de la tecnología del cliente (Reglas B41 y B43 · ADR-EB-012). FRONTERA: guarda lo que al CLIENTE le cuesta operar su tecnología. NO guarda precios, tarifas por hora ni cifras de propuesta: eso es territorio de Pricing & Comm
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | TEXT | no |  |
+| `tier` | TEXT | sí | Regla B37 |
+| `entity_table` | TEXT | sí | products ,  technology_components ,  applications ,  suppliers |
+| `entity_id` | TEXT | sí |  |
+| `cost_type` | TEXT | no | licencia ,  nube ,  infraestructura ,  soporte ,  personas |
+| `amount` | REAL | no |  |
+| `currency` | TEXT | no | MXN ,  USD |
+| `period_start` | TEXT | no |  |
+| `period_end` | TEXT | no |  |
+| `allocation_basis` | TEXT | no | directo ,  por consumo ,  por headcount ,  por transacción |
+| `product_id` | TEXT | no | Regla B27: a qué producto se atribuye |
+| `kpi_id` | TEXT | no | Regla B27: qué KPI afecta |
+| `process_id` | TEXT | no | Regla B22 |
+| `source_system` | TEXT | no | sistema de registro del que proviene |
+| `source_ref` | TEXT | no |  |
+| `recorded_at` | TEXT | no |  |
+
+**Se relaciona con**: `kpis` (por `kpi_id`), `processes` (por `process_id`), `products` (por `product_id`)
 
 ### `knowledge_lineage`
 

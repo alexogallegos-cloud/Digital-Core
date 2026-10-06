@@ -42,7 +42,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| Schema canónico presente | Las 15 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
+| Schema canónico presente | Las 17 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
 | Ontología anclada | `SELECT COUNT(*) FROM ontology_bindings WHERE role='primary'` devuelve exactamente 1 (Reglas B20, B21) | **SÍ** |
 | Corpus fuente declarado | `system_info.source_of_truth` no vacío (Regla B31) | **SÍ** si el estado es `active` |
 | Estudio histórico iniciado | `knowledge-base/history/` existe con al menos las cinco dimensiones esbozadas (Regla B26) | NO (advertencia) |
@@ -187,7 +187,7 @@ Los identificadores SLO-EB-01 a 04 son estables. SLO-EB-05 se agrega con la Regl
 La versión anterior quedó inejecutable al evolucionar el canon, y el QA del 2026-10-05 lo documentó. Lo que cambió:
 
 - **Tres gates consultaban tablas retiradas.** El de schema exigía la existencia de dos tablas que el canon ya había retirado. El de almas contaba filas sobre una tabla de almas, cuando la realidad es que `is_soul` es una columna de `components`. El de cobertura ETB contaba sobre una tabla de niveles L3 que hoy es `capabilities`. Los tres se reescribieron contra el schema real y quedaron verificados como ejecutables.
-- **El gate de schema omitía 12 de las 15 tablas del CORE.** Ahora delega en D1, que es quien tiene la lista canónica.
+- **El gate de schema listaba las tablas a mano y omitía casi todo el CORE.** Ese fue el mecanismo por el que se desincronizó, así que ahora delega en D1, que es quien tiene la lista canónica y la deriva del DDL.
 - **DoD-EB-05 exigía seis dimensiones cuando el validador tiene nueve**, dejando fuera justo D7, D8 y D9. El gate de salida se cumplía sin verificar trazabilidad a proceso, puente Change-Run ni calidad del conocimiento.
 - **Faltaba el nivel mínimo de conocimiento por decisión**, que desde B37 gobierna todos los gates y por eso ahora abre el documento.
 - **La ruta del generador del portal era `generators/build-portal.py`**, carpeta que no existe en el asset. Se dejó el nombre del script sin prefijo de carpeta, porque la ubicación difiere entre el asset y un brain implementado.

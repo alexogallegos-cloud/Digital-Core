@@ -12,7 +12,7 @@
 -- Ver ADR-EB-006.
 --
 -- ESTRUCTURA:
---   CORE        — 15 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011)
+--   CORE        — 17 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012)
 --   SYSTEM      — brains de sistema productivo (hemisphere='run')
 --   PROJECT     — brains de proyecto de transformación (hemisphere='change')
 --   ENTERPRISE  — {industria}-brain (brain_type='enterprise')
@@ -26,7 +26,7 @@
 
 
 -- =============================================================================
--- CORE — obligatorio en todo brain (15 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011)
+-- CORE — obligatorio en todo brain (17 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012)
 --
 -- Cubre cinco contratos irrenunciables:
 --   identidad       → system_info
@@ -448,6 +448,74 @@ CREATE TABLE IF NOT EXISTS suppliers (
     source_doc      TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_suppliers_crit ON suppliers(criticality, status);
+
+
+
+-- Serie de medición (Regla B43 · ADR-EB-012). Tercer fundamento del CORE:
+-- una regla vigente exige una capacidad que ninguna tabla sostenía.
+-- `kpis.current` y `slos.current` guardan el valor VIGENTE, que es lo que casi
+-- toda consulta necesita. Aquí vive la SERIE, que es lo que permite anticipar.
+-- No confundir con B40: esa regla dice desde cuándo una AFIRMACIÓN fue verdad;
+-- esta tabla dice cómo evolucionó un VALOR.
+-- Genérica a propósito: sirve para KPIs de negocio, SLOs de servicio, capacidad
+-- de infraestructura y uso del propio brain. Lo que cambia es la entidad medida,
+-- no la estructura de la medición.
+CREATE TABLE IF NOT EXISTS measurements (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    tier           TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    -- Qué se mide. FK lógica a kpis.id, slos.id, technology_components.id, etc.
+    entity_table   TEXT NOT NULL,      -- kpis | slos | technology_components | components
+    entity_id      TEXT NOT NULL,
+    metric         TEXT,               -- cuando la entidad mide varias cosas
+    value_num      REAL,               -- valor numérico, el caso normal
+    value_text     TEXT,               -- cuando la medición no es numérica
+    unit           TEXT,               -- %, ms, MXN, transacciones, GB
+    -- Cuándo se midió en la realidad del negocio, no cuándo se cargó (B40)
+    measured_at    TEXT NOT NULL,      -- ISO date o datetime
+    period_start   TEXT,               -- para métricas de ventana
+    period_end     TEXT,
+    -- Monitoreo, ejecución de job y reporte firmado son gold por origen (B37).
+    -- Una estimación o una proyección es silver: depende del método.
+    source_type    TEXT,               -- monitoring | job_run | report | manual | forecast
+    source_ref     TEXT,
+    process_id     TEXT,               -- Regla B22
+    recorded_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_measure_entity ON measurements(entity_table, entity_id, measured_at);
+
+
+-- Costo de la tecnología del cliente (Reglas B41 y B43 · ADR-EB-012).
+-- FRONTERA: guarda lo que al CLIENTE le cuesta operar su tecnología. NO guarda
+-- precios, tarifas por hora ni cifras de propuesta: eso es territorio de
+-- Pricing & Commercial Modeler en Solutioning/. Un brain que empiece a guardar
+-- tarifas cruzó una frontera que no le corresponde.
+-- Tampoco sustituye a la herramienta de FinOps (B38): guarda la atribución a la
+-- cadena de valor y la referencia al sistema de registro, no el detalle de
+-- facturación.
+CREATE TABLE IF NOT EXISTS costs (
+    id             TEXT PRIMARY KEY,
+    tier           TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    -- A qué se le atribuye el costo. FK lógica a products.id,
+    -- technology_components.id, applications.id o suppliers.id
+    entity_table   TEXT NOT NULL,      -- products | technology_components | applications | suppliers
+    entity_id      TEXT NOT NULL,
+    cost_type      TEXT,               -- licencia | nube | infraestructura | soporte | personas
+    amount         REAL,
+    currency       TEXT,               -- MXN | USD
+    period_start   TEXT,
+    period_end     TEXT,
+    -- Un costo directo y uno prorrateado no valen lo mismo para decidir, y por
+    -- eso la base de atribución es auditable. Directo es gold; prorrateado es
+    -- silver, porque depende del método (B37).
+    allocation_basis TEXT,             -- directo | por consumo | por headcount | por transacción
+    product_id     TEXT,               -- Regla B27: a qué producto se atribuye
+    kpi_id         TEXT,               -- Regla B27: qué KPI afecta
+    process_id     TEXT,               -- Regla B22
+    source_system  TEXT,               -- sistema de registro del que proviene
+    source_ref     TEXT,
+    recorded_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_costs_entity ON costs(entity_table, entity_id);
 
 
 -- Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_log
