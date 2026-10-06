@@ -447,7 +447,7 @@ class SystemBrain:
         try:
             sql = (
                 "SELECT * FROM knowledge_gaps WHERE status != 'resolved' "
-                "ORDER BY priority DESC, id"
+                "ORDER BY opened_at DESC, id"
                 if open_only
                 else "SELECT * FROM knowledge_gaps ORDER BY id"
             )
@@ -696,7 +696,13 @@ class SystemBrain:
             entrada = {"brain_slug": slug, "brain_path": path,
                        "expected_version": esperada}
             try:
-                vecino = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+                # La ruta del vecino es relativa a la ubicación de ESTE brain,
+                # no al directorio de trabajo del proceso. Resolverla contra el
+                # cwd marcaba como inalcanzable a todo brain federado.
+                ruta = Path(path)
+                if not ruta.is_absolute():
+                    ruta = (Path(self._path).resolve().parent / ruta).resolve()
+                vecino = sqlite3.connect(f"file:{ruta}?mode=ro", uri=True)
                 try:
                     v = vecino.execute(
                         "SELECT catalog_version FROM ontology_bindings "

@@ -60,7 +60,7 @@ El Brain Lifecycle es una especialización del SDLC canónico de 8 fases para la
 - Taxonomía de negocio en `knowledge-base/taxonomy/` o `dt/dt-modelo-dominio/`
 - Roster de DTs con CLAUDE.md de cada uno
 - ADR-EB-NNN si hay decisiones de diseño no triviales
-- ETB mapping inicial en `knowledge-base/ontology/abb-to-sbb.json`
+- ETB mapping inicial en el mapeo de building blocks del cliente, cuando exista
 
 **SMEs involucrados**: Industry SME del cliente (taxonomía de negocio) · TS&T (si decisiones de target architecture se anticipan desde el brain)
 
@@ -133,7 +133,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 **Actividades**:
 
 1. Verificar DoD-EB-01 a DoD-EB-12 (checklist completo, incluidos linaje poblado y roster canónico de DTs).
-2. Generar portal HTML: `python generators/build-portal.py` → `portal/index.html` (NUNCA hand-authored — Regla P4).
+2. Generar portal HTML: `python generators/build-portal.py` → `portal/` con el HTML generado (NUNCA hand-authored — Regla P4).
 3. Actualizar bank-brain si existe: ATTACH el nuevo brain.db + actualizar `capabilities_consolidated()`.
 4. Emitir seeds finales (Regla B11) — todos los sistemas externos conocidos con evidencia cuantificada.
 5. Actualizar `component-catalog-enterprise-brain.md` con el nuevo deployment.

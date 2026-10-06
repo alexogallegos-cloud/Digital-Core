@@ -18,11 +18,11 @@ Los números de regla (B1-B43, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 1 | **B25** | El brain es el espejo de la empresa, no su idealización | Fuente de verdad declarada en `system_info` |
 | 2 | **B29** | Los DTs construyen el brain en enjambre — como abejas | `build_agent` en `system_info` |
 | 3 | **B41** | 20 DTs canónicos en tres categorías: 10 de rol de TI, 6 de negocio y 4 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
-| 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | Propósito declarado en el linaje; filtro en `brain.py` |
-| 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | Señales hacia AMS Reinvention + TS&T |
+| 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | **Pendiente**: no hay columna de propósito ni filtro de acceso |
+| 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |
-| 7 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | Casos de uso con KPI; referencias, no copias, de los registros de cada herramienta |
-| 8 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | Rol accountable en `stakeholders`; linaje de acciones |
+| 7 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
+| 8 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
 | 9 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
 | 10 | **B15** | CORE (15 tablas) + exactamente una extensión por `brain_type` | D1 del DT-Validador |
 | 11 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
@@ -36,8 +36,8 @@ Los números de regla (B1-B43, V1-V2, P1-P5) son **IDs estables** referenciados 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
 | 15 | **B37** | Calidad y linaje: gold, silver, bronze; los hechos irrefutables entran directo a gold | `knowledge_lineage` y D9 del DT-Validador |
-| 16 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | Trazabilidad de decisión con su resultado |
-| 17 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | `snapshot(date)` en `brain.py` |
+| 16 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | **Pendiente**: `decisions` no registra opciones, evidencia ni resultado |
+| 17 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | **Pendiente**: `snapshot(date)` no está implementado |
 | 18 | **B17** | Ningún hueco se rellena con datos inventados — va a `knowledge_gaps` | `knowledge_gaps` con `resolution_action` |
 | 19 | **B30** | El `business_name` es el contrato de calidad de cada pieza de conocimiento | D3 del DT-Validador |
 | 20 | **B31** | El brain declara su corpus fuente (`source_of_truth`) | D1 advertencia si vacío |
@@ -76,12 +76,14 @@ Los números de regla (B1-B43, V1-V2, P1-P5) son **IDs estables** referenciados 
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 38 | **B26** | Todo brain comienza con el estudio histórico de la organización | `knowledge-base/history/` |
+| 38 | **B26** | Todo brain comienza con el estudio histórico de la organización | **Pendiente**: la carpeta no existe en el asset |
 | 39 | **B8** | Evidencia operativa es prueba de existencia de un sistema | `system_info` semilla |
 | 40 | **B9** | Acción inmediata al descubrir un sistema significativo | Estructura canónica vacía + CLAUDE.md |
 | 41 | **B10** | Knowledge Interlock: conocimiento descubierto se propaga a ambos extremos | Commits en ≥ 2 `build-brain.py` |
 | 42 | **B11** | Seeds push: el brain emite evidencia a sus vecinos sin esperar | `seeds/{receptor}-seed.json` |
 | 43 | **B12** | Un sistema descubierto arranca con `brain.db` inicializado desde seeds | `brain.db` mínimo desde B9 |
+
+**Siete reglas no tienen artefacto verificable hoy, y el índice lo declara.** Cinco esperan implementación (B38, B39, B40, B42, B43), una espera un artefacto del asset (B26) y una es un principio y no una regla auditable (B34). `quality-gates-enterprise-brain.md` lista en su sección de gates no exigibles qué falta para poder exigir cada una. Mientras el índice prometía artefactos inexistentes, el canon no se podía usar para auditar nada, y B42 quedaba autorrefutada: dice que una política que vive en un documento y no en el filtro no es política sino intención.
 
 ### Reglas de Vocabulario (V1-V2)
 > Alcance: vocabulario empresarial cross-sistema. Importancia: alta para consistency semántica; no bloquea activación.
@@ -557,7 +559,9 @@ Seis reglas de la frontera:
 - **Lo que entra de una herramienta lleva el nivel que su naturaleza sostiene** (B37). Lo observado es gold: monitoreo, logs, discovery automático, ejecuciones. Lo capturado a mano es silver: un CI dado de alta manualmente o el estatus de un ticket.
 - **Lo que el brain produce sale como silver** hacia la herramienta. Sube a gold cuando el rol responsable lo valida o cuando la herramienta lo confirma: las pruebas pasan, el pull request se aprueba, el RCA se cierra.
 - **Un desacuerdo entre la herramienta y la realidad observada es un hallazgo.** Si la CMDB dice una cosa y el monitoreo otra, el brain no elige: lo registra. Es uno de los casos de uso de más valor, porque es el brain cumpliendo su papel de espejo (B25).
-- **Los hallazgos retroalimentan a la herramienta.** Un hallazgo que corrige el registro de una herramienta se rutea a ella (`findings.routed_to_tool`), igual que un hallazgo de Run se rutea a un brain de proyecto (B24). La corrección la hace el dueño de la herramienta, en la herramienta: el brain propone, no escribe en el registro ajeno. Cuando el brain vuelve a leer la herramienta y el desacuerdo desapareció, el hallazgo se cierra. Así la CMDB mejora con cada ciclo, en vez de que el brain se convierta en su copia corregida.
+- **Los hallazgos retroalimentan a la herramienta.** Un hallazgo que corrige el registro de una herramienta se rutea a ella (`findings.routed_to_tool`), igual que un hallazgo de Run se rutea a un brain de proyecto (B24). La corrección la hace el dueño de la herramienta, en la herramienta: el brain propone, no **modifica** el registro ajeno.
+
+  **La frontera es entre crear y modificar, no entre leer y escribir.** Sin esa precisión la regla se vuelve incumplible, porque abrir un ticket también es escribir. Lo que el brain no hace es alterar el dato que la herramienta custodia como verdad: corregir un CI, reclasificar una entidad, cambiar el estatus de un registro ajeno. Lo que sí puede hacer, cuando está preautorizado (B39), es **crear un registro nuevo por la vía de entrada que la herramienta ofrece**: levantar un ticket, dar de alta un caso de prueba, abrir una historia. Crear por la puerta de entrada respeta a la herramienta como sistema de registro; modificar su contenido la sustituye. Cuando el brain vuelve a leer la herramienta y el desacuerdo desapareció, el hallazgo se cierra. Así la CMDB mejora con cada ciclo, en vez de que el brain se convierta en su copia corregida.
 - **El valor del brain está en lo que las herramientas no conectan.** La CMDB no conoce el proceso de negocio, la observabilidad no conoce la regulación y la herramienta de pruebas no conoce el KPI. El brain sí, y por eso cada herramienta rinde más con él que sin él.
 
 **B29 — Los Digital Twins construyen y mantienen el brain**: el brain no se escribe a mano ni se construye en un taller de documentación. Lo construyen los Digital Twins (DTs) — agentes especializados que trabajan en enjambre, como abejas construyendo el panal. Cada DT lee una parte del conocimiento (código, documentación, señales operativas, regulación, conversaciones con stakeholders) y lo organiza, mapea y correlaciona con base en la ontología del negocio y la tecnología.
@@ -566,7 +570,9 @@ El patrón de enjambre tiene tres principios:
 
 | Principio | Descripción |
 |-----------|-------------|
-| **Especialización** | Cada DT tiene un dominio propio: Capa 1 procesa código; Capa 2 infiere semántica; Capa 3 valida regulación; Capa 4 razona entre sistemas. Ningún DT hace todo — el enjambre hace todo. |
+| **Especialización** | Cada DT tiene un dominio propio: uno extrae del código, otro infiere semántica, otro valida regulación y otro razona entre sistemas. Ningún DT hace todo; el enjambre hace todo.
+
+> **Nota de vocabulario.** Esta regla llamaba "Capa 1" a "Capa 4" a esas cuatro especialidades, lo que chocaba de frente con la metodología canónica del asset, donde Capa 1 es Lenguaje, Capa 2 son Almas, Capa 3 es Biografía y Capa 4 es Intención (`knowledge-base/methodology/`). Eran dos taxonomías distintas de cuatro elementos con los mismos nombres, en el mismo asset. **La numeración por capas pertenece a la metodología**; las especialidades del enjambre se nombran por lo que hacen, no por un número. |
 | **Correlación ontológica** | El DT no acumula datos — los *correlaciona*. Cada hallazgo se ancla en la cadena B27 (producto → KPI → proceso → componente) y se clasifica con el vocabulario TOGAF (B28). Un hecho sin ancla ontológica no entra al brain. |
 | **Push, no pull** | El DT emite lo que aprendió (seeds, señales, hallazgos) hacia los brains vecinos sin esperar a que se lo pidan (Regla B11). El conocimiento fluye hacia donde se necesita. |
 
@@ -639,15 +645,24 @@ Cuatro reglas del nivel:
 - **La autonomía se gana con historial y se pierde con incidentes.** Un tipo de acción que acumula ejecuciones A3 sin incidentes puede catalogarse como A2. Si una acción autónoma causa un incidente, ese tipo regresa a A3 de inmediato — automáticamente, sin debate.
 - **Toda acción deja linaje.** Qué se hizo, con qué nivel de autonomía, sobre qué conocimiento, quién aprobó y cuál fue el resultado. Es el equivalente de `knowledge_lineage` (B37) para acciones: la auditoría que permite ganar o perder autonomía con evidencia.
 
-Cuatro tipos de acción que **nunca bajan de A3**, independientemente del historial, porque su impacto es irreversible o tiene consecuencias regulatorias directas: cambio en producción, decommission de un sistema, cambio de configuración de seguridad e impacto financiero directo al cliente. Además, el brain nunca escribe directamente en el registro de otra herramienta (B38): lo que produce sale como silver; el dueño de la herramienta es quien lo promueve y ejecuta.
+Cuatro tipos de acción que **nunca bajan de A3**, independientemente del historial, porque su impacto es irreversible o tiene consecuencias regulatorias directas: cambio en producción, decommission de un sistema, cambio de configuración de seguridad e impacto financiero directo al cliente.
+
+**Qué puede ejecutar A2 sin contradecir a B38.** B38 prohíbe que el brain modifique el registro que otra herramienta custodia como verdad. A2 no lo contradice porque opera del otro lado de esa frontera:
+
+| El brain puede, en A2 | El brain no puede, en ningún nivel |
+|----------------------|-----------------------------------|
+| **Crear** un registro nuevo por la vía de entrada de la herramienta: levantar un ticket, dar de alta un caso de prueba, abrir una historia | **Modificar** un registro existente del que la herramienta es sistema de registro: corregir un CI, reclasificar una entidad, cambiar el estatus de algo ajeno |
+| Adjuntar su hallazgo al registro, como evidencia | Sustituir el dato de la herramienta por el suyo |
+
+Cuando el brain detecta que el registro ajeno está mal, su salida es un hallazgo ruteado (`findings.routed_to_tool`), nunca una corrección directa. El dueño de la herramienta corrige; el brain vuelve a leer y cierra el hallazgo si el desacuerdo desapareció.
 
 Tabla de referencia por dominio ITOM (B23):
 
 | Dominio ITOM | A1 — Propone (silver) | A2 — Ejecuta (preautorizado) | A3 — Ejecuta (con aprobación) |
 |---|---|---|---|
 | **Technology Operations** | RCA; runbook de diagnóstico | Abrir ticket en ITSM con campos preestablecidos | Ejecutar runbook de remediación en producción |
-| **Product / Service Delivery** | Código como pull request; casos de prueba | Crear casos en la herramienta de automatización; enriquecer catálogo | Merge a producción; release a producción |
-| **Information and Analytics** | Reporte de calidad de datos; glosario enriquecido | Enriquecer registro de catálogo de datos | Reclasificar datos con impacto regulatorio |
+| **Product / Service Delivery** | Código como pull request; casos de prueba | Dar de alta casos nuevos en la herramienta de automatización | Merge a producción; release a producción |
+| **Information and Analytics** | Reporte de calidad de datos; glosario enriquecido | Adjuntar el hallazgo de calidad al registro del catálogo | Enriquecer o reclasificar el registro del catálogo |
 | **IT Management** | Reporte de brecha regulatoria | Notificar a risk owner por canal configurado | Escalar hallazgo con consecuencia regulatoria |
 
 **B40 — El brain es bi-temporal: el tiempo del negocio y el tiempo del brain son relojes distintos**: toda afirmación del brain tiene dos fechas que nunca deben confundirse. Una dice cuándo algo fue verdad en la empresa; la otra, cuándo el brain lo supo. Mezclarlas vuelve al brain incapaz de razonar sobre el pasado y le hace creer que todo lo que sabe es vigente.

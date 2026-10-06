@@ -102,7 +102,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 ## Definition of Done — Enterprise Brain
 
-Los identificadores DoD-EB-01 a DoD-EB-10 son estables y se referencian en otros documentos. DoD-EB-11 y 12 se agregan con las reglas B37, B40 y B41.
+Los doce identificadores son estables y se referencian en otros documentos. Del 01 al 10 vienen del canon v1.0; el 11 y el 12 se agregaron con las reglas B37, B40 y B41.
 
 - [ ] **DoD-EB-01**: brain.db construido desde pipeline idempotente (`build-brain.py`), no hand-crafted ni editado con INSERT manual fuera del pipeline (Reglas P1, P2).
 - [ ] **DoD-EB-02**: 0 reglas con business_name vacío o genérico. Síntesis LLM source-read completada con `enrichment_method='llm_synthesis_source_read'`. Detector anti-genérico corrido y sin hallazgos (Regla B30).
@@ -176,7 +176,7 @@ La versión anterior quedó inejecutable al evolucionar el canon, y el QA del 20
 
 - **Tres gates consultaban tablas retiradas.** El de schema exigía la existencia de dos tablas que el canon ya había retirado. El de almas contaba filas sobre una tabla de almas, cuando la realidad es que `is_soul` es una columna de `components`. El de cobertura ETB contaba sobre una tabla de niveles L3 que hoy es `capabilities`. Los tres se reescribieron contra el schema real y quedaron verificados como ejecutables.
 - **El gate de schema omitía 12 de las 15 tablas del CORE.** Ahora delega en D1, que es quien tiene la lista canónica.
-- **DoD-EB-05 exigía 6 dimensiones cuando el validador tiene 9**, dejando fuera justo D7, D8 y D9. El gate de salida se cumplía sin verificar trazabilidad a proceso, puente Change-Run ni calidad del conocimiento.
+- **DoD-EB-05 exigía seis dimensiones cuando el validador tiene nueve**, dejando fuera justo D7, D8 y D9. El gate de salida se cumplía sin verificar trazabilidad a proceso, puente Change-Run ni calidad del conocimiento.
 - **Faltaba el nivel mínimo de conocimiento por decisión**, que desde B37 gobierna todos los gates y por eso ahora abre el documento.
 - **La ruta del generador del portal era `generators/build-portal.py`**, carpeta que no existe en el asset. Se dejó el nombre del script sin prefijo de carpeta, porque la ubicación difiere entre el asset y un brain implementado.
 - **El gate de seeds apuntaba a `seeds/manifest.json`**, archivo que la Regla B11 no define. El contrato real es un archivo por receptor.

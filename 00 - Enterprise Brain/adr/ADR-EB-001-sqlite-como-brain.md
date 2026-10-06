@@ -21,6 +21,8 @@ Al diseñar el Enterprise Brain, se evaluaron múltiples opciones de almacenamie
 
 El brain requiere: búsqueda fulltext (FTS), queries relacionales complejas (JOIN entre reglas, components, vocabulary, etb_l3), federación entre múltiples instancias (bank-brain), portabilidad sin servidor, y reproducibilidad total desde pipeline.
 
+> **[ENMIENDA 2026-10-05]** `etb_l3` se retiró con ADR-EB-006 en favor de `capabilities` con columna `ontology`, porque en el estate conviven cuatro ontologías incompatibles. La mención se conserva como registro de los requisitos tal como se plantearon; la decisión de fondo sobre SQLite no cambia.
+
 ---
 
 ## Decisión

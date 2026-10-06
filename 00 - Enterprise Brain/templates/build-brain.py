@@ -515,31 +515,45 @@ class BrainBuilder:
 
     def assert_lineage(self):
         """
-        Reglas B37 y B40 — guarda de construcción. Un brain que no escribió
-        linaje no es un brain honesto: es un volcado de datos sin procedencia.
+        Reglas B37 y B40 — guarda de construcción.
 
-        Esta guarda existe porque el defecto original fue silencioso:
-        `record_lineage()` estaba implementado y ningún cargador lo invocaba,
-        así que `knowledge_lineage` nacía vacía en cada build sin que nada lo
-        reportara. La omisión ahora es ruidosa.
+        Verifica el invariante real: **toda tabla de conocimiento con filas debe
+        tener linaje**. La versión anterior solo comprobaba que la tabla de
+        linaje no estuviera vacía, y como `load_system_info` siempre escribe una
+        fila, nunca podía fallar. Una guarda que no puede dar negativo no es una
+        guarda: es decoración.
+
+        Si agregas un cargador, pásale el contrato de linaje a `_insert`
+        (source_type, source_ref, tier) o esta guarda te lo va a reclamar.
         """
-        n = self.db.execute("SELECT COUNT(*) FROM knowledge_lineage").fetchone()[0]
-        if n == 0:
+        con_linaje = {
+            r[0] for r in self.db.execute(
+                "SELECT DISTINCT entity_table FROM knowledge_lineage")
+        }
+        sin_linaje = []
+        for tabla, n in sorted(self.counts.items()):
+            if n and tabla != "knowledge_lineage" and tabla not in con_linaje:
+                sin_linaje.append(f"{tabla} ({n} filas)")
+
+        total = self.db.execute("SELECT COUNT(*) FROM knowledge_lineage").fetchone()[0]
+        if sin_linaje:
             raise RuntimeError(
-                "knowledge_lineage quedó vacía: ningún cargador declaró el "
-                "contrato de linaje (Regla B37). Pasa source_type, source_ref y "
-                "tier a _insert(), o registra el linaje explícitamente."
+                "Hay conocimiento cargado sin declarar su procedencia (Regla B37). "
+                "Tablas con filas y sin una sola entrada en knowledge_lineage: "
+                + ", ".join(sin_linaje)
+                + ". Pasa source_type, source_ref y tier a _insert()."
             )
+
         sin_vigencia = self.db.execute(
             "SELECT COUNT(*) FROM knowledge_lineage WHERE valid_from IS NULL"
         ).fetchone()[0]
         if sin_vigencia:
             print(
-                f"  [aviso B40] {sin_vigencia} de {n} afirmaciones sin valid_from. "
+                f"  [aviso B40] {sin_vigencia} de {total} afirmaciones sin valid_from. "
                 f"Se interpretan como verdad desde el origen del sistema.",
                 file=sys.stderr,
             )
-        print(f"  linaje: {n} afirmaciones registradas")
+        print(f"  linaje: {total} afirmaciones sobre {len(con_linaje)} tabla(s)")
 
 
 def run_validator() -> int:

@@ -17,6 +17,7 @@ Uso:
     python generators/build-portal.py --db path/to/brain.db --out path/to/portal
 """
 
+import html as _html
 import sqlite3
 import json
 import argparse
@@ -33,21 +34,54 @@ CLIENT_COLOR = "#1F2D3D"          # Ajustar al color de marca del cliente
 
 # ── Carga de datos ────────────────────────────────────────────────────────────
 
+
+def e(valor) -> str:
+    """
+    Escapa un valor del brain antes de interpolarlo en HTML.
+
+    No es paranoia: `business_name` lo sintetiza un LLM y `fragmento` es código
+    fuente del cliente, así que un simple `<` rompe la tabla y un payload hace
+    cosas peores. El portal se comparte, y ADR-EB-005 lo manda generado, lo que
+    significa que nadie lo revisa a mano antes de publicarlo.
+    """
+    if valor is None:
+        return ""
+    return _html.escape(str(valor), quote=True)
+
+
+
+def n(valor) -> str:
+    """
+    Formatea un conteo del brain. `None` significa que la tabla no existe en
+    este `brain_type`, y eso no es cero: es "no aplica". Mostrarlo como 0
+    es lo que hacía que un brain de proyecto pareciera tener cero reglas
+    en vez de no tener la tabla.
+    """
+    if valor is None:
+        return "N/A"
+    try:
+        return f"{int(valor):,}"
+    except (TypeError, ValueError):
+        return str(valor)
+
+
 def load_brain(db_path: Path) -> dict:
     """Carga todos los datos necesarios del brain.db para el portal."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
-    def _count(sql: str) -> int:
+    # Una consulta que falla NO es una consulta que devuelve cero. Confundirlas
+    # pintaba de verde los gates de un brain sin la tabla correspondiente.
+    def _count(sql: str):
         try:
             return conn.execute(sql).fetchone()[0]
-        except Exception:
-            return 0
+        except sqlite3.Error:
+            return None            # no aplica a este brain_type
 
-    def _rows(sql: str, params=()) -> list[dict]:
+    def _rows(sql: str) -> list[dict]:
         try:
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
-        except Exception:
+            return [dict(r) for r in conn.execute(sql).fetchall()]
+        except sqlite3.Error:
             return []
 
     data: dict = {}
@@ -71,7 +105,7 @@ def load_brain(db_path: Path) -> dict:
     data["vocabulary_count"] = _count("SELECT COUNT(*) FROM vocabulary")
     data["journeys_count"] = _count("SELECT COUNT(*) FROM journeys")
     data["souls_count"] = _count(
-        "SELECT COUNT(*) FROM souls WHERE status='active'"
+        "SELECT COUNT(*) FROM components WHERE is_soul=1"
     )
 
     # Calidad del brain (DoD-EB-02, DoD-EB-03, DoD-EB-04)
@@ -104,10 +138,11 @@ def load_brain(db_path: Path) -> dict:
 
     # Almas
     data["souls"] = _rows(
-        """SELECT id, display_name, description, domain, sp_count, etb_l3
-           FROM souls
-           WHERE status='active'
-           ORDER BY sp_count DESC
+        """SELECT id, display_name, description, domain,
+                  primary_capability, soul_rank, fan_in
+           FROM components
+           WHERE is_soul = 1
+           ORDER BY soul_rank, fan_in DESC
            LIMIT 20"""
     )
 
@@ -135,15 +170,18 @@ def generate_html(data: dict, system_name: str) -> str:
     # Quality badges
     bname_null = quality.get("business_name_null", 0)
     clase_null = quality.get("clase_null", 0)
-    dod02 = "PASS" if bname_null == 0 else f"FAIL ({bname_null} vacíos)"
-    dod03 = "PASS" if clase_null == 0 else f"FAIL ({clase_null} sin clase)"
-    dod02_color = "#22c55e" if bname_null == 0 else "#ef4444"
-    dod03_color = "#22c55e" if clase_null == 0 else "#ef4444"
+    def _gate(n, etiqueta):
+        if n is None:
+            return "N/A", "#94a3b8"      # el brain_type no tiene esa tabla
+        return ("PASS", "#22c55e") if n == 0 else (f"FAIL ({n} {etiqueta})", "#ef4444")
+
+    dod02, dod02_color = _gate(bname_null, "vacíos")
+    dod03, dod03_color = _gate(clase_null, "sin clase")
 
     # Domains pills
     domains_html = ""
     for d in data.get("domains", []):
-        domains_html += f'<span class="pill">{d["domain"]} ({d["count"]})</span> '
+        domains_html += f'<span class="pill">{e(d["domain"])} ({e(d["count"])})</span> '
 
     # Rules table rows
     rules_rows = ""
@@ -154,11 +192,11 @@ def generate_html(data: dict, system_name: str) -> str:
         domain = rule.get("domain", "") or ""
         rules_rows += (
             f"<tr>"
-            f"<td>{rule.get('id', '')}</td>"
-            f"<td>{biz}</td>"
-            f"<td>{tipo}</td>"
-            f"<td>{domain}</td>"
-            f"<td>{reg}</td>"
+            f"<td>{e(rule.get('id'))}</td>"
+            f"<td>{e(biz)}</td>"
+            f"<td>{e(tipo)}</td>"
+            f"<td>{e(domain)}</td>"
+            f"<td>{e(reg)}</td>"
             f"</tr>\n"
         )
 
@@ -167,10 +205,10 @@ def generate_html(data: dict, system_name: str) -> str:
     for soul in data.get("souls", []):
         souls_rows += (
             f"<tr>"
-            f"<td>{soul.get('display_name', '')}</td>"
-            f"<td>{soul.get('domain', '') or ''}</td>"
-            f"<td>{soul.get('sp_count', 0)}</td>"
-            f"<td>{soul.get('etb_l3', '') or ''}</td>"
+            f"<td>{e(soul.get('display_name'))}</td>"
+            f"<td>{e(soul.get('domain'))}</td>"
+            f"<td>{e(soul.get('fan_in'))}</td>"
+            f"<td>{e(soul.get('primary_capability'))}</td>"
             f"</tr>\n"
         )
 
@@ -179,14 +217,14 @@ def generate_html(data: dict, system_name: str) -> str:
     for c in data.get("clase_distribution", []):
         clase_rows += (
             f"<tr>"
-            f"<td>{c.get('clase', '')}</td>"
+            f"<td>{e(c.get('clase'))}</td>"
             f"<td>{c.get('count', 0):,}</td>"
             f"</tr>\n"
         )
 
-    togaf_type = info.get("togaf_type", "")
-    togaf_state = info.get("togaf_state", "")
-    version = info.get("version", "")
+    togaf_type = e(info.get("togaf_type"))
+    togaf_state = e(info.get("togaf_state"))
+    version = e(info.get("version"))
 
     html = f"""<!DOCTYPE html>
 <html lang="es">
@@ -310,23 +348,23 @@ def generate_html(data: dict, system_name: str) -> str:
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="value">{data.get('components_count', 0):,}</div>
+            <div class="value">{n(data.get('components_count'))}</div>
             <div class="label">Componentes</div>
         </div>
         <div class="stat-card">
-            <div class="value">{data.get('rules_negocio', 0):,}</div>
+            <div class="value">{n(data.get('rules_negocio'))}</div>
             <div class="label">Reglas de negocio</div>
         </div>
         <div class="stat-card">
-            <div class="value">{data.get('rules_count', 0):,}</div>
+            <div class="value">{n(data.get('rules_count'))}</div>
             <div class="label">Reglas totales</div>
         </div>
         <div class="stat-card">
-            <div class="value">{data.get('vocabulary_count', 0):,}</div>
+            <div class="value">{n(data.get('vocabulary_count'))}</div>
             <div class="label">Vocabulario</div>
         </div>
         <div class="stat-card">
-            <div class="value">{data.get('journeys_count', 0):,}</div>
+            <div class="value">{n(data.get('journeys_count'))}</div>
             <div class="label">Customer journeys</div>
         </div>
         <div class="stat-card">
@@ -427,11 +465,11 @@ def main() -> int:
     out_file.write_text(html, encoding="utf-8")
 
     print(f"Portal generado: {out_file}")
-    print(f"  Componentes:      {data.get('components_count', 0):,}")
-    print(f"  Reglas negocio:   {data.get('rules_negocio', 0):,}")
-    print(f"  Reglas totales:   {data.get('rules_count', 0):,}")
-    print(f"  Vocabulario:      {data.get('vocabulary_count', 0):,}")
-    print(f"  Journeys:         {data.get('journeys_count', 0):,}")
+    print(f"  Componentes:      {n(data.get('components_count'))}")
+    print(f"  Reglas negocio:   {n(data.get('rules_negocio'))}")
+    print(f"  Reglas totales:   {n(data.get('rules_count'))}")
+    print(f"  Vocabulario:      {n(data.get('vocabulary_count'))}")
+    print(f"  Journeys:         {n(data.get('journeys_count'))}")
     print(f"  DoD-EB-02 (biz null): {data['quality'].get('business_name_null', 0)}")
     print(f"  DoD-EB-03 (clase null): {data['quality'].get('clase_null', 0)}")
     return 0

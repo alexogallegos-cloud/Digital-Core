@@ -74,8 +74,8 @@ El `brain_type` se lee de `system_info`. Si el brain aún no lo declara (pre-hom
 SELECT
     COUNT(*) as total,
     COUNT(CASE WHEN description IS NOT NULL AND description != '' THEN 1 END) as con_descripcion,
-    COUNT(CASE WHEN etb_primary_l3 IS NOT NULL THEN 1 END) as con_etb,
-    ROUND(100.0 * COUNT(CASE WHEN etb_primary_l3 IS NOT NULL THEN 1 END) / COUNT(*), 1) as etb_pct
+    COUNT(CASE WHEN primary_capability IS NOT NULL THEN 1 END) as con_etb,
+    ROUND(100.0 * COUNT(CASE WHEN primary_capability IS NOT NULL THEN 1 END) / COUNT(*), 1) as etb_pct
 FROM components;
 -- etb_pct >= 60 para PASS (SLO-EB-03)
 ```
@@ -297,7 +297,7 @@ El validador abre el brain.db en modo read-only (`mode=ro`) — no puede modific
 
 ## Baseline del estate
 
-`baseline-2026-09-29.json` congela el resultado sobre los 16 brains con implementación real del estate al momento de adoptar el canon v2.0. En esa fecha el validador tenía **6 dimensiones**; hoy tiene 9, así que ese archivo solo es comparable en D1 a D6. Sirve para medir avance de la homologación en esas seis, no para D7, D8 ni D9.
+`baseline-2026-09-29.json` congela el resultado sobre los 16 brains con implementación real del estate al momento de adoptar el canon v2.0. En esa fecha el validador tenía seis dimensiones; hoy tiene 9, así que ese archivo solo es comparable en D1 a D6. Sirve para medir avance de la homologación en esas seis, no para D7, D8 ni D9.
 
 **El baseline vigente quedó obsoleto con ADR-EB-011.** El CORE pasó a 15 tablas y D1 ahora exige también `suppliers`, `component_processes` y `documents`, así que los tres baselines existentes miden un canon anterior. Hace falta uno nuevo antes de usar cualquiera como medida de avance.
 

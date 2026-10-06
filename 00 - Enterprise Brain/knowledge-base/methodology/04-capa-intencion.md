@@ -83,23 +83,25 @@ Cada nivel se registra en `knowledge_lineage`, por campo, con la versión del SP
 
 ## Estructura en brain.db
 
-```sql
-CREATE TABLE rules (
-    id TEXT PRIMARY KEY,           -- "{PREFIX}-{db}-{sp_short}-{line}"
-    component_id TEXT NOT NULL,    -- "db:sp_name" (FK a components)
-    tipo TEXT,                     -- FÓRMULA | VALIDACIÓN | UMBRAL | TRANSFORMACIÓN
-    clase TEXT,                    -- NEGOCIO | INFRAESTRUCTURA | ENSAMBLAJE | PRESENTACION
-    fragmento TEXT,                -- fragmento de código original
-    business_name TEXT,            -- nombre de negocio sintetizado (LLM source-read)
-    description TEXT,              -- descripción detallada (opcional)
-    reg TEXT,                      -- regulación aplicable (JSON array o string)
-    riesgo TEXT,                   -- MONEY | DIV | ROUND | FX | UDI (JSON array o NULL)
-    source_file TEXT,              -- ruta al archivo fuente
-    enrichment_method TEXT,        -- "llm_synthesis_source_read" | "heuristic" | etc.
-    domain TEXT                    -- dominio de negocio
-);
-CREATE VIRTUAL TABLE rules_fts USING fts5(id, business_name, description, fragmento);
-```
+El DDL ejecutable vive en [`templates/schema.sql`](../../templates/schema.sql) y es la única fuente de verdad (ADR-EB-006). Este documento no lo transcribe: lo describe.
+
+**Campos de `rules`**
+
+| Campo | Qué guarda |
+|-------|-----------|
+| `component_id` | Componente del que se extrajo la regla |
+| `linea` | Línea exacta del código fuente, para trazabilidad |
+| `tipo` | FÓRMULA, VALIDACIÓN, UMBRAL o TRANSFORMACIÓN |
+| `clase` | NEGOCIO, INFRAESTRUCTURA, ENSAMBLAJE o PRESENTACION |
+| `condicion` | La condición bajo la que la regla aplica |
+| `business_name` | El nombre en el idioma del negocio (Regla B30) |
+| `reg` | Regulación que la origina; cadena vacía si no aplica, nunca NULL |
+| `riesgo` | MONEY, DIV, ROUND, FX o UDI |
+| `process_id` | Proceso de negocio al que pertenece (Regla B22) |
+| `tier` | Nivel de certeza de la afirmación (Regla B37) |
+| `confidence` | Confianza del enriquecimiento |
+
+Esta guía transcribía el DDL y por eso derivó: omitía `tier` y `process_id`, que son justamente las columnas de las dos dimensiones bloqueantes del validador, D7 y D9.
 
 ## Instancias de referencia
 

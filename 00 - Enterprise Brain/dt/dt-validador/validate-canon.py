@@ -91,7 +91,10 @@ class CanonValidator:
     def docs(self, *exts):
         for e in exts:
             for p in sorted(self.asset.rglob(f"*.{e}")):
-                if "__pycache__" in p.parts:
+                # test-canon.py contiene defectos a propósito, como fixtures de
+                # la suite de inyección. Escanearlo haría que el validador se
+                # denuncie a sí mismo.
+                if "__pycache__" in p.parts or p.name == "test-canon.py":
                     continue
                 yield p
 
@@ -152,7 +155,10 @@ class CanonValidator:
                     continue
                 for m in re.finditer(rf"\b{re.escape(nombre)}\b", txt):
                     ln = txt.count("\n", 0, m.start()) + 1
-                    ctx = txt[max(0, m.start() - 90):m.start() + 60].replace("\n", " ")
+                    # La nota que declara un término como histórico puede venir antes
+                    # o después de la mención; mirar solo hacia atrás dejaba marcados
+                    # como defecto a los ADR ya enmendados.
+                    ctx = txt[max(0, m.start() - 160):m.start() + 420].replace("\n", " ")
                     # contexto ejecutable: SQL, DDL o acceso a atributo
                     ejecutable = re.search(
                         r"(FROM|JOIN|INTO|UPDATE|CREATE TABLE|SELECT)[^\n]{0,80}$",
@@ -225,7 +231,9 @@ class CanonValidator:
         chequeos = [
             (rf"\b{core_real}\b\s+tablas del CORE|CORE[^.\n]{{0,30}}\b{core_real}\b\s+tablas",
              rf"\b(?!{core_real}\b)(\d{{1,2}})\s+tablas del CORE", f"CORE son {core_real} tablas"),
-            (None, rf"\b(?!{dims_real}\b)(\d{{1,2}})\s+dimensiones", f"son {dims_real} dimensiones"),
+            # "0 dimensiones bloqueantes" cuenta hallazgos; no declara el total.
+            (None, rf"\b(?!{dims_real}\b)(\d{{1,2}})\s+dimensiones(?!\s+bloqueante)",
+             f"son {dims_real} dimensiones"),
             (None, rf"\b(?!{dts_real}\b)(\d{{1,2}})\s+DTs? canónicos", f"son {dts_real} DTs canónicos"),
         ]
         for p in self.docs("md"):
@@ -234,7 +242,11 @@ class CanonValidator:
                 for m in re.finditer(mal, txt):
                     ln = txt.count("\n", 0, m.start()) + 1
                     ctx = txt[max(0, m.start() - 70):m.start() + 50].replace("\n", " ")
-                    if re.search(r"(ENMIENDA|v1\.0|antes|histórico|Eran|era\b|hoy son)", ctx, re.I):
+                    # Con límites de palabra: sin ellos, "antes" casaba dentro de
+                    # "bloqueantes" y silenciaba el hallazgo. Un filtro demasiado
+                    # amplio vuelve ciego al validador sin que nadie lo note.
+                    if re.search(r"(ENMIENDA|\bv1\.0\b|\bantes\b|\bhistórico\b|"
+                                 r"\bEran\b|\bera\b|\bhoy son\b)", ctx, re.I):
                         continue
                     self.add("cifras", SEV_BLOQ, f"{msg}; aquí dice {m.group(1)}",
                              f"{self.rel(p)}:{ln}")
@@ -281,12 +293,23 @@ class CanonValidator:
         bb = self.asset / "templates" / "build-brain.py"
         if bb.exists():
             txt = bb.read_text(encoding="utf-8")
-            n = len(re.findall(r"source_type\s*=", txt))
-            self.stats["cargadores_con_linaje"] = n
-            if "assert_lineage" in txt and n <= 1:
-                self.add("guardas", SEV_BLOQ,
-                         f"assert_lineage() no puede fallar: solo {n} cargador declara "
-                         f"contrato de linaje, así que la tabla nunca queda vacía",
+            self.stats["cargadores_con_linaje"] = len(re.findall(r"source_type\s*=", txt))
+            cuerpo = re.search(r"def assert_lineage\(self\):(.*?)(?=\n    def |\n\ndef )",
+                               txt, re.S)
+            if cuerpo:
+                c = cuerpo.group(1)
+                # Una guarda sirve si CONTRASTA lo cargado contra lo que tiene linaje.
+                # Si solo cuenta filas de knowledge_lineage, basta un cargador que
+                # escriba una para volverla vacua: deja de poder dar negativo.
+                if not ("self.counts" in c and "raise" in c):
+                    self.add("guardas", SEV_BLOQ,
+                             "assert_lineage() no puede fallar: no contrasta las tablas "
+                             "cargadas contra las que tienen linaje, así que basta un "
+                             "cargador para volverla vacua",
+                             self.rel(bb))
+            elif "assert_lineage" in txt:
+                self.add("guardas", SEV_AVISO,
+                         "assert_lineage() se invoca pero no se pudo leer su cuerpo",
                          self.rel(bb))
 
         # except que devuelven valor neutro en métodos que son gate

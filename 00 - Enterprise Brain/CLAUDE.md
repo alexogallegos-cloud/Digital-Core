@@ -386,7 +386,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 | Schema del brain para sistema nuevo | **Autónomo con peer review** — ADR si hay departures del schema canónico |
 | Síntesis de business_name | **Autónomo** — LLM source-read, siempre Claude |
 | Agregar nueva tabla al schema canónico | **Requiere ADR-EB** + actualización de templates |
-| Activar brain en RELEASE | **Requiere DoD-EB 01-10 verdes** |
+| Activar brain en RELEASE | **Requiere DoD-EB-01 a DoD-EB-12 verdes** |
 | Decommission de brain de sistema migrado | **Requiere AMS Lead** + 12 meses de ventana post-cutover |
 | Cambio de LLM provider (dejar Claude) | **Prohibido** — Claude es el proveedor canónico para síntesis |
 | ETB version bump | **Requiere bank-brain Lead** + realineación de todos los brains afectados |
