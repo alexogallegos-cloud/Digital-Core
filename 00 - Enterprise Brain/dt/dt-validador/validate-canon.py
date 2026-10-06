@@ -219,7 +219,7 @@ class CanonValidator:
         self.stats["dts_real"] = dts_real
 
         # reglas B reales
-        br = (self.asset / "knowledge-base" / "brain-rules.md").read_text(encoding="utf-8")
+        br = (self.asset / "canon" / "brain-rules.md").read_text(encoding="utf-8")
         reglas_real = len(set(re.findall(r"^\*\*B(\d+)", br, re.M)))
         self.stats["reglas_real"] = reglas_real
 

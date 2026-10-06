@@ -63,7 +63,7 @@ caso("rango de DoD incompleto", "cifras", 1,
 
 caso("cifra del CORE mal", "cifras", 1,
      mutar=lambda t: t.replace("15 tablas del CORE", "12 tablas del CORE", 1),
-     archivo=B / "knowledge-base" / "brain-rules.md")
+     archivo=B / "canon" / "brain-rules.md")
 
 caso("conteo de reglas desfasado", "cifras", 1,
      mutar=lambda t: t.replace("45 reglas viven", "40 reglas viven", 1),
