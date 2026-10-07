@@ -1,34 +1,28 @@
 # Reference Architecture — Enterprise Brain
-> Versión 1.0 · 2026-09-29 · Digital Core · Accenture México
+> Versión 2.0 · 2026-10-07 · Digital Core · Accenture México
 
 ---
 
 ## Arquitectura de una Instancia (un sistema)
 
-```
-SOURCE LAYER                    BRAIN LAYER (SQLite)             CONSUMPTION LAYER
-────────────                    ────────────────────             ─────────────────
+La fuente ejecutable del schema es [`templates/schema.sql`](templates/schema.sql). El diagrama muestra el flujo completo de una instancia individual.
 
-source/
-├── code/                       brain.db
-│   (SPs · COBOL · ABAP  ──→   ├── system_info                  brain.py
-│    PL-SQL · T-SQL ·           ├── components                   (Agent API)
-│    Java EE · configs)         ├── rules                             │
-├── docs/                       │   ├── clase                    ┌────┼─────────┐
-│   (vendor docs ·              │   ├── reg                      ↓    ↓         ↓
-│    specs · runbooks)          │   ├── riesgo                  DTs  Portal   bank-
-└── ops/                        │   └── business_name           swarm (HTML)  brain
-    (CTM · JCL · scripts)       ├── vocabulary
-                                ├── journeys
-PIPELINE:                       ├── souls
-  extract-rules.py →            ├── etb_l3
-  JSON crudo                    ├── cross_dependencies
-      ↓                         └── external_systems
-  enrich-rules.py →
-  JSON enriq.
-      ↓
-  build-brain.py →
-  brain.db (gold, silver y bronze marcados)
+```
+CAPA 1 · CORPUS            CAPA 2 · EXTRACCIÓN Y CURACIÓN        CAPA 3 · EL BRAIN       CAPA 4 · RAZONAMIENTO
+──────────────────         ──────────────────────────────        ─────────────────       ─────────────────────
+
+source/                                                          digital-brain/
+├── code/           ──[1]─→  generators/extract-*.py            ├── brain.db             brain.py (Agent API)
+│   (SPs · COBOL               ↓                                │   CORE (18 tablas)     DT Swarm (×20)
+│    ABAP · PL-SQL          knowledge-base/ (curado)            │   + extensión          Portal HTML
+│    T-SQL · Java)                 ↓                            │     brain_type         bank-brain ATTACH
+├── docs/           ──[2]─→  generators/enrich-rules.py         │
+│   (specs · docs)             business_name LLM                └── seeds/
+└── ops/            ──[3]─→  generators/anchor-ontology.py
+    (CTM · JCL)                process_id · capability_id
+                         ──[4]─→  build-brain.py ─────────────────────────→ brain.db
+
+[1] extracción por tecnología  [2] enriquecimiento  [3] anclaje ontológico  [4] carga
 ```
 
 ---
@@ -72,6 +66,158 @@ El **bank-brain** es el brain de nivel más alto del cliente (`brain_type='enter
 
 ---
 
+## Arquitectura por Capas — Definición Canónica
+
+Seis capas organizan el Enterprise Brain de extremo a extremo. Cada capa tiene una **definición arquitectónica** (qué es, qué contiene, dónde vive, qué reglas la gobiernan, qué no es) y una **definición funcional** (qué hace, cómo se verifica, qué significa que falle). La definición rige para toda instancia del asset; el contenido varía por cliente y sistema, la estructura no.
+
+Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías distintas y no se confunden: las 4 capas (Lenguaje, Almas, Biografía, Intención) describen **qué tipo de conocimiento** se construye; las 6 capas de arquitectura describen **dónde y cómo** se construye, almacena y usa ese conocimiento.
+
+---
+
+### Capa 1 — Corpus
+
+**Definición arquitectónica**
+
+| Eje | Definición |
+|-----|-----------|
+| Composición | Archivos fuente crudos del sistema, sin modificación. Tres subcarpetas: `source/code/` (código ejecutable: SPs, COBOL, ABAP, PL-SQL, T-SQL, Java, configs), `source/docs/` (documentación: especificaciones, runbooks, manuales de vendor) y `source/ops/` (operación: scripts CTM, JCL, configuración de schedules). |
+| Contrato de frontera | Entrada: olas de entrega del cliente — código productivo verificado. Salida: ninguna. La Capa 1 es origen; la Capa 2 lee de ella sin modificarla. |
+| Ubicación física | `{brain-root}/source/` — siempre la misma ruta relativa, sin excepción. |
+| Reglas que la gobiernan | B25 (el brain refleja lo que el sistema ES — el corpus es esa realidad sin interpretación); B26 (todo brain comienza con el estudio histórico — el corpus es la evidencia primaria); ADR-EB-002 (brain.db se reconstruye desde el código fuente — el corpus es la fuente que lo hace posible). |
+| Qué no es | No es el knowledge-base: los archivos en `source/` no se curan, no se interpretan y no se transforman. No es un repositorio de versiones del sistema: si el cliente entrega varias olas, se organiza por ola, pero el control de versiones pertenece al sistema de origen. |
+
+**Definición funcional**
+
+| Eje | Definición |
+|-----|-----------|
+| Responsabilidad única | Preservar el código y la documentación del sistema tal como existe en producción — sin editar, sin resumir. |
+| Operaciones | Recibir olas de código, organizar por subcarpeta, documentar la cobertura de cada ola y su origen en el CLAUDE.md del sistema. |
+| Digital Twin que la opera | `dt-pipeline` recibe y organiza; el Specialist RE de la tecnología valida completitud (que el corpus represente lo que el cliente usa en producción). |
+| Verificación | `source/code/` no está vacío; el CLAUDE.md del sistema documenta la ola y su origen; no hay archivos interpretados o generados dentro de `source/`. |
+| Qué significa que falle | Corpus vacío → la Capa 2 no tiene qué extraer → brain.db no puede poblarse → todo el razonamiento posterior es imposible. Corpus incompleto → hallazgos incompletos → decisiones basadas en evidencia parcial sin que el brain lo advierta. |
+
+---
+
+### Capa 2 — Extracción y Curación
+
+**Definición arquitectónica**
+
+| Eje | Definición |
+|-----|-----------|
+| Composición | Cuatro actos secuenciales con responsabilidades distintas: **(1) Extracción** — parseo del código fuente para producir JSON crudo por artefacto (depende de la tecnología); **(2) Curación** — organización, deduplicación y estructura del corpus en `knowledge-base/`; **(3) Enriquecimiento** — síntesis LLM source-read del `business_name` de cada entidad (ADR-EB-004); **(4) Anclaje ontológico** — asignación de `process_id`, `capability_id` y `product_id` para anclar cada entidad a la cadena de valor del negocio. El anclaje distingue a la curación del enriquecimiento: enriquecer mira hacia adentro del artefacto (qué hace el código); anclar mira hacia afuera (qué lugar ocupa en el modelo del negocio). |
+| Contrato de frontera | Entrada: archivos crudos de `source/`. Salida: JSON curado en `knowledge-base/` con todos los campos críticos completos — `business_name`, `tier`, `process_id`, `capability_id`. Solo cuando este contrato está cumplido, `build-brain.py` (Capa 3) ejecuta la carga. |
+| Ubicación física | `generators/` (extractores y scripts de enriquecimiento) · `knowledge-base/` (corpus curado — referencia canónica entre builds) · `generators/anchor-ontology.py` (anclaje — generador obligatorio). |
+| Reglas que la gobiernan | P1 (flujo `source/` → `knowledge-base/` → `digital-brain/`); P2 (idempotencia dura — la Capa 2 es determinista); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el código completo, nunca mediante heurísticos). |
+| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal ni produce artefactos de entrega — eso es Capas 4 y 5. La curación produce estructura; la interpretación viene después. |
+
+**Definición funcional**
+
+| Eje | Definición |
+|-----|-----------|
+| Responsabilidad única | Convertir código opaco en conocimiento estructurado, nombrado y anclado a la ontología del negocio — listo para ser cargado en el brain. |
+| Operaciones | Parsear fuentes por tecnología (Specialist RE); sintetizar `business_name` vía LLM source-read en lotes de 70-80; asignar `tier` (gold para código productivo, silver para lo que puede cambiar, bronze para lo que espera validación); anclar a proceso, capability y producto del negocio. |
+| Digital Twin que la opera | `dt-pipeline` posee los tres primeros actos (extracción, curación, enriquecimiento). El anclaje ontológico no tiene DT dueño en el canon vigente — es la brecha activa de esta capa (requiere ADR). |
+| Verificación | P2 idempotencia (correr el pipeline dos veces produce el mismo resultado); DoD-EB-02 (0 `business_name` vacíos o genéricos); D7 del DT-Validador (0 `process_id` nulos en tablas de conocimiento — este criterio bloquea si el anclaje no se ejecutó). |
+| Qué significa que falle | `business_name` genéricos → D3 FAIL. `process_id` nulos → D7 FAIL (bloqueante). Extracción parcial → brain.db incompleto sin que el validador lo detecte por sí solo. El fallo más silencioso es un anclaje omitido: el brain carga y valida las dimensiones D1-D6, pero sus hallazgos no se pueden priorizar ni comparar entre sistemas porque el conocimiento no está conectado a la cadena de valor. |
+
+---
+
+### Capa 3 — El Brain
+
+**Definición arquitectónica**
+
+| Eje | Definición |
+|-----|-----------|
+| Composición | Base de datos SQLite con el schema canónico: CORE (18 tablas — contrato de interoperabilidad universal) más exactamente una extensión según `brain_type` (`system`, `project` o `enterprise`) más el puente Change-Run de su lado. |
+| Contrato de frontera | Entrada: JSON curado de `knowledge-base/` vía `build-brain.py`. Salida: `brain.db` como artefacto binario — accedido exclusivamente a través de `brain.py` (Capa 4). Nada toca `brain.db` directamente en producción, salvo `_db_registro()` para la tabla de runtime `queries` (B45). |
+| Ubicación física | `{brain-root}/digital-brain/brain.db` — en `.gitignore`, reconstruido desde pipeline (ADR-EB-002). Las tablas de runtime (`queries`) se preservan entre builds vía `RUNTIME_TABLES`. |
+| Reglas que la gobiernan | ADR-EB-001 (SQLite); ADR-EB-002 (gitignore — brain.db no se commitea); ADR-EB-006 (CORE + extensión por brain_type); ADR-EB-007 (la industria determina la semántica — vocabulario, capabilities y regulador los suministra el Industry SME); B40 (bi-temporalidad: `valid_from`/`valid_to` + `recorded_at`); B37 (calidad y linaje en `knowledge_lineage`). |
+| Qué no es | No es la base de datos de producción del cliente. No es CMDB. No es el portal. No es la API de razonamiento — eso es `brain.py`. No se edita directamente: todo cambio va por el pipeline (Capa 2). |
+
+**Definición funcional**
+
+| Eje | Definición |
+|-----|-----------|
+| Responsabilidad única | Ser la fuente de verdad única del conocimiento sobre el sistema, con su calidad declarada, su linaje registrado y su historia preservada. |
+| Operaciones | Carga idempotente (INSERT OR IGNORE); `snapshot(date)` para reconstruir el conocimiento en una fecha de negocio pasada (B40); preservación de `RUNTIME_TABLES` entre builds; federación vía SQLite ATTACH desde el enterprise brain (ADR-EB-003). |
+| Digital Twin que la opera | `dt-pipeline` construye; `dt-ingenieria` mantiene el schema y los templates; `dt-validador` audita. |
+| Verificación | DT-Validador D1 (18 tablas CORE + extensión correcta); D9 (calidad y linaje — sin gold huérfano de fuente, sin gold por validación sin `validated_by`). |
+| Qué significa que falle | `brain.db` incompleto → DT-Validador D1 FAIL → RELEASE bloqueado. `brain.db` con datos incorrectos y validador que pasa → razonamiento incorrecto sin error visible — el error más costoso porque se detecta tarde, cuando una decisión ya se tomó. |
+
+---
+
+### Capa 4 — Razonamiento y Agentes
+
+**Definición arquitectónica**
+
+| Eje | Definición |
+|-----|-----------|
+| Composición | `brain.py` (Agent API — interfaz estándar de métodos obligatorios) + el enjambre de 20 Digital Twins canónicos (B41) + `build-portal.py` (generador del portal HTML). |
+| Contrato de frontera | Entrada: `brain.db` vía `brain.py` (conexión read-only, `PRAGMA query_only=1`). Salida: respuestas estructuradas a consultas, hallazgos, portal HTML, seeds para sistemas vecinos. La Capa 4 nunca escribe en `brain.db` salvo `registrar_consulta()` que usa `_db_registro()` — conexión de escritura separada, solo para `queries` (B45). |
+| Ubicación física | `templates/brain.py` · `dt/` (cada DT con su `CLAUDE.md`) · `generators/build-portal.py` · `portal/` (output generado — nunca hand-authored, ADR-EB-005). |
+| Reglas que la gobiernan | B41 (20 DTs canónicos); B42 (confidencialidad por propósito — `abrir_consulta()` valida propósito antes de recuperar); B43 (autoevaluación en 5 ejes); B45 (toda consulta es un objeto con ciclo de vida de 6 etapas); B39 (autonomía graduada A0-A3); ADR-EB-005 (portal generado); ADR-EB-003 (federación vía ATTACH). |
+| Qué no es | No modifica el conocimiento del brain — eso va por el pipeline (Capas 2→3). No ejecuta acciones en sistemas de producción del cliente — eso es Capas 5/6 con nivel de autonomía declarado. No es el corpus ni el pipeline. |
+
+**Definición funcional**
+
+| Eje | Definición |
+|-----|-----------|
+| Responsabilidad única | Exponer el conocimiento del brain para razonamiento, consulta, generación de hallazgos y portal — siempre con el nivel de certeza de cada respuesta declarado. |
+| Operaciones | `abrir_consulta()`, `responder()`, `registrar_consulta()` (B45); `autoevaluacion()` (B43); `snapshot(date)` (B40); `coverage()`, `value_chain()`, `capability_gap()`, `system_dependencies()` (análisis); `build-portal.py` (portal HTML). |
+| Digital Twin que la opera | `dt-ingenieria` mantiene `brain.py` y `build-portal.py`; los 20 DTs en enjambre consultan vía `brain.py`. |
+| Verificación | DoD-EB-08 (interfaz estándar de 5 métodos expuesta); DoD-EB-07 (portal generado desde `brain.db`, nunca hand-authored); `dt/dt-validador/test-brain-api.py` (20 checks funcionales sobre B40, B42, B43, B45). |
+| Qué significa que falle | `brain.py` sin métodos obligatorios → el DT swarm no puede interrogar el brain sistémicamente. Portal hand-authored → viola ADR-EB-005 y se desincroniza del brain. Consulta respondida sin registrar → B42 y B43 no tienen evidencia para operar (propósito sin registro, uso sin contador). |
+
+---
+
+### Capa 5 — Capa Agéntica
+
+**Definición arquitectónica**
+
+| Eje | Definición |
+|-----|-----------|
+| Composición | Casos de uso de IA que corren sobre el brain como plataforma: documentación asistida de RCA, generación de runbooks, correlación de señales de observabilidad, identificación de casos de prueba (QE shift-left), escritura de definiciones funcionales, generación de código en Change. Cada caso de uso se ancla a una sub-capacidad del IT Operating Model. |
+| Contrato de frontera | Entrada: `brain.py` API + contexto del caso de uso específico. Salida: artefactos de entrega (runbooks, specs, test cases, código) siempre en nivel silver — el brain propone; las herramientas de registro del cliente y sus dueños promueven a gold (B39). |
+| Ubicación física | Sin tabla en `brain.db` para el catálogo de casos de uso (B38 pendiente — requiere ADR). Los artefactos producidos van a `knowledge-base/` del sistema o a los repositorios del proyecto según su naturaleza. |
+| Reglas que la gobiernan | B38 (el brain es la plataforma de casos de uso de IA de ambos hemisferios — Run y Change); B39 (autonomía graduada — los cuatro tipos de acción que nunca bajan de A3); ITOM (cada caso de uso se ancla a una sub-capacidad de TI que a su vez mueve un KPI de negocio — la IA tiene que ser parte de ese objetivo). |
+| Qué no es | No razona sobre el brain mismo — eso es Capa 4. No toma decisiones de negocio sin aprobación del nivel de autonomía requerido — eso es Capa 6. No modifica los sistemas de registro (CMDB, ITSM, observabilidad) directamente: si hay un hallazgo, va al dueño de la herramienta y el dueño decide si lo adopta. |
+
+**Definición funcional**
+
+| Eje | Definición |
+|-----|-----------|
+| Responsabilidad única | Amplificar la productividad de los equipos de delivery usando el brain como contexto estructurado — sin duplicar los sistemas de registro existentes. |
+| Operaciones | Documentar RCA asistido (Run); generar runbooks desde el grafo de dependencias; correlacionar señales de observabilidad con el mapa de componentes; identificar casos de prueba desde los journeys (QE shift-left — B37 anotación temprana); escribir definiciones funcionales desde las reglas catalogadas; generar código en Change desde el modelo del sistema. |
+| Digital Twin que la opera | Los DTs especializados por caso de uso + `dt-hitl` (validación humana para los niveles que lo requieren). |
+| Verificación | Cada caso de uso declara su nivel de autonomía (A0-A3) y su sub-capacidad ITOM de referencia. Todo output sale como silver; la herramienta de registro del cliente lo promueve a gold cuando lo adopta. |
+| Qué significa que falle | Caso de uso sin ancla ITOM → no se puede medir su aporte al negocio ni priorizar su operación. Output sin nivel de autonomía declarado → `dt-hitl` no sabe si debe bloquear o aprobar. Catálogo de casos de uso no registrado en `brain.db` (B38 pendiente) → el brain no puede reportar cuántos casos de uso lo consumen ni con qué frecuencia, lo que ciega el eje de uso de `autoevaluacion()` (B43). |
+
+---
+
+### Capa 6 — Decisiones y Acciones · Plano de Gobierno
+
+**Definición arquitectónica**
+
+| Eje | Definición |
+|-----|-----------|
+| Composición | Dos planos superpuestos. El **plano de decisiones** — objeto `decisions` en `brain.db` (extensión PROJECT) — registra cada decisión con sus opciones descartadas, el conocimiento que la sostuvo con el nivel que tenía en ese momento, el rol que decidió y el resultado observado. El **plano de gobierno** define las reglas del asset: qué puede hacer el brain, con qué autonomía, quién aprueba, y cuándo el brain sobrevive al sistema que refleja. |
+| Contrato de frontera | Entrada: hallazgos de Capa 4 + artefactos de Capa 5 + aprobaciones del nivel de autonomía requerido. Salida: decisiones trazables que cierran el ciclo de aprendizaje — si el KPI no se movió como se esperaba, ese dato retroalimenta el razonamiento del brain. |
+| Ubicación física | `decisions` en `brain.db` (extensión PROJECT); el plano de gobierno en `CLAUDE.md` del sistema, `canon/brain-rules.md` y los ADRs. |
+| Reglas que la gobiernan | B39 (autonomía graduada — los 4 tipos de acción que nunca bajan de A3: cambio en producción, decommission, cambio de configuración de seguridad, impacto financiero directo al cliente); B43 (trazabilidad de decisión — quinto eje de `autoevaluacion()`); B44 (el brain sobrevive al sistema que refleja — ventana de 12 meses post-cutover antes de archivar). |
+| Qué no es | No es la ejecución de la acción en sistemas de registro ajenos — el brain propone, no escribe en CMDB ni ITSM ni en ningún sistema del cliente. No es el historial de commits del repositorio. No es el registro de autonomía de las herramientas del cliente — es el registro del brain sobre sus propios consejos y sus resultados. |
+
+**Definición funcional**
+
+| Eje | Definición |
+|-----|-----------|
+| Responsabilidad única | Cerrar el ciclo — cada consejo del brain debe poder verificar si su KPI se movió como se esperaba, para que el brain aprenda y mantenga el derecho de que le crean. |
+| Operaciones | Registrar decisiones con opciones descartadas y el conocimiento que las sostuvo; registrar el resultado observado vs el esperado; aplicar el nivel de autonomía correcto antes de ejecutar cualquier acción de Capa 5; archivar el brain con ventana de 12 meses después del cutover, resolviendo los huecos abiertos y avisando a los brains que lo federan (B44). |
+| Digital Twin que la opera | `dt-cambio` (catálogo de autonomía y gate de decommission); `dt-hitl` (aprobaciones A3 — las cuatro acciones que nunca bajan de A3); `dt-validador` (auditoría de que ningún gate cierra sobre conocimiento silver). |
+| Verificación | `autoevaluacion()['trazabilidad_decision'] > 0%` (hay decisiones registradas con outcome); ningún gate de decommission o cutover cierra con conocimiento silver que lo sostenga; la ventana de 12 meses post-cutover está documentada antes de archivar. |
+| Qué significa que falle | Decisiones sin outcome registrado → el brain acumula consejos sin verificar su acierto y pierde credibilidad progresivamente. Acción A3 ejecutada sin aprobación explícita del rol accountable → riesgo operativo en producción. Brain archivado antes de 12 meses → se pierde la capacidad de reconstruir cómo estaba la arquitectura antes de la migración, con los costos legales y operativos que eso implica. |
+
+---
+
 ## Extractores por Tecnología
 
 | Tecnología | Extractor | Estado | Instancia de referencia |
@@ -102,7 +248,7 @@ Todo brain implementa **CORE + exactamente una extensión** según su `brain_typ
 
 | Capa | Tablas | Obligatoriedad |
 |------|--------|---------------|
-| **CORE** | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` | Todo brain, sin excepción |
+| **CORE** | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` · `queries` | Todo brain, sin excepción |
 | **SYSTEM** (`hemisphere='run'`) | `components` · `component_calls` · `component_data` · `rules` · `rule_enrichment_log` · `vocabulary` · `journeys` · `component_capabilities` · `regulatory_obligations` · `external_systems` | Solo `brain_type='system'` |
 | **PROJECT** (`hemisphere='change'`) | `applications` · `waves` · `risks` · `decisions` · `user_stories` | Solo `brain_type='project'` |
 | **ENTERPRISE** | `federated_brains` · `documents` | Solo `brain_type='enterprise'` |
@@ -147,8 +293,12 @@ El cruce no se copia entre brains. Lo razona el enterprise brain con `templates/
 La brecha entre `processes` y `journeys` es **hallazgo de negocio**, no error de datos: un proceso sin journey que lo realice es capacidad declarada sin soporte en código; un journey sin proceso es funcionalidad no documentada.
 
 El CORE es el contrato de interoperabilidad: es lo que un brain debe exponer
-para que los demás puedan federarlo. Cada una de sus 4 tablas existe hoy en
-producción en al menos 3 brains independientes.
+para que los demás puedan federarlo. Su criterio de destilación (ADR-EB-006)
+exige que cada tabla exista en al menos 3 brains independientes. Las cuatro
+tablas incorporadas por fundamento de exigencia de regla — `suppliers`
+(ADR-EB-011), `measurements` y `costs` (ADR-EB-012), `queries` (ADR-EB-013) —
+aún no cumplen ese umbral en el estate; el estándar de destilación aplica en la
+siguiente ronda de homologación.
 
 ### Por qué las ontologías divergen por tipo
 
@@ -220,3 +370,6 @@ Homologa la interfaz, preserva la inversión en el pipeline y es reversible.
 | ADR-EB-008 | Cuerpo calloso: cada hemisferio declara su lado del puente Change–Run; el cruce lo razona `callosum.py` vía ATTACH | APROBADO |
 | ADR-EB-009 | Estructura TOGAF en el CORE: `stakeholders`, `data_entities`, `technology_components`, `component_data` y `slos.kpi_id`; excepción acotada al principio de destilación | APROBADO |
 | ADR-EB-010 | Calidad y linaje del conocimiento: gold, silver y bronze por afirmación; `knowledge_lineage` en el CORE; D9 | APROBADO |
+| ADR-EB-011 | `suppliers` entra al CORE por implicación del roster — todo brain con DT de proveedores requiere la tabla (fundamento B) | APROBADO |
+| ADR-EB-012 | `measurements` y `costs` entran al CORE por exigencia de regla — B43 necesita ejes de costo y desempeño que ninguna tabla existente sostenía (fundamento C) | APROBADO |
+| ADR-EB-013 | `queries` entra al CORE como 18ª tabla — B42 necesita registrar propósito, B43 necesita contar uso, B45 necesita un objeto para el ciclo de vida de 6 etapas (fundamento C) | APROBADO |
