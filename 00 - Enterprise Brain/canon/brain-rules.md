@@ -17,7 +17,7 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 |-------|-------|----------------------|----------------------|
 | 1 | **B25** | El brain es el espejo de la empresa, no su idealización | Fuente de verdad declarada en `system_info` |
 | 2 | **B29** | Los DTs construyen el brain en enjambre — como abejas | `build_agent` en `system_info` |
-| 3 | **B41** | 20 DTs canónicos en tres categorías: 10 de rol de TI, 6 de negocio y 4 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
+| 3 | **B41** | 21 DTs canónicos en tres categorías: 10 de rol de TI, 6 de negocio y 5 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
 | 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | `queries.purpose` NOT NULL · `knowledge_lineage.exposed_for` · `brain.py abrir_consulta()` (ADR-EB-013) |
 | 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |

@@ -9,7 +9,7 @@ Los 20 DTs canónicos se dividen en tres categorías con sistemas de coordenadas
 | Categoría | Razona sobre | Se mide contra | DTs |
 |-----------|-------------|----------------|-----|
 | **A. Rol de TI** | La organización de TI del cliente | Los 38 procesos canónicos del IT Operating Model v9.0 | 10 |
-| **B. Ingeniería del brain** | El brain como producto | El Brain Lifecycle y las reglas de pipeline P1 a P5 | 4 |
+| **B. Ingeniería del brain** | El brain como producto | El Brain Lifecycle, las reglas de pipeline P1 a P5 y las capas de arquitectura | 5 |
 | **C. Negocio** | El modelo de negocio del cliente | Los 6 dominios L1 comunes a los catálogos de industria | 6 |
 
 **El modelo es de negocio, la evidencia es de TI, y la brecha es el hallazgo.** Esa es la razón de tener las dos caras. La categoría C declara qué dice el modelo de la industria; la categoría A aporta lo que el código demuestra. Una capability que el modelo exige y ningún componente cubre es brecha de negocio. Un componente que no mapea a ninguna capability es deuda sin propósito. Un proceso modelado que el código ejecuta de otra forma es la divergencia más reveladora de cualquier modernización. Es la Regla B20 generalizada.
@@ -220,6 +220,7 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 | `dt-ingenieria` | `generators/`, `templates/`, `brain.py`, `build-portal.py`, las vistas de homologación |
 | `dt-hitl` | La cola de validación, `validated_by`, el registro de aprobaciones |
 | `dt-validador` | Las 9 dimensiones. Audita todo y no posee ninguna tabla de contenido |
+| `dt-fuentes` | `source_catalog` (pendiente ADR-EB-014; interim en `knowledge-base/source-catalog.md`) · filas `gap_type='source'` en `knowledge_gaps` · clasificación canónica de tier por tipo de fuente |
 
 ### Las tres capas de propiedad
 

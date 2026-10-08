@@ -93,9 +93,9 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Preservar el código y la documentación del sistema tal como existe en producción — sin editar, sin resumir. |
 | Operaciones | Recibir olas de código, organizar por subcarpeta, documentar la cobertura de cada ola y su origen en el CLAUDE.md del sistema. |
-| Digital Twin que la opera | `dt-pipeline` recibe y organiza; el Specialist RE de la tecnología valida completitud (que el corpus represente lo que el cliente usa en producción). |
-| Verificación | `source/code/` no está vacío; el CLAUDE.md del sistema documenta la ola y su origen; no hay archivos interpretados o generados dentro de `source/`. |
-| Qué significa que falle | Corpus vacío → la Capa 2 no tiene qué extraer → brain.db no puede poblarse → todo el razonamiento posterior es imposible. Corpus incompleto → hallazgos incompletos → decisiones basadas en evidencia parcial sin que el brain lo advierta. |
+| Digital Twin que la opera | `dt-fuentes` es el guardián de Capa 1: cataloga las fuentes disponibles, clasifica su tier natural y mapea qué casos de uso habilita cada una. `dt-pipeline` recibe y organiza `source/`. El Specialist RE de la tecnología valida completitud en el momento de la entrega. |
+| Verificación | `source/code/` no está vacío; `knowledge-base/source-catalog.md` declara las fuentes activas con su tier y cobertura; el CLAUDE.md del sistema documenta la ola y su origen; no hay archivos interpretados o generados dentro de `source/`. |
+| Qué significa que falle | Corpus vacío → la Capa 2 no tiene qué extraer → brain.db no puede poblarse. Corpus incompleto sin catálogo de fuentes → el brain no sabe qué no sabe → decisiones basadas en evidencia parcial sin advertencia. Fuente sin tier declarado → `dt-pipeline` asigna bronze por defecto → todo va a la cola de HITL innecesariamente. |
 
 ---
 
