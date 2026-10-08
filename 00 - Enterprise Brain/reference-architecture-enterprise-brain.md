@@ -11,18 +11,18 @@ La fuente ejecutable del schema es [`templates/schema.sql`](templates/schema.sql
 CAPA 1 · CORPUS            CAPA 2 · EXTRACCIÓN Y CURACIÓN        CAPA 3 · EL BRAIN       CAPA 4 · RAZONAMIENTO
 ──────────────────         ──────────────────────────────        ─────────────────       ─────────────────────
 
-source/                                                          digital-brain/
-├── code/           ──[1]─→  generators/extract-*.py            ├── brain.db             brain.py (Agent API)
-│   (SPs · COBOL               ↓                                │   CORE (18 tablas)     DT Swarm (×20)
-│    ABAP · PL-SQL          knowledge-base/ (curado)            │   + extensión          Portal HTML
-│    T-SQL · Java)                 ↓                            │     brain_type         bank-brain ATTACH
-├── docs/           ──[2]─→  generators/enrich-rules.py         │
-│   (specs · docs)             business_name LLM                └── seeds/
-└── ops/            ──[3]─→  generators/anchor-ontology.py
-    (CTM · JCL)                process_id · capability_id
-                         ──[4]─→  build-brain.py ─────────────────────────→ brain.db
+source/                    generators/                           digital-brain/
+├── code/                  (ad-hoc por tipo de fuente)          ├── brain.db             brain.py (Agent API)
+├── docs/      ──────────→ ┌──────────────────────────┐    ──→  │   CORE (18 tablas)     DT Swarm (×20)
+├── ops/                   │ 1. Extracción             │         │   + extensión          Portal HTML
+└── {lo que                │ 2. Curación               │         │     brain_type         bank-brain ATTACH
+    entregue               │ 3. Enriquecimiento (LLM)  │         │
+    el cliente:            │ 4. Anclaje ontológico     │         └── seeds/
+    código · docs          └──────────────────────────┘
+    PPTs · diags           knowledge-base/ (curado)
+    logs · etc.}           build-brain.py → brain.db
 
-[1] extracción por tecnología  [2] enriquecimiento  [3] anclaje ontológico  [4] carga
+P2: ningún dato entra a brain.db sin generador que lo reconstruya desde la fuente original.
 ```
 
 ---
@@ -106,9 +106,9 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Composición | Cuatro actos secuenciales con responsabilidades distintas: **(1) Extracción** — parseo del código fuente para producir JSON crudo por artefacto (depende de la tecnología); **(2) Curación** — organización, deduplicación y estructura del corpus en `knowledge-base/`; **(3) Enriquecimiento** — síntesis LLM source-read del `business_name` de cada entidad (ADR-EB-004); **(4) Anclaje ontológico** — asignación de `process_id`, `capability_id` y `product_id` para anclar cada entidad a la cadena de valor del negocio. El anclaje distingue a la curación del enriquecimiento: enriquecer mira hacia adentro del artefacto (qué hace el código); anclar mira hacia afuera (qué lugar ocupa en el modelo del negocio). |
 | Contrato de frontera | Entrada: archivos crudos de `source/`. Salida: JSON curado en `knowledge-base/` con todos los campos críticos completos — `business_name`, `tier`, `process_id`, `capability_id`. Solo cuando este contrato está cumplido, `build-brain.py` (Capa 3) ejecuta la carga. |
-| Ubicación física | `generators/` (extractores y scripts de enriquecimiento) · `knowledge-base/` (corpus curado — referencia canónica entre builds) · `generators/anchor-ontology.py` (anclaje — generador obligatorio). |
-| Reglas que la gobiernan | P1 (flujo `source/` → `knowledge-base/` → `digital-brain/`); P2 (idempotencia dura — la Capa 2 es determinista); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el código completo, nunca mediante heurísticos). |
-| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal ni produce artefactos de entrega — eso es Capas 4 y 5. La curación produce estructura; la interpretación viene después. |
+| Ubicación física | `generators/` (scripts ad-hoc por tipo de fuente — cada instancia construye los que necesita según lo que el cliente entrega: código fuente, documentación, presentaciones, diagramas, logs; no existe un template único) · `knowledge-base/` (corpus curado — referencia canónica entre builds). |
+| Reglas que la gobiernan | P1 (flujo `source/` → `knowledge-base/` → `digital-brain/`); P2 (principio de pipeline — ningún dato entra a `brain.db` sin un generador que lo pueda recrear desde la fuente original; los generadores son ad-hoc por diseño); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el código completo, nunca mediante heurísticos). |
+| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal ni produce artefactos de entrega — eso es Capas 4 y 5. No existe un template único de generadores: la forma que toman depende del tipo de fuente. Lo que es invariante es P2, no el generador. |
 
 **Definición funcional**
 

@@ -101,10 +101,12 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | Regla | Enunciado |
 |-------|-----------|
 | **P1** | `source/` → `knowledge-base/` → `digital-brain/` — el builder nunca lee source/ directo; Bronze, Silver y Gold son calidad (B37), no etapas |
-| **P2** | Idempotencia dura — rebuild determinista desde cero |
+| **P2** | Principio de pipeline — ningún dato en `brain.db` sin generador que lo reconstruya desde la fuente original; los generadores son ad-hoc por tipo de fuente, no templates únicos |
 | **P3** | Marks de alta confianza (`CTM_ENTRY`, `CTM_HINT`) no se sobreescriben |
 | **P4** | Portal HTML generado siempre desde `build-portal.py` — nunca hand-authored |
 | **P5** | `brain.db` en `.gitignore` — se reconstruye desde el pipeline |
+
+**Sobre los generadores de Capa 2.** Los generadores son ad-hoc por diseño: cada brain construye los que necesita según lo que el cliente entrega. No existe un template único porque las fuentes no son únicas — código SPL, COBOL, ABAP, T-SQL, pero también PPTs, Word, PDFs, diagramas de arquitectura, logs de producción, minutas de entrevistas. Lo que no varía nunca es P2: si un dato está en `brain.db` y no existe un generador capaz de producirlo desde la fuente original, ese dato es deuda no trazable. Actualizar `brain.db` directamente sin esa capacidad es el anti-patrón que invalida al brain como fuente de verdad — un brain que no se puede reconstruir no es un gemelo cognitivo sino un documento que envejece.
 
 ---
 
