@@ -8,21 +8,22 @@
 La fuente ejecutable del schema es [`templates/schema.sql`](templates/schema.sql). El diagrama muestra el flujo completo de una instancia individual.
 
 ```
-CAPA 1 · CORPUS            CAPA 2 · EXTRACCIÓN Y CURACIÓN        CAPA 3 · EL BRAIN       CAPA 4 · RAZONAMIENTO
-──────────────────         ──────────────────────────────        ─────────────────       ─────────────────────
+CAPA 1 · CORPUS              CAPA 2 · EXTRACCIÓN Y CURACIÓN          CAPA 3 · EL BRAIN       CAPA 4 · RAZONAMIENTO
+────────────────────         ──────────────────────────────          ─────────────────       ─────────────────────
 
-source/                    generators/                           digital-brain/
-├── code/                  (ad-hoc por tipo de fuente)          ├── brain.db             brain.py (Agent API)
-├── docs/      ──────────→ ┌──────────────────────────┐    ──→  │   CORE (18 tablas)     DT Swarm (×20)
-├── ops/                   │ 1. Extracción             │         │   + extensión          Portal HTML
-└── {lo que                │ 2. Curación               │         │     brain_type         bank-brain ATTACH
-    entregue               │ 3. Enriquecimiento (LLM)  │         │
-    el cliente:            │ 4. Anclaje ontológico     │         └── seeds/
-    código · docs          └──────────────────────────┘
-    PPTs · diags           knowledge-base/ (curado)
-    logs · etc.}           build-brain.py → brain.db
+FUENTES ESTÁTICAS            parsers (batch / demanda)               digital-brain/
+source/                      ┌──────────────────────────┐            ├── brain.db             brain.py (Agent API)
+├── code/        ──────────→ │ 1. Extracción            │       ──→  │   CORE (18 tablas)     DT Swarm (×20)
+├── docs/                    │ 2. Curación              │            │   + extensión          Portal HTML
+└── PPTs · diags             │ 3. Enriquecimiento (LLM) │            │     brain_type         bank-brain ATTACH
+                             │ 4. Anclaje ontológico    │            │
+FUENTES VIVAS                └──────────────────────────┘            └── seeds/
+├── Git / GitHub  connectors (continuo / demanda)
+├── Jira          ──────────→ knowledge-base/ (curado)
+├── Monitoring               build-brain.py → brain.db
+└── CMDB · CI/CD · etc.
 
-P2: ningún dato entra a brain.db sin generador que lo reconstruya desde la fuente original.
+P2: ningún dato en brain.db sin parser o conector capaz de recrearlo desde la fuente original.
 ```
 
 ---
@@ -104,11 +105,11 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 
 | Eje | Definición |
 |-----|-----------|
-| Composición | Cuatro actos secuenciales con responsabilidades distintas: **(1) Extracción** — parseo del código fuente para producir JSON crudo por artefacto (depende de la tecnología); **(2) Curación** — organización, deduplicación y estructura del corpus en `knowledge-base/`; **(3) Enriquecimiento** — síntesis LLM source-read del `business_name` de cada entidad (ADR-EB-004); **(4) Anclaje ontológico** — asignación de `process_id`, `capability_id` y `product_id` para anclar cada entidad a la cadena de valor del negocio. El anclaje distingue a la curación del enriquecimiento: enriquecer mira hacia adentro del artefacto (qué hace el código); anclar mira hacia afuera (qué lugar ocupa en el modelo del negocio). |
-| Contrato de frontera | Entrada: archivos crudos de `source/`. Salida: JSON curado en `knowledge-base/` con todos los campos críticos completos — `business_name`, `tier`, `process_id`, `capability_id`. Solo cuando este contrato está cumplido, `build-brain.py` (Capa 3) ejecuta la carga. |
-| Ubicación física | `generators/` (scripts ad-hoc por tipo de fuente — cada instancia construye los que necesita según lo que el cliente entrega: código fuente, documentación, presentaciones, diagramas, logs; no existe un template único) · `knowledge-base/` (corpus curado — referencia canónica entre builds). |
-| Reglas que la gobiernan | P1 (flujo `source/` → `knowledge-base/` → `digital-brain/`); P2 (principio de pipeline — ningún dato entra a `brain.db` sin un generador que lo pueda recrear desde la fuente original; los generadores son ad-hoc por diseño); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el código completo, nunca mediante heurísticos). |
-| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal ni produce artefactos de entrega — eso es Capas 4 y 5. No existe un template único de generadores: la forma que toman depende del tipo de fuente. Lo que es invariante es P2, no el generador. |
+| Composición | Dos tipos de generador, cuatro actos. Los **parsers** procesan fuentes estáticas que el cliente entrega (código, documentación, presentaciones, diagramas) mediante cuatro actos: **(1) Extracción** — parseo para producir JSON crudo; **(2) Curación** — organización, deduplicación y estructura en `knowledge-base/`; **(3) Enriquecimiento** — síntesis LLM del `business_name` leyendo el artefacto completo (ADR-EB-004); **(4) Anclaje ontológico** — asignación de `process_id`, `capability_id` y `product_id`. Los **connectors** integran sistemas vivos (Git, Jira, herramientas de monitoreo, CMDB, pipelines de CI/CD) y pueden alimentar el brain de forma continua o bajo demanda, ejecutando los mismos cuatro actos sobre datos del sistema origen. La distinción entre parser y connector es de fuente y cadencia, no de función. |
+| Contrato de frontera | Entrada: (a) archivos crudos de `source/` para parsers; (b) APIs, webhooks o eventos de sistemas vivos para connectors. Salida: conocimiento curado con los campos críticos completos — `business_name`, `tier`, `process_id`, `capability_id`. El contrato de salida es invariante; el camino de entrada depende del tipo de fuente. |
+| Ubicación física | `generators/` (parsers y connectors ad-hoc por tipo de fuente y sistema origen — no existe un template único) · `knowledge-base/` (corpus curado — referencia canónica para parsers batch; algunos connectors pueden entregar directamente a `build-brain.py`). |
+| Reglas que la gobiernan | P1 (toda actualización del brain pasa por un generador o conector — nunca directo desde la fuente); P2 (principio de pipeline — ningún dato en `brain.db` sin el parser o conector capaz de recrearlo; para connectors, reproducir significa re-pull desde el historial del sistema origen); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); B40 (bi-temporalidad — los connectors de fuentes vivas acortan la latencia entre `valid_from` y `recorded_at`); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el artefacto completo, nunca mediante heurísticos). |
+| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal — eso es Capa 4. No existe un template único: la forma del generador depende del tipo de fuente y su cadencia. Lo que es invariante es P2, no el generador. |
 
 **Definición funcional**
 
