@@ -26,10 +26,14 @@ No existe un marco de capacidades de negocio agnóstico de industria publicado e
 | Industria | Catálogo | Dominio equivalente |
 |---|---|---|
 | Banca | Banking ETB V5.0 | 6. Responsible Business |
-| Seguros | Marco ACORD | **[PENDIENTE]** validar con `SME/Industry/Industry Insurance` |
-| Retail | Cadena de valor RTL | **[PENDIENTE]** validar con el Industry SME de retail |
+| Seguros | Marco ACORD | **[HUECO]** Ningún catálogo de seguros disponible lo modela, ni ACORD ni los ETB de ramo. Consulta abierta con `SME/Industry/Industry Insurance` |
+| Retail | Retail ETB v5.0 | 7.3.5 Environmental Social and Governance, que es capacidad **L3** dentro de 7.3 Corporate Services, no un L1. Sin equivalente del eje ético e inclusivo |
 
 **Correspondencia con el modelo lógico.** Este dominio es el espejo de **S4 Enterprise Sustainability** del Digital Bank 4.0, que también carecía de DT. Al crear este, ambos ejes quedan cubiertos.
+
+> **`[ASIMETRÍA]` Este dominio es de primer nivel solo en banca.** El Banking ETB le da un L1 propio, el 6 Responsible Business, con dos L2 y siete capacidades. En retail aparece degradado a una capacidad L3 dentro de servicios corporativos, y cuya descripción en el libro habla de gobierno corporativo más que de ESG. En seguros no aparece en absoluto, ni en ACORD ni en los ETB de ramo; lo más cercano es el horizonte regulatorio de la CNSF 2025-2027, que es tendencia y no capacidad.
+>
+> Eso plantea una pregunta abierta: si el dominio es canónico para todo brain o si es una particularidad bancaria que el roster está generalizando de más. Se resuelve por ADR.
 
 ---
 

@@ -26,10 +26,16 @@ No existe un marco de capacidades de negocio agnóstico de industria publicado e
 | Industria | Catálogo | Dominio equivalente |
 |---|---|---|
 | Banca | Banking ETB V5.0 | 4. Business Support |
-| Seguros | Marco ACORD | **[PENDIENTE]** validar con `SME/Industry/Industry Insurance` |
-| Retail | Cadena de valor RTL | **[PENDIENTE]** validar con el Industry SME de retail |
+| Seguros | Marco ACORD | Sin equivalente: los ocho dominios D1 a D8 no modelan soporte corporativo. Vive en los ETB de seguros como **subconjunto** de 7 Enterprise Functions (P&C v3.0) y de 9 Enterprise Functions (Health Payer v6.0) |
+| Retail | Retail ETB v5.0 | **Subconjunto** de 7. Enterprise Foundation: 7.2 Human Resources, 7.3 Corporate Services (legal y BPM), 7.4 Real Estate, 7.5 Infrastructure & Facility, 7.6 Indirect Procurement |
 
 **Nota de alcance.** En un brain de modernización, buena parte de este dominio suele quedar fuera: los sistemas de nómina, de inmuebles y de propiedad intelectual rara vez se tocan. El DT existe igual, porque el valor del eje horizontal es poder declarar con nombre y apellido qué no sabemos. Un dominio sin dueño no produce esa declaración.
+
+> **`[SOLAPAMIENTO]` Fuera de banca este dominio no existe por separado.** Los tres ETB no bancarios (P&C v3.0, Health Payer v6.0 y Retail v5.0) comparten una misma descomposición L2 — Finance and Accounting, Human Resources, Corporate Services, Real Estate, Indirect Procurement, IT Management, Enterprise Security, Governance and Compliance — y la agrupan en **un solo L1**. La separación entre soporte corporativo y funciones de empresa es propia del Banking ETB, que las parte en sus dominios 4 y 5.
+>
+> Consecuencia: en seguros y retail este DT y `dt-enterprise-functions-owner` apuntan al mismo L1 y deben declarar **qué subconjunto de L2 posee cada uno**, no el L1 completo. El solapamiento se resuelve por ADR, como pide el scaffold, no por criterio del momento.
+>
+> Dato adicional: en P&C el BPM **no** vive en este dominio sino en 8 Business Integration, del lado tecnológico. La banca lo pone del lado de negocio en 4.7. Es una diferencia real de modelo, no de nombre.
 
 ---
 
