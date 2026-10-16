@@ -38,6 +38,54 @@ Estos son los valores canónicos para `products.name` y `products.category`. Cor
 
 ---
 
+
+## Extensión México — Catálogo de productos de banca múltiple
+
+> Extensión local de la Taxonomía de Productos Financieros de arriba, que es global. Se declara en `ontology_bindings` como catálogo propio, igual que Liverpool declara su extensión *Newly Added* junto al Retail ETB (Regla B20).
+> Investigado 2026-10-16 contra catálogos de reporte regulatorio de la CNBV (serie R04, Anexo 36 CUB), Banxico y CONDUSEF. Detalle con fuentes y equivalencias en `SME/Industry/Industry Banking/knowledge_base/`.
+
+**Por qué existe esta extensión.** La taxonomía global clasifica el crédito por garantía (*Secured* / *Unsecured*). El mercado mexicano clasifica buena parte de su crédito al consumo por **fuente de pago afectada** — nómina, ABCD, grupal solidario — que es un eje que la taxonomía global no tiene. Veinticinco productos no tienen equivalente global y por eso esta capa no es cosmética.
+
+**Ocho familias · 89 productos.** Cada familia tiene un DT responsable (ver abajo).
+
+| Familia | Productos | DT responsable |
+|---|---|---|
+| **A · Captación a la vista y transaccional** | Cuenta de nivel 1 · Cuenta de nivel 2 · Cuenta de nivel 2 Bis · Cuenta de nivel 3 · Cuenta de nivel 4 · Cuenta de cheques · Cuenta de nómina · Cuenta Básica de Nómina · Cuenta Básica para el Público en General · Cuenta de ahorro · Cuenta en dólares · Cuenta de dispersión de programas sociales | `dt-deposits-owner` |
+| **B · Captación a plazo e inversión** | Pagaré con Rendimiento Liquidable al Vencimiento (PRLV) · Certificado de Depósito a Plazo (CEDE) · Depósito a plazo retirable en días preestablecidos · Fondos de inversión distribuidos por el banco · Nota estructurada / depósito bancario estructurado · Reporto / mesa de dinero para el cliente · Plan Personal de Retiro (PPR) | `dt-term-investment-owner` |
+| **C · Crédito al consumo** | Tarjeta de crédito · Tarjeta de crédito garantizada · Crédito personal · Crédito de nómina · Crédito automotriz · Crédito ABCD · Arrendamiento capitalizable con persona física · Microcrédito grupal con garantía solidaria · Crédito revolvente de liquidez distinto de tarjeta | `dt-consumer-lending-owner` |
+| **D · Crédito hipotecario y a la vivienda** | Crédito hipotecario para adquisición de vivienda · Crédito para adquisición de terreno · Crédito para construcción o autoproducción de vivienda · Crédito para mejoras, ampliaciones y remodelación · Crédito de pago de pasivos hipotecarios · Crédito hipotecario para liquidez · Cofinanciamiento INFONAVIT (Cofinavit) · Apoyo INFONAVIT · Cofinanciamiento FOVISSSTE · Crédito hipotecario con subsidio federal | `dt-mortgage-owner` |
+| **E · Crédito empresarial y comercial** | Crédito simple · Crédito en cuenta corriente · Crédito de habilitación o avío · Crédito refaccionario · Arrendamiento financiero · Arrendamiento puro · Factoraje con recurso · Factoraje sin recurso · Factoraje a proveedores (Cadenas Productivas) · Crédito puente para construcción de vivienda · Crédito puente para inmuebles comerciales y de servicios · Cartas de crédito · Crédito a proyectos de inversión con fuente de pago propia · Línea de crédito para liquidez · Tarjeta de crédito empresarial · Crédito sindicado · Crédito descontado de segundo piso · Crédito agropecuario con fondeo y garantía FIRA · Crédito a entidades federativas y municipios · Crédito a entidades financieras · Crédito prendario comercial · Aval y garantía bancaria | `dt-commercial-lending-owner` |
+| **F · Pagos y transferencias** | SPEI · CoDi (Cobro Digital) · DiMo (Dinero Móvil) · TEF (Transferencia Electrónica de Fondos) · Domiciliación · Cheque y cámara de compensación · Remesas familiares (recepción y pago) · Directo a México · SPID (Sistema de Pagos Interbancarios en Dólares) · Orden de pago internacional / SWIFT · Adquirencia y terminal punto de venta · Corresponsales bancarios (comisionistas) · Pago referenciado y recaudación (CIE) · Tarjeta prepagada y monedero electrónico · Dispersión de nómina | `dt-payments-owner` |
+| **G · Bancaseguros** | Seguro de vida-deudor (saldo deudor) · Seguro de daños del inmueble hipotecado · Seguro de desempleo asociado a hipoteca · Seguro de auto asociado a crédito automotriz · Seguros voluntarios de ventanilla · Seguro con componente de ahorro o inversión · Microseguro | `dt-bancassurance-owner` |
+| **H · Fiduciario, mercados y servicios complementarios** | Fideicomiso · Mandato y comisión mercantil · Caja de seguridad · Compraventa de divisas · Operaciones financieras derivadas · Custodia y administración de valores · Banca de inversión y colocación · Total | `dt-trust-markets-owner` |
+
+### Los 25 sin equivalente global
+
+Son los que obligan a tener extensión propia. Agrupados por la razón de fondo:
+
+| Razón | Productos |
+|---|---|
+| **Eje de fuente de pago, no de garantía** | Crédito de nómina (CAN) · Crédito ABCD · Microcrédito grupal con garantía solidaria |
+| **Coorigination con instituto público de vivienda** | Cofinavit · Apoyo INFONAVIT · Cofinanciamiento FOVISSSTE · Hipotecario con subsidio CONAVI o SHF |
+| **Figuras de la LGTOC sin contraparte global** | Habilitación o avío · Refaccionario · Fideicomiso |
+| **Banca de desarrollo de segundo piso** | Crédito descontado FIRA, NAFIN y Bancomext · Agropecuario con garantía FIRA · Factoraje a proveedores de Cadenas Productivas |
+| **Esquemas nacionales de pago** | CoDi · DiMo · Directo a México · SPID |
+| **Lado receptor de remesas** | Remesas familiares, recepción y pago en ventanilla a no clientes |
+| **Régimen de cuenta propio** | Cuenta nivel 1, 2 y 2 Bis · Cuenta Básica de Nómina y para el Público en General, de oferta obligatoria y comisión cero por el art. 48 Bis 2 de la LIC |
+| **Sector público subnacional** | Crédito a entidades federativas y municipios |
+| **Régimen de seguro propio** | Microseguro · Seguro de vida-deudor |
+| **Doble régimen Fintech y SAT** | Monedero electrónico de vales |
+| **Producto-canal con autorización individual** | Corresponsales bancarios |
+
+### Advertencias de vigencia
+
+- Los límites de las cuentas por nivel van **en UDIs**, nunca en pesos: la Circular 3/2012 los indexa a propósito. Convertir con el valor de la UDI del último día del mes anterior.
+- Los catálogos de la CNBV advierten que cambian sin aviso y que la versión autoritativa vive en el SITI, no en el PDF publicado.
+- Remesas, CoDi y DiMo están en movimiento regulatorio durante 2026. Verificar antes de usar en un entregable de cliente.
+- Queda por confirmar si el nivel nuevo se llama 2 Bis o 3 Bis, y si la Circular 11/2026 ya está en vigor.
+
+---
+
 ## Segmentos de Cliente
 
 Corresponden a `stakeholders` o a una dimensión `segment` en `capabilities`. El modelo Digital Bank 4.0 define seis segmentos:
