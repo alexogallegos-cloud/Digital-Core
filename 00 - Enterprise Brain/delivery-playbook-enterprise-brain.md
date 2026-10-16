@@ -57,7 +57,7 @@ El Brain Lifecycle es una especialización del SDLC canónico de 8 fases para la
 
 **Salida**:
 
-- Taxonomía de negocio en `knowledge-base/taxonomy/` o `dt/dt-modelo-dominio/`
+- Taxonomía de negocio en `knowledge-base/ontology/` o en el DT de negocio que corresponda al dominio
 - Roster de DTs con CLAUDE.md de cada uno
 - ADR-EB-NNN si hay decisiones de diseño no triviales
 - ETB mapping inicial en el mapeo de building blocks del cliente, cuando exista

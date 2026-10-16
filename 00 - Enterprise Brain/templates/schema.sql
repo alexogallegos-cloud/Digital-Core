@@ -12,7 +12,7 @@
 -- Ver ADR-EB-006.
 --
 -- ESTRUCTURA:
---   CORE        — 18 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013)
+--   CORE        — 19 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
 --   SYSTEM      — brains de sistema productivo (hemisphere='run')
 --   PROJECT     — brains de proyecto de transformación (hemisphere='change')
 --   ENTERPRISE  — {industria}-brain (brain_type='enterprise')
@@ -26,7 +26,7 @@
 
 
 -- =============================================================================
--- CORE — obligatorio en todo brain (18 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013)
+-- CORE — obligatorio en todo brain (18 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
 --
 -- Cubre cinco contratos irrenunciables:
 --   identidad       → system_info
@@ -598,6 +598,27 @@ CREATE TABLE IF NOT EXISTS knowledge_lineage (
 CREATE INDEX IF NOT EXISTS ix_lineage_entity ON knowledge_lineage(entity_table, entity_id);
 -- snapshot(date): valid_from <= date AND (valid_to IS NULL OR valid_to >= date)
 CREATE INDEX IF NOT EXISTS ix_lineage_valid ON knowledge_lineage(valid_from, valid_to);
+
+-- Catalogo de fuentes - ADR-EB-014. Dueno: dt-source-steward.
+-- El tier natural lo fija el tipo de fuente (funcion F2), no quien la carga:
+-- el tier de una afirmacion nunca puede superar el de la fuente que la sostiene (B37).
+-- Toda fila con status='ausente' genera un knowledge_gaps con gap_type='source'.
+CREATE TABLE IF NOT EXISTS source_catalog (
+    id                TEXT PRIMARY KEY,
+    ontology          TEXT NOT NULL,
+    name              TEXT NOT NULL,
+    source_type       TEXT,            -- codigo | doc | ppt | audio | git | jira | monitoring | cmdb | logs | regulacion
+    generator_type    TEXT,            -- parser (fuente estatica) | connector (sistema vivo)
+    cadence           TEXT,            -- batch | continuo | bajo demanda
+    status            TEXT DEFAULT 'planeada',  -- activa | parcial | ausente | planeada
+    natural_tier      TEXT,            -- gold | silver | bronze - derivado de source_type
+    coverage_pct      REAL,            -- porcentaje del sistema que cubre esta fuente
+    enables           TEXT,            -- JSON: casos de uso que habilita
+    location          TEXT,            -- ruta o endpoint
+    last_refresh      TEXT,
+    owner             TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_source_status ON source_catalog(status);
 
 -- =============================================================================
 -- SYSTEM — brains de sistema productivo (hemisphere='run')

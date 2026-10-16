@@ -25,7 +25,7 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 8 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
 | 9 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
 | 10 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
-| 11 | **B15** | CORE (18 tablas) + exactamente una extensión por `brain_type` | D1 del Brain Auditor |
+| 11 | **B15** | CORE (19 tablas) + exactamente una extensión por `brain_type` | D1 del Brain Auditor |
 | 12 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
 | 13 | **B36** | Frameworks complementarios: ETB da el north star, ITOM habilita, TOGAF gobierna | Trazas `itom_layer.process_id` y SLO a KPI |
 | 14 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del Brain Auditor |
@@ -167,7 +167,7 @@ El bank-brain del cliente es el único brain de tipo `enterprise`. Los demás so
 
 ### Schema y contrato (B15-B17)
 
-**B15 — CORE + una extensión**: todo brain implementa las 18 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
+**B15 — CORE + una extensión**: todo brain implementa las 19 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
 
 **El CORE tiene dos fundamentos legítimos** (ADR-EB-011). El primero es la destilación: una tabla entra cuando existe en tres o más brains independientes (ADR-EB-006), con la excepción acotada de ADR-EB-009 para `kpis`, `data_entities` y `technology_components`. El segundo es la implicación del roster: si un DT canónico obligatorio posee una tabla, esa tabla es CORE por consecuencia, y es el caso de `suppliers`. Hay un **tercer fundamento** (ADR-EB-012): una tabla entra cuando una regla vigente exige una capacidad que ninguna tabla sostiene, como ocurrió con `measurements` y `costs`. Exige tres condiciones simultáneas: que la regla ya esté aprobada y no se escriba junto con la tabla, que ninguna tabla existente pueda sostener la capacidad, y que el ADR nombre la frase exacta que queda incumplida sin ella. Existe porque la destilación tiene un punto ciego: solo canoniza lo que alguien ya construyó, y el canon puede prometer en una regla lo que su esquema no puede cumplir.
 
