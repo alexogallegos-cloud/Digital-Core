@@ -1,6 +1,6 @@
 # Mapa de tablas del canon
 
-> Generado el 2026-10-06 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
+> Generado el 2026-10-16 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
 El canon son **41 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
@@ -22,67 +22,67 @@ El canon son **41 tablas**. Ningún brain las implementa todas: implementa el CO
 
 | Tabla | Dueño | Columnas | Reglas | Se relaciona con |
 |-------|-------|----------|--------|------------------|
-| `system_info` | `dt-arquitectura` | 20 | B13 B14 B18 B23 B29 B31 | — |
-| `cross_dependencies` | `dt-configuracion` | 12 | B37 | — |
-| `signals` | `dt-operacion` | 5 | — | — |
-| `ontology_bindings` | `dt-arquitectura` | 10 | B21 | — |
-| `capabilities` | `dt-arquitectura` | 17 | B22 B37 | `ontology_bindings`, `processes` |
-| `processes` | `dt-valor` | 14 | B37 | `capabilities` |
-| `knowledge_gaps` | `dt-conocimiento` | 13 | B22 | `processes` |
-| `itom_layer` | `dt-arquitectura` | 9 | B22 B37 | `processes` |
-| `products` | `dt-valor` | 13 | B37 | `processes` |
-| `kpis` | `dt-valor` | 14 | B37 | `processes`, `products` |
-| `stakeholders` | `dt-conocimiento` | 15 | B37 | `capabilities` |
-| `data_entities` | `dt-informacion` | 13 | B30 B37 B42 | `stakeholders`, `technology_components` |
-| `technology_components` | `dt-configuracion` | 16 | B36 B37 B38 | `itom_layer` |
-| `suppliers` | `dt-proveedores` | 17 | B22 B30 B37 B38 B39 | `itom_layer`, `processes`, `slos` |
-| `measurements` | `dt-operacion` | 15 | B22 B37 B40 | `kpis`, `processes` |
-| `costs` | `dt-valor` | 16 | B22 B27 B37 | `kpis`, `processes`, `products` |
-| `queries` | `dt-conocimiento` | 15 | B17 B27 B35 B37 B42 B43 | `decisions` |
-| `knowledge_lineage` | `dt-conocimiento` | 19 | B29 B40 B42 | — |
+| `system_info` | `dt-domain-architect` | 20 | B13 B14 B18 B23 B29 B31 | — |
+| `cross_dependencies` | `dt-asset-configuration-manager` | 12 | B37 | — |
+| `signals` | `dt-service-operations-lead` | 5 | — | — |
+| `ontology_bindings` | `dt-domain-architect` | 10 | B21 | — |
+| `capabilities` | `dt-domain-architect` | 17 | B22 B37 | `ontology_bindings`, `processes` |
+| `processes` | `dt-demand-manager` | 14 | B37 | `capabilities` |
+| `knowledge_gaps` | `dt-knowledge-manager` | 13 | B22 | `processes` |
+| `itom_layer` | `dt-domain-architect` | 9 | B22 B37 | `processes` |
+| `products` | `dt-demand-manager` | 13 | B37 | `processes` |
+| `kpis` | `dt-demand-manager` | 14 | B37 | `processes`, `products` |
+| `stakeholders` | `dt-knowledge-manager` | 15 | B37 | `capabilities` |
+| `data_entities` | `dt-information-architect` | 13 | B30 B37 B42 | `stakeholders`, `technology_components` |
+| `technology_components` | `dt-asset-configuration-manager` | 16 | B36 B37 B38 | `itom_layer` |
+| `suppliers` | `dt-supplier-relationship-manager` | 17 | B22 B30 B37 B38 B39 | `itom_layer`, `processes`, `slos` |
+| `measurements` | `dt-service-operations-lead` | 15 | B22 B37 B40 | `kpis`, `processes` |
+| `costs` | `dt-demand-manager` | 16 | B22 B27 B37 | `kpis`, `processes`, `products` |
+| `queries` | `dt-knowledge-manager` | 15 | B17 B27 B35 B37 B42 B43 | `decisions` |
+| `knowledge_lineage` | `dt-knowledge-manager` | 19 | B29 B40 B42 | — |
 
 ### SYSTEM
 
 | Tabla | Dueño | Columnas | Reglas | Se relaciona con |
 |-------|-------|----------|--------|------------------|
-| `components` | `dt-configuracion` | 22 | B24 B37 | `capabilities` |
-| `component_calls` | `dt-configuracion` | 4 | B37 | — |
-| `rules` | `dt-configuracion` | 18 | B22 B37 | `components`, `processes` |
-| `rule_enrichment_log` | `dt-conocimiento` | 10 | — | `rules` |
-| `vocabulary` | `dt-informacion` | 12 | B22 B37 | `processes` |
-| `journeys` | `dt-valor` | 13 | B37 | `processes` |
-| `component_capabilities` | `dt-configuracion` | 6 | B37 | `components` |
-| `component_processes` | `dt-configuracion` | 6 | B37 | `components`, `processes` |
-| `component_data` | `dt-informacion` | 8 | B37 | `components`, `data_entities` |
-| `regulatory_obligations` | `dt-riesgo` | 12 | B22 B37 | `processes` |
-| `external_systems` | `dt-configuracion` | 10 | B37 | — |
+| `components` | `dt-asset-configuration-manager` | 22 | B24 B37 | `capabilities` |
+| `component_calls` | `dt-asset-configuration-manager` | 4 | B37 | — |
+| `rules` | `dt-asset-configuration-manager` | 18 | B22 B37 | `components`, `processes` |
+| `rule_enrichment_log` | `dt-knowledge-manager` | 10 | — | `rules` |
+| `vocabulary` | `dt-information-architect` | 12 | B22 B37 | `processes` |
+| `journeys` | `dt-demand-manager` | 13 | B37 | `processes` |
+| `component_capabilities` | `dt-asset-configuration-manager` | 6 | B37 | `components` |
+| `component_processes` | `dt-asset-configuration-manager` | 6 | B37 | `components`, `processes` |
+| `component_data` | `dt-information-architect` | 8 | B37 | `components`, `data_entities` |
+| `regulatory_obligations` | `dt-it-risk-manager` | 12 | B22 B37 | `processes` |
+| `external_systems` | `dt-asset-configuration-manager` | 10 | B37 | — |
 
 ### PROJECT
 
 | Tabla | Dueño | Columnas | Reglas | Se relaciona con |
 |-------|-------|----------|--------|------------------|
-| `applications` | `dt-entrega` | 13 | B22 B37 | `processes`, `waves` |
-| `waves` | `dt-entrega` | 9 | B37 | — |
-| `risks` | `dt-riesgo` | 13 | B22 B24 B37 | `processes` |
-| `decisions` | `dt-arquitectura` | 20 | B37 B39 B40 B43 | `queries` |
-| `user_stories` | `dt-entrega` | 11 | B22 B24 B37 | `processes` |
+| `applications` | `dt-programme-manager` | 13 | B22 B37 | `processes`, `waves` |
+| `waves` | `dt-programme-manager` | 9 | B37 | — |
+| `risks` | `dt-it-risk-manager` | 13 | B22 B24 B37 | `processes` |
+| `decisions` | `dt-domain-architect` | 20 | B37 B39 B40 B43 | `queries` |
+| `user_stories` | `dt-programme-manager` | 11 | B22 B24 B37 | `processes` |
 
 ### ENTERPRISE
 
 | Tabla | Dueño | Columnas | Reglas | Se relaciona con |
 |-------|-------|----------|--------|------------------|
-| `federated_brains` | `dt-arquitectura` | 12 | — | — |
-| `documents` | `dt-conocimiento` | 5 | — | — |
+| `federated_brains` | `dt-domain-architect` | 12 | — | — |
+| `documents` | `dt-knowledge-manager` | 5 | — | — |
 
 ### PUENTE
 
 | Tabla | Dueño | Columnas | Reglas | Se relaciona con |
 |-------|-------|----------|--------|------------------|
-| `plateaus` | `dt-arquitectura` | 11 | B37 | `waves` |
-| `transitions` | `dt-cambio` | 25 | B22 B37 | `plateaus`, `processes` |
-| `readiness_gates` | `dt-cambio` | 8 | B37 | `transitions` |
-| `slos` | `dt-cambio` | 15 | B36 B37 | `kpis`, `processes`, `transitions` |
-| `findings` | `dt-operacion` | 25 | B22 B37 B38 | `processes`, `technology_components` |
+| `plateaus` | `dt-domain-architect` | 11 | B37 | `waves` |
+| `transitions` | `dt-change-manager` | 25 | B22 B37 | `plateaus`, `processes` |
+| `readiness_gates` | `dt-change-manager` | 8 | B37 | `transitions` |
+| `slos` | `dt-change-manager` | 15 | B36 B37 | `kpis`, `processes`, `transitions` |
+| `findings` | `dt-service-operations-lead` | 25 | B22 B37 B38 | `processes`, `technology_components` |
 
 ---
 
@@ -117,7 +117,7 @@ El conocimiento técnico se ancla en la cadena del negocio. Un componente que no
 
 ### `system_info`
 
-**Capa**: CORE, **Dueño**: `dt-arquitectura`, **Reglas**: B13 B14 B18 B23 B29 B31
+**Capa**: CORE, **Dueño**: `dt-domain-architect`, **Reglas**: B13 B14 B18 B23 B29 B31
 
 Identidad del brain. Homologa 5 nombres en uso: system_info (MONEX scaffolds, AppMóvil), project_info (Unity, Coppel), program_info (Exodus), brain_meta (CAN, Liverpool, AXA, Santander), hemisphere_meta (Informix). Gana `system_in
 
@@ -146,7 +146,7 @@ Identidad del brain. Homologa 5 nombres en uso: system_info (MONEX scaffolds, Ap
 
 ### `cross_dependencies`
 
-**Capa**: CORE, **Dueño**: `dt-configuracion`, **Reglas**: B37
+**Capa**: CORE, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B37
 
 Contrato de federación. Es la ÚNICA tabla presente en prácticamente todo el estate y por tanto el contrato de interoperabilidad real. Homologa 3 firmas incompatibles: Informix : other_system + dependency_type + evidence AppMóvil :
 
@@ -167,7 +167,7 @@ Contrato de federación. Es la ÚNICA tabla presente en prácticamente todo el e
 
 ### `signals`
 
-**Capa**: CORE, **Dueño**: `dt-operacion`
+**Capa**: CORE, **Dueño**: `dt-service-operations-lead`
 
 Bus de señales entre brains. De AppMóvil: `emit_signals()` al cierre del pipeline. Es lo único que comparten los 33 brains de systems/ de BanCoppel, así que ya es canon de facto.
 
@@ -181,7 +181,7 @@ Bus de señales entre brains. De AppMóvil: `emit_signals()` al cierre del pipel
 
 ### `ontology_bindings`
 
-**Capa**: CORE, **Dueño**: `dt-arquitectura`, **Reglas**: B21
+**Capa**: CORE, **Dueño**: `dt-domain-architect`, **Reglas**: B21
 
 Composición de ontologías de la empresa (ADR-EB-007 · Regla B20).  Toda empresa tiene su PROPIA ontología, compuesta de los ETB de las industrias que le corresponden más sus extensiones propias. La multi-industria es la norma, no 
 
@@ -200,7 +200,7 @@ Composición de ontologías de la empresa (ADR-EB-007 · Regla B20).  Toda empre
 
 ### `capabilities`
 
-**Capa**: CORE, **Dueño**: `dt-arquitectura`, **Reglas**: B22 B37
+**Capa**: CORE, **Dueño**: `dt-domain-architect`, **Reglas**: B22 B37
 
 Ontología de negocio del brain — OBLIGATORIA en todo brain (Regla B21).  Todo brain, sea de sistema, proyecto o enterprise, ancla su ontología de negocio a un ETB o a otro modelo lógico del negocio. Sin ancla, un brain acumula hal
 
@@ -228,7 +228,7 @@ Ontología de negocio del brain — OBLIGATORIA en todo brain (Regla B21).  Todo
 
 ### `processes`
 
-**Capa**: CORE, **Dueño**: `dt-valor`, **Reglas**: B37
+**Capa**: CORE, **Dueño**: `dt-demand-manager`, **Reglas**: B37
 
 Ontología de PROCESOS de la industria. Distinta de `capabilities` y distinta de `journeys`: capabilities → qué sabe hacer el negocio (modelo de capacidades) processes    → cómo opera, según la ontología de SU industria (este model
 
@@ -253,7 +253,7 @@ Ontología de PROCESOS de la industria. Distinta de `capabilities` y distinta de
 
 ### `knowledge_gaps`
 
-**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B22
+**Capa**: CORE, **Dueño**: `dt-knowledge-manager`, **Reglas**: B22
 
 El brain como su propio backlog. De Informix (knowledge_gaps + vista knowledge_completeness), Exodus (open_questions) y Banamex (traceability_unresolved) — tres brains llegaron al mismo concepto por su cuenta, señal fuerte de cano
 
@@ -277,7 +277,7 @@ El brain como su propio backlog. De Informix (knowledge_gaps + vista knowledge_c
 
 ### `itom_layer`
 
-**Capa**: CORE, **Dueño**: `dt-arquitectura`, **Reglas**: B22 B37
+**Capa**: CORE, **Dueño**: `dt-domain-architect`, **Reglas**: B22 B37
 
 Ontología de IT Operating Model — cómo se entrega y opera el IT que soporta el negocio. Los 6 dominios canónicos y sus sub-capacidades los define el SME "SME/Framework/IT Operating Model" (ITOM v9.0 + marco conceptual 2024-2027). 
 
@@ -297,7 +297,7 @@ Ontología de IT Operating Model — cómo se entrega y opera el IT que soporta 
 
 ### `products`
 
-**Capa**: CORE, **Dueño**: `dt-valor`, **Reglas**: B37
+**Capa**: CORE, **Dueño**: `dt-demand-manager`, **Reglas**: B37
 
 Catálogo de productos del cliente (Regla B27 — orientación a producto y KPI). Los productos son el punto de partida de la cadena de valor: Producto → KPI → Proceso → Aplicación → Infraestructura → Dato El brain no puede responder 
 
@@ -321,7 +321,7 @@ Catálogo de productos del cliente (Regla B27 — orientación a producto y KPI)
 
 ### `kpis`
 
-**Capa**: CORE, **Dueño**: `dt-valor`, **Reglas**: B37
+**Capa**: CORE, **Dueño**: `dt-demand-manager`, **Reglas**: B37
 
 KPIs del negocio vinculados a productos y procesos (Regla B27). Change fija el target; Run mide el current. Patrón análogo a slos del puente pero a nivel de producto de negocio, no de transición de migración. Dominio B de TOGAF. L
 
@@ -346,7 +346,7 @@ KPIs del negocio vinculados a productos y procesos (Regla B27). Change fija el t
 
 ### `stakeholders`
 
-**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B37
+**Capa**: CORE, **Dueño**: `dt-knowledge-manager`, **Reglas**: B37
 
 Stakeholders: quién decide, quién opera y a quién le importa (dominio B de TOGAF). Destilado de 3 brains: Unity (capability_stakeholders, program_stakeholders), Coppel (stakeholders) y Santander CAN (team_roles). ADR-EB-009. Los p
 
@@ -372,7 +372,7 @@ Stakeholders: quién decide, quién opera y a quién le importa (dominio B de TO
 
 ### `data_entities`
 
-**Capa**: CORE, **Dueño**: `dt-informacion`, **Reglas**: B30 B37 B42
+**Capa**: CORE, **Dueño**: `dt-information-architect`, **Reglas**: B30 B37 B42
 
 Entidades de datos (dominio D de TOGAF). Eslabón Datos de la cadena B27. Destilado de Informix sp_table_refs (200,761 referencias de SP a tabla). ADR-EB-009. La operación de estos datos la describe ITOM (information-analytics); TO
 
@@ -396,7 +396,7 @@ Entidades de datos (dominio D de TOGAF). Eslabón Datos de la cadena B27. Destil
 
 ### `technology_components`
 
-**Capa**: CORE, **Dueño**: `dt-configuracion`, **Reglas**: B36 B37 B38
+**Capa**: CORE, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B36 B37 B38
 
 Componentes tecnológicos (dominio T de TOGAF). Eslabón Infraestructura de B27. Destilado de Coppel platforms y de components.current_platform. ADR-EB-009. No confundir con itom_layer: ITOM describe CÓMO opera TI; esta tabla, QUÉ o
 
@@ -423,7 +423,7 @@ Componentes tecnológicos (dominio T de TOGAF). Eslabón Infraestructura de B27.
 
 ### `suppliers`
 
-**Capa**: CORE, **Dueño**: `dt-proveedores`, **Reglas**: B22 B30 B37 B38 B39
+**Capa**: CORE, **Dueño**: `dt-supplier-relationship-manager`, **Reglas**: B22 B30 B37 B38 B39
 
 Proveedores y socios estratégicos (Regla B41 · ADR-EB-011). Dueño: DT-Proveedores. Cierra los procesos ITOM 4 (Commercial Services Management) y 5 (Strategic Partner Management), los únicos dos del catálogo de 38 que ningún otro D
 
@@ -451,7 +451,7 @@ Proveedores y socios estratégicos (Regla B41 · ADR-EB-011). Dueño: DT-Proveed
 
 ### `measurements`
 
-**Capa**: CORE, **Dueño**: `dt-operacion`, **Reglas**: B22 B37 B40
+**Capa**: CORE, **Dueño**: `dt-service-operations-lead`, **Reglas**: B22 B37 B40
 
 Serie de medición (Regla B43 · ADR-EB-012). Tercer fundamento del CORE: una regla vigente exige una capacidad que ninguna tabla sostenía. `kpis.current` y `slos.current` guardan el valor VIGENTE, que es lo que casi toda consulta n
 
@@ -477,7 +477,7 @@ Serie de medición (Regla B43 · ADR-EB-012). Tercer fundamento del CORE: una re
 
 ### `costs`
 
-**Capa**: CORE, **Dueño**: `dt-valor`, **Reglas**: B22 B27 B37
+**Capa**: CORE, **Dueño**: `dt-demand-manager`, **Reglas**: B22 B27 B37
 
 Costo de la tecnología del cliente (Reglas B41 y B43 · ADR-EB-012). FRONTERA: guarda lo que al CLIENTE le cuesta operar su tecnología. NO guarda precios, tarifas por hora ni cifras de propuesta: eso es territorio de Pricing & Comm
 
@@ -504,7 +504,7 @@ Costo de la tecnología del cliente (Reglas B41 y B43 · ADR-EB-012). FRONTERA: 
 
 ### `queries`
 
-**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B17 B27 B35 B37 B42 B43
+**Capa**: CORE, **Dueño**: `dt-knowledge-manager`, **Reglas**: B17 B27 B35 B37 B42 B43
 
 El objeto consulta (Regla B45 · ADR-EB-013). Sin identidad de consulta no hay dónde registrar el propósito que exige B42, no hay qué contar para medir el uso que pide B43, y una respuesta equivocada no se puede rastrear hasta el c
 
@@ -530,7 +530,7 @@ El objeto consulta (Regla B45 · ADR-EB-013). Sin identidad de consulta no hay d
 
 ### `knowledge_lineage`
 
-**Capa**: CORE, **Dueño**: `dt-conocimiento`, **Reglas**: B29 B40 B42
+**Capa**: CORE, **Dueño**: `dt-knowledge-manager`, **Reglas**: B29 B40 B42
 
 Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_log de Informix (22,425 filas de procedencia campo por campo) a todo el brain. Cada afirmación del brain tiene aquí su nivel, su fuente y quién la validó
 
@@ -558,7 +558,7 @@ Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_lo
 
 ### `components`
 
-**Capa**: SYSTEM, **Dueño**: `dt-configuracion`, **Reglas**: B24 B37
+**Capa**: SYSTEM, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B24 B37
 
 Homologa: sps (Informix) · services (AppMóvil) · objects (Gentera) · programs/inventario (Banamex) · platforms (Coppel).
 
@@ -591,7 +591,7 @@ Homologa: sps (Informix) · services (AppMóvil) · objects (Gentera) · program
 
 ### `component_calls`
 
-**Capa**: SYSTEM, **Dueño**: `dt-configuracion`, **Reglas**: B37
+**Capa**: SYSTEM, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B37
 
 Grafo de llamadas. De Gentera (object_calls) e Informix (sp_calls). Habilita flow_diagram(), callers_of(), callees_of(), impact_of().
 
@@ -604,7 +604,7 @@ Grafo de llamadas. De Gentera (object_calls) e Informix (sp_calls). Habilita flo
 
 ### `rules`
 
-**Capa**: SYSTEM, **Dueño**: `dt-configuracion`, **Reglas**: B22 B37
+**Capa**: SYSTEM, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B22 B37
 
 Reglas de negocio. La de Gentera es la mejor del estate: trazabilidad a nivel de LÍNEA. Se le suma `clase` (Informix/Banamex) y `enrichment_method` (ADR-EB-004).
 
@@ -633,7 +633,7 @@ Reglas de negocio. La de Gentera es la mejor del estate: trazabilidad a nivel de
 
 ### `rule_enrichment_log`
 
-**Capa**: SYSTEM, **Dueño**: `dt-conocimiento`
+**Capa**: SYSTEM, **Dueño**: `dt-knowledge-manager`
 
 Bitácora de enriquecimiento. De Informix (rule_enrichment_log, 22,425 filas). Provenance campo-por-campo: quién cambió qué, cuándo y con qué método. Es lo que hace auditable la síntesis LLM.
 
@@ -654,7 +654,7 @@ Bitácora de enriquecimiento. De Informix (rule_enrichment_log, 22,425 filas). P
 
 ### `vocabulary`
 
-**Capa**: SYSTEM, **Dueño**: `dt-informacion`, **Reglas**: B22 B37
+**Capa**: SYSTEM, **Dueño**: `dt-information-architect`, **Reglas**: B22 B37
 
 Vocabulario. Homologa: terms (Informix, Gentera) · vocab (MONEX, AXA, Santander) · vocab_full/vocab_terms (Banamex) · vocabulary (Unity, Coppel). Gana `vocabulary`: es el nombre que el canon ya declaraba y el que usan los dos brai
 
@@ -677,7 +677,7 @@ Vocabulario. Homologa: terms (Informix, Gentera) · vocab (MONEX, AXA, Santander
 
 ### `journeys`
 
-**Capa**: SYSTEM, **Dueño**: `dt-valor`, **Reglas**: B37
+**Capa**: SYSTEM, **Dueño**: `dt-demand-manager`, **Reglas**: B37
 
 Journeys — trazas REALES por el código, derivadas del call graph. No confundir con `processes`: el proceso es el modelo de la industria (cómo debería operar); el journey es lo que el sistema hace de hecho (entry point → cadena de 
 
@@ -701,7 +701,7 @@ Journeys — trazas REALES por el código, derivadas del call graph. No confundi
 
 ### `component_capabilities`
 
-**Capa**: SYSTEM, **Dueño**: `dt-configuracion`, **Reglas**: B37
+**Capa**: SYSTEM, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B37
 
 SYSTEM — brains de sistema productivo (hemisphere='run') Referencias: Informix (90MB), Banamex (122MB), Gentera, Coppel-ecommerce
 
@@ -718,7 +718,7 @@ SYSTEM — brains de sistema productivo (hemisphere='run') Referencias: Informix
 
 ### `component_processes`
 
-**Capa**: SYSTEM, **Dueño**: `dt-configuracion`, **Reglas**: B37
+**Capa**: SYSTEM, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B37
 
 Regla B22 — un componente sirve típicamente a varios procesos, así que su trazabilidad es N:M en vez de columna. Un componente sin ningún proceso es código cuyo propósito de negocio nadie estableció.
 
@@ -735,7 +735,7 @@ Regla B22 — un componente sirve típicamente a varios procesos, así que su tr
 
 ### `component_data`
 
-**Capa**: SYSTEM, **Dueño**: `dt-informacion`, **Reglas**: B37
+**Capa**: SYSTEM, **Dueño**: `dt-information-architect`, **Reglas**: B37
 
 Matriz CRUD aplicación-dato de TOGAF. Homologa Informix sp_table_refs. Un componente que escribe una entidad personal o sensible hereda su regulación.
 
@@ -754,7 +754,7 @@ Matriz CRUD aplicación-dato de TOGAF. Homologa Informix sp_table_refs. Un compo
 
 ### `regulatory_obligations`
 
-**Capa**: SYSTEM, **Dueño**: `dt-riesgo`, **Reglas**: B22 B37
+**Capa**: SYSTEM, **Dueño**: `dt-it-risk-manager`, **Reglas**: B22 B37
 
 Obligaciones regulatorias como tabla first-class, no como anotación. Convergencia espontánea Informix + CAN + Santander → canon.
 
@@ -777,7 +777,7 @@ Obligaciones regulatorias como tabla first-class, no como anotación. Convergenc
 
 ### `external_systems`
 
-**Capa**: SYSTEM, **Dueño**: `dt-configuracion`, **Reglas**: B37
+**Capa**: SYSTEM, **Dueño**: `dt-asset-configuration-manager`, **Reglas**: B37
 
 Sistemas externos observados (endpoints, tasas de error, timeouts).
 
@@ -796,7 +796,7 @@ Sistemas externos observados (endpoints, tasas de error, timeouts).
 
 ### `applications`
 
-**Capa**: PROJECT, **Dueño**: `dt-entrega`, **Reglas**: B22 B37
+**Capa**: PROJECT, **Dueño**: `dt-programme-manager`, **Reglas**: B22 B37
 
 PROJECT — brains de proyecto de transformación (hemisphere='change') Referencias: Exodus, Unity, CAN (BanCoppel + Santander), payments-modernization  Los brains de proyecto NO tienen components/rules: su ontología es applications/
 
@@ -820,7 +820,7 @@ PROJECT — brains de proyecto de transformación (hemisphere='change') Referenc
 
 ### `waves`
 
-**Capa**: PROJECT, **Dueño**: `dt-entrega`, **Reglas**: B37
+**Capa**: PROJECT, **Dueño**: `dt-programme-manager`, **Reglas**: B37
 
 PROJECT — brains de proyecto de transformación (hemisphere='change') Referencias: Exodus, Unity, CAN (BanCoppel + Santander), payments-modernization  Los brains de proyecto NO tienen components/rules: su ontología es applications/
 
@@ -838,7 +838,7 @@ PROJECT — brains de proyecto de transformación (hemisphere='change') Referenc
 
 ### `risks`
 
-**Capa**: PROJECT, **Dueño**: `dt-riesgo`, **Reglas**: B22 B24 B37
+**Capa**: PROJECT, **Dueño**: `dt-it-risk-manager`, **Reglas**: B22 B24 B37
 
 PROJECT — brains de proyecto de transformación (hemisphere='change') Referencias: Exodus, Unity, CAN (BanCoppel + Santander), payments-modernization  Los brains de proyecto NO tienen components/rules: su ontología es applications/
 
@@ -862,7 +862,7 @@ PROJECT — brains de proyecto de transformación (hemisphere='change') Referenc
 
 ### `decisions`
 
-**Capa**: PROJECT, **Dueño**: `dt-arquitectura`, **Reglas**: B37 B39 B40 B43
+**Capa**: PROJECT, **Dueño**: `dt-domain-architect`, **Reglas**: B37 B39 B40 B43
 
 ADR dentro del brain. Convergencia Coppel + Unity + Santander CAN.
 
@@ -893,7 +893,7 @@ ADR dentro del brain. Convergencia Coppel + Unity + Santander CAN.
 
 ### `user_stories`
 
-**Capa**: PROJECT, **Dueño**: `dt-entrega`, **Reglas**: B22 B24 B37
+**Capa**: PROJECT, **Dueño**: `dt-programme-manager`, **Reglas**: B22 B24 B37
 
 PROJECT — brains de proyecto de transformación (hemisphere='change') Referencias: Exodus, Unity, CAN (BanCoppel + Santander), payments-modernization  Los brains de proyecto NO tienen components/rules: su ontología es applications/
 
@@ -915,7 +915,7 @@ PROJECT — brains de proyecto de transformación (hemisphere='change') Referenc
 
 ### `federated_brains`
 
-**Capa**: ENTERPRISE, **Dueño**: `dt-arquitectura`
+**Capa**: ENTERPRISE, **Dueño**: `dt-domain-architect`
 
 Registro de brains federados. De MONEX (la mejor implementación del patrón) + Liverpool (attach real) + AXA (brain_attached como control de salud).
 
@@ -936,7 +936,7 @@ Registro de brains federados. De MONEX (la mejor implementación del patrón) + 
 
 ### `documents`
 
-**Capa**: ENTERPRISE, **Dueño**: `dt-conocimiento`
+**Capa**: ENTERPRISE, **Dueño**: `dt-knowledge-manager`
 
 Corpus documental del cliente + red de seguridad de cero pérdida. De Banamex (kb_documents + kb_fts, 283 docs): el texto crudo completo indexado garantiza que nada del corpus se pierde en la destilación.
 
@@ -950,7 +950,7 @@ Corpus documental del cliente + red de seguridad de cero pérdida. De Banamex (k
 
 ### `plateaus`
 
-**Capa**: PUENTE, **Dueño**: `dt-arquitectura`, **Reglas**: B37
+**Capa**: PUENTE, **Dueño**: `dt-domain-architect`, **Reglas**: B37
 
 Estados de la arquitectura (ArchiMate: plateau). Mapean a togaf_state: as_is = baseline · transition = transitional · to_be = target. De Unity/bank-brain (releases R2, R4) y Exodus (waves W1..Wn).
 
@@ -972,7 +972,7 @@ Estados de la arquitectura (ArchiMate: plateau). Mapean a togaf_state: as_is = b
 
 ### `transitions`
 
-**Capa**: PUENTE, **Dueño**: `dt-cambio`, **Reglas**: B22 B37
+**Capa**: PUENTE, **Dueño**: `dt-change-manager`, **Reglas**: B22 B37
 
 Lado Change del puente: qué se mueve, de dónde, a dónde y cómo. `to_system` / `from_system` son slugs de brains de Run: es la llave con que el enterprise brain encuentra al brain que hereda la transición.
 
@@ -1008,7 +1008,7 @@ Lado Change del puente: qué se mueve, de dónde, a dónde y cómo. `to_system` 
 
 ### `readiness_gates`
 
-**Capa**: PUENTE, **Dueño**: `dt-cambio`, **Reglas**: B37
+**Capa**: PUENTE, **Dueño**: `dt-change-manager`, **Reglas**: B37
 
 Gates de readiness operativa: lo que Run exige antes de heredar. De Unity capability_prr, normalizado de columnas a filas para que cada gate tenga evidencia, aprobador y fecha propios.
 
@@ -1027,7 +1027,7 @@ Gates de readiness operativa: lo que Run exige antes de heredar. De Unity capabi
 
 ### `slos`
 
-**Capa**: PUENTE, **Dueño**: `dt-cambio`, **Reglas**: B36 B37
+**Capa**: PUENTE, **Dueño**: `dt-change-manager`, **Reglas**: B36 B37
 
 El objeto que vive en ambos hemisferios: Change fija `target` al diseñar, Run mide `current` al operar. Un SLO sin current es promesa; sin target es medición sin contrato. De Unity capability_slos y Coppel slos.
 
@@ -1053,7 +1053,7 @@ El objeto que vive en ambos hemisferios: Change fija `target` al diseñar, Run m
 
 ### `findings`
 
-**Capa**: PUENTE, **Dueño**: `dt-operacion`, **Reglas**: B22 B37 B38
+**Capa**: PUENTE, **Dueño**: `dt-service-operations-lead`, **Reglas**: B22 B37 B38
 
 Lado Run del puente: lo que la operación aprende y Change debe saber. Homologa tribal_knowledge (Informix) · hallazgos (Banamex) · audit_findings (Unity) · pain_points (AXA) · ticket_recurrence (Liverpool). Un hallazgo que toca al
 

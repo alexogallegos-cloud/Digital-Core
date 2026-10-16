@@ -109,7 +109,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 
 **Objetivo**: garantizar la integridad del brain antes de activarlo. Un brain con datos incorrectos produce peores decisiones que no tener brain.
 
-**DT-Validador — 9 dimensiones de validación**:
+**Brain Auditor — 9 dimensiones de validación**:
 
 | Dimensión | Criterio de PASS |
 |-----------|-----------------|
@@ -120,7 +120,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 | 5. Clase coverage | 100% de reglas con `clase` asignada |
 | 6. Cross-references | Seeds emitidos · bank-brain actualizado si aplica |
 
-**Gate de salida**: DT-Validador PASS — 0 errores, 0 advertencias bloqueantes
+**Gate de salida**: Brain Auditor PASS — 0 errores, 0 advertencias bloqueantes
 
 **SMEs involucrados**: Specialist RE (validación de muestras) · QA Equivalence (si el brain alimenta golden master tests de modernización)
 
@@ -176,7 +176,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 | `etb_version_alignment` | ¿Todos los brains usan el mismo ETB? | Cualquier desalineación |
 | `dt_query_count` | Cuántas veces los DTs consultan el brain (proxy de utilidad) | < 1 consulta/semana = brain subutilizado |
 
-**Cadencia de health check**: DT-Validador Capa 1 (automático en cada rebuild) + revisión semanal de `brain_freshness_days`.
+**Cadencia de health check**: Brain Auditor Capa 1 (automático en cada rebuild) + revisión semanal de `brain_freshness_days`.
 
 ---
 
@@ -188,7 +188,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 
 | Trigger | Acción |
 |---------|--------|
-| Nueva ola de código fuente del cliente | Cargar en source/ → rebuild pipeline → DT-Validador |
+| Nueva ola de código fuente del cliente | Cargar en source/ → rebuild pipeline → Brain Auditor |
 | Nuevo dominio descubierto (Regla B8 + B9) | Abrir estructura canónica → sembrar brain → seeds |
 | ETB version bump | Realinear todos los brains afectados (Regla B3) |
 | Vocabulario empresarial v{N+1} publicado | Volver a cruzar términos del sistema (Regla V1) |
@@ -213,7 +213,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 | `build-vocab-inventory.py` | Inventario de vocabulario del sistema | BUILD |
 | `bootstrap-from-seeds.py` | Inicialización de estructuras desde seeds (bank-brain) | DISCOVER |
 | `initialize-seed-brains.py` | Inicialización de brain.db mínimo desde seeds (Regla B12) | DISCOVER |
-| DT-Validador | Health check del brain — 9 dimensiones | TEST/OBSERVE |
+| Brain Auditor | Health check del brain — 9 dimensiones | TEST/OBSERVE |
 
 ---
 

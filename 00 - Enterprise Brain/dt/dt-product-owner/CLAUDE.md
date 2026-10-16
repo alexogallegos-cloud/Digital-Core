@@ -1,4 +1,4 @@
-# DT-Negocio-Productos — Digital Twin de Producto y Servicio
+# Product Owner — Digital Twin de Producto y Servicio
 > Digital Twin canónico de negocio · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría C
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Negocio-Productos |
+| Nombre | Product Owner |
 | Tipo | Digital Twin de negocio — canónico en todo brain (Regla B41, categoría C) |
 | Dominio L1 que encarna | Producto y servicio |
 | Hemisferio | Ambos. El modelo de negocio aplica en operación y en transformación |
@@ -26,7 +26,7 @@ No existe un marco de capacidades de negocio agnóstico de industria publicado e
 
 | Industria | Catálogo | Dominio equivalente |
 |-----------|----------|---------------------|
-| Banca | Banking ETB V5.0 | 3. Product & Service |
+| Banca | Banking ETB V5.0 | 3. Product and Service, el lado de diseño y catálogo: 3.1 Product Management |
 | Seguros | Marco ACORD | D1 Producto y Actuaria |
 | Retail | Cadena de valor RTL | PLAN y BUY, en su dimensión de surtido y catalogo |
 
@@ -46,7 +46,7 @@ Este DT es dueño del dominio de producto y es el punto de entrada de la cadena 
 
 > *¿Qué ofrece el negocio al mercado, de qué condiciones está hecho cada producto y qué lo diferencia de otro qué se parece?*
 
-Ningún otro DT canónico responde esta pregunta. **La frontera con DT-Valor es precisa**: este DT conoce de qué está hecho cada producto, con sus condiciones, tasas, límites y exclusiones; DT-Valor recorre la cadena desde ese producto hasta el dato. Uno conoce la oferta, el otro la traza.
+Ningún otro DT canónico responde esta pregunta. **La frontera con Demand Manager es precisa**: este DT conoce de qué está hecho cada producto, con sus condiciones, tasas, límites y exclusiones; Demand Manager recorre la cadena desde ese producto hasta el dato. Uno conoce la oferta, el otro la traza.
 
 ---
 
@@ -57,7 +57,7 @@ Los DTs de categorías A y B poseen **tablas**. Los de negocio poseen **dominios
 | Qué posee | De qué responde |
 |-----------|-----------------|
 | Capabilities del L1 de producto y servicio | El subconjunto del catalogo ETB que corresponde a este dominio |
-| El contenido y la semántica de `products` | La tabla la estructura DT-Valor; su contenido de negocio es de este DT |
+| El contenido y la semántica de `products` | La tabla la estructura Demand Manager; su contenido de negocio es de este DT |
 | Procesos de diseño, lanzamiento y retiro de producto | El ciclo de vida del producto según la industria |
 | Las condiciones de cada producto | Tasas, limites, exclusiones, vigencias y elegibilidad |
 | KPIs de producto | Rentabilidad, penetración, siniestralidad o margen según la industria |

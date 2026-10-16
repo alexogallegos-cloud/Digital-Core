@@ -24,7 +24,7 @@ ASSET = Path(sys.argv[1]).resolve()
 tmp = Path(tempfile.mkdtemp())
 shutil.copytree(ASSET, tmp / "a", ignore=shutil.ignore_patterns("__pycache__", "*.db"))
 B = tmp / "a"
-V = B / "dt" / "dt-validador" / "validate-canon.py"
+V = B / "dt" / "dt-brain-auditor" / "validate-canon.py"
 
 RETROCESO = chr(8)  # 0x08; escribirlo como escape lo rompe al pasar por shells
 

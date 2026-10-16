@@ -39,7 +39,7 @@ Al contrastar el schema contra el metamodelo de TOGAF aparecieron tres problemas
 
 **2. `component_data` en la extensión SYSTEM**, que pasa de 9 a 10 tablas (hoy son **11**, con `component_processes`). Es la matriz CRUD aplicación-dato de TOGAF y homologa `sp_table_refs`.
 
-**3. `slos.kpi_id`.** Cada SLO de TI declara el KPI de negocio que habilita. El DT-Validador D8 avisa, sin bloquear, cuando falta.
+**3. `slos.kpi_id`.** Cada SLO de TI declara el KPI de negocio que habilita. El Brain Auditor D8 avisa, sin bloquear, cuando falta.
 
 **4. `itom_layer` conserva su rol.** Sigue siendo el IT Operating Model, es decir, cómo opera TI. `technology_components.itom_layer_id` la conecta con lo que opera.
 
@@ -55,7 +55,7 @@ Se admiten como excepción explícita por tres razones:
 
 ## Consecuencias
 
-- Los 16 brains del estate reprueban D1 por tres tablas adicionales del CORE. Es deuda real y medible; se registra en un nuevo baseline del DT-Validador.
+- Los 16 brains del estate reprueban D1 por tres tablas adicionales del CORE. Es deuda real y medible; se registra en un nuevo baseline del Brain Auditor.
 - Ruta de homologación (Regla B16): Informix expone `data_entities` y `component_data` como vistas sobre `sp_table_refs`; Coppel expone `technology_components` como vista sobre `platforms`; Unity, Coppel y Santander CAN exponen `stakeholders` como vistas sobre sus tablas actuales.
 - Los portales compartibles no muestran nombres ni cargos de personas del cliente. Usan `stakeholder_type` y `role` como etiquetas genéricas.
 - `value_chain()` ahora devuelve también `data` y `technology`.

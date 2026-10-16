@@ -1,4 +1,4 @@
-# DT-Operación — Digital Twin de Operación del Servicio
+# Service Operations Lead — Digital Twin de Operación del Servicio
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Operación |
+| Nombre | Service Operations Lead |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Lead-SM&O, Incident Manager, Problem Manager, Service Level Analyst, Capacity and Availability Manager, Service Catalogue Manager |
 | Hemisferio predominante | Run |
@@ -60,10 +60,10 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 |-------|------|-------------------------|
 | `findings` | BRIDGE | Lo que la operación aprendio, con su severidad y su ruteo hacia quien debe saberlo |
 | `signals` | CORE | El bus de mensajes entre brains |
-| `slos` | BRIDGE | El campo `current`. El `target` lo fija DT-Cambio con el mismo identificador |
-| El catalogo de servicios operativo | SYSTEM | Lo que se puede solicitar hoy, emparejado con el portafolio de DT-Valor |
+| `slos` | BRIDGE | El campo `current`. El `target` lo fija Change Manager con el mismo identificador |
+| El catalogo de servicios operativo | SYSTEM | Lo que se puede solicitar hoy, emparejado con el portafolio de Demand Manager |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

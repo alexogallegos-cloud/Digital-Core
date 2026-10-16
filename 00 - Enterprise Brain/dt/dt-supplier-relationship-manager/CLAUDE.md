@@ -1,4 +1,4 @@
-# DT-Proveedores — Digital Twin de Proveedores y Alianzas
+# Supplier Relationship Manager — Digital Twin de Proveedores y Alianzas
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Proveedores |
+| Nombre | Supplier Relationship Manager |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | IT Sourcing Manager, Contracts Manager, IT Supplier Relationship Manager, Strategic Partnership Manager |
 | Hemisferio predominante | Ambos |
@@ -52,9 +52,9 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | Tabla | Capa | De qué responde este DT |
 |-------|------|-------------------------|
 | `suppliers` | CORE | Quien provee que componente o servicio, con su contrato, su criticidad y su SLO comprometido |
-| Lectura de `technology_components.vendor` | CORE | Qué plataforma proviene de qué proveedor. **La tabla es de DT-Configuración**; este DT la lee para enlazar con `suppliers`, y no la modifica |
+| Lectura de `technology_components.vendor` | CORE | Qué plataforma proviene de qué proveedor. **La tabla es de Asset & Configuration Manager**; este DT la lee para enlazar con `suppliers`, y no la modifica |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

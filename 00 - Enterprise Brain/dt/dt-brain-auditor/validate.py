@@ -1,5 +1,5 @@
 """
-validate.py — DT-Validador · Health Check del Enterprise Brain
+validate.py — Brain Auditor · Health Check del Enterprise Brain
 Versión: 1.3.0 · Enterprise Brain · Digital Core · Accenture México
 
 Ejecuta las 9 dimensiones de validación sobre un brain.db y emite un reporte.
@@ -36,7 +36,7 @@ CORE_TABLES = [
     "products", "kpis",                  # Regla B27 — orientación a producto y KPI
     # ADR-EB-009 — estructura TOGAF: stakeholders (B), datos (D) y tecnología (T)
     "stakeholders", "data_entities", "technology_components",
-    "suppliers",                         # Regla B41 — de dt-proveedores (ADR-EB-011)
+    "suppliers",                         # Regla B41 — de dt-supplier-relationship-manager (ADR-EB-011)
     "measurements", "costs",             # Regla B43 — serie y costo (ADR-EB-012)
     "itom_layer", "cross_dependencies", "signals", "knowledge_gaps",
     "knowledge_lineage",                 # Regla B37 — calidad y linaje (ADR-EB-010)
@@ -1274,7 +1274,7 @@ def render(v: Validator, summary: bool = False) -> str:
 
 
 def main():
-    p = argparse.ArgumentParser(description="DT-Validador — health check del Enterprise Brain")
+    p = argparse.ArgumentParser(description="Brain Auditor — health check del Enterprise Brain")
     p.add_argument("--db", required=True, help="ruta a brain.db")
     p.add_argument("--system", help="slug del sistema (default: system_info.slug)")
     p.add_argument("--brain-type", choices=sorted(VALID_BRAIN_TYPES),

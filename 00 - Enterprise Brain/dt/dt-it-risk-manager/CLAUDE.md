@@ -1,4 +1,4 @@
-# DT-Riesgo — Digital Twin de Riesgo, Cumplimiento y Continuidad
+# IT Risk Manager — Digital Twin de Riesgo, Cumplimiento y Continuidad
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Riesgo |
+| Nombre | IT Risk Manager |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | IT Risk Manager, CISO, Technical Security Manager, Business Continuity Manager |
 | Hemisferio predominante | Ambos |
@@ -57,7 +57,7 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `risks` | PROJECT | El registro de riesgos con su severidad, su dueño y su mitigación |
 | La columna `reg` de `rules` | SYSTEM | Que regla de negocio responde a que obligación regulatoria |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

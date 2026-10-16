@@ -1,4 +1,4 @@
-# DT-HITL — Digital Twin del Humano en el Loop
+# Human Reviewer — Digital Twin del Humano en el Loop
 > Digital Twin canónico de ingeniería · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría B
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-HITL |
+| Nombre | Human Reviewer |
 | Tipo | Digital Twin de ingeniería del brain — canónico en todo brain (Regla B41, categoría B) |
 | Rol(es) que encarna | Data Steward, orquestador de validación y aprobación |
 | Hemisferio | Ambos. El loop humano aplica igual en operación y en transformación |
@@ -64,11 +64,11 @@ Ningún otro DT canónico responde esta pregunta. Si dos DTs la responden, hay s
 | Artefacto | Capa | De qué responde este DT |
 |-----------|------|-------------------------|
 | La cola de validación | Transversal | `hitl_queue()` priorizada por la cadena de valor: primero lo que toca productos, KPIs y decisiones de gate |
-| `knowledge_lineage.validated_by` y `validated_at` | CORE | Quien validó, cuando y con que evidencia. DT-Conocimiento define el modelo; este DT lo llena |
+| `knowledge_lineage.validated_by` y `validated_at` | CORE | Quien validó, cuando y con que evidencia. Knowledge Manager define el modelo; este DT lo llena |
 | El registro de aprobaciones de acción | Transversal | Que acción, con que nivel de autonomía, sobre que conocimiento, quien aprobó y cual fue el resultado (Regla B39) |
 | El plazo de cada pendiente | Transversal | Desde cuando espera cada item y a quien se le escalo |
 
-**Propiedad única** (Regla B41): este DT es dueño del artefacto, no del conocimiento que produce. El contenido lo pone el corpus, su nivel de certeza lo responde DT-Conocimiento y su validación la opera DT-HITL.
+**Propiedad única** (Regla B41): este DT es dueño del artefacto, no del conocimiento que produce. El contenido lo pone el corpus, su nivel de certeza lo responde Knowledge Manager y su validación la opera Human Reviewer.
 
 ---
 

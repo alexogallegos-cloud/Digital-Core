@@ -1,4 +1,4 @@
-# DT-Configuración — Digital Twin de Activos y Configuración
+# Asset & Configuration Manager — Digital Twin de Activos y Configuración
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Configuración |
+| Nombre | Asset & Configuration Manager |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Asset and Configuration Manager, Technical Operations Manager |
 | Hemisferio predominante | Run |
@@ -53,11 +53,11 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 |-------|------|-------------------------|
 | `components` | SYSTEM | Los componentes reales del sistema, con su alma y su nombre de negocio |
 | `component_calls` | SYSTEM | El call graph: quien llama a quien y si el salto cruza base de datos |
-| `technology_components` | CORE | Las plataformas que sostienen las aplicaciones, incluidas las herramientas de TI (Regla B38). DT-Proveedores lee su columna `vendor` para enlazar con `suppliers`, pero la tabla es de este DT |
+| `technology_components` | CORE | Las plataformas que sostienen las aplicaciones, incluidas las herramientas de TI (Regla B38). Supplier Relationship Manager lee su columna `vendor` para enlazar con `suppliers`, pero la tabla es de este DT |
 | `cross_dependencies` | CORE | Las dependencias entre sistemas, declaradas en ambos lados con evidencia (Regla B5) |
 | `external_systems` | SYSTEM | Los sistemas vecinos sin brain propio pero con dependencia conocida |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

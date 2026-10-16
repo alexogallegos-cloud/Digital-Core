@@ -17,7 +17,7 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 |-------|-------|----------------------|----------------------|
 | 1 | **B25** | El brain es el espejo de la empresa, no su idealización | Fuente de verdad declarada en `system_info` |
 | 2 | **B29** | Los DTs construyen el brain en enjambre — como abejas | `build_agent` en `system_info` |
-| 3 | **B41** | 21 DTs canónicos en tres categorías: 10 de rol de TI, 6 de negocio y 5 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
+| 3 | **B41** | 23 DTs canónicos en tres categorías: 10 de rol de TI, 8 de negocio y 5 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
 | 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | `queries.purpose` NOT NULL · `knowledge_lineage.exposed_for` · `brain.py abrir_consulta()` (ADR-EB-013) |
 | 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |
@@ -25,10 +25,10 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 8 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
 | 9 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
 | 10 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
-| 11 | **B15** | CORE (18 tablas) + exactamente una extensión por `brain_type` | D1 del DT-Validador |
+| 11 | **B15** | CORE (18 tablas) + exactamente una extensión por `brain_type` | D1 del Brain Auditor |
 | 12 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
 | 13 | **B36** | Frameworks complementarios: ETB da el north star, ITOM habilita, TOGAF gobierna | Trazas `itom_layer.process_id` y SLO a KPI |
-| 14 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del DT-Validador |
+| 14 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del Brain Auditor |
 | 15 | **B4** | Federación via SQLite ATTACH — sin servidor entre brains | `federated_brains` + ATTACH |
 
 ### Nivel 2 — Honestidad y Calidad del Conocimiento
@@ -36,11 +36,11 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 16 | **B37** | Calidad y linaje: gold, silver, bronze; los hechos irrefutables entran directo a gold | `knowledge_lineage` y D9 del DT-Validador |
+| 16 | **B37** | Calidad y linaje: gold, silver, bronze; los hechos irrefutables entran directo a gold | `knowledge_lineage` y D9 del Brain Auditor |
 | 17 | **B43** | El brain se mide a sí mismo en cinco ejes, incluido el acierto de su consejo | `decisions` con evidencia y resultado · `brain.py autoevaluacion()` (ADR-EB-013) |
 | 18 | **B40** | Bi-temporal: el tiempo del negocio (`valid_from`/`valid_to`) no es el tiempo del brain (`recorded_at`) | `brain.py snapshot(date)` y `latencia_bitemporal()` · SLO-EB-05 |
 | 19 | **B17** | Ningún hueco se rellena con datos inventados — va a `knowledge_gaps` | `knowledge_gaps` con `resolution_action` |
-| 20 | **B30** | El `business_name` es el contrato de calidad de cada pieza de conocimiento | D3 del DT-Validador |
+| 20 | **B30** | El `business_name` es el contrato de calidad de cada pieza de conocimiento | D3 del Brain Auditor |
 | 21 | **B31** | El brain declara su corpus fuente (`source_of_truth`) | D1 advertencia si vacío |
 | 22 | **B32** | Transición sin `run_owner` no puede cerrar (cutover/done) | D8 bloqueante |
 | 23 | **B5** | Cross-deps declaradas en ambos lados con evidencia cuantificada | `cross_dependencies` bilateral |
@@ -52,7 +52,7 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 |-------|-------|----------------------|----------------------|
 | 24 | **B27** | Cadena de valor: Productos → KPIs → Procesos → Apps → Infra → Datos | `products` + `kpis` en CORE |
 | 25 | **B28** | TOGAF es el gobierno de la arquitectura: da estructura (BDAT), método (ADM) y gobierno | Cada tabla mapeada a un dominio BDAT |
-| 26 | **B22** | Todo conocimiento ata a un proceso de negocio (`process_id`) | D7 del DT-Validador |
+| 26 | **B22** | Todo conocimiento ata a un proceso de negocio (`process_id`) | D7 del Brain Auditor |
 | 27 | **B19** | La ontología de la industria la suministra el Industry SME, no el brain | `system_info.industry_sme` |
 | 28 | **B20** | Cada empresa compone su propia ontología (multi-industria es la norma) | `ontology_bindings` multi-fila |
 | 29 | **B23** | El ITOM lo ancla `itom_layer`; el SME lo prescribe — el brain no inventa | `itom_layer` + `itom_sme` |
@@ -226,7 +226,7 @@ Cada industria trae **cuatro ontologías distintas e incompatibles entre sí**:
 
 Consecuencias operativas:
 
-- **La dimensión D7 del DT-Validador cuenta conocimiento huérfano** por tabla. Es hallazgo bloqueante: un brain no se activa con conocimiento que no ata a nada.
+- **La dimensión D7 del Brain Auditor cuenta conocimiento huérfano** por tabla. Es hallazgo bloqueante: un brain no se activa con conocimiento que no ata a nada.
 - **Un hueco de trazabilidad no se rellena a la fuerza.** Si no se sabe a qué proceso pertenece una regla, va a `knowledge_gaps` con la consulta al SME correspondiente (Regla B17). Inventar el enlace es peor que declararlo faltante.
 - **El enlace lleva confianza.** En `component_processes`, `confidence` distingue `confirmed` (evidencia directa: journey, job de CTM, documento) de `inferred` y `suspected`. Un enlace inferido es utilizable pero auditable.
 
@@ -250,7 +250,7 @@ Tres consecuencias:
 
 - **La regulación viaja con la capability, no con la empresa.** Las 50 capabilities FSV de Liverpool cargan CONDUSEF y Banxico dentro de una empresa de retail, porque su operación de tarjeta está regulada como financiera. Por eso `regulation` es columna de `capabilities` y `regulators` es JSON array por ontología en `ontology_bindings`.
 - **El nombre del brain lo fija la industria ancla** (`system_info.industry`), no la composición. Liverpool sigue siendo `retail-brain` aunque componga dos ontologías.
-- **Declaración y carga deben coincidir.** Toda ontología presente en `capabilities` debe estar declarada en `ontology_bindings` y viceversa. El DT-Validador contrasta ambas.
+- **Declaración y carga deben coincidir.** Toda ontología presente en `capabilities` debe estar declarada en `ontology_bindings` y viceversa. El Brain Auditor contrasta ambas.
 
 Consecuencias prácticas:
 
@@ -512,7 +512,7 @@ Reglas de uso:
 - Toda tabla de conocimiento lleva `tier` (por defecto `bronze`: nada se presume cierto). `knowledge_lineage` (CORE) guarda por cada afirmación su nivel, la base del nivel (`origin`, `validated`, `sourced`, `ingested`, `demoted`, `rejected`), el tipo y la ubicación de la fuente, su versión, quién la afirmó, quién la validó y qué la reemplazó. Generaliza `rule_enrichment_log` de Informix.
 - `build-brain.py` impide en construcción que una fuente no irrefutable entre directo a gold, y que un gold por validación no diga quién validó.
 - `brain.py` acepta `min_tier` en `value_chain()`, devuelve un resumen de niveles con cada respuesta (B35), expone `lineage()` y prioriza `hitl_queue()` por la cadena de valor: primero se valida lo que toca productos, KPIs y decisiones de gate.
-- La dimensión D9 del DT-Validador mide la distribución de niveles y bloquea gold sin fuente, saltos indebidos a gold, gold por validación sin validador y decisiones de gate sobre silver.
+- La dimensión D9 del Brain Auditor mide la distribución de niveles y bloquea gold sin fuente, saltos indebidos a gold, gold por validación sin validador y decisiones de gate sobre silver.
 - Homologación por vista (B16): la columna `confidence` que ya existe en el estate se mapea a un nivel inicial (`confirmed` con fuente primaria a gold; `inferred` a silver; `suspected` a bronze) sin tocar los pipelines.
 
 **B38 — El brain es una capa agéntica que escala la IA en Run y Change, sin sustituir a las herramientas dedicadas**: el brain no es un repositorio que se consulta de vez en cuando. Forma parte de la operación y de la transformación: es la capa sobre la que corren los casos de uso de IA de ambos hemisferios. Así es como cumple la segunda mitad de su definición, *anticipa y aconseja*: no con un módulo aparte, sino a través de cada caso de uso que razona con su conocimiento.
@@ -588,7 +588,7 @@ La consecuencia directa es que el brain refleja el estado del conocimiento *del 
 
 **B30 — El business_name es el contrato de calidad de cada pieza de conocimiento** (ADR-EB-004): el extractor emite `business_name = ""`. El nombre se infiere leyendo el código fuente completo del SP — nunca se transcribe la fórmula ni se copia el identificador. Un `business_name` defectuoso es peor que uno vacío: miente sobre lo que el componente hace y envenena los análisis de impacto.
 
-El DT-Validador (D3) rechaza como bloqueante:
+El Brain Auditor (D3) rechaza como bloqueante:
 
 | Tipo de defecto | Señal | Ejemplo |
 |----------------|-------|---------|
@@ -602,11 +602,11 @@ La regla es universal: aplica a `rules`, a `vocabulary.term` y a `capabilities.n
 
 **B31 — El brain declara su corpus fuente**: `system_info.source_of_truth` es obligatorio para brains en estado `building` o superior. Declara la ruta del corpus desde el que se construyó el brain (por ejemplo: `"source/docs"` o `"source/code/sps"`). Un brain sin `source_of_truth` declarado no puede ser auditado — nadie puede verificar de dónde vino el conocimiento ni actualizarlo cuando el corpus cambia.
 
-El DT-Validador (D1) reporta como advertencia no bloqueante si el campo está vacío, y como bloqueante si el brain está en estado `active` sin declararlo.
+El Brain Auditor (D1) reporta como advertencia no bloqueante si el campo está vacío, y como bloqueante si el brain está en estado `active` sin declararlo.
 
 **B32 — Una transición sin `run_owner` no puede cerrar**: cualquier transición cuyo `status` avance a `cutover` o `done` requiere `run_owner` declarado. El campo responde la pregunta *¿quién en Run hereda la responsabilidad operativa de lo que Change entregó?* Sin ese dato, Run no sabe que tiene algo nuevo bajo su responsabilidad. No es un campo opcional — es el mecanismo que cierra el loop del puente Change-Run (Regla B24).
 
-El DT-Validador D8 reporta como bloqueante toda transición en `cutover`/`done` con `run_owner` vacío. La transición permanece en `in_progress` hasta que el dueño en Run esté identificado y aceptado. Si el sistema de destino no tiene aún un owner operativo, eso es un `knowledge_gap` (B17), no una razón para omitir el campo.
+El Brain Auditor D8 reporta como bloqueante toda transición en `cutover`/`done` con `run_owner` vacío. La transición permanece en `in_progress` hasta que el dueño en Run esté identificado y aceptado. Si el sistema de destino no tiene aún un owner operativo, eso es un `knowledge_gap` (B17), no una razón para omitir el campo.
 
 **B34 — Ambos hemisferios son transformacionales, impulsados por IA**: el Enterprise Brain no es un sistema de registro — es un agente de transformación continua. Los dos hemisferios tienen misión propia:
 
@@ -694,9 +694,9 @@ Tres reglas de tiempo:
 
 **Relación con el estudio histórico (B26).** El estudio histórico es el reloj del negocio aplicado al pasado profundo: explica por qué una regla nació cuando nació. B40 es el mecanismo que permite que esa historia siga viva en el brain en lugar de quedarse en un documento aparte.
 
-**B41 — Todo brain implementa los 20 DTs canónicos, en tres categorías**: B29 establece que los Digital Twins construyen el brain en enjambre, pero no dice cuáles deben existir siempre. Sin un roster fijo, cada brain inventa su propio conjunto y nadie responde por lo que ninguno reclamó. La evidencia lo confirma: en los 16 brains del estate hay 124 DTs, de los cuales unos 115 son dimensiones de análisis y solo dos tipos encarnan un rol de TI. No existía ni un `dt-arquitecto` ni un `dt-change-manager` en ningún brain.
+**B41 — Todo brain implementa los 23 DTs canónicos, en tres categorías**: B29 establece que los Digital Twins construyen el brain en enjambre, pero no dice cuáles deben existir siempre. Sin un roster fijo, cada brain inventa su propio conjunto y nadie responde por lo que ninguno reclamó. La evidencia lo confirma: en los 16 brains del estate hay 124 DTs, de los cuales unos 115 son dimensiones de análisis y solo dos tipos encarnan un rol de TI. No existía ni un `dt-arquitecto` ni un `dt-change-manager` en ningún brain.
 
-Los 20 DTs canónicos se dividen en tres categorías con **sistemas de coordenadas distintos**. Confundirlas es lo que deja huecos estructurales: diez agentes pueden cubrir el modelo operativo completo de TI y nadie responder por la reproducibilidad del pipeline ni por el modelo de negocio contra el que se compara la evidencia.
+Los 23 DTs canónicos se dividen en tres categorías con **sistemas de coordenadas distintos**. Confundirlas es lo que deja huecos estructurales: diez agentes pueden cubrir el modelo operativo completo de TI y nadie responder por la reproducibilidad del pipeline ni por el modelo de negocio contra el que se compara la evidencia.
 
 | Categoría | Razona sobre | Se mide contra | DTs |
 |-----------|-------------|----------------|-----|
@@ -708,46 +708,46 @@ Los 20 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 
 | DT | Rol ITOM que encarna | Procesos | Posee |
 |----|---------------------|----------|-------|
-| `dt-arquitectura` | Domain Architect, CAO, Lead-Architecture | 6, 7, 8, 10, 11 | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus` |
-| `dt-informacion` | Information Architect | 33, 34 | `data_entities`, `component_data`, `vocabulary` |
-| `dt-conocimiento` | Knowledge Manager | 35, 38 | `knowledge_lineage`, `knowledge_gaps`, `stakeholders`, la columna `tier` en toda tabla |
-| `dt-configuracion` | Asset and Configuration Manager | 26, 28 | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems` |
-| `dt-cambio` | Change Manager, Service Readiness Manager | 2, 15, 16, 27 | `transitions`, `readiness_gates`, el `target` de `slos` |
-| `dt-operacion` | Lead-SM&O, Incident y Problem Manager | 2, 19, 21, 22, 23, 24, 25, 29, 30 | `findings`, `signals`, el `current` de `slos` |
-| `dt-riesgo` | IT Risk Manager, CISO, Business Continuity Manager | 20, 31, 32, 37 | `regulatory_obligations`, `risks` |
-| `dt-valor` | Demand Manager, IT Finance Manager, UX Architect | 1, 3, 9, 12, 36 | `products`, `kpis`, `processes`, `journeys` |
-| `dt-entrega` | Programme Manager, Project Manager, Resource Manager | 13, 14, 17 | `applications`, `waves`, `user_stories` |
-| `dt-proveedores` | IT Sourcing Manager, Contracts Manager | 4, 5 | `suppliers` |
+| `dt-domain-architect` | Domain Architect, CAO, Lead-Architecture | 6, 7, 8, 10, 11 | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus` |
+| `dt-information-architect` | Information Architect | 33, 34 | `data_entities`, `component_data`, `vocabulary` |
+| `dt-knowledge-manager` | Knowledge Manager | 35, 38 | `knowledge_lineage`, `knowledge_gaps`, `stakeholders`, la columna `tier` en toda tabla |
+| `dt-asset-configuration-manager` | Asset and Configuration Manager | 26, 28 | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems` |
+| `dt-change-manager` | Change Manager, Service Readiness Manager | 2, 15, 16, 27 | `transitions`, `readiness_gates`, el `target` de `slos` |
+| `dt-service-operations-lead` | Lead-SM&O, Incident y Problem Manager | 2, 19, 21, 22, 23, 24, 25, 29, 30 | `findings`, `signals`, el `current` de `slos` |
+| `dt-it-risk-manager` | IT Risk Manager, CISO, Business Continuity Manager | 20, 31, 32, 37 | `regulatory_obligations`, `risks` |
+| `dt-demand-manager` | Demand Manager, IT Finance Manager, UX Architect | 1, 3, 9, 12, 36 | `products`, `kpis`, `processes`, `journeys` |
+| `dt-programme-manager` | Programme Manager, Project Manager, Resource Manager | 13, 14, 17 | `applications`, `waves`, `user_stories` |
+| `dt-supplier-relationship-manager` | IT Sourcing Manager, Contracts Manager | 4, 5 | `suppliers` |
 
 **Categoría B, los cuatro DTs de ingeniería.** No razonan sobre el cliente: construyen y cuidan el brain.
 
 | DT | Rol que encarna | Cubre | Pregunta que responde |
 |----|----------------|-------|----------------------|
-| `dt-pipeline` | Data Engineer, DataOps | P1, P2, P3, B11, B12 | ¿Se puede reconstruir este brain desde cero y obtener el mismo resultado? |
-| `dt-hitl` | Data Steward, orquestador de validación | B37 y B39 en su operación | ¿Quién debe validar o aprobar qué, desde cuándo y qué se decidió? |
-| `dt-ingenieria` | Application Developer, Test Manager | P4, P5, B16, B1 | ¿El código que construye y consulta el brain está sano y consistente entre deployments? |
-| `dt-validador` | Quality Manager | Proceso 18, las 9 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
+| `dt-build-operator` | Data Engineer, DataOps | P1, P2, P3, B11, B12 | ¿Se puede reconstruir este brain desde cero y obtener el mismo resultado? |
+| `dt-human-reviewer` | Data Steward, orquestador de validación | B37 y B39 en su operación | ¿Quién debe validar o aprobar qué, desde cuándo y qué se decidió? |
+| `dt-brain-engineer` | Application Developer, Test Manager | P4, P5, B16, B1 | ¿El código que construye y consulta el brain está sano y consistente entre deployments? |
+| `dt-brain-auditor` | Quality Manager | Proceso 18, las 9 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
 
 **Categoría C, los seis DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos seis dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:
 
 | DT | Dominio L1 | Banca | Seguros | Retail |
 |----|-----------|-------|---------|--------|
-| `dt-negocio-canales` | Canales e interacción | Channel Management | Distribución y Canales | SELL omnicanal |
-| `dt-negocio-distribucion` | Distribución, marketing y ventas | Marketing & Sales | Distribución e intermediarios | PLAN y SELL |
-| `dt-negocio-productos` | Producto y servicio | Product & Service | Producto y Actuaría | PLAN y BUY |
-| `dt-negocio-clientes` | Gestión de cliente | Customer & Partner Mgmt | Gestión de Cliente | SERVICE y lealtad |
-| `dt-negocio-operaciones` | Operaciones del core | Business Support | Pólizas, Cobranza, Siniestros | MOVE |
-| `dt-negocio-funciones` | Funciones de empresa | Enterprise Functions | Finanzas y Regulatorio | Finanzas y personas |
+| `dt-channel-owner` | Canales e interacción | Channel Management | Distribución y Canales | SELL omnicanal |
+| `dt-distribution-owner` | Distribución, marketing y ventas | Marketing & Sales | Distribución e intermediarios | PLAN y SELL |
+| `dt-product-owner` | Producto y servicio | Product & Service | Producto y Actuaría | PLAN y BUY |
+| `dt-customer-owner` | Gestión de cliente | Customer & Partner Mgmt | Gestión de Cliente | SERVICE y lealtad |
+| `dt-operations-owner` | Operaciones del core | Business Support | Pólizas, Cobranza, Siniestros | MOVE |
+| `dt-enterprise-functions-owner` | Funciones de empresa | Enterprise Functions | Finanzas y Regulatorio | Finanzas y personas |
 
-"Enterprise Functions" aparece con etiqueta textual en tres de los cuatro catálogos, lo que lo vuelve el dominio con más respaldo. Quedaron fuera dos candidatos con evidencia de solo dos de cuatro: socios y ecosistema, que se absorbe en distribución porque en seguros el distribuidor es el socio y en retail el proveedor vive en BUY; y analítica de negocio, que en el lado de TI ya cubre `dt-informacion` con el proceso 34.
+"Enterprise Functions" aparece con etiqueta textual en tres de los cuatro catálogos, lo que lo vuelve el dominio con más respaldo. Quedaron fuera dos candidatos con evidencia de solo dos de cuatro: socios y ecosistema, que se absorbe en distribución porque en seguros el distribuidor es el socio y en retail el proveedor vive en BUY; y analítica de negocio, que en el lado de TI ya cubre `dt-information-architect` con el proceso 34.
 
 **El dominio es genérico; su contenido lo especializa cada industria.** El SME de Seguros lo enuncia con precisión: el modelo de capacidades es independiente del ramo, lo que cambia son los procesos y las reglas dentro de cada capacidad. Ningún DT de negocio inventa el catálogo de su industria: lo toma del Industry SME declarado en `system_info.industry_sme` (Regla B19).
 
-**Propiedad vertical contra propiedad horizontal.** Las categorías A y B poseen **tablas**; la categoría C posee **dominios** dentro de esas tablas. `dt-negocio-clientes` no es dueño de la tabla `capabilities`: es dueño de las capabilities, los procesos, los productos y los KPIs que pertenecen al L1 de gestión de cliente. La intersección es una celda, no una tabla, y por eso las tres categorías conviven sin que ninguna tabla cambie de dueño.
+**Propiedad vertical contra propiedad horizontal.** Las categorías A y B poseen **tablas**; la categoría C posee **dominios** dentro de esas tablas. `dt-customer-owner` no es dueño de la tabla `capabilities`: es dueño de las capabilities, los procesos, los productos y los KPIs que pertenecen al L1 de gestión de cliente. La intersección es una celda, no una tabla, y por eso las tres categorías conviven sin que ninguna tabla cambie de dueño.
 
 **El modelo es de negocio, la evidencia es de TI, y la brecha es el hallazgo.** Esta es la razón de fondo para tener las dos caras y no solo una. La categoría C declara qué dice el modelo de la industria; la categoría A aporta lo que el código demuestra. Una capability que el ETB dice que debería existir y que ningún componente cubre es brecha de negocio. Un componente que no mapea a ninguna capability es deuda sin propósito. Un proceso modelado que el código ejecuta de otra forma es la divergencia más reveladora de cualquier modernización. Es la generalización de la Regla B20, que ya decía que la brecha entre `processes` y `journeys` es hallazgo de negocio y no error de datos.
 
-**El humano en el loop tiene un operador, y sirve para dos cosas.** `dt-hitl` no se solapa con `dt-conocimiento`: el segundo define el modelo de calidad (qué nivel tiene cada afirmación y cuál es su linaje), el primero opera el flujo humano. Y ese flujo cubre dos objetos distintos que antes no tenían dueño: promover conocimiento de silver a gold (B37) y aprobar una acción de nivel A3 antes de ejecutarla (B39).
+**El humano en el loop tiene un operador, y sirve para dos cosas.** `dt-human-reviewer` no se solapa con `dt-knowledge-manager`: el segundo define el modelo de calidad (qué nivel tiene cada afirmación y cuál es su linaje), el primero opera el flujo humano. Y ese flujo cubre dos objetos distintos que antes no tenían dueño: promover conocimiento de silver a gold (B37) y aprobar una acción de nivel A3 antes de ejecutarla (B39).
 
 **Tres capas de propiedad, no una.** La propiedad única es sobre la estructura y la semántica, nunca sobre el contenido:
 
@@ -755,13 +755,13 @@ Los 20 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 |------|-------|-----------------|
 | Estructura | Los 10 DTs de categoría A | Las tablas del CORE y de extensión, su semántica y su anclaje a la cadena B27 |
 | Extracción | Los DTs de dimensión propios de cada brain | El contenido de `rules`, `journeys`, `vocabulary`, almas |
-| Calidad | `dt-conocimiento`, `dt-hitl` y `dt-validador` | El nivel, el linaje, la validación humana y la auditoría |
+| Calidad | `dt-knowledge-manager`, `dt-human-reviewer` y `dt-brain-auditor` | El nivel, el linaje, la validación humana y la auditoría |
 
-Por eso `rules` no tiene dueño en el roster y es correcto: la llena el DT de dimensión, la ancla `dt-valor`, responde por su nivel `dt-conocimiento`, consigue su validación `dt-hitl` y la audita `dt-validador`.
+Por eso `rules` no tiene dueño en el roster y es correcto: la llena el DT de dimensión, la ancla `dt-demand-manager`, responde por su nivel `dt-knowledge-manager`, consigue su validación `dt-human-reviewer` y la audita `dt-brain-auditor`.
 
 **Los DTs canónicos no sustituyen a los de dimensión.** Los 115 que ya existen en el estate siguen siendo los que extraen conocimiento del código y del negocio. Los canónicos organizan lo que esos extraen y responden por su calidad. Es la diferencia entre la abeja que trae el néctar y la que construye la celda (B29).
 
-**La cobertura es artefacto verificable, no declaración.** `dt/cobertura-dt.md` mapea los 38 procesos, las 5 reglas de pipeline, las 8 fases del lifecycle y los 10 criterios de DoD contra su DT dueño. Un proceso sin dueño es hallazgo bloqueante; dos DTs reclamando lo mismo es solapamiento que se resuelve con ADR. Hoy la cobertura es 38 de 38, con el proceso 2 compartido por diseño entre `dt-cambio` y `dt-operacion` (B24 y B36).
+**La cobertura es artefacto verificable, no declaración.** `dt/cobertura-dt.md` mapea los 38 procesos, las 5 reglas de pipeline, las 8 fases del lifecycle y los 10 criterios de DoD contra su DT dueño. Un proceso sin dueño es hallazgo bloqueante; dos DTs reclamando lo mismo es solapamiento que se resuelve con ADR. Hoy la cobertura es 38 de 38, con el proceso 2 compartido por diseño entre `dt-change-manager` y `dt-service-operations-lead` (B24 y B36).
 
 **Un DT canónico en estado SCAFFOLD es válido y es invocable.** Declara su identidad, su propiedad y su cobertura, aunque no tenga implementación ni datos. Pasa a ACTIVE cuando posee al menos una tabla con contenido y su primer hallazgo con linaje. Una carpeta de DT sin `CLAUDE.md` no es un scaffold: es una carpeta, y no la puede invocar nadie ni verificar el validador. El estate tiene 36 de esas, todas en un mismo brain, y son deuda (B9).
 
@@ -793,7 +793,7 @@ La **frontera interna** reconoce que dentro del mismo cliente no todos ven lo mi
 - **La restricción se aplica al consultar, no al documentar.** Una política que vive en un documento y no en el filtro de `brain.py` no es una política: es una intención. El cumplimiento se verifica en tiempo de consulta.
 - **No copiar reduce la exposición.** La regla de guardar la referencia y no el registro ajeno (B38) tiene aquí su segunda razón: lo que el brain no copió no lo puede filtrar.
 
-**Clasificación de sensibilidad.** Toda entidad de datos declara su sensibilidad y si contiene datos personales. Lo clasifica `dt-informacion` con el criterio que fija `dt-riesgo`; sin clasificación, una entidad se trata como sensible, no como pública. Dueños: `dt-riesgo` define la política, `dt-informacion` clasifica el dato, `dt-hitl` opera las excepciones y `dt-validador` audita que la frontera se respete.
+**Clasificación de sensibilidad.** Toda entidad de datos declara su sensibilidad y si contiene datos personales. Lo clasifica `dt-information-architect` con el criterio que fija `dt-it-risk-manager`; sin clasificación, una entidad se trata como sensible, no como pública. Dueños: `dt-it-risk-manager` define la política, `dt-information-architect` clasifica el dato, `dt-human-reviewer` opera las excepciones y `dt-brain-auditor` audita que la frontera se respete.
 
 **B43 — El brain se mide a sí mismo, incluida la calidad de su consejo**: un brain que aconseja y nunca comprueba si su consejo sirvió es un oráculo que nadie audita. La definición canónica dice que el brain explica, anticipa y aconseja; esta regla cierra la última palabra de esa frase.
 
@@ -815,7 +815,7 @@ Toda decisión trazable registra cuatro cosas: las opciones que se consideraron 
 
 **El brain es también un producto con KPIs.** La cadena de valor de B27 se aplica al propio brain: su producto es el razonamiento que entrega, sus KPIs son estos cinco ejes, y los procesos que lo mueven son las fases de su lifecycle. Un brain que no puede declarar su propio impacto está pidiendo inversión sin evidencia, que es justo lo que le reprocha a cualquier iniciativa que analiza.
 
-Dueños: `dt-validador` mide los cinco ejes en OBSERVE, `dt-conocimiento` responde por la trazabilidad de decisión y `dt-valor` por el costo y el impacto en KPIs.
+Dueños: `dt-brain-auditor` mide los cinco ejes en OBSERVE, `dt-knowledge-manager` responde por la trazabilidad de decisión y `dt-demand-manager` por el costo y el impacto en KPIs.
 
 **B44 — El brain sobrevive al sistema que refleja, y se archiva con reglas propias**: el canon tenía regla de nacimiento (B12) y ninguna de muerte. Un brain cuyo sistema se apaga no desaparece con él, y confundir los dos eventos es el error que esta regla evita.
 
@@ -838,7 +838,7 @@ Dueños: `dt-validador` mide los cinco ejes en OBSERVE, `dt-conocimiento` respon
 | Las `cross_dependencies` declaradas en ambos lados (B5) | El vecino cierra su lado con `valid_to`, no lo elimina: la dependencia existió y el registro lo prueba |
 | Los seeds que emitió (B11) | Se quedan donde están. Un seed es evidencia entregada, no un préstamo |
 
-**Nada se borra; todo se cierra con fecha.** Archivar un brain es ponerle `valid_to` a su vigencia operativa, igual que a cualquier otra afirmación (B40). El `brain.db` se conserva, deja de reconstruirse desde el pipeline y queda fuera del alcance del DT-Validador, porque medirlo contra el canon vigente no dice nada útil: refleja un sistema que ya no existe.
+**Nada se borra; todo se cierra con fecha.** Archivar un brain es ponerle `valid_to` a su vigencia operativa, igual que a cualquier otra afirmación (B40). El `brain.db` se conserva, deja de reconstruirse desde el pipeline y queda fuera del alcance del Brain Auditor, porque medirlo contra el canon vigente no dice nada útil: refleja un sistema que ya no existe.
 
 **Quién lo decide.** El archivado exige el rol accountable del sistema en Run y la ventana que fije el cliente, que por defecto es de doce meses después del cutover. Es decisión de nivel A3 (B39) y no baja de ahí por historial: apagar la memoria de un sistema es irreversible.
 
@@ -896,7 +896,7 @@ El script vive en dos lugares según el contexto, y confundirlos hacía que la r
 | Brain implementado | `generators/build-portal.py` | El generador del brain, adaptado a su corpus |
 | Asset Enterprise Brain | `templates/build-portal.py` | La implementación de referencia que cada brain copia y adapta |
 
-El asset no tiene `generators/` y es correcto que no lo tenga: no construye un `brain.db` propio, define cómo construirlo. Dueño del script en ambos contextos: `dt-ingenieria` (Regla B41).
+El asset no tiene `generators/` y es correcto que no lo tenga: no construye un `brain.db` propio, define cómo construirlo. Dueño del script en ambos contextos: `dt-brain-engineer` (Regla B41).
 
 **P5 — brain.db en .gitignore**: brain.db nunca se commitea al repositorio. Se reconstruye desde el pipeline. El `.gitignore` del proyecto debe incluir `**/digital-brain/brain.db` y `**/digital-brain/brain.db.backup-*`.
 

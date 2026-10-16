@@ -1,4 +1,4 @@
-# DT-Conocimiento — Digital Twin de Gestión del Conocimiento
+# Knowledge Manager — Digital Twin de Gestión del Conocimiento
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Conocimiento |
+| Nombre | Knowledge Manager |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Knowledge Manager, IT HR Manager en su dimensión de conocimiento organizacional |
 | Hemisferio predominante | Ambos, por naturaleza transversal |
@@ -57,7 +57,7 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `documents` | ENTERPRISE | El corpus documental federado del cliente |
 | La columna `tier` en toda tabla de conocimiento | Transversal | El nivel de certeza de cada fila, sin importar que DT puso el contenido |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

@@ -1,4 +1,4 @@
-# DT-Arquitectura — Digital Twin de Arquitectura Empresarial
+# Domain Architect — Digital Twin de Arquitectura Empresarial
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Arquitectura |
+| Nombre | Domain Architect |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Domain Architect, Chief Architecture Officer, Lead-Architecture |
 | Hemisferio predominante | Change, con lectura permanente de Run |
@@ -61,7 +61,7 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `decisions` | PROJECT | Los ADRs del cliente: que se decidió, con que razón y quien la firmó |
 | `plateaus` | BRIDGE | Los estados de arquitectura baseline, transitional y target (Regla B28) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 
@@ -92,7 +92,7 @@ Este DT no inventa el conocimiento que le corresponde a un SME. Cuando le falta,
 ## Anti-patrones
 
 - **[ANTIPATRÓN]** Inventar capabilities, procesos o regulador de la industria. Eso lo suministra el Industry SME (Regla B19); inventarlo rompe la federación entre brains del mismo sector.
-- **[ANTIPATRÓN]** Clasificar infraestructura dentro de `itom_layer`. El ITOM describe como opera TI; lo que TI opera vive en `technology_components`, propiedad de DT-Configuración (Regla B36).
+- **[ANTIPATRÓN]** Clasificar infraestructura dentro de `itom_layer`. El ITOM describe como opera TI; lo que TI opera vive en `technology_components`, propiedad de Asset & Configuration Manager (Regla B36).
 - **[ANTIPATRÓN]** Registrar un estado objetivo sin decisión que lo respalde. Un `plateau` de tipo target sin `decisions` asociada es una aspiración, y el brain refleja lo que es (Regla B25).
 - **[ANTIPATRÓN]** Usar el vocabulario de TOGAF para describir el negocio o la operación de TI. TOGAF envuelve y gobierna; ETB describe el negocio e ITOM la operación (Regla B36).
 

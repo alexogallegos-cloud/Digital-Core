@@ -52,7 +52,7 @@ Lo que Change decide tiene que llegar a Run: qué se migra, a dónde, cuándo, q
 
 **4. Plateaus de ArchiMate** como estados de arquitectura (as_is, transition, to_be). Se mapean a `togaf_state`, que el canon ya usa.
 
-**5. El DT-Validador gana la dimensión D8**, que valida el lado del puente de cada brain. El lado del puente entra a D1 como tablas obligatorias por `brain_type`.
+**5. El Brain Auditor gana la dimensión D8**, que valida el lado del puente de cada brain. El lado del puente entra a D1 como tablas obligatorias por `brain_type`.
 
 ## Alternativas consideradas
 

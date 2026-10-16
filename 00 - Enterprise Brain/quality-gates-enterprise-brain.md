@@ -21,7 +21,7 @@ Verificación, ejecutable contra cualquier `brain.db`:
 SELECT COUNT(*) AS gold_sin_fuente
 FROM knowledge_lineage
 WHERE tier = 'gold' AND (source_ref IS NULL OR source_ref = '');
--- Debe ser 0. La dimensión D9 del DT-Validador lo reporta como bloqueante.
+-- Debe ser 0. La dimensión D9 del Brain Auditor lo reporta como bloqueante.
 ```
 
 ```sql
@@ -75,7 +75,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| DT-Validador PASS | 0 errores y 0 advertencias bloqueantes en las **9 dimensiones**, D1 a D9 | **SÍ, gate de salida** |
+| Brain Auditor PASS | 0 errores y 0 advertencias bloqueantes en las **9 dimensiones**, D1 a D9 | **SÍ, gate de salida** |
 
 ### RELEASE
 
@@ -107,7 +107,7 @@ El archivado es decisión de nivel A3 y no baja de ahí por historial (Regla B39
 | Frescura frente a la empresa | Latencia bitemporal: diferencia entre `valid_from` y `recorded_at` en `knowledge_lineage`. Es más exacta que la fecha del último build (Reglas B40, B43) | NO (alerta) |
 | Frescura del build | `brain_freshness_days` no mayor a 30 cuando hay cambios en `source/` desde el último build | NO (alerta) |
 | Hallazgos ruteados | Hallazgo grave abierto que toca una entidad en transición y no llegó al brain de proyecto. Lo verifica D8, código R1 (Regla B24) | **SÍ** |
-| Cola de validación atendida | Pendientes de `hitl_queue()` con plazo vencido (Regla B37, operado por `dt-hitl`) | NO (alerta) |
+| Cola de validación atendida | Pendientes de `hitl_queue()` con plazo vencido (Regla B37, operado por `dt-human-reviewer`) | NO (alerta) |
 
 ---
 
@@ -119,14 +119,14 @@ Los doce identificadores son estables y se referencian en otros documentos. Del 
 - [ ] **DoD-EB-02**: 0 reglas con business_name vacío o genérico. Síntesis LLM source-read completada con `enrichment_method='llm_synthesis_source_read'`. Detector anti-genérico corrido y sin hallazgos (Regla B30).
 - [ ] **DoD-EB-03**: `clase` clasificada en 100% de reglas, con su distribución documentada.
 - [ ] **DoD-EB-04**: `reg` anotada en 100% de reglas. Los componentes sin regulación aplicable llevan cadena vacía, nunca NULL.
-- [ ] **DoD-EB-05**: DT-Validador PASS, 0 errores y 0 advertencias bloqueantes en las **9 dimensiones** D1 a D9, incluidas D7 trazabilidad a proceso, D8 puente Change-Run y D9 calidad y linaje.
+- [ ] **DoD-EB-05**: Brain Auditor PASS, 0 errores y 0 advertencias bloqueantes en las **9 dimensiones** D1 a D9, incluidas D7 trazabilidad a proceso, D8 puente Change-Run y D9 calidad y linaje.
 - [ ] **DoD-EB-06**: Seeds emitidos para todos los sistemas con dependencia conocida, como `seeds/{receptor}-seed.json` (Regla B11).
 - [ ] **DoD-EB-07**: Portal HTML generado desde brain.db por `build-portal.py`. Ningún `portal/*.html` editado a mano, confirmable con `git log -- portal/` (Regla P4, ADR-EB-005).
 - [ ] **DoD-EB-08**: `brain.py` expone la interfaz estándar de 5 métodos (`coverage`, `components`, `search`, `rules`, `domains`) devolviendo datos reales (Regla B1).
 - [ ] **DoD-EB-09**: Cadena de valor recorrible: todo componente traza hasta un proceso, y de ahí hasta un KPI y un producto. Lo que no traza se declara en `knowledge_gaps` (Reglas B22, B27).
 - [ ] **DoD-EB-10**: Brain de nivel cliente actualizado con ATTACH del nuevo brain.db y `capabilities_consolidated()` probado. Aplica solo si el cliente tiene brain enterprise.
 - [ ] **DoD-EB-11**: `knowledge_lineage` poblada. Toda afirmación declara nivel y fuente; ninguna gold sin `source_ref`; ninguna gold por validación sin `validated_by`; los hechos irrefutables entran gold por origen (Reglas B37, B40).
-- [ ] **DoD-EB-12**: Los 20 DTs canónicos existen con su `CLAUDE.md`, y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
+- [ ] **DoD-EB-12**: Los 23 DTs canónicos existen con su `CLAUDE.md`, y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
 
 ---
 
@@ -148,7 +148,7 @@ Estas reglas forman parte del canon pero **no tienen implementación**, así que
 
 | Métrica | Definición para Enterprise Brain | Target |
 |---------|----------------------------------|--------|
-| Deployment Frequency | Frecuencia de rebuild exitoso con DT-Validador PASS | Semanal o más durante BUILD activo; mensual o más en OPERATE |
+| Deployment Frequency | Frecuencia de rebuild exitoso con Brain Auditor PASS | Semanal o más durante BUILD activo; mensual o más en OPERATE |
 | Lead Time | Desde nueva ola de corpus hasta brain.db activo con PASS | 3 días o menos para olas de 500 componentes o menos; una semana o menos por encima de eso |
 | Change Failure Rate | Builds que requieren rollback por datos incorrectos | 5% o menos |
 | MTTR | Desde detección de brain incorrecto hasta corrección aplicada | 4 horas o menos puntual; un día o menos para rebuild completo |
@@ -172,7 +172,7 @@ Los identificadores SLO-EB-01 a 04 son estables. SLO-EB-05 se agrega con la Regl
 - [ ] Metadata: `togaf_type`, `togaf_state`, `brain_type`, `hemisphere`, `industry`, `industry_sme`.
 - [ ] Ontología declarada: `capability_model`, `process_ontology` y `ontology_bindings` con exactamente una primaria.
 - [ ] SMEs por fase, con rutas canónicas.
-- [ ] Los 20 DTs canónicos, con el estado de cada uno, SCAFFOLD o ACTIVE.
+- [ ] Los 23 DTs canónicos, con el estado de cada uno, SCAFFOLD o ACTIVE.
 - [ ] Estado actual de la fase del lifecycle.
 - [ ] Bloqueantes activos, si los hay.
 - [ ] Pipeline canónico de rebuild documentado.

@@ -1,4 +1,4 @@
-# DT-Información — Digital Twin de Arquitectura de Información
+# Information Architect — Digital Twin de Arquitectura de Información
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Información |
+| Nombre | Information Architect |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Information Architect |
 | Hemisferio predominante | Ambos, con peso en Run |
@@ -55,7 +55,7 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `component_data` | SYSTEM | La matriz CRUD: que componente crea, lee, actualiza o borra cada entidad |
 | `vocabulary` | SYSTEM | El glosario empresarial del cliente, con sus conflictos declarados (Reglas V1 y V2) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

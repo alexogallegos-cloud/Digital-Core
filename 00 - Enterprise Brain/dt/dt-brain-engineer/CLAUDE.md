@@ -1,4 +1,4 @@
-# DT-Ingeniería — Digital Twin de Ingeniería y Calidad del Código del Brain
+# Brain Engineer — Digital Twin de Ingeniería y Calidad del Código del Brain
 > Digital Twin canónico de ingeniería · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría B
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Ingeniería |
+| Nombre | Brain Engineer |
 | Tipo | Digital Twin de ingeniería del brain — canónico en todo brain (Regla B41, categoría B) |
 | Rol(es) que encarna | Application Developer, Test Manager, Quality Manager en su dimensión de código |
 | Hemisferio | No aplica. Opera sobre el brain, no sobre el negocio del cliente |
@@ -70,7 +70,7 @@ Ningún otro DT canónico responde esta pregunta. Si dos DTs la responden, hay s
 | `build-portal.py` | Código | El único camino valido para producir `portal/*.html` (Regla P4) |
 | Las vistas de homologación | Código | `CREATE VIEW` con el nombre canonico sobre cada tabla histórica (Regla B16) |
 
-**Propiedad única** (Regla B41): este DT es dueño del artefacto, no del conocimiento que produce. El contenido lo pone el corpus, su nivel de certeza lo responde DT-Conocimiento y su validación la opera DT-HITL.
+**Propiedad única** (Regla B41): este DT es dueño del artefacto, no del conocimiento que produce. El contenido lo pone el corpus, su nivel de certeza lo responde Knowledge Manager y su validación la opera Human Reviewer.
 
 ---
 

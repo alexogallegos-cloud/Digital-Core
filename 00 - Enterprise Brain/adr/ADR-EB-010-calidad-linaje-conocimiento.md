@@ -38,7 +38,7 @@ Además, la Regla P1 usaba Bronze, Silver y Gold para nombrar etapas del pipelin
 **6. Herramientas:**
 - `build-brain.py`: `record_lineage()` rechaza en construcción los saltos indebidos a gold y el gold por validación sin validador.
 - `brain.py`: `min_tier`, `tier_summary`, `lineage()` y `hitl_queue()`.
-- DT-Validador: nueva dimensión D9, calidad del conocimiento.
+- Brain Auditor: nueva dimensión D9, calidad del conocimiento.
 
 **7. Corrección de P1.** Las etapas del pipeline se llaman extracción, enriquecimiento y carga.
 

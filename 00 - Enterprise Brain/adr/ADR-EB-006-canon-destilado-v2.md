@@ -152,10 +152,10 @@ archivo.
 ## Consecuencias
 
 **Positivas**
-- El canon es verificable: `dt/dt-validador/validate.py` lo ejecuta contra
+- El canon es verificable: `dt/dt-brain-auditor/validate.py` lo ejecuta contra
   cualquier `brain.db` y emite PASS/FAIL por dimensión.
 - La homologación pasa de opinión a medición. El baseline del estate al
-  2026-09-29 está congelado en `dt/dt-validador/baseline-2026-09-29.json`.
+  2026-09-29 está congelado en `dt/dt-brain-auditor/baseline-2026-09-29.json`.
 - Los brains de proyecto dejan de reprobar por no tener `rules`: el validador
   marca N/A las dimensiones que no aplican a su ontología.
 

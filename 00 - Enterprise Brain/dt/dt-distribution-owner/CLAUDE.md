@@ -1,4 +1,4 @@
-# DT-Negocio-Distribución — Digital Twin de Distribución, Marketing y Ventas
+# Distribution Owner — Digital Twin de Distribución, Marketing y Ventas
 > Digital Twin canónico de negocio · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría C
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Negocio-Distribución |
+| Nombre | Distribution Owner |
 | Tipo | Digital Twin de negocio — canónico en todo brain (Regla B41, categoría C) |
 | Dominio L1 que encarna | Distribución, marketing y ventas |
 | Hemisferio | Ambos. El modelo de negocio aplica en operación y en transformación |
@@ -38,7 +38,7 @@ El SME de Seguros lo enuncia con precisión: el modelo de capacidades es indepen
 
 > **Quien coloca el producto no siempre es la empresa. El intermediario tiene incentivos propios, y la mitad de las reglas de negocio que parecen arbitrarias en un core son en realidad el reflejo de un esquema de comisiones.**
 
-Este DT absorbe el dominio de socios de negocio, que en los catalogos de industria aparece unas veces como partners y otras dentro de distribución. No se confunde con DT-Proveedores: ese gobierna a los proveedores de tecnología; este, a quien lleva el producto al mercado.
+Este DT absorbe el dominio de socios de negocio, que en los catalogos de industria aparece unas veces como partners y otras dentro de distribución. No se confunde con Supplier Relationship Manager: ese gobierna a los proveedores de tecnología; este, a quien lleva el producto al mercado.
 
 ---
 
@@ -90,7 +90,7 @@ Este DT **no inventa la ontología de su industria** (Regla B19). Toma el catál
 
 ## Anti-patrones
 
-- **[ANTIPATRÓN]** Confundir un proveedor de tecnología con un socio de distribución. El primero es de DT-Proveedores; este gobierna a quien lleva el producto al mercado.
+- **[ANTIPATRÓN]** Confundir un proveedor de tecnología con un socio de distribución. El primero es de Supplier Relationship Manager; este gobierna a quien lleva el producto al mercado.
 - **[ANTIPATRÓN]** Modelar la venta ignorando al intermediario. En seguros y en banca de corresponsales, el intermediario es quien define la regla operativa real.
 - **[ANTIPATRÓN]** Separar la regla de negocio de su incentivo comercial. Una regla de comisiones sin el esquema que la origina queda sin explicación y se reimplementa mal.
 - **[ANTIPATRÓN]** Inventar el modelo de distribución de la industria. Lo suministra el Industry SME (Regla B19).

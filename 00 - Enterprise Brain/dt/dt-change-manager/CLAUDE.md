@@ -1,4 +1,4 @@
-# DT-Cambio — Digital Twin de Gestión del Cambio
+# Change Manager — Digital Twin de Gestión del Cambio
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Cambio |
+| Nombre | Change Manager |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Change Manager, Service Readiness Manager |
 | Hemisferio predominante | Change, entregando hacia Run |
@@ -55,10 +55,10 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 |-------|------|-------------------------|
 | `transitions` | BRIDGE | Que se mueve, con que destino 7R, en que estado y con que dueño en Run |
 | `readiness_gates` | BRIDGE | Que tiene que estar listo antes de que una transición pueda cerrar |
-| `slos` | BRIDGE | El campo `target`. El `current` lo mide DT-Operación con el mismo identificador |
+| `slos` | BRIDGE | El campo `target`. El `current` lo mide Service Operations Lead con el mismo identificador |
 | El catalogo de acciones A2 | Transversal | Que acciones estan preautorizadas y cuáles exigen aprobación (Regla B39) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

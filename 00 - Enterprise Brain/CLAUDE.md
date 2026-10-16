@@ -86,7 +86,7 @@ Cuando el equipo quiere saltar la construcción del brain ("ya conocemos el sist
 | **Bank Brain (Enterprise del cliente)** | `enterprise` | Change + Run | Brain de nivel más alto del cliente — federación de ambos hemisferios vía ATTACH | Python · SQLite ATTACH · bank-brain.py | §22 DoD-EB-10 · Regla B13 |
 | **Project Brain** | `project` | `change` | Brain de un proyecto de transformación: modernización, nueva implementación, programa regulatorio | Python 3.11+ · SQLite 3.43+ | §22 DoD-EB-01..08 · Regla B13 |
 | **System Brain** | `system` | `run` | Brain de un sistema en producción bajo operación continua | Python 3.11+ · SQLite 3.43+ | §22 DoD-EB-01..08 · Regla B13 |
-| **Digital Twin (DT)** | — | — | Agente especializado que interroga el brain para una dimensión específica | CLAUDE.md + herencia de SMEs | §21 Handoffs · §22 DT-Validador PASS |
+| **Digital Twin (DT)** | — | — | Agente especializado que interroga el brain para una dimensión específica | CLAUDE.md + herencia de SMEs | §21 Handoffs · §22 Brain Auditor PASS |
 | **Portal HTML** | — | — | Visualización navegable generada desde brain.db | Python generator (build-portal.py) → HTML estático | §22 DoD-EB-07 · Regla P4 |
 | **Seed** | — | — | Evidencia estructurada que un brain emite para inicializar el brain de sistemas vecinos | JSON (seeds/{receptor}-seed.json) | §22 DoD-EB-06 · Regla B11 |
 
@@ -99,7 +99,7 @@ Cuando el equipo quiere saltar la construcción del brain ("ya conocemos el sist
 | DISCOVER | Brain Bootstrap | brain.db inicializado · vocabulario Capa 1 · almas Capa 2 |
 | DESIGN | Knowledge Architecture | schema canónico · DT roster · ETB capability mapping |
 | BUILD | Brain Population | brain.db poblado · reglas · journeys · seeds emitidos |
-| TEST | Brain Validation | DT-Validador PASS · equivalencia trazada · 0 business_name vacíos |
+| TEST | Brain Validation | Brain Auditor PASS · equivalencia trazada · 0 business_name vacíos |
 | RELEASE | Brain Activation | portal en producción · bank-brain federado · SMEs con acceso |
 | OPERATE | Brain-First Delivery | DTs interrogando brain · modernization teams usando brain como fuente de verdad |
 | OBSERVE | Brain Health | coverage() · DORA del brain (frescura · cobertura · uso) · stale detection |
@@ -113,7 +113,7 @@ Bootstrap   → Knowledge  → Brain        → Brain      → Brain       → B
               (DESIGN)      (BUILD)       (TEST)        (RELEASE)     (OPERATE)     (OBSERVE)   (ITERATE)
 
    │             │             │              │              │            │             │            │
-[Specialist   [TS&T si      [Specialist   [DT-Validador  [SRE si     [DTs +       [DT-Validador [Specialist
+[Specialist   [TS&T si      [Specialist   [Brain Auditor  [SRE si     [DTs +       [Brain Auditor [Specialist
  RE + DBA]     target arch   RE tecnol.]   + QA brain]    cloud]      SMEs]         schedule]    RE + SMEs]
                compleja]          │
                              extractores por
@@ -146,7 +146,7 @@ Bootstrap   → Knowledge  → Brain        → Brain      → Brain       → B
 | business_name coverage | BUILD | `COUNT(*) WHERE business_name IS NULL = 0` — prohibido activar brain con nombres vacíos |
 | Clase coverage | BUILD | `clase` clasificado en 100% de reglas (NEGOCIO, INFRAESTRUCTURA, ENSAMBLAJE, PRESENTACION) |
 | Regulación coverage | BUILD | `reg` anotado en 100% de reglas (vacío es válido si el SP no toca regulación) |
-| DT-Validador PASS | TEST | 0 errores, 0 advertencias bloqueantes |
+| Brain Auditor PASS | TEST | 0 errores, 0 advertencias bloqueantes |
 | Seed emission | RELEASE | Todos los sistemas externos conocidos tienen `digital-brain/seeds/{receptor}-seed.json` |
 | Portal generado | RELEASE | portal/index.html existente, generado por generators/build-portal.py — NUNCA hand-authored |
 | ETB L3 coverage | RELEASE | ≥ 60% de componentes del sistema con primary_l3 asignado |
@@ -159,14 +159,14 @@ Adicional a DoD universal §2.2:
 - [ ] DoD-EB-02: 0 reglas con business_name vacío o genérico (síntesis LLM source-read completada).
 - [ ] DoD-EB-03: Clasificación de naturaleza (clase) en 100% de reglas.
 - [ ] DoD-EB-04: Regulación anotada (reg) en 100% de reglas.
-- [ ] DoD-EB-05: DT-Validador PASS — 0 errores, 0 advertencias bloqueantes.
+- [ ] DoD-EB-05: Brain Auditor PASS — 0 errores, 0 advertencias bloqueantes.
 - [ ] DoD-EB-06: Seeds emitidos para todos los sistemas con dependencia conocida.
 - [ ] DoD-EB-07: Portal HTML generado desde brain.db (nunca hand-authored).
 - [ ] DoD-EB-08: brain.py expone interfaz estándar de 5 métodos.
 - [ ] DoD-EB-09: Taxonomía de negocio del cliente como hilo conductor de todos los artefactos.
 - [ ] DoD-EB-10: bank-brain federado actualizado (si existe).
 - [ ] DoD-EB-11: `knowledge_lineage` poblada — toda afirmación con nivel y fuente; ninguna gold sin `source_ref`; ninguna gold por validación sin `validated_by` (Reglas B37, B40).
-- [ ] DoD-EB-12: los 20 DTs canónicos existen con su `CLAUDE.md` y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
+- [ ] DoD-EB-12: los 23 DTs canónicos existen con su `CLAUDE.md` y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
 
 ---
 
@@ -252,11 +252,11 @@ El Enterprise Brain es un artefacto de conocimiento, no código de negocio. No a
 
 | Capa | Qué valida | Quién lo ejecuta | Fase |
 |------|-----------|-----------------|------|
-| **DT-Validador (9 dimensiones)** | Integridad del schema, coverage, business_name quality, regulación, clase, cross-references, trazabilidad a proceso (D7), puente Change-Run (D8), calidad y linaje (D9) | DT-Validador (meta-agente) | TEST · OBSERVE |
+| **Brain Auditor (9 dimensiones)** | Integridad del schema, coverage, business_name quality, regulación, clase, cross-references, trazabilidad a proceso (D7), puente Change-Run (D8), calidad y linaje (D9) | Brain Auditor (meta-agente) | TEST · OBSERVE |
 | **Anti-genérico detector** | Detecta business_names con tokens de código fuente, nombres descriptivos vacíos ("proceso", "validación") o genéricos | Pipeline enrich-rules.py | BUILD |
 | **Smoke test de portal** | portal/index.html se carga sin errores, todos los KPI cards renderizan, las tablas no están vacías | Inspección visual post-build-portal.py | RELEASE |
 
-**Criterio de PASS**: DT-Validador en 0 errores, 0 advertencias bloqueantes — equivale al gate de salida de la fase TEST. El anti-genérico detector debe correr antes de marcar DoD-EB-02 como cumplido.
+**Criterio de PASS**: Brain Auditor en 0 errores, 0 advertencias bloqueantes — equivale al gate de salida de la fase TEST. El anti-genérico detector debe correr antes de marcar DoD-EB-02 como cumplido.
 
 **Pruebas de equivalencia funcional** (cuando el brain alimenta modernización): los DTs de Equivalencia usan el brain como golden master — el sistema target debe reproducir el output de las reglas de negocio catalogadas. Esta prueba vive en el offering de Application Modernization (SPE), no aquí.
 
@@ -269,7 +269,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 | Estado | Descripción | Criterio de transición |
 |--------|------------|----------------------|
 | **LOCAL** | brain.db construido en la máquina del Specialist RE | Primera build con schema completo |
-| **SHARED** | brain.db disponible en ruta compartida para el equipo de modernización | DT-Validador PASS + DoD-EB-01..05 cumplidos |
+| **SHARED** | brain.db disponible en ruta compartida para el equipo de modernización | Brain Auditor PASS + DoD-EB-01..05 cumplidos |
 | **ACTIVE** | brain es la fuente de verdad oficial — DTs interrogan brain antes de cada decisión de diseño | DoD-EB-01..10 cumplidos · portal accesible · equipo informado |
 | **STALE** | brain no ha sido actualizado en > 30 días con cambios en source/ | `brain_freshness_days > 30` detectado por OBSERVE |
 | **ARCHIVED** | sistema migrado — brain conservado como evidencia histórica pero ya no se actualiza | Cutover completado + 12 meses de ventana |
@@ -294,14 +294,14 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 
 | Métrica | Definición | Target |
 |---------|-----------|--------|
-| Deployment Frequency | Frecuencia de rebuild exitoso (build-brain.py + DT-Validador PASS) | ≥ semanal en BUILD activo · ≥ mensual en OPERATE |
+| Deployment Frequency | Frecuencia de rebuild exitoso (build-brain.py + Brain Auditor PASS) | ≥ semanal en BUILD activo · ≥ mensual en OPERATE |
 | Lead Time | Desde nueva ola de código fuente hasta brain.db ACTIVE | ≤ 3 días para ≤ 500 componentes · ≤ 1 semana para > 500 |
 | Change Failure Rate | % de builds que requieren rollback por datos incorrectos | ≤ 5% |
 | MTTR | Desde detección de brain incorrecto hasta corrección aplicada | ≤ 4 horas (puntual) · ≤ 1 día (rebuild completo) |
 
 ### Cadencia de health check
 
-- **Por cada rebuild**: DT-Validador corre automáticamente — bloquea si hay errores.
+- **Por cada rebuild**: Brain Auditor corre automáticamente — bloquea si hay errores.
 - **Semanal (OBSERVE)**: revisión de `brain_freshness_days` y `etb_version_alignment` entre todos los brains del cliente.
 - **Por cada nueva ola de código fuente**: trigger inmediato de ITERATE — no esperar al ciclo semanal.
 
@@ -312,7 +312,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 | Modo | Fases SDLC | Trigger típico | Output |
 |------|-----------|----------------|--------|
 | REQUIREMENTS | DISCOVER + DESIGN | Nuevo cliente, nuevo sistema, nueva ola de análisis | scope del brain · DT roster · schema design · estimación |
-| BUILD (default) | BUILD + TEST | Extractor listo, código fuente disponible | brain.db poblado · DT-Validador PASS · portal generado |
+| BUILD (default) | BUILD + TEST | Extractor listo, código fuente disponible | brain.db poblado · Brain Auditor PASS · portal generado |
 | RELEASE | RELEASE | Brain completo, equipo de modernización listo | brain activado · bank-brain actualizado · seeds emitidos |
 | RUN | OPERATE + OBSERVE + ITERATE | Brain en uso por DTs y equipo | consultas respondidas · stale detection · enriquecimiento incremental |
 
@@ -329,7 +329,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
   2. Invoco Specialist RE de la tecnología para extracción.
   3. Diseño schema del brain según complejidad del sistema.
   4. Build brain.db iterativamente: vocabulario (Capa 1) → almas (Capa 2) → journeys (Capa 3) → reglas (Capa 4).
-  5. DT-Validador PASS antes de activar.
+  5. Brain Auditor PASS antes de activar.
 - **Output**: brain.db activo + portal + DT roster operativo.
 
 ### Escenario 2 — Síntesis de business_name (scatter-gather LLM)
@@ -365,7 +365,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
   2. Corro `build-brain.py` (idempotente — INSERT OR IGNORE).
   3. Extractor detecta nuevas entidades.
   4. Enriquecimiento: clase + reg + business_name, registrado en `rule_enrichment_log`.
-  5. DT-Validador PASS + portal regenerado + seeds actualizados.
+  5. Brain Auditor PASS + portal regenerado + seeds actualizados.
 - **Output**: brain actualizado + coverage aumentada + seeds frescos.
 
 ### Escenario 5 — Stale brain detection y remediation
@@ -373,11 +373,11 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 - **Trigger**: sistema en producción lleva > 30 días sin rebuild con cambios de código detectados.
 - **Modo**: RUN (OBSERVE → ITERATE)
 - **Pasos**:
-  1. DT-Validador Capa 1 detecta `brain_freshness_days > 30` o schema mismatch.
+  1. Brain Auditor Capa 1 detecta `brain_freshness_days > 30` o schema mismatch.
   2. Alerto al equipo con reporte de stale detection.
   3. Identifico qué cambió en `source/` desde el último build.
   4. Ejecuto pipeline canónico de rebuild (idempotente).
-  5. DT-Validador PASS → brain actualizado.
+  5. Brain Auditor PASS → brain actualizado.
 - **Output**: brain fresco + stale alert cerrada.
 
 ---
@@ -407,7 +407,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 | TEST | Specialist RE · QA Equivalence (si el brain alimenta golden master tests) |
 | RELEASE | SRE & AIOps (si portal en cloud) · Software Engineering (integración brain-to-modernization-pipeline) |
 | OPERATE | DTs del sistema · AMS Reinvention (si el brain forma parte del runbook operativo) |
-| OBSERVE | DT-Validador (health check del brain) |
+| OBSERVE | Brain Auditor (health check del brain) |
 | ITERATE | Specialist RE + Domain SMEs (nuevas olas de extracción) |
 
 ---
@@ -450,7 +450,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 
 - **[ANTIPATRÓN]** Editar `portal/*.html` a mano — rompe la invariante brain=fuente de verdad. Siempre regenerar desde build-portal.py.
 - **[ANTIPATRÓN]** Usar heurísticos para business_name en lugar de síntesis LLM source-read — los heurísticos producen nombres con errores factuales.
-- **[ANTIPATRÓN]** Saltarse DT-Validador PASS antes de activar el brain — un brain con datos incorrectos produce peores decisiones que no tener brain.
+- **[ANTIPATRÓN]** Saltarse Brain Auditor PASS antes de activar el brain — un brain con datos incorrectos produce peores decisiones que no tener brain.
 - **[ANTIPATRÓN]** Commitear brain.db al repositorio — pesa cientos de MB y se reconstruye desde el pipeline.
 - **[ANTIPATRÓN]** Construir un brain sin el vocabulario empresarial como capa base (Regla V1) — los business_names de sistemas distintos del mismo cliente serán inconsistentes.
 - **[ANTIPATRÓN]** Usar un LLM diferente a Claude para síntesis — calibración y consistencia requieren el mismo modelo en todas las olas.
@@ -480,14 +480,14 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 - [ ] 0 business_name vacíos o genéricos — síntesis LLM source-read completada (DoD-EB-02).
 - [ ] Clase clasificada en 100% de reglas (DoD-EB-03).
 - [ ] Regulación anotada en 100% de reglas (DoD-EB-04).
-- [ ] DT-Validador PASS — 0 errores, 0 advertencias bloqueantes (DoD-EB-05).
+- [ ] Brain Auditor PASS — 0 errores, 0 advertencias bloqueantes (DoD-EB-05).
 - [ ] Seeds emitidos para todos los sistemas con dependencia conocida (DoD-EB-06).
 - [ ] Portal HTML generado desde brain.db, nunca hand-authored (DoD-EB-07).
 - [ ] brain.py expone interfaz estándar de 5 métodos (DoD-EB-08).
 - [ ] Taxonomía de negocio del cliente como hilo conductor (DoD-EB-09).
 - [ ] bank-brain federado actualizado (DoD-EB-10).
 - [ ] Linaje del conocimiento poblado, sin gold huérfano de fuente (DoD-EB-11).
-- [ ] Roster de 20 DTs canónicos completo y cobertura sin huecos (DoD-EB-12).
+- [ ] Roster de 23 DTs canónicos completo y cobertura sin huecos (DoD-EB-12).
 - [ ] brain.db en .gitignore — nunca commiteado.
 - [ ] Pipeline canónico de rebuild documentado en CLAUDE.md del sistema.
 - [ ] DORA baseline (frescura brain, cobertura, uso por DTs) registrada.

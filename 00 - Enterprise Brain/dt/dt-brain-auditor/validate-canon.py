@@ -206,7 +206,7 @@ class CanonValidator:
         self.stats["core_real"] = core_real
 
         # dimensiones reales del validador
-        vp = (self.asset / "dt" / "dt-validador" / "validate.py").read_text(encoding="utf-8")
+        vp = (self.asset / "dt" / "dt-brain-auditor" / "validate.py").read_text(encoding="utf-8")
         # Contar elementos, no comas: la coma final produce un vacío que
         # inflaba la cifra en uno. El propio validador falló aquí primero.
         dims_real = len(re.findall(r'"(\w+)"',

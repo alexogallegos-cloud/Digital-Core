@@ -1,4 +1,4 @@
-# DT-Negocio-Operaciones — Digital Twin de Operaciones del Core del Negocio
+# Operations Owner — Digital Twin de Operaciones del Core del Negocio
 > Digital Twin canónico de negocio · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría C
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Negocio-Operaciones |
+| Nombre | Operations Owner |
 | Tipo | Digital Twin de negocio — canónico en todo brain (Regla B41, categoría C) |
 | Dominio L1 que encarna | Operaciones del core |
 | Hemisferio | Ambos. El modelo de negocio aplica en operación y en transformación |
@@ -26,7 +26,7 @@ No existe un marco de capacidades de negocio agnóstico de industria publicado e
 
 | Industria | Catálogo | Dominio equivalente |
 |-----------|----------|---------------------|
-| Banca | Banking ETB V5.0 | 4. Business Support, con captación, crédito, pagos y tarjetas |
+| Banca | Banking ETB V5.0 | 3. Product and Service, el lado operativo: de 3.2 Accounts and Deposits a 3.18 Dispute Management |
 | Seguros | Marco ACORD | D4 Pólizas, D5 Cobranza y D6 Siniestros |
 | Retail | Cadena de valor RTL | MOVE, con surtido, inventario y cumplimiento de pedido |
 

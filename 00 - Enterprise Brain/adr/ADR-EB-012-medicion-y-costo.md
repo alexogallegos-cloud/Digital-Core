@@ -13,7 +13,7 @@ El canon llegó a 45 reglas y 38 tablas sin poder responder dos preguntas que su
 
 Conviene no confundirlo con la bitemporalidad de B40. Esa regla dice desde cuándo una **afirmación** fue verdad en la empresa; una serie de medición dice cómo evolucionó un **valor**. Son ejes distintos y ambos necesarios: B40 permite responder qué sabíamos en marzo, y la serie permite responder cuánto valía la métrica en marzo.
 
-**La segunda es el costo.** No hay una sola tabla ni una sola columna de costo en las 38. La cadena de valor de B27 va de productos a datos pasando por infraestructura, y se detiene justo antes del dinero. Dos reglas lo piden y nada lo guarda: B43 declara el costo como uno de sus cinco ejes de medición, y B41 asigna a `dt-valor` el proceso 36 del modelo operativo, que es la gestión financiera de la tecnología.
+**La segunda es el costo.** No hay una sola tabla ni una sola columna de costo en las 38. La cadena de valor de B27 va de productos a datos pasando por infraestructura, y se detiene justo antes del dinero. Dos reglas lo piden y nada lo guarda: B43 declara el costo como uno de sus cinco ejes de medición, y B41 asigna a `dt-demand-manager` el proceso 36 del modelo operativo, que es la gestión financiera de la tecnología.
 
 ### El punto ciego del método
 
@@ -59,7 +59,7 @@ Es genérica a propósito: una sola tabla sirve para KPIs de negocio, SLOs de se
 
 El costo de la tecnología del cliente, atribuible a lo que la cadena de valor ya modela.
 
-Regla que la exige: **B43**, que nombra el costo como eje, y **B41**, que asigna a `dt-valor` el proceso 36 del modelo operativo.
+Regla que la exige: **B43**, que nombra el costo como eje, y **B41**, que asigna a `dt-demand-manager` el proceso 36 del modelo operativo.
 
 **Frontera explícita con el territorio comercial.** Esta tabla guarda lo que al cliente le cuesta operar su tecnología: licencias, nube, infraestructura, soporte. **No guarda precios, tarifas por hora ni cifras de propuesta.** Todo lo comercial sigue siendo territorio de `Pricing & Commercial Modeler` en `Solutioning/`, como ya declara el `CLAUDE.md` del asset y repiten tres DTs en sus anti-patrones. Un brain que empiece a guardar tarifas de Accenture cruzó una frontera que no le corresponde.
 
@@ -71,10 +71,10 @@ Por B37, una medición que viene de monitoreo, de la ejecución de un job o de u
 
 ## Consecuencias
 
-- **El CORE pasa de 15 a 17 tablas.** Deben actualizarse la Regla B15, el encabezado de `templates/schema.sql`, la dimensión D1 del DT-Validador y las constantes de `validate.py`.
+- **El CORE pasa de 15 a 17 tablas.** Deben actualizarse la Regla B15, el encabezado de `templates/schema.sql`, la dimensión D1 del Brain Auditor y las constantes de `validate.py`.
 - **Las dos nacen sin evidencia en el estate**, y eso queda declarado, no escondido. Es el primer uso del tercer fundamento y conviene que se note.
-- **Dueños**: `measurements` es de `dt-valor` en su dimensión de negocio y `dt-operacion` en la de servicio, con el mismo patrón de propiedad compartida por columna que ya usa `slos`. `costs` es de `dt-valor`.
-- **`dt-valor` gana el soporte que le faltaba.** B41 le asignaba el proceso 36 sin darle ninguna tabla donde registrarlo.
+- **Dueños**: `measurements` es de `dt-demand-manager` en su dimensión de negocio y `dt-service-operations-lead` en la de servicio, con el mismo patrón de propiedad compartida por columna que ya usa `slos`. `costs` es de `dt-demand-manager`.
+- **`dt-demand-manager` gana el soporte que le faltaba.** B41 le asignaba el proceso 36 sin darle ninguna tabla donde registrarlo.
 - **Habilita tres casos de uso de B38 que hoy no tienen piso**: pronóstico de capacidad, costo de TI por producto y KPI, y tendencia de SLO contra su compromiso.
 - **No se agregan incidentes, pruebas ni ambientes**, aunque el análisis los identificó como huecos. Esperan evidencia o una regla que los exija: el tercer fundamento no es una invitación a modelar todo lo que falte.
 

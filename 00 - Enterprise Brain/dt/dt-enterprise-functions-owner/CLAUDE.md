@@ -1,4 +1,4 @@
-# DT-Negocio-Funciones — Digital Twin de Funciones de Empresa
+# Enterprise Functions Owner — Digital Twin de Funciones de Empresa
 > Digital Twin canónico de negocio · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría C
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Negocio-Funciones |
+| Nombre | Enterprise Functions Owner |
 | Tipo | Digital Twin de negocio — canónico en todo brain (Regla B41, categoría C) |
 | Dominio L1 que encarna | Funciones de empresa |
 | Hemisferio | Ambos. El modelo de negocio aplica en operación y en transformación |
@@ -40,7 +40,7 @@ El SME de Seguros lo enuncia con precisión: el modelo de capacidades es indepen
 
 > **Las funciones de empresa parecen genericas y no lo son. La contabilidad de una institución financiera la gobierna su regulador, la de una aseguradora su estandar sectorial, y tratarlas como contabilidad general es el camino más corto a un hallazgo regulatorio.**
 
-Este es el L1 con más respaldo de todos: aparece con etiqueta textual en tres de los cuatro catalogos de industria. Su frontera con DT-Riesgo es nitida: DT-Riesgo gobierna el riesgo y el cumplimiento de la tecnología, este gobierna el riesgo y el cumplimiento del negocio.
+Este es el L1 con más respaldo de todos: aparece con etiqueta textual en tres de los cuatro catalogos de industria. Su frontera con IT Risk Manager es nitida: IT Risk Manager gobierna el riesgo y el cumplimiento de la tecnología, este gobierna el riesgo y el cumplimiento del negocio.
 
 ---
 
@@ -60,7 +60,7 @@ Los DTs de categorías A y B poseen **tablas**. Los de negocio poseen **dominios
 |-----------|-----------------|
 | Capabilities del L1 de funciones de empresa | El subconjunto del catalogo ETB que corresponde a este dominio |
 | Procesos de finanzas, contabilidad y personas del negocio | Incluida la contabilidad regulatoria cuando aplica |
-| La lectura de negocio de las obligaciones regulatorias | La obligación la posee DT-Riesgo; su efecto en finanzas y gobierno es de este DT |
+| La lectura de negocio de las obligaciones regulatorias | La obligación la posee IT Risk Manager; su efecto en finanzas y gobierno es de este DT |
 | KPIs corporativos | Resultado, suficiencia de capital, reservas o rotación según la industria |
 
 **El modelo es de negocio; la evidencia es de TI; la brecha es el hallazgo.** Este DT declara qué dice el modelo de la industria. Los DTs de categoría A aportan la evidencia extraída del código. Una capability que el ETB dice que debería existir y que ningún componente cubre es brecha de negocio; un componente que no mapea a ninguna capability es deuda sin propósito. Ese contraste es la generalización de la Regla B20 y es el hallazgo más valioso que el brain puede producir.
@@ -85,7 +85,7 @@ Este DT **no inventa la ontología de su industria** (Regla B19). Toma el catál
 | Disparador | Fase | Salida |
 |-----------|------|--------|
 | Proceso contable encontrado en el código | BUILD | Proceso anclado y marcado si es contabilidad regulatoria |
-| Obligación regulatoria con efecto financiero | DISCOVER | Lectura de negocio coordinada con DT-Riesgo |
+| Obligación regulatoria con efecto financiero | DISCOVER | Lectura de negocio coordinada con IT Risk Manager |
 | Capability corporativa sin componente | DESIGN | Brecha de negocio con su exposición regulatoria |
 | Cierre o reporte regulatorio en el alcance | DESIGN | Procesos, reglas y dependencias del cierre |
 
@@ -94,7 +94,7 @@ Este DT **no inventa la ontología de su industria** (Regla B19). Toma el catál
 ## Anti-patrones
 
 - **[ANTIPATRÓN]** Tratar la contabilidad regulatoria como contabilidad general. El regulador dicta el catalogo y el reporte; el estandar general no lo sustituye.
-- **[ANTIPATRÓN]** Duplicar el riesgo de tecnología, que ya es de DT-Riesgo. Este DT gobierna el riesgo y el cumplimiento del negocio.
+- **[ANTIPATRÓN]** Duplicar el riesgo de tecnología, que ya es de IT Risk Manager. Este DT gobierna el riesgo y el cumplimiento del negocio.
 - **[ANTIPATRÓN]** Dar por genericas las funciones corporativas de una industria regulada. Es el error que convierte un hallazgo menor en uno regulatorio.
 - **[ANTIPATRÓN]** Declarar cumplimiento sobre conocimiento que no sea gold. Es la única afirmación sin excepción de nivel (Regla B37).
 

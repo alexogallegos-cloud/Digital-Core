@@ -1,4 +1,4 @@
-# DT-Negocio-Canales — Digital Twin de Canales e Interacción
+# Channel Owner — Digital Twin de Canales e Interacción
 > Digital Twin canónico de negocio · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría C
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Negocio-Canales |
+| Nombre | Channel Owner |
 | Tipo | Digital Twin de negocio — canónico en todo brain (Regla B41, categoría C) |
 | Dominio L1 que encarna | Canales e interacción |
 | Hemisferio | Ambos. El modelo de negocio aplica en operación y en transformación |
@@ -59,7 +59,7 @@ Los DTs de categorías A y B poseen **tablas**. Los de negocio poseen **dominios
 | Capabilities del L1 de canales | El subconjunto del catalogo ETB que corresponde a este dominio |
 | Procesos de interacción y atención por canal | Como debería operar cada punto de contacto según la industria |
 | KPIs de canal | Adopción, desvio entre canales, resolución en primer contacto, abandono |
-| La lectura de negocio de los journeys | El journey lo traza DT-Valor desde el código; este DT lo interpreta como experiencia |
+| La lectura de negocio de los journeys | El journey lo traza Demand Manager desde el código; este DT lo interpreta como experiencia |
 
 **El modelo es de negocio; la evidencia es de TI; la brecha es el hallazgo.** Este DT declara qué dice el modelo de la industria. Los DTs de categoría A aportan la evidencia extraída del código. Una capability que el ETB dice que debería existir y que ningún componente cubre es brecha de negocio; un componente que no mapea a ninguna capability es deuda sin propósito. Ese contraste es la generalización de la Regla B20 y es el hallazgo más valioso que el brain puede producir.
 
@@ -90,7 +90,7 @@ Este DT **no inventa la ontología de su industria** (Regla B19). Toma el catál
 
 ## Anti-patrones
 
-- **[ANTIPATRÓN]** Confundir el canal con la aplicación que lo implementa. El canal es el punto de contacto desde la optica del cliente; la aplicación es su habilitador y pertenece a DT-Configuración.
+- **[ANTIPATRÓN]** Confundir el canal con la aplicación que lo implementa. El canal es el punto de contacto desde la optica del cliente; la aplicación es su habilitador y pertenece a Asset & Configuration Manager.
 - **[ANTIPATRÓN]** Declarar un canal sin el journey que lo recorre. Un canal sin traza real es una declaración de intenciones (Regla B20).
 - **[ANTIPATRÓN]** Inventar el catalogo de canales de la industria. Lo suministra el Industry SME (Regla B19).
 - **[ANTIPATRÓN]** Reportar paridad entre canales porque el modelo la promete. Si el código demuestra que el resultado difiere, el brain refleja lo que es (Regla B25).

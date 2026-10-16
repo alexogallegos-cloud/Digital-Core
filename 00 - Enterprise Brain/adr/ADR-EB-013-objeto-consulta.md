@@ -80,11 +80,11 @@ Es el segundo caso en este asset de una columna a punto de duplicarse porque su 
 
 ## Consecuencias
 
-- **El CORE pasa de 17 a 18 tablas.** Deben actualizarse la Regla B15, el encabezado de `templates/schema.sql`, la dimensión D1 del DT-Validador, las constantes de `validate.py`, `quality-gates-enterprise-brain.md` y el mapa de tablas generado.
+- **El CORE pasa de 17 a 18 tablas.** Deben actualizarse la Regla B15, el encabezado de `templates/schema.sql`, la dimensión D1 del Brain Auditor, las constantes de `validate.py`, `quality-gates-enterprise-brain.md` y el mapa de tablas generado.
 - **`brain.py` gana el ciclo de consulta**: `abrir_consulta`, `responder` y `registrar_consulta`. Sin ellos la tabla queda vacía y la regla sigue siendo una intención.
 - **`autoevaluacion()` se vuelve implementable.** Los cinco ejes de B43 ya tienen de dónde leer: `queries` da uso y desempeño, `costs` da costo, `knowledge_lineage` da frescura vía la latencia bitemporal de B40, y `decisions` da trazabilidad.
-- **Dueño de `queries`: `dt-conocimiento`**, que ya posee `knowledge_lineage`. El registro de consultas es el lado del consumo del mismo linaje, y tenerlos en el mismo dueño es lo que permite unir de dónde vino una afirmación con quién la pidió.
-- **Dueño de la política de B42: `dt-riesgo`.** Ninguno de los veinte DTs declaraba B42 en su `CLAUDE.md`, así que la regla no tenía dueño. Se asigna a `dt-riesgo`, que ya responde por las obligaciones regulatorias y los riesgos, y el control de acceso es de esa naturaleza. La separación importa: `dt-riesgo` define la política, `dt-conocimiento` guarda el registro y `dt-validador` audita que coincidan. Quien fija la política no debe ser el dueño del registro con que se verifica.
+- **Dueño de `queries`: `dt-knowledge-manager`**, que ya posee `knowledge_lineage`. El registro de consultas es el lado del consumo del mismo linaje, y tenerlos en el mismo dueño es lo que permite unir de dónde vino una afirmación con quién la pidió.
+- **Dueño de la política de B42: `dt-it-risk-manager`.** Ninguno de los veinte DTs declaraba B42 en su `CLAUDE.md`, así que la regla no tenía dueño. Se asigna a `dt-it-risk-manager`, que ya responde por las obligaciones regulatorias y los riesgos, y el control de acceso es de esa naturaleza. La separación importa: `dt-it-risk-manager` define la política, `dt-knowledge-manager` guarda el registro y `dt-brain-auditor` audita que coincidan. Quien fija la política no debe ser el dueño del registro con que se verifica.
 - **Los propósitos permitidos por tipo de solicitante son una lista en el código, no en el esquema.** Es una decisión consciente: la frontera de cliente de B42 es absoluta y no debe poder ablandarse con un `UPDATE`.
 - **Ningún brain del estate tiene esta tabla.** Como `measurements` y `costs`, nace sin evidencia, y eso queda declarado en lugar de escondido.
 

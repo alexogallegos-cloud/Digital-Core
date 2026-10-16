@@ -59,7 +59,7 @@ SYSTEM_INFO = {
     # Eje de ramo/LOB. NULL si la industria no lo tiene (banca no, seguros sí).
     "lob_dimension": None,
     "version": BRAIN_VERSION,
-    "status": "building",            # → 'active' solo tras DT-Validador PASS
+    "status": "building",            # → 'active' solo tras Brain Auditor PASS
     "source_of_truth": "knowledge-base/",
     "build_agent": "REEMPLAZAR",        # DT del enjambre que construye este brain (Regla B29)
 }
@@ -324,7 +324,7 @@ class BrainBuilder:
     def load_suppliers(self):
         """
         Regla B41 / ADR-EB-011 — proveedores y socios estratégicos. Poseída por
-        DT-Proveedores; cierra los procesos ITOM 4 y 5.
+        Supplier Relationship Manager; cierra los procesos ITOM 4 y 5.
 
         Un proveedor se evalúa contra su SLO medido (`slo_id`), nunca contra su
         propuesta. `criticality='critical'` sin `exit_plan` es hallazgo.
@@ -592,10 +592,10 @@ class BrainBuilder:
 
 def run_validator() -> int:
     validador = (
-        HERE.parents[3] / "00 - Enterprise Brain" / "dt" / "dt-validador" / "validate.py"
+        HERE.parents[3] / "00 - Enterprise Brain" / "dt" / "dt-brain-auditor" / "validate.py"
     )
     if not validador.exists():
-        print(f"DT-Validador no encontrado en {validador}", file=sys.stderr)
+        print(f"Brain Auditor no encontrado en {validador}", file=sys.stderr)
         return 2
     return subprocess.run(
         [sys.executable, str(validador), "--db", str(DB_PATH)]
@@ -607,7 +607,7 @@ def main():
     p.add_argument("--dry-run", action="store_true",
                    help="construye en memoria sin escribir brain.db")
     p.add_argument("--validate", action="store_true",
-                   help="corre el DT-Validador sobre el brain.db existente")
+                   help="corre el Brain Auditor sobre el brain.db existente")
     args = p.parse_args()
 
     if args.validate:

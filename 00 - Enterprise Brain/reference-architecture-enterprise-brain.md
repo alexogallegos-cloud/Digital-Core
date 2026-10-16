@@ -93,9 +93,9 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Preservar el código y la documentación del sistema tal como existe en producción — sin editar, sin resumir. |
 | Operaciones | Recibir olas de código, organizar por subcarpeta, documentar la cobertura de cada ola y su origen en el CLAUDE.md del sistema. |
-| Digital Twin que la opera | `dt-fuentes` es el guardián de Capa 1: cataloga las fuentes disponibles, clasifica su tier natural y mapea qué casos de uso habilita cada una. `dt-pipeline` recibe y organiza `source/`. El Specialist RE de la tecnología valida completitud en el momento de la entrega. |
+| Digital Twin que la opera | `dt-source-steward` es el guardián de Capa 1: cataloga las fuentes disponibles, clasifica su tier natural y mapea qué casos de uso habilita cada una. `dt-build-operator` recibe y organiza `source/`. El Specialist RE de la tecnología valida completitud en el momento de la entrega. |
 | Verificación | `source/code/` no está vacío; `knowledge-base/source-catalog.md` declara las fuentes activas con su tier y cobertura; el CLAUDE.md del sistema documenta la ola y su origen; no hay archivos interpretados o generados dentro de `source/`. |
-| Qué significa que falle | Corpus vacío → la Capa 2 no tiene qué extraer → brain.db no puede poblarse. Corpus incompleto sin catálogo de fuentes → el brain no sabe qué no sabe → decisiones basadas en evidencia parcial sin advertencia. Fuente sin tier declarado → `dt-pipeline` asigna bronze por defecto → todo va a la cola de HITL innecesariamente. |
+| Qué significa que falle | Corpus vacío → la Capa 2 no tiene qué extraer → brain.db no puede poblarse. Corpus incompleto sin catálogo de fuentes → el brain no sabe qué no sabe → decisiones basadas en evidencia parcial sin advertencia. Fuente sin tier declarado → `dt-build-operator` asigna bronze por defecto → todo va a la cola de HITL innecesariamente. |
 
 ---
 
@@ -117,8 +117,8 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Convertir código opaco en conocimiento estructurado, nombrado y anclado a la ontología del negocio — listo para ser cargado en el brain. |
 | Operaciones | Parsear fuentes por tecnología (Specialist RE); sintetizar `business_name` vía LLM source-read en lotes de 70-80; asignar `tier` (gold para código productivo, silver para lo que puede cambiar, bronze para lo que espera validación); anclar a proceso, capability y producto del negocio. |
-| Digital Twin que la opera | `dt-pipeline` posee los tres primeros actos (extracción, curación, enriquecimiento). El anclaje ontológico no tiene DT dueño en el canon vigente — es la brecha activa de esta capa (requiere ADR). |
-| Verificación | P2 idempotencia (correr el pipeline dos veces produce el mismo resultado); DoD-EB-02 (0 `business_name` vacíos o genéricos); D7 del DT-Validador (0 `process_id` nulos en tablas de conocimiento — este criterio bloquea si el anclaje no se ejecutó). |
+| Digital Twin que la opera | `dt-build-operator` posee los tres primeros actos (extracción, curación, enriquecimiento). El anclaje ontológico no tiene DT dueño en el canon vigente — es la brecha activa de esta capa (requiere ADR). |
+| Verificación | P2 idempotencia (correr el pipeline dos veces produce el mismo resultado); DoD-EB-02 (0 `business_name` vacíos o genéricos); D7 del Brain Auditor (0 `process_id` nulos en tablas de conocimiento — este criterio bloquea si el anclaje no se ejecutó). |
 | Qué significa que falle | `business_name` genéricos → D3 FAIL. `process_id` nulos → D7 FAIL (bloqueante). Extracción parcial → brain.db incompleto sin que el validador lo detecte por sí solo. El fallo más silencioso es un anclaje omitido: el brain carga y valida las dimensiones D1-D6, pero sus hallazgos no se pueden priorizar ni comparar entre sistemas porque el conocimiento no está conectado a la cadena de valor. |
 
 ---
@@ -141,9 +141,9 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Ser la fuente de verdad única del conocimiento sobre el sistema, con su calidad declarada, su linaje registrado y su historia preservada. |
 | Operaciones | Carga idempotente (INSERT OR IGNORE); `snapshot(date)` para reconstruir el conocimiento en una fecha de negocio pasada (B40); preservación de `RUNTIME_TABLES` entre builds; federación vía SQLite ATTACH desde el enterprise brain (ADR-EB-003). |
-| Digital Twin que la opera | `dt-pipeline` construye; `dt-ingenieria` mantiene el schema y los templates; `dt-validador` audita. |
-| Verificación | DT-Validador D1 (18 tablas CORE + extensión correcta + puente declarado); D7 (0 `process_id` nulos en tablas de conocimiento — B22); D8 (puente Change-Run sin transición sin `run_owner` ni SLO sin `current`); D9 (calidad y linaje — sin gold huérfano de fuente, sin gold por validación sin `validated_by`). |
-| Qué significa que falle | `brain.db` incompleto → DT-Validador D1 FAIL → RELEASE bloqueado. Puente incompleto → D8 FAIL — el brain no puede detectar rupturas Change↔Run. `brain.db` con datos incorrectos y validador que pasa → razonamiento incorrecto sin error visible — el error más costoso porque se detecta tarde, cuando una decisión ya se tomó. |
+| Digital Twin que la opera | `dt-build-operator` construye; `dt-brain-engineer` mantiene el schema y los templates; `dt-brain-auditor` audita. |
+| Verificación | Brain Auditor D1 (18 tablas CORE + extensión correcta + puente declarado); D7 (0 `process_id` nulos en tablas de conocimiento — B22); D8 (puente Change-Run sin transición sin `run_owner` ni SLO sin `current`); D9 (calidad y linaje — sin gold huérfano de fuente, sin gold por validación sin `validated_by`). |
+| Qué significa que falle | `brain.db` incompleto → Brain Auditor D1 FAIL → RELEASE bloqueado. Puente incompleto → D8 FAIL — el brain no puede detectar rupturas Change↔Run. `brain.db` con datos incorrectos y validador que pasa → razonamiento incorrecto sin error visible — el error más costoso porque se detecta tarde, cuando una decisión ya se tomó. |
 
 ---
 
@@ -156,7 +156,7 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 | Composición | `brain.py` (Agent API — interfaz estándar de métodos obligatorios) + el enjambre de 20 Digital Twins canónicos (B41) + `build-portal.py` (generador del portal HTML). |
 | Contrato de frontera | Entrada: `brain.db` vía `brain.py` (conexión read-only, `PRAGMA query_only=1`). Salida: respuestas estructuradas a consultas, hallazgos, portal HTML, seeds para sistemas vecinos. La Capa 4 nunca escribe en `brain.db` salvo `registrar_consulta()` que usa `_db_registro()` — conexión de escritura separada, solo para `queries` (B45). |
 | Ubicación física | `templates/brain.py` · `dt/` (cada DT con su `CLAUDE.md`) · `generators/build-portal.py` · `portal/` (output generado — nunca hand-authored, ADR-EB-005). |
-| Reglas que la gobiernan | B41 (20 DTs canónicos); B42 (confidencialidad por propósito — `abrir_consulta()` valida propósito antes de recuperar); B43 (autoevaluación en 5 ejes); B45 (toda consulta es un objeto con ciclo de vida de 6 etapas); B39 (autonomía graduada A0-A3); ADR-EB-005 (portal generado); ADR-EB-003 (federación vía ATTACH). |
+| Reglas que la gobiernan | B41 (23 DTs canónicos); B42 (confidencialidad por propósito — `abrir_consulta()` valida propósito antes de recuperar); B43 (autoevaluación en 5 ejes); B45 (toda consulta es un objeto con ciclo de vida de 6 etapas); B39 (autonomía graduada A0-A3); ADR-EB-005 (portal generado); ADR-EB-003 (federación vía ATTACH). |
 | Qué no es | No modifica el conocimiento del brain — eso va por el pipeline (Capas 2→3). No ejecuta acciones en sistemas de producción del cliente — eso es Capas 5/6 con nivel de autonomía declarado. No es el corpus ni el pipeline. |
 
 **Definición funcional**
@@ -165,8 +165,8 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Exponer el conocimiento del brain para razonamiento, consulta, generación de hallazgos y portal — siempre con el nivel de certeza de cada respuesta declarado. |
 | Operaciones | `abrir_consulta()`, `responder()`, `registrar_consulta()` (B45); `autoevaluacion()` (B43); `snapshot(date)` (B40); `coverage()`, `value_chain()`, `capability_gap()`, `system_dependencies()` (análisis); `build-portal.py` (portal HTML). |
-| Digital Twin que la opera | `dt-ingenieria` mantiene `brain.py` y `build-portal.py`; los 20 DTs en enjambre consultan vía `brain.py`. |
-| Verificación | DoD-EB-08 (interfaz estándar de 5 métodos expuesta); DoD-EB-07 (portal generado desde `brain.db`, nunca hand-authored); `dt/dt-validador/test-brain-api.py` (20 checks funcionales sobre B40, B42, B43, B45). |
+| Digital Twin que la opera | `dt-brain-engineer` mantiene `brain.py` y `build-portal.py`; los 20 DTs en enjambre consultan vía `brain.py`. |
+| Verificación | DoD-EB-08 (interfaz estándar de 5 métodos expuesta); DoD-EB-07 (portal generado desde `brain.db`, nunca hand-authored); `dt/dt-brain-auditor/test-brain-api.py` (20 checks funcionales sobre B40, B42, B43, B45). |
 | Qué significa que falle | `brain.py` sin métodos obligatorios → el DT swarm no puede interrogar el brain sistémicamente. Portal hand-authored → viola ADR-EB-005 y se desincroniza del brain. Consulta respondida sin registrar → B42 y B43 no tienen evidencia para operar (propósito sin registro, uso sin contador). |
 
 ---
@@ -189,9 +189,9 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Amplificar la productividad de los equipos de delivery usando el brain como contexto estructurado — sin duplicar los sistemas de registro existentes. |
 | Operaciones | Documentar RCA asistido (Run); generar runbooks desde el grafo de dependencias; correlacionar señales de observabilidad con el mapa de componentes; identificar casos de prueba desde los journeys (QE shift-left — B37 anotación temprana); escribir definiciones funcionales desde las reglas catalogadas; generar código en Change desde el modelo del sistema. |
-| Digital Twin que la opera | Los DTs especializados por caso de uso + `dt-hitl` (validación humana para los niveles que lo requieren). |
+| Digital Twin que la opera | Los DTs especializados por caso de uso + `dt-human-reviewer` (validación humana para los niveles que lo requieren). |
 | Verificación | Cada caso de uso declara su nivel de autonomía (A0-A3) y su sub-capacidad ITOM de referencia. Todo output sale como silver; la herramienta de registro del cliente lo promueve a gold cuando lo adopta. |
-| Qué significa que falle | Caso de uso sin ancla ITOM → no se puede medir su aporte al negocio ni priorizar su operación. Output sin nivel de autonomía declarado → `dt-hitl` no sabe si debe bloquear o aprobar. Catálogo de casos de uso no registrado en `brain.db` (B38 pendiente) → el brain no puede reportar cuántos casos de uso lo consumen ni con qué frecuencia, lo que ciega el eje de uso de `autoevaluacion()` (B43). |
+| Qué significa que falle | Caso de uso sin ancla ITOM → no se puede medir su aporte al negocio ni priorizar su operación. Output sin nivel de autonomía declarado → `dt-human-reviewer` no sabe si debe bloquear o aprobar. Catálogo de casos de uso no registrado en `brain.db` (B38 pendiente) → el brain no puede reportar cuántos casos de uso lo consumen ni con qué frecuencia, lo que ciega el eje de uso de `autoevaluacion()` (B43). |
 
 ---
 
@@ -213,9 +213,43 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 |-----|-----------|
 | Responsabilidad única | Cerrar el ciclo — cada consejo del brain debe poder verificar si su KPI se movió como se esperaba, para que el brain aprenda y mantenga el derecho de que le crean. |
 | Operaciones | Registrar decisiones con opciones descartadas y el conocimiento que las sostuvo; registrar el resultado observado vs el esperado; aplicar el nivel de autonomía correcto antes de ejecutar cualquier acción de Capa 5; archivar el brain con ventana de 12 meses después del cutover, resolviendo los huecos abiertos y avisando a los brains que lo federan (B44). |
-| Digital Twin que la opera | `dt-cambio` (catálogo de autonomía y gate de decommission); `dt-hitl` (aprobaciones A3 — las cuatro acciones que nunca bajan de A3); `dt-validador` (auditoría de que ningún gate cierra sobre conocimiento silver). |
+| Digital Twin que la opera | `dt-change-manager` (catálogo de autonomía y gate de decommission); `dt-human-reviewer` (aprobaciones A3 — las cuatro acciones que nunca bajan de A3); `dt-brain-auditor` (auditoría de que ningún gate cierra sobre conocimiento silver). |
 | Verificación | `autoevaluacion()['trazabilidad_decision'] > 0%` (hay decisiones registradas con outcome); ningún gate de decommission o cutover cierra con conocimiento silver que lo sostenga; la ventana de 12 meses post-cutover está documentada antes de archivar. |
 | Qué significa que falle | Decisiones sin outcome registrado → el brain acumula consejos sin verificar su acierto y pierde credibilidad progresivamente. Acción A3 ejecutada sin aprobación explícita del rol accountable → riesgo operativo en producción. Brain archivado antes de 12 meses → se pierde la capacidad de reconstruir cómo estaba la arquitectura antes de la migración, con los costos legales y operativos que eso implica. |
+
+---
+
+## Los Dos Ejes del Conocimiento
+
+El asset describe el conocimiento con dos modelos y ambos usan la palabra *capa*. No son versiones del mismo modelo ni uno sustituye al otro: son **ejes ortogonales**. Uno dice cómo está estructurado el sistema; el otro, en qué orden se construye el entendimiento. Leer uno como si fuera una versión vieja del otro es un error documentado — se ha cometido teniendo el repositorio completo a la vista — y esta sección existe para impedirlo.
+
+| | Seis capas de arquitectura | Cuatro etapas de metodología |
+|---|---|---|
+| Pregunta que responde | ¿Dónde vive el conocimiento y cómo fluye? | ¿En qué orden se construye hasta llegar a la intención del negocio? |
+| Naturaleza del eje | Estructural — son estratos simultáneos | Secuencial — son etapas que se ejecutan en orden |
+| Nombres | Corpus · Extracción y Curación · El Brain · Razonamiento y Agentes · Capa Agéntica · Decisiones y Acciones | Lenguaje · Almas · Biografía · Intención |
+| Alcance | Todo brain, sin excepción | Solo `brain_type = SYSTEM` (ver abajo) |
+| Dónde se define | Esta sección, "Arquitectura por Capas" | los cuatro archivos de `knowledge-base/methodology/` |
+| Qué pasa si falta | El brain no se puede construir ni consultar | El brain de un sistema legacy se puebla sin orden y las reglas quedan sin vocabulario que las sostenga |
+
+### Cómo se cruzan
+
+Las cuatro etapas **no son una capa de la arquitectura: son el método de trabajo de la Capa 2** (Extracción y Curación) cuando la fuente es un sistema legacy. Su producto aterriza en la Capa 3, y cada etapa llena exactamente una tabla de la extensión `SYSTEM`:
+
+| Etapa | Qué extrae | Tabla que puebla | Capa que la ejecuta | Capa donde aterriza |
+|------|-----------|------------------|---------------------|---------------------|
+| 1 · Lenguaje | El vocabulario nativo del sistema: los términos con que nombra conceptos, procesos, actores y estados | `vocabulary` | Capa 2 | Capa 3 |
+| 2 · Almas | Los módulos funcionales con identidad propia, reconocibles como actores del dominio y no como agrupaciones técnicas | `components.is_soul` | Capa 2 | Capa 3 |
+| 3 · Biografía | Los flujos de negocio: cómo una transacción atraviesa el sistema desde el punto de entrada hasta el resultado | `journeys` | Capa 2 | Capa 3 |
+| 4 · Intención | Las decisiones de negocio: qué valida, qué calcula, qué transforma, bajo qué condiciones y con qué consecuencia | `rules` | Capa 2 | Capa 3 |
+
+**El orden de las etapas no es arbitrario y por eso es una secuencia y no un conjunto.** Sin el vocabulario de la etapa 1, las almas se nombran con jerga técnica en lugar de términos de negocio. Sin las almas de la etapa 2, los journeys no tienen actores entre los cuales trazarse. Sin los journeys de la etapa 3, las reglas quedan sueltas, sin el flujo que explica cuándo se disparan. La etapa 4 es el destino del método: la intención del negocio es lo que hay que preservar en una modernización, y las tres etapas previas existen para poder enunciarla sin inventarla.
+
+### Alcance y fronteras
+
+La metodología de cuatro etapas se declara a sí misma "del Gemelo Cognitivo del **Sistema**" y eso es literal: aplica a `brain_type = SYSTEM`, donde la fuente es código productivo de un sistema en Run. Los brains `PROJECT` y `ENTERPRISE` se pueblan de otras fuentes — artefactos firmados, documentos, brains federados — y por eso no recorren estas cuatro etapas. La arquitectura de seis capas, en cambio, rige para los tres tipos sin excepción.
+
+**Qué no es.** Las cuatro etapas no son capas de la arquitectura y no deben numerarse junto a ellas. No son los niveles de calidad del conocimiento, que son bronze, silver y gold de la Regla B37. No son los `plateaus` del puente Change-Run (ADR-EB-008), que son estados de una transformación y no etapas de extracción. Y no son un pipeline alterno: el invariante P2 de la Capa 2 — todo brain se reconstruye desde cero y produce el mismo resultado — rige igual para las cuatro etapas.
 
 ---
 

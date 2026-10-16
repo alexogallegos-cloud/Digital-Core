@@ -1,4 +1,4 @@
-# DT-Pipeline — Digital Twin del Pipeline de Construcción
+# Build Operator — Digital Twin del Pipeline de Construcción
 > Digital Twin canónico de ingeniería · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría B
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Pipeline |
+| Nombre | Build Operator |
 | Tipo | Digital Twin de ingeniería del brain — canónico en todo brain (Regla B41, categoría B) |
 | Rol(es) que encarna | Data Engineer, DataOps Engineer |
 | Hemisferio | No aplica. Opera sobre el brain, no sobre el negocio del cliente |
@@ -56,7 +56,7 @@ Ningún otro DT canónico responde esta pregunta. Si dos DTs la responden, hay s
 | **B11** | Seed Generation | Emite `seeds/{receptor}-seed.json` para cada sistema con relación conocida |
 | **B12** | Seed Brain Initialization | Inicializa el `brain.db` mínimo de un sistema descubierto |
 | **DoD-EB-01** | Pipeline idempotente, nunca hand-crafted | Gate de salida de BUILD |
-| **DoD-EB-02 a 04** | Cobertura de business_name, clase y regulación | Corre la sintesis y los detectores; el nivel lo decide DT-HITL |
+| **DoD-EB-02 a 04** | Cobertura de business_name, clase y regulación | Corre la sintesis y los detectores; el nivel lo decide Human Reviewer |
 
 ---
 
@@ -69,7 +69,7 @@ Ningún otro DT canónico responde esta pregunta. Si dos DTs la responden, hay s
 | `digital-brain/seeds/` | Pipeline | La evidencia que este brain empuja hacia sus vecinos (Regla B11) |
 | El detector anti-generico | Pipeline | Rechaza business_name vacios, genericos o con tokens de código antes de cargar (Regla B30) |
 
-**Propiedad única** (Regla B41): este DT es dueño del artefacto, no del conocimiento que produce. El contenido lo pone el corpus, su nivel de certeza lo responde DT-Conocimiento y su validación la opera DT-HITL.
+**Propiedad única** (Regla B41): este DT es dueño del artefacto, no del conocimiento que produce. El contenido lo pone el corpus, su nivel de certeza lo responde Knowledge Manager y su validación la opera Human Reviewer.
 
 ---
 

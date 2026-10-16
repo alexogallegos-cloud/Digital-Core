@@ -1,4 +1,4 @@
-# DT-Validador — Digital Twin de Health Check del Enterprise Brain
+# Brain Auditor — Digital Twin de Health Check del Enterprise Brain
 > Component Delivery Agent · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: ACTIVE]** · Versión 1.0 · 2026-09-29
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Validador |
+| Nombre | Brain Auditor |
 | Tipo | Meta-agente — Digital Twin transversal |
 | Scope | Cualquier deployment del Enterprise Brain |
 | Lifecycle phase | TEST (gate bloqueante) · OBSERVE (health check periódico) |
@@ -19,9 +19,9 @@
 
 ## Principio Rector
 
-El DT-Validador **reporta, no corrige**. Su función es ejecutar las 9 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
+El Brain Auditor **reporta, no corrige**. Su función es ejecutar las 9 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
 
-Un brain que no pasa el DT-Validador **no puede activarse** (fase RELEASE bloqueada). Un brain ACTIVE que falla el DT-Validador en OBSERVE entra en estado STALE hasta que se corrija.
+Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqueada). Un brain ACTIVE que falla el Brain Auditor en OBSERVE entra en estado STALE hasta que se corrija.
 
 ---
 
@@ -228,7 +228,7 @@ python templates/callosum.py --enterprise bank-brain/digital-brain/bank-brain.db
 
 ## Formato de Reporte
 
-El DT-Validador emite un reporte estructurado al final de cada ejecución:
+El Brain Auditor emite un reporte estructurado al final de cada ejecución:
 
 ```
 DT-VALIDADOR REPORT
@@ -274,19 +274,19 @@ Hallazgos no bloqueantes:
 
 ```bash
 # Gate completo (fase TEST):
-python dt/dt-validador/validate.py --db digital-brain/brain.db --system informix
+python dt/dt-brain-auditor/validate.py --db digital-brain/brain.db --system informix
 
 # Health check rápido (OBSERVE):
-python dt/dt-validador/validate.py --db digital-brain/brain.db --summary
+python dt/dt-brain-auditor/validate.py --db digital-brain/brain.db --summary
 
 # Solo una dimensión:
-python dt/dt-validador/validate.py --db digital-brain/brain.db --dim business_name
+python dt/dt-brain-auditor/validate.py --db digital-brain/brain.db --dim business_name
 
 # Forzar el tipo cuando el brain aún no declara brain_type:
-python dt/dt-validador/validate.py --db digital-brain/brain.db --brain-type project
+python dt/dt-brain-auditor/validate.py --db digital-brain/brain.db --brain-type project
 
 # Salida JSON para agregar el estado de varios brains:
-python dt/dt-validador/validate.py --db digital-brain/brain.db --json
+python dt/dt-brain-auditor/validate.py --db digital-brain/brain.db --json
 ```
 
 **Exit codes**: `0` PASS · `1` FAIL (hallazgos bloqueantes) · `2` error de ejecución. Apto para usar como gate en CI.
@@ -307,10 +307,10 @@ Al 2026-09-29 los 16 brains reprueban D1. Es el resultado correcto — mide la d
 
 ## Anti-patrones
 
-- **[ANTIPATRÓN]** Activar un brain (status='active') sin haber ejecutado el DT-Validador — un brain con datos incorrectos produce peores decisiones que no tener brain.
+- **[ANTIPATRÓN]** Activar un brain (status='active') sin haber ejecutado el Brain Auditor — un brain con datos incorrectos produce peores decisiones que no tener brain.
 - **[ANTIPATRÓN]** Corregir los hallazgos editando directamente el brain.db con INSERT/UPDATE manual fuera del pipeline — la corrección debe ir al pipeline (enrich-rules.py → build-brain.py).
 - **[ANTIPATRÓN]** Ignorar hallazgos no bloqueantes indefinidamente — cada advertencia ignorada es deuda de conocimiento. Documentar en el CLAUDE.md del sistema si hay razón para diferirla.
 
 ---
 
-*DT-Validador · Enterprise Brain · Digital Core · Accenture México · 2026-09-29*
+*Brain Auditor · Enterprise Brain · Digital Core · Accenture México · 2026-09-29*

@@ -6,7 +6,7 @@
 
 ## Deployments Activos
 
-Datos verificados con `dt/dt-validador/validate.py` contra cada `brain.db` el 2026-09-30. La columna **Canon** es el resultado de D1 (tablas del CORE + extensión presentes).
+Datos verificados con `dt/dt-brain-auditor/validate.py` contra cada `brain.db` el 2026-09-30. La columna **Canon** es el resultado de D1 (tablas del CORE + extensión presentes).
 
 ### Brains con corpus poblado
 
@@ -104,7 +104,7 @@ Los scaffolds no son deuda: son la Regla B9 operando — todo sistema descubiert
 
 ## Estado de Homologación
 
-Baseline vigente: `dt/dt-validador/baseline-2026-10-01.json`, que mide un **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y **9 dimensiones**. El canon vigente exige **18** (ADR-EB-012 y ADR-EB-013), así que ese baseline mide un canon anterior. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
+Baseline vigente: `dt/dt-brain-auditor/baseline-2026-10-01.json`, que mide un **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y **9 dimensiones**. El canon vigente exige **18** (ADR-EB-012 y ADR-EB-013), así que ese baseline mide un canon anterior. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
 
 Los 11 brains de sistema y de proyecto reprueban D8 (puente Change–Run, ADR-EB-008); ninguno implementa el contrato común. Siete tienen piezas propias del lado Change y ninguno el lado Run con ruteo.
 
@@ -137,5 +137,5 @@ La ruta de homologación es la Regla B16 — vista de compatibilidad, no migraci
 ## Notas de Mantenimiento
 
 - El catálogo se actualiza cuando un deployment cambia de estado (BUILDING → ACTIVE → STALE → ARCHIVED).
-- Las cifras de esta página se verifican corriendo el DT-Validador, no se estiman.
+- Las cifras de esta página se verifican corriendo el Brain Auditor, no se estiman.
 - Los campos "—" indican métrica no medida formalmente, no que el brain esté vacío.

@@ -123,7 +123,7 @@ uno y cuántas capabilities son base vs. extensión propia.
   dos ontologías.
 - `capabilities.ontology` registra lo que de hecho está cargado;
   `capabilities.is_extension` marca las capabilities propias de la empresa.
-- Declaración y carga deben coincidir: el DT-Validador falla si hay una
+- Declaración y carga deben coincidir: el Brain Auditor falla si hay una
   ontología cargada sin declarar.
 
 ---

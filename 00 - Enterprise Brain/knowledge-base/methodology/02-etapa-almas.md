@@ -1,6 +1,7 @@
-# Capa 2 — Almas: Los Módulos Funcionales
+# Etapa 2 — Almas: Los Módulos Funcionales
 
-> Capa 2 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
+> Etapa 2 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
+> **Eje de metodología, no de arquitectura.** Esta es la etapa 2 de cuatro del método de extracción y puebla `components.is_soul` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
 > Versión 2.0 · 2026-10-05. La v1.0 publicaba el DDL de una tabla de almas que el canon no tiene; ver la nota al final.
 
 ## Objetivo
@@ -69,7 +70,7 @@ La identificación de un alma es **inferencia, no hecho irrefutable**, y eso det
 | El `display_name` de negocio del alma | **silver** | Es síntesis, hasta que el SME de dominio la valide |
 | El archetype asignado | **silver** | Ídem |
 
-Las tres afirmaciones silver suben a gold cuando un rol con autoridad sobre el dominio las confirma, y eso queda en `knowledge_lineage` con el validador identificado. El flujo lo opera `dt-hitl`.
+Las tres afirmaciones silver suben a gold cuando un rol con autoridad sobre el dominio las confirma, y eso queda en `knowledge_lineage` con el validador identificado. El flujo lo opera `dt-human-reviewer`.
 
 ## Réplicas sin uso
 
@@ -88,10 +89,10 @@ Los sistemas heredados frecuentemente tienen copias de módulos que nunca se dep
 | Rol | Responsabilidad |
 |-----|-----------------|
 | DT de dimensión de cada brain, típicamente `dt-almas` | Extrae y propone las almas desde el grafo de llamadas |
-| `dt-configuracion` | Dueño de `components` y `component_calls`: responde por la estructura y la semántica (Regla B41) |
-| `dt-negocio-operaciones` | Responde por el sentido de negocio del alma dentro de su dominio L1 |
-| `dt-conocimiento` | Responde por el nivel y el linaje de cada afirmación |
-| `dt-hitl` | Consigue que el SME de dominio valide el bautismo y el archetype |
+| `dt-asset-configuration-manager` | Dueño de `components` y `component_calls`: responde por la estructura y la semántica (Regla B41) |
+| `dt-operations-owner` | Responde por el sentido de negocio del alma dentro de su dominio L1 |
+| `dt-knowledge-manager` | Responde por el nivel y el linaje de cada afirmación |
+| `dt-human-reviewer` | Consigue que el SME de dominio valide el bautismo y el archetype |
 
 ## Instancias de referencia
 

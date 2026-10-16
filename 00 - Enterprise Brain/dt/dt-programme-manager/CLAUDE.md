@@ -1,4 +1,4 @@
-# DT-Entrega — Digital Twin de Programas, Proyectos y Recursos
+# Programme Manager — Digital Twin de Programas, Proyectos y Recursos
 > Digital Twin canónico de rol · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Entrega |
+| Nombre | Programme Manager |
 | Tipo | Digital Twin de rol — canónico en todo brain (Regla B41) |
 | Rol(es) ITOM v9.0 que encarna | Programme Manager, Project Manager, Resource Manager |
 | Hemisferio predominante | Change |
@@ -56,7 +56,7 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `waves` | PROJECT | Las olas de entrega con su secuencia y sus dependencias |
 | `user_stories` | PROJECT | Las historias de usuario con sus criterios de aceptación y su origen |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde DT-Conocimiento.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

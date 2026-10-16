@@ -14,7 +14,7 @@ El inventario del estate lo confirmó. En los 16 brains hay **124 carpetas de DT
 | Naturaleza del DT | Cantidad | Ejemplos |
 |-------------------|----------|----------|
 | Dimensiones de análisis | ~115 | `dt-reglas`, `dt-journeys`, `dt-vocabulario`, `dt-almas`, `dt-capacidades`, los `*-lifecycle` de seguros y banca |
-| Rol de TI | 2 tipos | `dt-itom` en dos brains, `dt-validador` en tres |
+| Rol de TI | 2 tipos | `dt-itom` en dos brains, `dt-brain-auditor` en tres |
 | Función de negocio genérica | 4 casos | `dt-productos`, `dt-capacidades`, `dt-inteligencia-cliente` (replicado en 4 brains), `dt-inteligencia-negocio` |
 | Carpetas vacías sin `CLAUDE.md` | 36 | todas en un mismo brain |
 
@@ -49,11 +49,11 @@ Las tres categorías tienen **sistemas de coordenadas distintos**, y eso es lo e
 | **B. Ingeniería del brain** | El brain como producto | El Brain Lifecycle y las reglas P1 a P5 | 4 |
 | **C. Negocio** | El modelo de negocio del cliente | Los 6 dominios L1 comunes a los catálogos de industria | 6 |
 
-**Categoría A** — `dt-arquitectura`, `dt-informacion`, `dt-conocimiento`, `dt-configuracion`, `dt-cambio`, `dt-operacion`, `dt-riesgo`, `dt-valor`, `dt-entrega`, `dt-proveedores`. Cobertura verificada: **38 de 38 procesos**, con el proceso 2 compartido por diseño entre `dt-cambio`, que fija el target del SLO, y `dt-operacion`, que mide el current.
+**Categoría A** — `dt-domain-architect`, `dt-information-architect`, `dt-knowledge-manager`, `dt-asset-configuration-manager`, `dt-change-manager`, `dt-service-operations-lead`, `dt-it-risk-manager`, `dt-demand-manager`, `dt-programme-manager`, `dt-supplier-relationship-manager`. Cobertura verificada: **38 de 38 procesos**, con el proceso 2 compartido por diseño entre `dt-change-manager`, que fija el target del SLO, y `dt-service-operations-lead`, que mide el current.
 
-**Categoría B** — `dt-pipeline`, `dt-hitl`, `dt-ingenieria`, `dt-validador`.
+**Categoría B** — `dt-build-operator`, `dt-human-reviewer`, `dt-brain-engineer`, `dt-brain-auditor`.
 
-**Categoría C** — `dt-negocio-canales`, `dt-negocio-distribucion`, `dt-negocio-productos`, `dt-negocio-clientes`, `dt-negocio-operaciones`, `dt-negocio-funciones`.
+**Categoría C** — `dt-channel-owner`, `dt-distribution-owner`, `dt-product-owner`, `dt-customer-owner`, `dt-operations-owner`, `dt-enterprise-functions-owner`.
 
 El mapa completo y verificable vive en `dt/cobertura-dt.md`.
 
@@ -87,13 +87,13 @@ La intersección es una **celda**, no una tabla. Por eso las tres categorías co
 
 | Tabla | Dueño vertical | Razón |
 |-------|---------------|-------|
-| `rules` | `dt-configuracion` | Es lógica extraída de los componentes que ese DT ya posee: misma familia de evidencia |
-| `component_capabilities` | `dt-configuracion` | Atribución del lado del componente, con su confianza |
-| `component_processes` | `dt-configuracion` | Ídem |
-| `rule_enrichment_log` | `dt-conocimiento` | Es linaje, y `knowledge_lineage` lo generaliza |
-| `federated_brains` | `dt-arquitectura` | La federación es estructura |
+| `rules` | `dt-asset-configuration-manager` | Es lógica extraída de los componentes que ese DT ya posee: misma familia de evidencia |
+| `component_capabilities` | `dt-asset-configuration-manager` | Atribución del lado del componente, con su confianza |
+| `component_processes` | `dt-asset-configuration-manager` | Ídem |
+| `rule_enrichment_log` | `dt-knowledge-manager` | Es linaje, y `knowledge_lineage` lo generaliza |
+| `federated_brains` | `dt-domain-architect` | La federación es estructura |
 
-El sentido de negocio de `rules` sigue siendo del eje horizontal, en `dt-negocio-operaciones`. Poseer la estructura no es poseer el significado.
+El sentido de negocio de `rules` sigue siendo del eje horizontal, en `dt-operations-owner`. Poseer la estructura no es poseer el significado.
 
 ### 4. El roster es íntegro en todo brain; lo que varía es el estado de cada DT
 
@@ -106,7 +106,7 @@ Eso no es contradicción si se usa la máquina de estados que ya declaran los sc
 | **SCAFFOLD** | Las tablas que posee no existen en este `brain_type`, o existen vacías | Razonar con lo que el brain ya sabe y con lo que leen los brains federados (Regla B4) |
 | **ACTIVE** | Posee al menos una tabla con contenido y registró su primer hallazgo con linaje | Construir y mantener |
 
-Un DT en SCAFFOLD **no es un defecto**: es la lente que existe aunque el dato viva en otro brain. `dt-entrega` en un brain de sistema no posee `waves`, pero sí puede preguntar al brain de proyecto qué ola viene y qué tocará. Esa es la razón de que el roster sea íntegro y no variable: la pregunta siempre es válida, lo que cambia es dónde está la respuesta.
+Un DT en SCAFFOLD **no es un defecto**: es la lente que existe aunque el dato viva en otro brain. `dt-programme-manager` en un brain de sistema no posee `waves`, pero sí puede preguntar al brain de proyecto qué ola viene y qué tocará. Esa es la razón de que el roster sea íntegro y no variable: la pregunta siempre es válida, lo que cambia es dónde está la respuesta.
 
 ### 5. Aclaración a la Regla B19
 
@@ -117,19 +117,19 @@ La frontera es precisa y la enuncia el propio SME de Seguros: *el modelo de capa
 - **El dominio L1 es canónico y genérico.** Lo fija este ADR.
 - **Su contenido, es decir las capabilities, los procesos y las reglas de cada dominio, lo suministra el Industry SME** declarado en `system_info.industry_sme`. Ningún DT de negocio lo inventa.
 
-Dos candidatos quedaron fuera por tener evidencia en solo dos de los cuatro catálogos: socios y ecosistema, que se absorbe en distribución porque en seguros el distribuidor es el socio y en retail el proveedor vive en el macro-proceso de compra; y analítica de negocio, que el lado de TI ya cubre con `dt-informacion` vía el proceso 34.
+Dos candidatos quedaron fuera por tener evidencia en solo dos de los cuatro catálogos: socios y ecosistema, que se absorbe en distribución porque en seguros el distribuidor es el socio y en retail el proveedor vive en el macro-proceso de compra; y analítica de negocio, que el lado de TI ya cubre con `dt-information-architect` vía el proceso 34.
 
 ---
 
 ## Consecuencias
 
-- **Los 20 DTs nacen en estado SCAFFOLD.** Declaran identidad, propiedad y cobertura, y son invocables desde el día uno. El único ACTIVE hoy es `dt-validador`.
+- **Los 20 DTs nacen en estado SCAFFOLD.** Declaran identidad, propiedad y cobertura, y son invocables desde el día uno. El único ACTIVE hoy es `dt-brain-auditor`.
 - **Una carpeta de DT sin `CLAUDE.md` no es un scaffold: es una carpeta.** No la puede invocar nadie ni verificarla el validador. Las 36 que existen en el estate son deuda y se cierran con la estructura mínima que ya manda la Regla B9.
-- **El CORE pasa a 15 tablas.** Deben actualizarse en consecuencia: la Regla B15, el encabezado de `templates/schema.sql`, la dimensión D1 de `dt/dt-validador/CLAUDE.md` y la constante `CORE_TABLES` de `validate.py`. Mientras no se haga, `suppliers` existe en el DDL y no se valida ni se puebla.
+- **El CORE pasa a 15 tablas.** Deben actualizarse en consecuencia: la Regla B15, el encabezado de `templates/schema.sql`, la dimensión D1 de `dt/dt-brain-auditor/CLAUDE.md` y la constante `CORE_TABLES` de `validate.py`. Mientras no se haga, `suppliers` existe en el DDL y no se valida ni se puebla.
 - **`suppliers` necesita cargador.** No hay `load_suppliers()` en `build-brain.py`, y la tabla declara `process_id`, así que también entra en `PROCESS_LINKED_TABLES` del validador.
 - **Los DTs de dimensión que ya existen no se sustituyen.** Siguen extrayendo conocimiento del código y del negocio del cliente. Los canónicos organizan lo que esos extraen y responden por su calidad: es la diferencia entre la abeja que trae el néctar y la que construye la celda.
-- **`dt-itom`, que existe en dos brains, queda absorbido por `dt-arquitectura`**, porque su mandato actual es proyectar el brain sobre los seis dominios del modelo operativo y eso es exactamente la propiedad de `itom_layer`. Se homologa por vista (Regla B16) y no se borra.
-- **`dt-inteligencia-cliente` no se confunde con `dt-negocio-clientes`.** El primero investiga al cliente como empresa para el equipo de cuenta y está replicado en cuatro brains; el segundo modela al cliente del cliente. Son dos objetos distintos y ambos legítimos.
+- **`dt-itom`, que existe en dos brains, queda absorbido por `dt-domain-architect`**, porque su mandato actual es proyectar el brain sobre los seis dominios del modelo operativo y eso es exactamente la propiedad de `itom_layer`. Se homologa por vista (Regla B16) y no se borra.
+- **`dt-inteligencia-cliente` no se confunde con `dt-customer-owner`.** El primero investiga al cliente como empresa para el equipo de cuenta y está replicado en cuatro brains; el segundo modela al cliente del cliente. Son dos objetos distintos y ambos legítimos.
 - **La cobertura se vuelve auditable.** Un proceso del modelo operativo sin DT dueño, o una regla de pipeline sin responsable, es hallazgo bloqueante. Falta implementar esa verificación: hoy `validate.py` tiene nueve dimensiones y ninguna mira el roster.
 
 ## Alternativas consideradas y rechazadas

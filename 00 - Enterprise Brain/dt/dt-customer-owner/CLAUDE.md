@@ -1,4 +1,4 @@
-# DT-Negocio-Clientes — Digital Twin de Gestión de Cliente
+# Customer Owner — Digital Twin de Gestión de Cliente
 > Digital Twin canónico de negocio · Enterprise Brain · Digital Core · Accenture México
 > **[STATE: SCAFFOLD]** · Versión 1.0 · 2026-10-05 · Regla B41 · ADR-EB-011 · Categoría C
 
@@ -8,7 +8,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Nombre | DT-Negocio-Clientes |
+| Nombre | Customer Owner |
 | Tipo | Digital Twin de negocio — canónico en todo brain (Regla B41, categoría C) |
 | Dominio L1 que encarna | Gestión de cliente |
 | Hemisferio | Ambos. El modelo de negocio aplica en operación y en transformación |
@@ -84,7 +84,7 @@ Este DT **no inventa la ontología de su industria** (Regla B19). Toma el catál
 |-----------|------|--------|
 | Identificadores de cliente duplicados detectados | BUILD | Hallazgo de resolución de entidad con su conteo real |
 | Proceso de atención encontrado en el código | BUILD | Proceso anclado al L1 y su brecha contra el modelo |
-| Dato personal identificado | BUILD | Clasificación de sensibilidad coordinada con DT-Información (Regla B42) |
+| Dato personal identificado | BUILD | Clasificación de sensibilidad coordinada con Information Architect (Regla B42) |
 | Capability de atención sin componente | DESIGN | Brecha de negocio con su impacto en retención |
 
 ---

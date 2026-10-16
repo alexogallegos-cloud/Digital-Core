@@ -1,6 +1,7 @@
-# Capa 3 — Biografía: Los Customer Journeys
+# Etapa 3 — Biografía: Los Customer Journeys
 
-> Capa 3 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
+> Etapa 3 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
+> **Eje de metodología, no de arquitectura.** Esta es la etapa 3 de cuatro del método de extracción y puebla `journeys` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
 
 ## Objetivo
 
