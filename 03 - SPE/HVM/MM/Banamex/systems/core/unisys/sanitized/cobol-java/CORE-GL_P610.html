@@ -1,0 +1,810 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CORE-GL · P610 → Java · Enterprise Digital Brain · LegacyCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#A100FF;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #A100FF;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#A100FF;box-shadow:0 0 8px #A100FF;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/accenture.png" alt="Accenture"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · CORE-GL P610</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Orquestador de Flujos</div>
+  <h1><span class="cw">CORE-GL · P610</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">P610 recibe tres parámetros (función, sistema y un número que puede ser fecha, conteo o estatus) y ejecuta una de nueve funciones sobre la librería de control LIBCTL: registrar el conteo de registros OK, desactivar la base en B03SISMEN, avisar fin de día al motor de registro contable, fijar estatus en B03 o B04, crear el archivo E01 vacío del día, actualizar la fecha del control corporativo y generar el archivo TANDEM para INFOICA. No tiene lógica de negocio propia: traduce parámetros a llamadas. Un código de función desconocido deja la tarea en error.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="CORE-GL_P606.html">← CORE-GL · P606</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P612.html">CORE-GL · P612 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">CORE-GL · P610 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">1,767 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Programa de CORE-GL que los WFL invocan con un código de función, un sistema y un dato numérico para actualizar las bases de control del ciclo o generar archivos de inicio de día.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#ff79c6">Orquestador de Flujos</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">15 de 15 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch</div></div>
+  </div>
+  <div class="sec-hdr">1 · Parámetros, librerías y despacho</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P610.txt</span><span class="fname">WORKING-STORAGE · 000100-INICIO / 000200-LIBRERIAS / 000300-LLAMA-LIBCTL</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Parámetros de entrada, sistemas de seis dígitos y vistas de la fecha · L1449–1467"> <span class="num">77</span>  <span class="var">W77-FUNCION</span>                   <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">003502</span>
+ <span class="num">77</span>  <span class="var">W77-SISTEMA</span>                   <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">03</span>).                     <span class="num">003540</span>
+ <span class="num">77</span>  <span class="var">W77-NUMREG</span>                    <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>).                     <span class="num">003560</span>
+ <span class="num">01</span> <span class="var">W77-FIN</span>                        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">01</span>).                     <span class="num">003562</span>
+ <span class="num">77</span> <span class="var">W77-SISTEMAS-6D</span>                <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">03</span>).                     <span class="num">003564</span>
+ <span class="num">88</span> <span class="var">W88-SISTEMAS-6D</span>                <span class="kw">VALUE</span> <span class="num">84</span>, <span class="num">87</span>, <span class="num">335</span>, <span class="num">336</span>, <span class="num">408</span>,   <span class="num">003566</span>
+                                         <span class="num">703</span>, <span class="num">711</span>.                <span class="num">003568</span>
+ <span class="num">01</span> <span class="var">WKS-FECHA-8D</span>                   <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>).                     <span class="num">003580</span>
+ <span class="num">01</span> <span class="var">WKS-FECHA-8D-R</span>   <span class="kw">REDEFINES</span>     <span class="var">WKS-FECHA-8D</span>.                  <span class="num">003582</span>
+    <span class="num">02</span> <span class="var">WKS-FECHA-AAMM</span>              <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                     <span class="num">003584</span>
+    <span class="num">02</span> <span class="var">WKS-FECHA-DD</span>                <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">003586</span>
+                                                                  <span class="num">003588</span>
+ <span class="num">01</span> <span class="var">WKS-PARAM-FEC</span> <span class="kw">REDEFINES</span> <span class="var">WKS-FECHA-8D</span>.                         <span class="num">003589</span>
+    <span class="num">02</span> <span class="var">WKS-PAR-FEC-AA</span>  <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                                 <span class="num">003590</span>
+    <span class="num">02</span> <span class="var">WKS-PAR-FEC-6D</span>  <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                                 <span class="num">003591</span>
+    <span class="num">02</span> <span class="var">WKS-PAR-FEC-6DR</span> <span class="kw">REDEFINES</span> <span class="var">WKS-PAR-FEC-6D</span>.                  <span class="num">003592</span>
+      <span class="num">03</span> <span class="var">WKS-PAR-FEC-6D-AA</span> <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                             <span class="num">003593</span>
+      <span class="num">03</span> <span class="var">WKS-PAR-FEC-6D-MM</span> <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                             <span class="num">003594</span>
+      <span class="num">03</span> <span class="var">WKS-PAR-FEC-6D-DD</span> <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                             <span class="num">003595</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Inicio, resolución de librería de control y liberación · L1475–1502"> <span class="num">000100</span>-<span class="var">INICIO</span>.                                                   <span class="num">004000</span>
+     <span class="kw">PERFORM</span> <span class="num">000200</span>-<span class="var">LIBRERIAS</span>    .                                <span class="num">004200</span>
+     <span class="kw">PERFORM</span> <span class="num">000300</span>-<span class="var">LLAMA-LIBCTL</span> .                                <span class="num">004300</span>
+     <span class="kw">CANCEL</span> <span class="str">&quot;LIBCTL&quot;</span>             .                                <span class="num">004400</span>
+     <span class="kw">STOP</span> <span class="kw">RUN</span>.                                                    <span class="num">004500</span>
+                                                                  <span class="num">004600</span>
+ <span class="num">000200</span>-<span class="var">LIBRERIAS</span>.                                                <span class="num">004700</span>
+<span class="cmt">*=================                                                004800</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">LIBACCESS</span>    <span class="kw">OF</span> <span class="str">&quot;CTLVER&quot;</span> <span class="kw">TO</span> <span class="var">BYFUNCTION</span>.     <span class="num">004900</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">FUNCTIONNAME</span> <span class="kw">OF</span> <span class="str">&quot;CTLVER&quot;</span> <span class="kw">TO</span> <span class="str">&quot;CTLVERS&quot;</span>.      <span class="num">005000</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">LIBACCESS</span> <span class="kw">OF</span> <span class="str">&quot;SOPORTECOMS&quot;</span> <span class="kw">TO</span> <span class="var">BYFUNCTION</span>.   <span class="num">005100</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">FUNCTIONNAME</span> <span class="kw">OF</span> <span class="str">&quot;SOPORTECOMS&quot;</span>               <span class="num">005200</span>
+                                   <span class="kw">TO</span> <span class="str">&quot;SOPORTECOMS&quot;</span>.              <span class="num">005300</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIB-DISP&quot;</span>    <span class="kw">TO</span>                   <span class="num">005301</span>
+     <span class="str">&quot;(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.&quot;</span>.             <span class="num">005302</span>
+     <span class="kw">CALL</span> <span class="str">&quot;CSIID OF SOPORTECOMS&quot;</span> <span class="kw">USING</span> <span class="var">WKS-HOST</span>.                  <span class="num">005400</span>
+     <span class="kw">CANCEL</span> <span class="str">&quot;SOPORTECOMS&quot;</span>.                                        <span class="num">005500</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;CORE-GLL001CTL&quot;</span>            <span class="kw">TO</span> <span class="var">WKS-LIBID</span>.                  <span class="num">005600</span>
+     <span class="kw">CALL</span> <span class="str">&quot;DAME_TIT IN CTLVER&quot;</span> <span class="kw">USING</span> <span class="var">WKS-LIBID</span>, <span class="var">WKS-NOMLIB</span>        <span class="num">005700</span>
+                               <span class="kw">GIVING</span> <span class="var">W77-ERR-CTLVER</span>.             <span class="num">005800</span>
+     <span class="kw">IF</span> <span class="var">W77-ERR-CTLVER</span> = <span class="num">0</span>                                        <span class="num">005900</span>
+        <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIBCTL&quot;</span> <span class="kw">TO</span> <span class="var">WKS-NOMLIB</span>          <span class="num">006000</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">006100</span>
+        <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIBCTL&quot;</span> <span class="kw">TO</span>                     <span class="num">006200</span>
+               <span class="str">&quot;(CORE-GL)CORE-GL/OBJECT/L001/CONTROL/02MTP009 ON CMEMP&quot;</span>.<span class="num">006300</span>
+                                                                  <span class="num">006400</span>
+     <span class="kw">CANCEL</span> <span class="str">&quot;SOPORTECOMS&quot;</span>.                                        <span class="num">006500</span>
+     <span class="kw">CANCEL</span> <span class="str">&quot;CTLVER&quot;</span>.                                             <span class="num">006600</span></span>
+<span class="seg" data-cid="s3" data-jid="j3" title="Despacho de las nueve funciones y parámetro inválido · L1504–1534"> <span class="num">000300</span>-<span class="var">LLAMA-LIBCTL</span>.                                             <span class="num">006800</span>
+<span class="cmt">*====================                                             006900</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">1</span>                                            <span class="num">018300</span>
+       <span class="kw">PERFORM</span> <span class="num">000310</span>-<span class="var">GRABA-TAMANO</span>                                <span class="num">018310</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018320</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">2</span> <span class="kw">OR</span> <span class="num">4</span>                                       <span class="num">018330</span>
+       <span class="kw">PERFORM</span> <span class="num">000320</span>-<span class="var">DESACTIVA</span>                                   <span class="num">018340</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018350</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">3</span>                                            <span class="num">018360</span>
+       <span class="kw">PERFORM</span> <span class="num">000330</span>-<span class="var">ENVIA-98</span>                                    <span class="num">018361</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018362</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">5</span>                                            <span class="num">018363</span>
+       <span class="kw">PERFORM</span> <span class="num">000340</span>-<span class="var">GRABA-STABDSAL</span>                              <span class="num">018364</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018365</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">6</span>                                            <span class="num">018366</span>
+       <span class="kw">PERFORM</span> <span class="num">000350</span>-<span class="var">ACTB04-SISTEMA</span>                              <span class="num">018367</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018368</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">7</span>                                            <span class="num">018369</span>
+       <span class="kw">PERFORM</span> <span class="num">000360</span>-<span class="var">CREA-ARCH804</span>                                <span class="num">018370</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018371</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">8</span>                                            <span class="num">018372</span>
+       <span class="kw">PERFORM</span> <span class="num">0000100</span>-<span class="var">ACT-CONT-CORP</span>                              <span class="num">018373</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018374</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">9</span>                                            <span class="num">018375</span>
+       <span class="kw">PERFORM</span> <span class="num">0000200</span>-<span class="var">GEN-ARCH-ICA</span>                               <span class="num">018376</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">018377</span>
+       <span class="kw">MOVE</span> <span class="kw">SPACES</span>      <span class="kw">TO</span>          <span class="var">TEXTO-LJ</span>                      <span class="num">018378</span>
+       <span class="kw">STRING</span> <span class="str">&quot;PARAMETRO INVALIDO: &quot;</span> <span class="var">W77-FUNCION</span>                  <span class="num">018379</span>
+       <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>                            <span class="num">018380</span>
+       <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>                            <span class="num">018381</span>
+       <span class="kw">SET</span> <span class="var">MYSELF</span>(<span class="var">STATUS</span>) <span class="kw">TO</span> -<span class="num">1</span>.                                  <span class="num">018382</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>SolicitudControl.java · LibCtlConfig.java · ControlCicloTasklet.java</span><span class="fname">record · @Configuration · Tasklet con estrategia por enum</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** USING W77-FUNCION, W77-SISTEMA, W77-NUMREG: tres parámetros, el tercero de uso genérico. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">SolicitudControl</span>(<span class="type">FuncionControl</span> funcion,
+                               <span class="kw">int</span> sistema,          <span class="cmt">// 9(03)</span>
+                               <span class="kw">long</span> numReg) {        <span class="cmt">// 9(08): fecha AAAAMMDD, conteo o estatus según la función</span>
+
+<span class="cmt">    /** WKS-FECHA-8D-R: los primeros seis dígitos (AAAAMM) para B03-AAMM. */</span>
+    <span class="kw">public</span> <span class="kw">int</span> anioMes()   { <span class="kw">return</span> (<span class="kw">int</span>) (numReg / <span class="num">100</span>); }
+
+<span class="cmt">    /** WKS-PAR-FEC-6D: los últimos seis dígitos (AAMMDD) para archivos de 6 dígitos y TANDEM. */</span>
+    <span class="kw">public</span> <span class="type">String</span> fecha6() { <span class="kw">return</span> <span class="str">&quot;%06d&quot;</span>.formatted(numReg % <span class="num">1</span>_000_000); }
+}
+
+# application.yml   (W88-SISTEMAS-6D compilado en el programa)
+p610:
+  sistemas-fecha-6-digitos: [<span class="num">84</span>, <span class="num">87</span>, <span class="num">335</span>, <span class="num">336</span>, <span class="num">408</span>, <span class="num">703</span>, <span class="num">711</span>]</span>
+<span class="seg java-seg" data-jid="j2"><span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">LibCtlConfig</span> {
+
+<span class="cmt">    /** 000200-LIBRERIAS: DAME_TIT IN CTLVER con fallback al título compilado. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">LibCtlClient</span> libCtl(<span class="type">CatalogoVersionesClient</span> ctlvers, <span class="type">P610Properties</span> props) {
+        <span class="type">String</span> titulo = ctlvers.dameTitulo(<span class="str">&quot;CORE-GLL001CTL&quot;</span>)
+                .orElse(props.libctlFallback());     <span class="cmt">// &quot;(CORE-GL)CORE-GL/OBJECT/L001/CONTROL/02MTP009 ON CMEMP&quot;</span>
+        <span class="kw">return</span> <span class="type">LibCtlClient</span>.para(titulo);
+    }
+}
+<span class="cmt">// CANCEL &quot;SOPORTECOMS&quot; / &quot;CTLVER&quot; / &quot;LIBCTL&quot;: en Spring los clientes son beans con ciclo de vida</span>
+<span class="cmt">// administrado por el contenedor; no hace falta liberarlos a mano.</span></span>
+<span class="seg java-seg" data-jid="j3"><span class="kw">public</span> <span class="kw">enum</span> <span class="type">FuncionControl</span> {
+    GRABA_TAMANO(<span class="num">1</span>), DESACTIVA_GLOBAL(<span class="num">2</span>), ENVIA_FIN_DE_DIA(<span class="num">3</span>), DESACTIVA_PERIODO(<span class="num">4</span>),
+    GRABA_STABDSAL(<span class="num">5</span>), ACTUALIZA_B04(<span class="num">6</span>), CREA_ARCHIVO_E01(<span class="num">7</span>), ACTUALIZA_CONTROL_CORP(<span class="num">8</span>),
+    GENERA_ARCHIVO_ICA(<span class="num">9</span>);
+
+    <span class="kw">final</span> <span class="kw">int</span> codigo;
+    <span class="type">FuncionControl</span>(<span class="kw">int</span> c) { codigo = c; }
+
+    <span class="kw">static</span> <span class="type">Optional</span>&lt;<span class="type">FuncionControl</span>&gt; de(<span class="kw">int</span> c) {
+        <span class="kw">return</span> <span class="type">Arrays</span>.stream(values()).filter(f -&gt; f.codigo == c).findFirst();
+    }
+}
+
+<span class="ann">@Component</span>
+<span class="ann">@StepScope</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ControlCicloTasklet</span> <span class="kw">implements</span> <span class="type">Tasklet</span> {       <span class="cmt">// 000300-LLAMA-LIBCTL</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Map</span>&lt;<span class="type">FuncionControl</span>, <span class="type">OperacionControl</span>&gt; operaciones;   <span class="cmt">// un bean por función</span>
+    <span class="ann">@Value</span>(<span class="str">&quot;#{jobParameters[&#x27;funcion&#x27;]}&quot;</span>) <span class="kw">private</span> <span class="kw">int</span> funcion;
+    <span class="ann">@Value</span>(<span class="str">&quot;#{jobParameters[&#x27;sistema&#x27;]}&quot;</span>) <span class="kw">private</span> <span class="kw">int</span> sistema;
+    <span class="ann">@Value</span>(<span class="str">&quot;#{jobParameters[&#x27;numReg&#x27;]}&quot;</span>)  <span class="kw">private</span> <span class="kw">long</span> numReg;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">RepeatStatus</span> execute(<span class="type">StepContribution</span> c, <span class="type">ChunkContext</span> ctx) {
+        <span class="kw">var</span> f = <span class="type">FuncionControl</span>.de(funcion).orElseThrow(() -&gt;
+                <span class="kw">new</span> <span class="type">ParametroInvalidoException</span>(<span class="str">&quot;PARAMETRO INVALIDO: %02d&quot;</span>.formatted(funcion)));  <span class="cmt">// SET MYSELF(STATUS) TO -1</span>
+        operaciones.get(f).ejecuta(<span class="kw">new</span> <span class="type">SolicitudControl</span>(f, sistema, numReg));
+        <span class="kw">return</span> <span class="type">RepeatStatus</span>.FINISHED;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Funciones sobre bases de control (1 a 6)</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P610.txt</span><span class="fname">PROCEDURE DIVISION · 000310 a 000350</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s4" data-jid="j4" title="Funciones 1, 2 y 4: tamaño y desactivación en B03SISMEN · L1536–1564"> <span class="num">000310</span>-<span class="var">GRABA-TAMANO</span>.                                             <span class="num">018390</span>
+<span class="cmt">*====================                                             018392</span>
+    <span class="kw">MOVE</span> <span class="num">0</span>                        <span class="kw">TO</span> <span class="var">W77-RESULT-LIBCON</span>            <span class="num">027200</span>
+    <span class="kw">MOVE</span> <span class="num">11</span>                       <span class="kw">TO</span> <span class="var">WKS-B03F11-FUNCION</span>           <span class="num">027300</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>              <span class="kw">TO</span> <span class="var">WKS-B03F11-SISTEMA</span>           <span class="num">027400</span>
+    <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>               <span class="kw">TO</span> <span class="var">WKS-B03F11-SECOKHI</span>           <span class="num">027500</span>
+    <span class="kw">CALL</span> <span class="str">&quot;CONSISMEN    IN LIBCTL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-CORE-GLB03SISMEN-F11</span>     <span class="num">027600</span>
+                                  <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>.       <span class="num">027700</span>
+ <span class="num">000320</span>-<span class="var">DESACTIVA</span>.                                                <span class="num">027800</span>
+<span class="cmt">*================                                                 027810</span>
+    <span class="kw">MOVE</span> <span class="num">1</span>                        <span class="kw">TO</span> <span class="var">WKS-B03-FUNCION</span>.             <span class="num">027820</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>              <span class="kw">TO</span> <span class="var">WKS-B03-SISTEMA</span>.             <span class="num">027830</span>
+    <span class="kw">CALL</span> <span class="str">&quot;CONSISMEN    IN LIBCTL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-CORE-GLB03SISMEN</span>         <span class="num">027832</span>
+                                  <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>.       <span class="num">027833</span>
+    <span class="kw">IF</span> <span class="var">W77-FUNCION</span> = <span class="num">2</span>                                            <span class="num">027834</span>
+       <span class="kw">MOVE</span> <span class="num">99</span>                    <span class="kw">TO</span> <span class="var">WKS-B03-STABDSAL</span>             <span class="num">027840</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">027890</span>
+       <span class="kw">MOVE</span> <span class="num">1</span>                     <span class="kw">TO</span> <span class="var">WKS-B01-FUNCION</span>              <span class="num">027940</span>
+       <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>           <span class="kw">TO</span> <span class="var">WKS-B01-SISTEMA</span>              <span class="num">027990</span>
+       <span class="kw">CALL</span> <span class="str">&quot;CONSISDIA IN LIBCTL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-CORE-GLB01SISDIA</span>         <span class="num">027991</span>
+                                  <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>        <span class="num">027992</span>
+       <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">0</span>                                   <span class="num">027993</span>
+          <span class="kw">MOVE</span> <span class="var">WKS-B01-FECPRO</span>     <span class="kw">TO</span> <span class="var">WKS-FECHA-8D</span>                 <span class="num">027994</span>
+          <span class="kw">MOVE</span> <span class="var">WKS-FECHA-AAMM</span>     <span class="kw">TO</span> <span class="var">WKS-B03-AAMM</span>(<span class="num">1</span>)              <span class="num">027995</span>
+          <span class="kw">MOVE</span> <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">WKS-B03-STABDSAL</span>.            <span class="num">027996</span>
+    <span class="kw">MOVE</span> <span class="num">37</span>                       <span class="kw">TO</span> <span class="var">WKS-B03-FUNCION</span>.             <span class="num">027997</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>              <span class="kw">TO</span> <span class="var">WKS-B03-SISTEMA</span>.             <span class="num">027998</span>
+    <span class="kw">CALL</span> <span class="str">&quot;MANTSISMEN   IN LIBCTL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-CORE-GLB03SISMEN</span>         <span class="num">028000</span>
+                                  <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>.       <span class="num">028010</span></span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Función 3: aviso de fin de día al motor de registro en 6 u 8 dígitos · L1566–1603"> <span class="num">000330</span>-<span class="var">ENVIA-98</span>.                                                 <span class="num">028030</span>
+<span class="cmt">*================                                                 028040</span>
+    <span class="kw">MOVE</span> <span class="str">&quot;CORE-GLL002R&quot;</span>             <span class="kw">TO</span> <span class="var">WKS-LIBID-NOMB</span>.               <span class="num">028050</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>             <span class="kw">TO</span> <span class="var">WKS-LIBID-SIST</span>.               <span class="num">028060</span>
+    <span class="kw">CALL</span> <span class="str">&quot;DAME_TIT IN CTLVER&quot;</span> <span class="kw">USING</span> <span class="var">WKS-LIBID</span>, <span class="var">WKS-NOMLIB</span>         <span class="num">028080</span>
+                              <span class="kw">GIVING</span> <span class="var">W77-ERR-CTLVER</span>.              <span class="num">028090</span>
+    <span class="kw">IF</span> <span class="var">W77-ERR-CTLVER</span> = <span class="num">0</span>                                         <span class="num">029000</span>
+       <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIB-REG&quot;</span> <span class="kw">TO</span> <span class="var">WKS-NOMLIB</span>          <span class="num">029010</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">029020</span>
+       <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIB-REG&quot;</span> <span class="kw">TO</span>                     <span class="num">029030</span>
+              <span class="str">&quot;(CORE-GL)CORE-GL/OBJECT/L002/REGISTRA ON CMEMP&quot;</span>.         <span class="num">029040</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>             <span class="kw">TO</span> <span class="var">W77-SISTEMAS-6D</span>.              <span class="num">029045</span>
+    <span class="kw">IF</span> <span class="var">W88-SISTEMAS-6D</span>                                            <span class="num">029050</span>
+       <span class="kw">PERFORM</span> <span class="num">000332</span>-<span class="var">ENVIA-6DIG</span>                                  <span class="num">029051</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">029052</span>
+       <span class="kw">PERFORM</span> <span class="num">000332</span>-<span class="var">ENVIA-8DIG</span>.                                 <span class="num">029053</span>
+                                                                  <span class="num">029054</span>
+ <span class="num">000332</span>-<span class="var">ENVIA-8DIG</span>.                                               <span class="num">029055</span>
+<span class="cmt">*==================                                               029056</span>
+    <span class="kw">MOVE</span> <span class="var">LOW-VALUES</span>              <span class="kw">TO</span> <span class="var">WKS-8DIG-DATOS</span>         .      <span class="num">029060</span>
+    <span class="kw">MOVE</span> <span class="num">98</span>                      <span class="kw">TO</span> <span class="var">WKS-8DIG-FUNCION</span>       .      <span class="num">029070</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>             <span class="kw">TO</span> <span class="var">WKS-8DIG-SISTEMA</span>       .      <span class="num">029090</span>
+    <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>              <span class="kw">TO</span> <span class="var">WKS-8DIG-FECMOV</span>               <span class="num">030000</span>
+                                    <span class="var">WKS-8DIG-FECCONT</span>              <span class="num">032000</span>
+                                    <span class="var">WKS-8DIG-FECVAL</span>        .      <span class="num">033000</span>
+    <span class="kw">CALL</span> <span class="str">&quot;CARGAMOV1 IN LIB-REG&quot;</span>  <span class="kw">USING</span>  <span class="var">WKS-8DIG-DATOS</span>            <span class="num">034000</span>
+                                 <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span> .       <span class="num">035000</span>
+                                                                  <span class="num">036000</span>
+ <span class="num">000332</span>-<span class="var">ENVIA-6DIG</span>.                                               <span class="num">036050</span>
+<span class="cmt">*==================                                               036060</span>
+    <span class="kw">MOVE</span> <span class="var">LOW-VALUES</span>              <span class="kw">TO</span> <span class="var">WKS-6DIG-DATOS</span>         .      <span class="num">037000</span>
+    <span class="kw">MOVE</span> <span class="num">98</span>                      <span class="kw">TO</span> <span class="var">WKS-6DIG-FUNCION</span>       .      <span class="num">038000</span>
+    <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>             <span class="kw">TO</span> <span class="var">WKS-6DIG-SISTEMA</span>       .      <span class="num">040000</span>
+    <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>              <span class="kw">TO</span> <span class="var">WKS-6DIG-FECMOV</span>               <span class="num">041000</span>
+                                    <span class="var">WKS-6DIG-FECCONT</span>              <span class="num">042000</span>
+                                    <span class="var">WKS-6DIG-FECVAL</span>        .      <span class="num">043000</span>
+    <span class="kw">CALL</span> <span class="str">&quot;CARGAMOV1 IN LIB-REG&quot;</span>  <span class="kw">USING</span>  <span class="var">WKS-6DIG-DATOS</span>            <span class="num">044000</span>
+                                 <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span> .       <span class="num">045000</span></span>
+<span class="seg" data-cid="s6" data-jid="j6" title="Funciones 5 y 6: valores permitidos que se ignoran en silencio · L1605–1629"> <span class="num">000340</span>-<span class="var">GRABA-STABDSAL</span>.                                           <span class="num">045200</span>
+<span class="cmt">*======================                                           045300</span>
+    <span class="kw">IF</span> <span class="var">W77-NUMREG</span> = <span class="num">1</span> <span class="kw">OR</span> <span class="num">3</span> <span class="kw">OR</span> <span class="num">5</span> <span class="kw">OR</span> <span class="num">99</span>                             <span class="num">045400</span>
+       <span class="kw">MOVE</span> <span class="num">9</span>                    <span class="kw">TO</span> <span class="var">WKS-B03F09-FUNCION</span>            <span class="num">045500</span>
+       <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>          <span class="kw">TO</span> <span class="var">WKS-B03F09-SISTEMA</span>            <span class="num">045600</span>
+       <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>           <span class="kw">TO</span> <span class="var">WKS-B03F09-STABDSAL</span>           <span class="num">045700</span>
+       <span class="kw">CALL</span> <span class="str">&quot;CONSISMEN IN LIBCTL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-CORE-GLB03SISMEN-F09</span>     <span class="num">045800</span>
+                                  <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>.       <span class="num">045900</span>
+                                                                  <span class="num">046000</span>
+ <span class="num">000350</span>-<span class="var">ACTB04-SISTEMA</span>.                                           <span class="num">046100</span>
+<span class="cmt">*======================                                           046200</span>
+     <span class="kw">IF</span> <span class="var">W77-NUMREG</span> &gt; <span class="num">1</span> <span class="kw">AND</span> <span class="var">W77-NUMREG</span> &lt; <span class="num">5</span>                         <span class="num">046250</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span>                   <span class="kw">TO</span> <span class="var">W77-RESULT-LIBCON</span>          <span class="num">046300</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>                      <span class="kw">TO</span> <span class="var">WKS-B04-FUNCION</span>            <span class="num">046400</span>
+        <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>            <span class="kw">TO</span> <span class="var">WKS-B04-SISTEMA</span>            <span class="num">046500</span>
+        <span class="kw">CALL</span> <span class="str">&quot;B04SISTEM  IN LIBCTL&quot;</span> <span class="kw">USING</span>  <span class="var">WKS-B04SISTEMA</span>         <span class="num">046600</span>
+                                    <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>      <span class="num">046700</span>
+        <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">0</span>                                  <span class="num">046800</span>
+           <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>          <span class="kw">TO</span> <span class="var">WKS-B04-ESTATUS</span>            <span class="num">046900</span>
+           <span class="kw">MOVE</span> <span class="num">37</span>                  <span class="kw">TO</span> <span class="var">WKS-B04-FUNCION</span>            <span class="num">047000</span>
+           <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span>         <span class="kw">TO</span> <span class="var">WKS-B04-SISTEMA</span>            <span class="num">047100</span>
+           <span class="kw">MOVE</span> <span class="kw">ZERO</span>                <span class="kw">TO</span> <span class="var">WKS-B04-PRODUCTO</span>           <span class="num">047120</span>
+                                       <span class="var">WKS-B04-INSTRUM</span>            <span class="num">047150</span>
+           <span class="kw">CALL</span> <span class="str">&quot;MANTB04SISTEM IN LIBCTL&quot;</span> <span class="kw">USING</span>  <span class="var">WKS-B04SISTEMA</span>   <span class="num">047200</span>
+                                       <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>.  <span class="num">047300</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>DesactivaOperacion.java · FinDeDiaOperacion.java · GrabaStabdsalOperacion.java</span><span class="fname">@Component · JPA · @Transactional</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j4"><span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.DESACTIVA)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">DesactivaOperacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {   <span class="cmt">// 000320-DESACTIVA</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SistemaMensualRepository</span> b03;                 <span class="cmt">// B03SISMEN vía LIBCTL</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SistemaDiaRepository</span> b01;                     <span class="cmt">// B01SISDIA</span>
+
+    <span class="ann">@Override</span>
+    <span class="ann">@Transactional</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) {
+        <span class="kw">var</span> reg = b03.findBySistema(s.sistema())                <span class="cmt">// CONSISMEN F1: el resultado no se revisa en el fuente</span>
+                .orElseThrow(() -&gt; <span class="kw">new</span> <span class="type">RegistroNoEncontradoException</span>(<span class="str">&quot;B03SISMEN&quot;</span>, s.sistema()));
+        <span class="kw">if</span> (s.funcion() == <span class="type">FuncionControl</span>.DESACTIVA_GLOBAL) {
+            reg.setStabdsal(<span class="num">99</span>);                                <span class="cmt">// base desactivada</span>
+        } <span class="kw">else</span> {
+            b01.findBySistema(s.sistema()).ifPresent(dia -&gt; {   <span class="cmt">// si CONSISDIA falla, se graba sin cambios</span>
+                reg.setAnioMes(<span class="num">0</span>, dia.fechaProceso() / <span class="num">100</span>);    <span class="cmt">// WKS-B03-AAMM(1)</span>
+                reg.setStabdsal(<span class="num">1</span>);
+            });
+        }
+        b03.save(reg);                                          <span class="cmt">// MANTSISMEN F37</span>
+    }
+}
+<span class="cmt">// Función 1 (000310-GRABA-TAMANO): b03.actualizaRegistrosOk(sistema, numReg)   // CONSISMEN F11</span></span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.FIN_DE_DIA)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">FinDeDiaOperacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {    <span class="cmt">// 000330-ENVIA-98</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RegistroContableClientFactory</span> registro;       <span class="cmt">// CORE-GLL002R{sistema} / CARGAMOV1</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P610Properties</span> props;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) {
+        <span class="kw">var</span> cliente = registro.para(s.sistema());               <span class="cmt">// DAME_TIT con fallback &quot;(CORE-GL)CORE-GL/OBJECT/L002/REGISTRA ON CMEMP&quot;</span>
+        <span class="kw">boolean</span> seisDigitos = props.sistemasFecha6Digitos().contains(s.sistema());
+        <span class="kw">var</span> aviso = seisDigitos
+                ? <span class="type">AvisoMovimiento</span>.seisDigitos(<span class="num">98</span>, s.sistema(), s.fecha6())        <span class="cmt">// FECMOV = FECCONT = FECVAL</span>
+                : <span class="type">AvisoMovimiento</span>.ochoDigitos(<span class="num">98</span>, s.sistema(), s.numReg());
+        <span class="kw">int</span> resultado = cliente.cargaMovimiento(aviso);
+        <span class="kw">if</span> (resultado != <span class="num">0</span>) {
+            log.warn(<span class="str">&quot;CARGAMOV1 función 98 sistema {} resultado {}&quot;</span>, s.sistema(), resultado);  <span class="cmt">// el fuente lo ignora</span>
+        }
+    }
+}</span>
+<span class="seg java-seg" data-jid="j6"><span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.STABDSAL)
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">GrabaStabdsalOperacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {    <span class="cmt">// 000340-GRABA-STABDSAL</span>
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="type">Set</span>&lt;<span class="type">Long</span>&gt; PERMITIDOS = <span class="type">Set</span>.of(<span class="num">1</span>L, <span class="num">3</span>L, <span class="num">5</span>L, <span class="num">9</span><span class="num">9</span>L);
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) {
+        <span class="kw">if</span> (!PERMITIDOS.contains(s.numReg())) {
+            log.warn(<span class="str">&quot;STABDSAL {} no permitido para sistema {}; se ignora&quot;</span>, s.numReg(), s.sistema());
+            <span class="kw">return</span>;                                             <span class="cmt">// el fuente no deja rastro</span>
+        }
+        b03.actualizaStabdsal(s.sistema(), (<span class="kw">int</span>) s.numReg());  <span class="cmt">// CONSISMEN F09</span>
+    }
+}
+
+<span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.ACTUALIZA_B04)
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ActualizaB04Operacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {     <span class="cmt">// 000350-ACTB04-SISTEMA</span>
+    <span class="ann">@Override</span>
+    <span class="ann">@Transactional</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) {
+        <span class="kw">if</span> (s.numReg() &lt;= <span class="num">1</span> || s.numReg() &gt;= <span class="num">5</span>) {               <span class="cmt">// solo 2, 3 o 4</span>
+            log.warn(<span class="str">&quot;ESTATUS {} fuera de rango para B04; se ignora&quot;</span>, s.numReg());
+            <span class="kw">return</span>;
+        }
+        b04.findBySistemaAndProductoAndInstrumento(s.sistema(), <span class="num">0</span>, <span class="num">0</span>)    <span class="cmt">// B04SISTEM F1</span>
+           .ifPresent(r -&gt; { r.setEstatus((<span class="kw">int</span>) s.numReg()); b04.save(r); });   <span class="cmt">// MANTB04SISTEM F37</span>
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Funciones que crean o actualizan archivos (7 a 9)</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P610.txt</span><span class="fname">PROCEDURE DIVISION · 000360 / 0000100 / 0000200</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s7" data-jid="j7" title="Función 7: archivo E01 del día con header y trailer en cero · L1631–1644">  <span class="num">000360</span>-<span class="var">CREA-ARCH804</span>.                                            <span class="num">047320</span>
+<span class="cmt">*====================                                             047330</span>
+     <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span> <span class="kw">TO</span> <span class="var">WKS-TIT-NUM-SISTEMA</span>.                     <span class="num">047340</span>
+     <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>  <span class="kw">TO</span> <span class="var">WKS-TIT-FECHAPRO</span>.                        <span class="num">047350</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="var">S804-E01-MOV</span> <span class="kw">TO</span> <span class="var">WKS-TIT-804</span>.       <span class="num">047360</span>
+     <span class="kw">OPEN</span> <span class="kw">OUTPUT</span> <span class="var">S804-E01-MOV</span>.                                    <span class="num">047400</span>
+     <span class="kw">MOVE</span> <span class="var">W77-SISTEMA</span> <span class="kw">TO</span> <span class="var">R01-MOV-HDR-SISTEMA</span>.                     <span class="num">048000</span>
+     <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>  <span class="kw">TO</span> <span class="var">R01-MOV-HDR-FECHA</span>.                       <span class="num">049000</span>
+     <span class="kw">WRITE</span> <span class="var">REG-C402</span>          <span class="kw">FROM</span>   <span class="var">R01-MOV-HEADER</span>.               <span class="num">050000</span>
+     <span class="kw">MOVE</span> <span class="num">0</span>    <span class="kw">TO</span>       <span class="var">R01-MOV-TRA-TOTREG</span>                        <span class="num">051000</span>
+                        <span class="var">R01-MOV-TRA-TOTCLAVES</span>                     <span class="num">052000</span>
+                        <span class="var">R01-MOV-TRA-TOTIMPORTE</span>.                   <span class="num">053000</span>
+     <span class="kw">WRITE</span> <span class="var">REG-C402</span>          <span class="kw">FROM</span>   <span class="var">R01-MOV-TRAILER</span>.              <span class="num">054000</span>
+     <span class="kw">CLOSE</span> <span class="var">S804-E01-MOV</span> <span class="kw">WITH</span> <span class="var">SAVE</span>.                                <span class="num">055000</span></span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Función 8: actualización de la fecha en el control corporativo · L1646–1704"> <span class="num">0000100</span>-<span class="var">ACT-CONT-CORP</span>.                                           <span class="num">055200</span>
+<span class="cmt">*=================================================================055300</span>
+   <span class="kw">OPEN</span> <span class="var">I-O</span> <span class="var">A01-CONTROL</span>.                                          <span class="num">055400</span>
+   <span class="kw">PERFORM</span> <span class="num">000200</span>-<span class="var">ACT-FECHA</span>.                                      <span class="num">055500</span>
+   <span class="kw">PERFORM</span> <span class="num">000100</span>-<span class="var">CHECA-STATUS</span> <span class="kw">UNTIL</span> <span class="var">W77-FIN</span> = <span class="num">1</span>.                 <span class="num">055600</span>
+   <span class="kw">CLOSE</span> <span class="var">A01-CONTROL</span> <span class="kw">WITH</span> <span class="var">SAVE</span>.                                   <span class="num">055700</span>
+                                                                  <span class="num">055800</span>
+ <span class="num">000200</span>-<span class="var">ACT-FECHA</span>.                                                <span class="num">055900</span>
+<span class="cmt">*=================================================================056000</span>
+   <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>    <span class="kw">TO</span> <span class="var">WKS-FECHA-8D</span>.                            <span class="num">056100</span>
+   <span class="kw">READ</span> <span class="var">A01-CONTROL</span> <span class="kw">INTO</span> <span class="var">WKS-REG-HD-CONTROL</span>.                      <span class="num">056200</span>
+   <span class="kw">MOVE</span> <span class="kw">SPACES</span>      <span class="kw">TO</span>          <span class="var">TEXTO-LJ</span>                          <span class="num">056300</span>
+   <span class="kw">STRING</span> <span class="str">&quot;FECHA ACTUAL: &quot;</span> <span class="var">WKS-HD-FECPRO</span>                          <span class="num">056400</span>
+          <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>.                        <span class="num">056500</span>
+   <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>.                               <span class="num">056600</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-FECHA-8D</span>  <span class="kw">TO</span> <span class="var">WKS-HD-FECPRO</span>                            <span class="num">056700</span>
+                                                                  <span class="num">056800</span>
+   <span class="kw">MOVE</span> <span class="kw">SPACES</span>      <span class="kw">TO</span>          <span class="var">TEXTO-LJ</span>                          <span class="num">056900</span>
+   <span class="kw">STRING</span> <span class="str">&quot;FECHA NUEVA: &quot;</span> <span class="var">WKS-HD-FECPRO</span>                           <span class="num">057000</span>
+          <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>.                        <span class="num">057100</span>
+   <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>.                               <span class="num">057200</span>
+   <span class="kw">REWRITE</span> <span class="var">A01-REG-CONTROL</span> <span class="kw">FROM</span> <span class="var">WKS-REG-HD-CONTROL</span>                <span class="num">057300</span>
+           <span class="kw">INVALID</span> <span class="kw">KEY</span>                                            <span class="num">057400</span>
+           <span class="kw">MOVE</span> <span class="str">&quot;E&quot;</span>     <span class="kw">TO</span>      <span class="var">TIPO-LJ</span>                           <span class="num">057500</span>
+            <span class="kw">MOVE</span> <span class="num">020202</span>  <span class="kw">TO</span>      <span class="var">CODIGO-LJ</span>                        <span class="num">057600</span>
+            <span class="kw">MOVE</span>  <span class="str">&quot;ERROR AL ACTUALIZAR FECHA DE PROXIMO PROCESO &quot;</span> <span class="num">057700</span>
+                <span class="kw">TO</span>      <span class="var">TEXTO-LJ</span>                                  <span class="num">057800</span>
+            <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>                       <span class="num">057900</span>
+            <span class="kw">SET</span> <span class="var">MYSELF</span>(<span class="var">STATUS</span>) <span class="kw">TO</span> -<span class="num">1</span>.                             <span class="num">058000</span>
+                                                                  <span class="num">058100</span>
+ <span class="num">000100</span>-<span class="var">CHECA-STATUS</span>.                                             <span class="num">058200</span>
+<span class="cmt">*=================================================================058300</span>
+  <span class="kw">READ</span> <span class="var">A01-CONTROL</span> <span class="kw">INTO</span> <span class="var">WKS-REG-DET-CONTROL</span>                       <span class="num">058400</span>
+       <span class="kw">AT</span> <span class="kw">END</span> <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-FIN</span>.                                  <span class="num">058500</span>
+  <span class="kw">MOVE</span> <span class="kw">SPACES</span> <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>                                         <span class="num">058600</span>
+  <span class="kw">IF</span> <span class="var">WKS-DET-SIST</span> = <span class="num">999</span>                                           <span class="num">058700</span>
+     <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-FIN</span>                                            <span class="num">058800</span>
+  <span class="kw">ELSE</span>                                                            <span class="num">058900</span>
+     <span class="kw">STRING</span> <span class="str">&quot;SISTEMA: &quot;</span> <span class="var">WKS-DET-SIST</span>                              <span class="num">059000</span>
+                  <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>                 <span class="num">059100</span>
+     <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>                              <span class="num">059200</span>
+     <span class="kw">IF</span> <span class="var">WKS-DET-FECPRO</span> = <span class="var">WKS-HD-FECPRO</span>                            <span class="num">059300</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;SE EJECUTO CORRECTAMENTE     &quot;</span>    <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>       <span class="num">059400</span>
+        <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>                           <span class="num">059500</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">059600</span>
+           <span class="kw">STRING</span> <span class="str">&quot;NO HA SIDO PROCESADO DESDE: &quot;</span> <span class="var">WKS-DET-FECPRO</span>   <span class="num">059700</span>
+           <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>                        <span class="num">059800</span>
+           <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>.                       <span class="num">059900</span>
+  <span class="kw">IF</span> <span class="var">W77-FIN</span> = <span class="num">0</span>                                                  <span class="num">060000</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-FECHA-8D</span> <span class="kw">TO</span> <span class="var">WKS-DET-FECPRO</span>                          <span class="num">060100</span>
+     <span class="kw">REWRITE</span> <span class="var">A01-REG-CONTROL</span> <span class="kw">FROM</span> <span class="var">WKS-REG-DET-CONTROL</span>             <span class="num">060200</span>
+           <span class="kw">INVALID</span> <span class="kw">KEY</span>                                            <span class="num">060300</span>
+           <span class="kw">MOVE</span> <span class="str">&quot;E&quot;</span>     <span class="kw">TO</span>      <span class="var">TIPO-LJ</span>                           <span class="num">060400</span>
+           <span class="kw">MOVE</span> <span class="num">020202</span>  <span class="kw">TO</span>      <span class="var">CODIGO-LJ</span>                         <span class="num">060500</span>
+           <span class="kw">STRING</span> <span class="str">&quot;ERROR AL ACTUALIZAR FECHA DE PROXIMO PROCESO &quot;</span>,<span class="num">060600</span>
+                  <span class="str">&quot; DE LOS REGISTRO DE DETALLE&quot;</span>                   <span class="num">060700</span>
+                   <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span>      <span class="var">TEXTO-LJ</span>           <span class="num">060800</span>
+            <span class="kw">PERFORM</span> <span class="num">22222</span>-<span class="var">DESPLIEGA-MENSAJE</span>                       <span class="num">060900</span>
+            <span class="kw">SET</span> <span class="var">MYSELF</span>(<span class="var">STATUS</span>) <span class="kw">TO</span> -<span class="num">1</span>.                             <span class="num">061000</span></span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Función 9: archivo TANDEM con una transacción fija · L1706–1757"> <span class="num">0000200</span>-<span class="var">GEN-ARCH-ICA</span>.                                            <span class="num">061200</span>
+<span class="cmt">*=================================================================061300</span>
+   <span class="kw">MOVE</span> <span class="var">W77-NUMREG</span>    <span class="kw">TO</span> <span class="var">WKS-FECHA-8D</span>.                            <span class="num">061350</span>
+   <span class="kw">ACCEPT</span>  <span class="var">WKS-HR-AR</span>         <span class="kw">FROM</span> <span class="var">TIME</span>.                           <span class="num">061400</span>
+   <span class="kw">MOVE</span> <span class="kw">SPACES</span>        <span class="kw">TO</span> <span class="var">WS-REG-FECHA-TANDEM</span> <span class="var">WS-REG-HEA-TANDEM</span>    <span class="num">061500</span>
+         <span class="var">WS-REG-TRA-TANDEM</span> <span class="var">WS-REG-DET-TANDEM</span>.                     <span class="num">061600</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D</span> <span class="kw">TO</span> <span class="var">WKS-FECHA-PROCESO</span>.                      <span class="num">061700</span>
+   <span class="kw">OPEN</span> <span class="kw">OUTPUT</span> <span class="var">TANDEM</span>.                                            <span class="num">061800</span>
+   <span class="kw">STRING</span> <span class="str">&quot;CORE-GL/XFER/FILE/INFOICA/INTINT/&quot;</span>  <span class="var">WKS-PAR-FEC-6D</span>        <span class="num">061900</span>
+      <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">WS-NOMBRE-TANDEM</span>.                    <span class="num">062000</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;.&quot;</span>       <span class="kw">TO</span> <span class="var">WS-PUNTO</span>.                                    <span class="num">062100</span>
+   <span class="kw">WRITE</span> <span class="var">REG-TANDEM</span>    <span class="kw">FROM</span> <span class="var">WS-REG-FECHA-TANDEM</span>.                  <span class="num">062200</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;HDR&quot;</span>             <span class="kw">TO</span> <span class="var">WS-THI-ID</span>.                           <span class="num">062300</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D-DD</span> <span class="kw">TO</span> <span class="var">WS-THI-FEC-P-D</span>.                      <span class="num">062400</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D-MM</span> <span class="kw">TO</span> <span class="var">WS-THI-FEC-P-MM</span>.                     <span class="num">062500</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D-AA</span> <span class="kw">TO</span> <span class="var">WS-THI-FEC-P-AA</span>.                     <span class="num">062600</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D</span> <span class="kw">TO</span> <span class="var">WS-THI-FEC-GEN</span>.                         <span class="num">062700</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-HR-AR</span>      <span class="kw">TO</span> <span class="var">WS-THI-HOR-GEN</span>.                         <span class="num">062800</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;S030&quot;</span>         <span class="kw">TO</span> <span class="var">WS-THI-SIS-EMI</span>.                         <span class="num">062900</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;S030&quot;</span>         <span class="kw">TO</span> <span class="var">WS-THI-SIS-REC</span>.                         <span class="num">063000</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;INFOICA &quot;</span>     <span class="kw">TO</span> <span class="var">WS-THI-NOM-EXT</span>.                         <span class="num">063100</span>
+   <span class="kw">MOVE</span> <span class="num">1</span>              <span class="kw">TO</span> <span class="var">WS-THI-NUM-REG</span>.                         <span class="num">063200</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;INT&quot;</span>          <span class="kw">TO</span> <span class="var">WS-THI-CSI-ORI</span>.                         <span class="num">063300</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;INT&quot;</span>          <span class="kw">TO</span> <span class="var">WS-THI-CSI-DES</span>.                         <span class="num">063400</span>
+   <span class="kw">WRITE</span> <span class="var">REG-TANDEM</span>    <span class="kw">FROM</span> <span class="var">WS-REG-HEA-TANDEM</span>.                    <span class="num">063500</span>
+<span class="cmt">*DETALLE                                                          063600</span>
+   <span class="kw">MOVE</span> <span class="num">02</span>              <span class="kw">TO</span> <span class="var">WS-TDI-CSI-ORI</span>.                        <span class="num">063700</span>
+   <span class="kw">MOVE</span> <span class="num">00</span>              <span class="kw">TO</span> <span class="var">WS-TDI-NOD-ORI</span>.                        <span class="num">063800</span>
+   <span class="kw">MOVE</span> <span class="num">04</span>              <span class="kw">TO</span> <span class="var">WS-TDI-CSI-DES</span>.                        <span class="num">063900</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;Y0002U01&quot;</span>      <span class="kw">TO</span> <span class="var">WS-TDI-NOM-EST</span>.                        <span class="num">064000</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D</span>  <span class="kw">TO</span> <span class="var">WS-TDI-FEC-GEN</span>.                        <span class="num">064100</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-HR-AR</span>       <span class="kw">TO</span> <span class="var">WS-TDI-HOR-GEN</span>.                        <span class="num">064200</span>
+   <span class="kw">MOVE</span> <span class="num">0236</span>            <span class="kw">TO</span> <span class="var">WS-TDI-APL-ORI</span>.                        <span class="num">064300</span>
+   <span class="kw">MOVE</span> <span class="num">0264</span>            <span class="kw">TO</span> <span class="var">WS-TDI-APL-DES</span>.                        <span class="num">064400</span>
+   <span class="kw">MOVE</span> <span class="num">02</span>              <span class="kw">TO</span> <span class="var">WS-TDI-STA-TRN</span>.                        <span class="num">064500</span>
+   <span class="kw">MOVE</span> <span class="num">20</span>              <span class="kw">TO</span> <span class="var">WS-TDI-COD-SER</span>.                        <span class="num">064600</span>
+   <span class="kw">MOVE</span> <span class="num">004</span>             <span class="kw">TO</span> <span class="var">WS-TDI-SUB-SER</span>.                        <span class="num">064700</span>
+   <span class="kw">MOVE</span> <span class="num">9999</span>            <span class="kw">TO</span> <span class="var">WS-TDI-CTA-DES-SUC</span>.                    <span class="num">064800</span>
+   <span class="kw">MOVE</span> <span class="num">9999999</span>         <span class="kw">TO</span> <span class="var">WS-TDI-CTA-DES-NUM</span>.                    <span class="num">064900</span>
+   <span class="kw">MOVE</span> <span class="num">1.1</span>             <span class="kw">TO</span> <span class="var">WS-TDI-IMP-TRN</span>.                        <span class="num">065000</span>
+   <span class="kw">MOVE</span> <span class="num">1</span>               <span class="kw">TO</span> <span class="var">WS-TDI-MON-TRN</span>.                        <span class="num">065100</span>
+   <span class="kw">MOVE</span> <span class="var">WKS-PAR-FEC-6D</span>  <span class="kw">TO</span> <span class="var">WS-TDI-FEC-CON</span>.                        <span class="num">065200</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;P09999999&quot;</span>     <span class="kw">TO</span> <span class="var">WS-TDI-CVE-AUT</span>.                        <span class="num">065300</span>
+   <span class="kw">MOVE</span> <span class="num">99999</span>           <span class="kw">TO</span> <span class="var">WS-TDI-NUM-TRN</span>.                        <span class="num">065400</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;00000000000000000000&quot;</span> <span class="kw">TO</span> <span class="var">WS-TDI-CTA-ACC</span>.                 <span class="num">065500</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;99990000000000000000&quot;</span> <span class="kw">TO</span> <span class="var">WS-TDI-REF-OPE</span>.                 <span class="num">065600</span>
+   <span class="kw">WRITE</span> <span class="var">REG-TANDEM</span>    <span class="kw">FROM</span> <span class="var">WS-REG-DET-TANDEM</span>.                    <span class="num">065700</span>
+<span class="cmt">*TLR                                                              065800</span>
+   <span class="kw">MOVE</span> <span class="str">&quot;TLR&quot;</span>          <span class="kw">TO</span> <span class="var">WS-TTI-ID</span>.                              <span class="num">065900</span>
+   <span class="kw">MOVE</span> <span class="num">1</span>              <span class="kw">TO</span> <span class="var">WS-TTI-NUM-REG</span>.                         <span class="num">066000</span>
+   <span class="kw">WRITE</span> <span class="var">REG-TANDEM</span>    <span class="kw">FROM</span> <span class="var">WS-REG-TRA-TANDEM</span>.                    <span class="num">066100</span>
+   <span class="kw">CLOSE</span> <span class="var">TANDEM</span> <span class="kw">WITH</span> <span class="var">SAVE</span>.                                        <span class="num">066200</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>CreaArchivoE01Operacion.java · ControlCorporativoOperacion.java · ArchivoIcaOperacion.java</span><span class="fname">@Component · escritura de archivos · @ConfigurationProperties</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j7"><span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.CREA_E01)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">CreaArchivoE01Operacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {   <span class="cmt">// 000360-CREA-ARCH804</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P610Properties</span> props;    <span class="cmt">// e01-titulo: &quot;(CORE-GL)S{sistema}/FILE/E01/10/CORE-GL/{fecha}.&quot;</span>
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) <span class="kw">throws</span> <span class="type">IOException</span> {
+        <span class="type">Path</span> destino = props.rutaE01(s.sistema(), s.numReg());
+        <span class="kw">try</span> (<span class="kw">var</span> out = <span class="kw">new</span> <span class="type">FixedLengthWriter</span>(destino, <span class="num">720</span>)) {          <span class="cmt">// REG-C402 PIC X(720)</span>
+            out.write(<span class="type">E01Header</span>.de(s.sistema(), s.numReg()));
+            out.write(<span class="type">E01Trailer</span>.de(<span class="num">0</span>, <span class="num">0</span>, <span class="type">BigDecimal</span>.ZERO.setScale(<span class="num">2</span>)));  <span class="cmt">// TOTREG, TOTCLAVES, TOTIMPORTE</span>
+        }                                                               <span class="cmt">// CLOSE ... WITH SAVE</span>
+    }
+}</span>
+<span class="seg java-seg" data-jid="j8"><span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.CONTROL_CORP)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ControlCorporativoOperacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {   <span class="cmt">// 0000100-ACT-CONT-CORP</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlCorpRepository</span> control;    <span class="cmt">// (CORE-GL)CORE-GL/FILE/CONTROL/CORP.</span>
+
+    <span class="ann">@Override</span>
+    <span class="ann">@Transactional</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) {
+        <span class="kw">var</span> hdr = control.header();
+        log.info(<span class="str">&quot;FECHA ACTUAL: {}&quot;</span>, hdr.fechaProceso());
+        hdr.setFechaProceso(s.numReg());                                   <span class="cmt">// la nueva fecha se fija primero</span>
+        log.info(<span class="str">&quot;FECHA NUEVA: {}&quot;</span>, hdr.fechaProceso());
+
+        <span class="kw">for</span> (<span class="kw">var</span> det : control.detallesHastaCentinela(<span class="num">999</span>)) {             <span class="cmt">// WKS-DET-SIST = 999 termina</span>
+            log.info(<span class="str">&quot;SISTEMA: {}&quot;</span>, det.sistema());
+            <span class="kw">if</span> (det.fechaProceso() == hdr.fechaProceso()) {
+                log.info(<span class="str">&quot;SE EJECUTO CORRECTAMENTE&quot;</span>);
+            } <span class="kw">else</span> {
+                log.info(<span class="str">&quot;NO HA SIDO PROCESADO DESDE: {}&quot;</span>, det.fechaProceso());
+            }
+            det.setFechaProceso(s.numReg());                               <span class="cmt">// se regraba siempre</span>
+        }
+    }   <span class="cmt">// REWRITE ... INVALID KEY -&gt; excepción y rollback (SET MYSELF(STATUS) TO -1)</span>
+}</span>
+<span class="seg java-seg" data-jid="j9"># application.yml  (valores compilados en <span class="num">0000200</span>-GEN-ARCH-ICA)
+p610:
+  ica:
+    destino-xfer: <span class="str">&quot;CORE-GL/XFER/FILE/INFOICA/INTINT/{fecha6}&quot;</span>
+    sistema-emisor: S030
+    sistema-receptor: S030
+    detalle:
+      csi-origen: <span class="str">&quot;02&quot;</span>
+      nodo-origen: <span class="str">&quot;00&quot;</span>
+      csi-destino: <span class="str">&quot;04&quot;</span>
+      estructura: Y0002U01
+      aplicacion-origen: <span class="str">&quot;0236&quot;</span>
+      aplicacion-destino: <span class="str">&quot;0264&quot;</span>
+      codigo-servicio: <span class="num">20</span>
+      subservicio: <span class="str">&quot;004&quot;</span>
+      cuenta-destino: { sucursal: <span class="str">&quot;9999&quot;</span>, numero: <span class="str">&quot;9999999&quot;</span> }
+      importe: <span class="num">1.10</span>                      # MOVE <span class="num">1.1</span> TO WS-TDI-IMP-TRN (<span class="num">9</span>(<span class="num">16</span>)V99)
+      moneda: <span class="num">1</span>
+      clave-autorizacion: P09999999
+      referencia: <span class="str">&quot;99990000000000000000&quot;</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>(<span class="type">FuncionControl</span>.<span class="type">Nombres</span>.GENERA_ICA)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ArchivoIcaOperacion</span> <span class="kw">implements</span> <span class="type">OperacionControl</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">IcaProperties</span> ica;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> ejecuta(<span class="type">SolicitudControl</span> s) <span class="kw">throws</span> <span class="type">IOException</span> {
+        <span class="type">String</span> f6 = s.fecha6();                                   <span class="cmt">// AAMMDD</span>
+        <span class="type">LocalTime</span> hora = <span class="type">LocalTime</span>.now();                         <span class="cmt">// ACCEPT WKS-HR-AR FROM TIME</span>
+        <span class="kw">try</span> (<span class="kw">var</span> out = <span class="type">TandemWriter</span>.crea(ica.ruta(f6))) {         <span class="cmt">// CORE-GL/FILE/TANDEM/{fecha6}.</span>
+            out.registroNombre(ica.destinoXfer().replace(<span class="str">&quot;{fecha6}&quot;</span>, f6) + <span class="str">&quot;.&quot;</span>);
+            out.header(ica, f6, hora, <span class="num">1</span>);
+            out.detalle(ica.detalle(), f6, hora);
+            out.trailer(<span class="num">1</span>);
+        }
+    }
+}</span></pre></div>
+</div>
+  <div class="sec-hdr">Reglas de negocio trazadas</div><table class="rules-table"><thead><tr><th>ID regla</th><th>Descripción (brain)</th><th>Segmento</th></tr></thead><tbody><tr><td>RN-CORE-GL-451</td><td>P610 (PASO-LJ=&quot;P610&quot;, PROGRAM-ID implícito CALLLIBCTL) es un dispatcher de 1,768 LOC que sirve como punto de entrada a 9 funciones (F01-F09) sobre LibCtl y datasets de control. Recibe W77-FUNCION (tipo de operación), W77-SISTEMA (sistema destino), W77-NUMREG (dato genérico: fecha, conteo, estatus). No ejecuta lógica de negocio propia.</td><td>Parámetros de entrada, sistemas de seis dígitos y vistas de la fecha · Despacho de las nueve funciones y parámetro inválido</td></tr><tr><td>RN-CORE-GL-452</td><td>W77-FUNCION=1 llama 000310-GRABA-TAMANO: CONSISMEN F11 con WKS-B03F11-SISTEMA=W77-SISTEMA y WKS-B03F11-SECOKHI=W77-NUMREG. Guarda el número de registros OK del dataset del ciclo en B03SISMEN. W77-NUMREG es el conteo de registros procesados correctamente.</td><td>Funciones 1, 2 y 4: tamaño y desactivación en B03SISMEN</td></tr><tr><td>RN-CORE-GL-453</td><td>W77-FUNCION=2 → CONSISMEN F1 (consulta B03SISMEN), luego STABDSAL=99 + MANTSISMEN F37. STABDSAL=99 señala &quot;base desactivada completamente&quot; en B03SISMEN. Usado al cierre del ciclo batch para marcar la base como no disponible para nuevas transacciones del ciclo.</td><td>Funciones 1, 2 y 4: tamaño y desactivación en B03SISMEN</td></tr><tr><td>RN-CORE-GL-454</td><td>W77-FUNCION=4 también invoca 000320-DESACTIVA. A diferencia de F02, lee CONSISDIA F1 para obtener FECPRO, extrae AAMM (año-mes), aplica STABDSAL=1 solo al ciclo del período actual (WKS-B03-AAMM(1)). STABDSAL=1 indica &quot;ciclo activo/iniciado&quot;, no desactivación total. La diferencia F02/F04 es STABDSAL=99 vs 1 y el alcance (global vs por período).</td><td>Funciones 1, 2 y 4: tamaño y desactivación en B03SISMEN</td></tr><tr><td>RN-CORE-GL-455</td><td>W77-FUNCION=3: carga CORE-GLL002R{sys} vía CTLVERS y llama CARGAMOV1 con FUNCION=98, SISTEMA=W77-SISTEMA, FECMOV=FECCONT=FECVAL=W77-NUMREG. Función 98 es la señal estándar de &quot;fin de día&quot; para el motor de posting contable: cierra el ciclo de registro diario en L002.</td><td>Función 3: aviso de fin de día al motor de registro en 6 u 8 dígitos</td></tr><tr><td>RN-CORE-GL-456</td><td>En F03, P610 evalúa W88-SISTEMAS-6D: sistemas 84, 87, 335, 336, 408, 703, 711 → WKS-6DIG-DATOS (formato compacto 6 dígitos); todos los demás → WKS-8DIG-DATOS (formato extendido 8 dígitos). La función 98 se envía en el formato específico del sistema destino.</td><td>Parámetros de entrada, sistemas de seis dígitos y vistas de la fecha · Función 3: aviso de fin de día al motor de registro en 6 u 8 dígitos</td></tr><tr><td>RN-CORE-GL-457</td><td>W77-FUNCION=5 llama CONSISMEN F09 con WKS-B03F09-STABDSAL=W77-NUMREG solo si W77-NUMREG IN (1, 3, 5, 99). Valores fuera de ese conjunto son ignorados silenciosamente (no hay error ni log). STABDSAL=3 y 5 son estados intermedios no usados en F02/F04; su significado debe investigarse.</td><td>Funciones 5 y 6: valores permitidos que se ignoran en silencio</td></tr><tr><td>RN-CORE-GL-458</td><td>W77-FUNCION=6 valida W77-NUMREG &gt; 1 AND &lt; 5 (rango 2, 3, 4), lee B04SISTEM F1 (PRODUCTO=0, INSTRUM=0), actualiza ESTATUS=W77-NUMREG con MANTB04SISTEM F37. ESTATUS=3 es el valor crítico que dispara generación de archivos en P677 (ver RN-CORE-GL-486).</td><td>Funciones 5 y 6: valores permitidos que se ignoran en silencio</td></tr><tr><td>RN-CORE-GL-459</td><td>W77-FUNCION=7 construye el título `(CORE-GL)S{sys}/FILE/E01/10/CORE-GL/{date}.`, crea el archivo E01, escribe HEADER (sistema+fecha) + TRAILER (TOTREG/TOTCLAVES/TOTIMPORTE=0) y cierra con SAVE. Inicializa el archivo inter-sistema para el día antes de que los sistemas empiecen a escribir movimientos.</td><td>Función 7: archivo E01 del día con header y trailer en cero</td></tr><tr><td>RN-CORE-GL-460</td><td>W77-FUNCION=8 abre `(CORE-GL)CORE-GL/FILE/CONTROL/CORP.` en I-O. Actualiza FECPRO=W77-NUMREG en el header. Lee cada registro de detalle; si WKS-DET-SIST=999 termina; de lo contrario actualiza FECPRO del detalle y reporta (via LJ) si el sistema procesó o no con esa fecha.</td><td>Función 8: actualización de la fecha en el control corporativo</td></tr><tr><td>RN-CORE-GL-461</td><td>W77-FUNCION=9 crea `CORE-GL/FILE/TANDEM/{date}.` con: registro de nombre-destino (`CORE-GL/XFER/FILE/INFOICA/INTINT/{date}.`), HDR (SIS-EMI/REC=&quot;S030&quot;), DET (CSI-ORI=02/00, CSI-DES=04, APL-ORI=0236, APL-DES=0264, COD-SER=20/abono, IMP=1.1, CTA=0, REF=9999…), TLR (NUM-REG=1).</td><td>Función 9: archivo TANDEM con una transacción fija</td></tr><tr><td>RN-CORE-GL-462</td><td>El primer registro del archivo TANDEM es un &quot;registro de nombre&quot; con path `CORE-GL/XFER/FILE/INFOICA/INTINT/{date}.` Este le indica al sistema de transporte Tandem la ruta del archivo en el sistema receptor. XFER es el mecanismo de transferencia inter-nodo de Unisys MCP.</td><td>Función 9: archivo TANDEM con una transacción fija</td></tr><tr><td>RN-CORE-GL-463</td><td>Si W77-FUNCION no corresponde a ninguna de las 9 funciones válidas, el bloque ELSE de 000300-LLAMA-LIBCTL construye &quot;PARAMETRO INVALIDO: {funcion}&quot;, llama DESPLIEGA-MENSAJE (LJ log) y ejecuta `SET MYSELF(STATUS) TO -1`. El task MCP termina con estado de error; el WFL caller recibirá código de error.</td><td>Despacho de las nueve funciones y parámetro inválido</td></tr><tr><td>RN-CORE-GL-464</td><td>000200-LIBRERIAS llama `DAME_TIT IN CTLVER` con &quot;CORE-GLL001CTL&quot;. Si retorna 0 → usa título dinámico para LIBCTL; si falla → usa fallback `&quot;(CORE-GL)CORE-GL/OBJECT/L001/CONTROL/02MTP009 ON CMEMP&quot;`. Patrón estándar de todos los programas CORE-GL.</td><td>Inicio, resolución de librería de control y liberación</td></tr><tr><td>RN-CORE-GL-465</td><td>Después de usar SOPORTECOMS (para CSI ID) y CTLVER (para resolver LIBCTL), P610 ejecuta `CANCEL &quot;SOPORTECOMS&quot;` y `CANCEL &quot;CTLVER&quot;`. En MCP, CANCEL libera el segmento de código de la biblioteca de la memoria del task, reduciendo el footprint.</td><td>Inicio, resolución de librería de control y liberación</td></tr></tbody></table>
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Resultados de LIBCTL sin revisar</b><p>W77-RESULT-LIBCON se recibe en cada llamada a CONSISMEN, MANTSISMEN, CONSISDIA, B04SISTEM, MANTB04SISTEM y CARGAMOV1, pero ninguna rama lo evalúa (líneas 1536-1629). Un fallo en la base de control termina la tarea con estado normal.</p></div><div class="risk"><b>Valores fuera de rango ignorados</b><p>Las funciones 5 y 6 descartan sin mensaje los estatus que no están en sus conjuntos permitidos (líneas 1607 y 1616).</p></div><div class="risk"><b>Transacción fija en el archivo TANDEM</b><p>La función 9 escribe cada día un detalle con importe 1.1, cuenta 9999 9999999 y autorización P09999999 (líneas 1732-1751). Todos los valores están compilados.</p></div><div class="risk"><b>Fallbacks de librería con versión fija</b><p>Si el catálogo de versiones no responde, LIBCTL se fija en la versión 02MTP009 (línea 1499) y el motor de registro en la librería genérica REGISTRA (línea 1576).</p></div><div class="risk"><b>Fecha sin siglo</b><p>La función 9 y los sistemas de seis dígitos usan WKS-PAR-FEC-6D, que descarta los dos primeros dígitos del año.</p></div><div class="risk"><b>Recreación del archivo E01</b><p>La función 7 hace OPEN OUTPUT sin verificar si el archivo ya existe; ejecutarla fuera de orden puede borrar movimientos ya escritos.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Confirmar la semántica de los estatus STABDSAL 3 y 5 de la función 5; no se usan en ninguna otra función de P610.</li><li>Confirmar el propósito de la transacción fija del archivo TANDEM (importe 1.1, cuenta 9999 9999999) y si INFOICA la trata como señal o como movimiento.</li><li>En la función 8 la comparación de cada sistema se hace contra la fecha nueva del header, no contra la anterior; confirmar con SME si el mensaje NO HA SIDO PROCESADO DESDE se interpreta así en operación.</li><li>RN-CORE-GL-451 llama implícito al PROGRAM-ID CALLLIBCTL; en el fuente está declarado explícitamente en la línea 11. Ajustar la redacción de la regla.</li><li>No se revisó qué WFL invoca cada función ni en qué orden; la traducción a Spring Batch supone que cada invocación es un step parametrizado.</li></ul>
+  <div class="pn"><a href="CORE-GL_P606.html">← CORE-GL · P606</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P612.html">CORE-GL · P612 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · LegacyCore · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Parámetros de entrada, sistemas de seis dígitos y vistas de la fecha", "cobol": " 77  W77-FUNCION                   PIC 9(02).                     003502\n 77  W77-SISTEMA                   PIC 9(03).                     003540\n 77  W77-NUMREG                    PIC 9(08).                     003560\n 01 W77-FIN                        PIC 9(01).                     003562\n 77 W77-SISTEMAS-6D                PIC 9(03).                     003564\n 88 W88-SISTEMAS-6D                VALUE 84, 87, 335, 336, 408,   003566\n                                         703, 711.                003568\n 01 WKS-FECHA-8D                   PIC 9(08).                     003580\n 01 WKS-FECHA-8D-R   REDEFINES     WKS-FECHA-8D.                  003582\n    02 WKS-FECHA-AAMM              PIC 9(06).                     003584\n    02 WKS-FECHA-DD                PIC 9(02).                     003586\n                                                                  003588\n 01 WKS-PARAM-FEC REDEFINES WKS-FECHA-8D.                         003589\n    02 WKS-PAR-FEC-AA  PIC 9(02).                                 003590\n    02 WKS-PAR-FEC-6D  PIC 9(06).                                 003591\n    02 WKS-PAR-FEC-6DR REDEFINES WKS-PAR-FEC-6D.                  003592\n      03 WKS-PAR-FEC-6D-AA PIC 9(02).                             003593\n      03 WKS-PAR-FEC-6D-MM PIC 9(02).                             003594\n      03 WKS-PAR-FEC-6D-DD PIC 9(02).                             003595", "java": "/** USING W77-FUNCION, W77-SISTEMA, W77-NUMREG: tres parámetros, el tercero de uso genérico. */\npublic record SolicitudControl(FuncionControl funcion,\n                               int sistema,          // 9(03)\n                               long numReg) {        // 9(08): fecha AAAAMMDD, conteo o estatus según la función\n\n    /** WKS-FECHA-8D-R: los primeros seis dígitos (AAAAMM) para B03-AAMM. */\n    public int anioMes()   { return (int) (numReg / 100); }\n\n    /** WKS-PAR-FEC-6D: los últimos seis dígitos (AAMMDD) para archivos de 6 dígitos y TANDEM. */\n    public String fecha6() { return \"%06d\".formatted(numReg % 1_000_000); }\n}\n\n# application.yml   (W88-SISTEMAS-6D compilado en el programa)\np610:\n  sistemas-fecha-6-digitos: [84, 87, 335, 336, 408, 703, 711]", "rationale": "P610 recibe tres parámetros: la función, el sistema y un número de ocho dígitos cuyo significado cambia según la función (fecha, conteo de registros o estatus). En Java se agrupan en un <code>record</code> y las dos vistas <code>REDEFINES</code> de la fecha se convierten en métodos: una toma año y mes, la otra los seis dígitos finales que usan los formatos antiguos. La lista de sistemas que trabajan con fecha de seis dígitos, hoy un nivel 88, pasa a <code>application.yml</code>.", "risk": "WKS-PAR-FEC-6D descarta el siglo: los archivos TANDEM y los sistemas de seis dígitos reciben el año en dos posiciones.", "rules": ["RN-CORE-GL-451", "RN-CORE-GL-456"], "lines": "L1449–1467", "verified": true, "score": 100}, "s2": {"title": "Inicio, resolución de librería de control y liberación", "cobol": " 000100-INICIO.                                                   004000\n     PERFORM 000200-LIBRERIAS    .                                004200\n     PERFORM 000300-LLAMA-LIBCTL .                                004300\n     CANCEL \"LIBCTL\"             .                                004400\n     STOP RUN.                                                    004500\n                                                                  004600\n 000200-LIBRERIAS.                                                004700\n*=================                                                004800\n     CHANGE ATTRIBUTE LIBACCESS    OF \"CTLVER\" TO BYFUNCTION.     004900\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"CTLVER\" TO \"CTLVERS\".      005000\n     CHANGE ATTRIBUTE LIBACCESS OF \"SOPORTECOMS\" TO BYFUNCTION.   005100\n     CHANGE ATTRIBUTE FUNCTIONNAME OF \"SOPORTECOMS\"               005200\n                                   TO \"SOPORTECOMS\".              005300\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\"    TO                   005301\n     \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".             005302\n     CALL \"CSIID OF SOPORTECOMS\" USING WKS-HOST.                  005400\n     CANCEL \"SOPORTECOMS\".                                        005500\n     MOVE \"CORE-GLL001CTL\"            TO WKS-LIBID.                  005600\n     CALL \"DAME_TIT IN CTLVER\" USING WKS-LIBID, WKS-NOMLIB        005700\n                               GIVING W77-ERR-CTLVER.             005800\n     IF W77-ERR-CTLVER = 0                                        005900\n        CHANGE ATTRIBUTE TITLE OF \"LIBCTL\" TO WKS-NOMLIB          006000\n     ELSE                                                         006100\n        CHANGE ATTRIBUTE TITLE OF \"LIBCTL\" TO                     006200\n               \"(CORE-GL)CORE-GL/OBJECT/L001/CONTROL/02MTP009 ON CMEMP\".006300\n                                                                  006400\n     CANCEL \"SOPORTECOMS\".                                        006500\n     CANCEL \"CTLVER\".                                             006600", "java": "@Configuration\npublic class LibCtlConfig {\n\n    /** 000200-LIBRERIAS: DAME_TIT IN CTLVER con fallback al título compilado. */\n    @Bean\n    LibCtlClient libCtl(CatalogoVersionesClient ctlvers, P610Properties props) {\n        String titulo = ctlvers.dameTitulo(\"CORE-GLL001CTL\")\n                .orElse(props.libctlFallback());     // \"(CORE-GL)CORE-GL/OBJECT/L001/CONTROL/02MTP009 ON CMEMP\"\n        return LibCtlClient.para(titulo);\n    }\n}\n// CANCEL \"SOPORTECOMS\" / \"CTLVER\" / \"LIBCTL\": en Spring los clientes son beans con ciclo de vida\n// administrado por el contenedor; no hace falta liberarlos a mano.", "rationale": "La rutina principal resuelve la librería de control, ejecuta la función pedida, libera la librería y termina. El título de LIBCTL se pide al catálogo de versiones y, si no responde, se usa un título compilado con la versión <code>02MTP009</code>. En Java esa resolución ocurre una vez al crear el bean y el título de respaldo pasa a propiedad, con lo que se puede actualizar sin recompilar. Las sentencias <code>CANCEL</code> liberan memoria de la tarea MCP y no tienen equivalente: el contenedor administra el ciclo de vida de los clientes.", "risk": "El fallback fija la versión 02MTP009 de LIBCTL; si el catálogo de versiones falla, P610 trabaja con esa versión aunque producción tenga otra.", "rules": ["RN-CORE-GL-464", "RN-CORE-GL-465"], "lines": "L1475–1502", "verified": true, "score": 100}, "s3": {"title": "Despacho de las nueve funciones y parámetro inválido", "cobol": " 000300-LLAMA-LIBCTL.                                             006800\n*====================                                             006900\n    IF W77-FUNCION = 1                                            018300\n       PERFORM 000310-GRABA-TAMANO                                018310\n    ELSE                                                          018320\n    IF W77-FUNCION = 2 OR 4                                       018330\n       PERFORM 000320-DESACTIVA                                   018340\n    ELSE                                                          018350\n    IF W77-FUNCION = 3                                            018360\n       PERFORM 000330-ENVIA-98                                    018361\n    ELSE                                                          018362\n    IF W77-FUNCION = 5                                            018363\n       PERFORM 000340-GRABA-STABDSAL                              018364\n    ELSE                                                          018365\n    IF W77-FUNCION = 6                                            018366\n       PERFORM 000350-ACTB04-SISTEMA                              018367\n    ELSE                                                          018368\n    IF W77-FUNCION = 7                                            018369\n       PERFORM 000360-CREA-ARCH804                                018370\n    ELSE                                                          018371\n    IF W77-FUNCION = 8                                            018372\n       PERFORM 0000100-ACT-CONT-CORP                              018373\n    ELSE                                                          018374\n    IF W77-FUNCION = 9                                            018375\n       PERFORM 0000200-GEN-ARCH-ICA                               018376\n    ELSE                                                          018377\n       MOVE SPACES      TO          TEXTO-LJ                      018378\n       STRING \"PARAMETRO INVALIDO: \" W77-FUNCION                  018379\n       DELIMITED BY SIZE INTO TEXTO-LJ                            018380\n       PERFORM 22222-DESPLIEGA-MENSAJE                            018381\n       SET MYSELF(STATUS) TO -1.                                  018382", "java": "public enum FuncionControl {\n    GRABA_TAMANO(1), DESACTIVA_GLOBAL(2), ENVIA_FIN_DE_DIA(3), DESACTIVA_PERIODO(4),\n    GRABA_STABDSAL(5), ACTUALIZA_B04(6), CREA_ARCHIVO_E01(7), ACTUALIZA_CONTROL_CORP(8),\n    GENERA_ARCHIVO_ICA(9);\n\n    final int codigo;\n    FuncionControl(int c) { codigo = c; }\n\n    static Optional<FuncionControl> de(int c) {\n        return Arrays.stream(values()).filter(f -> f.codigo == c).findFirst();\n    }\n}\n\n@Component\n@StepScope\n@RequiredArgsConstructor\npublic class ControlCicloTasklet implements Tasklet {       // 000300-LLAMA-LIBCTL\n\n    private final Map<FuncionControl, OperacionControl> operaciones;   // un bean por función\n    @Value(\"#{jobParameters['funcion']}\") private int funcion;\n    @Value(\"#{jobParameters['sistema']}\") private int sistema;\n    @Value(\"#{jobParameters['numReg']}\")  private long numReg;\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var f = FuncionControl.de(funcion).orElseThrow(() ->\n                new ParametroInvalidoException(\"PARAMETRO INVALIDO: %02d\".formatted(funcion)));  // SET MYSELF(STATUS) TO -1\n        operaciones.get(f).ejecuta(new SolicitudControl(f, sistema, numReg));\n        return RepeatStatus.FINISHED;\n    }\n}", "rationale": "El corazón de P610 es una cadena de <code>IF ... ELSE IF</code> que despacha a nueve párrafos según el código de función, con una rama final que deja la tarea en estado de error. En la arquitectura destino cada función es un bean que implementa la misma interfaz y el despacho es un mapa por <code>enum</code>; el job que hoy es un WFL puede invocar el step con distintos parámetros o encadenar varios con <code>JobExecutionDecider</code>. La excepción deja el step en FAILED, que es el equivalente de <code>SET MYSELF(STATUS) TO -1</code> para el WFL que lo llama.", "risk": "", "rules": ["RN-CORE-GL-451", "RN-CORE-GL-463"], "lines": "L1504–1534", "verified": true, "score": 100}, "s4": {"title": "Funciones 1, 2 y 4: tamaño y desactivación en B03SISMEN", "cobol": " 000310-GRABA-TAMANO.                                             018390\n*====================                                             018392\n    MOVE 0                        TO W77-RESULT-LIBCON            027200\n    MOVE 11                       TO WKS-B03F11-FUNCION           027300\n    MOVE W77-SISTEMA              TO WKS-B03F11-SISTEMA           027400\n    MOVE W77-NUMREG               TO WKS-B03F11-SECOKHI           027500\n    CALL \"CONSISMEN    IN LIBCTL\" USING WKS-CORE-GLB03SISMEN-F11     027600\n                                  GIVING W77-RESULT-LIBCON.       027700\n 000320-DESACTIVA.                                                027800\n*================                                                 027810\n    MOVE 1                        TO WKS-B03-FUNCION.             027820\n    MOVE W77-SISTEMA              TO WKS-B03-SISTEMA.             027830\n    CALL \"CONSISMEN    IN LIBCTL\" USING WKS-CORE-GLB03SISMEN         027832\n                                  GIVING W77-RESULT-LIBCON.       027833\n    IF W77-FUNCION = 2                                            027834\n       MOVE 99                    TO WKS-B03-STABDSAL             027840\n    ELSE                                                          027890\n       MOVE 1                     TO WKS-B01-FUNCION              027940\n       MOVE W77-SISTEMA           TO WKS-B01-SISTEMA              027990\n       CALL \"CONSISDIA IN LIBCTL\" USING WKS-CORE-GLB01SISDIA         027991\n                                  GIVING W77-RESULT-LIBCON        027992\n       IF W77-RESULT-LIBCON = 0                                   027993\n          MOVE WKS-B01-FECPRO     TO WKS-FECHA-8D                 027994\n          MOVE WKS-FECHA-AAMM     TO WKS-B03-AAMM(1)              027995\n          MOVE 1                  TO WKS-B03-STABDSAL.            027996\n    MOVE 37                       TO WKS-B03-FUNCION.             027997\n    MOVE W77-SISTEMA              TO WKS-B03-SISTEMA.             027998\n    CALL \"MANTSISMEN   IN LIBCTL\" USING WKS-CORE-GLB03SISMEN         028000\n                                  GIVING W77-RESULT-LIBCON.       028010", "java": "@Component(FuncionControl.Nombres.DESACTIVA)\n@RequiredArgsConstructor\npublic class DesactivaOperacion implements OperacionControl {   // 000320-DESACTIVA\n\n    private final SistemaMensualRepository b03;                 // B03SISMEN vía LIBCTL\n    private final SistemaDiaRepository b01;                     // B01SISDIA\n\n    @Override\n    @Transactional\n    public void ejecuta(SolicitudControl s) {\n        var reg = b03.findBySistema(s.sistema())                // CONSISMEN F1: el resultado no se revisa en el fuente\n                .orElseThrow(() -> new RegistroNoEncontradoException(\"B03SISMEN\", s.sistema()));\n        if (s.funcion() == FuncionControl.DESACTIVA_GLOBAL) {\n            reg.setStabdsal(99);                                // base desactivada\n        } else {\n            b01.findBySistema(s.sistema()).ifPresent(dia -> {   // si CONSISDIA falla, se graba sin cambios\n                reg.setAnioMes(0, dia.fechaProceso() / 100);    // WKS-B03-AAMM(1)\n                reg.setStabdsal(1);\n            });\n        }\n        b03.save(reg);                                          // MANTSISMEN F37\n    }\n}\n// Función 1 (000310-GRABA-TAMANO): b03.actualizaRegistrosOk(sistema, numReg)   // CONSISMEN F11", "rationale": "La función 1 guarda en B03SISMEN el número de registros procesados correctamente. Las funciones 2 y 4 comparten párrafo: leen el registro del sistema en B03SISMEN y lo regraban con estatus 99 en el caso 2, o con estatus 1 y el año y mes de la fecha de proceso en el caso 4. Ninguna de las llamadas a LIBCTL revisa el código de resultado. En Java la lectura y la regrabación quedan en una transacción JPA, y un registro inexistente se vuelve un error explícito en lugar de regrabar un área sin cargar.", "risk": "En la función 4, si CONSISDIA falla, MANTSISMEN F37 se ejecuta de todos modos y regraba el registro sin cambiar el estatus; el WFL no se entera porque W77-RESULT-LIBCON no se revisa.", "rules": ["RN-CORE-GL-452", "RN-CORE-GL-453", "RN-CORE-GL-454"], "lines": "L1536–1564", "verified": true, "score": 100}, "s5": {"title": "Función 3: aviso de fin de día al motor de registro en 6 u 8 dígitos", "cobol": " 000330-ENVIA-98.                                                 028030\n*================                                                 028040\n    MOVE \"CORE-GLL002R\"             TO WKS-LIBID-NOMB.               028050\n    MOVE W77-SISTEMA             TO WKS-LIBID-SIST.               028060\n    CALL \"DAME_TIT IN CTLVER\" USING WKS-LIBID, WKS-NOMLIB         028080\n                              GIVING W77-ERR-CTLVER.              028090\n    IF W77-ERR-CTLVER = 0                                         029000\n       CHANGE ATTRIBUTE TITLE OF \"LIB-REG\" TO WKS-NOMLIB          029010\n    ELSE                                                          029020\n       CHANGE ATTRIBUTE TITLE OF \"LIB-REG\" TO                     029030\n              \"(CORE-GL)CORE-GL/OBJECT/L002/REGISTRA ON CMEMP\".         029040\n    MOVE W77-SISTEMA             TO W77-SISTEMAS-6D.              029045\n    IF W88-SISTEMAS-6D                                            029050\n       PERFORM 000332-ENVIA-6DIG                                  029051\n    ELSE                                                          029052\n       PERFORM 000332-ENVIA-8DIG.                                 029053\n                                                                  029054\n 000332-ENVIA-8DIG.                                               029055\n*==================                                               029056\n    MOVE LOW-VALUES              TO WKS-8DIG-DATOS         .      029060\n    MOVE 98                      TO WKS-8DIG-FUNCION       .      029070\n    MOVE W77-SISTEMA             TO WKS-8DIG-SISTEMA       .      029090\n    MOVE W77-NUMREG              TO WKS-8DIG-FECMOV               030000\n                                    WKS-8DIG-FECCONT              032000\n                                    WKS-8DIG-FECVAL        .      033000\n    CALL \"CARGAMOV1 IN LIB-REG\"  USING  WKS-8DIG-DATOS            034000\n                                 GIVING W77-RESULT-LIBCON .       035000\n                                                                  036000\n 000332-ENVIA-6DIG.                                               036050\n*==================                                               036060\n    MOVE LOW-VALUES              TO WKS-6DIG-DATOS         .      037000\n    MOVE 98                      TO WKS-6DIG-FUNCION       .      038000\n    MOVE W77-SISTEMA             TO WKS-6DIG-SISTEMA       .      040000\n    MOVE W77-NUMREG              TO WKS-6DIG-FECMOV               041000\n                                    WKS-6DIG-FECCONT              042000\n                                    WKS-6DIG-FECVAL        .      043000\n    CALL \"CARGAMOV1 IN LIB-REG\"  USING  WKS-6DIG-DATOS            044000\n                                 GIVING W77-RESULT-LIBCON .       045000", "java": "@Component(FuncionControl.Nombres.FIN_DE_DIA)\n@RequiredArgsConstructor\npublic class FinDeDiaOperacion implements OperacionControl {    // 000330-ENVIA-98\n\n    private final RegistroContableClientFactory registro;       // CORE-GLL002R{sistema} / CARGAMOV1\n    private final P610Properties props;\n\n    @Override\n    public void ejecuta(SolicitudControl s) {\n        var cliente = registro.para(s.sistema());               // DAME_TIT con fallback \"(CORE-GL)CORE-GL/OBJECT/L002/REGISTRA ON CMEMP\"\n        boolean seisDigitos = props.sistemasFecha6Digitos().contains(s.sistema());\n        var aviso = seisDigitos\n                ? AvisoMovimiento.seisDigitos(98, s.sistema(), s.fecha6())        // FECMOV = FECCONT = FECVAL\n                : AvisoMovimiento.ochoDigitos(98, s.sistema(), s.numReg());\n        int resultado = cliente.cargaMovimiento(aviso);\n        if (resultado != 0) {\n            log.warn(\"CARGAMOV1 función 98 sistema {} resultado {}\", s.sistema(), resultado);  // el fuente lo ignora\n        }\n    }\n}", "rationale": "La función 3 avisa al motor de registro contable del sistema que terminó el día: carga la librería <code>CORE-GLL002R</code> del sistema y le envía un movimiento con función 98 y la fecha recibida como fecha de movimiento, contable y valor. El formato depende de la lista de sistemas de seis dígitos; para esos sistemas los campos de fecha son <code>PIC 9(06)</code> y el <code>MOVE</code> desde el parámetro de ocho dígitos conserva los seis de la derecha. Si el catálogo de versiones no devuelve el título, se usa la librería genérica REGISTRA, que no es la del sistema. El resultado de CARGAMOV1 no se revisa; la traducción al menos lo registra.", "risk": "Con el fallback de la línea 1576 el aviso de fin de día se envía a la librería genérica REGISTRA y no a la del sistema, sin que el programa lo advierta.", "rules": ["RN-CORE-GL-455", "RN-CORE-GL-456"], "lines": "L1566–1603", "verified": true, "score": 100}, "s6": {"title": "Funciones 5 y 6: valores permitidos que se ignoran en silencio", "cobol": " 000340-GRABA-STABDSAL.                                           045200\n*======================                                           045300\n    IF W77-NUMREG = 1 OR 3 OR 5 OR 99                             045400\n       MOVE 9                    TO WKS-B03F09-FUNCION            045500\n       MOVE W77-SISTEMA          TO WKS-B03F09-SISTEMA            045600\n       MOVE W77-NUMREG           TO WKS-B03F09-STABDSAL           045700\n       CALL \"CONSISMEN IN LIBCTL\" USING WKS-CORE-GLB03SISMEN-F09     045800\n                                  GIVING W77-RESULT-LIBCON.       045900\n                                                                  046000\n 000350-ACTB04-SISTEMA.                                           046100\n*======================                                           046200\n     IF W77-NUMREG > 1 AND W77-NUMREG < 5                         046250\n        MOVE ZERO                   TO W77-RESULT-LIBCON          046300\n        MOVE 1                      TO WKS-B04-FUNCION            046400\n        MOVE W77-SISTEMA            TO WKS-B04-SISTEMA            046500\n        CALL \"B04SISTEM  IN LIBCTL\" USING  WKS-B04SISTEMA         046600\n                                    GIVING W77-RESULT-LIBCON      046700\n        IF W77-RESULT-LIBCON = 0                                  046800\n           MOVE W77-NUMREG          TO WKS-B04-ESTATUS            046900\n           MOVE 37                  TO WKS-B04-FUNCION            047000\n           MOVE W77-SISTEMA         TO WKS-B04-SISTEMA            047100\n           MOVE ZERO                TO WKS-B04-PRODUCTO           047120\n                                       WKS-B04-INSTRUM            047150\n           CALL \"MANTB04SISTEM IN LIBCTL\" USING  WKS-B04SISTEMA   047200\n                                       GIVING W77-RESULT-LIBCON.  047300", "java": "@Component(FuncionControl.Nombres.STABDSAL)\npublic class GrabaStabdsalOperacion implements OperacionControl {    // 000340-GRABA-STABDSAL\n    private static final Set<Long> PERMITIDOS = Set.of(1L, 3L, 5L, 99L);\n\n    @Override\n    public void ejecuta(SolicitudControl s) {\n        if (!PERMITIDOS.contains(s.numReg())) {\n            log.warn(\"STABDSAL {} no permitido para sistema {}; se ignora\", s.numReg(), s.sistema());\n            return;                                             // el fuente no deja rastro\n        }\n        b03.actualizaStabdsal(s.sistema(), (int) s.numReg());  // CONSISMEN F09\n    }\n}\n\n@Component(FuncionControl.Nombres.ACTUALIZA_B04)\npublic class ActualizaB04Operacion implements OperacionControl {     // 000350-ACTB04-SISTEMA\n    @Override\n    @Transactional\n    public void ejecuta(SolicitudControl s) {\n        if (s.numReg() <= 1 || s.numReg() >= 5) {               // solo 2, 3 o 4\n            log.warn(\"ESTATUS {} fuera de rango para B04; se ignora\", s.numReg());\n            return;\n        }\n        b04.findBySistemaAndProductoAndInstrumento(s.sistema(), 0, 0)    // B04SISTEM F1\n           .ifPresent(r -> { r.setEstatus((int) s.numReg()); b04.save(r); });   // MANTB04SISTEM F37\n    }\n}", "rationale": "La función 5 graba el estatus de base de datos de B03SISMEN solo si el valor es 1, 3, 5 o 99, y la función 6 actualiza el estatus del sistema en B04 solo si el valor es 2, 3 o 4. Fuera de esos conjuntos ambas terminan sin hacer nada y sin mensaje, y el WFL recibe un estado normal. La traducción conserva el filtro y agrega una advertencia en bitácora, de modo que un valor mal enviado deje rastro. La actualización de B04 queda dentro de una transacción con la lectura previa.", "risk": "Un WFL que envíe un estatus fuera de rango cree haber actualizado B03 o B04 y no lo hizo; tampoco se revisa el resultado de MANTB04SISTEM.", "rules": ["RN-CORE-GL-457", "RN-CORE-GL-458"], "lines": "L1605–1629", "verified": true, "score": 100}, "s7": {"title": "Función 7: archivo E01 del día con header y trailer en cero", "cobol": "  000360-CREA-ARCH804.                                            047320\n*====================                                             047330\n     MOVE W77-SISTEMA TO WKS-TIT-NUM-SISTEMA.                     047340\n     MOVE W77-NUMREG  TO WKS-TIT-FECHAPRO.                        047350\n     CHANGE ATTRIBUTE TITLE OF S804-E01-MOV TO WKS-TIT-804.       047360\n     OPEN OUTPUT S804-E01-MOV.                                    047400\n     MOVE W77-SISTEMA TO R01-MOV-HDR-SISTEMA.                     048000\n     MOVE W77-NUMREG  TO R01-MOV-HDR-FECHA.                       049000\n     WRITE REG-C402          FROM   R01-MOV-HEADER.               050000\n     MOVE 0    TO       R01-MOV-TRA-TOTREG                        051000\n                        R01-MOV-TRA-TOTCLAVES                     052000\n                        R01-MOV-TRA-TOTIMPORTE.                   053000\n     WRITE REG-C402          FROM   R01-MOV-TRAILER.              054000\n     CLOSE S804-E01-MOV WITH SAVE.                                055000", "java": "@Component(FuncionControl.Nombres.CREA_E01)\n@RequiredArgsConstructor\npublic class CreaArchivoE01Operacion implements OperacionControl {   // 000360-CREA-ARCH804\n\n    private final P610Properties props;    // e01-titulo: \"(CORE-GL)S{sistema}/FILE/E01/10/CORE-GL/{fecha}.\"\n\n    @Override\n    public void ejecuta(SolicitudControl s) throws IOException {\n        Path destino = props.rutaE01(s.sistema(), s.numReg());\n        try (var out = new FixedLengthWriter(destino, 720)) {          // REG-C402 PIC X(720)\n            out.write(E01Header.de(s.sistema(), s.numReg()));\n            out.write(E01Trailer.de(0, 0, BigDecimal.ZERO.setScale(2)));  // TOTREG, TOTCLAVES, TOTIMPORTE\n        }                                                               // CLOSE ... WITH SAVE\n    }\n}", "rationale": "La función 7 crea, para el sistema y la fecha recibidos, el archivo E01 de intercambio con CORE-GL, con solo un header y un trailer en cero, para que los sistemas encuentren el archivo listo antes de escribir movimientos. El título se arma con el sistema, el nodo <code>10</code> y la fecha de ocho dígitos, todos compilados en WORKING-STORAGE; en Java la plantilla pasa a propiedad. El nombre del párrafo dice 804, pero el sistema es el que llega por parámetro.", "risk": "OPEN OUTPUT sobre un archivo E01 que ya existe lo reemplaza: si la función 7 se ejecuta después de que un sistema escribió movimientos, esos movimientos se pierden.", "rules": ["RN-CORE-GL-459"], "lines": "L1631–1644", "verified": true, "score": 100}, "s8": {"title": "Función 8: actualización de la fecha en el control corporativo", "cobol": " 0000100-ACT-CONT-CORP.                                           055200\n*=================================================================055300\n   OPEN I-O A01-CONTROL.                                          055400\n   PERFORM 000200-ACT-FECHA.                                      055500\n   PERFORM 000100-CHECA-STATUS UNTIL W77-FIN = 1.                 055600\n   CLOSE A01-CONTROL WITH SAVE.                                   055700\n                                                                  055800\n 000200-ACT-FECHA.                                                055900\n*=================================================================056000\n   MOVE W77-NUMREG    TO WKS-FECHA-8D.                            056100\n   READ A01-CONTROL INTO WKS-REG-HD-CONTROL.                      056200\n   MOVE SPACES      TO          TEXTO-LJ                          056300\n   STRING \"FECHA ACTUAL: \" WKS-HD-FECPRO                          056400\n          DELIMITED BY SIZE INTO TEXTO-LJ.                        056500\n   PERFORM 22222-DESPLIEGA-MENSAJE.                               056600\n   MOVE WKS-FECHA-8D  TO WKS-HD-FECPRO                            056700\n                                                                  056800\n   MOVE SPACES      TO          TEXTO-LJ                          056900\n   STRING \"FECHA NUEVA: \" WKS-HD-FECPRO                           057000\n          DELIMITED BY SIZE INTO TEXTO-LJ.                        057100\n   PERFORM 22222-DESPLIEGA-MENSAJE.                               057200\n   REWRITE A01-REG-CONTROL FROM WKS-REG-HD-CONTROL                057300\n           INVALID KEY                                            057400\n           MOVE \"E\"     TO      TIPO-LJ                           057500\n            MOVE 020202  TO      CODIGO-LJ                        057600\n            MOVE  \"ERROR AL ACTUALIZAR FECHA DE PROXIMO PROCESO \" 057700\n                TO      TEXTO-LJ                                  057800\n            PERFORM 22222-DESPLIEGA-MENSAJE                       057900\n            SET MYSELF(STATUS) TO -1.                             058000\n                                                                  058100\n 000100-CHECA-STATUS.                                             058200\n*=================================================================058300\n  READ A01-CONTROL INTO WKS-REG-DET-CONTROL                       058400\n       AT END MOVE 1 TO W77-FIN.                                  058500\n  MOVE SPACES TO TEXTO-LJ                                         058600\n  IF WKS-DET-SIST = 999                                           058700\n     MOVE 1 TO W77-FIN                                            058800\n  ELSE                                                            058900\n     STRING \"SISTEMA: \" WKS-DET-SIST                              059000\n                  DELIMITED BY SIZE INTO TEXTO-LJ                 059100\n     PERFORM 22222-DESPLIEGA-MENSAJE                              059200\n     IF WKS-DET-FECPRO = WKS-HD-FECPRO                            059300\n        MOVE \"SE EJECUTO CORRECTAMENTE     \"    TO TEXTO-LJ       059400\n        PERFORM 22222-DESPLIEGA-MENSAJE                           059500\n     ELSE                                                         059600\n           STRING \"NO HA SIDO PROCESADO DESDE: \" WKS-DET-FECPRO   059700\n           DELIMITED BY SIZE INTO TEXTO-LJ                        059800\n           PERFORM 22222-DESPLIEGA-MENSAJE.                       059900\n  IF W77-FIN = 0                                                  060000\n     MOVE WKS-FECHA-8D TO WKS-DET-FECPRO                          060100\n     REWRITE A01-REG-CONTROL FROM WKS-REG-DET-CONTROL             060200\n           INVALID KEY                                            060300\n           MOVE \"E\"     TO      TIPO-LJ                           060400\n           MOVE 020202  TO      CODIGO-LJ                         060500\n           STRING \"ERROR AL ACTUALIZAR FECHA DE PROXIMO PROCESO \",060600\n                  \" DE LOS REGISTRO DE DETALLE\"                   060700\n                   DELIMITED BY SIZE INTO      TEXTO-LJ           060800\n            PERFORM 22222-DESPLIEGA-MENSAJE                       060900\n            SET MYSELF(STATUS) TO -1.                             061000", "java": "@Component(FuncionControl.Nombres.CONTROL_CORP)\n@RequiredArgsConstructor\npublic class ControlCorporativoOperacion implements OperacionControl {   // 0000100-ACT-CONT-CORP\n\n    private final ControlCorpRepository control;    // (CORE-GL)CORE-GL/FILE/CONTROL/CORP.\n\n    @Override\n    @Transactional\n    public void ejecuta(SolicitudControl s) {\n        var hdr = control.header();\n        log.info(\"FECHA ACTUAL: {}\", hdr.fechaProceso());\n        hdr.setFechaProceso(s.numReg());                                   // la nueva fecha se fija primero\n        log.info(\"FECHA NUEVA: {}\", hdr.fechaProceso());\n\n        for (var det : control.detallesHastaCentinela(999)) {             // WKS-DET-SIST = 999 termina\n            log.info(\"SISTEMA: {}\", det.sistema());\n            if (det.fechaProceso() == hdr.fechaProceso()) {\n                log.info(\"SE EJECUTO CORRECTAMENTE\");\n            } else {\n                log.info(\"NO HA SIDO PROCESADO DESDE: {}\", det.fechaProceso());\n            }\n            det.setFechaProceso(s.numReg());                               // se regraba siempre\n        }\n    }   // REWRITE ... INVALID KEY -> excepción y rollback (SET MYSELF(STATUS) TO -1)\n}", "rationale": "La función 8 abre el archivo de control corporativo en modo I-O, cambia la fecha del header por la recibida y luego recorre los detalles hasta el sistema 999. Para cada sistema informa si su fecha coincide con la del header y después le graba la fecha nueva. Como el header ya tiene la fecha nueva cuando se compara, el mensaje SE EJECUTO CORRECTAMENTE solo aparece si el sistema ya tenía esa fecha. La traducción conserva el orden exacto. En el fuente cada <code>REWRITE</code> fallido termina la tarea dejando grabado lo anterior; con <code>@Transactional</code> el cambio es todo o nada.", "risk": "Si el archivo llega a fin sin el centinela 999, el READ con AT END no actualiza el área de trabajo y el último sistema se reporta dos veces en la bitácora; la fecha de cada detalle se sobrescribe aunque el sistema no haya procesado.", "rules": ["RN-CORE-GL-460"], "lines": "L1646–1704", "verified": true, "score": 100}, "s9": {"title": "Función 9: archivo TANDEM con una transacción fija", "cobol": " 0000200-GEN-ARCH-ICA.                                            061200\n*=================================================================061300\n   MOVE W77-NUMREG    TO WKS-FECHA-8D.                            061350\n   ACCEPT  WKS-HR-AR         FROM TIME.                           061400\n   MOVE SPACES        TO WS-REG-FECHA-TANDEM WS-REG-HEA-TANDEM    061500\n         WS-REG-TRA-TANDEM WS-REG-DET-TANDEM.                     061600\n   MOVE WKS-PAR-FEC-6D TO WKS-FECHA-PROCESO.                      061700\n   OPEN OUTPUT TANDEM.                                            061800\n   STRING \"CORE-GL/XFER/FILE/INFOICA/INTINT/\"  WKS-PAR-FEC-6D        061900\n      DELIMITED BY SIZE INTO WS-NOMBRE-TANDEM.                    062000\n   MOVE \".\"       TO WS-PUNTO.                                    062100\n   WRITE REG-TANDEM    FROM WS-REG-FECHA-TANDEM.                  062200\n   MOVE \"HDR\"             TO WS-THI-ID.                           062300\n   MOVE WKS-PAR-FEC-6D-DD TO WS-THI-FEC-P-D.                      062400\n   MOVE WKS-PAR-FEC-6D-MM TO WS-THI-FEC-P-MM.                     062500\n   MOVE WKS-PAR-FEC-6D-AA TO WS-THI-FEC-P-AA.                     062600\n   MOVE WKS-PAR-FEC-6D TO WS-THI-FEC-GEN.                         062700\n   MOVE WKS-HR-AR      TO WS-THI-HOR-GEN.                         062800\n   MOVE \"S030\"         TO WS-THI-SIS-EMI.                         062900\n   MOVE \"S030\"         TO WS-THI-SIS-REC.                         063000\n   MOVE \"INFOICA \"     TO WS-THI-NOM-EXT.                         063100\n   MOVE 1              TO WS-THI-NUM-REG.                         063200\n   MOVE \"INT\"          TO WS-THI-CSI-ORI.                         063300\n   MOVE \"INT\"          TO WS-THI-CSI-DES.                         063400\n   WRITE REG-TANDEM    FROM WS-REG-HEA-TANDEM.                    063500\n*DETALLE                                                          063600\n   MOVE 02              TO WS-TDI-CSI-ORI.                        063700\n   MOVE 00              TO WS-TDI-NOD-ORI.                        063800\n   MOVE 04              TO WS-TDI-CSI-DES.                        063900\n   MOVE \"Y0002U01\"      TO WS-TDI-NOM-EST.                        064000\n   MOVE WKS-PAR-FEC-6D  TO WS-TDI-FEC-GEN.                        064100\n   MOVE WKS-HR-AR       TO WS-TDI-HOR-GEN.                        064200\n   MOVE 0236            TO WS-TDI-APL-ORI.                        064300\n   MOVE 0264            TO WS-TDI-APL-DES.                        064400\n   MOVE 02              TO WS-TDI-STA-TRN.                        064500\n   MOVE 20              TO WS-TDI-COD-SER.                        064600\n   MOVE 004             TO WS-TDI-SUB-SER.                        064700\n   MOVE 9999            TO WS-TDI-CTA-DES-SUC.                    064800\n   MOVE 9999999         TO WS-TDI-CTA-DES-NUM.                    064900\n   MOVE 1.1             TO WS-TDI-IMP-TRN.                        065000\n   MOVE 1               TO WS-TDI-MON-TRN.                        065100\n   MOVE WKS-PAR-FEC-6D  TO WS-TDI-FEC-CON.                        065200\n   MOVE \"P09999999\"     TO WS-TDI-CVE-AUT.                        065300\n   MOVE 99999           TO WS-TDI-NUM-TRN.                        065400\n   MOVE \"00000000000000000000\" TO WS-TDI-CTA-ACC.                 065500\n   MOVE \"99990000000000000000\" TO WS-TDI-REF-OPE.                 065600\n   WRITE REG-TANDEM    FROM WS-REG-DET-TANDEM.                    065700\n*TLR                                                              065800\n   MOVE \"TLR\"          TO WS-TTI-ID.                              065900\n   MOVE 1              TO WS-TTI-NUM-REG.                         066000\n   WRITE REG-TANDEM    FROM WS-REG-TRA-TANDEM.                    066100\n   CLOSE TANDEM WITH SAVE.                                        066200", "java": "# application.yml  (valores compilados en 0000200-GEN-ARCH-ICA)\np610:\n  ica:\n    destino-xfer: \"CORE-GL/XFER/FILE/INFOICA/INTINT/{fecha6}\"\n    sistema-emisor: S030\n    sistema-receptor: S030\n    detalle:\n      csi-origen: \"02\"\n      nodo-origen: \"00\"\n      csi-destino: \"04\"\n      estructura: Y0002U01\n      aplicacion-origen: \"0236\"\n      aplicacion-destino: \"0264\"\n      codigo-servicio: 20\n      subservicio: \"004\"\n      cuenta-destino: { sucursal: \"9999\", numero: \"9999999\" }\n      importe: 1.10                      # MOVE 1.1 TO WS-TDI-IMP-TRN (9(16)V99)\n      moneda: 1\n      clave-autorizacion: P09999999\n      referencia: \"99990000000000000000\"\n\n// ---------------------------------------------------------------------------\n@Component(FuncionControl.Nombres.GENERA_ICA)\n@RequiredArgsConstructor\npublic class ArchivoIcaOperacion implements OperacionControl {\n    private final IcaProperties ica;\n\n    @Override\n    public void ejecuta(SolicitudControl s) throws IOException {\n        String f6 = s.fecha6();                                   // AAMMDD\n        LocalTime hora = LocalTime.now();                         // ACCEPT WKS-HR-AR FROM TIME\n        try (var out = TandemWriter.crea(ica.ruta(f6))) {         // CORE-GL/FILE/TANDEM/{fecha6}.\n            out.registroNombre(ica.destinoXfer().replace(\"{fecha6}\", f6) + \".\");\n            out.header(ica, f6, hora, 1);\n            out.detalle(ica.detalle(), f6, hora);\n            out.trailer(1);\n        }\n    }\n}", "rationale": "La función 9 genera el archivo TANDEM del día con cuatro registros: el nombre del archivo destino para la transferencia XFER, un header de S030 hacia S030, un único detalle y un trailer con un registro. El detalle es una transacción con valores fijos: cuenta 9999 9999999, importe 1.10, autorización P09999999 y referencia 9999. Todo está compilado, así que pasa a <code>application.yml</code>; el importe se maneja como <code>BigDecimal</code> con la escala 2 del <code>PIC 9(16)V99</code>. La fecha usa la vista de seis dígitos, sin siglo.", "risk": "El código no explica para qué sirve la transacción de 1.10 hacia la cuenta 9999 9999999; si el receptor la procesa como real, cada día se registra un abono ficticio.", "rules": ["RN-CORE-GL-461", "RN-CORE-GL-462"], "lines": "L1706–1757", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

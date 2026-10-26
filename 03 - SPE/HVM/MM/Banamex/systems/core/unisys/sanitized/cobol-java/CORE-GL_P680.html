@@ -1,0 +1,710 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CORE-GL · P680 → Java · Enterprise Digital Brain · LegacyCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#A100FF;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #A100FF;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#A100FF;box-shadow:0 0 8px #A100FF;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/accenture.png" alt="Accenture"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · CORE-GL P680</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Concentrador</div>
+  <h1><span class="cw">CORE-GL · P680</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">El comentario de cabecera dice que P680 genera archivos a partir de la base de control, pero el código hace lo contrario: abre en entrada seis archivos CORE-GL/FILE/Bnn.../aammdd y, por cada registro, bloquea el registro de la base del mismo sistema o lo crea si no existe, copia los campos y lo guarda. Todo corre dentro de una sola transacción NO-AUDIT sobre CORE-GLB99REINICTL que se cierra al final. El CSI de B01 se fuerza a cero y los errores de DMSII solo se informan en consola, sin detener la carga.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="CORE-GL_P677.html">← CORE-GL · P677</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P690.html">CORE-GL · P690 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">CORE-GL · P680 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">687 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Programa batch de CORE-GL que recibe una fecha y vuelve a cargar en la base de control CORE-GLBD99CONTROL los seis datasets (B01, B02, B03, B04, B05 y B09) a partir de los archivos secuenciales de respaldo de esa fecha.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#6CC5D8">Concentrador</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">0 de 8 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch · JPA</div></div>
+  </div>
+  <div class="sec-hdr">1 · Estructuras de datos — archivo de respaldo de B01 y títulos por fecha</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P680.txt</span><span class="fname">FILE SECTION · WORKING-STORAGE</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Registro de respaldo de B01SISDIA (370 posiciones) con diez días de archivos · L37–65"> <span class="kw">FD</span>  <span class="var">A01-B01SISDIA</span>                                                <span class="num">002000</span>
+     <span class="kw">RECORD</span> <span class="var">CONTAINS</span> <span class="num">370</span> <span class="var">CHARACTERS</span>                               <span class="num">002100</span>
+     <span class="var">BLOCK</span>  <span class="var">CONTAINS</span> <span class="num">5</span>  <span class="var">RECORDS</span>                                   <span class="num">002200</span>
+     <span class="kw">VALUE</span>  <span class="kw">OF</span> <span class="var">TITLE</span> <span class="kw">IS</span> <span class="var">WKS-ARCH-B01</span>.                             <span class="num">002300</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">01</span>  <span class="var">A01-R00-SISDIA</span>.                                              <span class="num">002500</span>
+     <span class="num">03</span> <span class="var">A01-R00-SISTEMA</span>            <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">002600</span>
+     <span class="num">03</span> <span class="var">A01-R00-CSI</span>                <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">002700</span>
+     <span class="num">03</span> <span class="var">A01-R00-FECPRO</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">002800</span>
+     <span class="num">03</span> <span class="var">A01-R00-FECCON</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">002900</span>
+     <span class="num">03</span> <span class="var">A01-R00-FECPROCORE-GL</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">003000</span>
+     <span class="num">03</span> <span class="var">A01-R00-STAREG</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">003100</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMARCSAL</span>          <span class="kw">PIC</span> X(<span class="num">34</span>).                     <span class="num">003200</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMPACSAL</span>          <span class="kw">PIC</span> X(<span class="num">17</span>).                     <span class="num">003300</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMARCMOV</span>          <span class="kw">PIC</span> X(<span class="num">34</span>).                     <span class="num">003400</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMPACMOV</span>          <span class="kw">PIC</span> X(<span class="num">17</span>).                     <span class="num">003500</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMARCDES</span>          <span class="kw">PIC</span> X(<span class="num">34</span>).                     <span class="num">003600</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMPACDES</span>          <span class="kw">PIC</span> X(<span class="num">17</span>).                     <span class="num">003700</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMARCERR</span>          <span class="kw">PIC</span> X(<span class="num">34</span>).                     <span class="num">003800</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMPACERR</span>          <span class="kw">PIC</span> X(<span class="num">17</span>).                     <span class="num">003900</span>
+     <span class="num">03</span> <span class="var">A01-R00-NOMBDSEM</span>           <span class="kw">PIC</span> X(<span class="num">17</span>).                     <span class="num">004000</span>
+     <span class="num">03</span> <span class="var">A01-R00-STABDSEM</span>           <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">004100</span>
+     <span class="num">03</span> <span class="var">A01-R00-NUMARC</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">004200</span>
+     <span class="num">03</span> <span class="var">A01-R00-3ERNIV</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">004300</span>
+     <span class="num">03</span> <span class="var">A01-R00-CTL-DIA</span>            <span class="kw">OCCURS</span> <span class="num">10</span> <span class="kw">TIMES</span>.               <span class="num">004400</span>
+        <span class="num">05</span> <span class="var">A01-R00-FECARCMOV</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">004500</span>
+        <span class="num">05</span> <span class="var">A01-R00-NIVARCMOV</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">004600</span>
+        <span class="num">05</span> <span class="var">A01-R00-NIVBDSEM</span>        <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">004700</span>
+        <span class="num">05</span> <span class="var">A01-R00-STAARCHLOG</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">004800</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Títulos de los seis archivos y fecha recibida como parámetro · L177–262"> <span class="num">01</span>  <span class="var">WKS-ARCH-B01</span>.                                                <span class="num">013902</span>
+     <span class="num">02</span> <span class="kw">FILLER</span>                    <span class="kw">PIC</span> X(<span class="num">26</span>)                       <span class="num">013904</span>
+        <span class="kw">VALUE</span> <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B01SISDIA/&quot;</span>.                       <span class="num">013906</span>
+     <span class="num">02</span> <span class="var">WKS-FEC-B01</span>               <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                      <span class="num">013908</span>
+     <span class="num">02</span> <span class="kw">FILLER</span>                    <span class="kw">PIC</span> X(<span class="num">10</span>)                       <span class="num">013910</span>
+        <span class="kw">VALUE</span> <span class="str">&quot; ON CMEMP.&quot;</span>.                                       <span class="num">013912</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">01</span>  <span class="var">WKS-ARCH-B02</span>.                                                <span class="num">013916</span>
+     <span class="num">02</span> <span class="kw">FILLER</span>                    <span class="kw">PIC</span> X(<span class="num">28</span>)                       <span class="num">013918</span>
+        <span class="kw">VALUE</span> <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B02ARCINTER/&quot;</span>.                     <span class="num">013920</span>
+     <span class="num">02</span> <span class="var">WKS-FEC-B02</span>               <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                      <span class="num">013922</span>
+     <span class="num">02</span> <span class="kw">FILLER</span>                    <span class="kw">PIC</span> X(<span class="num">10</span>)                       <span class="num">013924</span>
+        <span class="kw">VALUE</span> <span class="str">&quot; ON CMEMP.&quot;</span>.                                       <span class="num">013926</span>
+<span class="cmt">      *&gt; ⋯ 22 líneas omitidas</span>
+ <span class="num">01</span>  <span class="var">WKS-ARCH-B05</span>.                                                <span class="num">014010</span>
+     <span class="num">02</span> <span class="kw">FILLER</span>                    <span class="kw">PIC</span> X(<span class="num">28</span>)                       <span class="num">014020</span>
+        <span class="kw">VALUE</span> <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B05PROCESOS/&quot;</span>.                     <span class="num">014030</span>
+     <span class="num">02</span> <span class="var">WKS-FEC-B05</span>               <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                      <span class="num">014040</span>
+     <span class="num">02</span> <span class="kw">FILLER</span>                    <span class="kw">PIC</span> X(<span class="num">10</span>)                       <span class="num">014050</span>
+        <span class="kw">VALUE</span> <span class="str">&quot; ON CMEMP.&quot;</span>.                                       <span class="num">014060</span>
+<span class="cmt">      *&gt; ⋯ 38 líneas omitidas</span>
+ <span class="num">01</span>  <span class="var">WKS-PARAM-FECHA</span>               <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>).                     <span class="num">018000</span>
+ <span class="num">01</span>  <span class="var">WKS-FECHA-AMD</span> <span class="kw">REDEFINES</span> <span class="var">WKS-PARAM-FECHA</span>.                     <span class="num">018020</span>
+     <span class="num">03</span> <span class="var">WKS-A1-AMD</span>                 <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">018025</span>
+     <span class="num">03</span> <span class="var">WKS-FEC-AMD</span>.                                              <span class="num">018030</span>
+        <span class="num">05</span> <span class="var">WKS-A2-AMD</span>              <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">018040</span>
+        <span class="num">05</span> <span class="var">WKS-MM-AMD</span>              <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">018060</span>
+        <span class="num">05</span> <span class="var">WKS-DD-AMD</span>              <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">018080</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>RespaldoSistemaDia.java · P680Properties.java</span><span class="fname">record · @ConfigurationProperties</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** A01-R00-SISDIA: imagen de CORE-GLB01SISDIA en el archivo de respaldo (campos COMP). */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">RespaldoSistemaDia</span>(
+        <span class="type">String</span> sistema,                 <span class="cmt">// 9(04)</span>
+        <span class="kw">int</span> csi,                        <span class="cmt">// 9(02): P680 no lo usa, fuerza 0 al cargar</span>
+        <span class="type">LocalDate</span> fechaProceso, <span class="type">LocalDate</span> fechaConsulta, <span class="type">LocalDate</span> fechaProceso151,   <span class="cmt">// 9(08) AAAAMMDD</span>
+        <span class="kw">int</span> statusRegistro,
+        <span class="type">Archivo</span> saldos, <span class="type">Archivo</span> movimientos, <span class="type">Archivo</span> desglose, <span class="type">Archivo</span> errores,       <span class="cmt">// X(34) + X(17)</span>
+        <span class="type">String</span> baseSemanal,             <span class="cmt">// X(17)</span>
+        <span class="kw">int</span> statusBaseSemanal,          <span class="cmt">// A01-R00-STABDSEM: viene en el archivo, no se restaura (ver s5)</span>
+        <span class="kw">int</span> numArchivo, <span class="kw">int</span> tercerNivel,
+        <span class="type">List</span>&lt;<span class="type">DiaArchivo</span>&gt; calendario) {  <span class="cmt">// OCCURS 10</span>
+
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">Archivo</span>(<span class="type">String</span> nombre, <span class="type">String</span> pack) {}
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">DiaArchivo</span>(<span class="type">LocalDate</span> fecha, <span class="kw">long</span> nivelArchivo, <span class="kw">long</span> nivelBase, <span class="kw">int</span> statusLog) {}
+}</span>
+<span class="seg java-seg" data-jid="j2"># application.yml
+p680:
+  pack: CMEMP
+  archivos:
+    b01: <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B01SISDIA/{aammdd}&quot;</span>
+    b02: <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B02ARCINTER/{aammdd}&quot;</span>
+    b03: <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B03SISMEN/{aammdd}&quot;</span>
+    b04: <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B04SISTEM/{aammdd}&quot;</span>
+    b05: <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B05PROCESOS/{aammdd}&quot;</span>
+    b09: <span class="str">&quot;(CORE-GL)CORE-GL/FILE/B09CONXSIS/{aammdd}&quot;</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@ConfigurationProperties</span>(<span class="str">&quot;p680&quot;</span>)
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">P680Properties</span>(<span class="type">String</span> pack, <span class="type">Map</span>&lt;<span class="type">String</span>, <span class="type">String</span>&gt; archivos) {
+
+<span class="cmt">    /** WKS-PARAM-FECHA 9(08) se mueve a WKS-FEC-Bnn 9(06): el nombre lleva AAMMDD sin siglo. */</span>
+    <span class="kw">public</span> <span class="type">String</span> titulo(<span class="type">String</span> dataset, <span class="type">LocalDate</span> fecha) {
+        <span class="kw">return</span> archivos.get(dataset).replace(<span class="str">&quot;{aammdd}&quot;</span>, fecha.format(<span class="type">DateTimeFormatter</span>.ofPattern(<span class="str">&quot;yyMMdd&quot;</span>)))
+               + <span class="str">&quot; ON &quot;</span> + pack + <span class="str">&quot;.&quot;</span>;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Control del paso — seis cargas en una sola transacción</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P680.txt</span><span class="fname">PROCEDURE DIVISION · 00-0000-CONTROL / 01-00100 / 01-00200</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s3" data-jid="j3" title="Rutina de control: una carga por dataset en orden fijo · L336–370">  <span class="kw">PROCEDURE</span> <span class="kw">DIVISION</span> <span class="kw">USING</span> <span class="var">WKS-PARAM-FECHA</span>.                       <span class="num">021100</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+  <span class="num">00</span>-<span class="num">0000</span>-<span class="var">CONTROL</span>.                                                <span class="num">021400</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PARAM-FECHA</span>          <span class="kw">TO</span> <span class="var">WKS-FEC-B01</span>                 <span class="num">021600</span>
+                                      <span class="var">WKS-FEC-B02</span>                 <span class="num">021700</span>
+                                      <span class="var">WKS-FEC-B03</span>                 <span class="num">021800</span>
+                                      <span class="var">WKS-FEC-B04</span>                 <span class="num">021900</span>
+                                      <span class="var">WKS-FEC-B05</span>                 <span class="num">021950</span>
+                                      <span class="var">WKS-FEC-B09</span>.                <span class="num">022000</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="num">0151</span>                     <span class="kw">TO</span> <span class="var">SISTEMA-LJ</span>.                 <span class="num">022200</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;0680&quot;</span>                   <span class="kw">TO</span> <span class="var">PASO-LJ</span>.                    <span class="num">022300</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;002&quot;</span>                    <span class="kw">TO</span> <span class="var">MTP-LJ</span>.                     <span class="num">022400</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">00050</span>-<span class="var">LIBRERIAS</span>.                                  <span class="num">022600</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span>                      <span class="kw">TO</span> <span class="var">TIPO-LJ</span>.                    <span class="num">022800</span>
+     <span class="kw">MOVE</span> <span class="num">020101</span>                   <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>.                  <span class="num">022900</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">00100</span>-<span class="var">ABRE-ENTRADA</span>.                               <span class="num">023600</span>
+     <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">00100</span>-<span class="var">GENERA-B01SISDIA</span>.                           <span class="num">023700</span>
+     <span class="kw">PERFORM</span> <span class="num">03</span>-<span class="num">00100</span>-<span class="var">GENERA-B02ARCINTER</span>.                         <span class="num">023800</span>
+     <span class="kw">PERFORM</span> <span class="num">04</span>-<span class="num">00100</span>-<span class="var">GENERA-B03SISMEN</span>.                           <span class="num">023900</span>
+     <span class="kw">PERFORM</span> <span class="num">05</span>-<span class="num">00100</span>-<span class="var">GENERA-B04SISTEM</span>.                           <span class="num">024000</span>
+     <span class="kw">PERFORM</span> <span class="num">07</span>-<span class="num">00100</span>-<span class="var">GENERA-B05PROCESOS</span>.                         <span class="num">024050</span>
+     <span class="kw">PERFORM</span> <span class="num">06</span>-<span class="num">00100</span>-<span class="var">GENERA-B09CONXSIS</span>.                          <span class="num">024100</span>
+     <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">00200</span>-<span class="var">CIERRA-CONTROL</span>.                             <span class="num">024200</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span>                      <span class="kw">TO</span> <span class="var">TIPO-LJ</span>.                    <span class="num">024300</span>
+     <span class="kw">MOVE</span> <span class="num">020201</span>                   <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>.                  <span class="num">024400</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;FIN NORMAL DE PROCESO&quot;</span>  <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>.                   <span class="num">024500</span>
+<span class="cmt">*    CALL &quot;LJ IN LIB-DISP&quot; USING CONTADOR-LJ,                     024600</span>
+<span class="cmt">*                                MENSAJE-LJ.                      024700</span>
+     <span class="kw">STOP</span> <span class="kw">RUN</span>.                                                    <span class="num">024800</span></span>
+<span class="seg" data-cid="s4" data-jid="j4" title="Apertura de la base, CSI forzado a cero y transacción única · L382–405"> <span class="num">01</span>-<span class="num">00100</span>-<span class="var">ABRE-ENTRADA</span>.                                           <span class="num">026000</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">CALL</span> <span class="str">&quot;CSIID OF SOPORTECOMS&quot;</span> <span class="kw">USING</span> <span class="var">WKS-SOPORTECOMS</span>.           <span class="num">026200</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">WKS-SOPCOMS-NUMCSI</span>.         <span class="num">026220</span>
+     <span class="kw">CANCEL</span> <span class="str">&quot;SOPORTECOMS&quot;</span>.                                        <span class="num">026240</span>
+     <span class="kw">OPEN</span> <span class="var">UPDATE</span>  <span class="var">CORE-GLBD99CONTROL</span>                                 <span class="num">026300</span>
+          <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                            <span class="num">026400</span>
+             <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                               <span class="num">026500</span>
+             <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span>              <span class="kw">TO</span> <span class="var">TIPO-LJ</span>                     <span class="num">026600</span>
+             <span class="kw">MOVE</span> <span class="num">020202</span>           <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>                   <span class="num">026700</span>
+             <span class="kw">MOVE</span> <span class="str">&quot;TERMINACION ANORMAL DEL PROGRAMA&quot;</span>              <span class="num">026800</span>
+                                   <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>                    <span class="num">026900</span>
+             <span class="kw">CALL</span> <span class="str">&quot;LJ IN LIB-DISP&quot;</span> <span class="kw">USING</span> <span class="var">CONTADOR-LJ</span>,             <span class="num">027000</span>
+                                         <span class="var">MENSAJE-LJ</span>               <span class="num">027100</span>
+             <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>.             <span class="num">027200</span>
+     <span class="kw">BEGIN-TRANSACTION</span> <span class="var">NO-AUDIT</span> <span class="var">CORE-GLB99REINICTL</span>.                  <span class="num">027300</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">01</span>-<span class="num">00200</span>-<span class="var">CIERRA-CONTROL</span>.                                         <span class="num">027500</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">END-TRANSACTION</span> <span class="var">AUDIT</span> <span class="var">CORE-GLB99REINICTL</span>.                       <span class="num">027700</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">CLOSE</span> <span class="var">CORE-GLBD99CONTROL</span>                                        <span class="num">027900</span>
+           <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                           <span class="num">028000</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>.                                      <span class="num">028100</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>RestauracionControlJobConfig.java</span><span class="fname">Spring Batch Job · un step por dataset</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j3"><span class="ann">@Configuration</span>
+<span class="ann">@EnableConfigurationProperties</span>(<span class="type">P680Properties</span>.<span class="kw">class</span>)
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">RestauracionControlJobConfig</span> {
+
+<span class="cmt">    /** 00-0000-CONTROL. El orden se conserva: B01, B02, B03, B04, B05 y B09. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">Job</span> restauraControlCORE-GL(<span class="type">JobRepository</span> repo,
+                            <span class="type">Step</span> restauraB01, <span class="type">Step</span> restauraB02, <span class="type">Step</span> restauraB03,
+                            <span class="type">Step</span> restauraB04, <span class="type">Step</span> restauraB05, <span class="type">Step</span> restauraB09) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">JobBuilder</span>(<span class="str">&quot;CORE-GLP680&quot;</span>, repo)
+                .start(restauraB01)
+                .next(restauraB02)
+                .next(restauraB03)
+                .next(restauraB04)
+                .next(restauraB05)
+                .next(restauraB09)
+                .build();
+    }
+
+<span class="cmt">    /** Plantilla de cada step: lector del archivo de respaldo y escritor JPA que hace alta o cambio. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">Step</span> restauraB01(<span class="type">JobRepository</span> repo, <span class="type">PlatformTransactionManager</span> tx,
+                     <span class="type">FlatFileItemReader</span>&lt;<span class="type">RespaldoSistemaDia</span>&gt; lectorB01, <span class="type">RestauraSistemaDiaWriter</span> writer) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">StepBuilder</span>(<span class="str">&quot;restauraB01&quot;</span>, repo)
+                .&lt;<span class="type">RespaldoSistemaDia</span>, <span class="type">RespaldoSistemaDia</span>&gt;chunk(<span class="num">500</span>, tx)
+                .reader(lectorB01)
+                .writer(writer)
+                .build();
+    }
+}</span>
+<span class="seg java-seg" data-jid="j4"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">ContextoRestauracion</span> <span class="kw">implements</span> <span class="type">JobExecutionListener</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SoporteComs</span> coms;        <span class="cmt">// CSIID OF SOPORTECOMS</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P680Properties</span> props;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> beforeJob(<span class="type">JobExecution</span> je) {
+        <span class="kw">int</span> csiReal = coms.csiId().numero();
+        <span class="cmt">// El fuente obtiene el CSI y en la línea siguiente lo sustituye por cero.</span>
+        je.getExecutionContext().putInt(<span class="str">&quot;csi&quot;</span>, <span class="num">0</span>);
+        log.info(<span class="str">&quot;CSI de ejecución {} ignorado; B01 se restaura con CSI 0&quot;</span>, csiReal);
+    }
+}
+
+<span class="cmt">// BEGIN-TRANSACTION NO-AUDIT ... END-TRANSACTION AUDIT abarcan las seis cargas.</span>
+<span class="cmt">// En Java cada chunk confirma su propia transacción; para conservar el &quot;todo o nada&quot; del fuente</span>
+<span class="cmt">// la alternativa es cargar en tablas de staging y publicar con un último step transaccional:</span>
+<span class="ann">@Bean</span>
+<span class="type">Step</span> publicaRestauracion(<span class="type">JobRepository</span> repo, <span class="type">PlatformTransactionManager</span> tx, <span class="type">PublicadorControl</span> publicador) {
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">StepBuilder</span>(<span class="str">&quot;publicaRestauracion&quot;</span>, repo)
+            .tasklet((c, ctx) -&gt; { publicador.reemplazaDesdeStaging(); <span class="kw">return</span> <span class="type">RepeatStatus</span>.FINISHED; }, tx)
+            .build();
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Reglas de restauración — alta o cambio por sistema y manejo de errores</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P680.txt</span><span class="fname">02-00104 / 04-00110 / 07-00110 / 900000-CHE-STA</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s5" data-jid="j5" title="B01: bloquear o crear por sistema y CSI, copiar y guardar · L416–458"> <span class="num">02</span>-<span class="num">00104</span>-<span class="var">GRABA-B01SISDIA</span>.                                        <span class="num">028480</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="num">2</span>                        <span class="kw">TO</span> <span class="var">W77-ERROR</span>.                  <span class="num">028500</span>
+     <span class="kw">LOCK</span> <span class="var">B01SXSISDIA</span>                                             <span class="num">028600</span>
+          <span class="kw">AT</span>  <span class="var">B01-SIS-SISTEMA</span> = <span class="var">A01-R00-SISTEMA</span>    <span class="kw">AND</span>            <span class="num">028700</span>
+              <span class="var">B01-SIS-CSI</span>     = <span class="var">WKS-SOPCOMS-NUMCSI</span>                <span class="num">028800</span>
+     <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                                 <span class="num">028900</span>
+        <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                                     <span class="num">029000</span>
+           <span class="kw">MOVE</span> <span class="kw">ZERO</span>               <span class="kw">TO</span> <span class="var">W77-ERROR</span>                   <span class="num">029050</span>
+           <span class="kw">CREATE</span> <span class="var">CORE-GLB01SISDIA</span>                                   <span class="num">029100</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">029200</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">W77-ERROR</span>                   <span class="num">029300</span>
+           <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                                <span class="num">029400</span>
+     <span class="kw">IF</span> <span class="var">W77-ERROR</span> = <span class="num">0</span>                                             <span class="num">029500</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-SISTEMA</span>       <span class="kw">TO</span> <span class="var">B01-SIS-SISTEMA</span>             <span class="num">029600</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-SOPCOMS-NUMCSI</span>    <span class="kw">TO</span> <span class="var">B01-SIS-CSI</span>                 <span class="num">029700</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-FECPRO</span>        <span class="kw">TO</span> <span class="var">B01-SIS-FECPRO</span>              <span class="num">029800</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-FECCON</span>        <span class="kw">TO</span> <span class="var">B01-SIS-FECCON</span>              <span class="num">029900</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-FECPROCORE-GL</span>    <span class="kw">TO</span> <span class="var">B01-SIS-FECPRO151</span>           <span class="num">030000</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-STAREG</span>        <span class="kw">TO</span> <span class="var">B01-SIS-STAREG</span>              <span class="num">030050</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-NOMARCSAL</span>     <span class="kw">TO</span> <span class="var">B01-SIS-NOMARCSAL</span>           <span class="num">030100</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-NOMARCMOV</span>     <span class="kw">TO</span> <span class="var">B01-SIS-NOMARCMOV</span>           <span class="num">030200</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-NOMARCDES</span>     <span class="kw">TO</span> <span class="var">B01-SIS-NOMARCDES</span>           <span class="num">030300</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-NOMARCERR</span>     <span class="kw">TO</span> <span class="var">B01-SIS-NOMARCERR</span>           <span class="num">030400</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-NOMBDSEM</span>      <span class="kw">TO</span> <span class="var">B01-SIS-NOMBDSEM</span>            <span class="num">030500</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-NUMARC</span>        <span class="kw">TO</span> <span class="var">B01-SIS-NUMARC</span>              <span class="num">030600</span>
+        <span class="kw">MOVE</span> <span class="var">A01-R00-3ERNIV</span>        <span class="kw">TO</span> <span class="var">B01-SIS-3ERNIV</span>              <span class="num">030610</span>
+        <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">00130</span>-<span class="var">FECHAS</span>                                   <span class="num">031300</span>
+                <span class="kw">VARYING</span> <span class="var">W77-IND</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span>                       <span class="num">031400</span>
+                <span class="kw">UNTIL</span>   <span class="var">W77-IND</span> &gt; <span class="num">10</span>                              <span class="num">031500</span>
+           <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">00140</span>-<span class="var">MUEVE-PACK</span>                            <span class="num">031575</span>
+           <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">00105</span>-<span class="var">GRABA-BASE</span>                            <span class="num">031595</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">031596</span>
+        <span class="kw">IF</span> <span class="var">W77-ERROR</span> = <span class="num">2</span>                                          <span class="num">031597</span>
+           <span class="kw">FREE</span> <span class="var">CORE-GLB01SISDIA</span> <span class="kw">ON</span> <span class="kw">EXCEPTION</span> <span class="kw">NEXT</span> <span class="var">SENTENCE</span>.         <span class="num">031598</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+    <span class="kw">READ</span> <span class="var">A01-B01SISDIA</span>   <span class="kw">AT</span> <span class="kw">END</span> <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-EOF</span>.                <span class="num">031600</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+ <span class="num">02</span>-<span class="num">00105</span>-<span class="var">GRABA-BASE</span>.                                             <span class="num">031700</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">STORE</span> <span class="var">CORE-GLB01SISDIA</span>                                       <span class="num">031800</span>
+              <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                        <span class="num">031900</span>
+                 <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                          <span class="num">032000</span></span>
+<span class="seg" data-cid="s6" data-jid="j6" title="B03: dos errores de asignación en la restauración de bases mensuales · L525–563">     <span class="kw">IF</span> <span class="var">W77-ERROR</span> = <span class="num">0</span>                                             <span class="num">046300</span>
+        <span class="kw">MOVE</span> <span class="var">A03-R00-SISTEMA</span>       <span class="kw">TO</span> <span class="var">B03-SIS-SISTEMA</span>             <span class="num">046400</span>
+<span class="cmt">      *&gt; ⋯ 10 líneas omitidas</span>
+        <span class="kw">MOVE</span> <span class="var">A03-R00-SECERRHI</span>      <span class="kw">TO</span> <span class="var">B03-SIS-SECINFHI</span>            <span class="num">047500</span>
+        <span class="kw">MOVE</span> <span class="var">A03-R00-STABDMOVHI</span>    <span class="kw">TO</span> <span class="var">B03-SIS-STABDMOVHI</span>          <span class="num">047600</span>
+        <span class="kw">MOVE</span> <span class="var">A03-R00-STABDSAL</span>      <span class="kw">TO</span> <span class="var">B03-SIS-STABDSAL</span>            <span class="num">047622</span>
+        <span class="kw">MOVE</span> <span class="var">A03-R00-NOMBDMOVHI</span>    <span class="kw">TO</span> <span class="var">B03-SIS-NOMBDMOVHI</span>          <span class="num">047624</span>
+        <span class="kw">PERFORM</span> <span class="num">04</span>-<span class="num">00111</span>-<span class="var">BASES-CICLO</span>                              <span class="num">047700</span>
+                <span class="kw">VARYING</span> <span class="var">W77-IND</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span>                       <span class="num">047800</span>
+                <span class="kw">UNTIL</span>   <span class="var">W77-IND</span> &gt; <span class="num">5</span>    <span class="kw">OR</span>                         <span class="num">047900</span>
+                        <span class="var">W77-IND</span> &gt; <span class="var">B03-SIS-NUMCICDIA</span>               <span class="num">048000</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">STORE</span> <span class="var">CORE-GLB03SISMEN</span>                                       <span class="num">048200</span>
+           <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                           <span class="num">048300</span>
+              <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                              <span class="num">048400</span>
+<span class="cmt">      *&gt; ⋯ 6 líneas omitidas</span>
+ <span class="num">04</span>-<span class="num">00111</span>-<span class="var">BASES-CICLO</span>.                                            <span class="num">048800</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="var">A03-R00-NOMBDMOV</span>(<span class="var">W77-IND</span>) <span class="kw">TO</span> <span class="var">B03-SIS-NOMBDMOV</span>(<span class="var">W77-IND</span>). <span class="num">049000</span>
+     <span class="kw">MOVE</span> <span class="var">A03-R00-NOMBDMOV</span>(<span class="var">W77-IND</span>) <span class="kw">TO</span> <span class="var">B03-SIS-NUMBDMOV</span>(<span class="var">W77-IND</span>). <span class="num">049100</span>
+<span class="cmt">      *&gt; ⋯ 4 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">A03-R00-STABDMOV</span>(<span class="var">W77-IND</span>) <span class="kw">TO</span> <span class="var">B03-SIS-STABDMOV</span>(<span class="var">W77-IND</span>). <span class="num">049600</span></span>
+<span class="seg" data-cid="s7" data-jid="j7" title="B05: el bloqueo usa solo el sistema y no la llave completa · L604–632"> <span class="num">07</span>-<span class="num">00110</span>-<span class="var">GRABA-B05PROCESOS</span>.                                      <span class="num">052245</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="num">2</span>                        <span class="kw">TO</span> <span class="var">W77-ERROR</span>.                  <span class="num">052255</span>
+     <span class="kw">LOCK</span> <span class="var">B05SXPROCESO</span>                                            <span class="num">052260</span>
+       <span class="kw">AT</span> <span class="var">B05-SIS-SISTEMA</span> = <span class="var">A06-R00-SISTEMA</span>                       <span class="num">052263</span>
+       <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                               <span class="num">052266</span>
+          <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                                   <span class="num">052269</span>
+             <span class="kw">MOVE</span> <span class="kw">ZERO</span>             <span class="kw">TO</span> <span class="var">W77-ERROR</span>                   <span class="num">052272</span>
+             <span class="kw">CREATE</span> <span class="var">CORE-GLB05PROCESOS</span>                               <span class="num">052275</span>
+             <span class="kw">MOVE</span> <span class="var">A06-R00-SISTEMA</span>  <span class="kw">TO</span> <span class="var">B05-SIS-SISTEMA</span>             <span class="num">052278</span>
+          <span class="kw">ELSE</span>                                                    <span class="num">052281</span>
+             <span class="kw">MOVE</span> <span class="num">1</span>                <span class="kw">TO</span> <span class="var">W77-ERROR</span>                   <span class="num">052282</span>
+             <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                              <span class="num">052283</span>
+     <span class="kw">IF</span> <span class="var">W77-ERROR</span> = <span class="num">0</span>                                             <span class="num">052293</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-SISTEMA</span>       <span class="kw">TO</span> <span class="var">B05-SIS-SISTEMA</span>             <span class="num">052304</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-FCHPRO</span>        <span class="kw">TO</span> <span class="var">B05-SIS-FCHPRO</span>              <span class="num">052305</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-NUMPRO</span>        <span class="kw">TO</span> <span class="var">B05-SIS-NUMPRO</span>              <span class="num">052306</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-NOMPGM</span>        <span class="kw">TO</span> <span class="var">B05-SIS-NOMPGM</span>              <span class="num">052307</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-STAPGM</span>        <span class="kw">TO</span> <span class="var">B05-SIS-STAPGM</span>              <span class="num">052308</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-MIX</span>           <span class="kw">TO</span> <span class="var">B05-SIS-MIX</span>                 <span class="num">052309</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-FCHINI</span>        <span class="kw">TO</span> <span class="var">B05-SIS-FCHINI</span>              <span class="num">052310</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-HORAINI</span>       <span class="kw">TO</span> <span class="var">B05-SIS-HORAINI</span>             <span class="num">052311</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-FCHFIN</span>        <span class="kw">TO</span> <span class="var">B05-SIS-FCHFIN</span>              <span class="num">052312</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-HORAFIN</span>       <span class="kw">TO</span> <span class="var">B05-SIS-HORAFIN</span>             <span class="num">052313</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-NUMREGINI</span>     <span class="kw">TO</span> <span class="var">B05-SIS-NUMREGINI</span>           <span class="num">052314</span>
+        <span class="kw">MOVE</span> <span class="var">A06-R00-NUMREGFIN</span>     <span class="kw">TO</span> <span class="var">B05-SIS-NUMREGFIN</span>           <span class="num">052315</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+        <span class="kw">STORE</span> <span class="var">CORE-GLB05PROCESOS</span>                                     <span class="num">052323</span></span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Errores de DMSII: mensaje a consola y la carga continúa · L673–685"> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                                                  <span class="num">068000</span>
+     <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>)            <span class="kw">TO</span> <span class="var">WKS-ERR-DMSII</span>        <span class="num">069000</span>
+     <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMERRORTYPE</span>)           <span class="kw">TO</span> <span class="var">WKS-ERR-BD</span>           <span class="num">069100</span>
+     <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMSTRUCTURE</span>)           <span class="kw">TO</span> <span class="var">WKS-ESTRUCT-BD</span>       <span class="num">069200</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="var">WKS-ERR-DMSII</span> &gt; <span class="kw">ZEROS</span>                                     <span class="num">070000</span>
+        <span class="kw">STRING</span>  <span class="str">&quot;BASE DATOS  &quot;</span> <span class="var">WKS-NOM-BDERR-DMSII</span>                <span class="num">071000</span>
+                <span class="str">&quot;ERROR EN BD &quot;</span> <span class="var">WKS-LEY-ERR-DMSII</span>(<span class="var">WKS-ERR-DMSII</span>)   <span class="num">072000</span>
+                           <span class="str">&quot; &quot;</span> <span class="var">WKS-ERR-DMSII</span>                      <span class="num">073000</span>
+                <span class="str">&quot;TIPO        &quot;</span> <span class="var">WKS-ERR-BD</span>                         <span class="num">074000</span>
+                <span class="str">&quot;ESTRUCTURA  &quot;</span> <span class="var">WKS-ESTRUCT-BD</span>                     <span class="num">075000</span>
+        <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>                           <span class="num">076000</span>
+        <span class="kw">CALL</span> <span class="str">&quot;LJ IN LIB-DISP&quot;</span> <span class="kw">USING</span>  <span class="var">CONTADOR-LJ</span>, <span class="var">MENSAJE-LJ</span>.     <span class="num">077000</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>RestauraSistemaDiaWriter.java · RestauraBaseMensualWriter.java · RestauraProcesoWriter.java</span><span class="fname">ItemWriter · JPA upsert · @Transactional</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>
+<span class="ann">@StepScope</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">RestauraSistemaDiaWriter</span> <span class="kw">implements</span> <span class="type">ItemWriter</span>&lt;<span class="type">RespaldoSistemaDia</span>&gt; {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SistemaDiaRepository</span> b01;
+    <span class="ann">@Value</span>(<span class="str">&quot;#{jobExecutionContext[&#x27;csi&#x27;]}&quot;</span>) <span class="kw">private</span> <span class="kw">int</span> csi;     <span class="cmt">// siempre 0</span>
+
+<span class="cmt">    /** 02-00104-GRABA-B01SISDIA. */</span>
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> write(<span class="type">Chunk</span>&lt;? <span class="kw">extends</span> <span class="type">RespaldoSistemaDia</span>&gt; chunk) {
+        <span class="kw">for</span> (<span class="kw">var</span> r : chunk) {
+            <span class="type">SistemaDia</span> d = b01.findForUpdate(r.sistema(), csi)          <span class="cmt">// LOCK B01SXSISDIA</span>
+                    .orElseGet(() -&gt; <span class="type">SistemaDia</span>.nuevo(r.sistema(), csi)); <span class="cmt">// NOTFOUND: CREATE</span>
+            d.setFechas(r.fechaProceso(), r.fechaConsulta(), r.fechaProceso151());
+            d.setStatusRegistro(r.statusRegistro());
+            d.setArchivos(r.saldos(), r.movimientos(), r.desglose(), r.errores());   <span class="cmt">// nombres y packs</span>
+            d.setBaseSemanal(r.baseSemanal());
+            d.setStatusBaseSemanal(r.statusBaseSemanal());   <span class="cmt">// el fuente NO restaura este campo</span>
+            d.setNumArchivo(r.numArchivo());
+            d.setTercerNivel(r.tercerNivel());
+            d.setCalendario(r.calendario());                <span class="cmt">// 02-00130-FECHAS, 10 ocurrencias</span>
+            b01.save(d);                                    <span class="cmt">// STORE</span>
+        }
+    }
+}</span>
+<span class="seg java-seg" data-jid="j6"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">RestauraBaseMensualWriter</span> <span class="kw">implements</span> <span class="type">ItemWriter</span>&lt;<span class="type">RespaldoBaseMensual</span>&gt; {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">BaseMensualRepository</span> b03;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> write(<span class="type">Chunk</span>&lt;? <span class="kw">extends</span> <span class="type">RespaldoBaseMensual</span>&gt; chunk) {
+        <span class="kw">for</span> (<span class="kw">var</span> r : chunk) {
+            <span class="type">BaseMensual</span> b = b03.findForUpdate(r.sistema()).orElseGet(() -&gt; <span class="type">BaseMensual</span>.nueva(r.sistema()));
+            <span class="cmt">// ... modalidad, CSI responsable, tipo de base, ciclos, base de saldos ...</span>
+            b.setSecuenciasHistoricas(r.secOkHi(), r.secInfHi(),
+                                      r.secErrHi());   <span class="cmt">// el fuente pone SECERRHI en SECINFHI (línea 537)</span>
+            <span class="kw">int</span> ciclos = <span class="type">Math</span>.min(<span class="num">5</span>, r.numCiclosDia());   <span class="cmt">// UNTIL W77-IND &gt; 5 OR &gt; B03-SIS-NUMCICDIA</span>
+            <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; ciclos; i++) {
+                <span class="kw">var</span> c = r.ciclos().get(i);
+                b.setCiclo(i, c.nombreBase(),
+                           c.numeroBase(),               <span class="cmt">// el fuente mueve el NOMBRE a NUMBDMOV (línea 558)</span>
+                           c.aamm(), c.secOk(), c.secInf(), c.secErr(), c.statusBase());
+            }
+            b03.save(b);
+        }
+    }
+}</span>
+<span class="seg java-seg" data-jid="j7"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">RestauraProcesoWriter</span> <span class="kw">implements</span> <span class="type">ItemWriter</span>&lt;<span class="type">RespaldoProceso</span>&gt; {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ProcesoRepository</span> b05;
+
+<span class="cmt">    /** 07-00110-GRABA-B05PROCESOS con la llave compuesta que usa L001. */</span>
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> write(<span class="type">Chunk</span>&lt;? <span class="kw">extends</span> <span class="type">RespaldoProceso</span>&gt; chunk) {
+        <span class="kw">for</span> (<span class="kw">var</span> r : chunk) {
+            <span class="kw">var</span> id = <span class="kw">new</span> <span class="type">ProcesoId</span>(r.sistema(), r.fechaProceso(), r.numProceso(),
+                                   r.fechaInicio(), r.numRegInicial());
+            <span class="type">Proceso</span> p = b05.findForUpdate(id).orElseGet(() -&gt; <span class="type">Proceso</span>.nuevo(id));   <span class="cmt">// el fuente: AT SISTEMA</span>
+            p.setPrograma(r.programa());
+            p.setStatusPrograma(r.statusPrograma());
+            p.setMixId(r.mix());
+            p.setInicio(r.horaInicio());
+            p.setFin(r.fechaFin(), r.horaFin());
+            p.setNumRegFinal(r.numRegFinal());
+            b05.save(p);
+        }
+    }
+}</span>
+<span class="seg java-seg" data-jid="j8"><span class="cmt">/** 900000-CHE-STA: traduce el estatus DMSII a texto y lo despliega. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">ErroresRestauracion</span> <span class="kw">implements</span> <span class="type">SkipListener</span>&lt;<span class="type">Object</span>, <span class="type">Object</span>&gt;, <span class="type">ItemWriteListener</span>&lt;<span class="type">Object</span>&gt; {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">MensajeriaConsola</span> consola;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> onWriteError(<span class="type">Exception</span> e, <span class="type">Chunk</span>&lt;?&gt; items) {
+        <span class="type">String</span> texto = <span class="str">&quot;BASE DATOS CORE-GLBD99CONTROL ERROR EN BD %s&quot;</span>.formatted(<span class="type">CodigoDmsii</span>.de(e));
+        consola.despliega(texto);          <span class="cmt">// CALL &quot;LJ IN LIB-DISP&quot;</span>
+        <span class="cmt">// El fuente sigue con el siguiente registro. En Java el step falla por defecto;</span>
+        <span class="cmt">// reproducir el comportamiento original exige faultTolerant().skip(...) explícito.</span>
+    }
+}
+
+<span class="cmt">// En la definición del step, solo si el SME confirma que la restauración parcial es aceptable:</span>
+<span class="cmt">// .faultTolerant().skip(DataAccessException.class).skipLimit(Integer.MAX_VALUE)</span></span></pre></div>
+</div>
+  
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Función contraria a la documentada</b><p>La cabecera (líneas 5-8) y el inventario describen P680 como generador de archivos de respaldo; el código abre los archivos en entrada y escribe en CORE-GLBD99CONTROL. Es un programa de restauración.</p></div><div class="risk"><b>Restauración que colapsa registros</b><p>B05, B04 y B09 se bloquean solo por sistema (líneas 608, 577 y 652). Si el respaldo contiene varios registros del mismo sistema, cada uno sobrescribe al anterior y solo queda el último.</p></div><div class="risk"><b>Asignaciones incorrectas en B03</b><p>La línea 537 mueve SECERRHI a SECINFHI y la línea 558 mueve el nombre de la base al número de base. El campo STABDSEM de B01 no se restaura (líneas 430-442).</p></div><div class="risk"><b>Carga parcial confirmada</b><p>Los errores de DMSII solo se despliegan (900000-CHE-STA) y la transacción única se confirma al final (línea 401), dejando la base de control en un estado mixto entre el respaldo y lo que había.</p></div><div class="risk"><b>CSI forzado a cero</b><p>El CSI de ejecución se obtiene y se reemplaza por cero (líneas 384-385); B01 siempre se restaura con CSI 0, coherente con L001.</p></div><div class="risk"><b>Valores fijos</b><p>Rutas de los seis archivos, el pack CMEMP, el título de LIBLJ y la función SOPORTECOMS están compilados. Se trasladan a application.yml.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Corregir la descripción del inventario y del brain: P680 restaura CORE-GLBD99CONTROL desde archivos, no genera respaldos. Confirmar con SME qué programa genera los archivos CORE-GL/FILE/Bnn/aammdd que P680 consume.</li><li>Confirmar si los sets B04SXNOMSIS, B05SXPROCESO y B09SXCONXSIS tienen como llave única solo el sistema; de no ser así, la restauración pierde registros.</li><li>Confirmar si limitar los ciclos de B03 con B03-SIS-NUMCICDIA (línea 544) en lugar de NUMCICMES es intencional.</li><li>Confirmar con SME si una restauración con errores parciales es aceptable o si debe fallar completa, antes de decidir la tolerancia a fallos del job.</li></ul>
+  <div class="pn"><a href="CORE-GL_P677.html">← CORE-GL · P677</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P690.html">CORE-GL · P690 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · LegacyCore · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Registro de respaldo de B01SISDIA (370 posiciones) con diez días de archivos", "cobol": " FD  A01-B01SISDIA                                                002000\n     RECORD CONTAINS 370 CHARACTERS                               002100\n     BLOCK  CONTAINS 5  RECORDS                                   002200\n     VALUE  OF TITLE IS WKS-ARCH-B01.                             002300\n      *> ⋯ 1 línea omitida\n 01  A01-R00-SISDIA.                                              002500\n     03 A01-R00-SISTEMA            PIC 9(04) COMP.                002600\n     03 A01-R00-CSI                PIC 9(02) COMP.                002700\n     03 A01-R00-FECPRO             PIC 9(08) COMP.                002800\n     03 A01-R00-FECCON             PIC 9(08) COMP.                002900\n     03 A01-R00-FECPROCORE-GL      PIC 9(08) COMP.                003000\n     03 A01-R00-STAREG             PIC 9(02) COMP.                003100\n     03 A01-R00-NOMARCSAL          PIC X(34).                     003200\n     03 A01-R00-NOMPACSAL          PIC X(17).                     003300\n     03 A01-R00-NOMARCMOV          PIC X(34).                     003400\n     03 A01-R00-NOMPACMOV          PIC X(17).                     003500\n     03 A01-R00-NOMARCDES          PIC X(34).                     003600\n     03 A01-R00-NOMPACDES          PIC X(17).                     003700\n     03 A01-R00-NOMARCERR          PIC X(34).                     003800\n     03 A01-R00-NOMPACERR          PIC X(17).                     003900\n     03 A01-R00-NOMBDSEM           PIC X(17).                     004000\n     03 A01-R00-STABDSEM           PIC 9(02) COMP.                004100\n     03 A01-R00-NUMARC             PIC 9(02) COMP.                004200\n     03 A01-R00-3ERNIV             PIC 9(02) COMP.                004300\n     03 A01-R00-CTL-DIA            OCCURS 10 TIMES.               004400\n        05 A01-R00-FECARCMOV       PIC 9(08) COMP.                004500\n        05 A01-R00-NIVARCMOV       PIC 9(08) COMP.                004600\n        05 A01-R00-NIVBDSEM        PIC 9(08) COMP.                004700\n        05 A01-R00-STAARCHLOG      PIC 9(02) COMP.                004800", "java": "/** A01-R00-SISDIA: imagen de CORE-GLB01SISDIA en el archivo de respaldo (campos COMP). */\npublic record RespaldoSistemaDia(\n        String sistema,                 // 9(04)\n        int csi,                        // 9(02): P680 no lo usa, fuerza 0 al cargar\n        LocalDate fechaProceso, LocalDate fechaConsulta, LocalDate fechaProceso151,   // 9(08) AAAAMMDD\n        int statusRegistro,\n        Archivo saldos, Archivo movimientos, Archivo desglose, Archivo errores,       // X(34) + X(17)\n        String baseSemanal,             // X(17)\n        int statusBaseSemanal,          // A01-R00-STABDSEM: viene en el archivo, no se restaura (ver s5)\n        int numArchivo, int tercerNivel,\n        List<DiaArchivo> calendario) {  // OCCURS 10\n\n    public record Archivo(String nombre, String pack) {}\n    public record DiaArchivo(LocalDate fecha, long nivelArchivo, long nivelBase, int statusLog) {}\n}", "rationale": "El archivo de respaldo de B01 replica campo por campo la ocurrencia diaria de cada sistema que mantiene la librería L001: fechas de proceso, nombres y packs de los archivos del día y el arreglo de diez días de archivos. En Java se modela como un <code>record</code> con los grupos repetidos agrupados en sub-records. Las fechas son de ocho posiciones con año completo y se convierten a <code>LocalDate</code> sin pivote.", "risk": "", "rules": [], "lines": "L37–65", "verified": true, "score": 100}, "s2": {"title": "Títulos de los seis archivos y fecha recibida como parámetro", "cobol": " 01  WKS-ARCH-B01.                                                013902\n     02 FILLER                    PIC X(26)                       013904\n        VALUE \"(CORE-GL)CORE-GL/FILE/B01SISDIA/\".                       013906\n     02 WKS-FEC-B01               PIC 9(06).                      013908\n     02 FILLER                    PIC X(10)                       013910\n        VALUE \" ON CMEMP.\".                                       013912\n      *> ⋯ 1 línea omitida\n 01  WKS-ARCH-B02.                                                013916\n     02 FILLER                    PIC X(28)                       013918\n        VALUE \"(CORE-GL)CORE-GL/FILE/B02ARCINTER/\".                     013920\n     02 WKS-FEC-B02               PIC 9(06).                      013922\n     02 FILLER                    PIC X(10)                       013924\n        VALUE \" ON CMEMP.\".                                       013926\n      *> ⋯ 22 líneas omitidas\n 01  WKS-ARCH-B05.                                                014010\n     02 FILLER                    PIC X(28)                       014020\n        VALUE \"(CORE-GL)CORE-GL/FILE/B05PROCESOS/\".                     014030\n     02 WKS-FEC-B05               PIC 9(06).                      014040\n     02 FILLER                    PIC X(10)                       014050\n        VALUE \" ON CMEMP.\".                                       014060\n      *> ⋯ 38 líneas omitidas\n 01  WKS-PARAM-FECHA               PIC 9(08).                     018000\n 01  WKS-FECHA-AMD REDEFINES WKS-PARAM-FECHA.                     018020\n     03 WKS-A1-AMD                 PIC 9(02).                     018025\n     03 WKS-FEC-AMD.                                              018030\n        05 WKS-A2-AMD              PIC 9(02).                     018040\n        05 WKS-MM-AMD              PIC 9(02).                     018060\n        05 WKS-DD-AMD              PIC 9(02).                     018080", "java": "# application.yml\np680:\n  pack: CMEMP\n  archivos:\n    b01: \"(CORE-GL)CORE-GL/FILE/B01SISDIA/{aammdd}\"\n    b02: \"(CORE-GL)CORE-GL/FILE/B02ARCINTER/{aammdd}\"\n    b03: \"(CORE-GL)CORE-GL/FILE/B03SISMEN/{aammdd}\"\n    b04: \"(CORE-GL)CORE-GL/FILE/B04SISTEM/{aammdd}\"\n    b05: \"(CORE-GL)CORE-GL/FILE/B05PROCESOS/{aammdd}\"\n    b09: \"(CORE-GL)CORE-GL/FILE/B09CONXSIS/{aammdd}\"\n\n// ---------------------------------------------------------------------------\n@ConfigurationProperties(\"p680\")\npublic record P680Properties(String pack, Map<String, String> archivos) {\n\n    /** WKS-PARAM-FECHA 9(08) se mueve a WKS-FEC-Bnn 9(06): el nombre lleva AAMMDD sin siglo. */\n    public String titulo(String dataset, LocalDate fecha) {\n        return archivos.get(dataset).replace(\"{aammdd}\", fecha.format(DateTimeFormatter.ofPattern(\"yyMMdd\")))\n               + \" ON \" + pack + \".\";\n    }\n}", "rationale": "Cada dataset tiene su archivo de respaldo con el nombre del dataset y la fecha de seis dígitos, todos en el pack <code>CMEMP</code>. La fecha llega como parámetro de ocho dígitos y el <code>MOVE</code> a un campo de seis la trunca a AAMMDD, lo que el patrón <code>yyMMdd</code> deja explícito. Las seis rutas pasan a <code>application.yml</code>.", "risk": "", "rules": [], "lines": "L177–262", "verified": true, "score": 100}, "s3": {"title": "Rutina de control: una carga por dataset en orden fijo", "cobol": "  PROCEDURE DIVISION USING WKS-PARAM-FECHA.                       021100\n      *> ⋯ 2 líneas omitidas\n  00-0000-CONTROL.                                                021400\n      *> ⋯ 1 línea omitida\n     MOVE WKS-PARAM-FECHA          TO WKS-FEC-B01                 021600\n                                      WKS-FEC-B02                 021700\n                                      WKS-FEC-B03                 021800\n                                      WKS-FEC-B04                 021900\n                                      WKS-FEC-B05                 021950\n                                      WKS-FEC-B09.                022000\n      *> ⋯ 1 línea omitida\n     MOVE 0151                     TO SISTEMA-LJ.                 022200\n     MOVE \"0680\"                   TO PASO-LJ.                    022300\n     MOVE \"002\"                    TO MTP-LJ.                     022400\n      *> ⋯ 1 línea omitida\n     PERFORM 01-00050-LIBRERIAS.                                  022600\n      *> ⋯ 1 línea omitida\n     MOVE \"I\"                      TO TIPO-LJ.                    022800\n     MOVE 020101                   TO CODIGO-LJ.                  022900\n      *> ⋯ 1 línea omitida\n     PERFORM 01-00100-ABRE-ENTRADA.                               023600\n     PERFORM 02-00100-GENERA-B01SISDIA.                           023700\n     PERFORM 03-00100-GENERA-B02ARCINTER.                         023800\n     PERFORM 04-00100-GENERA-B03SISMEN.                           023900\n     PERFORM 05-00100-GENERA-B04SISTEM.                           024000\n     PERFORM 07-00100-GENERA-B05PROCESOS.                         024050\n     PERFORM 06-00100-GENERA-B09CONXSIS.                          024100\n     PERFORM 01-00200-CIERRA-CONTROL.                             024200\n     MOVE \"I\"                      TO TIPO-LJ.                    024300\n     MOVE 020201                   TO CODIGO-LJ.                  024400\n     MOVE \"FIN NORMAL DE PROCESO\"  TO TEXTO-LJ.                   024500\n*    CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,                     024600\n*                                MENSAJE-LJ.                      024700\n     STOP RUN.                                                    024800", "java": "@Configuration\n@EnableConfigurationProperties(P680Properties.class)\npublic class RestauracionControlJobConfig {\n\n    /** 00-0000-CONTROL. El orden se conserva: B01, B02, B03, B04, B05 y B09. */\n    @Bean\n    Job restauraControlCORE-GL(JobRepository repo,\n                            Step restauraB01, Step restauraB02, Step restauraB03,\n                            Step restauraB04, Step restauraB05, Step restauraB09) {\n        return new JobBuilder(\"CORE-GLP680\", repo)\n                .start(restauraB01)\n                .next(restauraB02)\n                .next(restauraB03)\n                .next(restauraB04)\n                .next(restauraB05)\n                .next(restauraB09)\n                .build();\n    }\n\n    /** Plantilla de cada step: lector del archivo de respaldo y escritor JPA que hace alta o cambio. */\n    @Bean\n    Step restauraB01(JobRepository repo, PlatformTransactionManager tx,\n                     FlatFileItemReader<RespaldoSistemaDia> lectorB01, RestauraSistemaDiaWriter writer) {\n        return new StepBuilder(\"restauraB01\", repo)\n                .<RespaldoSistemaDia, RespaldoSistemaDia>chunk(500, tx)\n                .reader(lectorB01)\n                .writer(writer)\n                .build();\n    }\n}", "rationale": "La rutina de control prepara el nombre de los seis archivos con la fecha recibida, abre la base y ejecuta seis cargas en secuencia antes de cerrar la transacción y la base. En Spring Batch cada carga es un step con su lector y su escritor, de modo que una falla deja registrado en qué dataset ocurrió y el job puede reiniciarse desde ahí. El mensaje de fin normal está comentado en el fuente; en Java lo sustituye el estado del job.", "risk": "El comentario de cabecera (líneas 5-8) describe un generador de archivos a partir de la base, pero las seis rutinas abren los archivos en entrada (OPEN INPUT) y escriben en la base con CREATE y STORE: el programa restaura, no respalda.", "rules": [], "lines": "L336–370", "verified": true, "score": 100}, "s4": {"title": "Apertura de la base, CSI forzado a cero y transacción única", "cobol": " 01-00100-ABRE-ENTRADA.                                           026000\n      *> ⋯ 1 línea omitida\n     CALL \"CSIID OF SOPORTECOMS\" USING WKS-SOPORTECOMS.           026200\n     MOVE ZERO                     TO WKS-SOPCOMS-NUMCSI.         026220\n     CANCEL \"SOPORTECOMS\".                                        026240\n     OPEN UPDATE  CORE-GLBD99CONTROL                                 026300\n          ON EXCEPTION                                            026400\n             PERFORM 900000-CHE-STA                               026500\n             MOVE \"I\"              TO TIPO-LJ                     026600\n             MOVE 020202           TO CODIGO-LJ                   026700\n             MOVE \"TERMINACION ANORMAL DEL PROGRAMA\"              026800\n                                   TO TEXTO-LJ                    026900\n             CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,             027000\n                                         MENSAJE-LJ               027100\n             CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.             027200\n     BEGIN-TRANSACTION NO-AUDIT CORE-GLB99REINICTL.                  027300\n      *> ⋯ 1 línea omitida\n 01-00200-CIERRA-CONTROL.                                         027500\n      *> ⋯ 1 línea omitida\n     END-TRANSACTION AUDIT CORE-GLB99REINICTL.                       027700\n      *> ⋯ 1 línea omitida\n     CLOSE CORE-GLBD99CONTROL                                        027900\n           ON EXCEPTION                                           028000\n              NEXT SENTENCE.                                      028100", "java": "@Component\n@RequiredArgsConstructor\nclass ContextoRestauracion implements JobExecutionListener {\n\n    private final SoporteComs coms;        // CSIID OF SOPORTECOMS\n    private final P680Properties props;\n\n    @Override\n    public void beforeJob(JobExecution je) {\n        int csiReal = coms.csiId().numero();\n        // El fuente obtiene el CSI y en la línea siguiente lo sustituye por cero.\n        je.getExecutionContext().putInt(\"csi\", 0);\n        log.info(\"CSI de ejecución {} ignorado; B01 se restaura con CSI 0\", csiReal);\n    }\n}\n\n// BEGIN-TRANSACTION NO-AUDIT ... END-TRANSACTION AUDIT abarcan las seis cargas.\n// En Java cada chunk confirma su propia transacción; para conservar el \"todo o nada\" del fuente\n// la alternativa es cargar en tablas de staging y publicar con un último step transaccional:\n@Bean\nStep publicaRestauracion(JobRepository repo, PlatformTransactionManager tx, PublicadorControl publicador) {\n    return new StepBuilder(\"publicaRestauracion\", repo)\n            .tasklet((c, ctx) -> { publicador.reemplazaDesdeStaging(); return RepeatStatus.FINISHED; }, tx)\n            .build();\n}", "rationale": "Antes de cargar, el programa consulta el CSI de ejecución y lo pone en cero de inmediato, igual que hace L001 al consultar y mantener B01; por eso los registros de B01 siempre se restauran con CSI 0. Después abre la base en modo de actualización y abre una sola transacción sin auditoría que solo se cierra al terminar los seis datasets. En Java una transacción de esa duración no es práctica; la traducción propone cargar en tablas de staging por step y publicar en un paso final transaccional, que conserva la atomicidad del conjunto.", "risk": "Como los errores de STORE no detienen la carga (ver s8), el END-TRANSACTION AUDIT de la línea 401 confirma una restauración parcial sin que el programa lo informe como falla.", "rules": [], "lines": "L382–405", "verified": true, "score": 100}, "s5": {"title": "B01: bloquear o crear por sistema y CSI, copiar y guardar", "cobol": " 02-00104-GRABA-B01SISDIA.                                        028480\n      *> ⋯ 1 línea omitida\n     MOVE 2                        TO W77-ERROR.                  028500\n     LOCK B01SXSISDIA                                             028600\n          AT  B01-SIS-SISTEMA = A01-R00-SISTEMA    AND            028700\n              B01-SIS-CSI     = WKS-SOPCOMS-NUMCSI                028800\n     ON EXCEPTION                                                 028900\n        IF DMSTATUS(NOTFOUND)                                     029000\n           MOVE ZERO               TO W77-ERROR                   029050\n           CREATE CORE-GLB01SISDIA                                   029100\n        ELSE                                                      029200\n           MOVE 1                  TO W77-ERROR                   029300\n           PERFORM 900000-CHE-STA.                                029400\n     IF W77-ERROR = 0                                             029500\n        MOVE A01-R00-SISTEMA       TO B01-SIS-SISTEMA             029600\n        MOVE WKS-SOPCOMS-NUMCSI    TO B01-SIS-CSI                 029700\n        MOVE A01-R00-FECPRO        TO B01-SIS-FECPRO              029800\n        MOVE A01-R00-FECCON        TO B01-SIS-FECCON              029900\n        MOVE A01-R00-FECPROCORE-GL TO B01-SIS-FECPRO151           030000\n        MOVE A01-R00-STAREG        TO B01-SIS-STAREG              030050\n        MOVE A01-R00-NOMARCSAL     TO B01-SIS-NOMARCSAL           030100\n        MOVE A01-R00-NOMARCMOV     TO B01-SIS-NOMARCMOV           030200\n        MOVE A01-R00-NOMARCDES     TO B01-SIS-NOMARCDES           030300\n        MOVE A01-R00-NOMARCERR     TO B01-SIS-NOMARCERR           030400\n        MOVE A01-R00-NOMBDSEM      TO B01-SIS-NOMBDSEM            030500\n        MOVE A01-R00-NUMARC        TO B01-SIS-NUMARC              030600\n        MOVE A01-R00-3ERNIV        TO B01-SIS-3ERNIV              030610\n        PERFORM 02-00130-FECHAS                                   031300\n                VARYING W77-IND FROM 1 BY 1                       031400\n                UNTIL   W77-IND > 10                              031500\n           PERFORM 02-00140-MUEVE-PACK                            031575\n           PERFORM 02-00105-GRABA-BASE                            031595\n     ELSE                                                         031596\n        IF W77-ERROR = 2                                          031597\n           FREE CORE-GLB01SISDIA ON EXCEPTION NEXT SENTENCE.         031598\n      *> ⋯ 1 línea omitida\n    READ A01-B01SISDIA   AT END MOVE 1 TO W77-EOF.                031600\n      *> ⋯ 1 línea omitida\n 02-00105-GRABA-BASE.                                             031700\n      *> ⋯ 1 línea omitida\n        STORE CORE-GLB01SISDIA                                       031800\n              ON EXCEPTION                                        031900\n                 PERFORM 900000-CHE-STA.                          032000", "java": "@Component\n@StepScope\n@RequiredArgsConstructor\nclass RestauraSistemaDiaWriter implements ItemWriter<RespaldoSistemaDia> {\n\n    private final SistemaDiaRepository b01;\n    @Value(\"#{jobExecutionContext['csi']}\") private int csi;     // siempre 0\n\n    /** 02-00104-GRABA-B01SISDIA. */\n    @Override\n    public void write(Chunk<? extends RespaldoSistemaDia> chunk) {\n        for (var r : chunk) {\n            SistemaDia d = b01.findForUpdate(r.sistema(), csi)          // LOCK B01SXSISDIA\n                    .orElseGet(() -> SistemaDia.nuevo(r.sistema(), csi)); // NOTFOUND: CREATE\n            d.setFechas(r.fechaProceso(), r.fechaConsulta(), r.fechaProceso151());\n            d.setStatusRegistro(r.statusRegistro());\n            d.setArchivos(r.saldos(), r.movimientos(), r.desglose(), r.errores());   // nombres y packs\n            d.setBaseSemanal(r.baseSemanal());\n            d.setStatusBaseSemanal(r.statusBaseSemanal());   // el fuente NO restaura este campo\n            d.setNumArchivo(r.numArchivo());\n            d.setTercerNivel(r.tercerNivel());\n            d.setCalendario(r.calendario());                // 02-00130-FECHAS, 10 ocurrencias\n            b01.save(d);                                    // STORE\n        }\n    }\n}", "rationale": "Por cada registro se intenta bloquear la ocurrencia del sistema con CSI cero; si no existe se crea. Si existía o se creó, se copian las fechas, los nombres de archivos y packs, el arreglo de diez días y se guarda. Cualquier otro error de bloqueo solo se informa y el registro se omite. En Java el patrón es un upsert con bloqueo pesimista dentro del chunk. La traducción restaura también el estatus de la base semanal, que el fuente omite; el SME debe confirmar si esa omisión es intencional.", "risk": "A01-R00-STABDSEM viene en el archivo (línea 58) pero ningún MOVE lo pasa a B01-SIS-STABDSEM: tras la restauración ese campo conserva el valor previo, o el valor inicial si el registro se creó.", "rules": [], "lines": "L416–458", "verified": true, "score": 100}, "s6": {"title": "B03: dos errores de asignación en la restauración de bases mensuales", "cobol": "     IF W77-ERROR = 0                                             046300\n        MOVE A03-R00-SISTEMA       TO B03-SIS-SISTEMA             046400\n      *> ⋯ 10 líneas omitidas\n        MOVE A03-R00-SECERRHI      TO B03-SIS-SECINFHI            047500\n        MOVE A03-R00-STABDMOVHI    TO B03-SIS-STABDMOVHI          047600\n        MOVE A03-R00-STABDSAL      TO B03-SIS-STABDSAL            047622\n        MOVE A03-R00-NOMBDMOVHI    TO B03-SIS-NOMBDMOVHI          047624\n        PERFORM 04-00111-BASES-CICLO                              047700\n                VARYING W77-IND FROM 1 BY 1                       047800\n                UNTIL   W77-IND > 5    OR                         047900\n                        W77-IND > B03-SIS-NUMCICDIA               048000\n      *> ⋯ 1 línea omitida\n        STORE CORE-GLB03SISMEN                                       048200\n           ON EXCEPTION                                           048300\n              PERFORM 900000-CHE-STA                              048400\n      *> ⋯ 6 líneas omitidas\n 04-00111-BASES-CICLO.                                            048800\n      *> ⋯ 1 línea omitida\n     MOVE A03-R00-NOMBDMOV(W77-IND) TO B03-SIS-NOMBDMOV(W77-IND). 049000\n     MOVE A03-R00-NOMBDMOV(W77-IND) TO B03-SIS-NUMBDMOV(W77-IND). 049100\n      *> ⋯ 4 líneas omitidas\n     MOVE A03-R00-STABDMOV(W77-IND) TO B03-SIS-STABDMOV(W77-IND). 049600", "java": "@Component\n@RequiredArgsConstructor\nclass RestauraBaseMensualWriter implements ItemWriter<RespaldoBaseMensual> {\n\n    private final BaseMensualRepository b03;\n\n    @Override\n    public void write(Chunk<? extends RespaldoBaseMensual> chunk) {\n        for (var r : chunk) {\n            BaseMensual b = b03.findForUpdate(r.sistema()).orElseGet(() -> BaseMensual.nueva(r.sistema()));\n            // ... modalidad, CSI responsable, tipo de base, ciclos, base de saldos ...\n            b.setSecuenciasHistoricas(r.secOkHi(), r.secInfHi(),\n                                      r.secErrHi());   // el fuente pone SECERRHI en SECINFHI (línea 537)\n            int ciclos = Math.min(5, r.numCiclosDia());   // UNTIL W77-IND > 5 OR > B03-SIS-NUMCICDIA\n            for (int i = 0; i < ciclos; i++) {\n                var c = r.ciclos().get(i);\n                b.setCiclo(i, c.nombreBase(),\n                           c.numeroBase(),               // el fuente mueve el NOMBRE a NUMBDMOV (línea 558)\n                           c.aamm(), c.secOk(), c.secInf(), c.secErr(), c.statusBase());\n            }\n            b03.save(b);\n        }\n    }\n}", "rationale": "La carga de B03 copia la configuración mensual de cada sistema y hasta cinco ciclos de bases de movimientos. Se citan las líneas donde la copia no coincide con el layout: el contador de errores históricos se escribe sobre el de informativos, y en cada ciclo el nombre de la base se mueve al campo numérico del número de base. Además, el número de ciclos a restaurar se limita con <code>B03-SIS-NUMCICDIA</code> y no con el de ciclos del mes. La versión Java asigna cada campo a su destino y deja anotadas las tres diferencias para la revisión del SME.", "risk": "Tras una restauración, B03-SIS-SECINFHI queda con el valor de errores, B03-SIS-SECERRHI conserva su valor previo y B03-SIS-NUMBDMOV recibe un texto en un campo numérico (líneas 537 y 558).", "rules": [], "lines": "L525–563", "verified": true, "score": 100}, "s7": {"title": "B05: el bloqueo usa solo el sistema y no la llave completa", "cobol": " 07-00110-GRABA-B05PROCESOS.                                      052245\n      *> ⋯ 1 línea omitida\n     MOVE 2                        TO W77-ERROR.                  052255\n     LOCK B05SXPROCESO                                            052260\n       AT B05-SIS-SISTEMA = A06-R00-SISTEMA                       052263\n       ON EXCEPTION                                               052266\n          IF DMSTATUS(NOTFOUND)                                   052269\n             MOVE ZERO             TO W77-ERROR                   052272\n             CREATE CORE-GLB05PROCESOS                               052275\n             MOVE A06-R00-SISTEMA  TO B05-SIS-SISTEMA             052278\n          ELSE                                                    052281\n             MOVE 1                TO W77-ERROR                   052282\n             PERFORM 900000-CHE-STA.                              052283\n     IF W77-ERROR = 0                                             052293\n      *> ⋯ 1 línea omitida\n        MOVE A06-R00-SISTEMA       TO B05-SIS-SISTEMA             052304\n        MOVE A06-R00-FCHPRO        TO B05-SIS-FCHPRO              052305\n        MOVE A06-R00-NUMPRO        TO B05-SIS-NUMPRO              052306\n        MOVE A06-R00-NOMPGM        TO B05-SIS-NOMPGM              052307\n        MOVE A06-R00-STAPGM        TO B05-SIS-STAPGM              052308\n        MOVE A06-R00-MIX           TO B05-SIS-MIX                 052309\n        MOVE A06-R00-FCHINI        TO B05-SIS-FCHINI              052310\n        MOVE A06-R00-HORAINI       TO B05-SIS-HORAINI             052311\n        MOVE A06-R00-FCHFIN        TO B05-SIS-FCHFIN              052312\n        MOVE A06-R00-HORAFIN       TO B05-SIS-HORAFIN             052313\n        MOVE A06-R00-NUMREGINI     TO B05-SIS-NUMREGINI           052314\n        MOVE A06-R00-NUMREGFIN     TO B05-SIS-NUMREGFIN           052315\n      *> ⋯ 1 línea omitida\n        STORE CORE-GLB05PROCESOS                                     052323", "java": "@Component\n@RequiredArgsConstructor\nclass RestauraProcesoWriter implements ItemWriter<RespaldoProceso> {\n\n    private final ProcesoRepository b05;\n\n    /** 07-00110-GRABA-B05PROCESOS con la llave compuesta que usa L001. */\n    @Override\n    public void write(Chunk<? extends RespaldoProceso> chunk) {\n        for (var r : chunk) {\n            var id = new ProcesoId(r.sistema(), r.fechaProceso(), r.numProceso(),\n                                   r.fechaInicio(), r.numRegInicial());\n            Proceso p = b05.findForUpdate(id).orElseGet(() -> Proceso.nuevo(id));   // el fuente: AT SISTEMA\n            p.setPrograma(r.programa());\n            p.setStatusPrograma(r.statusPrograma());\n            p.setMixId(r.mix());\n            p.setInicio(r.horaInicio());\n            p.setFin(r.fechaFin(), r.horaFin());\n            p.setNumRegFinal(r.numRegFinal());\n            b05.save(p);\n        }\n    }\n}", "rationale": "Cada registro de respaldo de B05 bloquea el registro de la base cuyo sistema coincide y le copia todos los campos, incluidos los que forman la llave en L001 (fecha de proceso, número de proceso, fecha de inicio y registro inicial). Como el bloqueo usa solo el sistema, el segundo registro de un mismo sistema encuentra el primero y lo sobrescribe. La traducción usa la llave compuesta de L001 para que cada registro de respaldo restaure su propio registro.", "risk": "Con el bloqueo por sistema (línea 608), de todos los procesos respaldados de un sistema solo sobrevive el último leído. B04 (línea 577) y B09 (línea 652) usan el mismo patrón aunque su catálogo incluye producto, instrumento y renglón, por lo que podrían perder registros de la misma forma.", "rules": [], "lines": "L604–632", "verified": true, "score": 100}, "s8": {"title": "Errores de DMSII: mensaje a consola y la carga continúa", "cobol": " 900000-CHE-STA.                                                  068000\n     MOVE DMSTATUS(DMCATEGORY)            TO WKS-ERR-DMSII        069000\n     MOVE DMSTATUS(DMERRORTYPE)           TO WKS-ERR-BD           069100\n     MOVE DMSTATUS(DMSTRUCTURE)           TO WKS-ESTRUCT-BD       069200\n      *> ⋯ 1 línea omitida\n     IF WKS-ERR-DMSII > ZEROS                                     070000\n        STRING  \"BASE DATOS  \" WKS-NOM-BDERR-DMSII                071000\n                \"ERROR EN BD \" WKS-LEY-ERR-DMSII(WKS-ERR-DMSII)   072000\n                           \" \" WKS-ERR-DMSII                      073000\n                \"TIPO        \" WKS-ERR-BD                         074000\n                \"ESTRUCTURA  \" WKS-ESTRUCT-BD                     075000\n        DELIMITED BY SIZE INTO TEXTO-LJ                           076000\n        CALL \"LJ IN LIB-DISP\" USING  CONTADOR-LJ, MENSAJE-LJ.     077000", "java": "/** 900000-CHE-STA: traduce el estatus DMSII a texto y lo despliega. */\n@Component\n@RequiredArgsConstructor\nclass ErroresRestauracion implements SkipListener<Object, Object>, ItemWriteListener<Object> {\n\n    private final MensajeriaConsola consola;\n\n    @Override\n    public void onWriteError(Exception e, Chunk<?> items) {\n        String texto = \"BASE DATOS CORE-GLBD99CONTROL ERROR EN BD %s\".formatted(CodigoDmsii.de(e));\n        consola.despliega(texto);          // CALL \"LJ IN LIB-DISP\"\n        // El fuente sigue con el siguiente registro. En Java el step falla por defecto;\n        // reproducir el comportamiento original exige faultTolerant().skip(...) explícito.\n    }\n}\n\n// En la definición del step, solo si el SME confirma que la restauración parcial es aceptable:\n// .faultTolerant().skip(DataAccessException.class).skipLimit(Integer.MAX_VALUE)", "rationale": "Toda excepción de LOCK o STORE termina en este párrafo, que arma un mensaje con la categoría, el tipo y la estructura del error y lo envía a la consola; no cambia el estatus de la tarea ni detiene la carga. En Spring Batch el comportamiento por defecto es más estricto: un error de escritura hace fallar el step. La traducción lo deja así y documenta cómo reproducir la tolerancia del fuente si se decide conservarla.", "risk": "WKS-NOM-BDERR-DMSII nunca se llena en P680, así que el mensaje sale sin nombre de base; y como ningún error detiene el programa, la tarea termina normalmente aunque la restauración haya fallado.", "rules": [], "lines": "L673–685", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

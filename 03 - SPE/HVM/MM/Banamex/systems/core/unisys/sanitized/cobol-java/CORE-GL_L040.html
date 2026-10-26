@@ -1,0 +1,931 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CORE-GL · L040 → Java · Enterprise Digital Brain · LegacyCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#A100FF;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #A100FF;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#A100FF;box-shadow:0 0 8px #A100FF;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/accenture.png" alt="Accenture"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · CORE-GL L040</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Librería / Módulo</div>
+  <h1><span class="cw">CORE-GL · L040</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">Recibe un bloque con la función, la fecha y las llaves de consulta. La función 0 valida el sistema en el control del día y abre la base de movimientos del día que le corresponde; las funciones 1 a 14 y 21 a 34 recorren el índice B50SXTOTXCVE y devuelven hasta 100 renglones de número de movimientos e importe, agrupados por clave de transacción o por esquema contable. La llave del último renglón se devuelve en el mismo bloque para pedir la siguiente página, y el fin de datos se indica con 99.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="CORE-GL_L030.html">← CORE-GL · L030</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_L194.html">CORE-GL · L194 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">CORE-GL · L040 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">4,110 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Librería MCP compartida de CORE-GL que los programas en línea y batch invocan para consultar totales del día por sistema, proceso, producto, instrumento, moneda y clave de transacción en CORE-GLBD10MOVDIA151.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#9fb8c0">Librería / Módulo</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">9 de 10 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Data JPA</div></div>
+  </div>
+  <div class="sec-hdr">1 · Contrato de la librería — funciones, resultados y bloque de llamada</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_L040.txt</span><span class="fname">IDENTIFICATION DIVISION · LINKAGE SECTION</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Contrato de la librería: directivas, funciones y resultados · L1–62">$ <span class="kw">SET</span> <span class="var">LIST</span>  <span class="var">STAKCK</span> <span class="kw">FREE</span> <span class="var">LINEINFO</span> <span class="var">NEWID</span> <span class="str">&quot;TOTXCVETRA&quot;</span>               <span class="num">000100</span>
+$ <span class="kw">SET</span> <span class="var">LISTOMITTED</span>                                                 <span class="num">000200</span>
+$ <span class="kw">SET</span> <span class="var">OLDCODE</span>                                                     <span class="num">000300</span>
+$$ <span class="kw">SET</span> <span class="var">OPTIMIZE</span> <span class="var">FEDLEVEL</span> = <span class="num">5</span>                                      <span class="num">000400</span>
+$$ <span class="var">SHARED</span> <span class="kw">BY</span> <span class="kw">ALL</span>                                                  <span class="num">000500</span>
+<span class="cmt">*$$ TARGET=LEVEL2                                                 000600</span>
+ <span class="var">IDENTIFICATION</span> <span class="kw">DIVISION</span>.                                         <span class="num">000700</span>
+ <span class="kw">PROGRAM-ID</span>. <span class="var">TOTXCVETRA</span>.                                          <span class="num">000800</span>
+<span class="cmt">******************************************************************000900</span>
+<span class="cmt">* OBJETIVO : PROPORCIONAR UN MEDIO DE CONSULTA DE TOTALES POR    *001000</span>
+<span class="cmt">*            CLAVE DE TRANSACCION.                               *001100</span>
+<span class="cmt">*                                                                *001200</span>
+<span class="cmt">*                    P A R A M E T R O S                         *001300</span>
+<span class="cmt">*                                                                *001400</span>
+<span class="cmt">*   ============   TOTALES A NIVEL CLAVE       ===============   *001500</span>
+<span class="cmt">*                                                                *001600</span>
+<span class="cmt">* FUNCION             ACCION A EFECTUAR                          *001700</span>
+<span class="cmt">*   0      ABRIR LA BASE DE DATOS ADECUADA PARA EL SISTEMA DADO  *001800</span>
+<span class="cmt">*   1      CONSULTA POR SIST                                     *001900</span>
+<span class="cmt">*   2      CONSULTA POR SIST-BORI-BDES-PROD                      *002000</span>
+<span class="cmt">*   3      CONSULTA POR SIST-BORI-BDES-PROD-INST                 *002100</span>
+<span class="cmt">*   4      CONSULTA POR SIST-BORI-BDES-MONEDA                    *002200</span>
+<span class="cmt">*   5      CONSULTA POR SIST-BORI-BDES-PRODUCTO-MONEDA           *002300</span>
+<span class="cmt">*   6      CONSULTA POR SIST-BORI-BDES-PROD-INST-MONEDA          *002400</span>
+<span class="cmt">*   7      CONSULTA POR SIST-PROC                                *002500</span>
+<span class="cmt">*   8      CONSULTA POR SIST-PROC-BORI-BDES-PROD                 *002600</span>
+<span class="cmt">*   9      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST            *002700</span>
+<span class="cmt">*  10      CONSULTA POR SIST-PROC-BORI-BDES-MONEDA               *002800</span>
+<span class="cmt">*  11      CONSULTA POR SIST-PROC-BORI-BDES-PROD-MONEDA          *002900</span>
+<span class="cmt">*  12      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST-MONEDA     *003000</span>
+<span class="cmt">*  13      CONSULTA POR SIST-PROC-BORI-DES                       *003100</span>
+<span class="cmt">*  14      CONSULTA POR SIST-BORI-BDES                           *003200</span>
+<span class="cmt">*                                                                *003300</span>
+<span class="cmt">*   ==============   TOTALES A NIVEL ESQUEMA ================    *003400</span>
+                                                                  <span class="num">003500</span>
+<span class="cmt">*  21      CONSULTA POR SIST                                     *003600</span>
+<span class="cmt">*  22      CONSULTA POR SIST-BORI-BDES-PROD                      *003700</span>
+<span class="cmt">*  23      CONSULTA POR SIST-BORI-BDES-PROD-INST                 *003800</span>
+<span class="cmt">*  24      CONSULTA POR SIST-BORI-BDES-MONEDA                    *003900</span>
+<span class="cmt">*  25      CONSULTA POR SIST-BORI-BDES-PRODUCTO-MONEDA           *004000</span>
+<span class="cmt">*  26      CONSULTA POR SIST-BORI-BDES-PROD-INST-MONEDA          *004100</span>
+<span class="cmt">*  27      CONSULTA POR SIST-PROC                                *004200</span>
+<span class="cmt">*  28      CONSULTA POR SIST-PROC-BORI-BDES-PROD                 *004300</span>
+<span class="cmt">*  29      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST            *004400</span>
+<span class="cmt">*  30      CONSULTA POR SIST-PROC-BORI-BDES-MONEDA               *004500</span>
+<span class="cmt">*  31      CONSULTA POR SIST-PROC-BORI-BDES-PROD-MONEDA          *004600</span>
+<span class="cmt">*  32      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST-MONEDA     *004700</span>
+<span class="cmt">*  33      CONSULTA POR SIST-PROC-BORI-DES                       *004800</span>
+<span class="cmt">*  34      CONSULTA POR SIST-BORI-BDES                           *004900</span>
+<span class="cmt">*                     RESULTADOS POSIBLES :                      *005000</span>
+<span class="cmt">* VALOR                                                          *005100</span>
+<span class="cmt">*  0       SIN ERROR                                             *005200</span>
+<span class="cmt">*  1       FUNCION INVALIDA                                      *005300</span>
+<span class="cmt">*  2       FECHA DE SOLICITUD INVALIDA                           *005400</span>
+<span class="cmt">*  3       SISTEMA SIN TOTALES                                   *005500</span>
+<span class="cmt">*  4       PRODUCTO SIN TOTALES                                  *005600</span>
+<span class="cmt">*  5       INSTRUMENTO SIN TOTALES                               *005700</span>
+<span class="cmt">*  6       BASE DE CONTROL NO DISPONIBLE                         *005800</span>
+<span class="cmt">*  7       BASE DE DATOS NO DISPONIBLE                           *005900</span>
+<span class="cmt">*  8       SISTEMA NO DADO DE ALTA                               *006000</span>
+<span class="cmt">* 10                                                             *006100</span>
+<span class="cmt">* 99       FIN DE DATOS                                          *006200</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Bloque de llamada: llaves de consulta, continuación y 100 renglones · L1171–1197"> <span class="num">01</span> <span class="var">WKS-L40-CVES</span>.                                                 <span class="num">014000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-FUN-L040</span>            <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">02</span>)       <span class="kw">COMP</span>.         <span class="num">015000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-FECHA</span>               <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)       <span class="kw">COMP</span>.         <span class="num">016000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-SISTEMA</span>             <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">017000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-PRODUCTO</span>            <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">018000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-INSTRUMENTO</span>         <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">019000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-PROCCON</span>             <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">020000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-BCOSCON</span>             <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)       <span class="kw">COMP</span>.         <span class="num">020050</span>
+    <span class="num">03</span> <span class="var">WKS-L40-BCOSCON-R</span>   <span class="kw">REDEFINES</span> <span class="var">WKS-L40-BCOSCON</span>.             <span class="num">020070</span>
+       <span class="num">05</span> <span class="var">WKS-L40-BORICON</span>          <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">03</span>)       <span class="kw">COMP</span>.         <span class="num">020100</span>
+       <span class="num">05</span> <span class="var">WKS-L40-BDESCON</span>          <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">03</span>)       <span class="kw">COMP</span>.         <span class="num">020200</span>
+    <span class="num">03</span> <span class="var">WKS-L40-MONCON</span>              <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">021000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-CVETRACON</span>           <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">022000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-ESQCONCON</span>           <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">023000</span>
+    <span class="num">03</span> <span class="var">WKS-L40-IMPORTES</span>            <span class="kw">OCCURS</span> <span class="num">100</span> <span class="kw">TIMES</span>.              <span class="num">024000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-PROCESO</span>          <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">025000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-MONEDA</span>           <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">026000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-CVETRA</span>           <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">027000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-ESQCON</span>           <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">04</span>)       <span class="kw">COMP</span>.         <span class="num">028000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-NUMMOV</span>           <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">08</span>)       <span class="kw">COMP</span>.         <span class="num">029000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-IMPMOV</span>           <span class="kw">PIC</span> S9(<span class="num">13</span>)<span class="var">V99</span>    <span class="kw">COMP</span>.         <span class="num">030000</span>
+       <span class="num">04</span> <span class="var">WKS-L40-BCOSDET</span>          <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">06</span>)       <span class="kw">COMP</span>.         <span class="num">030020</span>
+       <span class="num">04</span> <span class="var">WKS-L40-BCOSDET-R</span>   <span class="kw">REDEFINES</span>  <span class="var">WKS-L40-BCOSDET</span>.         <span class="num">030040</span>
+          <span class="num">05</span> <span class="var">WKS-L40-BCOORI</span>        <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">03</span>)       <span class="kw">COMP</span>.         <span class="num">030100</span>
+          <span class="num">05</span> <span class="var">WKS-L40-BCODES</span>        <span class="kw">PIC</span>  <span class="num">9</span>(<span class="num">03</span>)       <span class="kw">COMP</span>.         <span class="num">030200</span>
+                                                                  <span class="num">031000</span>
+ <span class="num">77</span>  <span class="var">W77-RESULT-CORE-GL</span>               <span class="kw">PIC</span> S9(<span class="num">11</span>) <span class="var">BINARY</span>.             <span class="num">032000</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>FuncionL040.java · ResultadoL040.java · ConsultaTotalesRequest.java</span><span class="fname">enum · record</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** Funciones de TOTXCVETRA. 1-14 a nivel clave; 21-34 a nivel esquema. */</span>
+<span class="kw">public</span> <span class="kw">enum</span> <span class="type">FuncionL040</span> {
+    ABRIR(<span class="num">0</span>),
+    SIS(<span class="num">1</span>), SIS_BORI_BDES_PROD(<span class="num">2</span>), SIS_BORI_BDES_PROD_INST(<span class="num">3</span>), SIS_BORI_BDES_MON(<span class="num">4</span>),
+    SIS_BORI_BDES_PROD_MON(<span class="num">5</span>), SIS_BORI_BDES_PROD_INST_MON(<span class="num">6</span>), SIS_PROC(<span class="num">7</span>),
+    SIS_PROC_BORI_BDES_PROD(<span class="num">8</span>), SIS_PROC_BORI_BDES_PROD_INST(<span class="num">9</span>), SIS_PROC_BORI_BDES_MON(<span class="num">10</span>),
+    SIS_PROC_BORI_BDES_PROD_MON(<span class="num">11</span>), SIS_PROC_BORI_BDES_PROD_INST_MON(<span class="num">12</span>),
+    SIS_PROC_BORI_BDES(<span class="num">13</span>), SIS_BORI_BDES(<span class="num">14</span>),
+    <span class="cmt">// 21..34: mismas consultas a nivel esquema (codigo - 20)</span>
+    CERRAR(<span class="num">40</span>), REABRIR(<span class="num">41</span>);
+
+    <span class="kw">final</span> <span class="kw">int</span> codigo;
+    <span class="type">FuncionL040</span>(<span class="kw">int</span> c) { codigo = c; }
+
+    <span class="kw">public</span> <span class="kw">static</span> <span class="type">Optional</span>&lt;<span class="type">FuncionL040</span>&gt; de(<span class="kw">int</span> codigo) {
+        <span class="kw">int</span> base = (codigo &gt;= <span class="num">21</span> &amp;&amp; codigo &lt;= <span class="num">34</span>) ? codigo - <span class="num">20</span> : codigo;
+        <span class="kw">return</span> <span class="type">Arrays</span>.stream(values()).filter(f -&gt; f.codigo == base).findFirst();
+    }
+    <span class="kw">public</span> <span class="kw">static</span> <span class="kw">boolean</span> esNivelEsquema(<span class="kw">int</span> codigo) { <span class="kw">return</span> codigo &gt;= <span class="num">21</span> &amp;&amp; codigo &lt;= <span class="num">34</span>; }
+}
+
+<span class="cmt">/** W77-RESULT-CORE-GL. El 9 se usa en el código pero no está en el encabezado. */</span>
+<span class="kw">public</span> <span class="kw">enum</span> <span class="type">ResultadoL040</span> {
+    SIN_ERROR(<span class="num">0</span>), FUNCION_INVALIDA(<span class="num">1</span>), FECHA_INVALIDA(<span class="num">2</span>), SISTEMA_SIN_TOTALES(<span class="num">3</span>),
+    PRODUCTO_SIN_TOTALES(<span class="num">4</span>), INSTRUMENTO_SIN_TOTALES(<span class="num">5</span>), BASE_CONTROL_NO_DISPONIBLE(<span class="num">6</span>),
+    BASE_DATOS_NO_DISPONIBLE(<span class="num">7</span>), SISTEMA_NO_DADO_DE_ALTA(<span class="num">8</span>), ERROR_DMSII(<span class="num">9</span>), FIN_DE_DATOS(<span class="num">99</span>);
+    <span class="kw">final</span> <span class="kw">int</span> codigo;
+    <span class="type">ResultadoL040</span>(<span class="kw">int</span> c) { codigo = c; }
+}</span>
+<span class="seg java-seg" data-jid="j2"><span class="cmt">/** WKS-L40-CVES: entrada (llaves) y salida (hasta 100 renglones) en el mismo bloque. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">ConsultaTotalesRequest</span>(
+        <span class="kw">int</span> funcion,              <span class="cmt">// WKS-L40-FUN-L040   9(02) COMP</span>
+        <span class="type">LocalDate</span> fecha,          <span class="cmt">// WKS-L40-FECHA      9(08) COMP, AAAAMMDD</span>
+        <span class="kw">int</span> sistema, <span class="kw">int</span> producto, <span class="kw">int</span> instrumento,
+        <span class="kw">int</span> proceso,              <span class="cmt">// WKS-L40-PROCCON</span>
+        <span class="kw">int</span> bancoOrigen,          <span class="cmt">// WKS-L40-BORICON  9(03) dentro de BCOSCON 9(06)</span>
+        <span class="kw">int</span> bancoDestino,         <span class="cmt">// WKS-L40-BDESCON  9(03)</span>
+        <span class="kw">int</span> moneda,
+        <span class="type">Continuacion</span> desde) {     <span class="cmt">// CVETRACON + ESQCONCON: 0/0 = primera página</span>
+
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">Continuacion</span>(<span class="kw">int</span> proceso, <span class="kw">int</span> producto, <span class="kw">int</span> instrumento,
+                               <span class="kw">int</span> moneda, <span class="kw">int</span> cveTra, <span class="kw">int</span> esqCon) {}
+}
+
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">TotalRenglon</span>(<span class="kw">int</span> proceso, <span class="kw">int</span> moneda, <span class="kw">int</span> cveTra, <span class="kw">int</span> esqCon,
+                           <span class="kw">long</span> numMov,            <span class="cmt">// 9(08) COMP</span>
+                           <span class="type">BigDecimal</span> impMov,      <span class="cmt">// S9(13)V99 COMP, escala 2, con signo</span>
+                           <span class="kw">int</span> bancoOrigen, <span class="kw">int</span> bancoDestino) {}
+
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">ConsultaTotalesResponse</span>(<span class="type">ResultadoL040</span> resultado,
+                                      <span class="type">List</span>&lt;<span class="type">TotalRenglon</span>&gt; renglones,       <span class="cmt">// máx. 100</span>
+                                      <span class="type">ConsultaTotalesRequest</span>.<span class="type">Continuacion</span> siguiente) {}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Control de la librería y apertura de MOVDIA</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_L040.txt</span><span class="fname">PROCEDURE DIVISION · 00000-CONTROL SECTION</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s3" data-jid="j3" title="Despacho GO TO DEPENDING ON a switch sobre la función · L1203–1259"> <span class="num">00000</span>-<span class="var">INICIO</span>.                                                    <span class="num">014000</span>
+<span class="cmt">*================                                                 014100</span>
+                                                                  <span class="num">014102</span>
+    <span class="kw">MOVE</span> <span class="str">&quot;CORE-GL&quot;</span>                   <span class="kw">TO</span> <span class="var">SISTEMA-LJ</span>.                  <span class="num">014104</span>
+    <span class="kw">MOVE</span> <span class="str">&quot;L040&quot;</span>                   <span class="kw">TO</span> <span class="var">PASO-LJ</span>.                     <span class="num">014106</span>
+    <span class="kw">MOVE</span> <span class="str">&quot;002&quot;</span>                    <span class="kw">TO</span> <span class="var">MTP-LJ</span>.                      <span class="num">014108</span>
+                                                                  <span class="num">014110</span>
+    <span class="kw">PERFORM</span> <span class="num">00000</span>-<span class="var">LIMPIA-VARIABLES</span>.                               <span class="num">014200</span>
+    <span class="kw">IF</span> <span class="var">WKS-L40-FUN-L040</span> = <span class="num">0</span> <span class="kw">OR</span> <span class="num">40</span> <span class="kw">OR</span> <span class="num">41</span>                           <span class="num">014300</span>
+       <span class="kw">PERFORM</span> <span class="num">00</span>-<span class="num">0100</span>-<span class="var">LEVANTA</span>                                    <span class="num">014400</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">014500</span>
+       <span class="kw">MOVE</span> <span class="var">WKS-L40-BCOSCON</span> <span class="kw">TO</span> <span class="var">WKS-BANCOS-6D</span>                      <span class="num">014520</span>
+       <span class="kw">MOVE</span> <span class="var">WKS-BORICON-6D</span>  <span class="kw">TO</span> <span class="var">WKS-BORICON</span>                        <span class="num">014540</span>
+       <span class="kw">MOVE</span> <span class="var">WKS-BDESCON-6D</span>  <span class="kw">TO</span> <span class="var">WKS-BDESCON</span>                        <span class="num">014560</span>
+       <span class="kw">IF</span> <span class="var">WKS-INICIO</span> = <span class="num">1</span>                                          <span class="num">014600</span>
+          <span class="kw">IF</span> <span class="var">WKS-ABRE-SEM</span> = <span class="num">1</span>                                     <span class="num">014700</span>
+             <span class="kw">GO</span> <span class="kw">TO</span>                                                <span class="num">014800</span>
+                <span class="num">01</span>-<span class="num">0100</span>-<span class="var">SIS</span>                                       <span class="num">014900</span>
+                <span class="num">02</span>-<span class="num">0100</span>-<span class="var">PRD</span>                                       <span class="num">015000</span>
+                <span class="num">03</span>-<span class="num">0100</span>-<span class="var">PRD-INS</span>                                   <span class="num">015100</span>
+                <span class="num">04</span>-<span class="num">0100</span>-<span class="var">MON</span>                                       <span class="num">015200</span>
+                <span class="num">05</span>-<span class="num">0100</span>-<span class="var">PRD-MON</span>                                   <span class="num">015300</span>
+                <span class="num">06</span>-<span class="num">0100</span>-<span class="var">PRD-INS-MON</span>                               <span class="num">015400</span>
+                <span class="num">07</span>-<span class="num">0100</span>-<span class="var">PRO</span>                                       <span class="num">015500</span>
+                <span class="num">08</span>-<span class="num">0100</span>-<span class="var">PRO-PRD</span>                                   <span class="num">015600</span>
+                <span class="num">09</span>-<span class="num">0100</span>-<span class="var">PRO-PRD-INS</span>                               <span class="num">015700</span>
+                <span class="num">10</span>-<span class="num">0100</span>-<span class="var">PRO-MON</span>                                   <span class="num">015800</span>
+                <span class="num">11</span>-<span class="num">0100</span>-<span class="var">PRO-PRD-MON</span>                               <span class="num">015900</span>
+                <span class="num">12</span>-<span class="num">0100</span>-<span class="var">PRO-PRD-INS-MON</span>                           <span class="num">016000</span>
+                <span class="num">13</span>-<span class="num">0100</span>-<span class="var">SIS-PRO-BORI-BDES</span>                         <span class="num">016100</span>
+                <span class="num">14</span>-<span class="num">0100</span>-<span class="var">SIS-BORI-BDES</span>                             <span class="num">016200</span>
+                <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>                               <span class="num">016300</span>
+                <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>                               <span class="num">016400</span>
+                <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>                               <span class="num">016500</span>
+                <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>                               <span class="num">016600</span>
+                <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>                               <span class="num">016700</span>
+                <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>                               <span class="num">016800</span>
+                <span class="num">01</span>-<span class="num">0100</span>-<span class="var">SIS</span>                                       <span class="num">016900</span>
+                <span class="num">02</span>-<span class="num">0100</span>-<span class="var">PRD</span>                                       <span class="num">017000</span>
+                <span class="num">03</span>-<span class="num">0100</span>-<span class="var">PRD-INS</span>                                   <span class="num">017100</span>
+                <span class="num">04</span>-<span class="num">0100</span>-<span class="var">MON</span>                                       <span class="num">017200</span>
+                <span class="num">05</span>-<span class="num">0100</span>-<span class="var">PRD-MON</span>                                   <span class="num">017300</span>
+                <span class="num">06</span>-<span class="num">0100</span>-<span class="var">PRD-INS-MON</span>                               <span class="num">017400</span>
+                <span class="num">07</span>-<span class="num">0100</span>-<span class="var">PRO</span>                                       <span class="num">017500</span>
+                <span class="num">08</span>-<span class="num">0100</span>-<span class="var">PRO-PRD</span>                                   <span class="num">017600</span>
+                <span class="num">09</span>-<span class="num">0100</span>-<span class="var">PRO-PRD-INS</span>                               <span class="num">017700</span>
+                <span class="num">10</span>-<span class="num">0100</span>-<span class="var">PRO-MON</span>                                   <span class="num">017800</span>
+                <span class="num">11</span>-<span class="num">0100</span>-<span class="var">PRO-PRD-MON</span>                               <span class="num">017900</span>
+                <span class="num">12</span>-<span class="num">0100</span>-<span class="var">PRO-PRD-INS-MON</span>                           <span class="num">018000</span>
+                <span class="num">13</span>-<span class="num">0100</span>-<span class="var">SIS-PRO-BORI-BDES</span>                         <span class="num">018100</span>
+                <span class="num">14</span>-<span class="num">0100</span>-<span class="var">SIS-BORI-BDES</span>                             <span class="num">018200</span>
+             <span class="var">DEPENDING</span> <span class="kw">ON</span> <span class="var">WKS-L40-FUN-L040</span>                        <span class="num">018300</span>
+             <span class="kw">ELSE</span>                                                 <span class="num">018400</span>
+                <span class="kw">MOVE</span> <span class="num">7</span>                <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>          <span class="num">018500</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">018600</span>
+              <span class="kw">MOVE</span> <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>.         <span class="num">018700</span>
+     <span class="kw">EXIT</span> <span class="var">PROGRAM</span>.                                                <span class="num">018800</span></span>
+<span class="seg" data-cid="s4" data-jid="j4" title="Inicialización: control del día, alta del sistema y apertura · L1261–1318"> <span class="num">00000</span>-<span class="var">LIMPIA-VARIABLES</span>.                                          <span class="num">019000</span>
+<span class="cmt">*=======================                                          019100</span>
+     <span class="kw">PERFORM</span> <span class="num">00010</span>-<span class="var">LIMPIA-ARREGLO</span>                                 <span class="num">019200</span>
+             <span class="kw">VARYING</span> <span class="var">W77-IND</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span>                          <span class="num">019300</span>
+             <span class="kw">UNTIL</span>   <span class="var">W77-IND</span> &gt; <span class="num">100</span>.                               <span class="num">019400</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">W77-IND</span>                     <span class="num">019500</span>
+                                      <span class="var">W77-FECHA-VALIDA</span>            <span class="num">019600</span>
+                                      <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">019700</span>
+                                      <span class="var">W77-ERROR-BASE</span>.             <span class="num">019800</span>
+ <span class="num">00005</span>-<span class="var">FUNCION-ERROR</span>.                                             <span class="num">019900</span>
+<span class="cmt">*====================                                             020000</span>
+    <span class="kw">MOVE</span> <span class="num">2</span>                         <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>.            <span class="num">020100</span>
+                                                                  <span class="num">020200</span>
+ <span class="num">00010</span>-<span class="var">LIMPIA-ARREGLO</span>.                                            <span class="num">020300</span>
+<span class="cmt">*=====================                                            020400</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">WKS-L40-PROCESO</span>(<span class="var">W77-IND</span>)    <span class="num">020500</span>
+                                      <span class="var">WKS-L40-BCOSDET</span>(<span class="var">W77-IND</span>)    <span class="num">020600</span>
+<span class="cmt">*                                      WKS-L40-BCODES(W77-IND)    020700</span>
+                                      <span class="var">WKS-L40-MONEDA</span>(<span class="var">W77-IND</span>)     <span class="num">020800</span>
+                                      <span class="var">WKS-L40-CVETRA</span>(<span class="var">W77-IND</span>)     <span class="num">020900</span>
+                                      <span class="var">WKS-L40-ESQCON</span>(<span class="var">W77-IND</span>)     <span class="num">021000</span>
+                                      <span class="var">WKS-L40-NUMMOV</span>(<span class="var">W77-IND</span>)     <span class="num">021100</span>
+                                      <span class="var">WKS-L40-IMPMOV</span>(<span class="var">W77-IND</span>).    <span class="num">021200</span>
+                                                                  <span class="num">021300</span>
+ <span class="num">00</span>-<span class="num">0100</span>-<span class="var">LEVANTA</span>.                                                 <span class="num">021400</span>
+<span class="cmt">*================                                                 021500</span>
+     <span class="kw">IF</span> <span class="var">WKS-L40-FUN-L040</span> = <span class="num">0</span>                                      <span class="num">021600</span>
+        <span class="kw">IF</span> <span class="var">WKS-INICIO</span> = <span class="num">1</span>                                         <span class="num">021700</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                          <span class="num">021800</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">021900</span>
+           <span class="kw">PERFORM</span> <span class="num">00</span>-<span class="num">0110</span>-<span class="var">LIBRERIAS</span>                              <span class="num">022000</span>
+           <span class="kw">PERFORM</span> <span class="num">00</span>-<span class="num">0120</span>-<span class="var">CONSISDIA</span>                              <span class="num">022100</span>
+           <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">0</span>                               <span class="num">022200</span>
+              <span class="kw">IF</span> <span class="var">WKS-B01-STABDSEM</span> = <span class="num">0</span>                             <span class="num">022300</span>
+                 <span class="kw">MOVE</span> <span class="var">WKS-B01-NOMBDSEM</span>   <span class="kw">TO</span> <span class="var">WKS-NOMBD</span>             <span class="num">022400</span>
+                 <span class="kw">PERFORM</span> <span class="num">00</span>-<span class="num">0130</span>-<span class="var">ABRE-MOVDIA</span> <span class="kw">UNTIL</span> <span class="var">W88-BASE-OPEN</span>  <span class="num">022500</span>
+                 <span class="kw">IF</span> <span class="var">W77-ERROR-BASE</span> = <span class="num">0</span>                            <span class="num">022600</span>
+                    <span class="kw">MOVE</span> <span class="num">1</span>         <span class="kw">TO</span> <span class="var">WKS-ABRE-SEM</span>                <span class="num">022700</span>
+                                      <span class="var">WKS-INICIO</span>                  <span class="num">022800</span>
+                 <span class="kw">ELSE</span>                                             <span class="num">022900</span>
+                    <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                 <span class="num">023000</span>
+              <span class="kw">ELSE</span>                                                <span class="num">023100</span>
+                 <span class="kw">MOVE</span> <span class="num">7</span>            <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">023200</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">023300</span>
+              <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">1</span>                            <span class="num">023400</span>
+                 <span class="kw">MOVE</span> <span class="num">8</span>            <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">023500</span>
+              <span class="kw">ELSE</span>                                                <span class="num">023600</span>
+                 <span class="kw">MOVE</span> <span class="num">6</span>            <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">023700</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">023800</span>
+     <span class="kw">IF</span> <span class="var">WKS-L40-FUN-L040</span> = <span class="num">40</span>                                     <span class="num">023900</span>
+        <span class="kw">PERFORM</span> <span class="num">00</span>-<span class="num">0140</span>-<span class="var">CIERRA-MOVDIA</span>                             <span class="num">024000</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">024100</span>
+     <span class="kw">IF</span> <span class="var">WKS-L40-FUN-L040</span> = <span class="num">41</span>                                     <span class="num">024200</span>
+        <span class="kw">PERFORM</span> <span class="num">00</span>-<span class="num">0130</span>-<span class="var">ABRE-MOVDIA</span> <span class="kw">UNTIL</span> <span class="var">W88-BASE-OPEN</span>           <span class="num">024300</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">024400</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>                     <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>.            <span class="num">024500</span>
+     <span class="kw">MOVE</span> <span class="var">W77-RESULT-CORE-GL</span>          <span class="kw">TO</span> <span class="var">W77-RESULT-INICIO</span>.          <span class="num">024600</span>
+     <span class="kw">EXIT</span> <span class="var">PROGRAM</span>.                                                <span class="num">024700</span></span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Apertura de MOVDIA con reintento y cierre · L1353–1412"> <span class="num">00</span>-<span class="num">0130</span>-<span class="var">ABRE-MOVDIA</span>.                                             <span class="num">027800</span>
+<span class="cmt">*====================                                             027900</span>
+                                                                  <span class="num">027902</span>
+     <span class="kw">MOVE</span> <span class="num">1</span>                        <span class="kw">TO</span> <span class="var">W77-BASE</span>.                   <span class="num">027904</span>
+     <span class="kw">ADD</span>  <span class="num">1</span>                        <span class="kw">TO</span> <span class="var">W77-INTENTOS</span>.               <span class="num">027906</span>
+                                                                  <span class="num">027908</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>              <span class="num">027950</span>
+                                      <span class="var">W77-RESULT-CORE-GL</span>.            <span class="num">027958</span>
+     <span class="kw">MOVE</span> <span class="var">LOW-VALUES</span>               <span class="kw">TO</span> <span class="var">WKS-NULOS</span>.                  <span class="num">028000</span>
+                                                                  <span class="num">028050</span>
+     <span class="kw">IF</span> <span class="var">WKS-NOMBASE-SEM</span> = <span class="var">WKS-ESPACIOS</span> <span class="kw">OR</span>                         <span class="num">028100</span>
+        <span class="var">WKS-NOMBASE-SEM</span> = <span class="var">WKS-NULOS</span>                               <span class="num">028200</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>                     <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>              <span class="num">028300</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">028500</span>
+        <span class="kw">IF</span> <span class="var">WKS-ABRE-SEM</span> = <span class="num">0</span>                                       <span class="num">028600</span>
+           <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="var">BASEMOVDIA</span> <span class="kw">TO</span> <span class="var">WKS-NOMBASE-SEM028700</span>
+           <span class="kw">OPEN</span> <span class="var">UPDATE</span> <span class="var">BASEMOVDIA</span>                                 <span class="num">028800</span>
+             <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                         <span class="num">028900</span>
+                <span class="kw">MOVE</span> <span class="num">1</span>               <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>            <span class="num">028901</span>
+                <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">OPENERROR</span>)     <span class="kw">AND</span>                    <span class="num">028902</span>
+                   <span class="var">DMSTATUS</span>(<span class="var">DMERRORTYPE</span>) = <span class="num">39</span>                     <span class="num">028904</span>
+                   <span class="var">WAIT</span>(<span class="num">20</span>)                                       <span class="num">028906</span>
+                   <span class="kw">MOVE</span> <span class="kw">ZERO</span>         <span class="kw">TO</span> <span class="var">W77-BASE</span>                  <span class="num">028908</span>
+                <span class="kw">ELSE</span>                                              <span class="num">028912</span>
+                   <span class="kw">MOVE</span> <span class="var">WKS-NOMBD</span>    <span class="kw">TO</span> <span class="var">WKS-NOM-BDERR-DMSII</span>       <span class="num">029000</span>
+                   <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                        <span class="num">029300</span>
+                                                                  <span class="num">029400</span>
+     <span class="kw">IF</span> <span class="var">W77-INTENTOS</span> &gt; <span class="num">5</span>                                          <span class="num">029402</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;O&quot;</span>                <span class="kw">TO</span> <span class="var">WLI-TIPO-LJ</span> <span class="var">TIPO-LJ</span>            <span class="num">029404</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span>               <span class="kw">TO</span> <span class="var">W77-INTENTOS</span>                   <span class="num">029406</span>
+        <span class="kw">MOVE</span> <span class="num">060315</span>             <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>                      <span class="num">029408</span>
+        <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMCATEGORY</span>)    <span class="kw">TO</span> <span class="var">W77-NUM-CAT</span>               <span class="num">029410</span>
+        <span class="kw">MOVE</span> <span class="var">DMSTATUS</span>(<span class="var">DMERRORTYPE</span>)   <span class="kw">TO</span> <span class="var">W77-NUM-SUBCAT</span>            <span class="num">029412</span>
+        <span class="kw">STRING</span> <span class="str">&quot;ERROR EN BASE BD10 : ARCHIVO DE CONTROL EN USO &quot;</span>  <span class="num">029414</span>
+               <span class="str">&quot;EN FORMA EXCLUSIVA&quot;</span>                               <span class="num">029416</span>
+               <span class="str">&quot; ERROR DMSII CAT. &quot;</span> <span class="var">WKS-DB-CAT</span>(<span class="var">W77-NUM-CAT</span>)       <span class="num">029418</span>
+               <span class="str">&quot; SUBCATEGORIA &quot;</span> <span class="var">W77-NUM-SUBCAT</span>                    <span class="num">029420</span>
+        <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span>                                         <span class="num">029422</span>
+        <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>                                             <span class="num">029424</span>
+        <span class="kw">MOVE</span> <span class="var">TEXTO-LJ</span>           <span class="kw">TO</span> <span class="var">WLI-TEXTO-LJ</span>                   <span class="num">029426</span>
+        <span class="kw">CALL</span> <span class="str">&quot;LJ IN LIB-DISP&quot;</span> <span class="kw">USING</span> <span class="var">CONTADOR-LJ</span>, <span class="var">MENSAJE-LJ</span>.      <span class="num">029428</span>
+                                                                  <span class="num">029430</span>
+     <span class="kw">IF</span> <span class="var">W77-ERROR-BASE</span> = <span class="num">0</span>                                        <span class="num">029500</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>                     <span class="kw">TO</span> <span class="var">WKS-ABRE-SEM</span>                <span class="num">029600</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">029700</span>
+        <span class="kw">MOVE</span> <span class="num">7</span>                     <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>.            <span class="num">029800</span>
+                                                                  <span class="num">029900</span>
+                                                                  <span class="num">030000</span>
+ <span class="num">00</span>-<span class="num">0140</span>-<span class="var">CIERRA-MOVDIA</span>.                                           <span class="num">030100</span>
+<span class="cmt">*======================                                           030200</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>.             <span class="num">030300</span>
+                                                                  <span class="num">030400</span>
+     <span class="kw">IF</span> <span class="var">WKS-ABRE-SEM</span> = <span class="num">1</span>                                          <span class="num">030500</span>
+        <span class="kw">CLOSE</span> <span class="var">BASEMOVDIA</span> <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                             <span class="num">030600</span>
+                            <span class="kw">MOVE</span> <span class="num">1</span> <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>              <span class="num">030700</span>
+                            <span class="kw">MOVE</span> <span class="num">9</span> <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">030800</span>
+                            <span class="kw">MOVE</span> <span class="var">WKS-NOMBD</span> <span class="kw">TO</span> <span class="var">WKS-NOM-BDERR-DMSII</span> <span class="num">030900</span>
+                            <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.               <span class="num">031000</span>
+     <span class="kw">IF</span> <span class="var">W77-ERROR-BASE</span> = <span class="num">0</span>                                        <span class="num">031100</span>
+        <span class="kw">MOVE</span> <span class="kw">ZERO</span>                  <span class="kw">TO</span> <span class="var">WKS-ABRE-SEM</span>.               <span class="num">031200</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>TotalesPorClaveTransaccionService.java · ControlDiaService.java · MovDiaDataSourceRouter.java</span><span class="fname">@Service · @Component · Spring Retry</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j3"><span class="ann">@Service</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">TotalesPorClaveTransaccionService</span> {      <span class="cmt">// TOTXCVETRA, sin estado compartido</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">MovDiaRepository</span> movDia;             <span class="cmt">// BASEMOVDIA = CORE-GLBD10MOVDIA151</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlDiaService</span> control;           <span class="cmt">// LIB-CONTROL / CONSISDIA</span>
+
+    <span class="ann">@Transactional</span>(readOnly = <span class="kw">true</span>)
+    <span class="kw">public</span> <span class="type">ConsultaTotalesResponse</span> consulta(<span class="type">ConsultaTotalesRequest</span> rq) {
+        <span class="kw">int</span> f = rq.funcion();
+        <span class="kw">if</span> (f == <span class="num">0</span> || f == <span class="num">40</span> || f == <span class="num">41</span>) {
+            <span class="kw">return</span> control.levanta(rq);                 <span class="cmt">// 00-0100-LEVANTA</span>
+        }
+        <span class="kw">if</span> (!control.baseDisponible()) {               <span class="cmt">// WKS-INICIO / WKS-ABRE-SEM</span>
+            <span class="kw">return</span> vacia(control.inicializado() ? <span class="type">ResultadoL040</span>.BASE_DATOS_NO_DISPONIBLE
+                                                : <span class="type">ResultadoL040</span>.FUNCION_INVALIDA);
+        }
+        <span class="kw">return</span> <span class="kw">switch</span> (<span class="type">FuncionL040</span>.de(f).orElse(<span class="kw">null</span>)) {
+            <span class="kw">case</span> SIS -&gt; porSistema(rq);                                   <span class="cmt">// 01-0100-SIS</span>
+            <span class="kw">case</span> SIS_BORI_BDES_PROD -&gt; porProducto(rq);                   <span class="cmt">// 02-0100-PRD</span>
+            <span class="cmt">// ... 3 a 14 con el mismo patrón ...</span>
+            <span class="kw">case</span> <span class="kw">null</span>, <span class="kw">default</span> -&gt; vacia(<span class="type">ResultadoL040</span>.FUNCION_INVALIDA);  <span class="cmt">// 15-20 y &gt; 34</span>
+        };
+    }
+}</span>
+<span class="seg java-seg" data-jid="j4"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ControlDiaService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">LibControlClient</span> libControl;     <span class="cmt">// CONSISDIA IN LIB-CONTROL, función 1</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">MovDiaDataSourceRouter</span> bases;    <span class="cmt">// la base MOVDIA cambia de título por sistema</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">CsiProvider</span> csi;                 <span class="cmt">// CSIID IN SOPORTECOMS</span>
+
+<span class="cmt">    /** 00-0100-LEVANTA: función 0 abre, 40 cierra, 41 reabre. */</span>
+    <span class="kw">public</span> <span class="type">ConsultaTotalesResponse</span> levanta(<span class="type">ConsultaTotalesRequest</span> rq) {
+        <span class="kw">return</span> <span class="kw">switch</span> (rq.funcion()) {
+            <span class="kw">case</span> <span class="num">0</span> -&gt; {
+                <span class="kw">if</span> (bases.abierta(rq.sistema())) <span class="kw">yield</span> vacia(<span class="type">ResultadoL040</span>.SIN_ERROR);
+                <span class="kw">var</span> dia = libControl.consisdia(rq.sistema(), csi.numero());
+                <span class="kw">yield</span> <span class="kw">switch</span> (dia.resultado()) {
+                    <span class="kw">case</span> <span class="num">0</span> -&gt; dia.estadoBaseSemana() == <span class="num">0</span>
+                            ? vacia(bases.abre(rq.sistema(), dia.nombreBaseSemana()))   <span class="cmt">// 0 o 7</span>
+                            : vacia(<span class="type">ResultadoL040</span>.BASE_DATOS_NO_DISPONIBLE);            <span class="cmt">// 7</span>
+                    <span class="kw">case</span> <span class="num">1</span> -&gt; vacia(<span class="type">ResultadoL040</span>.SISTEMA_NO_DADO_DE_ALTA);             <span class="cmt">// 8</span>
+                    <span class="kw">default</span> -&gt; vacia(<span class="type">ResultadoL040</span>.BASE_CONTROL_NO_DISPONIBLE);         <span class="cmt">// 6</span>
+                };
+            }
+            <span class="kw">case</span> <span class="num">40</span> -&gt; vacia(bases.cierra(rq.sistema()));
+            <span class="kw">case</span> <span class="num">41</span> -&gt; vacia(bases.abre(rq.sistema(), <span class="kw">null</span>));
+            <span class="kw">default</span> -&gt; vacia(<span class="type">ResultadoL040</span>.FUNCION_INVALIDA);
+        };
+    }
+}</span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">MovDiaDataSourceRouter</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">MovDiaProperties</span> props;      <span class="cmt">// reintento-espera: 20s, max-intentos: 5</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Map</span>&lt;<span class="type">Integer</span>, <span class="type">DataSource</span>&gt; abiertas = <span class="kw">new</span> <span class="type">ConcurrentHashMap</span>&lt;&gt;();
+
+<span class="cmt">    /** 00-0130-ABRE-MOVDIA: OPEN UPDATE con reintento si la base está en uso exclusivo. */</span>
+    <span class="ann">@Retryable</span>(retryFor = <span class="type">BaseEnUsoExclusivoException</span>.<span class="kw">class</span>,
+               maxAttemptsExpression = <span class="str">&quot;${movdia.max-intentos:5}&quot;</span>,
+               backoff = <span class="ann">@Backoff</span>(delayExpression = <span class="str">&quot;${movdia.reintento-espera:20000}&quot;</span>))
+    <span class="kw">public</span> <span class="type">ResultadoL040</span> abre(<span class="kw">int</span> sistema, <span class="type">String</span> nombreBase) {
+        <span class="kw">if</span> (nombreBase == <span class="kw">null</span> || nombreBase.isBlank()) <span class="kw">return</span> <span class="type">ResultadoL040</span>.BASE_DATOS_NO_DISPONIBLE;
+        abiertas.computeIfAbsent(sistema, s -&gt; conecta(nombreBase));   <span class="cmt">// DMSTATUS 39 -&gt; excepción reintentable</span>
+        <span class="kw">return</span> <span class="type">ResultadoL040</span>.SIN_ERROR;
+    }
+
+    <span class="ann">@Recover</span>
+    <span class="type">ResultadoL040</span> agotado(<span class="type">BaseEnUsoExclusivoException</span> e, <span class="kw">int</span> sistema, <span class="type">String</span> nombreBase) {
+        log.error(<span class="str">&quot;ERROR EN BASE BD10 : ARCHIVO DE CONTROL EN USO EN FORMA EXCLUSIVA {}&quot;</span>, e.detalle());
+        <span class="kw">return</span> <span class="type">ResultadoL040</span>.BASE_DATOS_NO_DISPONIBLE;   <span class="cmt">// el fuente reintenta sin fin</span>
+    }
+
+    <span class="kw">public</span> <span class="type">ResultadoL040</span> cierra(<span class="kw">int</span> sistema) {
+        <span class="kw">var</span> ds = abiertas.remove(sistema);
+        <span class="kw">return</span> ds == <span class="kw">null</span> || <span class="type">Conexiones</span>.cierra(ds) ? <span class="type">ResultadoL040</span>.SIN_ERROR : <span class="type">ResultadoL040</span>.ERROR_DMSII;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Consulta por sistema (funciones 1 y 21)</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_L040.txt</span><span class="fname">PROCEDURE DIVISION · 01-SECCION</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s6" data-jid="j6" title="Consulta por sistema: página de 100 renglones · L1420–1454"> <span class="num">01</span>-<span class="num">0100</span>-<span class="var">SIS</span>.                                                     <span class="num">032000</span>
+<span class="cmt">*============                                                     032100</span>
+     <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0105</span>-<span class="var">FIND-FIRST</span>                                   <span class="num">032200</span>
+     <span class="kw">IF</span> <span class="var">W77-ERROR-BASE</span> = <span class="num">0</span>                                        <span class="num">032300</span>
+        <span class="kw">IF</span> <span class="var">WKS-L40-FUN-L040</span> = <span class="num">1</span>                                   <span class="num">032400</span>
+           <span class="kw">MOVE</span> <span class="var">B50-MOV-CVETRA</span>     <span class="kw">TO</span> <span class="var">W77-CVETRA-ANT</span>              <span class="num">032500</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">W77-IND</span>                     <span class="num">032600</span>
+           <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0115</span>-<span class="var">MUEVE-DATOS</span>                            <span class="num">032700</span>
+           <span class="kw">MOVE</span> <span class="kw">ZERO</span>               <span class="kw">TO</span> <span class="var">WKS-L40-NUMMOV</span>(<span class="var">W77-IND</span>)     <span class="num">032800</span>
+                                      <span class="var">WKS-L40-IMPMOV</span>(<span class="var">W77-IND</span>)     <span class="num">032900</span>
+           <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0110</span>-<span class="var">CONSIS</span>                                 <span class="num">033000</span>
+                   <span class="kw">UNTIL</span> <span class="var">W77-IND</span> = <span class="num">100</span>       <span class="kw">OR</span>                   <span class="num">033100</span>
+                         <span class="var">W77-ERROR-BASE</span>  &gt; <span class="num">0</span> <span class="kw">OR</span>                   <span class="num">033200</span>
+                         <span class="var">W77-RESULT-CORE-GL</span> &gt; <span class="num">0</span>                      <span class="num">033300</span>
+           <span class="kw">IF</span> <span class="var">W77-IND</span> = <span class="num">100</span>                                       <span class="num">033400</span>
+              <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0110</span>-<span class="var">CONSIS</span>                              <span class="num">033500</span>
+                <span class="kw">UNTIL</span> <span class="var">B50-MOV-CVETRA</span> &gt; <span class="var">W77-CVETRA-ANT</span> <span class="kw">OR</span>          <span class="num">033600</span>
+                      <span class="var">B50-MOV-CVETRA</span> &lt; <span class="var">W77-CVETRA-ANT</span> <span class="kw">OR</span>          <span class="num">033700</span>
+                      <span class="var">W77-ERROR-BASE</span>  &gt; <span class="num">0</span>             <span class="kw">OR</span>          <span class="num">033800</span>
+                      <span class="var">W77-RESULT-CORE-GL</span> &gt; <span class="num">0</span>                         <span class="num">033900</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">034000</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                       <span class="num">034100</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">034200</span>
+           <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0110</span>-<span class="var">CONSIS</span>                                 <span class="num">034300</span>
+                   <span class="kw">UNTIL</span> <span class="var">W77-IND</span> = <span class="num">100</span>       <span class="kw">OR</span>                   <span class="num">034400</span>
+                         <span class="var">W77-ERROR-BASE</span>  &gt; <span class="num">0</span> <span class="kw">OR</span>                   <span class="num">034500</span>
+                         <span class="var">W77-RESULT-CORE-GL</span> &gt; <span class="num">0</span>                      <span class="num">034600</span>
+           <span class="kw">IF</span> <span class="var">W77-IND</span> = <span class="num">100</span>                                       <span class="num">034700</span>
+              <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0110</span>-<span class="var">CONSIS</span>                              <span class="num">034800</span>
+                <span class="kw">UNTIL</span> <span class="var">B50-MOV-CVETRA</span> &gt; <span class="var">W77-CVETRA-ANT</span> <span class="kw">OR</span>          <span class="num">034900</span>
+                      <span class="var">B50-MOV-CVETRA</span> &lt; <span class="var">W77-CVETRA-ANT</span> <span class="kw">OR</span>          <span class="num">035000</span>
+                      <span class="var">W77-ERROR-BASE</span>  &gt; <span class="num">0</span>             <span class="kw">OR</span>          <span class="num">035100</span>
+                      <span class="var">W77-RESULT-CORE-GL</span> &gt; <span class="num">0</span>.                        <span class="num">035200</span>
+                                                                  <span class="num">035300</span>
+     <span class="kw">EXIT</span> <span class="var">PROGRAM</span>.                                                <span class="num">035400</span></span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Acumulación por clave de transacción · L1464–1494"> <span class="num">01</span>-<span class="num">0110</span>-<span class="var">CONSIS</span>.                                                  <span class="num">036400</span>
+<span class="cmt">*===============                                                  036500</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-PROCESO</span>          <span class="kw">TO</span> <span class="var">WKS-L40-PROCCON</span>.            <span class="num">036600</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-PRD</span>              <span class="kw">TO</span> <span class="var">WKS-L40-PRODUCTO</span>.           <span class="num">036700</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-INS</span>              <span class="kw">TO</span> <span class="var">WKS-L40-INSTRUMENTO</span>.        <span class="num">036800</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-MONEDA</span>           <span class="kw">TO</span> <span class="var">WKS-L40-MONCON</span>.             <span class="num">036900</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-CVETRA</span>           <span class="kw">TO</span> <span class="var">WKS-L40-CVETRACON</span>.          <span class="num">037000</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-ESQCON</span>           <span class="kw">TO</span> <span class="var">WKS-L40-ESQCONCON</span>.          <span class="num">037100</span>
+     <span class="kw">MOVE</span> <span class="var">B50-MOV-BANCOS</span>           <span class="kw">TO</span> <span class="var">WKS-BANCOS</span>     .            <span class="num">037200</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-BORICON</span>              <span class="kw">TO</span> <span class="var">WKS-BORICON-6D</span> .            <span class="num">037220</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-BDESCON</span>              <span class="kw">TO</span> <span class="var">WKS-BDESCON-6D</span> .            <span class="num">037240</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-BANCOS-6D</span>            <span class="kw">TO</span> <span class="var">WKS-L40-BCOSCON</span>.            <span class="num">037260</span>
+<span class="cmt">*    MOVE B50-MOV-BCODES           TO WKS-L40-BDESCON.            037300</span>
+     <span class="kw">IF</span> <span class="var">WKS-L40-FUN-L040</span> = <span class="num">1</span>                                      <span class="num">037400</span>
+        <span class="kw">IF</span> <span class="var">W77-CVETRA-ANT</span> = <span class="var">B50-MOV-CVETRA</span>                        <span class="num">037500</span>
+           <span class="kw">COMPUTE</span> <span class="var">WKS-L40-NUMMOV</span>(<span class="var">W77-IND</span>) = <span class="var">B50-MOV-NUMMOV</span> +     <span class="num">037600</span>
+                                           <span class="var">WKS-L40-NUMMOV</span>(<span class="var">W77-IND</span>)<span class="num">037700</span>
+           <span class="kw">COMPUTE</span> <span class="var">WKS-L40-IMPMOV</span>(<span class="var">W77-IND</span>) = <span class="var">B50-MOV-IMPMOV</span>  +    <span class="num">037800</span>
+                                           <span class="var">WKS-L40-IMPMOV</span>(<span class="var">W77-IND</span>)<span class="num">037900</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">038000</span>
+           <span class="kw">MOVE</span> <span class="kw">ZERO</span>               <span class="kw">TO</span> <span class="var">WKS-L40-ESQCON</span>(<span class="var">W77-IND</span>)     <span class="num">038100</span>
+           <span class="kw">COMPUTE</span> <span class="var">W77-IND</span> = <span class="var">W77-IND</span> + <span class="num">1</span>                          <span class="num">038200</span>
+           <span class="kw">IF</span> <span class="var">W77-IND</span> &lt; <span class="num">101</span>                                       <span class="num">038300</span>
+              <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0115</span>-<span class="var">MUEVE-DATOS</span>                         <span class="num">038400</span>
+              <span class="kw">MOVE</span> <span class="var">B50-MOV-CVETRA</span>     <span class="kw">TO</span> <span class="var">W77-CVETRA-ANT</span>           <span class="num">038500</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">038600</span>
+              <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                       <span class="num">038700</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">038800</span>
+        <span class="kw">COMPUTE</span> <span class="var">W77-IND</span> = <span class="var">W77-IND</span> + <span class="num">1</span>                             <span class="num">038900</span>
+        <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0115</span>-<span class="var">MUEVE-DATOS</span>.                              <span class="num">039000</span>
+     <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0160</span>-<span class="var">FN-CONXSIS</span>.                                  <span class="num">039100</span></span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Posicionamiento y continuación sobre el índice B50SXTOTXCVE · L1518–1614"> <span class="num">01</span>-<span class="num">0150</span>-<span class="var">FF-SIS</span>.                                                  <span class="num">041200</span>
+<span class="cmt">*===============                                                  041300</span>
+     <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                                   <span class="num">041400</span>
+                <span class="var">B50-MOV-FEC</span>        = <span class="var">WKS-L40-FECHA</span>    <span class="kw">AND</span>         <span class="num">041500</span>
+                <span class="var">B50-MOV-MONEDA</span> <span class="kw">NOT</span> &lt; <span class="var">WKS-L40-MONCON</span>               <span class="num">041600</span>
+             <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                         <span class="num">041700</span>
+                <span class="kw">MOVE</span> <span class="num">1</span>             <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>              <span class="num">041800</span>
+                <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                             <span class="num">041900</span>
+                   <span class="kw">MOVE</span> <span class="num">3</span>          <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">042000</span>
+                <span class="kw">ELSE</span>                                              <span class="num">042100</span>
+                   <span class="kw">MOVE</span> <span class="num">9</span>          <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">042200</span>
+                   <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                        <span class="num">042300</span>
+                                                                  <span class="num">042400</span>
+ <span class="num">01</span>-<span class="num">0155</span>-<span class="var">FF-CONT</span>.                                                 <span class="num">042500</span>
+<span class="cmt">*================                                                 042600</span>
+     <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                                   <span class="num">042700</span>
+                <span class="var">B50-MOV-FEC</span>        = <span class="var">WKS-L40-FECHA</span>    <span class="kw">AND</span>         <span class="num">042800</span>
+        <span class="var">B50-MOV-PROCESO</span> = <span class="var">WKS-L40-PROCCON</span>      <span class="kw">AND</span>                <span class="num">042900</span>
+        <span class="var">B50-MOV-PRD</span>     = <span class="var">WKS-L40-PRODUCTO</span>     <span class="kw">AND</span>                <span class="num">043000</span>
+        <span class="var">B50-MOV-INS</span>     = <span class="var">WKS-L40-INSTRUMENTO</span>  <span class="kw">AND</span>                <span class="num">043100</span>
+        <span class="var">B50-MOV-MONEDA</span>  = <span class="var">WKS-L40-MONCON</span>       <span class="kw">AND</span>                <span class="num">043200</span>
+        <span class="var">B50-MOV-CVETRA</span>  = <span class="var">WKS-L40-CVETRACON</span>    <span class="kw">AND</span>                <span class="num">043300</span>
+        <span class="var">B50-MOV-ESQCON</span>  &gt; <span class="var">WKS-L40-ESQCONCON</span>                       <span class="num">043400</span>
+     <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                                 <span class="num">043500</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">W77-CVETRA-ANT</span>              <span class="num">043600</span>
+     <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                                        <span class="num">043700</span>
+        <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                                <span class="num">043800</span>
+           <span class="var">B50-MOV-FEC</span>     = <span class="var">WKS-L40-FECHA</span>        <span class="kw">AND</span>             <span class="num">043900</span>
+           <span class="var">B50-MOV-PROCESO</span> = <span class="var">WKS-L40-PROCCON</span>      <span class="kw">AND</span>             <span class="num">044000</span>
+           <span class="var">B50-MOV-PRD</span>     = <span class="var">WKS-L40-PRODUCTO</span>     <span class="kw">AND</span>             <span class="num">044100</span>
+           <span class="var">B50-MOV-INS</span>     = <span class="var">WKS-L40-INSTRUMENTO</span>  <span class="kw">AND</span>             <span class="num">044200</span>
+           <span class="var">B50-MOV-MONEDA</span>  = <span class="var">WKS-L40-MONCON</span>       <span class="kw">AND</span>             <span class="num">044300</span>
+           <span class="var">B50-MOV-CVETRA</span>  &gt; <span class="var">WKS-L40-CVETRACON</span>                    <span class="num">044400</span>
+        <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                              <span class="num">044500</span>
+        <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                                     <span class="num">044600</span>
+           <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                             <span class="num">044700</span>
+              <span class="var">B50-MOV-FEC</span>        = <span class="var">WKS-L40-FECHA</span>    <span class="kw">AND</span>           <span class="num">044800</span>
+              <span class="var">B50-MOV-PROCESO</span> = <span class="var">WKS-L40-PROCCON</span>      <span class="kw">AND</span>          <span class="num">044900</span>
+              <span class="var">B50-MOV-PRD</span>     = <span class="var">WKS-L40-PRODUCTO</span>     <span class="kw">AND</span>          <span class="num">045000</span>
+              <span class="var">B50-MOV-INS</span>     = <span class="var">WKS-L40-INSTRUMENTO</span>  <span class="kw">AND</span>          <span class="num">045100</span>
+              <span class="var">B50-MOV-MONEDA</span>  &gt; <span class="var">WKS-L40-MONCON</span>                    <span class="num">045200</span>
+           <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                           <span class="num">045300</span>
+           <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                                  <span class="num">045400</span>
+              <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                          <span class="num">045500</span>
+                 <span class="var">B50-MOV-FEC</span>        = <span class="var">WKS-L40-FECHA</span>    <span class="kw">AND</span>        <span class="num">045600</span>
+                 <span class="var">B50-MOV-PROCESO</span> = <span class="var">WKS-L40-PROCCON</span>      <span class="kw">AND</span>       <span class="num">045700</span>
+                 <span class="var">B50-MOV-PRD</span>     = <span class="var">WKS-L40-PRODUCTO</span>     <span class="kw">AND</span>       <span class="num">045800</span>
+                 <span class="var">B50-MOV-INS</span>     &gt; <span class="var">WKS-L40-INSTRUMENTO</span>            <span class="num">045900</span>
+              <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                        <span class="num">046000</span>
+              <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                               <span class="num">046100</span>
+                 <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                       <span class="num">046200</span>
+                    <span class="var">B50-MOV-FEC</span>     = <span class="var">WKS-L40-FECHA</span>    <span class="kw">AND</span>        <span class="num">046300</span>
+                    <span class="var">B50-MOV-PROCESO</span> = <span class="var">WKS-L40-PROCCON</span>   <span class="kw">AND</span>       <span class="num">046400</span>
+                    <span class="var">B50-MOV-PRD</span>     &gt; <span class="var">WKS-L40-PRODUCTO</span>            <span class="num">046500</span>
+                 <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                     <span class="num">046600</span>
+                 <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                            <span class="num">046700</span>
+                    <span class="kw">FIND</span> <span class="var">FIRST</span> <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                    <span class="num">046800</span>
+                       <span class="var">B50-MOV-FEC</span>     = <span class="var">WKS-L40-FECHA</span>    <span class="kw">AND</span>     <span class="num">046900</span>
+                       <span class="var">B50-MOV-PROCESO</span> &gt; <span class="var">WKS-L40-PROCCON</span>          <span class="num">047000</span>
+                    <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                  <span class="num">047100</span>
+                    <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                         <span class="num">047200</span>
+                       <span class="kw">MOVE</span> <span class="num">1</span>      <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>              <span class="num">047300</span>
+                       <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                      <span class="num">047400</span>
+                          <span class="kw">MOVE</span> <span class="num">3</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">047500</span>
+                       <span class="kw">ELSE</span>                                       <span class="num">047600</span>
+                          <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">047700</span>
+                          <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                  <span class="num">047800</span>
+                    <span class="kw">ELSE</span>                                          <span class="num">047900</span>
+                       <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>                <span class="num">048000</span>
+                       <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                     <span class="num">048100</span>
+                 <span class="kw">ELSE</span>                                             <span class="num">048200</span>
+                    <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>                   <span class="num">048300</span>
+                    <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                        <span class="num">048400</span>
+              <span class="kw">ELSE</span>                                                <span class="num">048500</span>
+                 <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>                      <span class="num">048600</span>
+                 <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                           <span class="num">048700</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">048800</span>
+              <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>                         <span class="num">048900</span>
+              <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                              <span class="num">049000</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">049100</span>
+           <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>                            <span class="num">049200</span>
+           <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                                 <span class="num">049300</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">049400</span>
+        <span class="kw">MOVE</span> <span class="num">9</span>   <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>                               <span class="num">049500</span>
+        <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                                   <span class="num">049600</span>
+                                                                  <span class="num">049700</span>
+ <span class="num">01</span>-<span class="num">0160</span>-<span class="var">FN-CONXSIS</span>.                                              <span class="num">049800</span>
+<span class="cmt">*===================                                              049900</span>
+     <span class="kw">FIND</span> <span class="kw">NEXT</span>  <span class="var">B50SXTOTXCVE</span> <span class="kw">AT</span>                                   <span class="num">050000</span>
+                <span class="var">B50-MOV-FEC</span>        = <span class="var">WKS-L40-FECHA</span>                <span class="num">050100</span>
+             <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                         <span class="num">050200</span>
+                <span class="kw">MOVE</span> <span class="num">1</span>             <span class="kw">TO</span> <span class="var">W77-ERROR-BASE</span>              <span class="num">050300</span>
+                <span class="kw">IF</span> <span class="var">DMSTATUS</span>(<span class="var">NOTFOUND</span>)                             <span class="num">050400</span>
+                   <span class="kw">MOVE</span> <span class="num">99</span>         <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">050500</span>
+                <span class="kw">ELSE</span>                                              <span class="num">050600</span>
+                   <span class="kw">MOVE</span> <span class="num">9</span>          <span class="kw">TO</span> <span class="var">W77-RESULT-CORE-GL</span>             <span class="num">050700</span>
+                   <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>.                        <span class="num">050800</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>TotalesPorClaveTransaccionService.java · PaginaTotales.java · MovDiaRepository.java</span><span class="fname">Spring Data JPA · keyset pagination</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j6"><span class="cmt">    /** 01-0100-SIS: funciones 1 (agrupa por clave de transacción) y 21 (renglón por esquema). */</span>
+    <span class="kw">private</span> <span class="type">ConsultaTotalesResponse</span> porSistema(<span class="type">ConsultaTotalesRequest</span> rq) {
+        <span class="kw">boolean</span> agrupaPorCve = rq.funcion() == <span class="num">1</span>;
+        <span class="kw">var</span> cursor = rq.desde() == <span class="kw">null</span>
+                ? movDia.primeroPorFecha(rq.fecha(), rq.moneda())     <span class="cmt">// 01-0150-FF-SIS</span>
+                : movDia.siguienteA(rq.fecha(), rq.desde());          <span class="cmt">// 01-0155-FF-CONT</span>
+        <span class="kw">if</span> (cursor.isEmpty()) <span class="kw">return</span> vacia(<span class="type">ResultadoL040</span>.SISTEMA_SIN_TOTALES);   <span class="cmt">// 3</span>
+
+        <span class="kw">var</span> pagina = <span class="kw">new</span> <span class="type">PaginaTotales</span>(<span class="num">100</span>, agrupaPorCve);           <span class="cmt">// WKS-L40-IMPORTES OCCURS 100</span>
+        <span class="kw">try</span> (<span class="type">Stream</span>&lt;<span class="type">MovDia</span>&gt; filas = movDia.streamDesde(cursor.get())) {
+            filas.takeWhile(r -&gt; !pagina.llena())                    <span class="cmt">// UNTIL W77-IND = 100</span>
+                 .forEach(pagina::acumula);                          <span class="cmt">// 01-0110-CONSIS</span>
+        }
+        <span class="cmt">// Con 100 renglones, la función 1 sigue sumando en el último mientras no cambie la clave.</span>
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">ConsultaTotalesResponse</span>(
+                pagina.agotada() ? <span class="type">ResultadoL040</span>.FIN_DE_DATOS : <span class="type">ResultadoL040</span>.SIN_ERROR,
+                pagina.renglones(), pagina.continuacion());
+    }</span>
+<span class="seg java-seg" data-jid="j7"><span class="cmt">/** Estado de una página; vive solo durante la llamada (en COBOL era WORKING-STORAGE compartido). */</span>
+<span class="kw">final</span> <span class="kw">class</span> <span class="type">PaginaTotales</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="kw">int</span> max; <span class="kw">private</span> <span class="kw">final</span> <span class="kw">boolean</span> agrupaPorCve;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">List</span>&lt;<span class="type">TotalRenglon</span>&gt; renglones = <span class="kw">new</span> <span class="type">ArrayList</span>&lt;&gt;();
+    <span class="kw">private</span> <span class="type">ConsultaTotalesRequest</span>.<span class="type">Continuacion</span> continuacion;
+    <span class="kw">private</span> <span class="kw">boolean</span> agotada = <span class="kw">true</span>;
+
+    <span class="kw">void</span> acumula(<span class="type">MovDia</span> r) {
+        continuacion = r.llave();                          <span class="cmt">// WKS-L40-*CON := registro actual</span>
+        <span class="kw">int</span> i = renglones.size() - <span class="num">1</span>;
+        <span class="kw">if</span> (agrupaPorCve &amp;&amp; i &gt;= <span class="num">0</span> &amp;&amp; renglones.get(i).cveTra() == r.cveTra()) {
+            <span class="kw">var</span> t = renglones.get(i);
+            renglones.set(i, t.suma(r.numMov(), r.impMov()));   <span class="cmt">// COMPUTE ... = B50 + acumulado</span>
+        } <span class="kw">else</span> <span class="kw">if</span> (renglones.size() &lt; max) {
+            renglones.add(<span class="type">TotalRenglon</span>.de(r));                  <span class="cmt">// 01-0115-MUEVE-DATOS</span>
+        } <span class="kw">else</span> {
+            agotada = <span class="kw">false</span>;                                    <span class="cmt">// W77-IND = 101: no se copia</span>
+        }
+    }
+    <span class="kw">boolean</span> llena() { <span class="kw">return</span> renglones.size() == max &amp;&amp; !agrupaPorCve; }
+    <span class="cmt">// TotalRenglon.suma: numMov 9(08) y impMov S9(13)V99 sin ON SIZE ERROR -&gt; aquí Math.addExact</span>
+    <span class="cmt">// y BigDecimal.add con verificación de precisión 15; la suma de escala 2 es exacta.</span>
+}</span>
+<span class="seg java-seg" data-jid="j8"><span class="kw">public</span> <span class="kw">interface</span> <span class="type">MovDiaRepository</span> <span class="kw">extends</span> <span class="type">JpaRepository</span>&lt;<span class="type">MovDia</span>, <span class="type">MovDiaId</span>&gt; {
+
+<span class="cmt">    /** 01-0150-FF-SIS: primera fila de la fecha con moneda &gt;= la pedida. */</span>
+    <span class="ann">@Query</span>(<span class="str">&quot;&quot;</span><span class="str">&quot;</span>
+        select m from <span class="type">MovDia</span> m
+         where m.fecha = :fecha and m.moneda &gt;= :moneda
+         order by m.proceso, m.producto, m.instrumento, m.moneda, m.cveTra, m.esqCon<span class="str">&quot;&quot;</span><span class="str">&quot;</span>)
+    <span class="type">Stream</span>&lt;<span class="type">MovDia</span>&gt; primeroPorFecha(<span class="type">LocalDate</span> fecha, <span class="kw">int</span> moneda);
+
+<span class="cmt">    /**</span>
+<span class="cmt">     * 01-0155-FF-CONT: la escalera de seis FIND FIRST (esqcon &gt;, cvetra &gt;, moneda &gt;,</span>
+<span class="cmt">     * instrumento &gt;, producto &gt;, proceso &gt;) es una búsqueda &quot;mayor que&quot; sobre la llave</span>
+<span class="cmt">     * compuesta del índice. En SQL es una comparación de tuplas (keyset pagination).</span>
+<span class="cmt">     */</span>
+    <span class="ann">@Query</span>(nativeQuery = <span class="kw">true</span>, value = <span class="str">&quot;&quot;</span><span class="str">&quot;</span>
+        select * from movdia
+         where fecha = :#{#fecha}
+           and (proceso, producto, instrumento, moneda, cvetra, esqcon)
+             &gt; (:#{#d.proceso}, :#{#d.producto}, :#{#d.instrumento},
+                :#{#d.moneda}, :#{#d.cveTra}, :#{#d.esqCon})
+         order by proceso, producto, instrumento, moneda, cvetra, esqcon<span class="str">&quot;&quot;</span><span class="str">&quot;</span>)
+    <span class="type">Stream</span>&lt;<span class="type">MovDia</span>&gt; siguienteA(<span class="type">LocalDate</span> fecha, <span class="type">ConsultaTotalesRequest</span>.<span class="type">Continuacion</span> d);
+}
+<span class="cmt">// 01-0160-FN-CONXSIS: FIND NEXT ... AT fecha; NOTFOUND = 99 (fin de datos), otro error = 9.</span></span></pre></div>
+</div>
+  <div class="sec-hdr">Reglas de negocio trazadas</div><table class="rules-table"><thead><tr><th>ID regla</th><th>Descripción (brain)</th><th>Segmento</th></tr></thead><tbody><tr><td>RN-CORE-GL-990</td><td>L040 es una librería MCP de tipo `SHARED BY ALL` con `TARGET=LEVEL2`. Esto significa que se carga una sola vez en memoria compartida de nivel 2 y permanece disponible para todas las tareas del sistema CORE-GL sin recargas. Es el modelo de librería más eficiente del entorno MCP.</td><td>Contrato de la librería: directivas, funciones y resultados</td></tr><tr><td>RN-CORE-GL-991</td><td>L040 expone 28 funciones de consulta organizadas en dos grupos: funciones 0–14 operan a nivel de clave de transacción individual (por CVETRAN), y funciones 21–34 operan a nivel de esquema completo (por SISTEMA). Esta separación permite consultas precisas o agregadas sobre MOVDIA.</td><td>Contrato de la librería: directivas, funciones y resultados · Despacho GO TO DEPENDING ON a switch sobre la función</td></tr><tr><td>RN-CORE-GL-992</td><td>L040 retorna códigos de resultado estandarizados: 0=sin error, 1=función inválida, 2=fecha solicitud inválida, 3=sistema sin totales, 4=producto sin totales, 5=instrumento sin totales, 6=base de control no disponible, 7=base de datos no disponible, 8=sistema no dado de alta, 99=fin de datos (EOF).</td><td>Contrato de la librería: directivas, funciones y resultados · Posicionamiento y continuación sobre el índice B50SXTOTXCVE</td></tr><tr><td>RN-CORE-GL-993</td><td>L040 accede a la base de datos CORE-GLBD10MOVDIA151 bajo el alias BASEMOVDIA. Esta base contiene los totales de movimientos del día agrupados por clave de transacción, sistema, producto e instrumento. Es la fuente de verdad para totales intraday en CORE-GL.</td><td>Apertura de MOVDIA con reintento y cierre · Posicionamiento y continuación sobre el índice B50SXTOTXCVE</td></tr><tr><td>RN-CORE-GL-994</td><td>L040 integra la librería CTLVER para control de versiones de librerías CORE-GL. CTLVER verifica que la versión de la librería en memoria coincide con la versión compilada esperada antes de proceder con cualquier acceso a la base de datos.</td><td>Inicialización: control del día, alta del sistema y apertura</td></tr><tr><td>RN-CORE-GL-996</td><td>L040 incluye la interfaz LIBCONTROL/CONSISDIA con sus 10 funciones para gestión del dataset CORE-GLB01SISDIA. Aunque L040 es una librería de consulta de totales, también necesita controlar el estado del día del sistema para validar que las fechas de consulta son válidas.</td><td>Inicialización: control del día, alta del sistema y apertura</td></tr><tr><td>RN-CORE-GL-997</td><td>L040 distingue entre dos fallas de infraestructura con códigos distintos: código 6 (base de control no disponible — CORE-GLB01SISDIA inaccesible) vs código 7 (base MOVDIA no disponible). Esta granularidad permite que los sistemas llamadores implementen estrategias de recuperación diferenciadas según el tipo de falla.</td><td>Inicialización: control del día, alta del sistema y apertura · Apertura de MOVDIA con reintento y cierre</td></tr><tr><td>RN-CORE-GL-998</td><td>Las consultas de L040 a nivel de clave (funciones 0-14) permiten obtener totales para una combinación específica SISTEMA+CVETRAN+FECHA, mientras que las consultas de esquema (21-34) agregan todos los CVETRANs de un SISTEMA. Los llamadores eligen el nivel de agregación según su necesidad.</td><td>Bloque de llamada: llaves de consulta, continuación y 100 renglones · Despacho GO TO DEPENDING ON a switch sobre la función · Consulta por sistema: página de 100 renglones · Acumulación por clave de transacción</td></tr><tr><td>RN-CORE-GL-999</td><td>El código de retorno 8 (sistema no dado de alta) impide que sistemas no registrados en CORE-GLBD10MOVDIA151 consulten totales. Este control previene consultas fantasma de sistemas que aún no han iniciado proceso del día o que no están activos en CORE-GL.</td><td>Inicialización: control del día, alta del sistema y apertura</td></tr></tbody></table>
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Estado compartido en una librería SHARED BY ALL</b><p>WKS-INICIO, WKS-ABRE-SEM, W77-CVETRA-ANT y la posición actual del índice B50SXTOTXCVE viven en WORKING-STORAGE de una única instancia compartida (línea 5). Dos tareas que paginen al mismo tiempo comparten el cursor. La versión Java es sin estado y la continuación viaja en la petición.</p></div><div class="risk"><b>Reintento infinito al abrir MOVDIA</b><p>En 00-0130-ABRE-MOVDIA (líneas 1372-1382) el error DMSII 39 deja W77-BASE en cero y el contador de intentos se reinicia tras el aviso, así que la apertura se repite cada 20 segundos sin límite.</p></div><div class="risk"><b>Funciones fuera de rango</b><p>Las funciones 15 a 20 ejecutan 00005-FUNCION-ERROR y caen por flujo a 00010-LIMPIA-ARREGLO con subíndice cero (líneas 1270-1283). Las funciones 35 a 39 y mayores a 41 no tienen destino en el GO TO DEPENDING y regresan resultado 0.</p></div><div class="risk"><b>Escritura posible fuera del arreglo</b><p>En la función 21 el segundo ciclo de 01-0100-SIS (líneas 1447-1452) usa W77-CVETRA-ANT sin asignarlo; si coincide con la clave actual, 01-0110-CONSIS escribe el renglón 101 de un arreglo de 100.</p></div><div class="risk"><b>Condición siempre verdadera</b><p>En 01-0155-FF-CONT (líneas 1578-1584) un IF DMSTATUS(NOTFOUND) anidado dentro de otro idéntico hace inalcanzable su rama ELSE.</p></div><div class="risk"><b>Desbordamiento silencioso</b><p>Las sumas de 01-0110-CONSIS (líneas 1479-1482) no tienen ON SIZE ERROR sobre 9(08) y S9(13)V99.</p></div><div class="risk"><b>Apertura en modo actualización</b><p>La librería abre CORE-GLBD10MOVDIA151 con OPEN UPDATE (línea 1369) aunque solo hace FIND; compite por bloqueos con los procesos que sí actualizan.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>RN-CORE-GL-990 afirma TARGET=LEVEL2; en el fuente esa directiva está comentada (línea 6). Corregir la regla en el brain.</li><li>RN-CORE-GL-992 no incluye el resultado 9, que la librería devuelve en todo error DMSII distinto de NOTFOUND, y el encabezado menciona un resultado 10 sin descripción (línea 61).</li><li>Confirmar con el SME si en MCP el subíndice cero de 00010-LIMPIA-ARREGLO provoca falla INVALID INDEX (lo que abortaría al llamador) o si la compilación tiene la verificación de rangos desactivada.</li><li>Confirmar el orden real de la llave del índice B50SXTOTXCVE en el DASDL de CORE-GLBD10MOVDIA151; la escalera de FF-CONT sugiere fecha, proceso, producto, instrumento, moneda, clave de transacción y esquema, y de eso depende el ORDER BY.</li><li>Las 13 funciones restantes (02-0100 a 14-0100) repiten el patrón de 01-SECCION con más llaves en el FIND; no se transcribieron en esta demostración y deben revisarse una por una.</li><li>Confirmar si los llamadores dependen del comportamiento actual de resultado 0 para funciones inexistentes.</li></ul>
+  <div class="pn"><a href="CORE-GL_L030.html">← CORE-GL · L030</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_L194.html">CORE-GL · L194 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · LegacyCore · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Contrato de la librería: directivas, funciones y resultados", "cobol": "$ SET LIST  STAKCK FREE LINEINFO NEWID \"TOTXCVETRA\"               000100\n$ SET LISTOMITTED                                                 000200\n$ SET OLDCODE                                                     000300\n$$ SET OPTIMIZE FEDLEVEL = 5                                      000400\n$$ SHARED BY ALL                                                  000500\n*$$ TARGET=LEVEL2                                                 000600\n IDENTIFICATION DIVISION.                                         000700\n PROGRAM-ID. TOTXCVETRA.                                          000800\n******************************************************************000900\n* OBJETIVO : PROPORCIONAR UN MEDIO DE CONSULTA DE TOTALES POR    *001000\n*            CLAVE DE TRANSACCION.                               *001100\n*                                                                *001200\n*                    P A R A M E T R O S                         *001300\n*                                                                *001400\n*   ============   TOTALES A NIVEL CLAVE       ===============   *001500\n*                                                                *001600\n* FUNCION             ACCION A EFECTUAR                          *001700\n*   0      ABRIR LA BASE DE DATOS ADECUADA PARA EL SISTEMA DADO  *001800\n*   1      CONSULTA POR SIST                                     *001900\n*   2      CONSULTA POR SIST-BORI-BDES-PROD                      *002000\n*   3      CONSULTA POR SIST-BORI-BDES-PROD-INST                 *002100\n*   4      CONSULTA POR SIST-BORI-BDES-MONEDA                    *002200\n*   5      CONSULTA POR SIST-BORI-BDES-PRODUCTO-MONEDA           *002300\n*   6      CONSULTA POR SIST-BORI-BDES-PROD-INST-MONEDA          *002400\n*   7      CONSULTA POR SIST-PROC                                *002500\n*   8      CONSULTA POR SIST-PROC-BORI-BDES-PROD                 *002600\n*   9      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST            *002700\n*  10      CONSULTA POR SIST-PROC-BORI-BDES-MONEDA               *002800\n*  11      CONSULTA POR SIST-PROC-BORI-BDES-PROD-MONEDA          *002900\n*  12      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST-MONEDA     *003000\n*  13      CONSULTA POR SIST-PROC-BORI-DES                       *003100\n*  14      CONSULTA POR SIST-BORI-BDES                           *003200\n*                                                                *003300\n*   ==============   TOTALES A NIVEL ESQUEMA ================    *003400\n                                                                  003500\n*  21      CONSULTA POR SIST                                     *003600\n*  22      CONSULTA POR SIST-BORI-BDES-PROD                      *003700\n*  23      CONSULTA POR SIST-BORI-BDES-PROD-INST                 *003800\n*  24      CONSULTA POR SIST-BORI-BDES-MONEDA                    *003900\n*  25      CONSULTA POR SIST-BORI-BDES-PRODUCTO-MONEDA           *004000\n*  26      CONSULTA POR SIST-BORI-BDES-PROD-INST-MONEDA          *004100\n*  27      CONSULTA POR SIST-PROC                                *004200\n*  28      CONSULTA POR SIST-PROC-BORI-BDES-PROD                 *004300\n*  29      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST            *004400\n*  30      CONSULTA POR SIST-PROC-BORI-BDES-MONEDA               *004500\n*  31      CONSULTA POR SIST-PROC-BORI-BDES-PROD-MONEDA          *004600\n*  32      CONSULTA POR SIST-PROC-BORI-BDES-PROD-INST-MONEDA     *004700\n*  33      CONSULTA POR SIST-PROC-BORI-DES                       *004800\n*  34      CONSULTA POR SIST-BORI-BDES                           *004900\n*                     RESULTADOS POSIBLES :                      *005000\n* VALOR                                                          *005100\n*  0       SIN ERROR                                             *005200\n*  1       FUNCION INVALIDA                                      *005300\n*  2       FECHA DE SOLICITUD INVALIDA                           *005400\n*  3       SISTEMA SIN TOTALES                                   *005500\n*  4       PRODUCTO SIN TOTALES                                  *005600\n*  5       INSTRUMENTO SIN TOTALES                               *005700\n*  6       BASE DE CONTROL NO DISPONIBLE                         *005800\n*  7       BASE DE DATOS NO DISPONIBLE                           *005900\n*  8       SISTEMA NO DADO DE ALTA                               *006000\n* 10                                                             *006100\n* 99       FIN DE DATOS                                          *006200", "java": "/** Funciones de TOTXCVETRA. 1-14 a nivel clave; 21-34 a nivel esquema. */\npublic enum FuncionL040 {\n    ABRIR(0),\n    SIS(1), SIS_BORI_BDES_PROD(2), SIS_BORI_BDES_PROD_INST(3), SIS_BORI_BDES_MON(4),\n    SIS_BORI_BDES_PROD_MON(5), SIS_BORI_BDES_PROD_INST_MON(6), SIS_PROC(7),\n    SIS_PROC_BORI_BDES_PROD(8), SIS_PROC_BORI_BDES_PROD_INST(9), SIS_PROC_BORI_BDES_MON(10),\n    SIS_PROC_BORI_BDES_PROD_MON(11), SIS_PROC_BORI_BDES_PROD_INST_MON(12),\n    SIS_PROC_BORI_BDES(13), SIS_BORI_BDES(14),\n    // 21..34: mismas consultas a nivel esquema (codigo - 20)\n    CERRAR(40), REABRIR(41);\n\n    final int codigo;\n    FuncionL040(int c) { codigo = c; }\n\n    public static Optional<FuncionL040> de(int codigo) {\n        int base = (codigo >= 21 && codigo <= 34) ? codigo - 20 : codigo;\n        return Arrays.stream(values()).filter(f -> f.codigo == base).findFirst();\n    }\n    public static boolean esNivelEsquema(int codigo) { return codigo >= 21 && codigo <= 34; }\n}\n\n/** W77-RESULT-CORE-GL. El 9 se usa en el código pero no está en el encabezado. */\npublic enum ResultadoL040 {\n    SIN_ERROR(0), FUNCION_INVALIDA(1), FECHA_INVALIDA(2), SISTEMA_SIN_TOTALES(3),\n    PRODUCTO_SIN_TOTALES(4), INSTRUMENTO_SIN_TOTALES(5), BASE_CONTROL_NO_DISPONIBLE(6),\n    BASE_DATOS_NO_DISPONIBLE(7), SISTEMA_NO_DADO_DE_ALTA(8), ERROR_DMSII(9), FIN_DE_DATOS(99);\n    final int codigo;\n    ResultadoL040(int c) { codigo = c; }\n}", "rationale": "El encabezado del fuente es el contrato de la librería: 15 funciones a nivel clave de transacción (0 a 14), 14 a nivel esquema (21 a 34) y la lista de resultados. En Java se vuelven dos <code>enum</code> que el <code>@Service</code> expone con la misma numeración, para que los llamadores migrados conserven los códigos. Las directivas <code>$$ SHARED BY ALL</code> indican que hay una sola instancia de la librería para todas las tareas; en Spring eso corresponde a un bean singleton, que aquí debe ser sin estado (ver segmento s3).", "risk": "La directiva TARGET=LEVEL2 está comentada (línea 6, '*$$ TARGET=LEVEL2'); solo SHARED BY ALL está activa. El encabezado lista un resultado 10 sin descripción y omite el 9, que el código asigna en todos los errores DMSII.", "rules": ["RN-CORE-GL-990", "RN-CORE-GL-991", "RN-CORE-GL-992"], "lines": "L1–62", "verified": true, "score": 100}, "s2": {"title": "Bloque de llamada: llaves de consulta, continuación y 100 renglones", "cobol": " 01 WKS-L40-CVES.                                                 014000\n    03 WKS-L40-FUN-L040            PIC  9(02)       COMP.         015000\n    03 WKS-L40-FECHA               PIC  9(08)       COMP.         016000\n    03 WKS-L40-SISTEMA             PIC  9(04)       COMP.         017000\n    03 WKS-L40-PRODUCTO            PIC  9(04)       COMP.         018000\n    03 WKS-L40-INSTRUMENTO         PIC  9(04)       COMP.         019000\n    03 WKS-L40-PROCCON             PIC  9(04)       COMP.         020000\n    03 WKS-L40-BCOSCON             PIC  9(06)       COMP.         020050\n    03 WKS-L40-BCOSCON-R   REDEFINES WKS-L40-BCOSCON.             020070\n       05 WKS-L40-BORICON          PIC  9(03)       COMP.         020100\n       05 WKS-L40-BDESCON          PIC  9(03)       COMP.         020200\n    03 WKS-L40-MONCON              PIC  9(04)       COMP.         021000\n    03 WKS-L40-CVETRACON           PIC  9(04)       COMP.         022000\n    03 WKS-L40-ESQCONCON           PIC  9(04)       COMP.         023000\n    03 WKS-L40-IMPORTES            OCCURS 100 TIMES.              024000\n       04 WKS-L40-PROCESO          PIC  9(04)       COMP.         025000\n       04 WKS-L40-MONEDA           PIC  9(04)       COMP.         026000\n       04 WKS-L40-CVETRA           PIC  9(04)       COMP.         027000\n       04 WKS-L40-ESQCON           PIC  9(04)       COMP.         028000\n       04 WKS-L40-NUMMOV           PIC  9(08)       COMP.         029000\n       04 WKS-L40-IMPMOV           PIC S9(13)V99    COMP.         030000\n       04 WKS-L40-BCOSDET          PIC  9(06)       COMP.         030020\n       04 WKS-L40-BCOSDET-R   REDEFINES  WKS-L40-BCOSDET.         030040\n          05 WKS-L40-BCOORI        PIC  9(03)       COMP.         030100\n          05 WKS-L40-BCODES        PIC  9(03)       COMP.         030200\n                                                                  031000\n 77  W77-RESULT-CORE-GL            PIC S9(11) BINARY.             032000", "java": "/** WKS-L40-CVES: entrada (llaves) y salida (hasta 100 renglones) en el mismo bloque. */\npublic record ConsultaTotalesRequest(\n        int funcion,              // WKS-L40-FUN-L040   9(02) COMP\n        LocalDate fecha,          // WKS-L40-FECHA      9(08) COMP, AAAAMMDD\n        int sistema, int producto, int instrumento,\n        int proceso,              // WKS-L40-PROCCON\n        int bancoOrigen,          // WKS-L40-BORICON  9(03) dentro de BCOSCON 9(06)\n        int bancoDestino,         // WKS-L40-BDESCON  9(03)\n        int moneda,\n        Continuacion desde) {     // CVETRACON + ESQCONCON: 0/0 = primera página\n\n    public record Continuacion(int proceso, int producto, int instrumento,\n                               int moneda, int cveTra, int esqCon) {}\n}\n\npublic record TotalRenglon(int proceso, int moneda, int cveTra, int esqCon,\n                           long numMov,            // 9(08) COMP\n                           BigDecimal impMov,      // S9(13)V99 COMP, escala 2, con signo\n                           int bancoOrigen, int bancoDestino) {}\n\npublic record ConsultaTotalesResponse(ResultadoL040 resultado,\n                                      List<TotalRenglon> renglones,       // máx. 100\n                                      ConsultaTotalesRequest.Continuacion siguiente) {}", "rationale": "La librería recibe un solo bloque por referencia que sirve de entrada y de salida: las llaves de consulta, una llave de continuación (clave de transacción y esquema contable, que la librería reescribe con el último renglón leído) y un arreglo de 100 renglones de totales. En Java se separan en una petición y una respuesta inmutables, y la continuación pasa a ser un objeto explícito que el llamador devuelve para pedir la siguiente página. El importe <code>S9(13)V99 COMP</code> es <code>BigDecimal</code> de escala 2 con signo y el campo de bancos 9(06) se separa en origen y destino de tres dígitos, igual que su <code>REDEFINES</code>.", "risk": "", "rules": ["RN-CORE-GL-998"], "lines": "L1171–1197", "verified": true, "score": 100}, "s3": {"title": "Despacho GO TO DEPENDING ON a switch sobre la función", "cobol": " 00000-INICIO.                                                    014000\n*================                                                 014100\n                                                                  014102\n    MOVE \"CORE-GL\"                   TO SISTEMA-LJ.                  014104\n    MOVE \"L040\"                   TO PASO-LJ.                     014106\n    MOVE \"002\"                    TO MTP-LJ.                      014108\n                                                                  014110\n    PERFORM 00000-LIMPIA-VARIABLES.                               014200\n    IF WKS-L40-FUN-L040 = 0 OR 40 OR 41                           014300\n       PERFORM 00-0100-LEVANTA                                    014400\n    ELSE                                                          014500\n       MOVE WKS-L40-BCOSCON TO WKS-BANCOS-6D                      014520\n       MOVE WKS-BORICON-6D  TO WKS-BORICON                        014540\n       MOVE WKS-BDESCON-6D  TO WKS-BDESCON                        014560\n       IF WKS-INICIO = 1                                          014600\n          IF WKS-ABRE-SEM = 1                                     014700\n             GO TO                                                014800\n                01-0100-SIS                                       014900\n                02-0100-PRD                                       015000\n                03-0100-PRD-INS                                   015100\n                04-0100-MON                                       015200\n                05-0100-PRD-MON                                   015300\n                06-0100-PRD-INS-MON                               015400\n                07-0100-PRO                                       015500\n                08-0100-PRO-PRD                                   015600\n                09-0100-PRO-PRD-INS                               015700\n                10-0100-PRO-MON                                   015800\n                11-0100-PRO-PRD-MON                               015900\n                12-0100-PRO-PRD-INS-MON                           016000\n                13-0100-SIS-PRO-BORI-BDES                         016100\n                14-0100-SIS-BORI-BDES                             016200\n                00005-FUNCION-ERROR                               016300\n                00005-FUNCION-ERROR                               016400\n                00005-FUNCION-ERROR                               016500\n                00005-FUNCION-ERROR                               016600\n                00005-FUNCION-ERROR                               016700\n                00005-FUNCION-ERROR                               016800\n                01-0100-SIS                                       016900\n                02-0100-PRD                                       017000\n                03-0100-PRD-INS                                   017100\n                04-0100-MON                                       017200\n                05-0100-PRD-MON                                   017300\n                06-0100-PRD-INS-MON                               017400\n                07-0100-PRO                                       017500\n                08-0100-PRO-PRD                                   017600\n                09-0100-PRO-PRD-INS                               017700\n                10-0100-PRO-MON                                   017800\n                11-0100-PRO-PRD-MON                               017900\n                12-0100-PRO-PRD-INS-MON                           018000\n                13-0100-SIS-PRO-BORI-BDES                         018100\n                14-0100-SIS-BORI-BDES                             018200\n             DEPENDING ON WKS-L40-FUN-L040                        018300\n             ELSE                                                 018400\n                MOVE 7                TO W77-RESULT-CORE-GL       018500\n           ELSE                                                   018600\n              MOVE 1                  TO W77-RESULT-CORE-GL.         018700\n     EXIT PROGRAM.                                                018800", "java": "@Service\n@RequiredArgsConstructor\npublic class TotalesPorClaveTransaccionService {      // TOTXCVETRA, sin estado compartido\n\n    private final MovDiaRepository movDia;             // BASEMOVDIA = CORE-GLBD10MOVDIA151\n    private final ControlDiaService control;           // LIB-CONTROL / CONSISDIA\n\n    @Transactional(readOnly = true)\n    public ConsultaTotalesResponse consulta(ConsultaTotalesRequest rq) {\n        int f = rq.funcion();\n        if (f == 0 || f == 40 || f == 41) {\n            return control.levanta(rq);                 // 00-0100-LEVANTA\n        }\n        if (!control.baseDisponible()) {               // WKS-INICIO / WKS-ABRE-SEM\n            return vacia(control.inicializado() ? ResultadoL040.BASE_DATOS_NO_DISPONIBLE\n                                                : ResultadoL040.FUNCION_INVALIDA);\n        }\n        return switch (FuncionL040.de(f).orElse(null)) {\n            case SIS -> porSistema(rq);                                   // 01-0100-SIS\n            case SIS_BORI_BDES_PROD -> porProducto(rq);                   // 02-0100-PRD\n            // ... 3 a 14 con el mismo patrón ...\n            case null, default -> vacia(ResultadoL040.FUNCION_INVALIDA);  // 15-20 y > 34\n        };\n    }\n}", "rationale": "La entrada de la librería limpia el arreglo de salida y, si la base ya está abierta, salta con <code>GO TO ... DEPENDING ON</code> al párrafo de la función. Las funciones 21 a 34 saltan a los mismos párrafos que 1 a 14, y cada párrafo distingue el nivel de esquema preguntando por el número de función. En Java el salto es un <code>switch</code> sobre el <code>enum</code>. El estado <code>WKS-INICIO</code> y <code>WKS-ABRE-SEM</code> vive en WORKING-STORAGE de una librería compartida por todas las tareas; en el servicio se delega a un componente de control y la posición de lectura viaja en la petición, de modo que el bean no guarda estado entre llamadas.", "risk": "Las funciones 15 a 20 saltan a 00005-FUNCION-ERROR, que asigna 2 (fecha inválida) y luego cae por flujo a 00010-LIMPIA-ARREGLO con W77-IND en cero y a 00-0100-LEVANTA, que termina con resultado 1. Una función mayor a 34 que no sea 40 o 41 no salta a ningún párrafo y regresa resultado 0 con el arreglo vacío.", "rules": ["RN-CORE-GL-991", "RN-CORE-GL-998"], "lines": "L1203–1259", "verified": true, "score": 100}, "s4": {"title": "Inicialización: control del día, alta del sistema y apertura", "cobol": " 00000-LIMPIA-VARIABLES.                                          019000\n*=======================                                          019100\n     PERFORM 00010-LIMPIA-ARREGLO                                 019200\n             VARYING W77-IND FROM 1 BY 1                          019300\n             UNTIL   W77-IND > 100.                               019400\n     MOVE ZERO                     TO W77-IND                     019500\n                                      W77-FECHA-VALIDA            019600\n                                      W77-RESULT-CORE-GL          019700\n                                      W77-ERROR-BASE.             019800\n 00005-FUNCION-ERROR.                                             019900\n*====================                                             020000\n    MOVE 2                         TO W77-RESULT-CORE-GL.            020100\n                                                                  020200\n 00010-LIMPIA-ARREGLO.                                            020300\n*=====================                                            020400\n     MOVE ZERO                     TO WKS-L40-PROCESO(W77-IND)    020500\n                                      WKS-L40-BCOSDET(W77-IND)    020600\n*                                      WKS-L40-BCODES(W77-IND)    020700\n                                      WKS-L40-MONEDA(W77-IND)     020800\n                                      WKS-L40-CVETRA(W77-IND)     020900\n                                      WKS-L40-ESQCON(W77-IND)     021000\n                                      WKS-L40-NUMMOV(W77-IND)     021100\n                                      WKS-L40-IMPMOV(W77-IND).    021200\n                                                                  021300\n 00-0100-LEVANTA.                                                 021400\n*================                                                 021500\n     IF WKS-L40-FUN-L040 = 0                                      021600\n        IF WKS-INICIO = 1                                         021700\n           NEXT SENTENCE                                          021800\n        ELSE                                                      021900\n           PERFORM 00-0110-LIBRERIAS                              022000\n           PERFORM 00-0120-CONSISDIA                              022100\n           IF W77-RESULT-LIBCON = 0                               022200\n              IF WKS-B01-STABDSEM = 0                             022300\n                 MOVE WKS-B01-NOMBDSEM   TO WKS-NOMBD             022400\n                 PERFORM 00-0130-ABRE-MOVDIA UNTIL W88-BASE-OPEN  022500\n                 IF W77-ERROR-BASE = 0                            022600\n                    MOVE 1         TO WKS-ABRE-SEM                022700\n                                      WKS-INICIO                  022800\n                 ELSE                                             022900\n                    NEXT SENTENCE                                 023000\n              ELSE                                                023100\n                 MOVE 7            TO W77-RESULT-CORE-GL          023200\n           ELSE                                                   023300\n              IF W77-RESULT-LIBCON = 1                            023400\n                 MOVE 8            TO W77-RESULT-CORE-GL          023500\n              ELSE                                                023600\n                 MOVE 6            TO W77-RESULT-CORE-GL          023700\n     ELSE                                                         023800\n     IF WKS-L40-FUN-L040 = 40                                     023900\n        PERFORM 00-0140-CIERRA-MOVDIA                             024000\n     ELSE                                                         024100\n     IF WKS-L40-FUN-L040 = 41                                     024200\n        PERFORM 00-0130-ABRE-MOVDIA UNTIL W88-BASE-OPEN           024300\n     ELSE                                                         024400\n        MOVE 1                     TO W77-RESULT-CORE-GL.            024500\n     MOVE W77-RESULT-CORE-GL       TO W77-RESULT-INICIO.          024600\n     EXIT PROGRAM.                                                024700", "java": "@Component\n@RequiredArgsConstructor\npublic class ControlDiaService {\n\n    private final LibControlClient libControl;     // CONSISDIA IN LIB-CONTROL, función 1\n    private final MovDiaDataSourceRouter bases;    // la base MOVDIA cambia de título por sistema\n    private final CsiProvider csi;                 // CSIID IN SOPORTECOMS\n\n    /** 00-0100-LEVANTA: función 0 abre, 40 cierra, 41 reabre. */\n    public ConsultaTotalesResponse levanta(ConsultaTotalesRequest rq) {\n        return switch (rq.funcion()) {\n            case 0 -> {\n                if (bases.abierta(rq.sistema())) yield vacia(ResultadoL040.SIN_ERROR);\n                var dia = libControl.consisdia(rq.sistema(), csi.numero());\n                yield switch (dia.resultado()) {\n                    case 0 -> dia.estadoBaseSemana() == 0\n                            ? vacia(bases.abre(rq.sistema(), dia.nombreBaseSemana()))   // 0 o 7\n                            : vacia(ResultadoL040.BASE_DATOS_NO_DISPONIBLE);            // 7\n                    case 1 -> vacia(ResultadoL040.SISTEMA_NO_DADO_DE_ALTA);             // 8\n                    default -> vacia(ResultadoL040.BASE_CONTROL_NO_DISPONIBLE);         // 6\n                };\n            }\n            case 40 -> vacia(bases.cierra(rq.sistema()));\n            case 41 -> vacia(bases.abre(rq.sistema(), null));\n            default -> vacia(ResultadoL040.FUNCION_INVALIDA);\n        };\n    }\n}", "rationale": "La función 0 se ejecuta una sola vez: carga las librerías de apoyo, consulta en LIB-CONTROL el registro del sistema en CORE-GLB01SISDIA y, si el estado de la base de la semana es cero, abre la base de movimientos del día con el nombre que entrega el control. Los resultados distinguen sistema no dado de alta (8), base de control no disponible (6) y base de movimientos no disponible (7). En Java el nombre de base se resuelve a un <code>DataSource</code> por sistema, porque MCP cambia el título de la base en tiempo de ejecución.", "risk": "00005-FUNCION-ERROR está entre 00000-LIMPIA-VARIABLES y 00010-LIMPIA-ARREGLO sin EXIT: quien llegue por GO TO ejecuta en seguida el MOVE ZERO a WKS-L40-PROCESO(0), un subíndice fuera del OCCURS 100.", "rules": ["RN-CORE-GL-994", "RN-CORE-GL-996", "RN-CORE-GL-997", "RN-CORE-GL-999"], "lines": "L1261–1318", "verified": true, "score": 100}, "s5": {"title": "Apertura de MOVDIA con reintento y cierre", "cobol": " 00-0130-ABRE-MOVDIA.                                             027800\n*====================                                             027900\n                                                                  027902\n     MOVE 1                        TO W77-BASE.                   027904\n     ADD  1                        TO W77-INTENTOS.               027906\n                                                                  027908\n     MOVE ZERO                     TO W77-ERROR-BASE              027950\n                                      W77-RESULT-CORE-GL.            027958\n     MOVE LOW-VALUES               TO WKS-NULOS.                  028000\n                                                                  028050\n     IF WKS-NOMBASE-SEM = WKS-ESPACIOS OR                         028100\n        WKS-NOMBASE-SEM = WKS-NULOS                               028200\n        MOVE 1                     TO W77-ERROR-BASE              028300\n     ELSE                                                         028500\n        IF WKS-ABRE-SEM = 0                                       028600\n           CHANGE ATTRIBUTE TITLE OF BASEMOVDIA TO WKS-NOMBASE-SEM028700\n           OPEN UPDATE BASEMOVDIA                                 028800\n             ON EXCEPTION                                         028900\n                MOVE 1               TO W77-ERROR-BASE            028901\n                IF DMSTATUS(OPENERROR)     AND                    028902\n                   DMSTATUS(DMERRORTYPE) = 39                     028904\n                   WAIT(20)                                       028906\n                   MOVE ZERO         TO W77-BASE                  028908\n                ELSE                                              028912\n                   MOVE WKS-NOMBD    TO WKS-NOM-BDERR-DMSII       029000\n                   PERFORM 900000-CHE-STA.                        029300\n                                                                  029400\n     IF W77-INTENTOS > 5                                          029402\n        MOVE \"O\"                TO WLI-TIPO-LJ TIPO-LJ            029404\n        MOVE ZERO               TO W77-INTENTOS                   029406\n        MOVE 060315             TO CODIGO-LJ                      029408\n        MOVE DMSTATUS(DMCATEGORY)    TO W77-NUM-CAT               029410\n        MOVE DMSTATUS(DMERRORTYPE)   TO W77-NUM-SUBCAT            029412\n        STRING \"ERROR EN BASE BD10 : ARCHIVO DE CONTROL EN USO \"  029414\n               \"EN FORMA EXCLUSIVA\"                               029416\n               \" ERROR DMSII CAT. \" WKS-DB-CAT(W77-NUM-CAT)       029418\n               \" SUBCATEGORIA \" W77-NUM-SUBCAT                    029420\n        DELIMITED BY SIZE                                         029422\n        INTO TEXTO-LJ                                             029424\n        MOVE TEXTO-LJ           TO WLI-TEXTO-LJ                   029426\n        CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ, MENSAJE-LJ.      029428\n                                                                  029430\n     IF W77-ERROR-BASE = 0                                        029500\n        MOVE 1                     TO WKS-ABRE-SEM                029600\n     ELSE                                                         029700\n        MOVE 7                     TO W77-RESULT-CORE-GL.            029800\n                                                                  029900\n                                                                  030000\n 00-0140-CIERRA-MOVDIA.                                           030100\n*======================                                           030200\n     MOVE ZERO                     TO W77-ERROR-BASE.             030300\n                                                                  030400\n     IF WKS-ABRE-SEM = 1                                          030500\n        CLOSE BASEMOVDIA ON EXCEPTION                             030600\n                            MOVE 1 TO W77-ERROR-BASE              030700\n                            MOVE 9 TO W77-RESULT-CORE-GL          030800\n                            MOVE WKS-NOMBD TO WKS-NOM-BDERR-DMSII 030900\n                            PERFORM 900000-CHE-STA.               031000\n     IF W77-ERROR-BASE = 0                                        031100\n        MOVE ZERO                  TO WKS-ABRE-SEM.               031200", "java": "@Component\n@RequiredArgsConstructor\npublic class MovDiaDataSourceRouter {\n\n    private final MovDiaProperties props;      // reintento-espera: 20s, max-intentos: 5\n    private final Map<Integer, DataSource> abiertas = new ConcurrentHashMap<>();\n\n    /** 00-0130-ABRE-MOVDIA: OPEN UPDATE con reintento si la base está en uso exclusivo. */\n    @Retryable(retryFor = BaseEnUsoExclusivoException.class,\n               maxAttemptsExpression = \"${movdia.max-intentos:5}\",\n               backoff = @Backoff(delayExpression = \"${movdia.reintento-espera:20000}\"))\n    public ResultadoL040 abre(int sistema, String nombreBase) {\n        if (nombreBase == null || nombreBase.isBlank()) return ResultadoL040.BASE_DATOS_NO_DISPONIBLE;\n        abiertas.computeIfAbsent(sistema, s -> conecta(nombreBase));   // DMSTATUS 39 -> excepción reintentable\n        return ResultadoL040.SIN_ERROR;\n    }\n\n    @Recover\n    ResultadoL040 agotado(BaseEnUsoExclusivoException e, int sistema, String nombreBase) {\n        log.error(\"ERROR EN BASE BD10 : ARCHIVO DE CONTROL EN USO EN FORMA EXCLUSIVA {}\", e.detalle());\n        return ResultadoL040.BASE_DATOS_NO_DISPONIBLE;   // el fuente reintenta sin fin\n    }\n\n    public ResultadoL040 cierra(int sistema) {\n        var ds = abiertas.remove(sistema);\n        return ds == null || Conexiones.cierra(ds) ? ResultadoL040.SIN_ERROR : ResultadoL040.ERROR_DMSII;\n    }\n}", "rationale": "La apertura cambia el título de BASEMOVDIA al nombre recibido y la abre. Si DMSII responde que la base está abierta en forma exclusiva (error 39) espera 20 segundos y vuelve a intentar; al pasar de cinco intentos avisa al operador. En Java el reintento es declarativo con Spring Retry y los tiempos van en <code>application.yml</code>. A diferencia del fuente, al agotar los intentos se regresa base no disponible (7) en lugar de seguir esperando, para no bloquear al llamador en línea.", "risk": "Al pasar de cinco intentos W77-INTENTOS vuelve a cero y W77-BASE sigue en cero, de modo que PERFORM ... UNTIL W88-BASE-OPEN reintenta indefinidamente mientras la base esté en uso exclusivo. Además la base se abre con OPEN UPDATE aunque la librería solo consulta.", "rules": ["RN-CORE-GL-993", "RN-CORE-GL-997"], "lines": "L1353–1412", "verified": true, "score": 100}, "s6": {"title": "Consulta por sistema: página de 100 renglones", "cobol": " 01-0100-SIS.                                                     032000\n*============                                                     032100\n     PERFORM 01-0105-FIND-FIRST                                   032200\n     IF W77-ERROR-BASE = 0                                        032300\n        IF WKS-L40-FUN-L040 = 1                                   032400\n           MOVE B50-MOV-CVETRA     TO W77-CVETRA-ANT              032500\n           MOVE 1                  TO W77-IND                     032600\n           PERFORM 01-0115-MUEVE-DATOS                            032700\n           MOVE ZERO               TO WKS-L40-NUMMOV(W77-IND)     032800\n                                      WKS-L40-IMPMOV(W77-IND)     032900\n           PERFORM 01-0110-CONSIS                                 033000\n                   UNTIL W77-IND = 100       OR                   033100\n                         W77-ERROR-BASE  > 0 OR                   033200\n                         W77-RESULT-CORE-GL > 0                      033300\n           IF W77-IND = 100                                       033400\n              PERFORM 01-0110-CONSIS                              033500\n                UNTIL B50-MOV-CVETRA > W77-CVETRA-ANT OR          033600\n                      B50-MOV-CVETRA < W77-CVETRA-ANT OR          033700\n                      W77-ERROR-BASE  > 0             OR          033800\n                      W77-RESULT-CORE-GL > 0                         033900\n           ELSE                                                   034000\n              NEXT SENTENCE                                       034100\n        ELSE                                                      034200\n           PERFORM 01-0110-CONSIS                                 034300\n                   UNTIL W77-IND = 100       OR                   034400\n                         W77-ERROR-BASE  > 0 OR                   034500\n                         W77-RESULT-CORE-GL > 0                      034600\n           IF W77-IND = 100                                       034700\n              PERFORM 01-0110-CONSIS                              034800\n                UNTIL B50-MOV-CVETRA > W77-CVETRA-ANT OR          034900\n                      B50-MOV-CVETRA < W77-CVETRA-ANT OR          035000\n                      W77-ERROR-BASE  > 0             OR          035100\n                      W77-RESULT-CORE-GL > 0.                        035200\n                                                                  035300\n     EXIT PROGRAM.                                                035400", "java": "    /** 01-0100-SIS: funciones 1 (agrupa por clave de transacción) y 21 (renglón por esquema). */\n    private ConsultaTotalesResponse porSistema(ConsultaTotalesRequest rq) {\n        boolean agrupaPorCve = rq.funcion() == 1;\n        var cursor = rq.desde() == null\n                ? movDia.primeroPorFecha(rq.fecha(), rq.moneda())     // 01-0150-FF-SIS\n                : movDia.siguienteA(rq.fecha(), rq.desde());          // 01-0155-FF-CONT\n        if (cursor.isEmpty()) return vacia(ResultadoL040.SISTEMA_SIN_TOTALES);   // 3\n\n        var pagina = new PaginaTotales(100, agrupaPorCve);           // WKS-L40-IMPORTES OCCURS 100\n        try (Stream<MovDia> filas = movDia.streamDesde(cursor.get())) {\n            filas.takeWhile(r -> !pagina.llena())                    // UNTIL W77-IND = 100\n                 .forEach(pagina::acumula);                          // 01-0110-CONSIS\n        }\n        // Con 100 renglones, la función 1 sigue sumando en el último mientras no cambie la clave.\n        return new ConsultaTotalesResponse(\n                pagina.agotada() ? ResultadoL040.FIN_DE_DATOS : ResultadoL040.SIN_ERROR,\n                pagina.renglones(), pagina.continuacion());\n    }", "rationale": "Cada función de consulta sigue el mismo patrón: posiciona el índice <code>B50SXTOTXCVE</code> en la fecha (desde el principio o desde la llave de continuación), llena hasta 100 renglones y devuelve. La función 1 agrupa registros consecutivos con la misma clave de transacción en un renglón; la función 21 entrega un renglón por esquema contable. Al llenar la página, la función 1 sigue sumando en el último renglón hasta que cambia la clave, para no partir un total entre dos páginas. En Java la página se arma con un <code>Stream</code> sobre la consulta y una clase <code>PaginaTotales</code> que encapsula el corte.", "risk": "Para la función 21 el segundo PERFORM (líneas 1447-1452) compara contra W77-CVETRA-ANT, que esta rama no asigna en la llamada; si el valor que quedó de otra llamada coincide con la clave del registro actual, 01-0110-CONSIS lleva W77-IND a 101 y escribe fuera del arreglo de 100.", "rules": ["RN-CORE-GL-998"], "lines": "L1420–1454", "verified": true, "score": 100}, "s7": {"title": "Acumulación por clave de transacción", "cobol": " 01-0110-CONSIS.                                                  036400\n*===============                                                  036500\n     MOVE B50-MOV-PROCESO          TO WKS-L40-PROCCON.            036600\n     MOVE B50-MOV-PRD              TO WKS-L40-PRODUCTO.           036700\n     MOVE B50-MOV-INS              TO WKS-L40-INSTRUMENTO.        036800\n     MOVE B50-MOV-MONEDA           TO WKS-L40-MONCON.             036900\n     MOVE B50-MOV-CVETRA           TO WKS-L40-CVETRACON.          037000\n     MOVE B50-MOV-ESQCON           TO WKS-L40-ESQCONCON.          037100\n     MOVE B50-MOV-BANCOS           TO WKS-BANCOS     .            037200\n     MOVE WKS-BORICON              TO WKS-BORICON-6D .            037220\n     MOVE WKS-BDESCON              TO WKS-BDESCON-6D .            037240\n     MOVE WKS-BANCOS-6D            TO WKS-L40-BCOSCON.            037260\n*    MOVE B50-MOV-BCODES           TO WKS-L40-BDESCON.            037300\n     IF WKS-L40-FUN-L040 = 1                                      037400\n        IF W77-CVETRA-ANT = B50-MOV-CVETRA                        037500\n           COMPUTE WKS-L40-NUMMOV(W77-IND) = B50-MOV-NUMMOV +     037600\n                                           WKS-L40-NUMMOV(W77-IND)037700\n           COMPUTE WKS-L40-IMPMOV(W77-IND) = B50-MOV-IMPMOV  +    037800\n                                           WKS-L40-IMPMOV(W77-IND)037900\n        ELSE                                                      038000\n           MOVE ZERO               TO WKS-L40-ESQCON(W77-IND)     038100\n           COMPUTE W77-IND = W77-IND + 1                          038200\n           IF W77-IND < 101                                       038300\n              PERFORM 01-0115-MUEVE-DATOS                         038400\n              MOVE B50-MOV-CVETRA     TO W77-CVETRA-ANT           038500\n           ELSE                                                   038600\n              NEXT SENTENCE                                       038700\n     ELSE                                                         038800\n        COMPUTE W77-IND = W77-IND + 1                             038900\n        PERFORM 01-0115-MUEVE-DATOS.                              039000\n     PERFORM 01-0160-FN-CONXSIS.                                  039100", "java": "/** Estado de una página; vive solo durante la llamada (en COBOL era WORKING-STORAGE compartido). */\nfinal class PaginaTotales {\n    private final int max; private final boolean agrupaPorCve;\n    private final List<TotalRenglon> renglones = new ArrayList<>();\n    private ConsultaTotalesRequest.Continuacion continuacion;\n    private boolean agotada = true;\n\n    void acumula(MovDia r) {\n        continuacion = r.llave();                          // WKS-L40-*CON := registro actual\n        int i = renglones.size() - 1;\n        if (agrupaPorCve && i >= 0 && renglones.get(i).cveTra() == r.cveTra()) {\n            var t = renglones.get(i);\n            renglones.set(i, t.suma(r.numMov(), r.impMov()));   // COMPUTE ... = B50 + acumulado\n        } else if (renglones.size() < max) {\n            renglones.add(TotalRenglon.de(r));                  // 01-0115-MUEVE-DATOS\n        } else {\n            agotada = false;                                    // W77-IND = 101: no se copia\n        }\n    }\n    boolean llena() { return renglones.size() == max && !agrupaPorCve; }\n    // TotalRenglon.suma: numMov 9(08) y impMov S9(13)V99 sin ON SIZE ERROR -> aquí Math.addExact\n    // y BigDecimal.add con verificación de precisión 15; la suma de escala 2 es exacta.\n}", "rationale": "Por cada registro leído se actualiza la llave de continuación. En la función 1, si la clave de transacción es la misma que la del renglón anterior se suman número de movimientos e importe; si cambia, se abre un renglón nuevo mientras haya lugar. En las demás funciones cada registro es un renglón. La suma de importes de escala 2 es exacta y no necesita modo de redondeo, pero los campos destino no tienen <code>ON SIZE ERROR</code>: en Java se verifica la capacidad de <code>9(08)</code> y <code>S9(13)V99</code> y se falla en lugar de truncar.", "risk": "COMPUTE sin ON SIZE ERROR sobre WKS-L40-NUMMOV 9(08) y WKS-L40-IMPMOV S9(13)V99: un total que exceda la capacidad pierde los dígitos altos sin aviso.", "rules": ["RN-CORE-GL-998"], "lines": "L1464–1494", "verified": true, "score": 100}, "s8": {"title": "Posicionamiento y continuación sobre el índice B50SXTOTXCVE", "cobol": " 01-0150-FF-SIS.                                                  041200\n*===============                                                  041300\n     FIND FIRST B50SXTOTXCVE AT                                   041400\n                B50-MOV-FEC        = WKS-L40-FECHA    AND         041500\n                B50-MOV-MONEDA NOT < WKS-L40-MONCON               041600\n             ON EXCEPTION                                         041700\n                MOVE 1             TO W77-ERROR-BASE              041800\n                IF DMSTATUS(NOTFOUND)                             041900\n                   MOVE 3          TO W77-RESULT-CORE-GL          042000\n                ELSE                                              042100\n                   MOVE 9          TO W77-RESULT-CORE-GL          042200\n                   PERFORM 900000-CHE-STA.                        042300\n                                                                  042400\n 01-0155-FF-CONT.                                                 042500\n*================                                                 042600\n     FIND FIRST B50SXTOTXCVE AT                                   042700\n                B50-MOV-FEC        = WKS-L40-FECHA    AND         042800\n        B50-MOV-PROCESO = WKS-L40-PROCCON      AND                042900\n        B50-MOV-PRD     = WKS-L40-PRODUCTO     AND                043000\n        B50-MOV-INS     = WKS-L40-INSTRUMENTO  AND                043100\n        B50-MOV-MONEDA  = WKS-L40-MONCON       AND                043200\n        B50-MOV-CVETRA  = WKS-L40-CVETRACON    AND                043300\n        B50-MOV-ESQCON  > WKS-L40-ESQCONCON                       043400\n     ON EXCEPTION                                                 043500\n     MOVE ZERO                     TO W77-CVETRA-ANT              043600\n     IF DMSTATUS(NOTFOUND)                                        043700\n        FIND FIRST B50SXTOTXCVE AT                                043800\n           B50-MOV-FEC     = WKS-L40-FECHA        AND             043900\n           B50-MOV-PROCESO = WKS-L40-PROCCON      AND             044000\n           B50-MOV-PRD     = WKS-L40-PRODUCTO     AND             044100\n           B50-MOV-INS     = WKS-L40-INSTRUMENTO  AND             044200\n           B50-MOV-MONEDA  = WKS-L40-MONCON       AND             044300\n           B50-MOV-CVETRA  > WKS-L40-CVETRACON                    044400\n        ON EXCEPTION                                              044500\n        IF DMSTATUS(NOTFOUND)                                     044600\n           FIND FIRST B50SXTOTXCVE AT                             044700\n              B50-MOV-FEC        = WKS-L40-FECHA    AND           044800\n              B50-MOV-PROCESO = WKS-L40-PROCCON      AND          044900\n              B50-MOV-PRD     = WKS-L40-PRODUCTO     AND          045000\n              B50-MOV-INS     = WKS-L40-INSTRUMENTO  AND          045100\n              B50-MOV-MONEDA  > WKS-L40-MONCON                    045200\n           ON EXCEPTION                                           045300\n           IF DMSTATUS(NOTFOUND)                                  045400\n              FIND FIRST B50SXTOTXCVE AT                          045500\n                 B50-MOV-FEC        = WKS-L40-FECHA    AND        045600\n                 B50-MOV-PROCESO = WKS-L40-PROCCON      AND       045700\n                 B50-MOV-PRD     = WKS-L40-PRODUCTO     AND       045800\n                 B50-MOV-INS     > WKS-L40-INSTRUMENTO            045900\n              ON EXCEPTION                                        046000\n              IF DMSTATUS(NOTFOUND)                               046100\n                 FIND FIRST B50SXTOTXCVE AT                       046200\n                    B50-MOV-FEC     = WKS-L40-FECHA    AND        046300\n                    B50-MOV-PROCESO = WKS-L40-PROCCON   AND       046400\n                    B50-MOV-PRD     > WKS-L40-PRODUCTO            046500\n                 ON EXCEPTION                                     046600\n                 IF DMSTATUS(NOTFOUND)                            046700\n                    FIND FIRST B50SXTOTXCVE AT                    046800\n                       B50-MOV-FEC     = WKS-L40-FECHA    AND     046900\n                       B50-MOV-PROCESO > WKS-L40-PROCCON          047000\n                    ON EXCEPTION                                  047100\n                    IF DMSTATUS(NOTFOUND)                         047200\n                       MOVE 1      TO W77-ERROR-BASE              047300\n                       IF DMSTATUS(NOTFOUND)                      047400\n                          MOVE 3   TO W77-RESULT-CORE-GL          047500\n                       ELSE                                       047600\n                          MOVE 9   TO W77-RESULT-CORE-GL          047700\n                          PERFORM 900000-CHE-STA                  047800\n                    ELSE                                          047900\n                       MOVE 9   TO W77-RESULT-CORE-GL             048000\n                       PERFORM 900000-CHE-STA                     048100\n                 ELSE                                             048200\n                    MOVE 9   TO W77-RESULT-CORE-GL                048300\n                    PERFORM 900000-CHE-STA                        048400\n              ELSE                                                048500\n                 MOVE 9   TO W77-RESULT-CORE-GL                   048600\n                 PERFORM 900000-CHE-STA                           048700\n           ELSE                                                   048800\n              MOVE 9   TO W77-RESULT-CORE-GL                      048900\n              PERFORM 900000-CHE-STA                              049000\n        ELSE                                                      049100\n           MOVE 9   TO W77-RESULT-CORE-GL                         049200\n           PERFORM 900000-CHE-STA                                 049300\n     ELSE                                                         049400\n        MOVE 9   TO W77-RESULT-CORE-GL                            049500\n        PERFORM 900000-CHE-STA.                                   049600\n                                                                  049700\n 01-0160-FN-CONXSIS.                                              049800\n*===================                                              049900\n     FIND NEXT  B50SXTOTXCVE AT                                   050000\n                B50-MOV-FEC        = WKS-L40-FECHA                050100\n             ON EXCEPTION                                         050200\n                MOVE 1             TO W77-ERROR-BASE              050300\n                IF DMSTATUS(NOTFOUND)                             050400\n                   MOVE 99         TO W77-RESULT-CORE-GL          050500\n                ELSE                                              050600\n                   MOVE 9          TO W77-RESULT-CORE-GL          050700\n                   PERFORM 900000-CHE-STA.                        050800", "java": "public interface MovDiaRepository extends JpaRepository<MovDia, MovDiaId> {\n\n    /** 01-0150-FF-SIS: primera fila de la fecha con moneda >= la pedida. */\n    @Query(\"\"\"\n        select m from MovDia m\n         where m.fecha = :fecha and m.moneda >= :moneda\n         order by m.proceso, m.producto, m.instrumento, m.moneda, m.cveTra, m.esqCon\"\"\")\n    Stream<MovDia> primeroPorFecha(LocalDate fecha, int moneda);\n\n    /**\n     * 01-0155-FF-CONT: la escalera de seis FIND FIRST (esqcon >, cvetra >, moneda >,\n     * instrumento >, producto >, proceso >) es una búsqueda \"mayor que\" sobre la llave\n     * compuesta del índice. En SQL es una comparación de tuplas (keyset pagination).\n     */\n    @Query(nativeQuery = true, value = \"\"\"\n        select * from movdia\n         where fecha = :#{#fecha}\n           and (proceso, producto, instrumento, moneda, cvetra, esqcon)\n             > (:#{#d.proceso}, :#{#d.producto}, :#{#d.instrumento},\n                :#{#d.moneda}, :#{#d.cveTra}, :#{#d.esqCon})\n         order by proceso, producto, instrumento, moneda, cvetra, esqcon\"\"\")\n    Stream<MovDia> siguienteA(LocalDate fecha, ConsultaTotalesRequest.Continuacion d);\n}\n// 01-0160-FN-CONXSIS: FIND NEXT ... AT fecha; NOTFOUND = 99 (fin de datos), otro error = 9.", "rationale": "FF-SIS posiciona al inicio de la fecha. FF-CONT implementa la continuación: intenta el siguiente esquema con la misma llave, si no existe la siguiente clave de transacción, luego la siguiente moneda, instrumento, producto y proceso. Esa escalera de <code>FIND FIRST</code> anidados es exactamente una comparación \"mayor que\" sobre la llave compuesta del índice, que en SQL se escribe como comparación de tuplas y da paginación por llave sin <code>OFFSET</code>. FN-CONXSIS avanza con <code>FIND NEXT</code> y traduce el fin de conjunto a 99. El orden del <code>ORDER BY</code> debe ser el del índice DMSII.", "risk": "En la última rama (líneas 1578-1584) el IF DMSTATUS(NOTFOUND) interior está dentro de otro IF DMSTATUS(NOTFOUND): siempre es verdadero y su ELSE con resultado 9 es inalcanzable. La continuación no filtra por WKS-L40-SISTEMA; depende de que la base abierta sea la del sistema.", "rules": ["RN-CORE-GL-992", "RN-CORE-GL-993"], "lines": "L1518–1614", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

@@ -1,0 +1,693 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BC-02 · Cajeros y PoS — Enterprise Digital Brain LegacyCore</title>
+<!-- lookfeel:cap-relationships v1 -->
+<script src="../assets/mermaid.min.js"></script>
+<style>
+:root{
+  --red:#A100FF;--gold:#6CC5D8;--ink:#F0F8FA;
+  --muted:#7fb8c8;--muted2:#5a98a8;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --surf:#0D2C3A;--surfb:#081825;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#071c23;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;font-size:14px;line-height:1.55}
+
+.pbar{position:fixed;top:0;left:0;width:100%;height:3px;
+  background:linear-gradient(90deg,var(--gold),#fff);z-index:300}
+
+.aurora{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none}
+.aurora div{position:absolute;border-radius:50%;filter:blur(90px);opacity:.28;
+  animation-timing-function:ease-in-out;animation-iteration-count:infinite;animation-direction:alternate}
+.a1{width:600px;height:600px;background:radial-gradient(circle,rgba(193,39,45,.45),transparent 70%);
+  top:-10%;left:-5%;animation:f1 24s infinite}
+.a2{width:500px;height:500px;background:radial-gradient(circle,rgba(108,197,216,.35),transparent 70%);
+  bottom:5%;right:5%;animation:f2 28s infinite}
+@keyframes f1{0%{transform:translate(0,0) scale(1)}100%{transform:translate(60px,40px) scale(1.15)}}
+@keyframes f2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-50px,30px) scale(1.1)}}
+
+/* ─── SITE NAV ─── */
+nav.sitenav{position:fixed;top:3px;left:0;width:100%;z-index:200;padding:9px 24px;
+  display:flex;align-items:center;gap:16px;min-height:48px;
+  background:rgba(7,28,35,.75);backdrop-filter:blur(18px);
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.blogo{font-size:18px;font-weight:900;color:var(--red);padding:0 6px;
+  background:rgba(193,39,45,.12);border-radius:6px;border:1px solid rgba(193,39,45,.3)}
+.nt{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.sp{flex:1}
+a.jump{color:var(--muted);font-size:13px;text-decoration:none;
+  padding:4px 10px;border-radius:6px;transition:all .2s;white-space:nowrap}
+a.jump:hover{color:var(--ink);background:var(--glass)}
+
+/* ─── SECTION TABS (nav de secciones, re-apilada bajo la site nav) ─── */
+nav.gemcog-tabs{background:rgba(7,28,35,.72)!important;backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(108,197,216,.18)!important;
+  display:flex!important;overflow-x:auto!important;padding:0 14px!important;
+  scrollbar-width:none!important}
+nav.gemcog-tabs::-webkit-scrollbar{display:none!important}
+nav.gemcog-tabs button{background:none!important;border:none!important;padding:9px 14px!important;
+  font-size:12px!important;font-family:inherit!important;cursor:pointer!important;
+  color:var(--muted)!important;font-weight:600!important;border-bottom:2px solid transparent!important;
+  margin-bottom:-1px!important;white-space:nowrap!important}
+nav.gemcog-tabs button.active{border-bottom-color:var(--gold)!important;color:var(--gold)!important;
+  background:rgba(108,197,216,.10)!important}
+nav.gemcog-tabs button:hover{color:var(--gold)!important;background:rgba(108,197,216,.06)!important}
+
+main{position:relative;z-index:1;padding:20px 32px 60px;max-width:1240px;margin:0 auto}
+
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;
+  color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+h1{font-size:clamp(26px,3vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}
+h1 span{background:linear-gradient(135deg,#fff 30%,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:15px;line-height:1.6;max-width:820px;margin-bottom:30px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:36px}
+.stat{background:var(--glass);border:1px solid rgba(255,255,255,.09);border-radius:12px;
+  padding:16px 18px;text-align:center}
+.statn{font-size:26px;font-weight:800;
+  background:linear-gradient(135deg,#fff,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.statl{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase}
+
+/* ─── CARD ─── */
+.card{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  padding:24px 28px;margin-bottom:22px}
+.meta-card{border-color:rgba(108,197,216,.22)}
+
+/* ─── TIPOGRAFÍA DE SECCIÓN ─── */
+h2{font-size:18px;color:var(--gold);margin:2px 0 14px;padding-bottom:8px;
+  border-bottom:1px solid rgba(108,197,216,.18);scroll-margin-top:112px;font-weight:800;letter-spacing:.01em}
+h2 .sn{display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--gold),#3f8ea0);color:#04222b;font-size:12px;font-weight:800;
+  min-width:22px;height:22px;border-radius:50%;margin-right:9px;vertical-align:middle;padding:0 6px}
+h3{font-size:15px;color:#9dd8e0;margin:16px 0 8px;scroll-margin-top:112px;font-weight:700}
+h4{font-size:13.5px;color:#9dd8e0;margin:14px 0 6px}
+p{margin:8px 0}
+a{color:var(--gold)}a:hover{color:#fff}
+hr{border:0;border-top:1px solid rgba(108,197,216,.14);margin:18px 0}
+
+code{background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.2);
+  border-radius:4px;padding:1px 6px;font-size:11.5px;color:var(--gold);
+  font-family:'SF Mono',ui-monospace,Consolas,monospace}
+pre{background:rgba(7,20,28,.72);border:1px solid rgba(108,197,216,.15);border-radius:8px;
+  padding:12px 14px;overflow:auto;font-size:12.3px;color:var(--ink);margin:10px 0}
+pre code{background:none;border:none;padding:0;color:var(--ink)}
+
+blockquote{background:rgba(7,20,28,.6);border-left:3px solid var(--gold);
+  padding:10px 16px;margin:12px 0;font-size:12.8px;border-radius:0 8px 8px 0;color:var(--ink)}
+blockquote p{margin:3px 0}
+
+/* ─── TABLAS ─── */
+table{width:100%;border-collapse:collapse;font-size:12.7px;margin:12px 0}
+thead th{background:rgba(7,20,28,.6);color:var(--gold);padding:9px 12px;
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid rgba(108,197,216,.22)}
+tbody td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--muted);vertical-align:top}
+tbody tr:nth-child(even) td{background:rgba(108,197,216,.03)}
+tbody tr:hover td{background:rgba(108,197,216,.06)}
+td b,td strong{color:var(--ink);font-weight:600}
+
+/* ─── AMPLIACIONES / NUEVO ─── */
+.nuevo-h{background:rgba(245,166,35,.10)!important;border-left:5px solid #F5A623;padding-left:12px!important;border-radius:0 8px 8px 0}
+.amp-h{background:rgba(30,143,160,.10)!important;border-left:5px solid #1E8FA0;padding-left:12px!important;border-radius:0 8px 8px 0}
+.badge-new{background:#c8920a;color:#fff;font-size:9.5px;font-weight:800;padding:2px 8px;
+  border-radius:8px;letter-spacing:.5px;vertical-align:middle;margin-left:10px}
+
+/* ─── SME ─── */
+.sme-section{background:rgba(7,20,28,.5);border:1px solid rgba(108,197,216,.28);border-radius:12px;padding:6px 4px}
+.sme-section h2{color:var(--gold)}
+.sme-btns{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.sme-btn{border:1px solid rgba(108,197,216,.3);background:rgba(14,46,58,.7);color:var(--gold);
+  padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
+.sme-btn:hover{background:rgba(26,69,85,.9);color:#fff}
+.sme-btn.btn-bnm{background:#7a1014;color:#fff;border-color:#7a1014}
+.sme-btn.btn-gray{background:#1a4555;color:#fff;border-color:#1a4555}
+.sme-btn.danger{background:#2a0000;color:#ff9999;border-color:#7a0000}
+[contenteditable]{outline:none;min-width:60px}
+[contenteditable]:focus{background:rgba(10,30,40,.9);outline:1px solid var(--gold)}
+
+/* ─── MERMAID ─── */
+.mermaid{background:#040f14!important;border:1px solid rgba(108,197,216,.18)!important;
+  border-radius:12px!important;padding:18px;margin:14px 0;overflow-x:auto;position:relative;text-align:center}
+.mermaid svg{max-width:100%!important;height:auto!important;background:#040f14!important}
+/* diagramas de secuencia grandes: tamaño reducido (≈6 participantes por vista) + scroll horizontal */
+.mermaid.mmscroll{overflow-x:auto;text-align:left}
+.mermaid.mmscroll svg{max-width:none!important;height:auto}  /* el ancho lo fija scaleSeqDiagrams (inline) */
+/* doble barra de scroll: una barra ESPEJO arriba del diagrama (sincronizada por JS) */
+.mmscroll-top{overflow-x:auto;overflow-y:hidden;height:16px;margin:14px 0 2px;
+  border-radius:6px;background:rgba(7,20,28,.5)}
+.mmscroll-top::-webkit-scrollbar{height:12px}
+.mmscroll-top::-webkit-scrollbar-thumb{background:#2a5866;border-radius:6px}
+.mmscroll-top::-webkit-scrollbar-track{background:transparent}
+.mmscroll-top-inner{height:1px}
+.mermaid .node text,.mermaid .nodeLabel,.mermaid text{fill:#F0F8FA!important}
+.mermaid .edgePath .path,.mermaid .flowchart-link{stroke:#6CC5D8!important}
+.mermaid .edgeLabel,.mermaid .edgeLabel p{background:#071c23!important;color:#6CC5D8!important}
+.mmfs-btn{position:absolute;top:8px;right:8px;z-index:5;background:rgba(14,46,58,.9);color:var(--gold);
+  border:1px solid var(--gold);border-radius:6px;padding:4px 11px;font:600 12px inherit;cursor:pointer;opacity:.82}
+.mmfs-btn:hover{opacity:1;background:#122d3a}
+.mermaid:fullscreen{background:#040f14!important;display:flex;align-items:center;justify-content:center;padding:2vh 2vw;overflow:auto}
+.mermaid:fullscreen svg{max-width:96vw!important;max-height:92vh!important;width:auto!important;height:auto!important}
+.mermaid:fullscreen .mmfs-btn{top:16px;right:16px;font-size:14px;padding:6px 14px}
+.nar{color:var(--muted);font-size:12.8px;line-height:1.7;margin:8px 2px 4px}
+
+/* ─── HUB TOOLTIP ─── */
+/* position:fixed para que el panel no quede relativo a main{position:relative} */
+.hub-panel{position:fixed;z-index:500;max-width:560px;background:#0a2530!important;
+  border:1px solid #2fe0e0!important;border-radius:8px;padding:10px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.6);
+  max-height:80vh;overflow-y:auto}
+.hub-panel-title{color:#2fe0e0!important;font-weight:700;font-size:13px;margin-bottom:8px}
+.hub-panel .hub-pin{float:right;font-size:10.5px;color:#7ca8b8;font-weight:400}
+.hub-tbl{margin:0!important}
+
+.foot{color:var(--muted2);font-size:11.5px;border-top:1px solid rgba(108,197,216,.14);
+  margin-top:14px;padding-top:8px;font-style:italic}
+
+footer{text-align:center;padding:36px 0 60px;color:var(--muted2);font-size:13px;position:relative;z-index:1}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--gold)}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .5s,transform .5s}
+.reveal.visible{opacity:1;transform:none}
+</style>
+<script>
+(function(){
+  function initMermaid(){
+    if(typeof mermaid==='undefined'){setTimeout(initMermaid,60);return;}
+    var nodes = [].slice.call(document.querySelectorAll('.mermaid'));
+    function showErr(where,e){
+      var m=(e&&(e.str||e.message))||String(e);
+      nodes.forEach(function(d){ if(d.querySelector('svg'))return;
+        d.insertAdjacentHTML('afterbegin','<div style="color:#ff9a9a;font:12px monospace;padding:8px;border:1px solid #ff9a9a;border-radius:6px;margin-bottom:8px;white-space:pre-wrap">Mermaid ['+where+']: '+(''+m).replace(/</g,'&lt;')+'</div>'); });
+    }
+    var themed={startOnLoad:false,securityLevel:'loose',
+      flowchart:{useMaxWidth:false,nodeSpacing:30,rankSpacing:40,padding:8,htmlLabels:true},
+      sequence:{useMaxWidth:false,mirrorActors:false},
+      theme:'base',themeVariables:{
+      background:'#040f14',mainBkg:'#0e2e3a',primaryColor:'#0e2e3a',
+      primaryTextColor:'#F0F8FA',primaryBorderColor:'#6CC5D8',lineColor:'#6CC5D8',
+      secondaryColor:'#122d3a',secondaryTextColor:'#F0F8FA',secondaryBorderColor:'#6CC5D8',
+      tertiaryColor:'#071c23',tertiaryTextColor:'#9dd8e0',tertiaryBorderColor:'#1a4555',
+      noteBkgColor:'#0e2e3a',noteTextColor:'#F0F8FA',noteBorderColor:'#6CC5D8',
+      edgeLabelBackground:'#071c23',clusterBkg:'#071c23',clusterBorder:'#1a4555',
+      titleColor:'#6CC5D8',actorBkg:'#0e2e3a',actorBorder:'#6CC5D8',actorTextColor:'#F0F8FA',
+      signalColor:'#6CC5D8',signalTextColor:'#F0F8FA',labelBoxBkgColor:'#0e2e3a',
+      labelBoxBorderColor:'#6CC5D8',labelTextColor:'#F0F8FA',loopTextColor:'#9dd8e0',
+      activationBkgColor:'#122d3a',activationBorderColor:'#6CC5D8',
+      darkMode:true,fontSize:'13px',fontFamily:'Arial,sans-serif'
+    }};
+    try{ mermaid.initialize(themed); }
+    catch(e1){ showErr('initialize',e1); try{ mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'dark'}); }catch(e2){ showErr('initialize2',e2); } }
+    function addBtns(){
+      nodes.forEach(function(d){
+        if(d.classList.contains('mmscroll'))return;if(d.querySelector('.mmfs-btn'))return;
+        var btn=document.createElement('button');
+        btn.className='mmfs-btn'; btn.type='button'; btn.textContent='⛶ Ampliar';
+        btn.onclick=function(ev){ ev.stopPropagation();
+          var rq=d.requestFullscreen||d.webkitRequestFullscreen;
+          if(!document.fullscreenElement&&!document.webkitFullscreenElement){ rq&&rq.call(d); }
+          else { (document.exitFullscreen||document.webkitExitFullscreen).call(document); } };
+        d.appendChild(btn);
+      });
+    }
+    function post(){ addBtns(); if(window.initHubTooltips){ try{ initHubTooltips(); }catch(_){} } if(window.initXcapLinks){ try{ initXcapLinks(); }catch(_){} } }
+    try{
+      var p=(typeof mermaid.run==='function')?mermaid.run({nodes:nodes}):(typeof mermaid.init==='function')?mermaid.init(undefined,nodes):null;
+      if(p&&typeof p.then==='function'){ p.then(post).catch(function(e){ showErr('run',e); post(); }); }
+      else { post(); }
+    }catch(e){ showErr('run',e); post(); }
+    document.addEventListener('fullscreenchange',function(){
+      var fs=document.fullscreenElement;
+      nodes.forEach(function(d){ var b=d.querySelector('.mmfs-btn'); if(b){ b.textContent=(fs===d)?'✕ Cerrar':'⛶ Ampliar'; } });
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initMermaid);}else{initMermaid();}
+})();
+</script>
+</head><body>
+<div class="pbar"></div>
+<div class="aurora"><div class="a1"></div><div class="a2"></div></div>
+<nav class="sitenav portal-header">
+  <img src="data:image/png;base64,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" alt="Accenture" style="height:26px;width:auto;display:block" onerror="this.outerHTML=&quot;<span class='blogo'>B</span>&quot;">
+  <span class="nt">Enterprise Digital Brain · LegacyCore Mainframe</span><span class="sp"></span>
+  <a class="jump" href="../modelo-capacidades.html">&larr; Capacidades</a>
+  <a class="jump" href="../index.html">Hub</a>
+  <a class="jump" href="../rules-report.html">Reglas</a>
+  <a class="jump" href="../vocab.html">Vocabulario</a>
+  <a class="jump" href="../traceability.html">Trazabilidad</a>
+  <a class="jump" href="../integration.html">Integración</a>
+  <a class="jump" href="../cap-relationships.html">Relaciones</a>
+</nav>
+<main>
+  <div class="eyebrow reveal"><span class="dot"></span>Modelo de Capacidades · BC-02</div>
+  <h1 class="reveal">BC-02 · <span>Cajeros y PoS</span></h1>
+  <p class="subtitle reveal">2.2.6 ATM + 2.2.7 PoS &middot; CORE-DEP+CORE-GL &middot; gemcog-kb-2026-08-25-cliente-entregable &middot; v1.13</p>
+  <div class="stats reveal">
+<div class="stat"><div class="statn">6</div><div class="statl">Programas</div></div>
+<div class="stat"><div class="statn">44</div><div class="statl">Reglas</div></div>
+<div class="stat"><div class="statn">19</div><div class="statl">Tareas</div></div>
+<div class="stat"><div class="statn">6</div><div class="statl">Casuísticas</div></div>
+<div class="stat"><div class="statn">CORE-DEP+CORE-GL</div><div class="statl">Sistema</div></div>
+  </div>
+<div class="card meta-card reveal"><p># BC-02 · Cajeros y PoS</p>
+<blockquote><p>Dominio: 2 · Channels · Subdominio: Un-Assisted Touchpoints</p><p>Capacidades: <strong>2.2.6 ATM</strong> · <strong>2.2.7 PoS</strong> — comparten el mismo flujo batch en P630</p><p>Cobertura: CORE-DEP · Programa principal: CORE-DEPP630 (TARINTERCAM)</p><p>Reglas vinculadas: RN-CORE-DEP-037..055 · RN-CORE-DEP-510..515 · RN-CORE-DEP-527..532 · RN-CORE-DEP-730..733 · RN-CORE-DEP-764..765 · RN-CORE-DEP-923 · RN-CORE-GL-581..590 (48 reglas · trazabilidad automática 2026-08-12)</p><p>Jerarquía: <strong>N1</strong> Dominio 2 · Channels → <strong>N2</strong> Subdominio Un-Assisted Touchpoints → <strong>N3</strong> Capacidad BC-02 Cajeros y PoS (BIAN 2.2.6) → <strong>N4-5</strong> Procesos/Flujo de tareas (ver Inventario de Tareas) → <strong>N6</strong> Reglas (ver Reglas vinculadas)</p><p>Indexado: ✅ 2026-08-12 — correlacionado vocab↔reglas↔capacidad (build-traceability.py · clave BC-XX)</p><p>Nota: ATM y PoS se documentan en un solo archivo porque P630 procesa tarjetas de intercambio para ambos canales con la misma lógica. La diferenciación ATM vs. PoS reside en el origen del movimiento (campo B02T-TIPO-CANAL en CORE-DEPB02TMOVTOS), no en la lógica de liquidación.</p><p>bian_ref: 2.2.6 ATM + 2.2.7 PoS</p></blockquote></div>
+<div class="card reveal"><h2 id="ctx"><span class="sn">1</span>Contexto funcional</h2>
+<p>La capacidad de <strong>Cajeros y PoS</strong> cubre el procesamiento batch de los movimientos de tarjeta originados en los dos puntos de contacto no asistidos: <strong>cajeros automáticos (ATM, 2.2.6)</strong> y <strong>terminales punto de venta (PoS, 2.2.7)</strong>. Su motor es <strong>CORE-DEPP630 (TARINTERCAM)</strong>, que procesa las tarjetas de intercambio de ambos canales con la <strong>misma lógica de liquidación</strong>; la diferenciación ATM vs. PoS no está en el cálculo sino en el <strong>origen del movimiento</strong> (campo <strong>B02T-TIPO-CANAL</strong> en CORE-DEPB02TMOVTOS) — por eso ambos se documentan en un solo archivo. La capacidad liquida y contabiliza los movimientos de intercambio de tarjeta hacia las cuentas de captación del cliente, e incluye la distribución geográfica de autorizaciones PoS (<strong>P400</strong>, reasignado desde cap-sta · CORE-DEP-25).</p></div>
+<div class="card reveal"><h2 id="inv"><span class="sn">2</span>Inventario de Tareas</h2>
+<table><thead><tr><th>ID</th><th>Tarea</th><th>Programa</th><th>Componente fuente</th><th>Tipo</th></tr></thead><tbody><tr><td>T-TAR-001</td><td>Validar versión del programa contra catálogo central CTLVERS</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>validación</td></tr><tr><td>T-TAR-002</td><td>Resolver librería de cálculo de fechas vía DAME_TIT IN CTLVERS</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>control</td></tr><tr><td>T-TAR-003</td><td>Inicializar archivo de salida S244 con cabecera (cadena Teletón)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>escritura</td></tr><tr><td>T-TAR-004</td><td>Leer siguiente movimiento de tarjeta de CORE-DEPB02TMOVTOS (LOCK NEXT)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>consulta</td></tr><tr><td>T-TAR-005</td><td>Clasificar estatus contable del movimiento (00=vigente · 15=Amex · otros=omitir)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>validación</td></tr><tr><td>T-TAR-006</td><td>Detectar tipo de captura (manual = Base24 vacío/000000 · automática = Base24 válido)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>validación</td></tr><tr><td>T-TAR-007</td><td>Calcular BIN adquirente por primer dígito de tarjeta (3/4→454061 · otros→543006)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>validación</td></tr><tr><td>T-TAR-008</td><td>Calcular dígito verificador Luhn para referencia de 23 posiciones (WKS-I04-RE-*)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>validación</td></tr><tr><td>T-TAR-009</td><td>Calcular día juliano del movimiento vía librería S000LIBFEC (DAME_DIAJUL2K)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>consulta</td></tr><tr><td>T-TAR-010</td><td>Grabar registro de detalle en archivo S244 (paragraph 930-GRABA-I04)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>escritura</td></tr><tr><td>T-TAR-011</td><td>Grabar registro de punteo hacia CORE-GL en archivo I08 (paragraph 960-GRABA-I08)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>contable</td></tr><tr><td>T-TAR-012</td><td>Grabar registro American Express en archivo AMEXMNL → INTELAR</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>escritura</td></tr><tr><td>T-TAR-013</td><td>Acumular contador e importe en variables de cierre (WKS-NUM-REG / WKS-IMP-TOT)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>control</td></tr><tr><td>T-TAR-014</td><td>Capturar interrupción externa (TASKVALUE) y registrar rastro de auditoría</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>control</td></tr><tr><td>T-TAR-015</td><td>Escribir trailer de cierre en archivo S244 con contadores acumulados</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>escritura</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="cas"><span class="sn">3</span>Casuísticas</h2>
+<h3>CS-TAR-01: Cargo por tarjeta ATM/PoS vigente — captura automática (happy path)</h3>
+<p><strong>Tipo:</strong> happy-path <strong>Condición de entrada:</strong> Movimiento en CORE-DEPB02TMOVTOS con estatus contable 00, autorización Base24 válida (≠ "000000"/espacios), primer dígito 4 (Visa) <strong>Resultado:</strong> Registro de detalle en S244 con BIN 454061 y tipo-tran=0 (automático); registro de punteo en I08 hacia CORE-GL; acumuladores incrementados; ciclo continúa con siguiente movimiento <strong>Ancla:</strong> <code>P630TARINTERCAM.txt:926-929</code> (IF B02T-STA-MOVTO = 0 → PERFORM 930-GRABA-I04 + 960-GRABA-I08) + <code>:979-980</code> (IF WKS-I04-DIG-TARJ = 3 OR 4 → MOVE 454061 TO WKS-I04-RE-BINADQ) + <code>:947-951</code> (auto: B02T-AUT-B24 válido → WKS-I04-TIPO-TRAN = 0) <strong>Secuencia:</strong></p>
+<pre><code>T-TAR-001 → T-TAR-002 → T-TAR-003
+  → [ciclo] T-TAR-004 → T-TAR-005 (estatus 00)
+    → T-TAR-006 (automática) → T-TAR-007 (BIN 454061)
+    → T-TAR-008 → T-TAR-009
+    → T-TAR-010 → T-TAR-011 → T-TAR-013
+  → [siguiente] T-TAR-004 ...
+  → [fin] T-TAR-015</code></pre>
+<h3>CS-TAR-02: Cargo por tarjeta ATM/PoS vigente — captura manual</h3>
+<p><strong>Tipo:</strong> happy-path (variante) <strong>Condición de entrada:</strong> Movimiento con estatus 00, campo B02T-AUT-B24 = "000000" o espacios <strong>Resultado:</strong> Registro en S244 con tipo-tran=1 (manual); procesamiento idéntico al CS-TAR-01 en lo demás <strong>Ancla:</strong> <code>P630TARINTERCAM.txt:947-949</code> (IF B02T-AUT-B24 = "000000" OR "      " → MOVE 1 TO WKS-I04-TIPO-TRAN) + <code>:926</code> (rama estatus 0 idéntica a CS-TAR-01) <strong>Secuencia:</strong></p>
+<pre><code>T-TAR-004 → T-TAR-005 (estatus 00) → T-TAR-006 (manual: tipo-tran=1)
+  → T-TAR-007 → T-TAR-008 → T-TAR-009 → T-TAR-010 → T-TAR-011 → T-TAR-013</code></pre>
+<h3>CS-TAR-03: Movimiento American Express</h3>
+<p><strong>Tipo:</strong> happy-path (ruta diferenciada) <strong>Condición de entrada:</strong> Movimiento con estatus contable 15 ("no contable referido") <strong>Resultado:</strong> Sin registro en S244 (Teletón); registro de punteo en I08 hacia CORE-GL; registro en AMEXMNL para INTELAR <strong>Ancla:</strong> <code>P630TARINTERCAM.txt:931-934</code> (IF B02T-STA-MOVTO = 15 → PERFORM 960-GRABA-I08 + 991-ASIGNA-VALORES-DETALLE + 991-ESCRIBE-AMEXMN; NO ejecuta 930-GRABA-I04/S244) <strong>Secuencia:</strong></p>
+<pre><code>T-TAR-004 → T-TAR-005 (estatus 15 = Amex)
+  → T-TAR-011 → T-TAR-012 → T-TAR-013</code></pre>
+<h3>CS-TAR-04: Movimiento con estatus no procesable</h3>
+<p><strong>Tipo:</strong> edge-case <strong>Condición de entrada:</strong> Movimiento con estatus contable ≠ 00 y ≠ 15 <strong>Resultado:</strong> Sin ningún archivo de salida; el movimiento se omite silenciosamente; ciclo continúa <strong>Ancla:</strong> <code>P630TARINTERCAM.txt:926-934</code> (910-GRABA-ARCHS: solo IF B02T-STA-MOVTO = 0 e IF = 15 tienen rama con PERFORM; cualquier otro estatus cae sin acción → se omite silenciosamente) <strong>Secuencia:</strong></p>
+<pre><code>T-TAR-004 → T-TAR-005 (estatus no procesable) → T-TAR-004 (siguiente movimiento)</code></pre>
+<h3>CS-TAR-05: Error DMSII durante lectura de movimientos</h3>
+<p><strong>Tipo:</strong> error <strong>Condición de entrada:</strong> La lectura LOCK NEXT sobre CORE-DEPB02TMOVTOS retorna error distinto de NOTFOUND (fin de datos) <strong>Resultado:</strong> Error registrado en log (999-MGS-DMSII); terminación forzada vía CALL SYSTEM DMTERMINATE — proceso termina anormalmente, sin escribir trailer de S244 <strong>Ancla:</strong> <code>P630TARINTERCAM.txt:916-918</code> (900-LEE-B02: si no es W88-DB-NOTFOUND → MOVE "ERROR FIND NEXT CORE-DEPB02TMOVTOS" + PERFORM 999-MGS-DMSII + CALL SYSTEM DMTERMINATE; no llega a 970-GRABA-TRAILERS) <strong>Secuencia:</strong></p>
+<pre><code>T-TAR-004 (error DMSII) → CALL SYSTEM DMTERMINATE (terminación forzada, sin T-TAR-015)</code></pre>
+<h3>CS-TAR-06: Interrupción externa durante procesamiento (TASKVALUE)</h3>
+<p><strong>Tipo:</strong> edge-case <strong>Condición de entrada:</strong> El orquestador batch envía señal de interrupción (cambio de TASKVALUE tipo HI) durante el ciclo de procesamiento de un movimiento <strong>Resultado:</strong> Registro de la autorización en curso en el log de auditoría; proceso continúa o termina según el valor TASKVALUE recibido (por ejemplo, TASKVALUE=3016 = DIVESTITURE flag) <strong>Ancla:</strong> <code>P630TARINTERCAM.txt:719-723</code> (DECLARATIVES INTERRUPT-SECCION / USE AS INTERRUPT PROCEDURE / INTERRUPT-BY-HI → MOVE ATTRIBUTE TASKVALUE OF MYSELF TO W77-MY-VALUE + STRING "AUTORIZACION"/MSG-LJ como rastro de auditoría) <strong>Secuencia:</strong></p>
+<pre><code>T-TAR-004 → T-TAR-014 (interrupción capturada → registro de auditoría) → continúa o termina</code></pre></div>
+<div class="card reveal"><h2 id="seq"><span class="sn">4</span>Diagrama de secuencia</h2>
+<div class="mermaid mmscroll">
+sequenceDiagram
+  participant WFL as WFL Orquestador
+  participant P630 as CORE-DEPP630 (TARINTERCAM)
+  participant CTLVERS as CTLVERS (Versiones)
+  participant B02T as CORE-DEPB02TMOVTOS (DMSII)
+  participant LIBFEC as S000LIBFEC (Fechas)
+  participant S244 as Archivo S244 (Teletón)
+  participant I08 as Archivo I08 (CORE-GL punteo)
+  participant AMEX as Archivo AMEXMNL (INTELAR)
+
+  WFL->>P630: INITIATE (parámetros WFL)
+
+  P630->>CTLVERS: T-TAR-001 Validar versión CORE-DEPP630/25MTP004
+  CTLVERS-->>P630: OK (versión vigente)
+
+  P630->>CTLVERS: T-TAR-002 DAME_TIT S000LIBFEC
+  CTLVERS-->>P630: Título de librería de fechas (WKS-LIBVER-TITULO)
+
+  P630->>S244: T-TAR-003 Escribir cabecera (NOM-CADENA=TELETON, ORI=00, VENTANA=01)
+
+  loop Por cada movimiento en B02TMOVTOS
+    P630->>B02T: T-TAR-004 LOCK NEXT movimiento
+
+    alt Error DMSII (≠NOTFOUND)
+      B02T-->>P630: Error de base de datos
+      P630->>P630: Registrar error 999-MGS-DMSII
+      P630->>WFL: DMTERMINATE (terminación anormal)
+    else NOTFOUND (fin de datos)
+      B02T-->>P630: Fin de datos
+      Note over P630: Salir del ciclo
+    else Registro OK
+      B02T-->>P630: Registro de movimiento (B02T-*)
+
+      alt Estatus 00 (vigente)
+        P630->>P630: T-TAR-005 Clasificar → vigente
+        P630->>P630: T-TAR-006 Detectar tipo captura (manual/auto por Base24)
+        P630->>P630: T-TAR-007 Calcular BIN adquirente (primer dígito tarjeta)
+        P630->>P630: T-TAR-008 Calcular dígito verificador Luhn
+        P630->>LIBFEC: T-TAR-009 DAME_DIAJUL2K (día juliano)
+        LIBFEC-->>P630: Día juliano del movimiento
+        P630->>S244: T-TAR-010 Grabar detalle (930-GRABA-I04)
+        P630->>I08: T-TAR-011 Grabar punteo CORE-GL (960-GRABA-I08)
+        P630->>P630: T-TAR-013 Acumular WKS-NUM-REG + WKS-IMP-TOT
+
+      else Estatus 15 (American Express)
+        P630->>P630: T-TAR-005 Clasificar → Amex
+        P630->>I08: T-TAR-011 Grabar punteo CORE-GL (960-GRABA-I08)
+        P630->>AMEX: T-TAR-012 Grabar en AMEXMNL → INTELAR
+        P630->>P630: T-TAR-013 Acumular contadores
+
+      else Otro estatus
+        Note over P630: T-TAR-005 → omitir silenciosamente
+      end
+    end
+  end
+
+  P630->>S244: T-TAR-015 Escribir trailer tipo "9" (WKS-NUM-REG + WKS-IMP-TOT)
+  P630-->>WFL: STOP RUN (éxito)
+</div>
+<hr>
+<span id="diag" style="position:relative;top:-70px"></span></div>
+<div class="card reveal"><h2 id="flujo"><span class="sn">5</span>Diagrama de flujo</h2>
+
+<div class="mermaid">
+flowchart TD
+  MOVT[("CORE-DEPB02TMOVTOS · movs. tarjeta ATM/PoS")]:::bd
+  TARJ[("TARJETA · área de compras / autorizaciones")]:::bd
+  S111["S111 · altas/bloqueos/desbloqueos"]:::ext
+  P630(["CORE-DEP-P630 · TARINTERCAM&lt;br/&gt;tarjetas de intercambio ATM/PoS"]):::capn
+  P400(["CORE-DEP-P400 · distribución geográfica autorizaciones PoS"]):::capn
+  P420(["CORE-DEP-P420 · CONCENTRADOR-SALDOSTB&lt;br/&gt;une saldos tarjeta (SALDOSTB* MTY/VDM)"]):::capn
+  P180(["CORE-DEP-P180 · REPORTEADOR&lt;br/&gt;produce SALDOSTB/SALDOSTBT"]):::capn
+  P176(["CORE-DEP-P176 · ciclo de vida de tarjeta (S111) ⟵ NUEVO"]):::cap
+  S244["S244 (Base24) + I08 → CORE-GL"]:::ext
+  AMEX["AMEXMNL → INTELAR"]:::ext
+  TBI["TBINTERMON (MTY) / TBINTERVDM (VDM)"]:::ext
+  BD04[("BD04TARJETAS")]:::bd
+  SDOTB[("SALDOSTB* · saldos tarjeta MTY/VDM")]:::bd
+  SDOTBC["concentrado SALDOSTB (fin)"]:::term
+  P180 --&gt; SDOTB --&gt; P420 --&gt; SDOTBC
+  MOVT --&gt; P630 --&gt; S244
+  P630 --&gt; AMEX
+  TARJ --&gt; P400 --&gt; TBI
+  S111 --&gt; P176 --&gt; BD04
+classDef ext fill:#0e2e3a,stroke:#f0736b,color:#F0F8FA;
+classDef xcap fill:#33300f,stroke:#ffd54a,stroke-width:2.5px,color:#ffe98a;
+classDef canal fill:#0e2e3a,stroke:#6CC5D8,color:#F0F8FA;
+classDef bd fill:#0e2e3a,stroke:#5aa9e0,color:#F0F8FA;
+classDef arch fill:#0e2e3a,stroke:#6CC5D8,color:#F0F8FA;
+classDef cap fill:#0e2e3a,stroke:#b98ce0,stroke-width:2px,color:#F0F8FA;
+classDef term fill:#0e2e3a,stroke:#66bb6a,color:#F0F8FA;
+</div>
+<h3>Narrativa del flujo (Nivel 5)</h3>
+<blockquote><p>Lectura en prosa del diagrama ensamblado anterior. Estado: <strong>Reconstruido</strong>.</p></blockquote>
+<p>El diagrama de <strong>Cajeros y PoS (BC-02)</strong> organiza cuatro cadenas batch de tarjeta, todas del sistema CORE-DEP. La cadena central arranca en el dataset <strong>CORE-DEPB02TMOVTOS</strong> (movimientos de tarjeta ATM/PoS), que alimenta a <strong>P630 (CORE-DEP · TARINTERCAM)</strong>, el motor que liquida las tarjetas de intercambio de ambos canales con la misma lógica —la diferenciación ATM vs. PoS reside en el origen del movimiento (campo B02T-TIPO-CANAL), no en el cálculo. P630 produce dos salidas: escribe el archivo <strong>S244 (Base24) + I08 → CORE-GL</strong> (registro de detalle a Base24 y punteo contable hacia CORE-GL), y por su ruta diferenciada American Express escribe <strong>AMEXMNL → INTELAR</strong> para los movimientos con estatus contable 15.</p>
+<p>La segunda cadena es la distribución geográfica de autorizaciones PoS: el área de compras/autorizaciones <strong>TARJETA</strong> alimenta a <strong>P400 (CORE-DEP)</strong>, que reparte hacia <strong>TBINTERMON (MTY) / TBINTERVDM (VDM)</strong> —la topología dual de nodos del ecosistema. La tercera cadena consolida saldos de tarjeta: <strong>P180 (CORE-DEP · REPORTEADOR)</strong> produce los archivos <strong>SALDOSTB\</strong>* (saldos de tarjeta MTY/VDM), que <strong>P420 (CORE-DEP · CONCENTRADOR-SALDOSTB)</strong> une para emitir el <strong>concentrado SALDOSTB (fin)</strong>. La cuarta cadena es el huérfano integrado <strong>P176 (CORE-DEP)</strong>, ciclo de vida de la tarjeta: recibe las altas/bloqueos/desbloqueos desde <strong>S111</strong> y persiste el resultado en el dataset <strong>BD04TARJETAS</strong>. Las cuatro cadenas son paralelas —no hay aristas programa→programa cruzadas entre ellas— y quedan cohesionadas por pertenecer al mismo dominio de procesamiento batch de tarjeta de intercambio.</p></div>
+<div class="card reveal"><h2 id="reg"><span class="sn">6</span>Reglas vinculadas</h2>
+<table><thead><tr><th>Tarea</th><th>Regla</th><th>Componente fuente</th><th>Descripción</th><th>Tags/Base</th></tr></thead><tbody><tr><td>T-TAR-001</td><td>RN-CORE-DEP-038</td><td>COBOL_CORE-DEPP630.txt</td><td>Validación de versión autorizada antes de procesar</td><td></td></tr><tr><td>T-TAR-002</td><td>RN-CORE-DEP-039</td><td>COBOL_CORE-DEPP630.txt</td><td>Resolución dinámica de librería de fechas CTLVERS</td><td></td></tr><tr><td>T-TAR-003</td><td>RN-CORE-DEP-040</td><td>COBOL_CORE-DEPP630.txt</td><td>Etiquetado de archivo S244 como cadena Teletón</td><td></td></tr><tr><td>T-TAR-004</td><td>RN-CORE-DEP-041</td><td>COBOL_CORE-DEPP630.txt</td><td>Control de lectura y terminación ante errores DMSII</td><td></td></tr><tr><td>T-TAR-005</td><td>RN-CORE-DEP-042</td><td>COBOL_CORE-DEPP630.txt</td><td>Doble salida vigente hacia S244 y CORE-GL (estatus 00)</td><td></td></tr><tr><td>T-TAR-005</td><td>RN-CORE-DEP-043</td><td>COBOL_CORE-DEPP630.txt</td><td>Ruta diferenciada para movimientos American Express (estatus 15)</td><td></td></tr><tr><td>T-TAR-006</td><td>RN-CORE-DEP-044</td><td>COBOL_CORE-DEPP630.txt</td><td>Clasificación manual o automática por campo Base24</td><td></td></tr><tr><td>T-TAR-007</td><td>RN-CORE-DEP-045</td><td>COBOL_CORE-DEPP630.txt</td><td>Asignación de BIN adquirente por primer dígito (3/4→454061 · otros→543006)</td><td></td></tr><tr><td>T-TAR-008</td><td>RN-CORE-DEP-046</td><td>COBOL_CORE-DEPP630.txt</td><td>Dígito verificador tipo Luhn para referencia 23</td><td></td></tr><tr><td>T-TAR-014</td><td>RN-CORE-DEP-037</td><td>COBOL_CORE-DEPP630.txt</td><td>Rastro de auditoría ante interrupción de proceso (TASKVALUE)</td><td></td></tr></tbody></table>
+<blockquote><p><strong>Reglas RN-CORE-DEP-047..055</strong> (9 reglas aún no mapeadas a tareas): contienen lógica adicional de P630 — cálculo de día juliano, armado de campos de punteo I08 para CORE-GL, manejo de datos del archivo AMEXMNL, contadores de cierre y manejo de fin de ciclo. Se vincularán en la siguiente iteración tras lectura completa de esas reglas.</p></blockquote></div>
+<div class="card reveal"><h2 id="hal"><span class="sn">7</span>Hallazgos de migración</h2>
+<table><thead><tr><th>#</th><th>Riesgo</th><th>Tarea(s)</th><th>Severidad</th><th>Impacto</th><th>Acción requerida</th></tr></thead><tbody><tr><td></td><td><code>USE AS INTERRUPT PROCEDURE</code> (nativo MCP)</td><td>T-TAR-014</td><td>🟡 ALTO</td><td></td><td>Reemplazar por mecanismo de señal/signal handler en JVM o cloud</td></tr><tr><td></td><td><code>CALL SYSTEM DMTERMINATE</code> (propietario DMSII)</td><td>T-TAR-004 (error)</td><td>🟡 ALTO</td><td></td><td>Reemplazar por exit-code no-cero al orquestador cloud</td></tr><tr><td></td><td><code>CTLVERS</code> catálogo centralizado (2 llamadas)</td><td>T-TAR-001, T-TAR-002</td><td>🟡 ALTO</td><td></td><td>Reemplazar por ConfigMap / parameter store / service registry</td></tr><tr><td></td><td>BINs 454061 / 543006 hardcodeados</td><td>T-TAR-007</td><td>🟡 MEDIO</td><td></td><td>Mover a tabla de parámetros configurable; ISO 7812 puede cambiar rangos</td></tr><tr><td></td><td>Doble salida S244 + I08 no atómica</td><td>T-TAR-010 + T-TAR-011</td><td>🟠 CRÍTICO</td><td></td><td>Garantizar atomicidad (saga, outbox, 2PC) — divergencia = gap de conciliación</td></tr><tr><td></td><td>Nombre Teletón y parámetros hardcodeados (I04-NOM-CADENA)</td><td>T-TAR-003</td><td>🟡 MEDIO</td><td></td><td>Parametrizar para soportar múltiples cadenas comerciales</td></tr><tr><td></td><td>Archivos S244 / AMEXMNL como contratos de interfaz</td><td>T-TAR-010, T-TAR-012</td><td>🟠 CRÍTICO</td><td></td><td>Documentar schema y validar con equipos S244 e INTELAR antes de migrar</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="trazabilidad">Trazabilidad</h2>
+<pre><code>Regla: RN-CORE-DEP-045 — Asignación de BIN adquirente por primer dígito
+  → Tarea: T-TAR-007 — Calcular BIN adquirente
+    → Programa: CORE-DEPP630
+      → Componente fuente: COBOL_CORE-DEPP630.txt
+        → Párrafo: 935-ARMA-REF23 (~línea 197)
+          → Casuística: CS-TAR-01 (happy path) / CS-TAR-02 (manual)
+            → Diagrama: paso &quot;T-TAR-007 Calcular BIN adquirente&quot;</code></pre></div>
+<div class="card reveal"><h2 id="amp-p104" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P104 Control de saturación y dimensionamiento de bases históricas B06 de tarjetas (RN-CORE-DEP-730..733)</h2>
+<p><strong>Contexto funcional:</strong> <strong>Movido de cap-orc → cap-tar el 2026-08-02</strong> (BC-12→BC-02; fuente: accede CORE-DEPBD04TARJETAS (B06 tarjetas)). No es reconciliación. P104 vigila la capacidad de los archivos históricos del bloque B06 de tarjetas, cuenta archivos saturados y predimensiona sus estructuras de disco/memoria para la corrida. Sistema: CORE-DEP · LOC: ~4,511 · Posición en WFL: n/d (batch CORE-DEP · familia Reconciliation).</p>
+<h3>Inventario de Tareas</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-TAR-P104-001</td><td>Vigilar saturación de archivos históricos B06: calcular % de uso (B06P-REGMAXHIST / B06P-MAXIMA-CAP × 100) y contar saturados (W77-NUM-ARCH-SAT) al superar 79.9% con banda de histéresis 79.8/79.9</td><td>P104</td><td>BATCH</td><td>MEDIA</td><td>ALTO</td></tr><tr><td>T-TAR-P104-002</td><td>Envolver las actualizaciones al bloque B06 en transacción DMSII NO auditada (90400000-BEGIN/END-TRANSAC-NOAUD) — registros de control operativo/estadístico fuera del rastro contable formal</td><td>P104</td><td>BATCH</td><td>MEDIA</td><td>ALTO</td></tr><tr><td>T-TAR-P104-003</td><td>Acotar la ventana de búsqueda histórica de tarjetas a [año-1, año+1] relativa al año de la fecha de máquina (WKS-AAAA-MAQ), evitando barrer todo el histórico</td><td>P104</td><td>BATCH</td><td>BAJA</td><td>MEDIO</td></tr><tr><td>T-TAR-P104-004</td><td>Predimensionar disco/memoria con constantes hardcodeadas (disco=300000, memoria=400000) y capacidad de trabajo = tamaño de área × 15000</td><td>P104</td><td>BATCH</td><td>BAJA</td><td>MEDIO</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-730</td><td>Umbral de saturación 80% en bases de tarjetas B06 (hardcode con histéresis 79.8/79.9)</td><td>P104</td><td>HIGH</td></tr><tr><td>RN-CORE-DEP-731</td><td>Transacción de base no auditada para actualización B06 (control operativo, no contable)</td><td>P104</td><td>HIGH</td></tr><tr><td>RN-CORE-DEP-732</td><td>Ventana de años relativa a la fecha de máquina [año-1, año+1] para consultas históricas</td><td>P104</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-733</td><td>Dimensionamiento de memoria por área × 15000 y constantes de disco/memoria hardcodeadas</td><td>P104</td><td>MEDIUM</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="amp-p420" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P420 Concentrador de saldos de tarjeta por turnos (RN-CORE-DEP-764..765)</h2>
+<p><strong>Contexto funcional:</strong> <strong>Movido de cap-orc → cap-tar el 2026-08-02</strong> (BC-12→BC-02; fuente: CONCENTRADOR-SALDOSTB, saldos de tarjetas). No es reconciliación. P420 (CONCENTRADOR-SALDOSTB) unifica los archivos de saldos de tarjetas de los turnos matutino y vespertino en el saldo consolidado del día por tarjeta, base para el cuadre de tarjetas contra contabilidad, y lo escribe a dos cintas etiquetadas por CSI destino. Sistema: CORE-DEP · LOC: ~983 · Posición en WFL: n/d (batch CORE-DEP · consolidación de saldos de tarjeta).</p>
+<h3>Inventario de Tareas</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-TAR-P420-001</td><td>Unificar los cuatro archivos de saldos de tarjeta de ambos turnos (matutino SALDOSTBM/SALDOSTBTM y vespertino SALDOSTBV/SALDOSTBTV) en el saldo consolidado del día por tarjeta, base para el cuadre de tarjetas contra contabilidad</td><td>P420</td><td>BATCH</td><td>MEDIA</td><td>ALTO</td></tr><tr><td>T-TAR-P420-002</td><td>Escribir el saldo consolidado en dos cintas de 90 caracteres con etiqueta dinámica (CINTACM con WS-ETIQ-CINTACM, y CINTACH), según el ruteo posterior de la cinta hacia los dos CSIs de contabilidad</td><td>P420</td><td>BATCH</td><td>BAJA</td><td>MEDIO</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-764</td><td>Concentración de saldos de tarjeta por turno matutino y vespertino</td><td>P420</td><td>HIGH</td></tr><tr><td>RN-CORE-DEP-765</td><td>Salida del saldo consolidado a cintas etiquetadas CM y CH (ruteo por CSI)</td><td>P420</td><td>MEDIUM</td></tr></tbody></table>
+<p><em>Capacidades: 2.2.6 ATM · 2.2.7 PoS · Sistema: CORE-DEP · Programa: CORE-DEPP630 (TARINTERCAM)</em> <em>Cross-referencia: RN-CORE-DEP-037..055 · rules-catalog/rules-core-dep.md · capability-map.md · kb-capa3-capacidades.md</em></p></div>
+<div class="card reveal"><h2 id="amp-ampliaci-n-core-depp" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — CORE-DEPP630 Teletón/AMEX (RN-CORE-DEP-047..055)</h2>
+<p><strong>Contexto funcional:</strong> Continuación del programa CORE-DEPP630; complementa las reglas RN-CORE-DEP-037..046 ya vinculadas. Las reglas RN-CORE-DEP-047..052 se ligan a tareas pre-existentes (T-TAR-009, T-TAR-011..013, T-TAR-015) o generan una tarea nueva de formateo (T-TAR-016). Las reglas RN-CORE-DEP-053..055 cubren el cierre del proceso (transmisión INTELAR, diálogo BD06TELETON, transferencia WFL) y dan lugar a las tareas nuevas T-TAR-017..019.</p>
+<h3>Inventario de Tareas adicionales</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Componente fuente</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-TAR-016</td><td>Formatear importe AMEX sin ceros con decimal explícito (993-BUSCA-IMPORTE / 993-EDITA-IMPORTE)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>formateo</td><td>media</td><td>ALTO</td></tr><tr><td>T-TAR-017</td><td>Transmitir archivo AMEX a INTELAR con reintento único ante falla transitoria (ADMONXFERS/INTELARSND)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>integración</td><td>alta</td><td>ALTO</td></tr><tr><td>T-TAR-018</td><td>Registrar resultado en diálogo BD06TELETON al concluir el proceso (999999-FIN)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>control</td><td>alta</td><td>CRÍTICO</td></tr><tr><td>T-TAR-019</td><td>Transferir archivos generados a S006 mediante job WFL heredado (999999-TRANSFIERE-P940)</td><td>CORE-DEPP630</td><td>COBOL_CORE-DEPP630.txt</td><td>orquestación</td><td>alta</td><td>CRÍTICO</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Tarea(s)</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-047</td><td>Día juliano de 3 dígitos obtenido vía DAME_DIAJUL2K (librería S000LIBFEC resuelta dinámicamente por CTLVERS) y colocado en WKS-I04-RE-DIAJUL dentro de la referencia de 23 posiciones (935-ARMA-REF23)</td><td>CORE-DEPP630</td><td>T-TAR-009</td><td>alta</td></tr><tr><td>RN-CORE-DEP-048</td><td>Proceso Teletón es unidireccional: solo cargos hacia S244; WKS-I04-NUM-ABONOS y WKS-I04-IMP-ABONOS siempre fijados en cero en el trailer (970-GRABA-TRAILERS)</td><td>CORE-DEPP630</td><td>T-TAR-013, T-TAR-015</td><td>alta</td></tr><tr><td>RN-CORE-DEP-049</td><td>Donativo AMEX reportado a INTELAR con establecimiento fijo 9355195968, tipo REGULAR, crédito sin meses sin intereses, moneda MNX (991-ASIGNA-VALORES-DETALLE)</td><td>CORE-DEPP630</td><td>T-TAR-012</td><td>alta</td></tr><tr><td>RN-CORE-DEP-050</td><td>Importe de donativo AMEX serializado sin ceros de relleno y con punto decimal explícito en posición 11, dependiente del PIC 9(10)V99 de B02T-IMPORTE (993-BUSCA-IMPORTE / 993-EDITA-IMPORTE)</td><td>CORE-DEPP630</td><td>T-TAR-016</td><td>alta</td></tr><tr><td>RN-CORE-DEP-051</td><td>Número de autorización en punteo I08 selecciona formato AUT emulador (WKS-AUTORIZ10: prefijo 2 + autorización 10 dígitos) o AUT C218 (WKS-AUTORIZ: suc-trans 4 + caja-trans 2 + aut 6 dígitos) según B02T-TCODE-ORIG=500 (960-GRABA-I08)</td><td>CORE-DEPP630</td><td>T-TAR-011</td><td>alta</td></tr><tr><td>RN-CORE-DEP-052</td><td>Registro de punteo I08 etiquetado con producto 500, moneda 1 (MXN), libro 0, institución 1; sucursal y caja tomadas de B02T-SUC-S028 / B02T-CAJ-S028 (sistema S028) y B02T-CAJA-CONV (960-GRABA-I08)</td><td>CORE-DEPP630</td><td>T-TAR-011</td><td>alta</td></tr><tr><td>RN-CORE-DEP-053</td><td>Archivo AMEX transmitido a INTELAR mediante INTELARSND (librería ADMONXFERS); reintento único tras espera de 3 s si WS-RSLT-SNT>0; proceso continúa aunque el segundo intento falle (best-effort, solo si W77-FIN-ANORMAL=0)</td><td>CORE-DEPP630</td><td>T-TAR-017</td><td>alta</td></tr><tr><td>RN-CORE-DEP-054</td><td>Al concluir, registra resultado en BD06TELETON: terminación anormal → CHANGE ATTRIBUTE STATUS OF MYSELF TO -1; terminación normal → LOCK CORE-DEPB00TGLOBAL + BEGIN/END-TRANSACTION actualiza B00T-PASO-ENTRA/SALE=630 (999999-FIN)</td><td>CORE-DEPP630</td><td>T-TAR-018</td><td>alta</td></tr><tr><td>RN-CORE-DEP-055</td><td>Si proceso termina normalmente, lanza job WFL "CORE-DEP/WFL/COPIARCH/01MTP001" (CALL SYSTEM WFL) con llave heredada "S501T01" (origen S501/P110, no actualizada en migración 2016) para transferir archivos S244 y AMEX al host S006 (999999-TRANSFIERE-P940)</td><td>CORE-DEPP630</td><td>T-TAR-019</td><td>alta</td></tr></tbody></table>
+<h3>Hallazgos de migración adicionales CORE-DEPP630</h3>
+<table><thead><tr><th>Riesgo</th><th>Tarea</th><th>Severidad</th><th>Acción requerida</th></tr></thead><tbody><tr><td><code>CHANGE ATTRIBUTE STATUS OF MYSELF</code> + <code>LOCK</code> + <code>BEGIN/END-TRANSACTION</code> sobre BD06TELETON (nativos Unisys MCP/DMSII, sin equivalente directo)</td><td>T-TAR-018</td><td>🟠 CRÍTICO</td><td>Reemplazar por patrón de estado transaccional: flag de estado + saga pattern o outbox; preservar semántica de paso B00T-PASO=630 para integridad del flujo nocturno BD06TELETON</td></tr><tr><td><code>CALL SYSTEM WFL</code> para lanzar job de orquestación batch (específico Unisys MCP, sin equivalente directo)</td><td>T-TAR-019</td><td>🟠 CRÍTICO</td><td>Sustituir por orquestador de workflows moderno (Apache Airflow, AWS Step Functions, BPEL u equivalente) con transferencia SFTP/S3 al host destino; coordinación con equipo S006 obligatoria</td></tr><tr><td>Llave "S501T01" heredada de S501/P110, no actualizada en la migración de junio-octubre 2016</td><td>T-TAR-019</td><td>🟡 ALTO</td><td>Validar contra catálogo de llaves WFL vigente antes de migrar; una llave incorrecta puede desviar archivos de producción sin error visible</td></tr><tr><td>Librería <code>ADMONXFERS</code> / función <code>INTELARSND</code> propietaria Unisys MCP para transmisión INTELAR</td><td>T-TAR-017</td><td>🟡 ALTO</td><td>Sustituir por mecanismo cloud-native de transferencia con misma semántica best-effort (1 reintento, 3 s espera, continúa si falla); documentar comportamiento en runbook operacional</td></tr><tr><td>Formateo artesanal de importe AMEX: posición de punto decimal hardcodeada en pos. 11, acoplada al PIC 9(10)V99 de B02T-IMPORTE</td><td>T-TAR-016</td><td>🟡 ALTO</td><td>Reemplazar por serialización tipada; validar bit-a-bit contra INTELAR en ambiente de prueba antes de producción para evitar rechazo de archivos</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="amp-p630" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P630 (CORE-GL) Actualización de fecha de header de archivos de movimientos (RN-CORE-GL-581..590)</h2>
+<blockquote><p>⚠️ <strong>HOMÓNIMO:</strong> este es <strong>CORE-GL/P630</strong> (consulta/actualización de fecha de header en archivos MOV/DES/CB2/CTD), <strong>DISTINTO</strong> de <code>CORE-DEPP630</code> (TARINTERCAM, tarjetas Teletón/AMEX) documentado arriba en esta misma capacidad.</p></blockquote>
+<p><strong>Contexto funcional:</strong> Reconstruido · anclas verificadas · 10 reglas (RN-CORE-GL-581..590).</p>
+<h3>Inventario de Tareas adicionales</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-TAR-CORE-GLP630-001</td><td>Consulta (FILE="CON") o Actualización de fecha header (REWRITE "HD") en archivos MOV/DES/CB2/CTD del sistema indicado</td><td>P630 (CORE-GL)</td><td>BATCH/CONTROL</td><td>MEDIA</td><td>ALTA</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-GL-581</td><td>Bifurcación FILE="CON" (consulta de fechas) vs actualización de header por tipo (MOV/DES/CB2/CTD)</td><td>P630 (CORE-GL)</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-583</td><td>Conversión fecha 6→8 dígitos: ADD 20000000 — asume siglo XXI; sin soporte para fechas pre-2000</td><td>P630 (CORE-GL)</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-584</td><td>Header del archivo de movimiento identificado por "HD" en primeros 2 bytes del registro de 450 bytes</td><td>P630 (CORE-GL)</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-586</td><td>B01SISDIA F1 como fuente de verdad de pack y fecha; fallo en P630 → STATUS=-1 (fatal, a diferencia de P602)</td><td>P630 (CORE-GL)</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-587</td><td>CLOSE WITH SAVE/RELEASE/PURGE — semántica de persistencia MCP sin equivalente directo en Java; riesgo de transpilación incorrecta</td><td>P630 (CORE-GL)</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-590</td><td>WKS-SISTEMA=500 hardcodeado para activar archivos CB2/CTD (exclusivos CORE-DEP) — patrón distribuido en múltiples programas P600</td><td>P630 (CORE-GL)</td><td>MEDIA</td></tr></tbody></table>
+<h3>Hallazgos de migración P630 (CORE-GL)</h3>
+<table><thead><tr><th>#</th><th>Hallazgo</th><th>Tipo</th><th>Impacto</th><th>Recomendación</th></tr></thead><tbody><tr><td>TAR-CORE-GLP630-H01</td><td>CLOSE WITH SAVE/RELEASE/PURGE — sin equivalente directo en Java; transpilación incorrecta produce archivos sin persistencia o sin borrado</td><td>Vendor lock-in</td><td>CRITICAL</td><td>Mapear explícitamente: SAVE→COMMIT/flush, RELEASE→no-op (lectura), PURGE→DELETE física; documentar como ADR de equivalencia</td></tr><tr><td>TAR-CORE-GLP630-H02</td><td>REWRITE de header es no-fatal (INVALID KEY solo muestra texto) — fecha del archivo puede quedar incorrecta sin señal al caller</td><td>Control calidad</td><td>HIGH</td><td>Actualizar metadata de lote debe ser transaccional y fatal si falla; alerting con el título del archivo afectado</td></tr><tr><td>TAR-CORE-GLP630-H03</td><td>CB2/CTD exclusivos CORE-DEP con código 500 hardcodeado en múltiples programas P600 — patrón distribuido, mantenimiento rígido</td><td>Hardcode</td><td>MEDIUM</td><td>Externalizar en catálogo de tipos de archivo por sistema; centralizar la regla en una sola configuración</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="amp-p400" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P400 (CORE-DEP) Distribución geográfica de autorizaciones POS (RN-CORE-DEP-527..532)</h2>
+<p><strong>Contexto funcional:</strong> <strong>Movido de cap-sta (BC-07) → cap-tar (BC-02) el 2026-08-04</strong> — SME Eduardo "Lalo" confirmó que P400 no tiene ninguna relación con estados de cuenta ni con CPE (CORE-DEP-25 · 2026-08-03). P400 (PROGRAM-ID <code>CORE-DEPP400</code>) recibe el archivo <strong><code>TARJETA</code></strong> del área de compras —altas y bajas de autorización de terminales POS (puntos de venta)— y lo distribuye en dos destinos geográficos: <code>TBINTERMON</code> (cobertura Monterrey, p400.txt:138) y <code>TBINTERVDM</code> (cobertura Valle de México, p400.txt:147), con variantes EAS y semanal. <strong>No intercambia datos con P335 ni con ningún componente del flujo CPE.</strong> Sistema: CORE-DEP · LOC: ~5.039 · Posición en WFL: <code>SUB400 → RUN #P400 (PARAM400) [T400]</code> en LOTE CORE-DEP (lote.txt:8116) — independiente del flujo CPE. Fuente: <code>08 - Codigo/CORE-DEP/Todos + copies expandidos/p400.txt</code> (PROGRAM-ID <code>CORE-DEPP400</code> verificado seq 010510).</p>
+<h3>Inventario de Tareas</h3>
+<blockquote><p>Nota: task IDs T-STA-P400-<em> se renombrarán a T-TAR-P400-</em> en el próximo ciclo de traceability.</p></blockquote>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-STA-P400-001</td><td>Validación de cuadre de trailer del archivo S111 (# de registros e importe bruto vs. acumulado leído) <code>[p400.txt seq 612800-615510]</code></td><td>P400</td><td>validación</td><td>MEDIA</td><td>ALTO</td></tr><tr><td>T-STA-P400-002</td><td>Bypass de validación de trailer por ventana de fechas hardcodeada 2011-12-01/07 (BUG-LATENTE de control regulatorio) <code>[p400.txt seq 615532-615560]</code></td><td>P400</td><td>control</td><td>BAJA</td><td>CRÍTICO</td></tr><tr><td>T-STA-P400-003</td><td>Anulación manual del control de trailer con captura de SOEID autorizador (segregación de funciones · ACCEPT interactivo) <code>[p400.txt seq 615600-615726]</code></td><td>P400</td><td>control</td><td>MEDIA</td><td>ALTO</td></tr><tr><td>T-STA-P400-004</td><td>Validación de sistema interno en header: literal <code>S111</code> / código EAS-ECMS <code>175172</code> (hardcode implícito) <code>[p400.txt seq 538010-541010 · 559254-559360]</code></td><td>P400</td><td>validación</td><td>MEDIA</td><td>MEDIO</td></tr><tr><td>T-STA-P400-005</td><td>Distinción de flujo diario vs semanal por data set <code>TARJETADIA</code>/<code>TARJETASEM</code> (selección de fechas de control) <code>[p400.txt seq 612820-612880 · 130010-131010]</code></td><td>P400</td><td>control</td><td>BAJA</td><td>MEDIO</td></tr><tr><td>T-STA-P400-006</td><td>Split geográfico: <code>TARJETA</code> → <code>TBINTERMON</code> (MTY, p400.txt:138) + <code>TBINTERVDM</code> (VDM, p400.txt:147) con variantes EAS/semanal</td><td>P400</td><td>distribución</td><td>BAJA</td><td>MEDIO</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-527</td><td>Validación de cuadre de trailer del archivo S111 (número de registros e importe bruto)</td><td>P400</td><td>HIGH</td></tr><tr><td>RN-CORE-DEP-528</td><td>Bypass de validación de trailer por ventana de fechas hardcodeada (2011-12-01 a 2011-12-07)</td><td>P400</td><td>CRITICAL</td></tr><tr><td>RN-CORE-DEP-529</td><td>Anulación manual del control de trailer con captura de SOEID autorizador</td><td>P400</td><td>CRITICAL</td></tr><tr><td>RN-CORE-DEP-530</td><td>Validación de sistema interno en el header del archivo (S111 y EAS/ECMS)</td><td>P400</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-531</td><td>Distinción de flujo diario vs semanal de tarjetas (TARJETADIA)</td><td>P400</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-532</td><td>Split geográfico: TARJETA → TBINTERMON (MTY) / TBINTERVDM (VDM) con variantes EAS/semanal</td><td>P400</td><td>HIGH</td></tr></tbody></table>
+<h3>Hallazgos de migración</h3>
+<table><thead><tr><th>Riesgo</th><th>Tarea</th><th>Severidad</th><th>Acción requerida</th></tr></thead><tbody><tr><td>BUG-LATENTE: bypass de trailer hardcodeado para fechas 2011-12-01/07 (ya pasadas)</td><td>T-STA-P400-002</td><td>🔴 CRÍTICO</td><td>Verificar si rama siempre activa en reprocesos históricos; externalizar ventana de excepciones</td></tr><tr><td>ACCEPT interactivo dentro de proceso batch</td><td>T-STA-P400-003</td><td>🔴 CRÍTICO</td><td>Incompatible con automatización; reemplazar por flag en BD de control</td></tr><tr><td>Código EAS-ECMS <code>175172</code> hardcodeado</td><td>T-STA-P400-004</td><td>🟡 ALTO</td><td>Externalizar a tabla de parámetros</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="amp-p176" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P176 (CORE-DEP) Aplicador de prealtas TEF provenientes del S111 (RN-CORE-DEP-510..515)</h2>
+<p><strong>Contexto funcional:</strong> <strong>Movido a cap-tar (BC-02 - Cajeros y PoS) el 2026-08-07</strong> (aplicación de altas/bloqueos de tarjeta TEF desde S111 -> dominio tarjeta). Origen: cap-pay (BC-06). Invitado en cap-pay (pipeline TEF). Retiro de origen: paso 2 pendiente. P176 aplica en el CORE-DEP las altas, bloqueos y desbloqueos de prealtas TEF que llegan del sistema S111: valida la sucursal promotora contra el catalogo S080 y obtiene el CSI, localiza o da de alta la tarjeta en BD04 durante la asignacion, se protege contra reproceso concurrente mediante un mutex operativo, reporta los rechazos con conteo total y actualiza la fecha del proximo archivo de prealtas S111 a aplicar. Sistema: CORE-DEP - LOC: ~1.545 (fuente sin expandir, <code>Fuentes_Extraidas/P176.txt</code>) - Posicion en WFL: batch diario de CAPTACION (interfaz S111); posicion exacta en WFL LOTE n/d.</p>
+<h3>Inventario de Tareas</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migracion</th></tr></thead><tbody><tr><td>T-PAY-P176-001</td><td>Aplicar altas, bloqueos y desbloqueos de prealtas TEF provenientes del S111 sobre las bases del CORE-DEP</td><td>P176</td><td>BATCH</td><td>ALTA</td><td>ALTO</td></tr><tr><td>T-PAY-P176-002</td><td>Validar la sucursal promotora contra el catalogo S080 y obtener el CSI antes de aplicar la prealta</td><td>P176</td><td>BATCH</td><td>MEDIA</td><td>MEDIO</td></tr><tr><td>T-PAY-P176-003</td><td>Localizar o dar de alta la tarjeta en BD04 durante la asignacion TEF</td><td>P176</td><td>BATCH</td><td>MEDIA</td><td>ALTO</td></tr><tr><td>T-PAY-P176-004</td><td>Bloquear el reproceso concurrente de prealtas mediante mutex operativo sobre las bases</td><td>P176</td><td>BATCH</td><td>MEDIA</td><td>MEDIO</td></tr><tr><td>T-PAY-P176-005</td><td>Generar el reporte de rechazos de asignacion TEF con conteo total</td><td>P176</td><td>BATCH</td><td>BAJA</td><td>MEDIO</td></tr><tr><td>T-PAY-P176-006</td><td>Actualizar la fecha del proximo archivo de prealtas S111 a aplicar</td><td>P176</td><td>BATCH</td><td>BAJA</td><td>MEDIO</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-510</td><td>Aplicacion de altas, bloqueos y desbloqueos de prealtas TEF provenientes del S111</td><td>P176</td><td>HIGH</td></tr><tr><td>RN-CORE-DEP-511</td><td>Validacion de sucursal promotora contra catalogo S080 y obtencion del CSI</td><td>P176</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-512</td><td>Localizacion o alta de tarjeta en BD04 durante la asignacion TEF</td><td>P176</td><td>HIGH</td></tr><tr><td>RN-CORE-DEP-513</td><td>Bloqueo de reproceso concurrente de prealtas (mutex operativo)</td><td>P176</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-514</td><td>Reporte de rechazos de asignacion TEF con conteo total</td><td>P176</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-515</td><td>Actualizacion de fecha del proximo archivo de prealtas S111 a aplicar</td><td>P176</td><td>MEDIUM</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="m1"><span class="sn">M1</span>M1 · Vista de mantenimiento — Blast radius I/O por programa</h2>
+<table><thead><tr><th>Programa</th><th>Rol</th><th>Entradas</th><th>Salidas</th><th>Consumidores directos</th></tr></thead><tbody><tr><td>CORE-DEPP630 (CORE-DEP) TARINTERCAM</td><td>Generador batch intercambio tarjetas Teletón/AMEX</td><td>CORE-DEPB02TMOVTOS (LOCK NEXT), CTLVERS (versiones), S000LIBFEC (fechas)</td><td>S244 (Teletón), I08 (punteo CORE-GL), AMEXMNL (INTELAR), BD06TELETON (resultado)</td><td>S244/Teletón, CORE-GL, INTELAR</td></tr><tr><td>P104 (CORE-DEP)</td><td>Control saturación bases históricas B06 tarjetas</td><td>CORE-DEPBD04TARJETAS (B06, múltiples años)</td><td>Alertas saturación + predimensionamiento disco/memoria</td><td>WFL batch CORE-DEP</td></tr><tr><td>P420 (CORE-DEP) CONCENTRADOR-SALDOSTB</td><td>Concentrador saldos tarjeta matutino+vespertino</td><td>SALDOSTBM, SALDOSTBTM, SALDOSTBV, SALDOSTBTV (4 archivos)</td><td>CINTACM + CINTACH (2 cintas 90 chars)</td><td>CSIs de contabilidad</td></tr><tr><td>P630 (CORE-GL)</td><td>Utilitario control fechas header archivos MOV/DES/CB2/CTD</td><td>B01SISDIA F1 (fuente de verdad pack y fecha), archivos MOV/DES/CB2/CTD</td><td>Header actualizado (REWRITE "HD") o consulta (CON)</td><td>Programas familia P600 (CORE-GL)</td></tr><tr><td>P400 (CORE-DEP)</td><td>Distribuidor geográfico autorizaciones POS</td><td>TARJETA (S111), archivos de control header</td><td>TBINTERMON (MTY), TBINTERVDM (VDM), variantes EAS/semanal</td><td>Sistemas de autorización MTY y VDM</td></tr></tbody></table>
+<h3>M1.1 · Datasets DMSII conectados</h3>
+<table><thead><tr><th>Dataset DMSII</th><th>Campos críticos</th><th>Programa</th><th>Operación</th><th>Notas</th></tr></thead><tbody><tr><td>CORE-DEPB02TMOVTOS</td><td>B02T-TIPO-CANAL (ATM/PoS), B02T-AUT-B24 (Base24), B02T-IMPORTE</td><td>CORE-DEPP630</td><td>LOCK NEXT</td><td>Fuente única de movimientos de tarjeta</td></tr><tr><td>BD06TELETON</td><td>Estado del proceso Teletón al concluir</td><td>CORE-DEPP630</td><td>LOCK + BEGIN/END-TRANSACTION</td><td>CHANGE ATTRIBUTE STATUS OF MYSELF si anormal</td></tr><tr><td>CORE-DEPB00TGLOBAL</td><td>B00T-PASO-ENTRA/SALE=630</td><td>CORE-DEPP630</td><td>LOCK + UPDATE</td><td>Control de paso en flujo nocturno</td></tr><tr><td>CORE-DEPBD04TARJETAS (B06)</td><td>REGMAXHIST, MAXIMA-CAP (% uso)</td><td>P104</td><td>READ</td><td>Ventana [año-1, año+1]; umbral saturación 79.9%</td></tr><tr><td>B01SISDIA F1</td><td>Pack y fecha de proceso</td><td>P630 (CORE-GL)</td><td>READ</td><td>Fuente de verdad; fallo → STATUS=-1 (fatal)</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="m2"><span class="sn">M2</span>M2 · Decodificador de vocabulario críptico (≥ 15 términos)</h2>
+<table><thead><tr><th>Término críptico</th><th>Significado operativo</th></tr></thead><tbody><tr><td><code>TARINTERCAM</code></td><td>PROGRAM-ID de CORE-DEPP630 — "Tarjetas de Intercambio"</td></tr><tr><td><code>NOM-CADENA=TELETON</code></td><td>Etiqueta de la cadena Teletón en la cabecera del archivo S244; <code>ORI=00</code>, <code>VENTANA=01</code></td></tr><tr><td>Base24 / <code>B02T-AUT-B24</code></td><td>Terminal de autorización ATM/PoS; "000000"/espacios = captura manual; código válido = automática</td></tr><tr><td>BIN adquirente</td><td>Número identificador banco adquirente: primer dígito tarjeta 3/4 → <strong>454061</strong> (Visa); otros → <strong>543006</strong></td></tr><tr><td>Luhn</td><td>Algoritmo de verificación de dígito para la referencia de 23 posiciones (<code>WKS-I04-RE-*</code>)</td></tr><tr><td><code>DAME_TIT IN CTLVERS</code></td><td>Resolución dinámica del título de la librería de fechas <code>S000LIBFEC</code> desde el catálogo CTLVERS</td></tr><tr><td><code>DAME_DIAJUL2K</code></td><td>Función de <code>S000LIBFEC</code> que devuelve el día juliano del movimiento (Y2K-safe)</td></tr><tr><td><code>DMTERMINATE</code> / <code>CALL SYSTEM DMTERMINATE</code></td><td>Terminación forzada del proceso + rollback DMSII — propietario Unisys; sin equivalente cloud directo</td></tr><tr><td><code>TASKVALUE</code></td><td>Señal de interrupción del orquestador batch; <code>TASKVALUE=3016</code> = flag DIVESTITURE</td></tr><tr><td><code>USE AS INTERRUPT PROCEDURE</code></td><td>Captura de interrupción externa por cambio de <code>TASKVALUE</code> tipo HI — nativo MCP, sin equivalente JVM</td></tr><tr><td><code>930-GRABA-I04</code></td><td>Párrafo de escritura de detalle en S244 (registro vigente estatus 00)</td></tr><tr><td><code>960-GRABA-I08</code></td><td>Párrafo de escritura de punteo CORE-GL en I08 (vigentes + Amex)</td></tr><tr><td><code>AMEXMNL</code> / INTELAR</td><td>Archivo de donativo American Express y sistema receptor; establecimiento fijo 9355195968</td></tr><tr><td><code>B02T-TCODE-ORIG=500</code></td><td>Selector de formato de autorización en el punteo I08: 500 → AUT emulador (2+10 dígitos); otro → AUT C218 (4+2+6)</td></tr><tr><td><code>ADMONXFERS</code> / <code>INTELARSND</code></td><td>Librería propietaria Unisys de transmisión INTELAR; reintento único, 3 s espera, best-effort</td></tr><tr><td><code>BD06TELETON</code></td><td>Dataset de control que registra el estado de fin del proceso Teletón (paso B00T-PASO=630)</td></tr><tr><td><code>CHANGE ATTRIBUTE STATUS OF MYSELF</code></td><td>Instrucción Unisys MCP para marcar el proceso como anormal (terminación con STATUS=-1)</td></tr><tr><td><code>CONCENTRADOR-SALDOSTB</code></td><td>PROGRAM-ID de P420 — concentrador de saldos de tarjeta por turnos</td></tr><tr><td><code>SALDOSTBM</code> / <code>SALDOSTBV</code></td><td>Archivos de saldos de tarjeta turno matutino (M) y vespertino (V); cuatro en total (M, TM, V, TV)</td></tr><tr><td><code>CLOSE WITH SAVE/RELEASE/PURGE</code></td><td>Semántica de persistencia MCP en P630 (CORE-GL): SAVE=commit/flush; RELEASE=no-op; PURGE=borrado físico; sin equivalente directo Java</td></tr><tr><td><code>B02T-TIPO-CANAL</code></td><td>Campo que diferencia ATM vs PoS en CORE-DEPB02TMOVTOS — la lógica de liquidación es la misma; solo difiere el origen del movimiento</td></tr><tr><td><code>NUM-PASO-01/02/03</code></td><td>Control de secuencia de pasos en P110: debe ser 105 (P105 completó) antes de ejecutar P110; DMTERMINATE si no</td></tr><tr><td><code>EXTNET</code> (EXTENDED-FILE)</td><td>Soporte de transacciones de corresponsales/ATMs remotos incorporado en octubre 2023; activado por PROC-EXTNET en B02CONTROL</td></tr><tr><td><code>TBINTERMON</code> / <code>TBINTERVDM</code></td><td>Archivos destino geográficos de P400: MTY (Monterrey) y VDM (Valle de México)</td></tr><tr><td><code>TARJETADIA</code></td><td>Dataset que activa el flujo diario vs <code>TARJETASEM</code> (semanal) en P400</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="m3"><span class="sn">M3</span>M3 · Copybooks consultados</h2>
+<blockquote><p><strong>CORE-DEPP630, P104, P420, P110, P400 (todos CORE-DEP):</strong> Archivos en <code>08 - Codigo/CORE-DEP/Todos + copies expandidos/</code> — <strong>VERSION AMPLIADA</strong> (COPYs ya inlineados). No hay sentencias COPY activas; el código es directamente analizable.</p><p></p><p><strong>P630 (CORE-GL):</strong> Fuente en <code>08 - Codigo/CORE-GL/</code> en formato <strong>CPBAS</strong> con sentencias activas <code>* COPY "..."</code> delimitadas por <code>*INICIO COPY PARA CPBAS</code> / <code>*FIN COPY</code>. ⚠ Este programa es <strong>homónimo</strong> de CORE-DEPP630 — verificar sistema antes de consultar el fuente.</p></blockquote></div>
+<div class="card reveal"><h2 id="m4"><span class="sn">M4</span>M4 · Interfaces y catálogos externos</h2>
+<table><thead><tr><th>Sistema / Interfaz</th><th>Dirección</th><th>Protocolo / Mecanismo</th><th>Notas críticas de migración</th></tr></thead><tbody><tr><td>CORE-DEPB02TMOVTOS (DMSII)</td><td>IN</td><td>LOCK NEXT (MCP/DMSII)</td><td>Fuente de todos los movimientos de tarjeta; DMTERMINATE ante error ≠ NOTFOUND</td></tr><tr><td>CTLVERS (catálogo versiones)</td><td>IN</td><td>CALL librería Unisys</td><td>2 llamadas por corrida: validar versión + resolver S000LIBFEC; migrar a ConfigMap / service registry</td></tr><tr><td>S000LIBFEC</td><td>IN</td><td>CALL DAME_DIAJUL2K</td><td>Cálculo de día juliano; librería CORE-DEP propietaria — mapear a <code>java.time.LocalDate.getDayOfYear()</code> o equivalente</td></tr><tr><td>S244 (Teletón)</td><td>OUT</td><td>Archivo DISK Unisys</td><td>Contrato de interfaz con Teletón; schema de header/detalle/trailer debe documentarse antes de cutover</td></tr><tr><td>I08 (punteo CORE-GL)</td><td>OUT</td><td>Archivo DISK Unisys</td><td>Doble salida no atómica con S244 — garantizar atomicidad (saga/outbox) en moderno</td></tr><tr><td>AMEXMNL / INTELAR</td><td>OUT</td><td>ADMONXFERS/INTELARSND (propietario)</td><td>Best-effort 1 reintento; reemplazar por mecanismo cloud-native; validar formato bit-a-bit con INTELAR</td></tr><tr><td>BD06TELETON (DMSII)</td><td>IN/OUT</td><td>LOCK + BEGIN/END-TRANSACTION</td><td>Estado final del proceso; CHANGE ATTRIBUTE STATUS = MCP propietario → reemplazar por outbox/saga</td></tr><tr><td>CORE-DEPB00TGLOBAL (DMSII)</td><td>OUT</td><td>LOCK + UPDATE</td><td>Paso B00T-PASO-ENTRA/SALE=630 para integridad del flujo nocturno</td></tr><tr><td>CORE-GL TOTXCVE</td><td>IN/OUT</td><td>CALL CORE-GL</td><td>Cuadre contable interbancario en P110; dependencia directa de CORE-GL para reconciliación</td></tr><tr><td>S408 LINCRED</td><td>IN</td><td>CALL S408</td><td>Cuadre de línea de crédito en P110; determina si cancelación afecta saldo crédito o captación</td></tr><tr><td>WFL Scheduler</td><td>IN</td><td>INITIATE batch MCP</td><td>Lanza todos los programas; P110 exige P105 previo (B00CTRLPASO NUM-PASO=105)</td></tr><tr><td>S006 (receptor archivos)</td><td>OUT</td><td>CALL SYSTEM WFL — job CORE-DEP/WFL/COPIARCH/01MTP001</td><td>S244+AMEX transferidos a S006 al cierre normal; llave "S501T01" heredada de S501/P110 (2016) — validar antes de migrar</td></tr></tbody></table></div>
+<div class="card reveal"><section class="sme-section" id="sme">
+<h2 id="sme">Comentarios / Correcciones SME</h2>
+<p style="font-size:12px;margin-bottom:10px;color:#7ca8b8">Registre correcciones del SME. Se guardan en localStorage del navegador. Use <strong>&#10005;</strong> para borrar una fila individual.</p>
+<table class="sme-table" id="sme-table-TAR" style="width:100%;border-collapse:collapse;font-size:12px;">
+<thead><tr>
+<th style="padding:6px 8px;">Fecha</th><th style="padding:6px 8px;">SME</th>
+<th style="padding:6px 8px;">Seccion / Tarea</th><th style="padding:6px 8px;">Comentario</th>
+<th style="padding:6px 8px;">Estado</th><th style="padding:4px;width:32px;"></th>
+</tr></thead>
+<tbody id="sme-tbody-TAR"></tbody>
+</table>
+<div class="sme-btns">
+<button class="sme-btn btn-acc" onclick="addRowTAR()">+ Agregar fila</button>
+<button class="sme-btn btn-bnm" onclick="exportMDTAR()">Exportar MD</button>
+<button class="sme-btn btn-gray" onclick="exportTSVTAR()">Exportar TSV</button>
+<button class="sme-btn danger" onclick="clearTAR()">Limpiar todo</button>
+</div>
+</section></div>
+</main>
+<footer>
+  <a href="../index.html">&#8592; Volver al Hub</a>
+  &ensp;&middot;&ensp; Enterprise Digital Brain LegacyCore · POC AIRE 2026 &ensp;&middot;&ensp;
+  Ficha de capacidad · gemcog-kb-2026-08-25-cliente-entregable
+</footer>
+<script>
+const K_TAR='sme-cap-tar-0811';
+function makeRTAR(r){
+  const tr=document.createElement("tr");
+  ["fecha","sme","seccion","comentario","estado"].forEach(function(k){
+    const td=document.createElement("td");
+    td.contentEditable="true";td.textContent=r[k]||"";
+    td.style.border="1px solid #1a4555";td.style.padding="6px 8px";td.style.verticalAlign="top";
+    if(k!=="fecha"&&k!=="estado")td.style.minWidth="100px";
+    td.oninput=saveTAR;tr.appendChild(td);
+  });
+  const tdx=document.createElement("td");
+  tdx.style.cssText="border:1px solid #1a4555;padding:3px;text-align:center;vertical-align:middle;";
+  const bx=document.createElement("button");
+  bx.textContent="\u2715";bx.title="Eliminar esta fila";
+  bx.style.cssText="background:#c62828;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:13px;font-weight:700;line-height:1.4;";
+  bx.onclick=function(){if(confirm("Eliminar esta fila?")){tr.remove();saveTAR();}};
+  tdx.appendChild(bx);tr.appendChild(tdx);return tr;
+}
+function addRowTAR(){
+  const tb=document.getElementById("sme-tbody-TAR");
+  tb.appendChild(makeRTAR({fecha:new Date().toISOString().slice(0,10),sme:"",seccion:"",comentario:"",estado:"PENDIENTE"}));
+  saveTAR();
+}
+function saveTAR(){
+  const data=[...document.getElementById("sme-tbody-TAR").rows].map(function(r){
+    return{fecha:r.cells[0].textContent,sme:r.cells[1].textContent,
+      seccion:r.cells[2].textContent,comentario:r.cells[3].textContent,estado:r.cells[4].textContent};
+  });
+  localStorage.setItem(K_TAR,JSON.stringify(data));
+}
+function exportMDTAR(){
+  const rows=[...document.getElementById("sme-tbody-TAR").rows];
+  var md="## Comentarios SME -- BC-02 · Cajeros y PoS\n\n| Fecha | SME | Seccion | Comentario | Estado |\n|---|---|---|---|---|\n";
+  rows.forEach(function(r){md+="| "+[...r.cells].slice(0,5).map(function(c){return c.textContent;}).join(" | ")+" |\n";});
+  navigator.clipboard.writeText(md).then(function(){alert("Copiado al portapapeles");});
+}
+function exportTSVTAR(){
+  const rows=[...document.getElementById("sme-tbody-TAR").rows];
+  var t="Fecha\tSME\tSeccion\tComentario\tEstado\n";
+  rows.forEach(function(r){t+=[...r.cells].slice(0,5).map(function(c){return c.textContent;}).join("\t")+"\n";});
+  navigator.clipboard.writeText(t).then(function(){alert("TSV copiado");});
+}
+function clearTAR(){
+  if(confirm("Borrar TODOS los comentarios?")){localStorage.removeItem(K_TAR);document.getElementById("sme-tbody-TAR").innerHTML="";}
+}
+function loadTAR(){
+  try{
+    const d=JSON.parse(localStorage.getItem(K_TAR)||"[]");
+    const tb=document.getElementById("sme-tbody-TAR");tb.innerHTML="";
+    d.forEach(function(r){tb.appendChild(makeRTAR(r));});
+    if(!tb.children.length)addRowTAR();
+  }catch(e){}
+}
+loadTAR();
+</script>
+<script>
+(function(){
+  if(document.querySelector('nav.gemcog-tabs')) return;
+  var h2s = [].slice.call(document.querySelectorAll('h2[id]'));
+  if(!h2s.length) return;
+  var nav = document.createElement('nav');
+  nav.className = 'gemcog-tabs';
+  nav.setAttribute('aria-label','Secciones');
+  var labels = {
+    'ctx':'Contexto','inv':'Inventario','cas':'Casuisticas','seq':'Secuencia',
+    'flujo':'Flujo','reg':'Reglas','hal':'Hallazgos',
+    'm1':'Blast Radius','m2':'Vocabulario','m3':'Copybooks','m4':'Interfaces','sme':'SME'
+  };
+  var ampDone=false;
+  h2s.forEach(function(h2){
+    var id = h2.id;
+    if(id.indexOf('amp-')===0){ if(ampDone) return; ampDone=true; }
+    var btn = document.createElement('button');
+    if(id.indexOf('amp-')===0){ btn.textContent='Ampliaciones'; btn.title='Ampliaciones por programa'; }
+    else if(labels[id]){ btn.textContent = labels[id]; btn.title = h2.textContent.trim(); }
+    else { var clone=h2.cloneNode(true); var sn=clone.querySelector('.sn,.badge-new'); if(sn)sn.remove();
+      btn.textContent=clone.textContent.trim().replace(/\s+/g,' ').slice(0,22); btn.title=h2.textContent.trim(); }
+    btn.dataset.target = id;
+    btn.addEventListener('click', function(){
+      var el=document.getElementById(btn.dataset.target); if(!el)return;
+      var y=el.getBoundingClientRect().top+window.pageYOffset-112;
+      window.scrollTo({top:y<0?0:y,behavior:'smooth'}); setActive(btn);
+    });
+    nav.appendChild(btn);
+  });
+  var hdr=document.querySelector('.header,header,.portal-header');
+  if(hdr&&hdr.parentNode){ hdr.parentNode.insertBefore(nav,hdr.nextSibling); } else { document.body.insertBefore(nav,document.body.firstChild); }
+  var navH=nav.offsetHeight||40;
+  nav.style.setProperty('position','fixed','important');
+  nav.style.top='54px';nav.style.left='0';nav.style.right='0';nav.style.zIndex='95';
+  function padTop(){ navH=nav.offsetHeight||navH; document.body.style.paddingTop=(navH+54)+'px'; }
+  padTop(); window.addEventListener('resize',padTop,{passive:true});
+  var btns=[].slice.call(nav.querySelectorAll('button'));
+  function setActive(b){ btns.forEach(function(x){ x.classList.toggle('active',x===b); }); }
+  function updateActive(){
+    var off=(nav.offsetHeight||44)+12; var scrollY=window.pageYOffset+off;
+    var activeId=h2s.length?h2s[0].id:null;
+    h2s.forEach(function(h2){ if(h2.getBoundingClientRect().top+window.pageYOffset<=scrollY) activeId=h2.id; });
+    var ampActive=activeId&&activeId.indexOf('amp-')===0;
+    btns.forEach(function(b){ var t=b.dataset.target; b.classList.toggle('active',(t===activeId)||(ampActive&&t.indexOf('amp-')===0)); });
+  }
+  window.addEventListener('scroll',updateActive,{passive:true});
+  window.addEventListener('resize',updateActive,{passive:true});
+  updateActive();
+})();
+</script>
+<script>
+function initHubTooltips(){
+  document.querySelectorAll('.hub-panel').forEach(function(p){ document.body.appendChild(p); });
+  var panels=[].slice.call(document.querySelectorAll('.hub-panel'));
+  panels.forEach(function(panel){
+    var match=panel.getAttribute('data-hub-match')||''; if(!match) return;
+    panel.dataset.pinned='0';
+    var nodes=[].slice.call(document.querySelectorAll('.mermaid g.node')).filter(function(n){
+      return ((n.textContent||'').replace(/\s+/g,' ').indexOf(match)!==-1); });
+    if(!nodes.length) return;
+    function place(n){
+      var r=n.getBoundingClientRect(); var w=panel.offsetWidth||520;
+      var left=r.left;
+      if(left+w>window.innerWidth-12){ left=window.innerWidth-w-12; }
+      panel.style.left=Math.max(8,left)+'px'; panel.style.top=(r.bottom+8)+'px';
+    }
+    nodes.forEach(function(n){
+      n.style.cursor='pointer';
+      n.addEventListener('mouseenter',function(){ if(panel.dataset.pinned==='1')return; place(n); panel.style.display='block'; });
+      n.addEventListener('mouseleave',function(){ if(panel.dataset.pinned==='1')return; panel.style.display='none'; });
+      n.addEventListener('click',function(e){ e.stopPropagation();
+        if(panel.dataset.pinned==='1'){ panel.dataset.pinned='0'; panel.style.display='none'; }
+        else { panel.dataset.pinned='1'; place(n); panel.style.display='block'; } });
+    });
+    panel.addEventListener('click',function(e){ e.stopPropagation(); });
+  });
+  document.addEventListener('click',function(){
+    document.querySelectorAll('.hub-panel').forEach(function(p){ if(p.dataset.pinned==='1'){ p.dataset.pinned='0'; p.style.display='none'; } });
+  });
+}
+</script>
+<script>
+/* Navegación cross-cap: nodos :::xcap cuya etiqueta contiene "cap-XXX" navegan a esa capacidad al clicar. */
+(function(){
+  function initXcapLinks(){
+    document.querySelectorAll('.mermaid g.node').forEach(function(n){
+      var t=(n.textContent||'').replace(/\s+/g,' ').trim();
+      var m=t.match(/\bcap-([a-z]+)/);   /* tolerante: "(cap-orc)" · "cap-gl (BC-13)" · "(cross-ref cap-sta)" → grupo 1 = código */
+      if(!m) return;
+      var cap=m[1];
+      var target='../modelo capacidades/cap-'+cap+'.html#diag';
+      n.style.cursor='pointer';
+      n.setAttribute('title','→ '+cap);
+      n.addEventListener('click',function(e){ e.stopPropagation(); window.location.href=target; });
+    });
+  }
+  window.initXcapLinks=initXcapLinks;
+})();
+</script>
+<script>
+(function(){
+  var ro=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting){e.target.classList.add('visible');ro.unobserve(e.target);}});},{threshold:0.04});
+  document.querySelectorAll('.reveal').forEach(function(el){ro.observe(el);});
+})();
+</script>
+<script>
+(function(){
+  var SEQ_TARGET=8;                 // participantes visibles por vista (objetivo 6–8; columnas desiguales)
+  function count(svg){
+    var n=svg.querySelectorAll('.actor-line').length;
+    if(!n)n=svg.querySelectorAll('line.actor-line').length;
+    if(!n)n=svg.querySelectorAll('text.actor').length;   // fallback
+    return n;
+  }
+  function addTopBar(box){
+    var top=box.previousElementSibling;
+    if(!top||!top.classList||!top.classList.contains('mmscroll-top')){
+      top=document.createElement('div'); top.className='mmscroll-top';
+      var inner=document.createElement('div'); inner.className='mmscroll-top-inner';
+      top.appendChild(inner); box.parentNode.insertBefore(top,box);
+      var lock=false;
+      top.addEventListener('scroll',function(){ if(lock)return; lock=true; box.scrollLeft=top.scrollLeft; lock=false; });
+      box.addEventListener('scroll',function(){ if(lock)return; lock=true; top.scrollLeft=box.scrollLeft; lock=false; });
+    }
+    top.firstChild.style.width=box.scrollWidth+'px';   // espeja el ancho total desplazable
+  }
+  function scale(){
+    var boxes=[].slice.call(document.querySelectorAll('.mermaid.mmscroll'));
+    if(!boxes.length)return;
+    var pending=false;
+    boxes.forEach(function(box){
+      if(box.dataset.seqScaled==='1')return;
+      var svg=box.querySelector('svg'); if(!svg){pending=true;return;}
+      var n=count(svg);
+      var natural=svg.getBoundingClientRect().width;
+      var cw=box.clientWidth||box.getBoundingClientRect().width;
+      if(!n||!natural||!cw){pending=true;return;}
+      var target=(n>SEQ_TARGET)?(cw*n/SEQ_TARGET):cw;  // >8: SEQ_TARGET por vista + scroll · <=8: caben todos en pantalla
+      if(target<natural){ svg.style.setProperty('width',target+'px','important'); svg.style.height='auto'; }
+      if(n>SEQ_TARGET){ addTopBar(box); }            // >8: doble barra de scroll
+      else{ box.style.overflowX='visible'; }          // <=8: cabe en pantalla -> sin barras
+      box.dataset.seqScaled='1';
+    });
+    if(pending)setTimeout(scale,120);
+  }
+  function reset(){ document.querySelectorAll('.mermaid.mmscroll').forEach(function(b){
+    b.dataset.seqScaled=''; var s=b.querySelector('svg'); if(s)s.style.width=''; }); setTimeout(scale,120); }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(scale,250);});
+  else setTimeout(scale,250);
+  var t; window.addEventListener('resize',function(){clearTimeout(t);t=setTimeout(reset,200);});
+})();
+</script>
+</body></html>

@@ -1,0 +1,666 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BC-15 · Almacén Operacional DMSII — Enterprise Digital Brain LegacyCore</title>
+<!-- lookfeel:cap-relationships v1 -->
+<script src="../assets/mermaid.min.js"></script>
+<style>
+:root{
+  --red:#A100FF;--gold:#6CC5D8;--ink:#F0F8FA;
+  --muted:#7fb8c8;--muted2:#5a98a8;
+  --glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10);
+  --surf:#0D2C3A;--surfb:#081825;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#071c23;color:var(--ink);
+  font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Calibri,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;font-size:14px;line-height:1.55}
+
+.pbar{position:fixed;top:0;left:0;width:100%;height:3px;
+  background:linear-gradient(90deg,var(--gold),#fff);z-index:300}
+
+.aurora{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none}
+.aurora div{position:absolute;border-radius:50%;filter:blur(90px);opacity:.28;
+  animation-timing-function:ease-in-out;animation-iteration-count:infinite;animation-direction:alternate}
+.a1{width:600px;height:600px;background:radial-gradient(circle,rgba(193,39,45,.45),transparent 70%);
+  top:-10%;left:-5%;animation:f1 24s infinite}
+.a2{width:500px;height:500px;background:radial-gradient(circle,rgba(108,197,216,.35),transparent 70%);
+  bottom:5%;right:5%;animation:f2 28s infinite}
+@keyframes f1{0%{transform:translate(0,0) scale(1)}100%{transform:translate(60px,40px) scale(1.15)}}
+@keyframes f2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-50px,30px) scale(1.1)}}
+
+/* ─── SITE NAV ─── */
+nav.sitenav{position:fixed;top:3px;left:0;width:100%;z-index:200;padding:9px 24px;
+  display:flex;align-items:center;gap:16px;min-height:48px;
+  background:rgba(7,28,35,.75);backdrop-filter:blur(18px);
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.blogo{font-size:18px;font-weight:900;color:var(--red);padding:0 6px;
+  background:rgba(193,39,45,.12);border-radius:6px;border:1px solid rgba(193,39,45,.3)}
+.nt{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.sp{flex:1}
+a.jump{color:var(--muted);font-size:13px;text-decoration:none;
+  padding:4px 10px;border-radius:6px;transition:all .2s;white-space:nowrap}
+a.jump:hover{color:var(--ink);background:var(--glass)}
+
+/* ─── SECTION TABS (nav de secciones, re-apilada bajo la site nav) ─── */
+nav.gemcog-tabs{background:rgba(7,28,35,.72)!important;backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(108,197,216,.18)!important;
+  display:flex!important;overflow-x:auto!important;padding:0 14px!important;
+  scrollbar-width:none!important}
+nav.gemcog-tabs::-webkit-scrollbar{display:none!important}
+nav.gemcog-tabs button{background:none!important;border:none!important;padding:9px 14px!important;
+  font-size:12px!important;font-family:inherit!important;cursor:pointer!important;
+  color:var(--muted)!important;font-weight:600!important;border-bottom:2px solid transparent!important;
+  margin-bottom:-1px!important;white-space:nowrap!important}
+nav.gemcog-tabs button.active{border-bottom-color:var(--gold)!important;color:var(--gold)!important;
+  background:rgba(108,197,216,.10)!important}
+nav.gemcog-tabs button:hover{color:var(--gold)!important;background:rgba(108,197,216,.06)!important}
+
+main{position:relative;z-index:1;padding:20px 32px 60px;max-width:1240px;margin:0 auto}
+
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;
+  color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+h1{font-size:clamp(26px,3vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}
+h1 span{background:linear-gradient(135deg,#fff 30%,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:15px;line-height:1.6;max-width:820px;margin-bottom:30px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:36px}
+.stat{background:var(--glass);border:1px solid rgba(255,255,255,.09);border-radius:12px;
+  padding:16px 18px;text-align:center}
+.statn{font-size:26px;font-weight:800;
+  background:linear-gradient(135deg,#fff,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.statl{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase}
+
+/* ─── CARD ─── */
+.card{background:var(--glass);backdrop-filter:blur(22px) saturate(155%);
+  border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  padding:24px 28px;margin-bottom:22px}
+.meta-card{border-color:rgba(108,197,216,.22)}
+
+/* ─── TIPOGRAFÍA DE SECCIÓN ─── */
+h2{font-size:18px;color:var(--gold);margin:2px 0 14px;padding-bottom:8px;
+  border-bottom:1px solid rgba(108,197,216,.18);scroll-margin-top:112px;font-weight:800;letter-spacing:.01em}
+h2 .sn{display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--gold),#3f8ea0);color:#04222b;font-size:12px;font-weight:800;
+  min-width:22px;height:22px;border-radius:50%;margin-right:9px;vertical-align:middle;padding:0 6px}
+h3{font-size:15px;color:#9dd8e0;margin:16px 0 8px;scroll-margin-top:112px;font-weight:700}
+h4{font-size:13.5px;color:#9dd8e0;margin:14px 0 6px}
+p{margin:8px 0}
+a{color:var(--gold)}a:hover{color:#fff}
+hr{border:0;border-top:1px solid rgba(108,197,216,.14);margin:18px 0}
+
+code{background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.2);
+  border-radius:4px;padding:1px 6px;font-size:11.5px;color:var(--gold);
+  font-family:'SF Mono',ui-monospace,Consolas,monospace}
+pre{background:rgba(7,20,28,.72);border:1px solid rgba(108,197,216,.15);border-radius:8px;
+  padding:12px 14px;overflow:auto;font-size:12.3px;color:var(--ink);margin:10px 0}
+pre code{background:none;border:none;padding:0;color:var(--ink)}
+
+blockquote{background:rgba(7,20,28,.6);border-left:3px solid var(--gold);
+  padding:10px 16px;margin:12px 0;font-size:12.8px;border-radius:0 8px 8px 0;color:var(--ink)}
+blockquote p{margin:3px 0}
+
+/* ─── TABLAS ─── */
+table{width:100%;border-collapse:collapse;font-size:12.7px;margin:12px 0}
+thead th{background:rgba(7,20,28,.6);color:var(--gold);padding:9px 12px;
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid rgba(108,197,216,.22)}
+tbody td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--muted);vertical-align:top}
+tbody tr:nth-child(even) td{background:rgba(108,197,216,.03)}
+tbody tr:hover td{background:rgba(108,197,216,.06)}
+td b,td strong{color:var(--ink);font-weight:600}
+
+/* ─── AMPLIACIONES / NUEVO ─── */
+.nuevo-h{background:rgba(245,166,35,.10)!important;border-left:5px solid #F5A623;padding-left:12px!important;border-radius:0 8px 8px 0}
+.amp-h{background:rgba(30,143,160,.10)!important;border-left:5px solid #1E8FA0;padding-left:12px!important;border-radius:0 8px 8px 0}
+.badge-new{background:#c8920a;color:#fff;font-size:9.5px;font-weight:800;padding:2px 8px;
+  border-radius:8px;letter-spacing:.5px;vertical-align:middle;margin-left:10px}
+
+/* ─── SME ─── */
+.sme-section{background:rgba(7,20,28,.5);border:1px solid rgba(108,197,216,.28);border-radius:12px;padding:6px 4px}
+.sme-section h2{color:var(--gold)}
+.sme-btns{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.sme-btn{border:1px solid rgba(108,197,216,.3);background:rgba(14,46,58,.7);color:var(--gold);
+  padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
+.sme-btn:hover{background:rgba(26,69,85,.9);color:#fff}
+.sme-btn.btn-bnm{background:#7a1014;color:#fff;border-color:#7a1014}
+.sme-btn.btn-gray{background:#1a4555;color:#fff;border-color:#1a4555}
+.sme-btn.danger{background:#2a0000;color:#ff9999;border-color:#7a0000}
+[contenteditable]{outline:none;min-width:60px}
+[contenteditable]:focus{background:rgba(10,30,40,.9);outline:1px solid var(--gold)}
+
+/* ─── MERMAID ─── */
+.mermaid{background:#040f14!important;border:1px solid rgba(108,197,216,.18)!important;
+  border-radius:12px!important;padding:18px;margin:14px 0;overflow-x:auto;position:relative;text-align:center}
+.mermaid svg{max-width:100%!important;height:auto!important;background:#040f14!important}
+/* diagramas de secuencia grandes: tamaño reducido (≈6 participantes por vista) + scroll horizontal */
+.mermaid.mmscroll{overflow-x:auto;text-align:left}
+.mermaid.mmscroll svg{max-width:none!important;height:auto}  /* el ancho lo fija scaleSeqDiagrams (inline) */
+/* doble barra de scroll: una barra ESPEJO arriba del diagrama (sincronizada por JS) */
+.mmscroll-top{overflow-x:auto;overflow-y:hidden;height:16px;margin:14px 0 2px;
+  border-radius:6px;background:rgba(7,20,28,.5)}
+.mmscroll-top::-webkit-scrollbar{height:12px}
+.mmscroll-top::-webkit-scrollbar-thumb{background:#2a5866;border-radius:6px}
+.mmscroll-top::-webkit-scrollbar-track{background:transparent}
+.mmscroll-top-inner{height:1px}
+.mermaid .node text,.mermaid .nodeLabel,.mermaid text{fill:#F0F8FA!important}
+.mermaid .edgePath .path,.mermaid .flowchart-link{stroke:#6CC5D8!important}
+.mermaid .edgeLabel,.mermaid .edgeLabel p{background:#071c23!important;color:#6CC5D8!important}
+.mmfs-btn{position:absolute;top:8px;right:8px;z-index:5;background:rgba(14,46,58,.9);color:var(--gold);
+  border:1px solid var(--gold);border-radius:6px;padding:4px 11px;font:600 12px inherit;cursor:pointer;opacity:.82}
+.mmfs-btn:hover{opacity:1;background:#122d3a}
+.mermaid:fullscreen{background:#040f14!important;display:flex;align-items:center;justify-content:center;padding:2vh 2vw;overflow:auto}
+.mermaid:fullscreen svg{max-width:96vw!important;max-height:92vh!important;width:auto!important;height:auto!important}
+.mermaid:fullscreen .mmfs-btn{top:16px;right:16px;font-size:14px;padding:6px 14px}
+.nar{color:var(--muted);font-size:12.8px;line-height:1.7;margin:8px 2px 4px}
+
+/* ─── HUB TOOLTIP ─── */
+/* position:fixed para que el panel no quede relativo a main{position:relative} */
+.hub-panel{position:fixed;z-index:500;max-width:560px;background:#0a2530!important;
+  border:1px solid #2fe0e0!important;border-radius:8px;padding:10px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.6);
+  max-height:80vh;overflow-y:auto}
+.hub-panel-title{color:#2fe0e0!important;font-weight:700;font-size:13px;margin-bottom:8px}
+.hub-panel .hub-pin{float:right;font-size:10.5px;color:#7ca8b8;font-weight:400}
+.hub-tbl{margin:0!important}
+
+.foot{color:var(--muted2);font-size:11.5px;border-top:1px solid rgba(108,197,216,.14);
+  margin-top:14px;padding-top:8px;font-style:italic}
+
+footer{text-align:center;padding:36px 0 60px;color:var(--muted2);font-size:13px;position:relative;z-index:1}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--gold)}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .5s,transform .5s}
+.reveal.visible{opacity:1;transform:none}
+</style>
+<script>
+(function(){
+  function initMermaid(){
+    if(typeof mermaid==='undefined'){setTimeout(initMermaid,60);return;}
+    var nodes = [].slice.call(document.querySelectorAll('.mermaid'));
+    function showErr(where,e){
+      var m=(e&&(e.str||e.message))||String(e);
+      nodes.forEach(function(d){ if(d.querySelector('svg'))return;
+        d.insertAdjacentHTML('afterbegin','<div style="color:#ff9a9a;font:12px monospace;padding:8px;border:1px solid #ff9a9a;border-radius:6px;margin-bottom:8px;white-space:pre-wrap">Mermaid ['+where+']: '+(''+m).replace(/</g,'&lt;')+'</div>'); });
+    }
+    var themed={startOnLoad:false,securityLevel:'loose',
+      flowchart:{useMaxWidth:false,nodeSpacing:30,rankSpacing:40,padding:8,htmlLabels:true},
+      sequence:{useMaxWidth:false,mirrorActors:false},
+      theme:'base',themeVariables:{
+      background:'#040f14',mainBkg:'#0e2e3a',primaryColor:'#0e2e3a',
+      primaryTextColor:'#F0F8FA',primaryBorderColor:'#6CC5D8',lineColor:'#6CC5D8',
+      secondaryColor:'#122d3a',secondaryTextColor:'#F0F8FA',secondaryBorderColor:'#6CC5D8',
+      tertiaryColor:'#071c23',tertiaryTextColor:'#9dd8e0',tertiaryBorderColor:'#1a4555',
+      noteBkgColor:'#0e2e3a',noteTextColor:'#F0F8FA',noteBorderColor:'#6CC5D8',
+      edgeLabelBackground:'#071c23',clusterBkg:'#071c23',clusterBorder:'#1a4555',
+      titleColor:'#6CC5D8',actorBkg:'#0e2e3a',actorBorder:'#6CC5D8',actorTextColor:'#F0F8FA',
+      signalColor:'#6CC5D8',signalTextColor:'#F0F8FA',labelBoxBkgColor:'#0e2e3a',
+      labelBoxBorderColor:'#6CC5D8',labelTextColor:'#F0F8FA',loopTextColor:'#9dd8e0',
+      activationBkgColor:'#122d3a',activationBorderColor:'#6CC5D8',
+      darkMode:true,fontSize:'13px',fontFamily:'Arial,sans-serif'
+    }};
+    try{ mermaid.initialize(themed); }
+    catch(e1){ showErr('initialize',e1); try{ mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'dark'}); }catch(e2){ showErr('initialize2',e2); } }
+    function addBtns(){
+      nodes.forEach(function(d){
+        if(d.classList.contains('mmscroll'))return;if(d.querySelector('.mmfs-btn'))return;
+        var btn=document.createElement('button');
+        btn.className='mmfs-btn'; btn.type='button'; btn.textContent='⛶ Ampliar';
+        btn.onclick=function(ev){ ev.stopPropagation();
+          var rq=d.requestFullscreen||d.webkitRequestFullscreen;
+          if(!document.fullscreenElement&&!document.webkitFullscreenElement){ rq&&rq.call(d); }
+          else { (document.exitFullscreen||document.webkitExitFullscreen).call(document); } };
+        d.appendChild(btn);
+      });
+    }
+    function post(){ addBtns(); if(window.initHubTooltips){ try{ initHubTooltips(); }catch(_){} } if(window.initXcapLinks){ try{ initXcapLinks(); }catch(_){} } }
+    try{
+      var p=(typeof mermaid.run==='function')?mermaid.run({nodes:nodes}):(typeof mermaid.init==='function')?mermaid.init(undefined,nodes):null;
+      if(p&&typeof p.then==='function'){ p.then(post).catch(function(e){ showErr('run',e); post(); }); }
+      else { post(); }
+    }catch(e){ showErr('run',e); post(); }
+    document.addEventListener('fullscreenchange',function(){
+      var fs=document.fullscreenElement;
+      nodes.forEach(function(d){ var b=d.querySelector('.mmfs-btn'); if(b){ b.textContent=(fs===d)?'✕ Cerrar':'⛶ Ampliar'; } });
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initMermaid);}else{initMermaid();}
+})();
+</script>
+</head><body>
+<div class="pbar"></div>
+<div class="aurora"><div class="a1"></div><div class="a2"></div></div>
+<nav class="sitenav portal-header">
+  <img src="data:image/png;base64,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" alt="Accenture" style="height:26px;width:auto;display:block" onerror="this.outerHTML=&quot;<span class='blogo'>B</span>&quot;">
+  <span class="nt">Enterprise Digital Brain · LegacyCore Mainframe</span><span class="sp"></span>
+  <a class="jump" href="../modelo-capacidades.html">&larr; Capacidades</a>
+  <a class="jump" href="../index.html">Hub</a>
+  <a class="jump" href="../rules-report.html">Reglas</a>
+  <a class="jump" href="../vocab.html">Vocabulario</a>
+  <a class="jump" href="../traceability.html">Trazabilidad</a>
+  <a class="jump" href="../integration.html">Integración</a>
+  <a class="jump" href="../cap-relationships.html">Relaciones</a>
+</nav>
+<main>
+  <div class="eyebrow reveal"><span class="dot"></span>Modelo de Capacidades · BC-15</div>
+  <h1 class="reveal">BC-15 · <span>Almacén Operacional DMSII</span></h1>
+  <p class="subtitle reveal">9.1.1 Operational Data Stores &middot; CORE-DEP &middot; gemcog-kb-2026-08-25-cliente-entregable &middot; v1.13</p>
+  <div class="stats reveal">
+<div class="stat"><div class="statn">2</div><div class="statl">Programas</div></div>
+<div class="stat"><div class="statn">74</div><div class="statl">Reglas</div></div>
+<div class="stat"><div class="statn">52</div><div class="statl">Tareas</div></div>
+<div class="stat"><div class="statn">3</div><div class="statl">Casuísticas</div></div>
+<div class="stat"><div class="statn">CORE-DEP</div><div class="statl">Sistema</div></div>
+  </div>
+<div class="card meta-card reveal"><p># BC-15 · Almacén Operacional DMSII</p>
+<blockquote><p>Dominio: 9 · Insights & Information · Capacidad: 9.1.1</p><p>Cobertura: CORE-DEP+CORE-GL · Bases de datos: BD10 · BD11 · BD12 · BD13 · BD99 · BD02</p><p>Reglas vinculadas: RN-CORE-DEP-918 · RN-CORE-DEP-920 · RN-CORE-DEP-924..925 · RN-CORE-DEP-927 · RN-CORE-DEP-929 · RN-CORE-DEP-931..932 · RN-CORE-DEP-934..935 · RN-CORE-GL-491..525 (45 reglas · trazabilidad automática 2026-08-12)</p><p>Jerarquía: <strong>N1</strong> Dominio 9 · Insights & Information → <strong>N2</strong> Subdominio (General) → <strong>N3</strong> Capacidad BC-15 Almacén Operacional DMSII (BIAN 9.1.1) → <strong>N4-5</strong> Procesos/Flujo de tareas (ver Inventario de Tareas) → <strong>N6</strong> Reglas (ver Reglas vinculadas)</p><p>Indexado: ✅ 2026-08-12 — correlacionado vocab↔reglas↔capacidad (build-traceability.py · clave BC-XX)</p><p>bian_ref: 9.1.1 Operational Data Stores</p></blockquote></div>
+<div class="card reveal"><h2 id="ctx"><span class="sn">1</span>Contexto funcional</h2>
+<p>El <strong>Operational Data Store (ODS)</strong> del sistema CORE-GL es el modelo de datos en producción sobre la plataforma <strong>Unisys ClearPath MCP</strong> con motor <strong>DMSII</strong> (Data Management System II). No es un repositorio analítico ni un data warehouse: es el almacén transaccional vivo donde cada movimiento contable, saldo, posición GL, instrucción de domiciliación y control operativo existe en tiempo real.</p>
+<p>El ODS CORE-GL está compuesto por <strong>seis bases de datos DMSII</strong> con roles y cardinalidades distintos:</p>
+<table><thead><tr><th>BD</th><th>Nombre funcional</th><th>DATA SETs principales</th><th>Cardinalidad máxima</th><th>Rol</th></tr></thead><tbody><tr><td><strong>BD10</strong></td><td>Movimientos Diarios</td><td>BxMOVTOS (x5 días) + IMPADI + CSISUCCAJ</td><td>52.5 M/conjunto × 5 días</td><td>Registro transaccional en tiempo real</td></tr><tr><td><strong>BD11</strong></td><td>Saldos y Posición GL</td><td>B70POSICION · B72POSCONTA · B20SDOMENCON · B80EDOCTA</td><td>Hasta 12 M saldos mensuales</td><td>Posición contable y estados de cuenta</td></tr><tr><td><strong>BD12</strong></td><td>Movimientos por Contrato</td><td>Tripartita OK(25M) · INFO(5M) · ERROR(5M) + 6 extensiones</td><td>35 M registros totales</td><td>Movimientos a nivel de contrato cliente</td></tr><tr><td><strong>BD13</strong></td><td>BIFIN / Protección / Domiciliación</td><td>B07PROTCOB · B10DOMI · B04CTLGLOBALDIR · B08TDMIGCAP</td><td>150 M (PROTCOB + DOMI)</td><td>Domiciliación, protección de cobro, envíos externos</td></tr><tr><td><strong>BD99</strong></td><td>Control del Sistema</td><td>B10MOVPORSUC · B11MOVPORCTE · B12POSICION · B14/B15ARCDIA</td><td>Hasta 10 M registros</td><td>Acumulados operativos y control de archivos</td></tr><tr><td><strong>BD02</strong></td><td>Saldos Tesorería (ADSALDO)</td><td>B03SDOCTE · B14CONOPECRUZ · B15MOVOPECRUZ · B08GLOSAR</td><td>100 K (interbancarios en ALL)</td><td>Tesorería, operaciones cruzadas e interbancarias, SAR</td></tr></tbody></table>
+<p><strong>Integración regulatoria directa:</strong> CNBV (R04C, R27C, CUB Anexo 33), Banxico (SPEI/NIO, domiciliación, operaciones interbancarias), SAT (RFC-ORD, RFC-BENEF, NOM-BENEF Anexo 20), CONSAR (flujos SAR).</p>
+<p><strong>Interdependencia cross-sistema confirmada:</strong></p>
+<p>- BD11.B70POSICION reside físicamente en el pack <code>S067REMESAS</code> (sistema de Remesas). - BD13.B10DOMI tiene campo cruzado <code>AUTD-AUT702</code> hacia el sistema S702 (domiciliación externa). - BD13.B04CTLGLOBALDIR alimenta la plataforma GlobalDirect (cash management externo).</p>
+<p><strong>Advertencia operativa crítica:</strong> Las sucursales 859/100/342/110/511/870 usan <code>KEY=AUTAPL</code> en lugar de <code>KEY=AUTCORE-GL</code> en todos los conjuntos de BD10. Cualquier consulta de cajero que asuma AUTCORE-GL como clave universal producirá NOT FOUND silencioso para estas seis sucursales.</p></div>
+<div class="card reveal"><h2 id="inv"><span class="sn">2</span>Inventario de Tareas</h2>
+<h3>BD10 — Movimientos Diarios</h3>
+<table><thead><tr><th>ID</th><th>Tipo</th><th>Descripción</th><th>Reglas fuente</th></tr></thead><tbody><tr><td><strong>T-ODS-001</strong></td><td><code>control</code></td><td>Selección del conjunto diario activo de BD10: leer <code>BD99.B01SISDIA.NOMBDSEM</code> y enrutar a B01/B11/B21/B31/B41MOVTOS según día hábil. El sábado reutiliza el conjunto indicado por NOMBDSEM.</td><td>RN-CORE-GL-491, RN-CORE-GL-492</td></tr><tr><td><strong>T-ODS-002</strong></td><td><code>consulta</code></td><td>Lookup de movimiento individual por AUTCORE-GL NUMBER(08) vía índice <code>B01SXAUTCORE-GL</code>. Único y O(1). Si PROCESO ≥ 15, el registro no está en los subsets activos; se requiere acceso directo por AUTCORE-GL.</td><td>RN-CORE-GL-493, RN-CORE-GL-494</td></tr><tr><td><strong>T-ODS-003</strong></td><td><code>consulta</code></td><td>Consulta de movimientos de cajero estándar (SUCINI > 0, PROCESO < 15) vía subset <code>B01BXMOVCAJ</code> con clave (SUCINI, CAJINI, AUTCORE-GL) y BUFFERS=2500+100/usuario. Excluye movimientos electrónicos (SUCINI=0).</td><td>RN-CORE-GL-494, RN-CORE-GL-495</td></tr><tr><td><strong>T-ODS-004</strong></td><td><code>consulta</code></td><td>Consulta de movimientos en sucursales especiales (859, 100, 342, 110, 511, 870) vía subset <code>B01BXCAJ859</code> con clave (SUCINI, CAJINI, <strong>AUTAPL</strong>). Bifurcación obligatoria respecto a T-ODS-003. Aplica en los 5 conjuntos diarios.</td><td>RN-CORE-GL-496</td></tr><tr><td><strong>T-ODS-005</strong></td><td><code>validación</code></td><td>Validación de tipo y formato del campo NIO: ALPHA(16) para operaciones SPEI asignadas por Banxico; CECOBAN NUMBER(08) para compensación interbancaria. NIO vacío (espacios) es válido en operaciones no-SPEI.</td><td>RN-CORE-GL-497</td></tr><tr><td><strong>T-ODS-006</strong></td><td><code>contable</code></td><td>Cuadre de caja por turno: acumulación en <code>B03CSISUCCAJ</code> (clave MDE) y <code>B04CSISUCCAJ</code> (clave MDA) con dimensiones (SUCINI, CAJINI, MONEDA, BANCOS, SECREN). Reconciliar total_B03 + total_B04 = SUM(BxMOVTOS caja/turno).</td><td>RN-CORE-GL-499</td></tr><tr><td><strong>T-ODS-007</strong></td><td><code>validación</code></td><td>Validación de campos SAT Anexo 20: RFC-ORD ALPHA(13), RFC-BENEF ALPHA(18), NOM-BENEF ALPHA(120). La asimetría de longitud RFC-ORD(13) ≠ RFC-BENEF(18) es intencional y obligatoria. Campos en blanco son válidos para operaciones no sujetas a Anexo 20.</td><td>RN-CORE-GL-500</td></tr><tr><td><strong>T-ODS-008</strong></td><td><code>consulta</code></td><td>Consulta de importes adicionales del movimiento vía <code>CORE-GLB02IMPADI</code> (MEMORY RESIDENT=COARSE, 6M registros). Relación hija 0..1 con BxMOVTOS: NOT FOUND es el caso normal (movimiento sin importes adicionales).</td><td>RN-CORE-GL-498</td></tr></tbody></table>
+<h3>BD11 — Saldos y Posición GL</h3>
+<table><thead><tr><th>ID</th><th>Tipo</th><th>Descripción</th><th>Reglas fuente</th></tr></thead><tbody><tr><td><strong>T-ODS-009</strong></td><td><code>contable</code></td><td>Actualización de posición contable GL en <code>B72POSCONTA</code> (MEMORY RESIDENT=COARSE): FIND-OR-CREATE con clave de 10 dimensiones (KEYCSI, KEYFEC, KEYBCO, KEYMON, KEYFID, KEYPRD, KEYINS, KEYCTA, KEYCVEC, KEYSEC). Actualizar CARGOS/ABONOS/SDOACT. Insumo directo para R04C/R27C CNBV.</td><td>RN-CORE-GL-501, RN-CORE-GL-503, RN-CORE-GL-507</td></tr><tr><td><strong>T-ODS-010</strong></td><td><code>consulta</code></td><td>Consulta de saldos mensuales activos: acceder siempre al subset <code>B20BXSDOMENCON</code> (WHERE STAMOV=1, BIT VECTOR) con clave (KEYAM, KEYCON, KEYPRD, KEYMON). Consultar directamente <code>CORE-GLB20SDOMENCON</code> incluye registros históricos e introduce duplicación aparente de saldos.</td><td>RN-CORE-GL-502, RN-CORE-GL-504</td></tr><tr><td><strong>T-ODS-011</strong></td><td><code>control</code></td><td>Control de generación de estado de cuenta vía <code>CORE-GLB80EDOCTA</code> (MEMORY RESIDENT=COARSE, 5M registros, clave FECCON+PRD+INS+KEYCONT). Sin registro activo en B80EDOCTA, P158 no genera el estado de cuenta — falla silenciosa para el cliente.</td><td>RN-CORE-GL-505</td></tr><tr><td><strong>T-ODS-012</strong></td><td><code>validación</code></td><td>Validación de fecha de proceso: leer <code>B00.FEC NUMBER(08)</code> en formato CCAAMMDD (post-CRONOS2K). Programas que leen como NUMBER(06) truncan el siglo silenciosamente. Identificar con <code>*INICIA CODIGO DE RENOVACION CRONOS 2000</code>.</td><td>RN-CORE-GL-506</td></tr></tbody></table>
+<h3>BD12 — Movimientos por Contrato Tripartita</h3>
+<table><thead><tr><th>ID</th><th>Tipo</th><th>Descripción</th><th>Reglas fuente</th></tr></thead><tbody><tr><td><strong>T-ODS-013</strong></td><td><code>escritura</code></td><td>Escritura de movimiento por contrato en el conjunto correcto de la tripartita: OK → <code>CORE-GLB01MOVCTO</code> (25M); INFO → <code>CORE-GLB11MOVINFCTO</code> (5M); ERROR → <code>CORE-GLB51MOVERRCTO</code> (5M). Incluir SECTOR NUMBER(02) y BANCA NUMBER(02) para clasificación regulatoria.</td><td>RN-CORE-GL-508, RN-CORE-GL-509</td></tr><tr><td><strong>T-ODS-014</strong></td><td><code>consulta</code></td><td>Consulta de movimiento OK por contrato y período: índice <code>B01SXMOVCTO</code> con clave (FECCON, KEYCONT, SEC) para acceso por corte; <code>B01SXFCHVAL</code> con (PRD, INS, KEYCONT, FECVAL, SEC) para acceso por fecha valor. SEC es espacio de numeración distinto a AUTCORE-GL de BD10.</td><td>RN-CORE-GL-510</td></tr><tr><td><strong>T-ODS-015</strong></td><td><code>consulta</code></td><td>Ensamblaje de leyenda completa de movimiento OK: (1) registro principal B01MOVCTO, (2) FIND B02IMPADI → importes adicionales, (3) FIND B03DATADI → LEY1 + REFLOCBNM, (4) FIND B04CONDATADI → LEY2..LEY5. Las extensiones INFO y ERROR usan sus propias tablas (B12/B13/B14 y B52/B53/B54).</td><td>RN-CORE-GL-511, RN-CORE-GL-512</td></tr><tr><td><strong>T-ODS-016</strong></td><td><code>control</code></td><td>Trazabilidad y auditoría de secuencias: leer/actualizar contadores <code>SECOK</code>, <code>SECINF</code>, <code>SECERR</code> en B00 global de BD12. Gaps en secuencia indican movimientos eliminados. Contadores NUMBER(08): techo de 99,999,999 por período.</td><td>RN-CORE-GL-513</td></tr></tbody></table>
+<h3>BD13 — BIFIN / Protección de Cobro / Domiciliación</h3>
+<table><thead><tr><th>ID</th><th>Tipo</th><th>Descripción</th><th>Reglas fuente</th></tr></thead><tbody><tr><td><strong>T-ODS-017</strong></td><td><code>consulta</code></td><td>Consulta de instrucción de protección de cobro en <code>CORE-GLB07PROTCOB</code> (150M registros) por clave <code>B07-AUT-PC NUMBER(12)</code>. AUT-PC ≠ AUTCORE-GL: son espacios de numeración distintos con diferente longitud. No mezclar en lookups.</td><td>RN-CORE-GL-514</td></tr><tr><td><strong>T-ODS-018</strong></td><td><code>control</code></td><td>Gestión del ciclo de vida de protección de cobro: STATUS 0(pendiente) → 1(enviado) → 2(confirmado); rama de reversa: 3(enviado_rev) → 4(reversa_conf); 5(elim_no_env). Acceder a procesables vía subset <code>B07SXAUTPROC</code> (WHERE STATUS IN (0,1,2)). Incluye tarjetas migradas B08TDMIGCAP con STATUS ALPHA(02): 'AC'/'CA'.</td><td>RN-CORE-GL-515, RN-CORE-GL-518</td></tr><tr><td><strong>T-ODS-019</strong></td><td><code>control</code></td><td>Control de instrucciones de domiciliación en <code>CORE-GLB10DOMI</code> (EXTENDED=TRUE, 150M registros): fecha en formato juliano <code>AUTD-FECJUL NUMBER(07)</code> y cross-reference S702 vía <code>AUTD-AUT702</code>. Lookup cruzado por <code>B10SXFAUTAP702</code>.</td><td>RN-CORE-GL-516</td></tr><tr><td><strong>T-ODS-020</strong></td><td><code>control</code></td><td>Control de envíos a GlobalDirect en <code>CORE-GLB04CTLGLOBALDIR</code> (16M registros): gestionar ESTATUS y REINTENTOS NUMBER(03). Si REINTENTOS > umbral → alerta de intervención manual. NIO ALPHA(16) para mensajes SPEI incluidos.</td><td>RN-CORE-GL-517</td></tr></tbody></table>
+<h3>BD99 — Control del Sistema</h3>
+<table><thead><tr><th>ID</th><th>Tipo</th><th>Descripción</th><th>Reglas fuente</th></tr></thead><tbody><tr><td><strong>T-ODS-021</strong></td><td><code>contable</code></td><td>Acumulación de movimientos por sucursal en <code>CORE-GLB10MOVPORSUC</code> (8M, MEMORY=COARSE, BLOCKSIZE=4, REBLOCKFACTOR=5): clave de 9 dimensiones incluyendo SECTOR regulatorio CNBV. Optimizado para scan secuencial masivo en cierre.</td><td>RN-CORE-GL-519</td></tr><tr><td><strong>T-ODS-022</strong></td><td><code>contable</code></td><td>Acumulación de movimientos por cliente en <code>CORE-GLB11MOVPORCTE</code> (10M, MEMORY=COARSE, BLOCKSIZE=7, REBLOCKFACTOR=5). Mayor granularidad (10M clientes > 8M sucursales). Insumo para análisis de concentración de cartera CNBV.</td><td>RN-CORE-GL-520</td></tr><tr><td><strong>T-ODS-023</strong></td><td><code>contable</code></td><td>Actualización de posición semanal en <code>CORE-GLB12POSICION</code> (MEMORY=COARSE): clave (SISTEMA, PRODUCTO, MONEDA, INSTRUMENTO, CUENTA, SECTOR) con <code>DIAS-SEM OCCURS 5 TIMES</code> (CARGO/ABONO por día hábil). Mini-histórico de 5 días en un solo registro.</td><td>RN-CORE-GL-521</td></tr><tr><td><strong>T-ODS-024</strong></td><td><code>control</code></td><td>Tracking de archivos de procesamiento diario: subsets BIT VECTOR WHERE STAARC=1 en <code>B14ARCDIAORI</code> (archivos de entrada) y <code>B15ARCDIADES</code> (archivos de salida). STAARC quedado en 1 tras proceso exitoso indica falla de actualización y riesgo de reproceso con duplicados.</td><td>RN-CORE-GL-522</td></tr></tbody></table>
+<h3>BD02 — Saldos Tesorería (ADSALDO)</h3>
+<table><thead><tr><th>ID</th><th>Tipo</th><th>Descripción</th><th>Reglas fuente</th></tr></thead><tbody><tr><td><strong>T-ODS-025</strong></td><td><code>consulta</code></td><td>Consulta de saldos de tesorería por cliente en <code>CORE-GLB03SDOCTE</code> (500K registros): clave compuesta (MONEDA, SUCURSAL, SISTEMA, NUMERO1, NUMERO2, INST). Clave lógica de cliente = LPAD(NUMERO1,10,'0') \</td><td>\</td><td>LPAD(NUMERO2,10,'0') — requiere validación semántica con negocio.</td><td>RN-CORE-GL-523</td></tr><tr><td><strong>T-ODS-026</strong></td><td><code>contable</code></td><td>Conciliación de operaciones interbancarias en tiempo real: escribir en <code>B14CONOPECRUZ</code> (100K, <strong>MEMORY RESIDENT=ALL</strong>) con clave (BCO_ORI, BCO_DES, HORA, FECHA_MQ). LIQ = BNM_abonos − OTR_cargos. DIFGLO ≠ 0 al cierre → reporte a Banxico. AUTCORE-GL en B14 permite trazabilidad cross-BD hacia BD10.</td><td>RN-CORE-GL-524</td></tr><tr><td><strong>T-ODS-027</strong></td><td><code>consulta</code></td><td>Consulta y actualización de saldos SAR en <code>CORE-GLB08GLOSAR</code>: desglose por organismo (IMSS, ISSSTE, INFONAVIT, FOVISSSTE, PEMEX) y por tipo de aportación (obligatoria, voluntaria, inflación, intereses, recargos). saldo_act = saldo_ant + obligatoria + voluntaria + inflación + intereses − recargos.</td><td>RN-CORE-GL-525</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="cas"><span class="sn">3</span>Casuísticas</h2>
+<h3>CS-ODS-01 — Happy Path: Ciclo completo de movimiento SPEI</h3>
+<p><strong>Descripción:</strong> Un cliente realiza una transferencia SPEI el miércoles. El CORE-GL registra el movimiento en todos los DATA SETs relevantes y actualiza la posición GL y los acumulados de control.</p>
+<p><strong>Precondiciones:</strong></p>
+<p>- BD99.B01SISDIA.NOMBDSEM = "CORE-GLB21MOVTOS" (miércoles). - Sucursal estándar (no especial): SUCINI = 412. - Operación SPEI: NIO = "MX2026071600001234" (ALPHA 18 chars, dentro de ALPHA(16) — validar longitud). - RFC-ORD = "EME850101AB3" (13 chars), RFC-BENEF = "GOME801212AB3X01" (18 chars con homoclave extendida).</p>
+<p><strong>Flujo exitoso:</strong></p>
+<p>1. <strong>T-ODS-001</strong>: Leer NOMBDSEM → enrutar a <code>CORE-GLB21MOVTOS</code> (conjunto del miércoles). 2. <strong>T-ODS-005</strong>: Validar NIO como ALPHA(16), CECOBAN como NUMBER(08). 3. <strong>T-ODS-007</strong>: Validar RFC-ORD ALPHA(13) y RFC-BENEF ALPHA(18). NOM-BENEF ALPHA(120) capturado. 4. <strong>T-ODS-002</strong>: El movimiento se escribe en BD10 con AUTCORE-GL nuevo. PROCESO = 0 (activo). 5. <strong>T-ODS-026</strong>: Escribir en BD02.B14CONOPECRUZ con BCO_ORI=LegacyCore, BCO_DES=banco_destino. LIQ calculado. 6. <strong>T-ODS-013</strong>: Escribir el movimiento en BD12 conjunto OK con SECTOR=04 (banca múltiple), BANCA=01. SEC asignado por SECOK++. 7. <strong>T-ODS-009</strong>: FIND-OR-CREATE en BD11.B72POSCONTA con las 10 dimensiones. ABONOS += importe. 8. <strong>T-ODS-021/022</strong>: Acumular en BD99.B10MOVPORSUC y B11MOVPORCTE.</p>
+<p><strong>Resultado esperado:</strong> Movimiento visible en B21BXMOVCTO (subset activo BD10), B01MOVCTO (BD12 OK), B72POSCONTA actualizado, acumulados BD99 actualizados. DIFGLO en BD02 = 0.</p>
+<p><strong>Ancla:</strong> <code>DASDL_CORE-GLBD99CONTROL.txt:121</code> (B01-SIS-NOMBDSEM ALPHA(17) = selector de base semanal → enruta a CORE-GLB21MOVTOS del miércoles); <code>DASDL_CORE-GLBD10MOVDIA151.txt:155</code> (B01-MOV-NIO ALPHA(16), operación SPEI; RFC-ORD/RFC-BENEF/NOM-BENEF no son campos literales del DASDL — mapean al filler B03-MOV-FILXAPL ALPHA(120) de BD12:228). Escrituras destino ancladas: BD12 B01-MOV-SECTOR/BANCA NUMBER(02) en <code>DASDL_CORE-GLBD12MC001CORE-GL.txt:140-141</code>; BD11 CORE-GLB72POSCONTA en <code>DASDL_CORE-GLBD11SDOCORE-GL.txt:235</code>; BD02 CORE-GLB14CONOPECRUZ en <code>DASDL_CORE-GLBD02ADSALDO.txt:646</code>.</p>
+<h3>CS-ODS-02 — Error Path: Búsqueda por AUTCORE-GL en sucursal especial 859</h3>
+<p><strong>Descripción:</strong> Un operador busca movimientos del cajero 03 de la sucursal 859 usando el índice estándar de BD10. El resultado es NOT FOUND aunque los registros existen.</p>
+<p><strong>Precondiciones:</strong></p>
+<p>- Sucursal 859 (sucursal especial con KEY=AUTAPL). - Búsqueda incorrecta: <code>FIND B01BXMOVCAJ WHERE (SUCINI=859, CAJINI=03, AUTCORE-GL=:x)</code>.</p>
+<p><strong>Flujo de error:</strong></p>
+<p>1. <strong>T-ODS-003</strong> (incorrecto): El programa usa <code>B01BXMOVCAJ</code> con clave (SUCINI, CAJINI, AUTCORE-GL). Como la sucursal 859 no indexa por AUTCORE-GL en este subset, el resultado es NOT FOUND. 2. <strong>Sin manejo de error:</strong> El programa interpreta NOT FOUND como "no hay movimientos para ese cajero" — falso negativo silencioso. 3. <strong>Diagnóstico correcto:</strong> SUCINI=859 está en la lista especial (859, 100, 342, 110, 511, 870). Debe usarse <strong>T-ODS-004</strong>: <code>FIND B01BXCAJ859 WHERE (SUCINI=859, CAJINI=03, AUTAPL=:aut_aplicacion)</code>. 4. <strong>Bifurcación correcta:</strong> El programa determina AUTAPL del movimiento (diferente al AUTCORE-GL aunque ambos son NUMBER(08)) y accede por <code>B01BXCAJ859</code>.</p>
+<p><strong>Resultado esperado tras corrección:</strong> Movimientos del cajero 859/03 encontrados correctamente por AUTAPL. AUTCORE-GL no es una clave válida para recuperar cajeros de sucursales especiales.</p>
+<p><strong>Impacto regulatorio:</strong> Sin esta bifurcación, los movimientos de 6 sucursales quedan sin trazabilidad CNBV — pérdida de registros auditables de cajero.</p>
+<p><strong>Ancla:</strong> <code>DASDL_CORE-GLBD10MOVDIA151.txt:222-230</code> (subset B01BXCAJ859: <code>WHERE ... SUCINI = 859 OR 100 OR 342 OR 110 OR 511 OR 870</code> con <code>KEY IS (SUCINI, CAJINI, B01-MOV-AUTAPL)</code>); <code>DASDL_CORE-GLBD10MOVDIA151.txt:178-181</code> (subset estándar B01BXMOVCAJ: <code>WHERE PROCESO<15 AND SUCINI>0</code> con <code>KEY IS (SUCINI, CAJINI, B01-MOV-AUTCORE-GL)</code> — no indexa las 6 sucursales por AUTCORE-GL → NOT FOUND silencioso).</p>
+<h3>CS-ODS-03 — Edge Case: Saturación de conjunto diario BD10 en día de quincena</h3>
+<p><strong>Descripción:</strong> En un viernes de quincena, el volumen de movimientos se acerca al límite de 52,500,000 registros del conjunto <code>CORE-GLB41MOVTOS</code>. DMSII no expande dinámicamente la POPULATION.</p>
+<p><strong>Precondiciones:</strong></p>
+<p>- Día: viernes de quincena (pico estacional). - Conjunto activo: CORE-GLB41MOVTOS (POPULATION IS 52500000). - COUNT(registros actuales) = 44,625,000 (85% del límite — umbral de alerta).</p>
+<p><strong>Flujo del edge case:</strong></p>
+<p>1. <strong>T-ODS-001</strong>: Selección normal de CORE-GLB41MOVTOS (viernes). 2. <strong>Monitoreo activo:</strong> Sistema detecta COUNT ≥ 44,625,000 (85%) → alerta operativa disparada. 3. <strong>No existe mecanismo automático</strong> de expansión en DMSII. Si COUNT alcanza 52,500,000 → ERROR overflow del DATA SET en la siguiente escritura. 4. <strong>Acción operativa:</strong> Evaluar archivado prematuro de movimientos con PROCESO ≥ 15 para liberar espacio. Si no hay margen → reorganización parcial fuera de línea (requiere ventana de mantenimiento no planificada). 5. <strong>Sin acción:</strong> La siguiente escritura en BD10 falla con error de overflow. Los programas CORE-GL no tienen failover automático — el procesamiento del día se detiene.</p>
+<p><strong>Resultado esperado con monitoreo:</strong> Alerta temprana permite tomar acción antes del overflow. Sin monitoreo, el overflow ocurre en producción durante el pico de quincena.</p>
+<p><strong>Configuración recomendada:</strong> Alerta a 85% (44.6M registros). Reorganización preventiva antes de quincenas y fin de mes.</p>
+<p><strong>Ancla:</strong> <code>DASDL_CORE-GLBD10MOVDIA151.txt:952</code> (CORE-GLB41MOVTOS DIRECT DATA SET — conjunto del viernes); <code>DASDL_CORE-GLBD10MOVDIA151.txt:998</code> (<code>POPULATION = 52500000</code> del conjunto B41 — techo fijo declarado, DMSII no expande dinámicamente; idéntico en los 5 conjuntos: líneas 166/374/582/790/998).</p></div>
+<div class="card reveal"><h2 id="seq"><span class="sn">4</span>Diagrama de secuencia</h2>
+<div class="mermaid mmscroll">
+sequenceDiagram
+    participant P as Programa CORE-GL
+    participant BD99 as BD99 Control
+    participant BD10 as BD10 Mov.Diarios
+    participant BD12 as BD12 Mov.Contrato
+    participant BD11 as BD11 Posición GL
+    participant BD02 as BD02 Tesorería
+
+    Note over P,BD99: T-ODS-001: Selección conjunto diario
+    P->>BD99: LEER B01SISDIA.NOMBDSEM
+    BD99-->>P: "CORE-GLB21MOVTOS" (miércoles)
+
+    Note over P,BD10: T-ODS-005/007: Validar NIO y RFC
+    P->>P: Validar NIO ALPHA(16), RFC-BENEF ALPHA(18)
+
+    Note over P,BD10: T-ODS-002/003/004: Escritura movimiento
+    P->>BD10: ESCRIBIR en B21MOVTOS (KEY: AUTCORE-GL)
+    alt Sucursal estándar
+        BD10-->>P: OK — índice B01SXAUTCORE-GL
+    else Sucursal especial 859/100/342/110/511/870
+        BD10-->>P: OK — índice B01BXCAJ859 (KEY: AUTAPL)
+    end
+
+    Note over P,BD12: T-ODS-013/014: Movimiento por contrato
+    P->>BD12: ESCRIBIR en B01MOVCTO (OK, SECTOR+BANCA)
+    BD12-->>P: SEC asignado (SECOK++ en B00)
+
+    Note over P,BD12: T-ODS-015: Extensiones (opcional)
+    P->>BD12: ESCRIBIR B03DATADI (LEY1+REFLOCBNM)
+    P->>BD12: ESCRIBIR B04CONDATADI (LEY2..LEY5)
+
+    Note over P,BD11: T-ODS-009: Posición contable GL
+    P->>BD11: FIND-OR-CREATE B72POSCONTA (10 dims)
+    BD11-->>P: SDOACT actualizado (ABONOS += importe)
+
+    Note over P,BD02: T-ODS-026: Operaciones interbancarias
+    P->>BD02: ESCRIBIR B14CONOPECRUZ (MEMORY=ALL)
+    BD02-->>P: LIQ = BNM_abonos - OTR_cargos
+
+    Note over P,BD99: T-ODS-021/022/023: Acumulados control
+    P->>BD99: ACUMULAR B10MOVPORSUC (por sucursal)
+    P->>BD99: ACUMULAR B11MOVPORCTE (por cliente)
+    P->>BD99: ACTUALIZAR B12POSICION DIAS-SEM[día]
+    BD99-->>P: Acumulados actualizados
+
+    Note over P,BD99: T-ODS-024: Tracking archivos (cierre)
+    P->>BD99: ACTUALIZAR B14ARCDIAORI STAARC=0
+    BD99-->>P: Archivo marcado como procesado
+</div>
+<hr>
+<span id="diag" style="position:relative;top:-70px"></span></div>
+<div class="card reveal"><h2 id="flujo"><span class="sn">5</span>Diagrama de flujo</h2>
+
+<div class="mermaid">
+flowchart TD
+  P045x["CORE-DEP-P045 (cap-pay) · interfaz Teletón CORE-DEP→S501&lt;br/&gt;donativos con cargo a tarjeta"]:::xcap
+  WFL["WFL-LOTE · disparo Teletón"]:::canal
+  P629(["CORE-DEP-P629 · P629CARGABD06 [TÉCNICO]&lt;br/&gt;carga/inicializa datastore Teletón"]):::cap
+  BD06[("BD06TELETON · datastore DMSII&lt;br/&gt;B00TGLOBAL + B01TCONTROL")]:::bd
+  ODSHUB[("Almacenes operacionales DMSII (esencia de la cap)&lt;br/&gt;BD10 · BD11 · BD13 · BD99 · BD02 · BD06")]:::bd
+
+  P045x --&gt; P629
+  WFL --&gt; P629
+  P629 --&gt;|CREATE/STORE| BD06
+  BD06 -. es uno de .-&gt; ODSHUB
+  click P045x "cap-pay.html#diag" "Ir al flujo de cap-pay"
+classDef ext fill:#0e2e3a,stroke:#f0736b,color:#F0F8FA;
+classDef xcap fill:#33300f,stroke:#ffd54a,stroke-width:2.5px,color:#ffe98a;
+classDef canal fill:#0e2e3a,stroke:#6CC5D8,color:#F0F8FA;
+classDef bd fill:#0e2e3a,stroke:#5aa9e0,color:#F0F8FA;
+classDef arch fill:#0e2e3a,stroke:#6CC5D8,color:#F0F8FA;
+classDef cap fill:#0e2e3a,stroke:#b98ce0,stroke-width:2px,color:#F0F8FA;
+classDef term fill:#0e2e3a,stroke:#66bb6a,color:#F0F8FA;
+</div>
+<h3>Narrativa del flujo (Nivel 5)</h3>
+<blockquote><p>Lectura en prosa del diagrama ensamblado anterior. Estado: <strong>Reconstruido</strong>.</p></blockquote>
+<p>cap-ods (BC-15) es la capacidad de los <strong>almacenes operacionales DMSII</strong>: su esencia son las bases del datastore vivo del sistema — el hub <code>Almacenes operacionales DMSII</code> que agrupa <strong>BD10 · BD11 · BD13 · BD99 · BD02 · BD06</strong>. El diagrama ensamblado no dibuja consultas de lectura sobre esas bases (esas son las tareas T-ODS-*), sino que muestra al <strong>único programa-escritor</strong> que queda en la capacidad tras la salida de P606 hacia cap-feed: <strong>P629 (CORE-DEP)</strong>, marcado <code>[TÉCNICO]</code>.</p>
+<p>Sobre P629 convergen dos entradas. Por un lado, el nodo cross-cap <strong>P045 (CORE-DEP)</strong> de cap-pay (<code>:::xcap</code>), que es la interfaz Teletón CORE-DEP→S501 que canaliza los donativos con cargo a tarjeta; por otro, el canal <strong>WFL-LOTE</strong>, que dispara el proceso Teletón en batch. Ambas aristas (<code>P045 → P629</code> y <code>WFL → P629</code>) desembocan en <strong>P629 (CORE-DEP)</strong> (<code>P629CARGABD06</code>), que carga e inicializa el datastore Teletón.</p>
+<p>Desde P629, la única arista de escritura (<code>CREATE/STORE</code>) va al datastore <strong>BD06TELETON</strong> — el esquema DMSII con los data sets de control <code>B00TGLOBAL</code> + <code>B01TCONTROL</code>. Finalmente, la relación punteada <code>BD06 -. es uno de .-> Almacenes operacionales DMSII</code> cierra la lectura: BD06 no es un almacén aparte, sino <strong>uno de los seis almacenes operacionales</strong> que constituyen la esencia de la capacidad. El veredicto del ensamblado es por tanto <strong>conecta</strong> (cadena <code>P045 → P629 → BD06</code>), no aislado.</p></div>
+<div class="card reveal"><h2 id="reg"><span class="sn">6</span>Reglas vinculadas</h2>
+<table><thead><tr><th>Tarea</th><th>Regla</th><th>Componente fuente</th><th>Descripción</th><th>Tags/Base</th></tr></thead><tbody><tr><td>T-ODS-001</td><td>RN-CORE-GL-491</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>5 conjuntos diarios independientes; selector por NOMBDSEM en BD99</td><td></td></tr><tr><td>T-ODS-001</td><td>RN-CORE-GL-492</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>Cardinalidad 52.5M por conjunto; overflow sin reorganización si se supera</td><td></td></tr><tr><td>T-ODS-002</td><td>RN-CORE-GL-493</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>Lookup O(1) por AUTCORE-GL vía B01SXAUTCORE-GL; redirigir a AUTAPL para sucursales especiales</td><td></td></tr><tr><td>T-ODS-002</td><td>RN-CORE-GL-494</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>Filtro PROCESO<15 delimita movimientos activos en subsets; ≥15 requiere acceso directo</td><td></td></tr><tr><td>T-ODS-003</td><td>RN-CORE-GL-495</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>B01BXMOVCAJ: SUCINI>0 + PROCESO<15; BUFFERS=2500+100/usuario para cajeros concurrentes</td><td></td></tr><tr><td>T-ODS-004</td><td>RN-CORE-GL-496</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>[CRÍTICO] Sucursales 859/100/342/110/511/870: KEY=AUTAPL en BxxBXCAJ859 (5 conjuntos)</td><td></td></tr><tr><td>T-ODS-005</td><td>RN-CORE-GL-497</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>NIO ALPHA(16) ≠ numérico; CECOBAN NUMBER(08); NIO vacío válido en no-SPEI</td><td></td></tr><tr><td>T-ODS-006</td><td>RN-CORE-GL-499</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>Cuadre de caja: B03/B04CSISUCCAJ con MONEDA+BANCOS+MDE/MDA+SECREN</td><td></td></tr><tr><td>T-ODS-007</td><td>RN-CORE-GL-500</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>RFC-ORD(13) ≠ RFC-BENEF(18): asimetría SAT intencional; NOM-BENEF ALPHA(120)</td><td></td></tr><tr><td>T-ODS-008</td><td>RN-CORE-GL-498</td><td>DASDL_CORE-GLBD10MOVDIA151.txt</td><td>IMPADI MEMORY=COARSE; relación 0..1 con BxMOVTOS; NOT FOUND es caso normal</td><td></td></tr><tr><td>T-ODS-009</td><td>RN-CORE-GL-501</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>B72POSCONTA: clave 10 dimensiones GL; KEYCVEC(6)+KEYSEC(2); insumo R04C/R27C CNBV</td><td></td></tr><tr><td>T-ODS-009</td><td>RN-CORE-GL-503</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>B70POSICION + B72POSCONTA MEMORY=COARSE para SLA de cierre contable</td><td></td></tr><tr><td>T-ODS-009</td><td>RN-CORE-GL-507</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>B70POSICION en PACKNAME=S067REMESAS: dependencia física cross-sistema con S067</td><td></td></tr><tr><td>T-ODS-010</td><td>RN-CORE-GL-502</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>STAMOV=1 BIT VECTOR en B20BXSDOMENCON; consultar base directa produce duplicación aparente</td><td></td></tr><tr><td>T-ODS-010</td><td>RN-CORE-GL-504</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>B21SDMENCON1: KEYIND consecutivo + OCCURS 12 para hasta 12 períodos de saldo</td><td></td></tr><tr><td>T-ODS-011</td><td>RN-CORE-GL-505</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>B80EDOCTA (5M, COARSE): NOT FOUND → P158 omite estado de cuenta — falla silenciosa cliente</td><td></td></tr><tr><td>T-ODS-012</td><td>RN-CORE-GL-506</td><td>DASDL_CORE-GLBD11SDOCORE-GL.txt</td><td>FEC NUMBER(08) post-CRONOS2K: leer como (06) trunca el siglo silenciosamente</td><td></td></tr><tr><td>T-ODS-013</td><td>RN-CORE-GL-508</td><td>DASDL_CORE-GLBD12MC001CORE-GL.txt</td><td>[CRÍTICO] Tripartita OK(25M)/INFO(5M)/ERROR(5M): físicamente independientes, SLOs distintos</td><td></td></tr><tr><td>T-ODS-013</td><td>RN-CORE-GL-509</td><td>DASDL_CORE-GLBD12MC001CORE-GL.txt</td><td>SECTOR NUMBER(02) + BANCA NUMBER(02): campos regulatorios obligatorios en R04C/R27C</td><td></td></tr><tr><td>T-ODS-013</td><td>RN-CORE-GL-512</td><td>DASDL_CORE-GLBD12MC001CORE-GL.txt</td><td>INFO y ERROR tienen extensiones propias (B12/B13/B14 y B52/B53/B54, 2.5M c/u)</td><td></td></tr><tr><td>T-ODS-014</td><td>RN-CORE-GL-510</td><td>DASDL_CORE-GLBD12MC001CORE-GL.txt</td><td>Índices B01SXMOVCTO (FECCON+KEYCONT+SEC) y B01SXFCHVAL (FECVAL); SEC ≠ AUTCORE-GL</td><td></td></tr><tr><td>T-ODS-015</td><td>RN-CORE-GL-511</td><td>DASDL_CORE-GLBD12MC001CORE-GL.txt</td><td>Leyenda completa OK: B01MOVCTO + B02IMPADI + B03DATADI(LEY1+REFLOCBNM) + B04CONDATADI(LEY2-5)</td><td></td></tr><tr><td>T-ODS-016</td><td>RN-CORE-GL-513</td><td>DASDL_CORE-GLBD12MC001CORE-GL.txt</td><td>SECOK/SECINF/SECERR NUMBER(08) en B00: techo 99.999.999; gaps de SEC = movimientos eliminados</td><td></td></tr><tr><td>T-ODS-017</td><td>RN-CORE-GL-514</td><td>DASDL_CORE-GLBD13BIFIN.txt</td><td>[CRÍTICO] AUT-PC NUMBER(12) ≠ AUTCORE-GL NUMBER(08): FK entre B07PROTCOB y BD10 no es directa</td><td></td></tr><tr><td>T-ODS-018</td><td>RN-CORE-GL-515</td><td>DASDL_CORE-GLBD13BIFIN.txt</td><td>STATUS 6 valores: 0-2 procesables (B07SXAUTPROC), 3-4 reversa, 5 eliminado sin enviar</td><td></td></tr><tr><td>T-ODS-018</td><td>RN-CORE-GL-518</td><td>DASDL_CORE-GLBD13BIFIN.txt</td><td>B08TDMIGCAP (100M): STATUS ALPHA(02) 'AC'/'CA' — tipo distinto al STATUS NUMBER de B07PROTCOB</td><td></td></tr><tr><td>T-ODS-019</td><td>RN-CORE-GL-516</td><td>DASDL_CORE-GLBD13BIFIN.txt</td><td>B10DOMI EXTENDED=TRUE (150M): AUTD-FECJUL juliana; AUTD-AUT702 cross-ref S702</td><td></td></tr><tr><td>T-ODS-020</td><td>RN-CORE-GL-517</td><td>DASDL_CORE-GLBD13BIFIN.txt</td><td>B04CTLGLOBALDIR (16M): REINTENTOS NUMBER(03); NIO ALPHA(16) en mensajes SPEI a GlobalDirect</td><td></td></tr><tr><td>T-ODS-021</td><td>RN-CORE-GL-519</td><td>DASDL_CORE-GLBD99CONTROL.txt</td><td>B10MOVPORSUC (8M): BLOCKSIZE=4, REBLOCKFACTOR=5; clave 9 dims incluyendo SECTOR CNBV</td><td></td></tr><tr><td>T-ODS-022</td><td>RN-CORE-GL-520</td><td>DASDL_CORE-GLBD99CONTROL.txt</td><td>B11MOVPORCTE (10M): BLOCKSIZE=7, REBLOCKFACTOR=5; mayor granularidad que por sucursal</td><td></td></tr><tr><td>T-ODS-023</td><td>RN-CORE-GL-521</td><td>DASDL_CORE-GLBD99CONTROL.txt</td><td>B12POSICION: DIAS-SEM OCCURS 5 (CARGO/ABONO por día hábil); rollup semanal→mensual explícito</td><td></td></tr><tr><td>T-ODS-024</td><td>RN-CORE-GL-522</td><td>DASDL_CORE-GLBD99CONTROL.txt</td><td>B14ARCDIAORI/B15ARCDIADES: BIT VECTOR WHERE STAARC=1; falla de actualización → reproceso con duplicados</td><td></td></tr><tr><td>T-ODS-025</td><td>RN-CORE-GL-523</td><td>DASDL_CORE-GLBD02ADSALDO.txt</td><td>[SOSPECHOSO] B03SDOCTE NUMERO1(10)+NUMERO2(10): clave cliente 20 dígitos requiere validación negocio</td><td></td></tr><tr><td>T-ODS-026</td><td>RN-CORE-GL-524</td><td>DASDL_CORE-GLBD02ADSALDO.txt</td><td>B14CONOPECRUZ/B15MOVOPECRUZ MEMORY=ALL (100K); DIFGLO≠0 al cierre → reporte Banxico</td><td></td></tr><tr><td>T-ODS-027</td><td>RN-CORE-GL-525</td><td>DASDL_CORE-GLBD02ADSALDO.txt</td><td>B08GLOSAR: saldos SAR por IMSS/ISSSTE/INFONAVIT/FOVISSSTE/PEMEX con 7 subcampos de tipo</td><td></td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="hal"><span class="sn">7</span>Hallazgos de migración</h2>
+<table><thead><tr><th>#</th><th>Riesgo</th><th>Tarea(s)</th><th>Severidad</th><th>Impacto</th><th>Acción requerida</th></tr></thead><tbody><tr><td></td><td><strong>AUTAPL vs AUTCORE-GL:</strong> Sucursales 859/100/342/110/511/870 indexan por AUTAPL(08), no AUTCORE-GL(08). Ambos tienen 8 dígitos pero espacios de numeración distintos — confusión silenciosa posible. Sin bifurcación, movimientos de 6 sucursales quedan sin clave de recuperación correcta.</td><td>T-ODS-004</td><td>🔴 CRÍTICO</td><td></td><td>Bifurcar clave en modelo relacional: <code>IF sucursal IN (859,100,342,110,511,870) THEN key=autapl ELSE key=autcore-gl</code>. Implementar como columna discriminante o función de índice parcial. Validar con catálogo CNBV de trazabilidad por sucursal.</td></tr><tr><td></td><td><strong>AUT-PC(12) ≠ AUTCORE-GL(08):</strong> La FK entre BD13.B07PROTCOB y BD10 no puede establecerse directamente como AUT-PC = AUTCORE-GL. Son identificadores de sistemas distintos. 150M registros de protección de cobro afectados.</td><td>T-ODS-017</td><td>🔴 CRÍTICO</td><td></td><td>Crear tabla de equivalencia <code>protcob_mov_xref(aut_pc NUMBER(12), autcore-gl NUMBER(08))</code> o campo de cruce explícito. Validar con equipo de negocio si existe relación documentada.</td></tr><tr><td></td><td><strong>Tripartita BD12:</strong> Colapsar OK/INFO/ERROR en una sola tabla unificada sin discriminante pierde SLOs diferenciados y la semántica de estados. Las 9 tablas (3 principales + 6 extensiones) tienen relaciones de FK por tipo.</td><td>T-ODS-013</td><td>🔴 CRÍTICO</td><td></td><td>Implementar tres tablas físicas separadas con índices propios o tabla única con columna <code>tipo_resultado VARCHAR(5) CHECK IN ('OK','INFO','ERROR')</code> y partial indexes por tipo. Modelar 6 tablas de extensión con FK tipada.</td></tr><tr><td></td><td><strong>NIO ALPHA(16) mapeado a tipo numérico:</strong> NIO es alfanumérico, no numérico puro. Mapearlo a BIGINT o NUMBER produce error silencioso en operaciones SPEI con caracteres no dígitos.</td><td>T-ODS-005</td><td>🟠 ALTO</td><td></td><td>Mapear <code>NIO → VARCHAR(16)</code> en sistema destino. Nunca a tipo numérico. Validar que registros históricos no tengan NIO con caracteres no-dígito antes del cutover.</td></tr><tr><td></td><td><strong>RFC-BENEF(18) vs RFC-ORD(13):</strong> Asumir longitud uniforme de 13 para RFC produce truncamiento silencioso de RFC-BENEF. Error de identificación de beneficiario reportable al SAT.</td><td>T-ODS-007</td><td>🟠 ALTO</td><td></td><td><code>RFC_ORD → VARCHAR(13)</code>, <code>RFC_BENEF → VARCHAR(18)</code>. No crear columna RFC genérica unificada en modelo destino. Verificar históricos con RFC-BENEF de 13 chars (personas morales) vs 18 (extendidos).</td></tr><tr><td></td><td><strong>OCCURS en BD11 y BD99:</strong> B21SDMENCON1 tiene OCCURS 12 (saldos por período); B12POSICION tiene OCCURS 5 (DIAS-SEM). Estas estructuras no existen en SQL estándar.</td><td>T-ODS-010, T-ODS-023</td><td>🟠 ALTO</td><td></td><td>Para OCCURS 12 → explotar en 12 filas con columna <code>indice_periodo</code> o 12 pares de columnas. Para OCCURS 5 → explotar en 5 filas con columna <code>dia_habil (1-5)</code>. Evaluar impacto en performance con volumetría real antes de decidir.</td></tr><tr><td></td><td><strong>B70POSICION en PACKNAME=S067REMESAS:</strong> CORE-GL no puede migrar B70POSICION de forma independiente sin coordinación con el equipo de S067. Caída del pack S067 hace inaccesible B70POSICION aunque CORE-GL esté en línea.</td><td>T-ODS-009</td><td>🟠 ALTO</td><td></td><td>Reasignar PACKNAME a pack propio de CORE-GL (<code>PACKNAME = CORE-GLPOSICION</code>) antes del cutover. Coordinar ventana de mantenimiento con equipo S067. Incluir dependencia en plan de migración y plan de contingencia.</td></tr><tr><td></td><td><strong>STATUS ALPHA(02) vs STATUS NUMBER(02):</strong> B08TDMIGCAP usa 'AC'/'CA' (alfanumérico); B07PROTCOB usa 0..5 (numérico). No son intercambiables. Unificar en una columna STATUS genérica produce comparaciones inválidas.</td><td>T-ODS-018</td><td>🟡 MEDIO</td><td></td><td>Mantener tipos distintos: <code>status_protcob SMALLINT CHECK IN (0,1,2,3,4,5)</code> vs <code>status_tarjeta VARCHAR(2) CHECK IN ('AC','CA')</code>. No fusionar en una sola columna STATUS transversal. Comparaciones ALPHA son case-sensitive.</td></tr><tr><td></td><td><strong>FEC 6 vs 8 dígitos (CRONOS2K):</strong> Programas que leen B00.FEC como NUMBER(06) truncan el siglo: "2026" → "26" interpretado como 1926 en lógica de fechas.</td><td>T-ODS-012</td><td>🟡 MEDIO</td><td></td><td>Auditar todos los programas que referencian FEC buscando <code>*INICIA CODIGO DE RENOVACION CRONOS 2000</code>. En sistema destino: DATE nativo o columna YYYYMMDD INTEGER(8). Nunca INTEGER(6) para fechas post-2000.</td></tr><tr><td></td><td><strong>SECOK/SECINF/SECERR NUMBER(08):</strong> Techo de 99,999,999. Si un período procesa más de 100M movimientos, desbordamiento silencioso de los contadores de secuencia.</td><td>T-ODS-016</td><td>🟡 MEDIO</td><td></td><td>En sistema destino, usar BIGINT (hasta 9.2 × 10^18) para contadores de secuencia. Implementar alerta a 80% del techo (79.9M) en el sistema legacy mientras dure la coexistencia.</td></tr><tr><td></td><td><strong>BIT VECTOR DMSII:</strong> Las directivas BIT VECTOR de DMSII no tienen equivalente directo en SQL. Los subsets con WHERE STAMOV=1 y WHERE STAARC=1 requieren modelado explícito.</td><td>T-ODS-010, T-ODS-024</td><td>🟡 MEDIO</td><td></td><td>Reemplazar con partial index: <code>CREATE INDEX idx_saldos_activos ON sdomencon(keyam, keycon) WHERE stamov = 1</code>. Validar cardinalidad antes del cutover para sizing correcto del índice.</td></tr><tr><td></td><td><strong>NUMERO1+NUMERO2 (clave 20 dígitos en B03SDOCTE):</strong> La partición artificial en dos NUMBER(10) sugiere una clave lógica de 20 dígitos no estándar en bancos mexicanos. El significado de cada mitad no está en el DASDL.</td><td>T-ODS-025</td><td>🟡 MEDIO</td><td></td><td>Validar con equipo de negocio: ¿es número de cuenta extendido, identificador compuesto sucursal+cuenta, o herencia de sistema anterior? Definir antes de mapear. Usar `LPAD(numero1,10,'0')</td></tr><tr><td></td><td><strong>Fecha juliana en B10DOMI (AUTD-FECJUL NUMBER(07)):</strong> Sin conocer la fecha base del sistema, la fecha juliana es ininterpretable. La constante no está en el DASDL.</td><td>T-ODS-019</td><td>🟡 MEDIO</td><td></td><td>Documentar la fecha base del sistema CORE-GL (preguntar al equipo de operaciones). Crear función de conversión juliana→gregoriana documentada antes del cutover. Incluir en el glosario de migración.</td></tr><tr><td></td><td><strong>MEMORY RESIDENT=ALL en B14/B15OPECRUZ:</strong> 100K registros caben en RAM actualmente. Si el portafolio interbancario crece, puede no caber en ALL y requerir cambio a COARSE.</td><td>T-ODS-026</td><td>🟢 BAJO</td><td></td><td>Monitorear crecimiento de B14CONOPECRUZ. En sistema destino, evaluar si tabla de 100K cabe completamente en buffer pool. Si no, implementar caché de aplicación para operaciones interbancarias críticas.</td></tr><tr><td></td><td><strong>Overflow BD10 en picos estacionales:</strong> 52.5M/conjunto es el techo absoluto sin expansión dinámica. Quincenas y fin de mes pueden acercarse al límite.</td><td>T-ODS-001</td><td>🟢 BAJO</td><td></td><td>Implementar monitoreo con alerta a 85% (44.6M registros). Planificar archivado de movimientos PROCESO≥15 antes de quincenas. En sistema destino: tablas particionadas por día sin techo fijo.</td></tr></tbody></table>
+<p><em>Capacidad: 9.1.1 Operational Data Stores · Sistema: CORE-DEP+CORE-GL · DASDL BD10·BD11·BD12·BD13·BD99·BD02</em> <em>Cross-referencia: RN-CORE-GL-491..525 · rules-core-gl-dasdl.md · capability-map.md</em></p></div>
+<div class="card reveal"><h2 id="amp-ampliaci-n-l030-" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — L030 Biblioteca Maestra CORE-GLLIB030 (RN-CORE-GL-526..550)</h2>
+<p><strong>Contexto funcional:</strong> L030 (PROGRAM-ID: CORE-GLLIB030, 19,253 LOC, COBOL) es la biblioteca COBOL de plataforma cargada por TODOS los programas CORE-GL mediante <code>CANCEL</code>. No es transpilable directamente: usa CHANGE ATTRIBUTE TITLE/LIBACCESS/FUNCTIONNAME, OPEN/CLOSE INQUIRY sobre DMSII, y el patrón <code>CANCEL</code> de Unisys MCP para carga/descarga dinámica de librerías — ninguno de estos mecanismos tiene equivalente en Java/cloud. L030 DEBE reimplementarse como 4–6 microservicios de plataforma. Contiene: catálogo CVETRAN (hasta 10,000 entradas) + 2,000 leyendas cargados en memoria al inicio, jerarquía CSI de 7 niveles con límites hardcoded, ventana deslizante de 10 semi-días para saldos, y manejo de 21 tipos de error DMSII.</p>
+<h3>Inventario de Tareas adicionales</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-ODS-028</td><td>Redefinir L030 como plataforma de 6 microservicios: sistema-fechas-service, catalogo-transacciones-service, control-batch-service, consulta-movimientos-service, estructura-organizacional-service, cliente-enrichment-service</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>CRÍTICO — punto de fallo único; todos los programas CORE-GL dependen de L030 en runtime</td></tr><tr><td>T-ODS-029</td><td>Implementar sistema-fechas-service: reemplazar THECALENDAR (FUNCION=13 = próximo día hábil, FUNCION=18 = validar día hábil), CRONOS-2000 parche Y2K, cálculo de fecha de semana para BASESEMANAL</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>CRÍTICO — calendario bancario Banxico Circular 14/2017; sin equivalente cloud nativo</td></tr><tr><td>T-ODS-030</td><td>Implementar catalogo-transacciones-service: carga inicial de CVETRAN (≤10,000 entradas) + leyendas (≤2,000 entradas) en caché de memoria al startup; exponer API de lookup por código de transacción</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — si CVETRAN supera 10K en producción, el hardcoded OCCURS falla silenciosamente</td></tr><tr><td>T-ODS-031</td><td>Implementar control-batch-service: gestionar ventana deslizante de 10 semi-días para saldos, control de PROCESO/FECHAS, contadores de secuencia SECOK/SECINF/SECERR como estado de sesión batch</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>ALTO — ventana de 10 semi-días es hardcoded; el tamaño de ventana debe configurarse externamente</td></tr><tr><td>T-ODS-032</td><td>Implementar consulta-movimientos-service: reemplazar OPEN INQUIRY BASESEMANAL con nombre dinámico (BD varía por día de semana) — en target: connection routing a tabla particionada por semana</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>ALTO — naming dinámico de DMSII no tiene equivalente directo; el router de conexión debe conocer el esquema de naming</td></tr><tr><td>T-ODS-033</td><td>Implementar estructura-organizacional-service: jerarquía CSI 7 niveles (Comité→Área→División→Dirección→Regional→Operación→Sucursal) con catálogo en BD; reemplazar tabla hardcoded de L030</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — jerarquía hardcoded en código COBOL; cualquier reorganización bancaria post-separación Global requiere recompilación</td></tr><tr><td>T-ODS-034</td><td>Implementar cliente-enrichment-service: enriquecimiento de movimientos con datos de cliente (RFC, CURP, segmento); extraer lógica de L030 que llama a programas de consulta de perfil</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>MEDIO — dependencias de L030 hacia otros programas CORE-GL deben mapearse antes del diseño</td></tr><tr><td>T-ODS-035</td><td>Migrar <strong>todos</strong> los patrones CANCEL de Unisys MCP en CORE-GL: no solo <code>CANCEL L030/CORE-GLLIB030</code> sino también <code>CANCEL CTLVER</code> / <code>CANCEL SOPORTECOMS</code> / <code>CANCEL LIB-CONTROL</code> encontrados en P670 (líneas 1039-1041, RN-CORE-GL-598) y P610 (RN-CORE-GL-465); rediseñar cada variante como inicialización de contexto vía dependency injection en target (Spring @Bean / CDI)</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>CRÍTICO — CANCEL no es transpilable; requiere rediseño arquitectónico completo; auditar todos los programas CORE-GL para inventario completo de patrones CANCEL antes de diseñar el target</td></tr><tr><td>T-ODS-036</td><td>Migrar CHANGE ATTRIBUTE TITLE/LIBACCESS/FUNCTIONNAME: reemplazar capacidad de modificación dinámica de atributos de archivo Unisys por configuración externalizada (ConfigMap o tabla de parámetros)</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>CRÍTICO — CHANGE ATTRIBUTE modifica metadatos de archivos en tiempo de ejecución; no existe en sistemas POSIX/cloud</td></tr><tr><td>T-ODS-037</td><td>Migrar OPEN/CLOSE INQUIRY de L030: reemplazar apertura read-only de DMSII por pool de conexiones de solo lectura con routing por nombre de BD; cerrar con DMTERMINATE → close de transacción</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>ALTO — OPEN INQUIRY es modo de acceso DMSII específico; semántica de aislamiento difiere del MVCC en PostgreSQL/Oracle</td></tr><tr><td>T-ODS-038</td><td>Mapear los 21 tipos de error DMSII de L030 a códigos de error canónicos del sistema target: NOTFOUND (EOF), DEADLOCK, DUPLICADO, DMSII-UNAVAIL, etc. — implementar traducciones de error en cada microservicio</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — si un error DMSII no está mapeado, propaga como excepción no controlada; los 21 tipos deben estar todos cubiertos</td></tr><tr><td>T-ODS-039</td><td>Externalizar tabla CSI hardcoded (7 niveles, topes de sucursales por nivel) a catálogo en BD: tabla <code>csi_jerarquia</code> con tipo, código_csi, código_padre, estado_activo</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — restructuración post-separación Global puede requerir nuevos CSIs; cambio en código COBOL requería compilación</td></tr><tr><td>T-ODS-040</td><td>Externalizar ventana deslizante de 10 semi-días a parámetro configurable en tabla de parámetros del sistema (SYSPARAMS); exponer via API de configuración del control-batch-service</td><td>L030</td><td>PLATAFORMA</td><td>BAJA</td><td>MEDIO — valor hardcoded aumenta el riesgo de diferencias silenciosas si el negocio cambia el período de retención</td></tr><tr><td>T-ODS-041</td><td>Validar límite OCCURS 10K de CVETRAN contra datos reales de producción: extraer COUNT de CVETRAN en DMSII y comparar con techo del OCCURS; planificar migración si está cerca del límite</td><td>L030</td><td>PLATAFORMA</td><td>BAJA</td><td>ALTO — si CVETRAN tiene >10,000 entradas en producción, la carga se trunca silenciosamente y los tipos de transacción faltantes producen rechazos</td></tr><tr><td>T-ODS-042</td><td>Migrar leyendas (≤2,000) a tabla multiidioma si el negocio requiere ES/EN; en caso contrario, cargar como tabla <code>leyendas_transaccion(codigo, descripcion)</code> en BD con refresh diario</td><td>L030</td><td>PLATAFORMA</td><td>BAJA</td><td>BAJO</td></tr><tr><td>T-ODS-043</td><td>Documentar mapa de equivalencias CVETRAN legacy → códigos de transacción en sistema target (enum o catálogo ISO 20022 si aplica SAR/SPEI)</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>MEDIO — sin este mapa, los reportes regulatorios SAR y Banxico pueden clasificar movimientos incorrectamente</td></tr><tr><td>T-ODS-044</td><td>Migrar modo CONSULTA-INQUIETA (read-write) vs CONSULTA-QUIETA (read-only) de L030: implementar como nivel de aislamiento de transacción en target (READ COMMITTED vs REPEATABLE READ)</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>MEDIO — semántica de INQUIETA permite ver cambios no commiteados en DMSII; en SQL estándar esto sería READ UNCOMMITTED — auditar si se usa realmente</td></tr><tr><td>T-ODS-045</td><td>Migrar gestión de secuencias L030 (batch counters OK/INF/ERR) a secuencias nativas de BD o tabla de estado de ejecución batch con lock optimista</td><td>L030</td><td>PLATAFORMA</td><td>BAJA</td><td>BAJO</td></tr><tr><td>T-ODS-046</td><td>Implementar circuit breaker para reemplazar CANCEL+error de L030: si un microservicio de plataforma falla al inicializar, propagar fallo al programa batch padre y abortar limpiamente (no silencioso)</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — CANCEL sin manejo de error propaga fallo silencioso; en target, un microservicio caído debe notificarse explícitamente</td></tr><tr><td>T-ODS-047</td><td>Migrar filtros de CSI activo/inactivo: leer ESTADO_CSI desde catálogo en BD; eliminar comparaciones contra constantes hardcoded en L030 (ej. IF CSI=0 NEXT SENTENCE)</td><td>L030</td><td>PLATAFORMA</td><td>BAJA</td><td>MEDIO</td></tr><tr><td>T-ODS-048</td><td>Diseñar API de status de sistemas CORE-GL dependientes para reemplazar CHANGE ATTRIBUTE STATUS de L030: GET /sistemas/{id}/status → {activo, enMantto, fechaHoraUltimoArriba}</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — status de sistemas es consultado por P103 y otros; si la API no está disponible, P103 no puede calcular la fecha de proceso</td></tr><tr><td>T-ODS-049</td><td>Documentar interfaz de entrada de L030 (parámetros WFL posicionales: fecha, CSI, modo, sistema-origen, etc.) y definir API contract formal (OpenAPI 3.0) para cada microservicio target</td><td>L030</td><td>PLATAFORMA</td><td>MEDIA</td><td>ALTO — sin API contract documentado, cada programa CORE-GL que llama a L030 debe ser analizado individualmente para migración</td></tr><tr><td>T-ODS-050</td><td>Definir estrategia de coexistencia L030: durante el período transitorio, el microservicio puede actuar como proxy hacia DMSII para programas no-migrados — implementar adapter con client Unisys DMSII SDK</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>ALTO — migración big-bang de L030 no es viable; se necesita proxy/facade para coexistencia</td></tr><tr><td>T-ODS-051</td><td>Migrar manejo de DMTERMINATE de L030: en target, equivalente es close de UnitOfWork / commit o rollback de transacción según resultado del batch</td><td>L030</td><td>PLATAFORMA</td><td>BAJA</td><td>MEDIO</td></tr><tr><td>T-ODS-052</td><td>Validar equivalencia comportamental L030 legacy vs 6 microservicios target con datos reales de producción: 100% de casos de CVETRAN, CSI, fechas, y secuencias deben producir resultados idénticos</td><td>L030</td><td>PLATAFORMA</td><td>ALTA</td><td>CRÍTICO — sin validación de equivalencia, los programas CORE-GL que consumen L030 pueden producir saldos incorrectos sin detectarse</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-GL-526</td><td>L030 (CORE-GLLIB030, 19,253 LOC) es la biblioteca central de plataforma: NOT transpilable; debe reimplementarse como 4–6 microservicios</td><td>L030</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-527</td><td>Patrón CANCEL: todos los programas CORE-GL cargan L030 con <code>CANCEL CORE-GLLIB030</code> — mecanismo propietario Unisys MCP para carga/descarga dinámica de librerías, sin equivalente JVM/cloud</td><td>L030</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-528</td><td>CHANGE ATTRIBUTE TITLE: modifica el título de archivo DMSII en runtime — permite routing dinámico de BD (ej. BASESEMANAL → BD de la semana actual); sin equivalente POSIX</td><td>L030</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-529</td><td>CHANGE ATTRIBUTE LIBACCESS/FUNCTIONNAME: modifica metadatos de librería en runtime — patrón de extensión dinámica de L030 propio de Unisys MCP</td><td>L030</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-530</td><td>OPEN INQUIRY BASESEMANAL: apertura de BD DMSII en modo read-only con nombre dinámico (varía por día de semana); routing a BD correcta es responsabilidad de L030</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-531</td><td>CLOSE INQUIRY + DMTERMINATE: cierre de sesión DMSII; equivalente a commit/rollback + close de conexión en sistema target</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-532</td><td>Catálogo CVETRAN: hasta 10,000 tipos de transacción cargados en tabla OCCURS al startup de L030; lookup por código; si supera 10K la carga se trunca silenciosamente</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-533</td><td>Leyendas de transacción: hasta 2,000 descripciones cargadas en tabla OCCURS paralela a CVETRAN; usadas para generar reportes y mensajes de error</td><td>L030</td><td>MEDIA</td></tr><tr><td>RN-CORE-GL-534</td><td>Jerarquía CSI de 7 niveles hardcoded: Comité→Área→División→Dirección→Regional→Operación→Sucursal; límites de sucursales por nivel son constantes en código COBOL</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-535</td><td>Ventana deslizante de 10 semi-días: L030 gestiona un buffer de 10 semi-días de saldos para cálculo de variaciones — valor hardcoded en código</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-536</td><td>21 tipos de error DMSII: L030 interpreta todos los códigos de retorno DMSII y los clasifica en NOTFOUND (EOF normal), DUPLICADO, DEADLOCK, DMSII-UNAVAIL y 17 errores adicionales</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-537</td><td>Contadores de secuencia batch: L030 gestiona SECOK (registros OK), SECINF (informativos), SECERR (errores) como estado de sesión — NUMBER(08), techo 99,999,999</td><td>L030</td><td>MEDIA</td></tr><tr><td>RN-CORE-GL-538</td><td>Modo CONSULTA-INQUIETA vs CONSULTA-QUIETA: L030 abre DMSII en modo de aislamiento distinto según el modo solicitado por el programa llamador</td><td>L030</td><td>MEDIA</td></tr><tr><td>RN-CORE-GL-539</td><td>Parámetros WFL posicionales: L030 recibe 9+ parámetros posicionales desde el WFL invocador; no hay nombre de parámetro, solo posición — frágil ante reordenamientos</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-540</td><td>Proxy de status de sistemas: L030 consulta CHANGE ATTRIBUTE STATUS para determinar si sistemas S084/S087/S408/CORE-DEP/S701 están activos antes de continuar</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-541</td><td>Calendario bancario Banxico: L030/sistema-fechas-service debe conocer el calendario de días inhábiles publicado en Circular 14/2017; actualización anual obligatoria</td><td>L030</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-542</td><td>CRONOS-2000 en L030: L030 aplica el parche Y2K propio de LegacyCore para interpretar fechas de 6 dígitos como AAAAMMDD de 8; verificar que aplica consistentemente</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-543</td><td>Cálculo de BASESEMANAL: el nombre del BD de movimientos varía por día de la semana (lunes=BD01, etc.); L030 calcula el nombre en runtime según fecha de proceso</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-544</td><td>Circuit breaker implícito: si CANCEL de L030 falla, el programa CORE-GL llamador recibe SET MYSELF(STATUS) TO -1 y aborta — sin retry, sin logging estructurado</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-545</td><td>Coexistencia transitoria: durante migración, L030 debe operar como facade/proxy hacia DMSII para programas no migrados mientras los microservicios target maduran</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-546</td><td>Filtro CSI activo: L030 excluye CSIs con estado=0 de todos los cálculos; la lista de CSIs activos está hardcoded como constantes COBOL</td><td>L030</td><td>ALTA</td></tr><tr><td>RN-CORE-GL-547</td><td>Enrichment de cliente: L030 enriquece movimientos con datos de perfil de cliente llamando a sub-programas de CORE-GL; las dependencias exactas deben mapearse</td><td>L030</td><td>MEDIA</td></tr><tr><td>RN-CORE-GL-548</td><td>Secuencias de BD en target: los contadores SECOK/SECINF/SECERR de L030 deben migrarse a SEQUENCE o tabla de estado de ejecución en BD target con lock para concurrencia</td><td>L030</td><td>MEDIA</td></tr><tr><td>RN-CORE-GL-549</td><td>Validación de equivalencia obligatoria: cada microservicio que reemplaza un módulo de L030 debe tener suite de pruebas de equivalencia con datos DMSII exportados como fixture</td><td>L030</td><td>CRÍTICA</td></tr><tr><td>RN-CORE-GL-550</td><td>Actualización anual: sistema-fechas-service requiere proceso gobernado de actualización del calendario bancario Banxico cada enero — sin proceso definido, el servicio queda con días inhábiles obsoletos</td><td>L030</td><td>CRÍTICA</td></tr></tbody></table>
+<h3>Hallazgos de migración L030</h3>
+<table><thead><tr><th>#</th><th>Hallazgo</th><th>Tipo</th><th>Impacto</th><th>Recomendación</th></tr></thead><tbody><tr><td>ODS-L030-H01</td><td>Patrón CANCEL + CHANGE ATTRIBUTE: mecanismos propietarios Unisys MCP (carga dinámica de librerías y modificación de atributos en runtime) — sin equivalente en JVM, .NET ni cloud</td><td>Portabilidad</td><td>CRÍTICO</td><td>No transpilir L030. Diseñar los 6 microservicios de plataforma como primer milestone de la migración CORE-GL; todos los demás programas dependen de que L030-target esté estable primero</td></tr><tr><td>ODS-L030-H02</td><td>CVETRAN 10,000 entradas cargadas en OCCURS al startup: el techo es hardcoded; si producción supera 10K tipos de transacción, la carga se trunca sin error visible</td><td>Corrección</td><td>ALTO</td><td>Medir COUNT(CVETRAN) en DMSII de producción antes de la migración; en catalogo-transacciones-service, usar List<Cvetran> sin límite fijo; implementar alerta si el catálogo supera 9,500 entradas</td></tr><tr><td>ODS-L030-H03</td><td>Jerarquía CSI de 7 niveles con límites hardcoded: cualquier reorganización bancaria post-separación Global requiere recompilación de L030</td><td>Extensibilidad</td><td>ALTO</td><td>Externalizar jerarquía a tabla <code>csi_jerarquia</code> en BD target antes del cutover; verificar estructura actual con equipo de operaciones LegacyCore para capturar CSIs post-separación ya activos</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="amp-p038" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P038 (CORE-DEP) [TÉCNICO] Consultor/Monitor de Aplicaciones vía MAPLI y Control REORG (RN-CORE-DEP-896, RN-CORE-DEP-898)</h2>
+<p><strong>Contexto funcional:</strong> P038 (PROGRAM-ID: CORE-DEPP038, ~2.908 LOC, COBOL) es el CONSULTOR/monitor de aplicaciones del CORE-DEP: accede a la librería MAPLI para monitorear mensajes y consultar el estado de nodos/sistemas/agrupaciones/pasos/librerías/programas (claves de diálogo 140N1/140S1/140A1/140P1/140L1/140D1…), gestiona la activación/desactivación de monitoreo y de seguridad (CANCEL / LINK TITLE / DISABLE PROGRAM) y es habilitado en COMS por el orquestador P130 como "Control REORG" del arranque diario. En el WFL de línea/lote se lanza como "P038 monitor" (RN-CORE-DEP-896). Sistema: CORE-DEP · LOC: ~2.908 (registry) · Posición en WFL: arranque diario CORE-DEP/WFL/LINEA (secuencia P010→P014→P015→<strong>P038</strong>→P050→P080). [TÉCNICO] · pertenencia laxa a BC-15.</p>
+<h3>Inventario de Tareas</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-ODS-P038-001</td><td>Monitorear aplicaciones vía librería MAPLI: consultar estado de nodos/sistemas/agrupaciones/pasos/librerías/programas mediante claves de diálogo 140N1/140S1/140A1/140P1/140L1/140D1 (P038.txt:382-440)</td><td>P038</td><td>BATCH</td><td>ALTA</td><td>ALTO — MAPLI es librería MCP propietaria sin equivalente cloud; el diálogo por claves de 5 caracteres debe redefinirse como API de observabilidad</td></tr><tr><td>T-ODS-P038-002</td><td>Activar/desactivar monitoreo de mensajes (funciones 2/3) y generar listado de monitor a impresora R01-MONITOR PIC X(132) (P038.txt:48-58, :156-176)</td><td>P038</td><td>BATCH</td><td>MEDIA</td><td>MEDIO — listado de impresora física; migrar a log estructurado/observabilidad</td></tr><tr><td>T-ODS-P038-003</td><td>Gestionar control de seguridad de aplicaciones: activar/desactivar seguridad vía CANCEL (func 10) y LINK TITLE (func 11) y fin de aplicación vía DISABLE PROGRAM (func 4) (P038.txt:18-27)</td><td>P038</td><td>BATCH</td><td>ALTA</td><td>ALTO — CANCEL/LINK TITLE/DISABLE son primitivas MCP de control de librerías/programas; requieren rediseño arquitectónico (DI / feature flags)</td></tr><tr><td>T-ODS-P038-004</td><td>Habilitar el control de REORG en COMS: P038 es habilitado por el orquestador P130 (<code>ENABLE P038 IN COMS -- Control REORG</code>) durante el arranque; coordinar con la reorg física ON-LINE de CORE-DEPBD01CAPTACION (RN-CORE-DEP-898)</td><td>P038</td><td>BATCH</td><td>MEDIA</td><td>ALTO — dependencia de orquestación con P130; en target el control de mantenimiento pasa al scheduler/workflow engine</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-896</td><td>[ARQUITECTURA] WFL CORE-DEP/WFL/LINEA lanza P038 como "monitor" en la secuencia de arranque diario; estrategia REEMPLAZAR ORQUESTADOR (DAG declarativo en target)</td><td>P038</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-898</td><td>[ARQUITECTURA] Reorg/garbage-collection ON-LINE del data set DMSII de captación CORE-DEPBD01CAPTACION que P038 controla/habilita en COMS; estrategia REEMPLAZAR ORQUESTADOR (mantenimiento nativo del motor target)</td><td>P038</td><td>MEDIUM</td></tr></tbody></table>
+<blockquote><p>Nota [TÉCNICO] · pertenencia laxa a BC-15: P038 es un programa técnico/utilitario (monitor + control) sin reglas de negocio propias; las reglas vinculadas son de arquitectura-operacional (stubs de Capa 2 en <code>rules-core-dep-algol-wfl-stubs.md</code>, veredicto VALIDADO analista, con evidencia "elevar Traza a archivo:línea exacta" → sin ancla archivo:línea exacta, heredada). Las tareas SÍ están ancladas al fuente real <code>P038.txt</code>.</p></blockquote></div>
+<div class="card reveal"><h2 id="amp-p629" class="amp-h"><span class="sn" style="background:#1E8FA0">AMP</span>Ampliación — P629 (CORE-DEP) [TÉCNICO] Carga/Inicialización del Esquema BD06 Teletón (RN-CORE-DEP-907, RN-CORE-DEP-881)</h2>
+<p><strong>Contexto funcional:</strong> P629 (PROGRAM-ID: P629, ~655 LOC, COBOL, migrado del S501 al CORE-DEP en JUN/2016) es el cargador/inicializador del esquema DMSII CORE-DEPBD06TELETON (campaña Teletón/donativos): dentro de una transacción DMSII abre en UPDATE la base BD06, actualiza fechas de control, crea el registro de control B01CONTROL, cierra con END-TRANSACTION-SYNC, y genera un archivo de log secuencial (I01-LOG, registros de 540 bytes) de hasta 250.000 registros; también actualiza CORE-DEPBD01CAPTACION. Se apoya en la librería de mensajería LIBLJ. Sistema: CORE-DEP · LOC: ~655 (registry) · Posición en WFL: proceso técnico de carga/inicialización de BD06 (batch). [TÉCNICO] · pertenencia laxa a BC-15.</p>
+<h3>Inventario de Tareas</h3>
+<table><thead><tr><th>ID</th><th>Nombre</th><th>Programa</th><th>Tipo</th><th>Complejidad</th><th>Riesgo migración</th></tr></thead><tbody><tr><td>T-ODS-P629-001</td><td>Inicializar el esquema BD06 Teletón dentro de transacción DMSII: OPEN UPDATE CORE-DEPBD06TELETON, BEGIN-TRANSACTION, actualizar fechas, crear B01CONTROL, END-TRANSACTION-SYNC, CLOSE (P629CARGABD06.txt:267-279)</td><td>P629</td><td>BATCH</td><td>MEDIA</td><td>ALTO — la semántica transaccional DMSII (BEGIN/END-TRANSACTION-SYNC) debe mapearse a transacción del motor target con commit síncrono</td></tr><tr><td>T-ODS-P629-002</td><td>Actualizar fechas de proceso y crear registro de control B01CONTROL del evento Teletón (PERFORM 10000-ACTUALIZA-FECHAS / 12000-CREA-B01CONTROL) (P629CARGABD06.txt:271-273)</td><td>P629</td><td>BATCH</td><td>BAJA</td><td>MEDIO — registro de control singleton; validar semántica del evento con negocio</td></tr><tr><td>T-ODS-P629-003</td><td>Generar archivo de log secuencial I01-LOG (registros de 540 bytes, ACTUAL KEY W77-LLAVE-LOG) de hasta 250.000 registros; manejar "ERROR WRITE REGISTRO LOG" (P629CARGABD06.txt:24-35, :326-347)</td><td>P629</td><td>BATCH</td><td>MEDIA</td><td>MEDIO — archivo físico secuencial con clave actual; migrar a tabla/objeto de almacenamiento; el tope 250.000 es hardcoded</td></tr><tr><td>T-ODS-P629-004</td><td>Actualizar CORE-DEPBD01CAPTACION desde la carga (PERFORM 99999-ACT-BD01) y enlazar la librería de mensajería LIBLJ (PERFORM 70000010-LINK-LIBLJ) (P629CARGABD06.txt:214, :253)</td><td>P629</td><td>BATCH</td><td>MEDIA</td><td>MEDIO — dependencia cross-BD (BD06↔BD01) y librería de mensajería MCP a encapsular</td></tr></tbody></table>
+<h3>Reglas de negocio vinculadas</h3>
+<table><thead><tr><th>ID regla</th><th>Enunciado breve</th><th>Programa</th><th>Criticidad</th></tr></thead><tbody><tr><td>RN-CORE-DEP-907</td><td>[ARQUITECTURA] DASDL del esquema físico Teletón (CORE-DEPBD06TELETON): data sets de donativos/autorizaciones/control; estrategia MIGRAR MODELO TARGET (agregado Recaudación/Donativo)</td><td>P629</td><td>MEDIUM</td></tr><tr><td>RN-CORE-DEP-881</td><td>[ARQUITECTURA] Librería ALGOL L045_TELETON de control de autorizaciones del proceso Teletón (EVENT E_USO_AUT, AUTORIZACION[0:4]); estrategia RETAIN+ENCAPSULATE</td><td>P629</td><td>MEDIUM</td></tr></tbody></table>
+<blockquote><p>Nota [TÉCNICO] · pertenencia laxa a BC-15: P629 es un programa técnico/utilitario (cargador/inicializador de BD06) sin reglas de negocio propias; las reglas vinculadas son de arquitectura-operacional del subsistema Teletón (stubs de Capa 2 en <code>rules-core-dep-algol-wfl-stubs.md</code> — RN-CORE-DEP-907 "Stub arquitectural" confianza media, RN-CORE-DEP-881 Verificado fuente — sin ancla archivo:línea exacta heredada). Las tareas SÍ están ancladas al fuente real <code>P629CARGABD06.txt</code>.</p></blockquote>
+<p><em>Capacidad: 9.1.1 Operational Data Stores · Sistema: CORE-DEP+CORE-GL · DASDL BD10·BD11·BD12·BD13·BD99·BD02</em> <em>Programas biblioteca: L030 (CORE-GLLIB030, 19,253 LOC) · P606 (LEE-ARCHMOVYDES, 2,675 LOC)</em> <em>Programas técnicos CORE-DEP [pertenencia laxa BC-15]: P038 (CORE-DEPP038, ~2.908 LOC) · P629 (P629/CARGABD06, ~655 LOC)</em> <em>Reglas: RN-CORE-GL-491..525 · RN-CORE-GL-526..550 · RN-CORE-GL-561..570 · RN-CORE-DEP-896/898/907/881 (arquitectura) · 70 tareas (62 CORE-GL + 8 CORE-DEP técnicas)</em> <em>Cross-referencia: rules-core-gl-dasdl.md · rules-core-gl-l030.md · rules-core-gl-p602-p606-p620-p630.md · rules-core-dep-algol-wfl-stubs.md · vocab-core-gl.md · capability-map.md</em></p></div>
+<div class="card reveal"><h2 id="m1"><span class="sn">M1</span>M1 — Vista de mantenimiento: Blast radius I/O por programa</h2>
+<blockquote><p><strong>Scope de impacto estimado — verificar ante cambios en módulos de esta capacidad</strong></p></blockquote>
+<table><thead><tr><th>Programa</th><th>Rol</th><th>Entradas principales</th><th>Salidas principales</th><th>Sistemas consumidores</th></tr></thead><tbody><tr><td>L030 / CORE-GLLIB030 (CORE-GL)</td><td>Biblioteca de plataforma central (todos los programas CORE-GL dependen)</td><td>Parámetros WFL posicionales (9+), DMSII BDs</td><td>Catálogo CVETRAN en memoria (≤10K), jerarquía CSI, ventana 10 semi-días, DMTERMINATE</td><td>Todos los programas CORE-GL via CANCEL</td></tr><tr><td>P038 (CORE-DEP) [TÉCNICO]</td><td>Monitor/consultor de aplicaciones vía MAPLI</td><td>Claves de diálogo 140N1/140S1/...</td><td>Listado de monitor, activación/desactivación seguridad</td><td>Orquestado por P130 (ENABLE P038 IN COMS)</td></tr><tr><td>P629 (CORE-DEP) [TÉCNICO]</td><td>Cargador/inicializador esquema BD06 Teletón</td><td>—</td><td>CORE-DEPBD06TELETON (actualizado), I01-LOG (250K registros), CORE-DEPBD01CAPTACION</td><td>Proceso Teletón / donativos</td></tr></tbody></table>
+<h3>M1.1 — DMSII Datasets conectados</h3>
+<table><thead><tr><th>Dataset DMSII</th><th>Descripción</th><th>Operación</th><th>Cardinalidad</th><th>Notas</th></tr></thead><tbody><tr><td>BD10 (CORE-GLBD10MOVDIA151)</td><td>5 conjuntos diarios BxMOVTOS + IMPADI + CSISUCCAJ</td><td>R/W transaccional en tiempo real</td><td>52.5 M/conjunto × 5 días</td><td><strong>KEY=AUTAPL</strong> en sucursales 859/100/342/110/511/870</td></tr><tr><td>BD11 (CORE-GLBD11SDOCORE-GL)</td><td>B72POSCONTA (10 dims GL) · B70POSICION · B20SDOMENCON · B80EDOCTA</td><td>R/W posición contable</td><td>Hasta 12 M saldos mensuales</td><td>B70POSICION en PACKNAME=S067REMESAS (dependencia cross-sistema)</td></tr><tr><td>BD12 (CORE-GLBD12MC001CORE-GL)</td><td>Tripartita OK(25M) · INFO(5M) · ERROR(5M) + 6 extensiones</td><td>R/W por contrato</td><td>35 M registros totales</td><td>SECOK/SECINF/SECERR NUMBER(08), techo 99,999,999</td></tr><tr><td>BD13 (CORE-GLBD13BIFIN)</td><td>B07PROTCOB · B10DOMI (EXTENDED=TRUE) · B04CTLGLOBALDIR · B08TDMIGCAP</td><td>R/W domiciliación y protección</td><td>150 M (PROTCOB + DOMI)</td><td>AUTD-AUT702 cross-ref S702; AUT-PC(12) ≠ AUTCORE-GL(08)</td></tr><tr><td>BD99 (CORE-GLBD99CONTROL)</td><td>B10MOVPORSUC · B11MOVPORCTE · B12POSICION · B14/B15ARCDIA</td><td>R/W acumulados control</td><td>Hasta 10 M registros</td><td>B12POSICION OCCURS 5 DIAS-SEM por registro</td></tr><tr><td>BD02 (CORE-GLBD02ADSALDO)</td><td>B03SDOCTE · B14CONOPECRUZ · B15MOVOPECRUZ · B08GLOSAR</td><td>R/W tesorería e interbancarios</td><td>100 K (interbancarios MEMORY=ALL)</td><td>DIFGLO≠0 al cierre → reporte Banxico</td></tr><tr><td>CORE-DEPBD06TELETON</td><td>Datos de la campaña Teletón / donativos</td><td>R/W inicialización</td><td>—</td><td>Gestionado por P629 (CORE-DEP)</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="m2"><span class="sn">M2</span>M2 — Decodificador de vocabulario críptico</h2>
+<table><thead><tr><th>Término</th><th>Significado operativo</th></tr></thead><tbody><tr><td><code>AUTCORE-GL</code></td><td>Identificador único de movimiento en BD10 (NUMBER 08) — clave universal salvo sucursales especiales</td></tr><tr><td><code>AUTAPL</code></td><td>Clave alternativa para sucursales 859/100/342/110/511/870 (NUMBER 08) — distinto espacio de numeración que AUTCORE-GL</td></tr><tr><td><code>NOMBDSEM</code></td><td>Selector del conjunto diario activo en BD99.B01SISDIA — indica qué BxMOVTOS usar</td></tr><tr><td><code>NIO</code></td><td>Identificador de operación SPEI asignado por Banxico (ALPHA 16) — alfanumérico, NO numérico; vacío válido en no-SPEI</td></tr><tr><td><code>CECOBAN</code></td><td>Clave CECOBAN para compensación interbancaria (NUMBER 08)</td></tr><tr><td><code>RFC-ORD / RFC-BENEF</code></td><td>Identificadores fiscales SAT: RFC-ORD(13) ≠ RFC-BENEF(18) — asimetría intencional y obligatoria</td></tr><tr><td><code>NOM-BENEF</code></td><td>Nombre del beneficiario SAT Anexo 20 (ALPHA 120)</td></tr><tr><td><code>B01BXMOVCAJ</code></td><td>Subset cajeros estándar en BD10 (SUCINI>0, PROCESO<15, KEY=AUTCORE-GL+CAJINI)</td></tr><tr><td><code>B01BXCAJ859</code></td><td>Subset sucursales especiales (KEY=AUTAPL, no AUTCORE-GL) — <strong>bifurcación obligatoria</strong></td></tr><tr><td><code>PROCESO</code></td><td>Campo de estado del movimiento en BD10: <15 = activo en subsets; ≥15 requiere acceso directo</td></tr><tr><td><code>SECOK/SECINF/SECERR</code></td><td>Contadores de secuencia en BD12 (NUMBER 08, techo 99,999,999); gaps = movimientos eliminados</td></tr><tr><td><code>AUT-PC</code></td><td>Identificador de protección de cobro (NUMBER 12) — NO equivale a AUTCORE-GL NUMBER(08)</td></tr><tr><td><code>AUTD-FECJUL</code></td><td>Fecha juliana en BD13.B10DOMI (NUMBER 07); requiere conocer la fecha base del sistema</td></tr><tr><td><code>FILXAPL</code></td><td>15+ REDEFINES polimórficos en P606 que interpretan 540 bytes según SIST-ORIGEN — no inferible por transpilador automático</td></tr><tr><td><code>CANCEL</code> (Unisys MCP)</td><td>Carga/descarga dinámica de librería en runtime (patrón principal de L030) — sin equivalente JVM/cloud</td></tr><tr><td><code>CHANGE ATTRIBUTE TITLE/LIBACCESS</code></td><td>Modifica atributos de archivo DMSII en runtime — sin equivalente POSIX</td></tr><tr><td><code>DMTERMINATE</code></td><td>Cierre de sesión DMSII — equivalente a commit/rollback + close en target</td></tr><tr><td><code>MEMORY RESIDENT=ALL</code></td><td>Dataset DMSII residente completamente en RAM (B14CONOPECRUZ, 100K)</td></tr><tr><td><code>MEMORY RESIDENT=COARSE</code></td><td>Dataset DMSII con caché parcial (B72POSCONTA, B07PROTCOB, etc.)</td></tr><tr><td><code>POPULATION IS N</code></td><td>Cardinalidad máxima fija del DATA SET DMSII — sin expansión dinámica</td></tr><tr><td><code>OCCURS N TIMES</code></td><td>Estructura repetida COBOL sin equivalente directo en SQL (OCCURS 12 para meses, OCCURS 5 para días hábiles)</td></tr><tr><td><code>BIT VECTOR</code></td><td>Índice binario DMSII para filtros WHERE booleano (WHERE STAMOV=1, WHERE STAARC=1)</td></tr><tr><td><code>CRONOS-2000</code></td><td>Parche Y2K de LegacyCore: fecha 6 dígitos → 8 dígitos AAAAMMDD (identificar con <code>*INICIA CODIGO DE RENOVACION CRONOS 2000</code>)</td></tr><tr><td><code>BASESEMANAL</code></td><td>Nombre dinámico de BD diaria calculado por L030 según día de la semana</td></tr><tr><td><code>EXTENDED=TRUE</code></td><td>Alta disponibilidad DMSII en BD13.B10DOMI — permite acceso en modo degradado</td></tr><tr><td><code>DIFGLO</code></td><td>Diferencia global de liquidación interbancaria en B14CONOPECRUZ; DIFGLO≠0 al cierre → reporte Banxico</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="m3"><span class="sn">M3</span>M3 — Copybooks consultados</h2>
+<p><strong>Programas CORE-GL (L030, P606):</strong> Usan el formato CPBAS — expansión con delimitadores <code>*INICIO COPY PARA CPBAS</code> / <code>*FIN COPY PARA CPBAS</code> y sentencias activas <code>* COPY "..."</code>. Fuentes en <code>08 - Codigo/CORE-GL/</code>.</p>
+<p><strong>Programas CORE-DEP [TÉCNICO] (P038, P629):</strong> Los archivos en <code>Todos + copies expandidos/</code> son <strong>VERSION AMPLIADA (COPYs inlineados)</strong>. No hay sentencias COPY activas en los fuentes expandidos.</p>
+<table><thead><tr><th>Programa</th><th>Sistema</th><th>Formato COPY</th><th>Observación</th></tr></thead><tbody><tr><td>L030 / CORE-GLLIB030</td><td>CORE-GL</td><td>CPBAS — COPYs activos</td><td>Biblioteca central; COPYs PROCEDURE pueden ocultar lógica adicional de plataforma</td></tr><tr><td>P606 / LEE-ARCHMOVYDES</td><td>CORE-GL</td><td>CPBAS — COPYs activos</td><td>FILXAPL polimórfico puede estar en copybook PROCEDURE</td></tr><tr><td>P038 (CORE-DEPP038)</td><td>CORE-DEP</td><td>VERSION AMPLIADA</td><td>COPYs inlineados — análisis completo posible</td></tr><tr><td>P629 (CARGABD06)</td><td>CORE-DEP</td><td>VERSION AMPLIADA</td><td>COPYs inlineados — análisis completo posible</td></tr></tbody></table></div>
+<div class="card reveal"><h2 id="m4"><span class="sn">M4</span>M4 — Interfaces y catálogos externos</h2>
+<table><thead><tr><th>Sistema / Interfaz</th><th>Dir.</th><th>Protocolo / Formato</th><th>Notas críticas</th></tr></thead><tbody><tr><td>CNBV (R04C, R27C, CUB Anexo 33)</td><td>OUT</td><td>Reportes regulatorios</td><td>B72POSCONTA (10 dims) y B10MOVPORSUC (SECTOR CNBV) son insumo directo; omisión = hallazgo regulatorio</td></tr><tr><td>Banxico (SPEI)</td><td>IN/OUT</td><td>NIO ALPHA(16) por operación</td><td>DIFGLO≠0 en B14CONOPECRUZ al cierre → reporte Banxico; NIO vacío válido en no-SPEI</td></tr><tr><td>SAT (Anexo 20)</td><td>IN/OUT</td><td>RFC-ORD(13), RFC-BENEF(18), NOM-BENEF(120)</td><td>Asimetría de longitud RFC intencional; NOM-BENEF 120 chars puede causar truncamiento en sistemas ASCII</td></tr><tr><td>CONSAR (SAR)</td><td>IN/OUT</td><td>Flujos IMSS/ISSSTE/INFONAVIT/FOVISSSTE/PEMEX</td><td>B08GLOSAR con 7 subcampos por organismo y tipo de aportación</td></tr><tr><td>GlobalDirect (cash management externo)</td><td>OUT</td><td>B04CTLGLOBALDIR (16M registros)</td><td>ESTATUS + REINTENTOS(03); NIO ALPHA(16) para mensajes SPEI; REINTENTOS > umbral → alerta intervención manual</td></tr><tr><td>S702 (domiciliación externa)</td><td>IN/OUT</td><td>AUTD-AUT702 cross-reference en BD13.B10DOMI</td><td>Lookup cruzado B10SXFAUTAP702; dependencia cross-sistema en BD13</td></tr><tr><td>S067REMESAS (sistema de Remesas)</td><td>IN</td><td>PACKNAME físico</td><td>B70POSICION resides físicamente en pack S067REMESAS — dependencia cross-sistema no documentada en DASDL</td></tr><tr><td>MAPLI (librería MCP Unisys)</td><td>IN</td><td>CANCEL / claves de diálogo 140xx</td><td>Librería propietaria Unisys para monitoreo de aplicaciones — usada por P038; sin equivalente cloud</td></tr><tr><td>LIBLJ (librería mensajería CORE-DEP)</td><td>IN</td><td>CANCEL / LINK</td><td>Usada por P629 para mensajería Teletón; dependencia MCP propietaria</td></tr><tr><td>CORE-DEPBD01CAPTACION</td><td>IN/OUT</td><td>DMSII cross-BD</td><td>P629 actualiza BD01 desde la carga de BD06 Teletón — dependencia cross-BD (BD06↔BD01)</td></tr></tbody></table></div>
+<div class="card reveal"><section class="sme-section" id="sme">
+<h2 id="sme">Comentarios / Correcciones SME</h2>
+<p style="font-size:12px;margin-bottom:10px;color:#7ca8b8">Registre correcciones del SME. Se guardan en localStorage del navegador. Use <strong>&#10005;</strong> para borrar una fila individual.</p>
+<table class="sme-table" id="sme-table-ODS" style="width:100%;border-collapse:collapse;font-size:12px;">
+<thead><tr>
+<th style="padding:6px 8px;">Fecha</th><th style="padding:6px 8px;">SME</th>
+<th style="padding:6px 8px;">Seccion / Tarea</th><th style="padding:6px 8px;">Comentario</th>
+<th style="padding:6px 8px;">Estado</th><th style="padding:4px;width:32px;"></th>
+</tr></thead>
+<tbody id="sme-tbody-ODS"></tbody>
+</table>
+<div class="sme-btns">
+<button class="sme-btn btn-acc" onclick="addRowODS()">+ Agregar fila</button>
+<button class="sme-btn btn-bnm" onclick="exportMDODS()">Exportar MD</button>
+<button class="sme-btn btn-gray" onclick="exportTSVODS()">Exportar TSV</button>
+<button class="sme-btn danger" onclick="clearODS()">Limpiar todo</button>
+</div>
+</section></div>
+</main>
+<footer>
+  <a href="../index.html">&#8592; Volver al Hub</a>
+  &ensp;&middot;&ensp; Enterprise Digital Brain LegacyCore · POC AIRE 2026 &ensp;&middot;&ensp;
+  Ficha de capacidad · gemcog-kb-2026-08-25-cliente-entregable
+</footer>
+<script>
+const K_ODS='sme-cap-ods-0811';
+function makeRODS(r){
+  const tr=document.createElement("tr");
+  ["fecha","sme","seccion","comentario","estado"].forEach(function(k){
+    const td=document.createElement("td");
+    td.contentEditable="true";td.textContent=r[k]||"";
+    td.style.border="1px solid #1a4555";td.style.padding="6px 8px";td.style.verticalAlign="top";
+    if(k!=="fecha"&&k!=="estado")td.style.minWidth="100px";
+    td.oninput=saveODS;tr.appendChild(td);
+  });
+  const tdx=document.createElement("td");
+  tdx.style.cssText="border:1px solid #1a4555;padding:3px;text-align:center;vertical-align:middle;";
+  const bx=document.createElement("button");
+  bx.textContent="\u2715";bx.title="Eliminar esta fila";
+  bx.style.cssText="background:#c62828;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:13px;font-weight:700;line-height:1.4;";
+  bx.onclick=function(){if(confirm("Eliminar esta fila?")){tr.remove();saveODS();}};
+  tdx.appendChild(bx);tr.appendChild(tdx);return tr;
+}
+function addRowODS(){
+  const tb=document.getElementById("sme-tbody-ODS");
+  tb.appendChild(makeRODS({fecha:new Date().toISOString().slice(0,10),sme:"",seccion:"",comentario:"",estado:"PENDIENTE"}));
+  saveODS();
+}
+function saveODS(){
+  const data=[...document.getElementById("sme-tbody-ODS").rows].map(function(r){
+    return{fecha:r.cells[0].textContent,sme:r.cells[1].textContent,
+      seccion:r.cells[2].textContent,comentario:r.cells[3].textContent,estado:r.cells[4].textContent};
+  });
+  localStorage.setItem(K_ODS,JSON.stringify(data));
+}
+function exportMDODS(){
+  const rows=[...document.getElementById("sme-tbody-ODS").rows];
+  var md="## Comentarios SME -- BC-15 · Almacén Operacional DMSII\n\n| Fecha | SME | Seccion | Comentario | Estado |\n|---|---|---|---|---|\n";
+  rows.forEach(function(r){md+="| "+[...r.cells].slice(0,5).map(function(c){return c.textContent;}).join(" | ")+" |\n";});
+  navigator.clipboard.writeText(md).then(function(){alert("Copiado al portapapeles");});
+}
+function exportTSVODS(){
+  const rows=[...document.getElementById("sme-tbody-ODS").rows];
+  var t="Fecha\tSME\tSeccion\tComentario\tEstado\n";
+  rows.forEach(function(r){t+=[...r.cells].slice(0,5).map(function(c){return c.textContent;}).join("\t")+"\n";});
+  navigator.clipboard.writeText(t).then(function(){alert("TSV copiado");});
+}
+function clearODS(){
+  if(confirm("Borrar TODOS los comentarios?")){localStorage.removeItem(K_ODS);document.getElementById("sme-tbody-ODS").innerHTML="";}
+}
+function loadODS(){
+  try{
+    const d=JSON.parse(localStorage.getItem(K_ODS)||"[]");
+    const tb=document.getElementById("sme-tbody-ODS");tb.innerHTML="";
+    d.forEach(function(r){tb.appendChild(makeRODS(r));});
+    if(!tb.children.length)addRowODS();
+  }catch(e){}
+}
+loadODS();
+</script>
+<script>
+(function(){
+  if(document.querySelector('nav.gemcog-tabs')) return;
+  var h2s = [].slice.call(document.querySelectorAll('h2[id]'));
+  if(!h2s.length) return;
+  var nav = document.createElement('nav');
+  nav.className = 'gemcog-tabs';
+  nav.setAttribute('aria-label','Secciones');
+  var labels = {
+    'ctx':'Contexto','inv':'Inventario','cas':'Casuisticas','seq':'Secuencia',
+    'flujo':'Flujo','reg':'Reglas','hal':'Hallazgos',
+    'm1':'Blast Radius','m2':'Vocabulario','m3':'Copybooks','m4':'Interfaces','sme':'SME'
+  };
+  var ampDone=false;
+  h2s.forEach(function(h2){
+    var id = h2.id;
+    if(id.indexOf('amp-')===0){ if(ampDone) return; ampDone=true; }
+    var btn = document.createElement('button');
+    if(id.indexOf('amp-')===0){ btn.textContent='Ampliaciones'; btn.title='Ampliaciones por programa'; }
+    else if(labels[id]){ btn.textContent = labels[id]; btn.title = h2.textContent.trim(); }
+    else { var clone=h2.cloneNode(true); var sn=clone.querySelector('.sn,.badge-new'); if(sn)sn.remove();
+      btn.textContent=clone.textContent.trim().replace(/\s+/g,' ').slice(0,22); btn.title=h2.textContent.trim(); }
+    btn.dataset.target = id;
+    btn.addEventListener('click', function(){
+      var el=document.getElementById(btn.dataset.target); if(!el)return;
+      var y=el.getBoundingClientRect().top+window.pageYOffset-112;
+      window.scrollTo({top:y<0?0:y,behavior:'smooth'}); setActive(btn);
+    });
+    nav.appendChild(btn);
+  });
+  var hdr=document.querySelector('.header,header,.portal-header');
+  if(hdr&&hdr.parentNode){ hdr.parentNode.insertBefore(nav,hdr.nextSibling); } else { document.body.insertBefore(nav,document.body.firstChild); }
+  var navH=nav.offsetHeight||40;
+  nav.style.setProperty('position','fixed','important');
+  nav.style.top='54px';nav.style.left='0';nav.style.right='0';nav.style.zIndex='95';
+  function padTop(){ navH=nav.offsetHeight||navH; document.body.style.paddingTop=(navH+54)+'px'; }
+  padTop(); window.addEventListener('resize',padTop,{passive:true});
+  var btns=[].slice.call(nav.querySelectorAll('button'));
+  function setActive(b){ btns.forEach(function(x){ x.classList.toggle('active',x===b); }); }
+  function updateActive(){
+    var off=(nav.offsetHeight||44)+12; var scrollY=window.pageYOffset+off;
+    var activeId=h2s.length?h2s[0].id:null;
+    h2s.forEach(function(h2){ if(h2.getBoundingClientRect().top+window.pageYOffset<=scrollY) activeId=h2.id; });
+    var ampActive=activeId&&activeId.indexOf('amp-')===0;
+    btns.forEach(function(b){ var t=b.dataset.target; b.classList.toggle('active',(t===activeId)||(ampActive&&t.indexOf('amp-')===0)); });
+  }
+  window.addEventListener('scroll',updateActive,{passive:true});
+  window.addEventListener('resize',updateActive,{passive:true});
+  updateActive();
+})();
+</script>
+<script>
+function initHubTooltips(){
+  document.querySelectorAll('.hub-panel').forEach(function(p){ document.body.appendChild(p); });
+  var panels=[].slice.call(document.querySelectorAll('.hub-panel'));
+  panels.forEach(function(panel){
+    var match=panel.getAttribute('data-hub-match')||''; if(!match) return;
+    panel.dataset.pinned='0';
+    var nodes=[].slice.call(document.querySelectorAll('.mermaid g.node')).filter(function(n){
+      return ((n.textContent||'').replace(/\s+/g,' ').indexOf(match)!==-1); });
+    if(!nodes.length) return;
+    function place(n){
+      var r=n.getBoundingClientRect(); var w=panel.offsetWidth||520;
+      var left=r.left;
+      if(left+w>window.innerWidth-12){ left=window.innerWidth-w-12; }
+      panel.style.left=Math.max(8,left)+'px'; panel.style.top=(r.bottom+8)+'px';
+    }
+    nodes.forEach(function(n){
+      n.style.cursor='pointer';
+      n.addEventListener('mouseenter',function(){ if(panel.dataset.pinned==='1')return; place(n); panel.style.display='block'; });
+      n.addEventListener('mouseleave',function(){ if(panel.dataset.pinned==='1')return; panel.style.display='none'; });
+      n.addEventListener('click',function(e){ e.stopPropagation();
+        if(panel.dataset.pinned==='1'){ panel.dataset.pinned='0'; panel.style.display='none'; }
+        else { panel.dataset.pinned='1'; place(n); panel.style.display='block'; } });
+    });
+    panel.addEventListener('click',function(e){ e.stopPropagation(); });
+  });
+  document.addEventListener('click',function(){
+    document.querySelectorAll('.hub-panel').forEach(function(p){ if(p.dataset.pinned==='1'){ p.dataset.pinned='0'; p.style.display='none'; } });
+  });
+}
+</script>
+<script>
+/* Navegación cross-cap: nodos :::xcap cuya etiqueta contiene "cap-XXX" navegan a esa capacidad al clicar. */
+(function(){
+  function initXcapLinks(){
+    document.querySelectorAll('.mermaid g.node').forEach(function(n){
+      var t=(n.textContent||'').replace(/\s+/g,' ').trim();
+      var m=t.match(/\bcap-([a-z]+)/);   /* tolerante: "(cap-orc)" · "cap-gl (BC-13)" · "(cross-ref cap-sta)" → grupo 1 = código */
+      if(!m) return;
+      var cap=m[1];
+      var target='../modelo capacidades/cap-'+cap+'.html#diag';
+      n.style.cursor='pointer';
+      n.setAttribute('title','→ '+cap);
+      n.addEventListener('click',function(e){ e.stopPropagation(); window.location.href=target; });
+    });
+  }
+  window.initXcapLinks=initXcapLinks;
+})();
+</script>
+<script>
+(function(){
+  var ro=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting){e.target.classList.add('visible');ro.unobserve(e.target);}});},{threshold:0.04});
+  document.querySelectorAll('.reveal').forEach(function(el){ro.observe(el);});
+})();
+</script>
+<script>
+(function(){
+  var SEQ_TARGET=8;                 // participantes visibles por vista (objetivo 6–8; columnas desiguales)
+  function count(svg){
+    var n=svg.querySelectorAll('.actor-line').length;
+    if(!n)n=svg.querySelectorAll('line.actor-line').length;
+    if(!n)n=svg.querySelectorAll('text.actor').length;   // fallback
+    return n;
+  }
+  function addTopBar(box){
+    var top=box.previousElementSibling;
+    if(!top||!top.classList||!top.classList.contains('mmscroll-top')){
+      top=document.createElement('div'); top.className='mmscroll-top';
+      var inner=document.createElement('div'); inner.className='mmscroll-top-inner';
+      top.appendChild(inner); box.parentNode.insertBefore(top,box);
+      var lock=false;
+      top.addEventListener('scroll',function(){ if(lock)return; lock=true; box.scrollLeft=top.scrollLeft; lock=false; });
+      box.addEventListener('scroll',function(){ if(lock)return; lock=true; top.scrollLeft=box.scrollLeft; lock=false; });
+    }
+    top.firstChild.style.width=box.scrollWidth+'px';   // espeja el ancho total desplazable
+  }
+  function scale(){
+    var boxes=[].slice.call(document.querySelectorAll('.mermaid.mmscroll'));
+    if(!boxes.length)return;
+    var pending=false;
+    boxes.forEach(function(box){
+      if(box.dataset.seqScaled==='1')return;
+      var svg=box.querySelector('svg'); if(!svg){pending=true;return;}
+      var n=count(svg);
+      var natural=svg.getBoundingClientRect().width;
+      var cw=box.clientWidth||box.getBoundingClientRect().width;
+      if(!n||!natural||!cw){pending=true;return;}
+      var target=(n>SEQ_TARGET)?(cw*n/SEQ_TARGET):cw;  // >8: SEQ_TARGET por vista + scroll · <=8: caben todos en pantalla
+      if(target<natural){ svg.style.setProperty('width',target+'px','important'); svg.style.height='auto'; }
+      if(n>SEQ_TARGET){ addTopBar(box); }            // >8: doble barra de scroll
+      else{ box.style.overflowX='visible'; }          // <=8: cabe en pantalla -> sin barras
+      box.dataset.seqScaled='1';
+    });
+    if(pending)setTimeout(scale,120);
+  }
+  function reset(){ document.querySelectorAll('.mermaid.mmscroll').forEach(function(b){
+    b.dataset.seqScaled=''; var s=b.querySelector('svg'); if(s)s.style.width=''; }); setTimeout(scale,120); }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(scale,250);});
+  else setTimeout(scale,250);
+  var t; window.addEventListener('resize',function(){clearTimeout(t);t=setTimeout(reset,200);});
+})();
+</script>
+</body></html>

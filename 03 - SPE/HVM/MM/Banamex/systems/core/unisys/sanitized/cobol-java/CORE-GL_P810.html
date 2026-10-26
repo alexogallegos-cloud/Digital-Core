@@ -1,0 +1,935 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CORE-GL · P810 → Java · Enterprise Digital Brain · LegacyCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#A100FF;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #A100FF;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#A100FF;box-shadow:0 0 8px #A100FF;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/accenture.png" alt="Accenture"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · CORE-GL P810</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">ALGOL</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Orquestador de Flujos</div>
+  <h1><span class="cw">CORE-GL · P810</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">Al arrancar carga sus parámetros de DEFINFO y el filtro de sucursales de TABSUCS, abre el archivo de control y la bitácora del día, se liga al forwarder de Splunk y a la librería CORE-GLL001CTL. Después entra en un ciclo que espera DELAY_PRO minutos o una orden HI del operador. Cuando cambia la hora o el minuto es 15, 30 o 45 y el reloj está dentro de la ventana de proceso, consulta el estado del día y el catálogo de conceptos, recorre las bases CORE-GLBD10MOVDIA264 y CORE-GLBD10MOVDIA500 en el dataset del día de la semana, acumula los renglones en una tabla de hasta 3,000 llaves y emite un CSV con encabezado, detalle por concepto, totales por llave y trailer, que escribe en disco y encola a Splunk registro por registro.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="CORE-GL_P690.html">← CORE-GL · P690</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_WFL_LINEA.html">CORE-GL · WFL · LINEA →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">CORE-GL · P810 · ALGOL</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">4,113 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Tarea ALGOL residente de telemetría que, dentro de una ventana horaria, despierta cada hora y en los minutos 15, 30 y 45 para totalizar MOVDIA de los sistemas 264 y 500 por sucursal, caja, banco y moneda y enviar el resultado a Splunk.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#ff79c6">Orquestador de Flujos</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">0 de 0 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch · Spring Scheduling · Actuator</div></div>
+  </div>
+  <div class="sec-hdr">1 · Parámetros y estructuras en memoria</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ALGOL_P810.txt</span><span class="fname">DEFINE de defaults · E_CARGADEF · TAB_SCBM</span><span class="lang-label ll-c">ALGOL</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Defaults compilados y ventanas horarias a propiedades validadas · L575–1318"> <span class="kw">DEFINE</span>                                                                 <span class="num">0000057500039000</span>
+<span class="cmt">  %                                                                     0000057600040000</span>
+  <span class="var">DEF_HHMM_CORTE</span>      = <span class="str">&quot;0005&quot;</span> #,                                       <span class="num">0000057700041000</span>
+  <span class="var">DEF_HHMM_PRO_INI</span>    = <span class="str">&quot;0800&quot;</span> #,                                       <span class="num">0000057800042000</span>
+  <span class="var">DEF_HHMM_PRO_FIN</span>    = <span class="str">&quot;1900&quot;</span> #,                                       <span class="num">0000057900043000</span>
+  <span class="var">DEF_DELAY_PRO</span>       = <span class="str">&quot;01&quot;</span> #,                                         <span class="num">0000058000044000</span>
+  <span class="var">DEF_DIR_FAM</span>         = <span class="str">&quot;CMEMP&quot;</span> #,                                      <span class="num">0000058100045000</span>
+  <span class="var">DEF_DIR_FAM_LEN</span>     = <span class="num">17</span> #,                                           <span class="num">0000058200046000</span>
+  <span class="var">DEF_LOG_FAM</span>         = <span class="str">&quot;CMEMP&quot;</span> #,                                      <span class="num">0000058300047000</span>
+  <span class="var">DEF_LOG_FAM_LEN</span>     = <span class="num">17</span> #,                                           <span class="num">0000058400048000</span>
+  <span class="var">DEF_SOLO_HOY</span>        = <span class="str">&quot;SI&quot;</span> #,                                         <span class="num">0000058500049000</span>
+  <span class="var">DEF_FWDR_NAME</span>       = <span class="str">&quot;CORE-GLP810&quot;</span> #,                                   <span class="num">0000058600050000</span>
+  <span class="var">DEF_FWDR_NAME_LEN</span>   = <span class="num">12</span> #,                                           <span class="num">0000058700051000</span>
+  <span class="var">DEF_SNDTOSPLK</span>       = <span class="str">&quot;SI&quot;</span> #,                                         <span class="num">0000058800052000</span>
+  <span class="var">DEF_GRABA_LOG</span>       = <span class="str">&quot;SI&quot;</span> #,                                         <span class="num">0000058900053000</span>
+  <span class="var">DEF_CORE-GLL001CTL</span>     = <span class="str">&quot;25MTP002&quot;</span> #,                                   <span class="num">0000059000054000</span>
+  <span class="var">DEF_CORE-GLL001CTL_LEN</span> = <span class="num">17</span> #,                                           <span class="num">0000059100055000</span>
+<span class="cmt">  % ⋯ 708 líneas omitidas</span>
+   <span class="var">HHMM_CORTE</span>:= <span class="kw">INTEGER</span>(P(<span class="var">ARY_HHMM_CORTE</span>),<span class="num">4</span>);                           <span class="num">0000130000565000</span>
+   <span class="kw">IF</span> <span class="var">HHMM_CORTE</span> <span class="var">LSS</span> <span class="num">0001</span> <span class="kw">OR</span>                                            <span class="num">0000130100566000</span>
+      <span class="var">HHMM_CORTE</span> <span class="var">GTR</span> <span class="num">1500</span> <span class="kw">THEN</span>                                          <span class="num">0000130200567000</span>
+    <span class="var">HHMM_CORTE</span>:= <span class="var">DECIMAL</span>(<span class="var">DEF_HHMM_CORTE</span>);                               <span class="num">0000130300568000</span>
+   <span class="var">HHMM_CORTE</span>:= <span class="var">HHMM_CORTE</span> * <span class="num">100</span>;                                       <span class="num">0000130400569000</span>
+   <span class="var">REP</span> <span class="var">SCR_HHMM</span> <span class="kw">BY</span> <span class="var">HHMM_CORTE</span> <span class="kw">FOR</span> <span class="num">6</span> <span class="var">DIGITS</span>;                             <span class="num">0000130500569500</span>
+   <span class="var">HORA_INI</span>:= <span class="var">HHMM_CORTE</span>;                                               <span class="num">0000130600570000</span>
+   <span class="var">HORA_FIN</span>:= <span class="var">HHMM_CORTE</span> + <span class="num">030000</span>;                                      <span class="num">0000130700571000</span>
+   <span class="var">HHMM_PRO_INI</span>:= <span class="kw">INTEGER</span>(P(<span class="var">ARY_HHMM_PRO_INI</span>),<span class="num">4</span>);                       <span class="num">0000130800572000</span>
+   <span class="kw">IF</span> <span class="var">HHMM_PRO_INI</span> <span class="var">LSS</span> <span class="num">0001</span> <span class="kw">OR</span>                                          <span class="num">0000130900573000</span>
+      <span class="var">HHMM_PRO_INI</span> <span class="var">GTR</span> <span class="num">1500</span> <span class="kw">THEN</span>                                        <span class="num">0000131000574000</span>
+    <span class="var">HHMM_PRO_INI</span>:= <span class="var">DECIMAL</span>(<span class="var">DEF_HHMM_PRO_INI</span>);                           <span class="num">0000131100575000</span>
+   <span class="var">HHMM_PRO_INI</span>:= <span class="var">HHMM_PRO_INI</span> * <span class="num">100</span>;                                   <span class="num">0000131200576000</span>
+   <span class="var">HHMM_PRO_FIN</span>:= <span class="kw">INTEGER</span>(P(<span class="var">ARY_HHMM_PRO_FIN</span>),<span class="num">4</span>);                       <span class="num">0000131300577000</span>
+   <span class="kw">IF</span> <span class="var">HHMM_PRO_FIN</span> <span class="var">LSS</span> <span class="num">1500</span> <span class="kw">OR</span>                                          <span class="num">0000131400578000</span>
+      <span class="var">HHMM_PRO_FIN</span> <span class="var">GTR</span> <span class="num">2359</span> <span class="kw">THEN</span>                                        <span class="num">0000131500579000</span>
+    <span class="var">HHMM_PRO_FIN</span>:= <span class="var">DECIMAL</span>(<span class="var">DEF_HHMM_PRO_FIN</span>);                           <span class="num">0000131600580000</span>
+   <span class="var">HHMM_PRO_FIN</span>:= <span class="var">HHMM_PRO_FIN</span> * <span class="num">100</span>;                                   <span class="num">0000131700581000</span>
+   <span class="var">HHMM_PRO_FIN</span>:= <span class="var">HHMM_PRO_FIN</span> + <span class="num">001000</span>;                                <span class="num">0000131800582000</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Tabla TAB_SCBM empaquetada en campos de bits a record y acumulador · L727–761">  <span class="var">MAX_SCBM</span>              = <span class="num">3000</span> #,                                       <span class="num">0000072700191000</span>
+  <span class="var">MAX_SCBM_PAG</span>          = <span class="num">8</span> #,                                          <span class="num">0000072800192000</span>
+  <span class="var">MAX_SCBM_CON_PAG</span>      = <span class="num">10</span> #,                                         <span class="num">0000072900193000</span>
+  <span class="var">TAB_SCBM_LEN</span>          = <span class="num">400</span> #,                                        <span class="num">0000073000194000</span>
+  <span class="var">SCBM_CTL_STA</span>      (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">00</span>].[<span class="num">47</span>:<span class="num">01</span>] #,                     <span class="num">0000073100195000</span>
+  <span class="var">SCBM_CTL_SUC</span>      (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">00</span>].[<span class="num">31</span>:<span class="num">16</span>] #,                     <span class="num">0000073200196000</span>
+  <span class="var">SCBM_CTL_CAJ</span>      (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">00</span>].[<span class="num">15</span>:<span class="num">16</span>] #,                     <span class="num">0000073300197000</span>
+  <span class="var">SCBM_CTL_BAN</span>      (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">01</span>].[<span class="num">47</span>:<span class="num">24</span>] #,                     <span class="num">0000073400198000</span>
+  <span class="var">SCBM_CTL_MON</span>      (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">02</span>].[<span class="num">23</span>:<span class="num">16</span>] #,                     <span class="num">0000073500199000</span>
+  <span class="var">SCBM_CTL_PAG</span>      (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">02</span>].[<span class="num">07</span>:<span class="num">08</span>] #, <span class="cmt">% SECREN            0000073600200000</span>
+  <span class="var">SCBM_CTL_KEY</span>      (Y) = P(<span class="var">TAB_SCBM</span>[Y,<span class="num">03</span>]) #,                          <span class="num">0000073700201000</span>
+  <span class="var">SCBM_CTL_KEY_LEN</span>      = <span class="num">26</span> #, <span class="cmt">% 4+8+10+4                              0000073800202000</span>
+  <span class="var">SCBM_CTL_POS_ORI</span>  (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">10</span>].[<span class="num">47</span>:<span class="num">16</span>] #,                     <span class="num">0000073900203000</span>
+  <span class="var">SCBM_TOT_NUM_CR</span>   (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">11</span>] #,                             <span class="num">0000074000204000</span>
+  <span class="var">SCBM_TOT_IMP_CR</span>   (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">12</span>] #,                             <span class="num">0000074100205000</span>
+  <span class="var">SCBM_TOT_NUM_AB</span>   (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">13</span>] #,                             <span class="num">0000074200206000</span>
+  <span class="var">SCBM_TOT_IMP_AB</span>   (Y) = <span class="var">TAB_SCBM</span>[Y,<span class="num">14</span>] #,                             <span class="num">0000074300207000</span>
+  <span class="var">SCBM_NUM_CR</span>     (Y,X) = <span class="var">TAB_SCBM</span>[Y,(<span class="num">21</span>+((<span class="var">X-1</span>)*<span class="num">4</span>))] #,                 <span class="num">0000074400208000</span>
+  <span class="var">SCBM_IMP_CR</span>     (Y,X) = <span class="var">TAB_SCBM</span>[Y,(<span class="num">22</span>+((<span class="var">X-1</span>)*<span class="num">4</span>))] #,                 <span class="num">0000074500209000</span>
+  <span class="var">SCBM_NUM_AB</span>     (Y,X) = <span class="var">TAB_SCBM</span>[Y,(<span class="num">23</span>+((<span class="var">X-1</span>)*<span class="num">4</span>))] #,                 <span class="num">0000074600210000</span>
+  <span class="var">SCBM_IMP_AB</span>     (Y,X) = <span class="var">TAB_SCBM</span>[Y,(<span class="num">24</span>+((<span class="var">X-1</span>)*<span class="num">4</span>))] #,                 <span class="num">0000074700211000</span>
+<span class="cmt">  % ⋯ 13 líneas omitidas</span>
+  <span class="var">VARY_SIS</span>(<span class="num">0000</span>,<span class="num">0264</span>,<span class="num">0500</span>,<span class="num">0000</span>,<span class="num">0000</span>,<span class="num">0000</span>,<span class="num">0000</span>,<span class="num">0000</span>,<span class="num">0000</span>,<span class="num">0000</span>,<span class="num">0000</span>);     <span class="num">0000076100225000</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>application.yml · P810Properties.java · ClaveScbm.java · AcumuladorScbm.java</span><span class="fname">@ConfigurationProperties · record · clase de acumulación</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"># application.yml  (antes DEFINE DEF_* y archivo DEFINFO)
+p810:
+  hhmm-corte: <span class="num">5</span>          # DEF_HHMM_CORTE <span class="str">&quot;0005&quot;</span>; válido <span class="num">0001</span>..<span class="num">1500</span>
+  hhmm-pro-ini: <span class="num">800</span>      # DEF_HHMM_PRO_INI <span class="str">&quot;0800&quot;</span>; válido <span class="num">0001</span>..<span class="num">1500</span>
+  hhmm-pro-fin: <span class="num">1900</span>     # DEF_HHMM_PRO_FIN <span class="str">&quot;1900&quot;</span>; válido <span class="num">1500</span>..<span class="num">2359</span>
+  delay-pro: <span class="num">1</span>           # minutos entre latidos (WAITANDRESET)
+  dir-fam: CMEMP
+  log-fam: CMEMP
+  fwdr-name: CORE-GLP810
+  snd-to-splk: <span class="kw">true</span>
+  graba-log: <span class="kw">true</span>
+  lib-ctl-version: <span class="num">2</span><span class="num">5</span>MTP002
+  sistemas: [<span class="num">264</span>, <span class="num">500</span>]   # VARY_SIS con MAX_SIS = <span class="num">2</span>
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="cmt">/** E_CARGADEF: un valor fuera de rango no se rechaza, se sustituye por el default. */</span>
+<span class="ann">@ConfigurationProperties</span>(<span class="str">&quot;p810&quot;</span>)
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">P810Properties</span>(<span class="kw">int</span> hhmmCorte, <span class="kw">int</span> hhmmProIni, <span class="kw">int</span> hhmmProFin, <span class="kw">int</span> delayPro,
+                             <span class="type">String</span> dirFam, <span class="type">String</span> logFam, <span class="type">String</span> fwdrName,
+                             <span class="kw">boolean</span> sndToSplk, <span class="kw">boolean</span> grabaLog, <span class="type">String</span> libCtlVersion,
+                             <span class="type">List</span>&lt;<span class="type">Integer</span>&gt; sistemas) {
+
+    <span class="cmt">// Las horas se comparan como enteros HHMMSS, igual que en el ALGOL.</span>
+    <span class="kw">public</span> <span class="kw">int</span> corteIni()   { <span class="kw">return</span> enRango(hhmmCorte, <span class="num">1</span>, <span class="num">1500</span>, <span class="num">5</span>) * <span class="num">100</span>; }        <span class="cmt">// HORA_INI</span>
+    <span class="kw">public</span> <span class="kw">int</span> corteFin()   { <span class="kw">return</span> corteIni() + <span class="num">30000</span>; }                           <span class="cmt">// + 3 horas</span>
+    <span class="kw">public</span> <span class="kw">int</span> ventanaIni() { <span class="kw">return</span> enRango(hhmmProIni, <span class="num">1</span>, <span class="num">1500</span>, <span class="num">800</span>) * <span class="num">100</span>; }
+    <span class="kw">public</span> <span class="kw">int</span> ventanaFin() { <span class="kw">return</span> enRango(hhmmProFin, <span class="num">1500</span>, <span class="num">2359</span>, <span class="num">1900</span>) * <span class="num">100</span> + <span class="num">1000</span>; } <span class="cmt">// +10 min implícitos</span>
+
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">int</span> enRango(<span class="kw">int</span> v, <span class="kw">int</span> min, <span class="kw">int</span> max, <span class="kw">int</span> porDefecto) {
+        <span class="kw">return</span> (v &lt; min || v &gt; max) ? porDefecto : v;
+    }
+}</span>
+<span class="seg java-seg" data-jid="j2"><span class="cmt">/** SCBM_CTL_KEY: sucursal 4 + caja 8 + banco 10 + moneda 4 = 26 caracteres. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">ClaveScbm</span>(<span class="kw">int</span> sucursal, <span class="kw">long</span> caja, <span class="kw">long</span> banco, <span class="kw">int</span> moneda)
+        <span class="kw">implements</span> <span class="type">Comparable</span>&lt;<span class="type">ClaveScbm</span>&gt; {
+
+    <span class="kw">public</span> <span class="type">String</span> texto() {
+        <span class="kw">return</span> <span class="str">&quot;%04d%08d%010d%04d&quot;</span>.formatted(sucursal, caja, banco, moneda);
+    }
+
+    <span class="ann">@Override</span> <span class="kw">public</span> <span class="kw">int</span> compareTo(<span class="type">ClaveScbm</span> o) { <span class="kw">return</span> texto().compareTo(o.texto()); }
+}
+
+<span class="cmt">/** Un renglón de TAB_SCBM (400 palabras): 9 páginas SECREN x 10 conceptos y totales. */</span>
+<span class="kw">public</span> <span class="kw">final</span> <span class="kw">class</span> <span class="type">AcumuladorScbm</span> {
+
+    <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> MAX_SCBM_PAG = <span class="num">8</span>;          <span class="cmt">// SECREN 0..8</span>
+    <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> MAX_SCBM_CON_PAG = <span class="num">10</span>;
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> POSICIONES = (MAX_SCBM_PAG + <span class="num">1</span>) * MAX_SCBM_CON_PAG;   <span class="cmt">// 90</span>
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="kw">long</span>[] numCr = <span class="kw">new</span> <span class="kw">long</span>[POSICIONES + <span class="num">1</span>], numAb = <span class="kw">new</span> <span class="kw">long</span>[POSICIONES + <span class="num">1</span>];
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">BigDecimal</span>[] impCr = ceros(POSICIONES + <span class="num">1</span>), impAb = ceros(POSICIONES + <span class="num">1</span>);
+    <span class="kw">private</span> <span class="kw">long</span> totNumCr, totNumAb;
+    <span class="kw">private</span> <span class="type">BigDecimal</span> totImpCr = <span class="type">BigDecimal</span>.ZERO, totImpAb = <span class="type">BigDecimal</span>.ZERO;
+    <span class="kw">private</span> <span class="kw">int</span> paginas;                        <span class="cmt">// SCBM_CTL_PAG: registros DMSII recibidos</span>
+
+    <span class="cmt">// getters y operaciones de registro en el segmento s7</span>
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Ciclo residente, disparadores y consola de operación</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ALGOL_P810.txt</span><span class="fname">CONTROLA · CAMBIO_HORA · FIN_DIA · PROCESA_TOT · INICIO</span><span class="lang-label ll-c">ALGOL</span></div><pre><span class="seg" data-cid="s3" data-jid="j3" title="WAITANDRESET con timeout o HI a latido programado y endpoint de operación · L3915–4005">  <span class="var">CONT_CONTROLA</span>:                                                        <span class="num">0000391503129000</span>
+  <span class="var">CONTROLA_PROCESO</span>:= <span class="kw">TRUE</span>;                                              <span class="num">0000391603130000</span>
+  <span class="kw">WHILE</span> <span class="var">CONTROLA_PROCESO</span> <span class="kw">DO</span>                                             <span class="num">0000391703131000</span>
+   <span class="kw">BEGIN</span>                                                                <span class="num">0000391803132000</span>
+   <span class="var">RSLT_WAIT</span>:=<span class="num">0</span>;                                                        <span class="num">0000391903133000</span>
+   <span class="var">RSLT_WAIT</span>:=<span class="var">WAITANDRESET</span>(((<span class="var">DELAY_PRO</span>*<span class="num">60</span>)),                            <span class="num">0000392003134000</span>
+                           <span class="var">MYSELF</span>.<span class="var">EXCEPTIONEVENT</span>);                      <span class="num">0000392103135000</span>
+   <span class="kw">CASE</span> <span class="var">RSLT_WAIT</span> <span class="kw">OF</span>                                                    <span class="num">0000392203136000</span>
+    <span class="kw">BEGIN</span>                                                               <span class="num">0000392303137000</span>
+    <span class="num">1</span>: <span class="kw">BEGIN</span>                      <span class="cmt">% POR TIMEOUT                         0000392403138000</span>
+       <span class="var">CAMBIO_HORA</span>(<span class="kw">FALSE</span>);                                              <span class="num">0000392503139000</span>
+       <span class="var">FIN_DIA</span>;                                                         <span class="num">0000392603140000</span>
+       <span class="kw">END</span>;                                                             <span class="num">0000392703141000</span>
+    <span class="num">2</span>: <span class="kw">BEGIN</span>                      <span class="cmt">% POR HI                              0000392803142000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+       <span class="var">MYVAL</span>:= <span class="var">MYSELF</span>.<span class="kw">VALUE</span>;                                            <span class="num">0000393203146000</span>
+       <span class="var">MYSELF</span>.<span class="kw">VALUE</span>:= <span class="num">0</span>;                                                <span class="num">0000393303147000</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">1</span> <span class="kw">THEN</span>                                              <span class="num">0000393403148000</span>
+<span class="cmt">  % ⋯ 17 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">2</span> <span class="kw">THEN</span>                                              <span class="num">0000395203166000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000395303167000</span>
+<span class="cmt">  % ⋯ 9 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">3</span> <span class="kw">THEN</span>                                              <span class="num">0000396303177000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000396403178000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+        <span class="var">CAMBIO_HORA</span>(<span class="kw">TRUE</span>);                                              <span class="num">0000396703181000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">4</span> <span class="kw">THEN</span>                                              <span class="num">0000397003184000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000397103185000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+        <span class="var">CONTROLA_PROCESO</span>:=<span class="kw">FALSE</span>;                                        <span class="num">0000397403188000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">10</span> <span class="kw">THEN</span>                                             <span class="num">0000397703191000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000397803192000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+        <span class="var">DELINKLIBRARY</span>(<span class="var">LIB_CORE-GLL001CTL</span>);                                 <span class="num">0000398103195000</span>
+        <span class="var">DELINKLIBRARY</span>(<span class="var">OMNISPLUNK_LIB</span>);                                  <span class="num">0000398203196000</span>
+        <span class="var">DELINKLIBRARY</span>(<span class="var">OMNISUPPORT_LIB</span>);                                 <span class="num">0000398303197000</span>
+        <span class="var">MYSELF</span>.<span class="var">STATUS</span>:= <span class="num">3</span>;                                              <span class="num">0000398403198000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">21</span> <span class="kw">THEN</span>                                             <span class="num">0000398703201000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000398803202000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+        <span class="var">CARGADEF</span>;                                                       <span class="num">0000399103205000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">MYVAL</span> <span class="var">EQL</span> <span class="num">22</span> <span class="kw">THEN</span>                                             <span class="num">0000399403208000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000399503209000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+        <span class="var">CARGASUCS</span>;                                                      <span class="num">0000399803212000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+    <span class="kw">ELSE</span>: ;                                                             <span class="num">0000400203216000</span>
+    <span class="kw">END</span>; <span class="cmt">% CASE                                                         0000400303217000</span>
+   <span class="kw">END</span>; <span class="cmt">% WHILE                                                         0000400403218000</span>
+  <span class="kw">END</span> DE <span class="var">CONTROLA</span>;                                                      <span class="num">0000400503219000</span></span>
+<span class="seg" data-cid="s4" data-jid="j4" title="Disparo por cambio de hora o cuarto de hora y corte del día · L3808–3886">   <span class="var">HORA</span>      :=<span class="var">OL_DT_TIMEDATE_2K</span>(<span class="str">&quot;HHMMSS&quot;</span>,<span class="kw">FALSE</span>);                       <span class="num">0000380803022000</span>
+   <span class="var">FECHA_REAL</span>:=<span class="var">OL_DT_TIMEDATE_2K</span>(<span class="str">&quot;YYMMDD&quot;</span>,<span class="kw">FALSE</span>);                       <span class="num">0000380903023000</span>
+   <span class="kw">IF</span> ((<span class="var">HORA</span> <span class="var">GTR</span> <span class="var">HORA_INI</span> <span class="kw">AND</span> <span class="var">HORA</span> <span class="var">LSS</span> <span class="var">HORA_FIN</span>)) <span class="kw">AND</span>                   <span class="num">0000381003024000</span>
+      (<span class="var">FECHA_REAL</span> <span class="var">NEQ</span> <span class="var">FECHA_PROC</span>) <span class="kw">THEN</span>                                  <span class="num">0000381103025000</span>
+    <span class="kw">BEGIN</span>                                                               <span class="num">0000381203026000</span>
+    <span class="var">FECHA_PROC</span>:= <span class="var">FECHA_REAL</span>;                                            <span class="num">0000381303027000</span>
+    <span class="var">OL_DISPLAY</span>(<span class="num">0</span>,<span class="str">&quot;INF&gt;&quot;</span>,<span class="var">TITSW</span> <span class="var">CAT</span> <span class="str">&quot;: &quot;</span>,<span class="str">&quot;REALIZO CORTE DEL DIA !&quot;</span>);      <span class="num">0000381403028000</span>
+    <span class="var">INICIALIZA_CTL</span>;                                                     <span class="num">0000381503029000</span>
+    <span class="var">RSLT_OC_LOG</span>:=<span class="kw">CLOSE</span>(<span class="var">LOG</span>,<span class="var">LOCK</span>);                                       <span class="num">0000381603030000</span>
+    <span class="kw">IF</span> <span class="var">GRABA_LOG</span> <span class="kw">THEN</span>                                                   <span class="num">0000381703031000</span>
+     <span class="var">INICIALIZA_LOG</span>;                                                    <span class="num">0000381803032000</span>
+<span class="cmt">  % ⋯ 30 líneas omitidas</span>
+   <span class="var">RSLT_CH</span>:= <span class="kw">FALSE</span>;                                                     <span class="num">0000384903063000</span>
+   <span class="var">DT_SCR</span>:= <span class="var">TIME</span>(<span class="num">7</span>);                           <span class="cmt">% DATE &amp; TIME            0000385003064000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+   <span class="kw">IF</span> <span class="var">DT_ACT</span> <span class="var">EQL</span> <span class="num">0</span> <span class="kw">THEN</span>                                                 <span class="num">0000385303067000</span>
+    <span class="var">DT_ACT</span>.[<span class="num">47</span>:<span class="num">30</span>]:= <span class="var">DT_SCR</span>.[<span class="num">47</span>:<span class="num">30</span>];           <span class="cmt">% AL INICIO              0000385403068000</span>
+   <span class="kw">IF</span> (<span class="var">DT_SCR</span>.[<span class="num">47</span>:<span class="num">30</span>] <span class="var">NEQ</span> <span class="var">DT_ACT</span>.[<span class="num">47</span>:<span class="num">30</span>]) <span class="kw">OR</span>   <span class="cmt">% CAMBIO HH              0000385503069000</span>
+      (<span class="var">DT_SCR</span>.[<span class="num">17</span>:<span class="num">06</span>] <span class="var">EQL</span> <span class="num">15</span> <span class="kw">OR</span>                <span class="cmt">% MINUTO 15              0000385603070000</span>
+       <span class="var">DT_SCR</span>.[<span class="num">17</span>:<span class="num">06</span>] <span class="var">EQL</span> <span class="num">30</span> <span class="kw">OR</span>                <span class="cmt">% MINUTO 30              0000385703071000</span>
+       <span class="var">DT_SCR</span>.[<span class="num">17</span>:<span class="num">06</span>] <span class="var">EQL</span> <span class="num">45</span>) <span class="kw">OR</span>               <span class="cmt">% MINUTO 45              0000385803072000</span>
+      (<span class="var">FORZA_PROCESA_TOT</span>) <span class="kw">THEN</span>                 <span class="cmt">% FORZA_PROCESA_TOT      0000385903073000</span>
+    <span class="kw">BEGIN</span>                                                               <span class="num">0000386003074000</span>
+    <span class="var">DT_ACT</span>.[<span class="num">47</span>:<span class="num">30</span>]:= <span class="var">DT_SCR</span>.[<span class="num">47</span>:<span class="num">30</span>];       <span class="cmt">% ACTUALIZA FECHA &amp; HH       0000386103075000</span>
+    <span class="var">RSLT_CH</span>:= <span class="kw">TRUE</span>;                                                     <span class="num">0000386203076000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+    <span class="var">CH_HORA</span>:=<span class="var">OL_DT_TIMEDATE_2K</span>(<span class="str">&quot;HHMMSS&quot;</span>,<span class="kw">FALSE</span>);                         <span class="num">0000386503079000</span>
+    <span class="kw">IF</span> ((<span class="var">CH_HORA</span> <span class="var">GEQ</span> <span class="var">HHMM_PRO_INI</span> <span class="kw">AND</span> <span class="var">CH_HORA</span> <span class="var">LEQ</span> <span class="var">HHMM_PRO_FIN</span>)) <span class="kw">THEN</span>   <span class="num">0000386603080000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">FORZA_PROCESA_TOT</span> <span class="kw">THEN</span>                                      <span class="num">0000386903083000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+       <span class="str">&quot;--&gt; HAY CAMBIO DE HORA !&quot;</span>                                       <span class="num">0000387103085000</span>
+     <span class="kw">ELSE</span>                                                               <span class="num">0000387203086000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+       <span class="str">&quot;--&gt; SE FORZA RUTINA DE PROCESAMIENTO !&quot;</span>;                        <span class="num">0000387403088000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+     <span class="var">PROCESA_TOT</span>;  <span class="cmt">% PROCESO COMPLETO                                   0000387703091000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+    <span class="kw">ELSE</span>                                                                <span class="num">0000388003094000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="var">FORZA_PROCESA_TOT</span> <span class="kw">THEN</span>                                          <span class="num">0000388203096000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+       <span class="str">&quot;--&gt; SE FORZO PROCESO DE TOTALES, PERO NO ESTAMOS EN HORARIO !&quot;</span>; <span class="num">0000388603100000</span></span>
+<span class="seg" data-cid="s5" data-jid="j5" title="PROCESA_TOT e INICIO a flujo de Spring Batch con prerrequisitos de arranque · L3755–4065">  <span class="var">CARGA_B01SISDIA</span>;                                                      <span class="num">0000375502969000</span>
+  <span class="var">CARGA_B09CONXSIS</span>;                                                     <span class="num">0000375602970000</span>
+  <span class="var">DELINKLIBRARY</span>(<span class="var">LIB_CORE-GLL001CTL</span>);   <span class="cmt">% IMPORTANTE DESLOGARSE             0000375702971000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+  <span class="var">BUSCA_B10MOVDIA264</span>;                                                   <span class="num">0000376102975000</span>
+  <span class="var">BUSCA_B10MOVDIA500</span>;                                                   <span class="num">0000376202976000</span>
+<span class="cmt">  % ⋯ 276 líneas omitidas</span>
+  <span class="var">CARGADEF</span>;                                                             <span class="num">0000403903253000</span>
+  <span class="var">CARGASUCS</span>;                                                            <span class="num">0000404003254000</span>
+  <span class="var">INICIALIZA_CTL</span>;                                                       <span class="num">0000404103255000</span>
+  <span class="kw">IF</span> <span class="var">GRABA_LOG</span> <span class="kw">THEN</span>                                                     <span class="num">0000404203256000</span>
+   <span class="var">INICIALIZA_LOG</span>;                                                      <span class="num">0000404303257000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+  <span class="var">RSLT_LF</span>:= <span class="var">LINKFWDR</span>(<span class="var">QUE_FWDR_NAME</span>,<span class="var">ARY_FWDR_RESP</span>);                      <span class="num">0000404603260000</span>
+  <span class="kw">IF</span> <span class="var">RSLT_LF</span> <span class="var">EQL</span> <span class="num">0</span> <span class="kw">THEN</span>                                                 <span class="num">0000404703261000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+    <span class="str">&quot;NO SE PUDO LIGAR CON SPLUNK. RSLT_LF: &quot;</span>,ST(<span class="var">RSLT_LF</span>,*);             <span class="num">0000405103265000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+   <span class="kw">GO</span> <span class="var">FIN_INICIO</span>;                                                       <span class="num">0000405303267000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+  <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">INI_LIBCTL</span> <span class="kw">THEN</span>                                                <span class="num">0000405603270000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+    <span class="str">&quot;NO SE PUDO INICIALIZAR LA LIB CORE-GLL001CTL &quot;</span>;                       <span class="num">0000406003274000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+   <span class="kw">GO</span> <span class="var">FIN_INICIO</span>;                                                       <span class="num">0000406203276000</span>
+<span class="cmt">  % ⋯ 2 líneas omitidas</span>
+  <span class="var">CONTROLA</span>;                                                             <span class="num">0000406503279000</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>MonitorTotales.java · ConsolaP810Endpoint.java · DisparadorTotales.java · ProcesaTotJobConfig.java</span><span class="fname">@Scheduled · Actuator @Endpoint · JobLauncher · Spring Batch Flow</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j3"><span class="cmt">/** CONTROLA: latido cada DELAY_PRO minutos (RSLT_WAIT = 1, por timeout). */</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">MonitorTotales</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">DisparadorTotales</span> disparador;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">AtomicBoolean</span> activo = <span class="kw">new</span> <span class="type">AtomicBoolean</span>(<span class="kw">true</span>);   <span class="cmt">// CONTROLA_PROCESO</span>
+
+    <span class="ann">@Scheduled</span>(fixedDelayString = <span class="str">&quot;#{${p810.delay-pro} * 60 * 1000}&quot;</span>)
+    <span class="kw">void</span> latido() {
+        <span class="kw">if</span> (!activo.get()) <span class="kw">return</span>;
+        <span class="kw">try</span> {
+            disparador.cambioHora(<span class="kw">false</span>);   <span class="cmt">// CAMBIO_HORA(FALSE)</span>
+            disparador.finDia();            <span class="cmt">// FIN_DIA</span>
+        } <span class="kw">catch</span> (<span class="type">RuntimeException</span> e) {      <span class="cmt">// ON ANYFAULT ... GO CONT_CONTROLA</span>
+            log.error(<span class="str">&quot;FALLA EN PROC.: CONTROLA&quot;</span>, e);   <span class="cmt">// sin reactivar &#x27;activo&#x27; (ver riesgo)</span>
+        }
+    }
+
+    <span class="kw">void</span> detiene() { activo.set(<span class="kw">false</span>); }
+}
+
+<span class="cmt">/** RSLT_WAIT = 2 (por HI): los comandos de consola pasan a un endpoint de Actuator. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@Endpoint</span>(id = <span class="str">&quot;p810&quot;</span>)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ConsolaP810Endpoint</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">MonitorTotales</span> monitor;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">DisparadorTotales</span> disparador;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Bitacora</span> bitacora;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Parametros</span> parametros;
+
+    <span class="ann">@WriteOperation</span>
+    <span class="kw">public</span> <span class="type">String</span> hi(<span class="kw">int</span> valor) {
+        <span class="kw">return</span> <span class="kw">switch</span> (valor) {
+            <span class="kw">case</span> <span class="num">1</span>  -&gt; AYUDA;
+            <span class="kw">case</span> <span class="num">2</span>  -&gt; { bitacora.cierraYReabre(); <span class="kw">yield</span> <span class="str">&quot;EL LOG FUE CERRADO Y REABIERTO...&quot;</span>; }
+            <span class="kw">case</span> <span class="num">3</span>  -&gt; { disparador.cambioHora(<span class="kw">true</span>); <span class="kw">yield</span> <span class="str">&quot;SE FORZA PROCESAMIENTO ...&quot;</span>; }
+            <span class="kw">case</span> <span class="num">4</span>  -&gt; { monitor.detiene(); <span class="kw">yield</span> <span class="str">&quot;RECIBI &#x27;HI 4&#x27; PARA TERMINAR !&quot;</span>; }
+            <span class="kw">case</span> <span class="num">10</span> -&gt; { parametros.desligaLibrerias(); <span class="kw">yield</span> <span class="str">&quot;ME DESLIGUE DE LIBRERIAS&quot;</span>; }
+            <span class="kw">case</span> <span class="num">21</span> -&gt; { parametros.recargaDefinfo(); <span class="kw">yield</span> <span class="str">&quot;SE CARGA ARCHIVO DEFINFO !&quot;</span>; }
+            <span class="kw">case</span> <span class="num">22</span> -&gt; { parametros.recargaSucursales(); <span class="kw">yield</span> <span class="str">&quot;SE CARGA ARCHIVO TABLASUCS !&quot;</span>; }
+            <span class="kw">default</span> -&gt; <span class="str">&quot;&quot;</span>;                   <span class="cmt">// cualquier otro valor se ignora</span>
+        };
+    }
+}</span>
+<span class="seg java-seg" data-jid="j4"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">DisparadorTotales</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">P810Properties</span> props;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Clock</span> reloj;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">JobLauncher</span> lanzador;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Job</span> procesaTot;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlDelDia</span> control;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Bitacora</span> bitacora;
+
+    <span class="kw">private</span> <span class="type">LocalDateTime</span> horaActual;     <span class="cmt">// DT_ACT.[47:30]: fecha y hora, sin minutos</span>
+    <span class="kw">private</span> <span class="type">LocalDate</span> fechaProc;          <span class="cmt">// FECHA_PROC</span>
+
+<span class="cmt">    /** CAMBIO_HORA(FORZA_PROCESA_TOT). */</span>
+    <span class="kw">public</span> <span class="kw">synchronized</span> <span class="kw">void</span> cambioHora(<span class="kw">boolean</span> forzado) <span class="kw">throws</span> <span class="type">Exception</span> {
+        <span class="type">LocalDateTime</span> ahora = <span class="type">LocalDateTime</span>.now(reloj);
+        <span class="type">LocalDateTime</span> hora = ahora.truncatedTo(<span class="type">ChronoUnit</span>.HOURS);
+        <span class="kw">if</span> (horaActual == <span class="kw">null</span>) horaActual = hora;                       <span class="cmt">// AL INICIO</span>
+        <span class="kw">int</span> min = ahora.getMinute();
+        <span class="kw">if</span> (!hora.equals(horaActual) || min == <span class="num">15</span> || min == <span class="num">30</span> || min == <span class="num">45</span> || forzado) {
+            horaActual = hora;
+            <span class="kw">int</span> hhmmss = <span class="type">Hhmmss</span>.de(ahora.toLocalTime());
+            <span class="kw">if</span> (hhmmss &gt;= props.ventanaIni() &amp;&amp; hhmmss &lt;= props.ventanaFin()) {
+                bitacora.inf(forzado ? <span class="str">&quot;--&gt; SE FORZA RUTINA DE PROCESAMIENTO !&quot;</span> : <span class="str">&quot;--&gt; HAY CAMBIO DE HORA !&quot;</span>);
+                lanzador.run(procesaTot, <span class="kw">new</span> <span class="type">JobParametersBuilder</span>()
+                        .addLocalDateTime(<span class="str">&quot;disparo&quot;</span>, ahora).toJobParameters());   <span class="cmt">// PROCESA_TOT</span>
+            } <span class="kw">else</span> <span class="kw">if</span> (forzado) {
+                bitacora.inf(<span class="str">&quot;--&gt; SE FORZO PROCESO DE TOTALES, PERO NO ESTAMOS EN HORARIO !&quot;</span>);
+            }
+        }
+    }
+
+<span class="cmt">    /** FIN_DIA: solo dentro de la ventana de corte y solo si cambió la fecha. */</span>
+    <span class="kw">public</span> <span class="kw">synchronized</span> <span class="kw">void</span> finDia() {
+        <span class="type">LocalDateTime</span> ahora = <span class="type">LocalDateTime</span>.now(reloj);
+        <span class="kw">int</span> hhmmss = <span class="type">Hhmmss</span>.de(ahora.toLocalTime());
+        <span class="type">LocalDate</span> hoy = ahora.toLocalDate();   <span class="cmt">// el ALGOL compara YYMMDD; sin pivote porque solo es igualdad</span>
+        <span class="kw">if</span> (hhmmss &gt; props.corteIni() &amp;&amp; hhmmss &lt; props.corteFin() &amp;&amp; !hoy.equals(fechaProc)) {
+            fechaProc = hoy;
+            control.inicializa(hoy);           <span class="cmt">// INICIALIZA_CTL</span>
+            bitacora.rota(props.grabaLog());   <span class="cmt">// CLOSE(LOG,LOCK) + INICIALIZA_LOG</span>
+        }
+    }
+}</span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ProcesaTotJobConfig</span> {
+
+<span class="cmt">    /** PROCESA_TOT: los pasos no revisan el resultado del anterior; se replica con on(&quot;*&quot;). */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">Job</span> procesaTot(<span class="type">JobRepository</span> repo,
+                   <span class="type">Step</span> cargaSistemasDelDia,   <span class="cmt">// CARGA_B01SISDIA -&gt; CONSISDIA de CORE-GLL001CTL</span>
+                   <span class="type">Step</span> cargaConceptos,        <span class="cmt">// CARGA_B09CONXSIS: 30 renglones, PRODUCTO/INSTRUMENTO &quot;0000&quot;</span>
+                   <span class="type">Step</span> totales264,            <span class="cmt">// BUSCA_B10MOVDIA264 + GENERA_ARCH</span>
+                   <span class="type">Step</span> totalecore-dep) {          <span class="cmt">// BUSCA_B10MOVDIA500 + GENERA_ARCH</span>
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">JobBuilder</span>(<span class="str">&quot;CORE-GLP810-PROCESA-TOT&quot;</span>, repo)
+                .start(cargaSistemasDelDia).on(<span class="str">&quot;*&quot;</span>).to(cargaConceptos)
+                .from(cargaConceptos).on(<span class="str">&quot;*&quot;</span>).to(totales264)
+                .from(totales264).on(<span class="str">&quot;*&quot;</span>).to(totalecore-dep)
+                .end()
+                .build();
+        <span class="cmt">// DELINKLIBRARY(LIB_CORE-GLL001CTL) en cada corrida: el cliente de la librería</span>
+        <span class="cmt">// de control se crea por ejecución (@JobScope) para tomar la versión vigente.</span>
+    }
+}
+
+<span class="cmt">/** INICIO: parámetros, sucursales, control, bitácora y dos prerrequisitos duros. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ArranqueP810</span> <span class="kw">implements</span> <span class="type">ApplicationRunner</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Parametros</span> parametros;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SplunkForwarder</span> splunk;            <span class="cmt">// LINKFWDR de OMNISPLUNK_LIB</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">LibreriaControlClient</span> libCtl;      <span class="cmt">// INI_LIBCTL</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlDelDia</span> control;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Bitacora</span> bitacora;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Clock</span> reloj;
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> run(<span class="type">ApplicationArguments</span> args) {
+        parametros.recargaDefinfo();                 <span class="cmt">// CARGADEF</span>
+        parametros.recargaSucursales();              <span class="cmt">// CARGASUCS</span>
+        control.inicializa(<span class="type">LocalDate</span>.now(reloj));    <span class="cmt">// INICIALIZA_CTL</span>
+        <span class="kw">if</span> (parametros.grabaLog()) bitacora.abre();  <span class="cmt">// INICIALIZA_LOG</span>
+        <span class="kw">if</span> (!splunk.liga()) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">IllegalStateException</span>(<span class="str">&quot;NO SE PUDO LIGAR CON SPLUNK&quot;</span>);
+        <span class="kw">if</span> (!libCtl.inicializa()) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">IllegalStateException</span>(<span class="str">&quot;NO SE PUDO INICIALIZAR LA LIB CORE-GLL001CTL&quot;</span>);
+        <span class="cmt">// a partir de aquí MonitorTotales empieza a latir</span>
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Barrido DMSII, agregación SCBM y envío a Splunk</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ALGOL_P810.txt</span><span class="fname">BUSCA_B10MOVDIA264 · DEF_REG_CAMPOS · GENERA_ARCH</span><span class="lang-label ll-c">ALGOL</span></div><pre><span class="seg" data-cid="s6" data-jid="j6" title="Dataset por día de la semana y consulta por sucursal filtrada · L2749–2831">  <span class="kw">IF</span> <span class="var">NUMARC</span> &gt; <span class="num">5</span> <span class="kw">THEN</span>                                                    <span class="num">0000274902061050</span>
+   <span class="kw">BEGIN</span>                                                                <span class="num">0000275002061100</span>
+<span class="cmt">  % ⋯ 4 líneas omitidas</span>
+   <span class="var">NUMARC_ANT</span>:= <span class="var">NUMARC</span>;                                                 <span class="num">0000275502061350</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+   <span class="var">NUMARC</span>:= <span class="var">NUMARC</span> - <span class="num">5</span>;                                                 <span class="num">0000275702061450</span>
+<span class="cmt">  % ⋯ 5 líneas omitidas</span>
+  <span class="kw">CASE</span> <span class="var">NUMARC</span> <span class="kw">OF</span>   <span class="cmt">% DIA SEMANA                                         0000276302062000</span>
+   <span class="kw">BEGIN</span>                                                                <span class="num">0000276402063000</span>
+   <span class="num">1</span>: <span class="kw">BEGIN</span>                                                             <span class="num">0000276502064000</span>
+      <span class="kw">FOR</span> <span class="var">POS_SUC</span>:= <span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> <span class="var">ULT_SUCS</span> <span class="kw">DO</span>                          <span class="num">0000276602064200</span>
+       <span class="kw">BEGIN</span>                                                            <span class="num">0000276702064400</span>
+      <span class="var">REP</span> <span class="var">EARY_DATASET</span> <span class="kw">BY</span> <span class="str">&quot;CORE-GLB03CSISUCCAJ&quot;</span>;                           <span class="num">0000276802065000</span>
+      <span class="var">REP</span> <span class="var">EARY_SET</span> <span class="kw">BY</span> <span class="str">&quot;B03SXCSISUCCAJ&quot;</span>;                                 <span class="num">0000276902066000</span>
+      <span class="var">SET</span> <span class="var">B03SXCSISUCCAJ</span> <span class="kw">TO</span> <span class="var">BEGINNING</span>;                                  <span class="num">0000277002067000</span>
+      <span class="var">FIND</span> <span class="var">FIRST</span> <span class="var">B03SXCSISUCCAJ</span> AT                                      <span class="num">0000277102068000</span>
+                (<span class="var">B03-MOV-SUCINI</span> = <span class="var">TABSUCS_NUM</span>(<span class="var">POS_SUC</span>)):<span class="var">DMSTATUS</span>;       <span class="num">0000277202068200</span>
+      <span class="kw">WHILE</span> <span class="kw">NOT</span> <span class="kw">BOOLEAN</span>(<span class="var">DMSTATUS</span>) <span class="kw">DO</span>                                    <span class="num">0000277302069000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+       <span class="var">GET</span> <span class="var">CORE-GLB03CSISUCCAJ</span> (                                           <span class="num">0000277502071000</span>
+        <span class="var">B99_MOV_SUCINI</span> := <span class="var">B03-MOV-SUCINI</span>,                               <span class="num">0000277602072000</span>
+        <span class="var">B99_MOV_CAJINI</span> := <span class="var">B03-MOV-CAJINI</span>,                               <span class="num">0000277702073000</span>
+        <span class="var">B99_MOV_MONEDA</span> := <span class="var">B03-MOV-MONEDA</span>,                               <span class="num">0000277802074000</span>
+        <span class="var">B99_MOV_MDE</span>    := <span class="var">B03-MOV-MDE</span>,                                  <span class="num">0000277902075000</span>
+        <span class="var">B99_MOV_VER028</span> := <span class="var">B03-MOV-VER028</span>,                               <span class="num">0000278002076000</span>
+        <span class="var">B99_MOV_BANCOS</span> := <span class="var">B03-MOV-BANCOS</span>,                               <span class="num">0000278102077000</span>
+        <span class="var">B99_MOV_SECREN</span> := <span class="var">B03-MOV-SECREN</span>,                               <span class="num">0000278202078000</span>
+<span class="cmt">  % ⋯ 41 líneas omitidas</span>
+       <span class="kw">IF</span> <span class="var">B99_MOV_SUCINI</span> = <span class="var">TABSUCS_NUM</span>(<span class="var">POS_SUC</span>) <span class="kw">THEN</span>                    <span class="num">0000282402119200</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000282502119400</span>
+        <span class="var">DEF_REG_CAMPOS</span>;                                                 <span class="num">0000282602120000</span>
+        <span class="kw">END</span>;                                                            <span class="num">0000282702120200</span>
+<span class="cmt">       %                                                                0000282802121000</span>
+       <span class="var">FIND</span> <span class="var">NEXT</span> <span class="var">B03SXCSISUCCAJ</span>:<span class="var">DMSTATUS</span>;                               <span class="num">0000282902122000</span>
+       <span class="kw">END</span>; <span class="cmt">% WHILE                                                     0000283002123000</span>
+       <span class="kw">END</span>; <span class="cmt">% FOR POS_SUC                                               0000283102123500</span></span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Alta o reuso de la llave SCBM, colocación por SECREN y orden ascendente · L2636–3127">       <span class="var">SCBM_POS_FOUND</span>:= <span class="num">0</span>;                                              <span class="num">0000263601949000</span>
+       <span class="kw">FOR</span> I1:=<span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> <span class="var">ULT_TAB_SCBM</span> <span class="kw">DO</span>                           <span class="num">0000263701950000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000263801951000</span>
+        <span class="kw">IF</span> (<span class="kw">BOOLEAN</span>(<span class="var">SCBM_CTL_STA</span>(I1))) <span class="kw">AND</span>                              <span class="num">0000263901952000</span>
+           (<span class="var">SCBM_CTL_SUC</span>(I1) <span class="var">EQL</span> <span class="var">B99_MOV_SUCINI</span>) <span class="kw">AND</span>                    <span class="num">0000264001953000</span>
+           (<span class="var">SCBM_CTL_CAJ</span>(I1) <span class="var">EQL</span> <span class="var">B99_MOV_CAJINI</span>) <span class="kw">AND</span>                    <span class="num">0000264101954000</span>
+           (<span class="var">SCBM_CTL_BAN</span>(I1) <span class="var">EQL</span> <span class="var">B99_MOV_BANCOS</span>) <span class="kw">AND</span>                    <span class="num">0000264201955000</span>
+           (<span class="var">SCBM_CTL_MON</span>(I1) <span class="var">EQL</span> <span class="var">B99_MOV_MONEDA</span>) <span class="kw">THEN</span>                   <span class="num">0000264301956000</span>
+         <span class="kw">BEGIN</span>                                                          <span class="num">0000264401957000</span>
+         <span class="var">SCBM_POS_FOUND</span>:= I1;                                           <span class="num">0000264501958000</span>
+         I1:= <span class="var">ULT_TAB_SCBM</span>;                                             <span class="num">0000264601959000</span>
+         <span class="kw">END</span>;                                                           <span class="num">0000264701960000</span>
+        <span class="kw">END</span>; <span class="cmt">% FOR I1                                                   0000264801961000</span>
+       <span class="kw">IF</span> <span class="var">SCBM_POS_FOUND</span> &gt; <span class="num">0</span> <span class="kw">THEN</span> <span class="cmt">% PUEDE SER OTRO SECREN               0000264901962000</span>
+        <span class="var">QUE_POS</span>:= <span class="var">SCBM_POS_FOUND</span>                                        <span class="num">0000265001963000</span>
+       <span class="kw">ELSE</span>                                                             <span class="num">0000265101964000</span>
+        <span class="kw">BEGIN</span>                     <span class="cmt">% NUEVO                               0000265201965000</span>
+        <span class="var">ULT_TAB_SCBM</span>:= * + <span class="num">1</span>;                                           <span class="num">0000265301966000</span>
+        <span class="var">QUE_POS</span>:= <span class="var">ULT_TAB_SCBM</span>;                                         <span class="num">0000265401967000</span>
+        <span class="kw">END</span>;                                                            <span class="num">0000265501968000</span>
+       <span class="var">SCBM_CTL_POS_ORI</span>(<span class="var">QUE_POS</span>):= <span class="var">QUE_POS</span>;                             <span class="num">0000265601969000</span>
+       <span class="var">SCBM_CTL_STA</span>(<span class="var">QUE_POS</span>):= <span class="num">1</span>;                                       <span class="num">0000265701970000</span>
+       <span class="var">SCBM_CTL_SUC</span>(<span class="var">QUE_POS</span>):= <span class="var">B99_MOV_SUCINI</span>;                          <span class="num">0000265801971000</span>
+       <span class="var">SCBM_CTL_CAJ</span>(<span class="var">QUE_POS</span>):= <span class="var">B99_MOV_CAJINI</span>;                          <span class="num">0000265901972000</span>
+       <span class="var">SCBM_CTL_BAN</span>(<span class="var">QUE_POS</span>):= <span class="var">B99_MOV_BANCOS</span>;                          <span class="num">0000266001973000</span>
+       <span class="var">SCBM_CTL_MON</span>(<span class="var">QUE_POS</span>):= <span class="var">B99_MOV_MONEDA</span>;                          <span class="num">0000266101974000</span>
+<span class="cmt">  % ⋯ 9 líneas omitidas</span>
+       <span class="var">SCBM_CTL_PAG</span>(<span class="var">QUE_POS</span>):= <span class="var">SCBM_CTL_PAG</span>(<span class="var">QUE_POS</span>) + <span class="num">1</span>; <span class="cmt">% PAGINAS     0000267101984000</span>
+       <span class="var">I_SECREN</span>:= <span class="var">B99_MOV_SECREN</span>;                                       <span class="num">0000267201985000</span>
+       <span class="kw">IF</span> <span class="var">I_SECREN</span> <span class="var">LEQ</span> <span class="var">MAX_SCBM_PAG</span> <span class="kw">THEN</span>                                <span class="num">0000267301986000</span>
+        <span class="kw">BEGIN</span>                                                           <span class="num">0000267401987000</span>
+        <span class="kw">FOR</span> I2:=<span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> <span class="var">MAX_SCBM_CON_PAG</span> <span class="kw">DO</span>                      <span class="num">0000267501988000</span>
+         <span class="kw">BEGIN</span>                                                          <span class="num">0000267601989000</span>
+         <span class="var">POS_SECREN</span>:= <span class="var">I_SECREN</span> * <span class="var">MAX_SCBM_CON_PAG</span> + I2;   <span class="cmt">% POS SECREN  0000267701990000</span>
+         <span class="var">SCBM_NUM_CR</span>(<span class="var">QUE_POS</span>,<span class="var">POS_SECREN</span>):= <span class="var">B99_NUM_CR</span>[I2];              <span class="num">0000267801991000</span>
+         <span class="var">SCBM_IMP_CR</span>(<span class="var">QUE_POS</span>,<span class="var">POS_SECREN</span>):= <span class="var">B99_IMP_CR</span>[I2];              <span class="num">0000267901992000</span>
+         <span class="var">SCBM_NUM_AB</span>(<span class="var">QUE_POS</span>,<span class="var">POS_SECREN</span>):= <span class="var">B99_NUM_AB</span>[I2];              <span class="num">0000268001993000</span>
+         <span class="var">SCBM_IMP_AB</span>(<span class="var">QUE_POS</span>,<span class="var">POS_SECREN</span>):= <span class="var">B99_IMP_AB</span>[I2];              <span class="num">0000268101994000</span>
+<span class="cmt">         %                                                              0000268201995000</span>
+         <span class="var">SCBM_TOT_NUM_CR</span>(<span class="var">QUE_POS</span>):=                                     <span class="num">0000268301996000</span>
+          <span class="var">SCBM_TOT_NUM_CR</span>(<span class="var">QUE_POS</span>) + <span class="var">B99_NUM_CR</span>[I2];                    <span class="num">0000268401997000</span>
+         <span class="var">SCBM_TOT_IMP_CR</span>(<span class="var">QUE_POS</span>):=                                     <span class="num">0000268501998000</span>
+          <span class="var">SCBM_TOT_IMP_CR</span>(<span class="var">QUE_POS</span>) + <span class="var">B99_IMP_CR</span>[I2];                    <span class="num">0000268601999000</span>
+         <span class="var">SCBM_TOT_NUM_AB</span>(<span class="var">QUE_POS</span>):=                                     <span class="num">0000268702000000</span>
+          <span class="var">SCBM_TOT_NUM_AB</span>(<span class="var">QUE_POS</span>) + <span class="var">B99_NUM_AB</span>[I2];                    <span class="num">0000268802001000</span>
+         <span class="var">SCBM_TOT_IMP_AB</span>(<span class="var">QUE_POS</span>):=                                     <span class="num">0000268902002000</span>
+          <span class="var">SCBM_TOT_IMP_AB</span>(<span class="var">QUE_POS</span>) + <span class="var">B99_IMP_AB</span>[I2];                    <span class="num">0000269002003000</span>
+         <span class="kw">END</span>;<span class="cmt">% FOR I2                                                   0000269102004000</span>
+        <span class="kw">END</span>; <span class="cmt">% IF I_SECREN                                              0000269202005000</span>
+<span class="cmt">  % ⋯ 422 líneas omitidas</span>
+  <span class="kw">IF</span> <span class="var">ULT_TAB_SCBM</span> &gt; <span class="num">0</span> <span class="kw">THEN</span>                                              <span class="num">0000311502379000</span>
+   <span class="kw">BEGIN</span>                                                                <span class="num">0000311602380000</span>
+   <span class="kw">FOR</span> I1:=<span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> (<span class="var">ULT_TAB_SCBM-1</span>) <span class="kw">DO</span>                           <span class="num">0000311702381000</span>
+    <span class="kw">FOR</span> I2:=<span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> (<span class="var">ULT_TAB_SCBM-1</span>) <span class="kw">DO</span>                          <span class="num">0000311802382000</span>
+     <span class="kw">IF</span> <span class="var">SCBM_CTL_KEY</span>(I2) &gt; <span class="var">SCBM_CTL_KEY</span>(I2+<span class="num">1</span>) <span class="kw">FOR</span> <span class="var">SCBM_CTL_KEY_LEN</span> <span class="kw">THEN</span> <span class="num">0000311902383000</span>
+      <span class="kw">BEGIN</span>                                                             <span class="num">0000312002384000</span>
+      <span class="var">REP</span> P(<span class="var">TAB_SCBM</span>[<span class="num">0</span>,<span class="num">0</span>]) <span class="kw">BY</span>                                           <span class="num">0000312102385000</span>
+       P(<span class="var">TAB_SCBM</span>[I2,<span class="num">0</span>]) <span class="kw">FOR</span> <span class="var">TAB_SCBM_LEN</span> <span class="var">WORDS</span>;                        <span class="num">0000312202386000</span>
+      <span class="var">REP</span> P(<span class="var">TAB_SCBM</span>[I2,<span class="num">0</span>]) <span class="kw">BY</span>                                          <span class="num">0000312302387000</span>
+       P(<span class="var">TAB_SCBM</span>[I2+<span class="num">1</span>,<span class="num">0</span>]) <span class="kw">FOR</span> <span class="var">TAB_SCBM_LEN</span> <span class="var">WORDS</span>;                      <span class="num">0000312402388000</span>
+      <span class="var">REP</span> P(<span class="var">TAB_SCBM</span>[I2+<span class="num">1</span>,<span class="num">0</span>]) <span class="kw">BY</span>                                        <span class="num">0000312502389000</span>
+       P(<span class="var">TAB_SCBM</span>[<span class="num">0</span>,<span class="num">0</span>]) <span class="kw">FOR</span> <span class="var">TAB_SCBM_LEN</span> <span class="var">WORDS</span>;                         <span class="num">0000312602390000</span>
+      <span class="kw">END</span>;                                                              <span class="num">0000312702391000</span></span>
+<span class="seg" data-cid="s8" data-jid="j8" title="Registros CSV de detalle y totales a disco y a la cola de Splunk · L2452–2529">  <span class="kw">FOR</span> I1:=<span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> <span class="var">ULT_TAB_SCBM</span> <span class="kw">DO</span> <span class="cmt">%%%                            0000245201728000</span>
+   <span class="kw">BEGIN</span>                                                                <span class="num">0000245301729000</span>
+   <span class="kw">FOR</span> I2:= <span class="num">1</span> <span class="kw">STEP</span> <span class="num">1</span> <span class="kw">UNTIL</span> <span class="var">CXS_TOT</span> <span class="kw">DO</span>                                   <span class="num">0000245401730000</span>
+    <span class="kw">BEGIN</span>                                                               <span class="num">0000245501731000</span>
+    <span class="kw">IF</span> (<span class="var">CXS_CTL_SIS</span>(I2) = <span class="var">SIS</span>) <span class="kw">AND</span>                                      <span class="num">0000245601732000</span>
+       (<span class="kw">BOOLEAN</span>(<span class="var">CXS_CTL_STA</span>(I2))) <span class="kw">THEN</span>                                  <span class="num">0000245701733000</span>
+     <span class="kw">BEGIN</span>                                                              <span class="num">0000245801734000</span>
+     <span class="var">NUM_REGS</span>:= * + <span class="num">1</span>;                                                  <span class="num">0000245901735000</span>
+     <span class="var">QUE_POS</span>:= <span class="var">CXS_CTL_REN</span>(I2);                                         <span class="num">0000246001736000</span>
+     <span class="var">RBLANCOE</span>(<span class="var">E_ARY_STS</span>);                                               <span class="num">0000246101737000</span>
+     <span class="var">REP</span> <span class="var">E_ARY_STS</span> <span class="kw">BY</span>                                                   <span class="num">0000246201738000</span>
+      <span class="str">&quot;2&quot;</span>,<span class="str">&quot;,&quot;</span>,                                                          <span class="num">0000246301739000</span>
+<span class="cmt">  % ⋯ 1 línea omitida</span>
+      <span class="var">NUM_REGS</span> <span class="kw">FOR</span> <span class="num">6</span> <span class="var">DIGITS</span>,<span class="str">&quot;,&quot;</span>,                                        <span class="num">0000246501741000</span>
+      <span class="var">CSI</span> <span class="kw">FOR</span> <span class="num">2</span> <span class="var">DIGITS</span>,<span class="str">&quot;,&quot;</span>,                                             <span class="num">0000246601742000</span>
+      <span class="var">SIS</span> <span class="kw">FOR</span> <span class="num">3</span> <span class="var">DIGITS</span>,<span class="str">&quot;,&quot;</span>,                                             <span class="num">0000246701743000</span>
+      <span class="var">EARY_FECPRO</span> <span class="kw">FOR</span> <span class="num">8</span>,<span class="str">&quot;,&quot;</span>,                                            <span class="num">0000246801744000</span>
+      <span class="var">NUMARC</span> <span class="kw">FOR</span> <span class="num">1</span> <span class="var">DIGITS</span>,<span class="str">&quot;,&quot;</span>,                                          <span class="num">0000246901745000</span>
+      ST(<span class="var">SCBM_CTL_SUC</span>(I1),*),<span class="str">&quot;,&quot;</span>,                                       <span class="num">0000247001746000</span>
+      ST(<span class="var">SCBM_CTL_CAJ</span>(I1),*),<span class="str">&quot;,&quot;</span>,                                       <span class="num">0000247101747000</span>
+      ST(<span class="var">SCBM_CTL_BAN</span>(I1),*),<span class="str">&quot;,&quot;</span>,                                       <span class="num">0000247201748000</span>
+      ST(<span class="var">SCBM_CTL_MON</span>(I1),*),<span class="str">&quot;,&quot;</span>,                                       <span class="num">0000247301749000</span>
+      <span class="var">CXS_CTL_REN</span>(I2) <span class="kw">FOR</span> <span class="num">2</span> <span class="var">DIGITS</span>,<span class="str">&quot;,&quot;</span>,                                 <span class="num">0000247401750000</span>
+      <span class="var">CXS_NOMREN</span>(I2) <span class="kw">FOR</span> <span class="var">CXS_NOMREN_LEN</span>,<span class="str">&quot;,&quot;</span>,                            <span class="num">0000247501751000</span>
+      ST(<span class="var">SCBM_NUM_CR</span>(I1,<span class="var">QUE_POS</span>),*),<span class="str">&quot;,&quot;</span>,                                <span class="num">0000247601752000</span>
+      ST(<span class="var">SCBM_IMP_CR</span>(I1,<span class="var">QUE_POS</span>),*),<span class="str">&quot;,&quot;</span>,                                <span class="num">0000247701753000</span>
+      ST(<span class="var">SCBM_NUM_AB</span>(I1,<span class="var">QUE_POS</span>),*),<span class="str">&quot;,&quot;</span>,                                <span class="num">0000247801754000</span>
+      ST(<span class="var">SCBM_IMP_AB</span>(I1,<span class="var">QUE_POS</span>),*),<span class="str">&quot;,&quot;</span>;                                <span class="num">0000247901755000</span>
+<span class="cmt">    %DISPLAY(E_ARY_STS);                                                0000248001756000</span>
+     <span class="var">RSLT_IO_CON</span>:= <span class="kw">WRITE</span>(<span class="var">CON</span>,<span class="var">MR_CON</span>,<span class="var">E_ARY_STS</span>);                         <span class="num">0000248101757000</span>
+     <span class="var">RSLT_IQ</span>:= <span class="var">INSERTSPLKQ</span>(<span class="var">RSLT_LF</span>,<span class="var">ARY_FWDR_RESP</span>,<span class="var">E_ARY_STS</span>);            <span class="num">0000248201776000</span>
+     <span class="kw">IF</span> <span class="var">RSLT_IQ</span> <span class="var">EQL</span> <span class="num">1</span> <span class="kw">THEN</span>                                              <span class="num">0000248301777000</span>
+      <span class="kw">BEGIN</span>                                                             <span class="num">0000248401778000</span>
+      <span class="var">NUM_REGS_ENV</span> := * + <span class="num">1</span>;                                            <span class="num">0000248501779000</span>
+      <span class="kw">END</span>                                                               <span class="num">0000248601780000</span>
+     <span class="kw">ELSE</span>                                                               <span class="num">0000248701781000</span>
+      <span class="kw">BEGIN</span>                                                             <span class="num">0000248801782000</span>
+      <span class="var">ERROR_ENVIA</span>:= <span class="kw">TRUE</span>;                                               <span class="num">0000248901783000</span>
+      <span class="var">IQ_ERR</span>:= <span class="var">RSLT_IQ</span>;                                                 <span class="num">0000249001784000</span>
+      <span class="kw">END</span>;                                                              <span class="num">0000249101785000</span>
+<span class="cmt">  % ⋯ 3 líneas omitidas</span>
+<span class="cmt">   % TOTALES                                                            0000249501790000</span>
+   <span class="var">NUM_REGS</span>:= * + <span class="num">1</span>;                                                    <span class="num">0000249601791000</span>
+   <span class="var">QUE_POS</span>:= <span class="var">CXS_CTL_REN</span>(I2);                                           <span class="num">0000249701792000</span>
+   <span class="var">RBLANCOE</span>(<span class="var">E_ARY_STS</span>);                                                 <span class="num">0000249801793000</span>
+   <span class="var">REP</span> <span class="var">E_ARY_STS</span> <span class="kw">BY</span>                                                     <span class="num">0000249901794000</span>
+    <span class="str">&quot;3&quot;</span>,<span class="str">&quot;,&quot;</span>,                                                            <span class="num">0000250001795000</span>
+<span class="cmt">  % ⋯ 10 líneas omitidas</span>
+    <span class="str">&quot;99&quot;</span>,<span class="str">&quot;,&quot;</span>,                                                           <span class="num">0000251101806000</span>
+    <span class="str">&quot;TOTALES SCBM   &quot;</span>,<span class="str">&quot;,&quot;</span>,                                              <span class="num">0000251201807000</span>
+<span class="cmt">  % ⋯ 5 líneas omitidas</span>
+   <span class="var">RSLT_IO_CON</span>:= <span class="kw">WRITE</span>(<span class="var">CON</span>,<span class="var">MR_CON</span>,<span class="var">E_ARY_STS</span>);                           <span class="num">0000251801813000</span>
+   <span class="var">RSLT_IQ</span>:= <span class="var">INSERTSPLKQ</span>(<span class="var">RSLT_LF</span>,<span class="var">ARY_FWDR_RESP</span>,<span class="var">E_ARY_STS</span>);              <span class="num">0000251901832000</span>
+<span class="cmt">  % ⋯ 9 líneas omitidas</span>
+   <span class="kw">END</span>; <span class="cmt">% FOR I1                                                        0000252901843000</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>MovDiaRepository.java · TablaScbm.java · TotalesCsvWriter.java</span><span class="fname">JdbcTemplate · agregación en memoria · Spring Integration hacia Splunk HEC</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j6"><span class="ann">@Repository</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">MovDiaRepository</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">NamedParameterJdbcTemplate</span> jdbc;
+
+<span class="cmt">    /** CASE NUMARC OF: el dataset depende del día de la semana, no de la fecha de proceso. */</span>
+    <span class="kw">static</span> <span class="type">Optional</span>&lt;<span class="type">String</span>&gt; tablaDelDia(<span class="kw">int</span> numArc) {
+        <span class="kw">int</span> n = (numArc &gt; <span class="num">5</span>) ? numArc - <span class="num">5</span> : numArc;      <span class="cmt">// GAEC 251008: 6..10 se reducen a 1..5</span>
+        <span class="kw">return</span> <span class="kw">switch</span> (n) {
+            <span class="kw">case</span> <span class="num">1</span> -&gt; <span class="type">Optional</span>.of(<span class="str">&quot;csisuccaj_b03&quot;</span>);
+            <span class="kw">case</span> <span class="num">2</span> -&gt; <span class="type">Optional</span>.of(<span class="str">&quot;csisuccaj_b13&quot;</span>);
+            <span class="kw">case</span> <span class="num">3</span> -&gt; <span class="type">Optional</span>.of(<span class="str">&quot;csisuccaj_b23&quot;</span>);
+            <span class="kw">case</span> <span class="num">4</span> -&gt; <span class="type">Optional</span>.of(<span class="str">&quot;csisuccaj_b33&quot;</span>);
+            <span class="kw">case</span> <span class="num">5</span> -&gt; <span class="type">Optional</span>.of(<span class="str">&quot;csisuccaj_b43&quot;</span>);
+            <span class="kw">default</span> -&gt; <span class="type">Optional</span>.empty();                 <span class="cmt">// ELSE: vacío, sin error (ver riesgo)</span>
+        };
+    }
+
+<span class="cmt">    /** FIND FIRST ... AT (Bnn-MOV-SUCINI = suc) + IF de igualdad = WHERE por sucursal. */</span>
+    <span class="kw">public</span> <span class="kw">void</span> recorre(<span class="kw">int</span> sistema, <span class="kw">int</span> numArc, <span class="type">List</span>&lt;<span class="type">Integer</span>&gt; sucursales,
+                        <span class="type">Consumer</span>&lt;<span class="type">RenglonCsiSucCaj</span>&gt; destino) {
+        <span class="type">String</span> tabla = tablaDelDia(numArc).orElse(<span class="kw">null</span>);
+        <span class="kw">if</span> (tabla == <span class="kw">null</span>) <span class="kw">return</span>;
+        <span class="kw">for</span> (<span class="kw">int</span> suc : sucursales) {                    <span class="cmt">// FOR POS_SUC ... UNTIL ULT_SUCS</span>
+            jdbc.query((<span class="str">&quot;select mov_sucini, mov_cajini, mov_moneda, mov_bancos, mov_secren,&quot;</span>
+                      + <span class="str">&quot; num_cr_01, imp_cr_01, num_ab_01, imp_ab_01 /* ... hasta _10 */&quot;</span>
+                      + <span class="str">&quot; from movdia%d.%s where mov_sucini = :suc&quot;</span>).formatted(sistema, tabla),
+                    <span class="type">Map</span>.of(<span class="str">&quot;suc&quot;</span>, suc),
+                    (<span class="type">RowCallbackHandler</span>) rs -&gt; destino.accept(<span class="type">RenglonCsiSucCaj</span>.de(rs)));
+        }
+    }
+}</span>
+<span class="seg java-seg" data-jid="j7"><span class="cmt">/** DEF_REG_CAMPOS + bubble sort: un TreeMap ya mantiene el orden ascendente por llave. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@JobScope</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">TablaScbm</span> {
+
+    <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> MAX_SCBM = <span class="num">3000</span>;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SortedMap</span>&lt;<span class="type">ClaveScbm</span>, <span class="type">AcumuladorScbm</span>&gt; tabla = <span class="kw">new</span> <span class="type">TreeMap</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="kw">void</span> registra(<span class="type">RenglonCsiSucCaj</span> r) {
+        <span class="kw">var</span> clave = <span class="kw">new</span> <span class="type">ClaveScbm</span>(r.sucursal(), r.caja(), r.bancos(), r.moneda());
+        <span class="kw">var</span> acc = tabla.computeIfAbsent(clave, k -&gt; {
+            <span class="kw">if</span> (tabla.size() &gt;= MAX_SCBM) {             <span class="cmt">// el ALGOL no valida: falla por índice</span>
+                <span class="kw">throw</span> <span class="kw">new</span> <span class="type">CapacidadScbmExcedidaException</span>(MAX_SCBM);
+            }
+            <span class="kw">return</span> <span class="kw">new</span> <span class="type">AcumuladorScbm</span>();
+        });
+        acc.cuentaPagina();                             <span class="cmt">// SCBM_CTL_PAG + 1</span>
+        <span class="kw">int</span> secren = r.secren();
+        <span class="kw">if</span> (secren &gt; <span class="type">AcumuladorScbm</span>.MAX_SCBM_PAG) {
+            <span class="kw">return</span>;                                     <span class="cmt">// SECREN &gt; 8: se descartan los 10 conceptos</span>
+        }
+        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= <span class="type">AcumuladorScbm</span>.MAX_SCBM_CON_PAG; i++) {
+            <span class="kw">int</span> pos = secren * <span class="type">AcumuladorScbm</span>.MAX_SCBM_CON_PAG + i;
+            acc.asigna(pos, r.numCr(i), r.impCr(i), r.numAb(i), r.impAb(i));   <span class="cmt">// := reemplaza</span>
+            acc.sumaTotales(r.numCr(i), r.impCr(i), r.numAb(i), r.impAb(i));   <span class="cmt">// + acumula</span>
+        }
+    }
+
+    <span class="kw">public</span> <span class="type">SortedMap</span>&lt;<span class="type">ClaveScbm</span>, <span class="type">AcumuladorScbm</span>&gt; vista() { <span class="kw">return</span> <span class="type">Collections</span>.unmodifiableSortedMap(tabla); }
+}</span>
+<span class="seg java-seg" data-jid="j8"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">TotalesCsvWriter</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SplunkHecGateway</span> splunk;     <span class="cmt">// Spring Integration: reemplaza INSERTSPLKQ</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ArchivoConWriter</span> archivo;    <span class="cmt">// .../CON/S{sis}/{AAMMDD}/{HHMM}</span>
+
+    <span class="kw">public</span> <span class="type">ResultadoEnvio</span> emite(<span class="type">Encabezado</span> e, <span class="type">List</span>&lt;<span class="type">Concepto</span>&gt; conceptos, <span class="type">SortedMap</span>&lt;<span class="type">ClaveScbm</span>, <span class="type">AcumuladorScbm</span>&gt; tabla) {
+        <span class="kw">var</span> r = <span class="kw">new</span> <span class="type">ResultadoEnvio</span>();
+        emiteUno(<span class="str">&quot;1,&quot;</span> + e.marca() + <span class="str">&quot;,NUM_REGS,CSI,SISTEMA,FECHA_PROC,NUMARC_DIA,SUCURSAL,CAJA,&quot;</span>
+                 + <span class="str">&quot;BANCO,MONEDA,RENGLON,CONCEPTO,NUM_CR,IMP_CR,NUM_AB,IMP_AB,&quot;</span>, r);
+        tabla.forEach((k, acc) -&gt; {
+            <span class="kw">for</span> (<span class="type">Concepto</span> c : conceptos) {
+                <span class="kw">if</span> (c.sistema() != e.sistema() || !c.activo()) <span class="kw">continue</span>;
+                <span class="kw">int</span> pos = c.renglon();                                       <span class="cmt">// CXS_CTL_REN</span>
+                emiteUno(linea(<span class="str">&quot;2&quot;</span>, e, r.siguiente(), k, <span class="str">&quot;%02d&quot;</span>.formatted(pos), c.nombre(),
+                               acc.numCr(pos), acc.impCr(pos), acc.numAb(pos), acc.impAb(pos)), r);
+            }
+            emiteUno(linea(<span class="str">&quot;3&quot;</span>, e, r.siguiente(), k, <span class="str">&quot;99&quot;</span>, <span class="str">&quot;TOTALES SCBM   &quot;</span>,
+                           acc.totNumCr(), acc.totImpCr(), acc.totNumAb(), acc.totImpAb()), r);
+        });
+        emiteUno(trailer(e, r.siguiente()), r);
+        <span class="kw">return</span> r;                     <span class="cmt">// a diferencia del ALGOL, el error se propaga al Step</span>
+    }
+
+    <span class="kw">private</span> <span class="kw">void</span> emiteUno(<span class="type">String</span> csv, <span class="type">ResultadoEnvio</span> r) {
+        archivo.escribe(csv);                         <span class="cmt">// WRITE(CON, MR_CON, E_ARY_STS)</span>
+        <span class="kw">if</span> (splunk.envia(csv)) r.enviado();           <span class="cmt">// RSLT_IQ = 1</span>
+        <span class="kw">else</span> r.error();                               <span class="cmt">// cuenta todos los fallos, no solo el último código</span>
+    }
+
+<span class="cmt">    /** Importes con escala 2 y punto decimal fijo; el ALGOL los imprime con ST(REAL,*). */</span>
+    <span class="kw">private</span> <span class="kw">static</span> <span class="type">String</span> imp(<span class="type">BigDecimal</span> v) { <span class="kw">return</span> v.setScale(<span class="num">2</span>, <span class="type">RoundingMode</span>.UNNECESSARY).toPlainString(); }
+}</span></pre></div>
+</div>
+  
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Importes en punto flotante</b><p>B99_IMP_CR, B99_IMP_AB y los acumuladores de TAB_SCBM son REAL (líneas 2610-2611 y 740-747). Los totales de importe por llave se acumulan en punto flotante y se publican con ST(...,*), lo que puede introducir diferencias de redondeo en sumas grandes. La versión Java usa BigDecimal.</p></div><div class="risk"><b>Banco truncado en la tabla</b><p>SCBM_CTL_BAN ocupa 24 bits (línea 734) mientras la llave usa 10 dígitos de banco. Un valor mayor a 16,777,215 rompe la búsqueda de la llave y duplica renglones.</p></div><div class="risk"><b>Reporte vacío sin señal</b><p>Sin TABSUCS, con NUMARC fuera de 1 a 10 o con falla de CONSISDIA, el programa envía a Splunk solo encabezado y trailer, o datos con sistema y CSI en cero, sin registrar error.</p></div><div class="risk"><b>Errores de envío que no se propagan</b><p>GENERA_ARCH siempre devuelve 0 (línea 2397) y el código de error de Splunk se sobrescribe; el operador no puede saber cuántos registros fallaron.</p></div><div class="risk"><b>Control de instancia desactivado</b><p>La llamada a CHECA_VERSION que impedía una segunda instancia activa está comentada (líneas 4097-4107), por lo que nada evita dos monitores enviando los mismos totales.</p></div><div class="risk"><b>Hardcodes</b><p>Sistemas 264 y 500 en VARY_SIS con MAX_SIS = 2, títulos de base CORE-GLBD10MOVDIA264 y CORE-GLBD10MOVDIA500, nombres de dataset B03 a B43, minutos 15, 30 y 45, más 10 minutos implícitos al fin de ventana y 3 horas de ventana de corte. Se trasladan a application.yml.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>El inventario no asocia reglas del brain a P810, aunque el pseudocódigo cita RN-CORE-GL-1160 y RN-CORE-GL-1163; confirmar si deben ligarse a este componente.</li><li>Confirmar el tipo DMSII de Bnn-IMP-CR y Bnn-IMP-AB (sin DASDL en el fuente) para fijar la escala del BigDecimal y medir la diferencia contra los totales actuales en REAL.</li><li>Confirmar el rango real de Bnn-MOV-BANCOS y Bnn-MOV-CAJINI frente a los 24 y 16 bits de SCBM_CTL_BAN y SCBM_CTL_CAJ.</li><li>Confirmar si la llave del dataset CSISUCCAJ garantiza un único registro por sucursal, caja, banco, moneda y SECREN; de lo contrario el detalle publicado no cuadra con el total.</li><li>Confirmar la interpretación de DT_SCR.[47:30] como fecha y hora sin minutos; el comentario de la línea 3861 lo indica pero el formato de TIME(7) no se documenta en el fuente.</li><li>Los nombres de tablas relacionales del destino (csisuccaj_b03 y siguientes) son una propuesta; dependen del diseño de migración de DMSII.</li></ul>
+  <div class="pn"><a href="CORE-GL_P690.html">← CORE-GL · P690</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_WFL_LINEA.html">CORE-GL · WFL · LINEA →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · LegacyCore · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Defaults compilados y ventanas horarias a propiedades validadas", "cobol": " DEFINE                                                                 0000057500039000\n  %                                                                     0000057600040000\n  DEF_HHMM_CORTE      = \"0005\" #,                                       0000057700041000\n  DEF_HHMM_PRO_INI    = \"0800\" #,                                       0000057800042000\n  DEF_HHMM_PRO_FIN    = \"1900\" #,                                       0000057900043000\n  DEF_DELAY_PRO       = \"01\" #,                                         0000058000044000\n  DEF_DIR_FAM         = \"CMEMP\" #,                                      0000058100045000\n  DEF_DIR_FAM_LEN     = 17 #,                                           0000058200046000\n  DEF_LOG_FAM         = \"CMEMP\" #,                                      0000058300047000\n  DEF_LOG_FAM_LEN     = 17 #,                                           0000058400048000\n  DEF_SOLO_HOY        = \"SI\" #,                                         0000058500049000\n  DEF_FWDR_NAME       = \"CORE-GLP810\" #,                                   0000058600050000\n  DEF_FWDR_NAME_LEN   = 12 #,                                           0000058700051000\n  DEF_SNDTOSPLK       = \"SI\" #,                                         0000058800052000\n  DEF_GRABA_LOG       = \"SI\" #,                                         0000058900053000\n  DEF_CORE-GLL001CTL     = \"25MTP002\" #,                                   0000059000054000\n  DEF_CORE-GLL001CTL_LEN = 17 #,                                           0000059100055000\n  % ⋯ 708 líneas omitidas\n   HHMM_CORTE:= INTEGER(P(ARY_HHMM_CORTE),4);                           0000130000565000\n   IF HHMM_CORTE LSS 0001 OR                                            0000130100566000\n      HHMM_CORTE GTR 1500 THEN                                          0000130200567000\n    HHMM_CORTE:= DECIMAL(DEF_HHMM_CORTE);                               0000130300568000\n   HHMM_CORTE:= HHMM_CORTE * 100;                                       0000130400569000\n   REP SCR_HHMM BY HHMM_CORTE FOR 6 DIGITS;                             0000130500569500\n   HORA_INI:= HHMM_CORTE;                                               0000130600570000\n   HORA_FIN:= HHMM_CORTE + 030000;                                      0000130700571000\n   HHMM_PRO_INI:= INTEGER(P(ARY_HHMM_PRO_INI),4);                       0000130800572000\n   IF HHMM_PRO_INI LSS 0001 OR                                          0000130900573000\n      HHMM_PRO_INI GTR 1500 THEN                                        0000131000574000\n    HHMM_PRO_INI:= DECIMAL(DEF_HHMM_PRO_INI);                           0000131100575000\n   HHMM_PRO_INI:= HHMM_PRO_INI * 100;                                   0000131200576000\n   HHMM_PRO_FIN:= INTEGER(P(ARY_HHMM_PRO_FIN),4);                       0000131300577000\n   IF HHMM_PRO_FIN LSS 1500 OR                                          0000131400578000\n      HHMM_PRO_FIN GTR 2359 THEN                                        0000131500579000\n    HHMM_PRO_FIN:= DECIMAL(DEF_HHMM_PRO_FIN);                           0000131600580000\n   HHMM_PRO_FIN:= HHMM_PRO_FIN * 100;                                   0000131700581000\n   HHMM_PRO_FIN:= HHMM_PRO_FIN + 001000;                                0000131800582000", "java": "# application.yml  (antes DEFINE DEF_* y archivo DEFINFO)\np810:\n  hhmm-corte: 5          # DEF_HHMM_CORTE \"0005\"; válido 0001..1500\n  hhmm-pro-ini: 800      # DEF_HHMM_PRO_INI \"0800\"; válido 0001..1500\n  hhmm-pro-fin: 1900     # DEF_HHMM_PRO_FIN \"1900\"; válido 1500..2359\n  delay-pro: 1           # minutos entre latidos (WAITANDRESET)\n  dir-fam: CMEMP\n  log-fam: CMEMP\n  fwdr-name: CORE-GLP810\n  snd-to-splk: true\n  graba-log: true\n  lib-ctl-version: 25MTP002\n  sistemas: [264, 500]   # VARY_SIS con MAX_SIS = 2\n\n// ---------------------------------------------------------------------------\n/** E_CARGADEF: un valor fuera de rango no se rechaza, se sustituye por el default. */\n@ConfigurationProperties(\"p810\")\npublic record P810Properties(int hhmmCorte, int hhmmProIni, int hhmmProFin, int delayPro,\n                             String dirFam, String logFam, String fwdrName,\n                             boolean sndToSplk, boolean grabaLog, String libCtlVersion,\n                             List<Integer> sistemas) {\n\n    // Las horas se comparan como enteros HHMMSS, igual que en el ALGOL.\n    public int corteIni()   { return enRango(hhmmCorte, 1, 1500, 5) * 100; }        // HORA_INI\n    public int corteFin()   { return corteIni() + 30000; }                           // + 3 horas\n    public int ventanaIni() { return enRango(hhmmProIni, 1, 1500, 800) * 100; }\n    public int ventanaFin() { return enRango(hhmmProFin, 1500, 2359, 1900) * 100 + 1000; } // +10 min implícitos\n\n    private static int enRango(int v, int min, int max, int porDefecto) {\n        return (v < min || v > max) ? porDefecto : v;\n    }\n}", "rationale": "Los <code>DEFINE</code> son macros de compilación con los valores por defecto; en tiempo de ejecución se sobrescriben con el archivo <code>DEFINFO</code>. Ambos pasan a <code>application.yml</code> con un <code>record</code> de propiedades. Se conservó la aritmética entera sobre <code>HHMMSS</code> en lugar de <code>LocalTime</code> porque el fuente suma <code>030000</code> y <code>001000</code> como números: con 2355 la ventana termina en 236500, que en la comparación entera equivale a no cortar antes de medianoche, mientras que <code>LocalTime.plusMinutes</code> daría la vuelta al día. La regla de sustituir el valor inválido por el default, sin error, se mantiene.", "risk": "HHMM_PRO_FIN recibe siempre 10 minutos extra sobre lo configurado (línea 1318) y DEF_SOLO_HOY (línea 585) no se usa en ningún otro punto del programa.", "rules": [], "lines": "L575–1318", "verified": true, "score": 100}, "s2": {"title": "Tabla TAB_SCBM empaquetada en campos de bits a record y acumulador", "cobol": "  MAX_SCBM              = 3000 #,                                       0000072700191000\n  MAX_SCBM_PAG          = 8 #,                                          0000072800192000\n  MAX_SCBM_CON_PAG      = 10 #,                                         0000072900193000\n  TAB_SCBM_LEN          = 400 #,                                        0000073000194000\n  SCBM_CTL_STA      (Y) = TAB_SCBM[Y,00].[47:01] #,                     0000073100195000\n  SCBM_CTL_SUC      (Y) = TAB_SCBM[Y,00].[31:16] #,                     0000073200196000\n  SCBM_CTL_CAJ      (Y) = TAB_SCBM[Y,00].[15:16] #,                     0000073300197000\n  SCBM_CTL_BAN      (Y) = TAB_SCBM[Y,01].[47:24] #,                     0000073400198000\n  SCBM_CTL_MON      (Y) = TAB_SCBM[Y,02].[23:16] #,                     0000073500199000\n  SCBM_CTL_PAG      (Y) = TAB_SCBM[Y,02].[07:08] #, % SECREN            0000073600200000\n  SCBM_CTL_KEY      (Y) = P(TAB_SCBM[Y,03]) #,                          0000073700201000\n  SCBM_CTL_KEY_LEN      = 26 #, % 4+8+10+4                              0000073800202000\n  SCBM_CTL_POS_ORI  (Y) = TAB_SCBM[Y,10].[47:16] #,                     0000073900203000\n  SCBM_TOT_NUM_CR   (Y) = TAB_SCBM[Y,11] #,                             0000074000204000\n  SCBM_TOT_IMP_CR   (Y) = TAB_SCBM[Y,12] #,                             0000074100205000\n  SCBM_TOT_NUM_AB   (Y) = TAB_SCBM[Y,13] #,                             0000074200206000\n  SCBM_TOT_IMP_AB   (Y) = TAB_SCBM[Y,14] #,                             0000074300207000\n  SCBM_NUM_CR     (Y,X) = TAB_SCBM[Y,(21+((X-1)*4))] #,                 0000074400208000\n  SCBM_IMP_CR     (Y,X) = TAB_SCBM[Y,(22+((X-1)*4))] #,                 0000074500209000\n  SCBM_NUM_AB     (Y,X) = TAB_SCBM[Y,(23+((X-1)*4))] #,                 0000074600210000\n  SCBM_IMP_AB     (Y,X) = TAB_SCBM[Y,(24+((X-1)*4))] #,                 0000074700211000\n  % ⋯ 13 líneas omitidas\n  VARY_SIS(0000,0264,0500,0000,0000,0000,0000,0000,0000,0000,0000);     0000076100225000", "java": "/** SCBM_CTL_KEY: sucursal 4 + caja 8 + banco 10 + moneda 4 = 26 caracteres. */\npublic record ClaveScbm(int sucursal, long caja, long banco, int moneda)\n        implements Comparable<ClaveScbm> {\n\n    public String texto() {\n        return \"%04d%08d%010d%04d\".formatted(sucursal, caja, banco, moneda);\n    }\n\n    @Override public int compareTo(ClaveScbm o) { return texto().compareTo(o.texto()); }\n}\n\n/** Un renglón de TAB_SCBM (400 palabras): 9 páginas SECREN x 10 conceptos y totales. */\npublic final class AcumuladorScbm {\n\n    static final int MAX_SCBM_PAG = 8;          // SECREN 0..8\n    static final int MAX_SCBM_CON_PAG = 10;\n    private static final int POSICIONES = (MAX_SCBM_PAG + 1) * MAX_SCBM_CON_PAG;   // 90\n\n    private final long[] numCr = new long[POSICIONES + 1], numAb = new long[POSICIONES + 1];\n    private final BigDecimal[] impCr = ceros(POSICIONES + 1), impAb = ceros(POSICIONES + 1);\n    private long totNumCr, totNumAb;\n    private BigDecimal totImpCr = BigDecimal.ZERO, totImpAb = BigDecimal.ZERO;\n    private int paginas;                        // SCBM_CTL_PAG: registros DMSII recibidos\n\n    // getters y operaciones de registro en el segmento s7\n}", "rationale": "Cada renglón de <code>TAB_SCBM</code> es un arreglo de 400 palabras de 48 bits en el que estado, sucursal y caja comparten la palabra 0 mediante campos de bits (<code>[47:01]</code>, <code>[31:16]</code>, <code>[15:16]</code>) y los conceptos se ubican con la fórmula <code>21 + (X-1)*4</code>. En Java la llave se separa como un <code>record</code> comparable por su texto de 26 posiciones, que es el mismo criterio con el que el ALGOL ordena la tabla, y los acumuladores quedan en una clase con arreglos por posición. Los importes pasan a <code>BigDecimal</code>; en el fuente son palabras <code>REAL</code> de punto flotante.", "risk": "SCBM_CTL_BAN guarda el banco en 24 bits (máximo 16,777,215) aunque la llave lo formatea a 10 dígitos y la búsqueda de 2642 lo compara completo. Si B03-MOV-BANCOS supera ese valor, la comparación nunca coincide y cada registro crea una llave nueva.", "rules": [], "lines": "L727–761", "verified": true, "score": 100}, "s3": {"title": "WAITANDRESET con timeout o HI a latido programado y endpoint de operación", "cobol": "  CONT_CONTROLA:                                                        0000391503129000\n  CONTROLA_PROCESO:= TRUE;                                              0000391603130000\n  WHILE CONTROLA_PROCESO DO                                             0000391703131000\n   BEGIN                                                                0000391803132000\n   RSLT_WAIT:=0;                                                        0000391903133000\n   RSLT_WAIT:=WAITANDRESET(((DELAY_PRO*60)),                            0000392003134000\n                           MYSELF.EXCEPTIONEVENT);                      0000392103135000\n   CASE RSLT_WAIT OF                                                    0000392203136000\n    BEGIN                                                               0000392303137000\n    1: BEGIN                      % POR TIMEOUT                         0000392403138000\n       CAMBIO_HORA(FALSE);                                              0000392503139000\n       FIN_DIA;                                                         0000392603140000\n       END;                                                             0000392703141000\n    2: BEGIN                      % POR HI                              0000392803142000\n  % ⋯ 3 líneas omitidas\n       MYVAL:= MYSELF.VALUE;                                            0000393203146000\n       MYSELF.VALUE:= 0;                                                0000393303147000\n       IF MYVAL EQL 1 THEN                                              0000393403148000\n  % ⋯ 17 líneas omitidas\n       IF MYVAL EQL 2 THEN                                              0000395203166000\n        BEGIN                                                           0000395303167000\n  % ⋯ 9 líneas omitidas\n       IF MYVAL EQL 3 THEN                                              0000396303177000\n        BEGIN                                                           0000396403178000\n  % ⋯ 2 líneas omitidas\n        CAMBIO_HORA(TRUE);                                              0000396703181000\n  % ⋯ 2 líneas omitidas\n       IF MYVAL EQL 4 THEN                                              0000397003184000\n        BEGIN                                                           0000397103185000\n  % ⋯ 2 líneas omitidas\n        CONTROLA_PROCESO:=FALSE;                                        0000397403188000\n  % ⋯ 2 líneas omitidas\n       IF MYVAL EQL 10 THEN                                             0000397703191000\n        BEGIN                                                           0000397803192000\n  % ⋯ 2 líneas omitidas\n        DELINKLIBRARY(LIB_CORE-GLL001CTL);                                 0000398103195000\n        DELINKLIBRARY(OMNISPLUNK_LIB);                                  0000398203196000\n        DELINKLIBRARY(OMNISUPPORT_LIB);                                 0000398303197000\n        MYSELF.STATUS:= 3;                                              0000398403198000\n  % ⋯ 2 líneas omitidas\n       IF MYVAL EQL 21 THEN                                             0000398703201000\n        BEGIN                                                           0000398803202000\n  % ⋯ 2 líneas omitidas\n        CARGADEF;                                                       0000399103205000\n  % ⋯ 2 líneas omitidas\n       IF MYVAL EQL 22 THEN                                             0000399403208000\n        BEGIN                                                           0000399503209000\n  % ⋯ 2 líneas omitidas\n        CARGASUCS;                                                      0000399803212000\n  % ⋯ 3 líneas omitidas\n    ELSE: ;                                                             0000400203216000\n    END; % CASE                                                         0000400303217000\n   END; % WHILE                                                         0000400403218000\n  END DE CONTROLA;                                                      0000400503219000", "java": "/** CONTROLA: latido cada DELAY_PRO minutos (RSLT_WAIT = 1, por timeout). */\n@Component\n@RequiredArgsConstructor\npublic class MonitorTotales {\n\n    private final DisparadorTotales disparador;\n    private final AtomicBoolean activo = new AtomicBoolean(true);   // CONTROLA_PROCESO\n\n    @Scheduled(fixedDelayString = \"#{${p810.delay-pro} * 60 * 1000}\")\n    void latido() {\n        if (!activo.get()) return;\n        try {\n            disparador.cambioHora(false);   // CAMBIO_HORA(FALSE)\n            disparador.finDia();            // FIN_DIA\n        } catch (RuntimeException e) {      // ON ANYFAULT ... GO CONT_CONTROLA\n            log.error(\"FALLA EN PROC.: CONTROLA\", e);   // sin reactivar 'activo' (ver riesgo)\n        }\n    }\n\n    void detiene() { activo.set(false); }\n}\n\n/** RSLT_WAIT = 2 (por HI): los comandos de consola pasan a un endpoint de Actuator. */\n@Component\n@Endpoint(id = \"p810\")\n@RequiredArgsConstructor\npublic class ConsolaP810Endpoint {\n\n    private final MonitorTotales monitor;\n    private final DisparadorTotales disparador;\n    private final Bitacora bitacora;\n    private final Parametros parametros;\n\n    @WriteOperation\n    public String hi(int valor) {\n        return switch (valor) {\n            case 1  -> AYUDA;\n            case 2  -> { bitacora.cierraYReabre(); yield \"EL LOG FUE CERRADO Y REABIERTO...\"; }\n            case 3  -> { disparador.cambioHora(true); yield \"SE FORZA PROCESAMIENTO ...\"; }\n            case 4  -> { monitor.detiene(); yield \"RECIBI 'HI 4' PARA TERMINAR !\"; }\n            case 10 -> { parametros.desligaLibrerias(); yield \"ME DESLIGUE DE LIBRERIAS\"; }\n            case 21 -> { parametros.recargaDefinfo(); yield \"SE CARGA ARCHIVO DEFINFO !\"; }\n            case 22 -> { parametros.recargaSucursales(); yield \"SE CARGA ARCHIVO TABLASUCS !\"; }\n            default -> \"\";                   // cualquier otro valor se ignora\n        };\n    }\n}", "rationale": "<code>WAITANDRESET</code> bloquea la tarea hasta que vence el tiempo o llega el evento de excepción que dispara el operador con <code>HI n</code>. En Spring el latido es un método <code>@Scheduled</code> con el intervalo de <code>p810.delay-pro</code> y la consola se publica como un <code>@Endpoint</code> de Actuator protegido, con los mismos códigos y mensajes para no cambiar los procedimientos de operación. <code>HI 10</code> deja de tener sentido tal cual porque no hay librerías MCP que desligar; se conserva como recarga de los adaptadores hacia la librería de control y Splunk.", "risk": "En el ALGOL la etiqueta CONT_CONTROLA está antes de CONTROLA_PROCESO := TRUE (líneas 3915-3916): una falla dentro del ciclo reactiva el proceso aunque el operador haya enviado HI 4. La versión Java no reproduce ese efecto.", "rules": [], "lines": "L3915–4005", "verified": true, "score": 100}, "s4": {"title": "Disparo por cambio de hora o cuarto de hora y corte del día", "cobol": "   HORA      :=OL_DT_TIMEDATE_2K(\"HHMMSS\",FALSE);                       0000380803022000\n   FECHA_REAL:=OL_DT_TIMEDATE_2K(\"YYMMDD\",FALSE);                       0000380903023000\n   IF ((HORA GTR HORA_INI AND HORA LSS HORA_FIN)) AND                   0000381003024000\n      (FECHA_REAL NEQ FECHA_PROC) THEN                                  0000381103025000\n    BEGIN                                                               0000381203026000\n    FECHA_PROC:= FECHA_REAL;                                            0000381303027000\n    OL_DISPLAY(0,\"INF>\",TITSW CAT \": \",\"REALIZO CORTE DEL DIA !\");      0000381403028000\n    INICIALIZA_CTL;                                                     0000381503029000\n    RSLT_OC_LOG:=CLOSE(LOG,LOCK);                                       0000381603030000\n    IF GRABA_LOG THEN                                                   0000381703031000\n     INICIALIZA_LOG;                                                    0000381803032000\n  % ⋯ 30 líneas omitidas\n   RSLT_CH:= FALSE;                                                     0000384903063000\n   DT_SCR:= TIME(7);                           % DATE & TIME            0000385003064000\n  % ⋯ 2 líneas omitidas\n   IF DT_ACT EQL 0 THEN                                                 0000385303067000\n    DT_ACT.[47:30]:= DT_SCR.[47:30];           % AL INICIO              0000385403068000\n   IF (DT_SCR.[47:30] NEQ DT_ACT.[47:30]) OR   % CAMBIO HH              0000385503069000\n      (DT_SCR.[17:06] EQL 15 OR                % MINUTO 15              0000385603070000\n       DT_SCR.[17:06] EQL 30 OR                % MINUTO 30              0000385703071000\n       DT_SCR.[17:06] EQL 45) OR               % MINUTO 45              0000385803072000\n      (FORZA_PROCESA_TOT) THEN                 % FORZA_PROCESA_TOT      0000385903073000\n    BEGIN                                                               0000386003074000\n    DT_ACT.[47:30]:= DT_SCR.[47:30];       % ACTUALIZA FECHA & HH       0000386103075000\n    RSLT_CH:= TRUE;                                                     0000386203076000\n  % ⋯ 2 líneas omitidas\n    CH_HORA:=OL_DT_TIMEDATE_2K(\"HHMMSS\",FALSE);                         0000386503079000\n    IF ((CH_HORA GEQ HHMM_PRO_INI AND CH_HORA LEQ HHMM_PRO_FIN)) THEN   0000386603080000\n  % ⋯ 2 líneas omitidas\n     IF NOT FORZA_PROCESA_TOT THEN                                      0000386903083000\n  % ⋯ 1 línea omitida\n       \"--> HAY CAMBIO DE HORA !\"                                       0000387103085000\n     ELSE                                                               0000387203086000\n  % ⋯ 1 línea omitida\n       \"--> SE FORZA RUTINA DE PROCESAMIENTO !\";                        0000387403088000\n  % ⋯ 2 líneas omitidas\n     PROCESA_TOT;  % PROCESO COMPLETO                                   0000387703091000\n  % ⋯ 2 líneas omitidas\n    ELSE                                                                0000388003094000\n  % ⋯ 1 línea omitida\n     IF FORZA_PROCESA_TOT THEN                                          0000388203096000\n  % ⋯ 3 líneas omitidas\n       \"--> SE FORZO PROCESO DE TOTALES, PERO NO ESTAMOS EN HORARIO !\"; 0000388603100000", "java": "@Component\n@RequiredArgsConstructor\npublic class DisparadorTotales {\n\n    private final P810Properties props;\n    private final Clock reloj;\n    private final JobLauncher lanzador;\n    private final Job procesaTot;\n    private final ControlDelDia control;\n    private final Bitacora bitacora;\n\n    private LocalDateTime horaActual;     // DT_ACT.[47:30]: fecha y hora, sin minutos\n    private LocalDate fechaProc;          // FECHA_PROC\n\n    /** CAMBIO_HORA(FORZA_PROCESA_TOT). */\n    public synchronized void cambioHora(boolean forzado) throws Exception {\n        LocalDateTime ahora = LocalDateTime.now(reloj);\n        LocalDateTime hora = ahora.truncatedTo(ChronoUnit.HOURS);\n        if (horaActual == null) horaActual = hora;                       // AL INICIO\n        int min = ahora.getMinute();\n        if (!hora.equals(horaActual) || min == 15 || min == 30 || min == 45 || forzado) {\n            horaActual = hora;\n            int hhmmss = Hhmmss.de(ahora.toLocalTime());\n            if (hhmmss >= props.ventanaIni() && hhmmss <= props.ventanaFin()) {\n                bitacora.inf(forzado ? \"--> SE FORZA RUTINA DE PROCESAMIENTO !\" : \"--> HAY CAMBIO DE HORA !\");\n                lanzador.run(procesaTot, new JobParametersBuilder()\n                        .addLocalDateTime(\"disparo\", ahora).toJobParameters());   // PROCESA_TOT\n            } else if (forzado) {\n                bitacora.inf(\"--> SE FORZO PROCESO DE TOTALES, PERO NO ESTAMOS EN HORARIO !\");\n            }\n        }\n    }\n\n    /** FIN_DIA: solo dentro de la ventana de corte y solo si cambió la fecha. */\n    public synchronized void finDia() {\n        LocalDateTime ahora = LocalDateTime.now(reloj);\n        int hhmmss = Hhmmss.de(ahora.toLocalTime());\n        LocalDate hoy = ahora.toLocalDate();   // el ALGOL compara YYMMDD; sin pivote porque solo es igualdad\n        if (hhmmss > props.corteIni() && hhmmss < props.corteFin() && !hoy.equals(fechaProc)) {\n            fechaProc = hoy;\n            control.inicializa(hoy);           // INICIALIZA_CTL\n            bitacora.rota(props.grabaLog());   // CLOSE(LOG,LOCK) + INICIALIZA_LOG\n        }\n    }\n}", "rationale": "El latido no es el disparo. <code>CAMBIO_HORA</code> compara los bits de fecha y hora de <code>TIME(7)</code> contra la última hora vista y además dispara en los minutos 15, 30 y 45 o cuando el operador fuerza con <code>HI 3</code>. Solo si el reloj está dentro de <code>[HHMM_PRO_INI, HHMM_PRO_FIN]</code> se ejecuta <code>PROCESA_TOT</code>, que en el destino es un job lanzado con un parámetro de instante para que cada corrida sea una instancia nueva. <code>FIN_DIA</code> realiza el corte cuando la hora está en la ventana de tres horas después de <code>HHMM_CORTE</code> y la fecha cambió. El <code>synchronized</code> evita que el latido y un <code>HI 3</code> se encimen.", "risk": "Con DELAY_PRO de 2 o más minutos el latido puede no caer en los minutos 15, 30 o 45 y esos disparos se pierden; el único control sobre DELAY_PRO es que tenga dos dígitos.", "rules": [], "lines": "L3808–3886", "verified": true, "score": 100}, "s5": {"title": "PROCESA_TOT e INICIO a flujo de Spring Batch con prerrequisitos de arranque", "cobol": "  CARGA_B01SISDIA;                                                      0000375502969000\n  CARGA_B09CONXSIS;                                                     0000375602970000\n  DELINKLIBRARY(LIB_CORE-GLL001CTL);   % IMPORTANTE DESLOGARSE             0000375702971000\n  % ⋯ 3 líneas omitidas\n  BUSCA_B10MOVDIA264;                                                   0000376102975000\n  BUSCA_B10MOVDIA500;                                                   0000376202976000\n  % ⋯ 276 líneas omitidas\n  CARGADEF;                                                             0000403903253000\n  CARGASUCS;                                                            0000404003254000\n  INICIALIZA_CTL;                                                       0000404103255000\n  IF GRABA_LOG THEN                                                     0000404203256000\n   INICIALIZA_LOG;                                                      0000404303257000\n  % ⋯ 2 líneas omitidas\n  RSLT_LF:= LINKFWDR(QUE_FWDR_NAME,ARY_FWDR_RESP);                      0000404603260000\n  IF RSLT_LF EQL 0 THEN                                                 0000404703261000\n  % ⋯ 3 líneas omitidas\n    \"NO SE PUDO LIGAR CON SPLUNK. RSLT_LF: \",ST(RSLT_LF,*);             0000405103265000\n  % ⋯ 1 línea omitida\n   GO FIN_INICIO;                                                       0000405303267000\n  % ⋯ 2 líneas omitidas\n  IF NOT INI_LIBCTL THEN                                                0000405603270000\n  % ⋯ 3 líneas omitidas\n    \"NO SE PUDO INICIALIZAR LA LIB CORE-GLL001CTL \";                       0000406003274000\n  % ⋯ 1 línea omitida\n   GO FIN_INICIO;                                                       0000406203276000\n  % ⋯ 2 líneas omitidas\n  CONTROLA;                                                             0000406503279000", "java": "@Configuration\npublic class ProcesaTotJobConfig {\n\n    /** PROCESA_TOT: los pasos no revisan el resultado del anterior; se replica con on(\"*\"). */\n    @Bean\n    Job procesaTot(JobRepository repo,\n                   Step cargaSistemasDelDia,   // CARGA_B01SISDIA -> CONSISDIA de CORE-GLL001CTL\n                   Step cargaConceptos,        // CARGA_B09CONXSIS: 30 renglones, PRODUCTO/INSTRUMENTO \"0000\"\n                   Step totales264,            // BUSCA_B10MOVDIA264 + GENERA_ARCH\n                   Step totalecore-dep) {          // BUSCA_B10MOVDIA500 + GENERA_ARCH\n        return new JobBuilder(\"CORE-GLP810-PROCESA-TOT\", repo)\n                .start(cargaSistemasDelDia).on(\"*\").to(cargaConceptos)\n                .from(cargaConceptos).on(\"*\").to(totales264)\n                .from(totales264).on(\"*\").to(totalecore-dep)\n                .end()\n                .build();\n        // DELINKLIBRARY(LIB_CORE-GLL001CTL) en cada corrida: el cliente de la librería\n        // de control se crea por ejecución (@JobScope) para tomar la versión vigente.\n    }\n}\n\n/** INICIO: parámetros, sucursales, control, bitácora y dos prerrequisitos duros. */\n@Component\n@RequiredArgsConstructor\npublic class ArranqueP810 implements ApplicationRunner {\n\n    private final Parametros parametros;\n    private final SplunkForwarder splunk;            // LINKFWDR de OMNISPLUNK_LIB\n    private final LibreriaControlClient libCtl;      // INI_LIBCTL\n    private final ControlDelDia control;\n    private final Bitacora bitacora;\n    private final Clock reloj;\n\n    @Override\n    public void run(ApplicationArguments args) {\n        parametros.recargaDefinfo();                 // CARGADEF\n        parametros.recargaSucursales();              // CARGASUCS\n        control.inicializa(LocalDate.now(reloj));    // INICIALIZA_CTL\n        if (parametros.grabaLog()) bitacora.abre();  // INICIALIZA_LOG\n        if (!splunk.liga()) throw new IllegalStateException(\"NO SE PUDO LIGAR CON SPLUNK\");\n        if (!libCtl.inicializa()) throw new IllegalStateException(\"NO SE PUDO INICIALIZAR LA LIB CORE-GLL001CTL\");\n        // a partir de aquí MonitorTotales empieza a latir\n    }\n}", "rationale": "En el ALGOL la corrida completa es una secuencia de cuatro procedimientos sin verificación de resultado entre ellos; si la consulta del estado del día falla, los barridos corren igual. Para no cambiar ese comportamiento el flujo usa transiciones <code>on(\"*\")</code>, de modo que un paso fallido no detiene al siguiente, y el SME puede endurecerlo después. El arranque sí tiene dos condiciones que abortan: no poder ligarse al forwarder de Splunk y no poder inicializar la librería de control. En Spring Boot se modelan como un <code>ApplicationRunner</code> que lanza excepción y evita que el monitor empiece.", "risk": "Si CONSISDIA falla, la tabla del estado del día queda en ceros y el CSV se envía con sistema 000 y CSI 00 sin que la bitácora registre un error.", "rules": [], "lines": "L3755–4065", "verified": true, "score": 100}, "s6": {"title": "Dataset por día de la semana y consulta por sucursal filtrada", "cobol": "  IF NUMARC > 5 THEN                                                    0000274902061050\n   BEGIN                                                                0000275002061100\n  % ⋯ 4 líneas omitidas\n   NUMARC_ANT:= NUMARC;                                                 0000275502061350\n  % ⋯ 1 línea omitida\n   NUMARC:= NUMARC - 5;                                                 0000275702061450\n  % ⋯ 5 líneas omitidas\n  CASE NUMARC OF   % DIA SEMANA                                         0000276302062000\n   BEGIN                                                                0000276402063000\n   1: BEGIN                                                             0000276502064000\n      FOR POS_SUC:= 1 STEP 1 UNTIL ULT_SUCS DO                          0000276602064200\n       BEGIN                                                            0000276702064400\n      REP EARY_DATASET BY \"CORE-GLB03CSISUCCAJ\";                           0000276802065000\n      REP EARY_SET BY \"B03SXCSISUCCAJ\";                                 0000276902066000\n      SET B03SXCSISUCCAJ TO BEGINNING;                                  0000277002067000\n      FIND FIRST B03SXCSISUCCAJ AT                                      0000277102068000\n                (B03-MOV-SUCINI = TABSUCS_NUM(POS_SUC)):DMSTATUS;       0000277202068200\n      WHILE NOT BOOLEAN(DMSTATUS) DO                                    0000277302069000\n  % ⋯ 1 línea omitida\n       GET CORE-GLB03CSISUCCAJ (                                           0000277502071000\n        B99_MOV_SUCINI := B03-MOV-SUCINI,                               0000277602072000\n        B99_MOV_CAJINI := B03-MOV-CAJINI,                               0000277702073000\n        B99_MOV_MONEDA := B03-MOV-MONEDA,                               0000277802074000\n        B99_MOV_MDE    := B03-MOV-MDE,                                  0000277902075000\n        B99_MOV_VER028 := B03-MOV-VER028,                               0000278002076000\n        B99_MOV_BANCOS := B03-MOV-BANCOS,                               0000278102077000\n        B99_MOV_SECREN := B03-MOV-SECREN,                               0000278202078000\n  % ⋯ 41 líneas omitidas\n       IF B99_MOV_SUCINI = TABSUCS_NUM(POS_SUC) THEN                    0000282402119200\n        BEGIN                                                           0000282502119400\n        DEF_REG_CAMPOS;                                                 0000282602120000\n        END;                                                            0000282702120200\n       %                                                                0000282802121000\n       FIND NEXT B03SXCSISUCCAJ:DMSTATUS;                               0000282902122000\n       END; % WHILE                                                     0000283002123000\n       END; % FOR POS_SUC                                               0000283102123500", "java": "@Repository\n@RequiredArgsConstructor\npublic class MovDiaRepository {\n\n    private final NamedParameterJdbcTemplate jdbc;\n\n    /** CASE NUMARC OF: el dataset depende del día de la semana, no de la fecha de proceso. */\n    static Optional<String> tablaDelDia(int numArc) {\n        int n = (numArc > 5) ? numArc - 5 : numArc;      // GAEC 251008: 6..10 se reducen a 1..5\n        return switch (n) {\n            case 1 -> Optional.of(\"csisuccaj_b03\");\n            case 2 -> Optional.of(\"csisuccaj_b13\");\n            case 3 -> Optional.of(\"csisuccaj_b23\");\n            case 4 -> Optional.of(\"csisuccaj_b33\");\n            case 5 -> Optional.of(\"csisuccaj_b43\");\n            default -> Optional.empty();                 // ELSE: vacío, sin error (ver riesgo)\n        };\n    }\n\n    /** FIND FIRST ... AT (Bnn-MOV-SUCINI = suc) + IF de igualdad = WHERE por sucursal. */\n    public void recorre(int sistema, int numArc, List<Integer> sucursales,\n                        Consumer<RenglonCsiSucCaj> destino) {\n        String tabla = tablaDelDia(numArc).orElse(null);\n        if (tabla == null) return;\n        for (int suc : sucursales) {                    // FOR POS_SUC ... UNTIL ULT_SUCS\n            jdbc.query((\"select mov_sucini, mov_cajini, mov_moneda, mov_bancos, mov_secren,\"\n                      + \" num_cr_01, imp_cr_01, num_ab_01, imp_ab_01 /* ... hasta _10 */\"\n                      + \" from movdia%d.%s where mov_sucini = :suc\").formatted(sistema, tabla),\n                    Map.of(\"suc\", suc),\n                    (RowCallbackHandler) rs -> destino.accept(RenglonCsiSucCaj.de(rs)));\n        }\n    }\n}", "rationale": "Las bases <code>CORE-GLBD10MOVDIA264</code> y <code>CORE-GLBD10MOVDIA500</code> tienen cinco datasets, uno por día hábil, y el número de archivo del día que entrega la librería de control decide cuál leer. El ALGOL abre la base en modo consulta, se posiciona con <code>FIND FIRST ... AT</code> en la primera ocurrencia de la sucursal y avanza con <code>FIND NEXT</code> filtrando por igualdad, lo que equivale a un <code>WHERE</code> por sucursal. Los dos procedimientos de barrido son copias que solo difieren en el título de la base, así que en Java hay un único repositorio parametrizado por sistema. Los nombres de tabla destino son supuestos de la migración de DMSII.", "risk": "El FIND NEXT no se detiene al terminar la sucursal buscada y recorre el índice hasta el final en cada una de las hasta 10 sucursales del filtro. Si TABSUCS no existe, ULT_SUCS queda en 0 y no se hace ninguna consulta, aunque el mensaje dice que no hay sucursales a filtrar.", "rules": [], "lines": "L2749–2831", "verified": true, "score": 100}, "s7": {"title": "Alta o reuso de la llave SCBM, colocación por SECREN y orden ascendente", "cobol": "       SCBM_POS_FOUND:= 0;                                              0000263601949000\n       FOR I1:=1 STEP 1 UNTIL ULT_TAB_SCBM DO                           0000263701950000\n        BEGIN                                                           0000263801951000\n        IF (BOOLEAN(SCBM_CTL_STA(I1))) AND                              0000263901952000\n           (SCBM_CTL_SUC(I1) EQL B99_MOV_SUCINI) AND                    0000264001953000\n           (SCBM_CTL_CAJ(I1) EQL B99_MOV_CAJINI) AND                    0000264101954000\n           (SCBM_CTL_BAN(I1) EQL B99_MOV_BANCOS) AND                    0000264201955000\n           (SCBM_CTL_MON(I1) EQL B99_MOV_MONEDA) THEN                   0000264301956000\n         BEGIN                                                          0000264401957000\n         SCBM_POS_FOUND:= I1;                                           0000264501958000\n         I1:= ULT_TAB_SCBM;                                             0000264601959000\n         END;                                                           0000264701960000\n        END; % FOR I1                                                   0000264801961000\n       IF SCBM_POS_FOUND > 0 THEN % PUEDE SER OTRO SECREN               0000264901962000\n        QUE_POS:= SCBM_POS_FOUND                                        0000265001963000\n       ELSE                                                             0000265101964000\n        BEGIN                     % NUEVO                               0000265201965000\n        ULT_TAB_SCBM:= * + 1;                                           0000265301966000\n        QUE_POS:= ULT_TAB_SCBM;                                         0000265401967000\n        END;                                                            0000265501968000\n       SCBM_CTL_POS_ORI(QUE_POS):= QUE_POS;                             0000265601969000\n       SCBM_CTL_STA(QUE_POS):= 1;                                       0000265701970000\n       SCBM_CTL_SUC(QUE_POS):= B99_MOV_SUCINI;                          0000265801971000\n       SCBM_CTL_CAJ(QUE_POS):= B99_MOV_CAJINI;                          0000265901972000\n       SCBM_CTL_BAN(QUE_POS):= B99_MOV_BANCOS;                          0000266001973000\n       SCBM_CTL_MON(QUE_POS):= B99_MOV_MONEDA;                          0000266101974000\n  % ⋯ 9 líneas omitidas\n       SCBM_CTL_PAG(QUE_POS):= SCBM_CTL_PAG(QUE_POS) + 1; % PAGINAS     0000267101984000\n       I_SECREN:= B99_MOV_SECREN;                                       0000267201985000\n       IF I_SECREN LEQ MAX_SCBM_PAG THEN                                0000267301986000\n        BEGIN                                                           0000267401987000\n        FOR I2:=1 STEP 1 UNTIL MAX_SCBM_CON_PAG DO                      0000267501988000\n         BEGIN                                                          0000267601989000\n         POS_SECREN:= I_SECREN * MAX_SCBM_CON_PAG + I2;   % POS SECREN  0000267701990000\n         SCBM_NUM_CR(QUE_POS,POS_SECREN):= B99_NUM_CR[I2];              0000267801991000\n         SCBM_IMP_CR(QUE_POS,POS_SECREN):= B99_IMP_CR[I2];              0000267901992000\n         SCBM_NUM_AB(QUE_POS,POS_SECREN):= B99_NUM_AB[I2];              0000268001993000\n         SCBM_IMP_AB(QUE_POS,POS_SECREN):= B99_IMP_AB[I2];              0000268101994000\n         %                                                              0000268201995000\n         SCBM_TOT_NUM_CR(QUE_POS):=                                     0000268301996000\n          SCBM_TOT_NUM_CR(QUE_POS) + B99_NUM_CR[I2];                    0000268401997000\n         SCBM_TOT_IMP_CR(QUE_POS):=                                     0000268501998000\n          SCBM_TOT_IMP_CR(QUE_POS) + B99_IMP_CR[I2];                    0000268601999000\n         SCBM_TOT_NUM_AB(QUE_POS):=                                     0000268702000000\n          SCBM_TOT_NUM_AB(QUE_POS) + B99_NUM_AB[I2];                    0000268802001000\n         SCBM_TOT_IMP_AB(QUE_POS):=                                     0000268902002000\n          SCBM_TOT_IMP_AB(QUE_POS) + B99_IMP_AB[I2];                    0000269002003000\n         END;% FOR I2                                                   0000269102004000\n        END; % IF I_SECREN                                              0000269202005000\n  % ⋯ 422 líneas omitidas\n  IF ULT_TAB_SCBM > 0 THEN                                              0000311502379000\n   BEGIN                                                                0000311602380000\n   FOR I1:=1 STEP 1 UNTIL (ULT_TAB_SCBM-1) DO                           0000311702381000\n    FOR I2:=1 STEP 1 UNTIL (ULT_TAB_SCBM-1) DO                          0000311802382000\n     IF SCBM_CTL_KEY(I2) > SCBM_CTL_KEY(I2+1) FOR SCBM_CTL_KEY_LEN THEN 0000311902383000\n      BEGIN                                                             0000312002384000\n      REP P(TAB_SCBM[0,0]) BY                                           0000312102385000\n       P(TAB_SCBM[I2,0]) FOR TAB_SCBM_LEN WORDS;                        0000312202386000\n      REP P(TAB_SCBM[I2,0]) BY                                          0000312302387000\n       P(TAB_SCBM[I2+1,0]) FOR TAB_SCBM_LEN WORDS;                      0000312402388000\n      REP P(TAB_SCBM[I2+1,0]) BY                                        0000312502389000\n       P(TAB_SCBM[0,0]) FOR TAB_SCBM_LEN WORDS;                         0000312602390000\n      END;                                                              0000312702391000", "java": "/** DEF_REG_CAMPOS + bubble sort: un TreeMap ya mantiene el orden ascendente por llave. */\n@Component\n@JobScope\npublic class TablaScbm {\n\n    static final int MAX_SCBM = 3000;\n    private final SortedMap<ClaveScbm, AcumuladorScbm> tabla = new TreeMap<>();\n\n    public void registra(RenglonCsiSucCaj r) {\n        var clave = new ClaveScbm(r.sucursal(), r.caja(), r.bancos(), r.moneda());\n        var acc = tabla.computeIfAbsent(clave, k -> {\n            if (tabla.size() >= MAX_SCBM) {             // el ALGOL no valida: falla por índice\n                throw new CapacidadScbmExcedidaException(MAX_SCBM);\n            }\n            return new AcumuladorScbm();\n        });\n        acc.cuentaPagina();                             // SCBM_CTL_PAG + 1\n        int secren = r.secren();\n        if (secren > AcumuladorScbm.MAX_SCBM_PAG) {\n            return;                                     // SECREN > 8: se descartan los 10 conceptos\n        }\n        for (int i = 1; i <= AcumuladorScbm.MAX_SCBM_CON_PAG; i++) {\n            int pos = secren * AcumuladorScbm.MAX_SCBM_CON_PAG + i;\n            acc.asigna(pos, r.numCr(i), r.impCr(i), r.numAb(i), r.impAb(i));   // := reemplaza\n            acc.sumaTotales(r.numCr(i), r.impCr(i), r.numAb(i), r.impAb(i));   // + acumula\n        }\n    }\n\n    public SortedMap<ClaveScbm, AcumuladorScbm> vista() { return Collections.unmodifiableSortedMap(tabla); }\n}", "rationale": "Por cada registro DMSII se busca linealmente la llave sucursal, caja, banco y moneda; si no existe se da de alta al final. Cada registro trae una página <code>SECREN</code> con 10 conceptos que se colocan en la posición <code>SECREN*10+i</code>, y al mismo tiempo se suman a los totales de la llave. En Java la búsqueda lineal y el bubble sort O(n²) se sustituyen por un <code>TreeMap</code> ordenado con el mismo criterio que la comparación de las 26 posiciones de la llave. Se respetan dos detalles del fuente: el detalle por concepto se reemplaza (<code>:=</code>) mientras que los totales se suman, y una página mayor a 8 se descarta pero la llave ya quedó creada.", "risk": "Si dos registros DMSII comparten llave y SECREN (por ejemplo con distinto CSI, MDE o VER028, que no forman parte de la llave), el detalle conserva solo el último mientras los totales suman ambos, y el renglón de totales deja de cuadrar con sus conceptos. Además ULT_TAB_SCBM crece sin compararse contra MAX_SCBM.", "rules": [], "lines": "L2636–3127", "verified": true, "score": 100}, "s8": {"title": "Registros CSV de detalle y totales a disco y a la cola de Splunk", "cobol": "  FOR I1:=1 STEP 1 UNTIL ULT_TAB_SCBM DO %%%                            0000245201728000\n   BEGIN                                                                0000245301729000\n   FOR I2:= 1 STEP 1 UNTIL CXS_TOT DO                                   0000245401730000\n    BEGIN                                                               0000245501731000\n    IF (CXS_CTL_SIS(I2) = SIS) AND                                      0000245601732000\n       (BOOLEAN(CXS_CTL_STA(I2))) THEN                                  0000245701733000\n     BEGIN                                                              0000245801734000\n     NUM_REGS:= * + 1;                                                  0000245901735000\n     QUE_POS:= CXS_CTL_REN(I2);                                         0000246001736000\n     RBLANCOE(E_ARY_STS);                                               0000246101737000\n     REP E_ARY_STS BY                                                   0000246201738000\n      \"2\",\",\",                                                          0000246301739000\n  % ⋯ 1 línea omitida\n      NUM_REGS FOR 6 DIGITS,\",\",                                        0000246501741000\n      CSI FOR 2 DIGITS,\",\",                                             0000246601742000\n      SIS FOR 3 DIGITS,\",\",                                             0000246701743000\n      EARY_FECPRO FOR 8,\",\",                                            0000246801744000\n      NUMARC FOR 1 DIGITS,\",\",                                          0000246901745000\n      ST(SCBM_CTL_SUC(I1),*),\",\",                                       0000247001746000\n      ST(SCBM_CTL_CAJ(I1),*),\",\",                                       0000247101747000\n      ST(SCBM_CTL_BAN(I1),*),\",\",                                       0000247201748000\n      ST(SCBM_CTL_MON(I1),*),\",\",                                       0000247301749000\n      CXS_CTL_REN(I2) FOR 2 DIGITS,\",\",                                 0000247401750000\n      CXS_NOMREN(I2) FOR CXS_NOMREN_LEN,\",\",                            0000247501751000\n      ST(SCBM_NUM_CR(I1,QUE_POS),*),\",\",                                0000247601752000\n      ST(SCBM_IMP_CR(I1,QUE_POS),*),\",\",                                0000247701753000\n      ST(SCBM_NUM_AB(I1,QUE_POS),*),\",\",                                0000247801754000\n      ST(SCBM_IMP_AB(I1,QUE_POS),*),\",\";                                0000247901755000\n    %DISPLAY(E_ARY_STS);                                                0000248001756000\n     RSLT_IO_CON:= WRITE(CON,MR_CON,E_ARY_STS);                         0000248101757000\n     RSLT_IQ:= INSERTSPLKQ(RSLT_LF,ARY_FWDR_RESP,E_ARY_STS);            0000248201776000\n     IF RSLT_IQ EQL 1 THEN                                              0000248301777000\n      BEGIN                                                             0000248401778000\n      NUM_REGS_ENV := * + 1;                                            0000248501779000\n      END                                                               0000248601780000\n     ELSE                                                               0000248701781000\n      BEGIN                                                             0000248801782000\n      ERROR_ENVIA:= TRUE;                                               0000248901783000\n      IQ_ERR:= RSLT_IQ;                                                 0000249001784000\n      END;                                                              0000249101785000\n  % ⋯ 3 líneas omitidas\n   % TOTALES                                                            0000249501790000\n   NUM_REGS:= * + 1;                                                    0000249601791000\n   QUE_POS:= CXS_CTL_REN(I2);                                           0000249701792000\n   RBLANCOE(E_ARY_STS);                                                 0000249801793000\n   REP E_ARY_STS BY                                                     0000249901794000\n    \"3\",\",\",                                                            0000250001795000\n  % ⋯ 10 líneas omitidas\n    \"99\",\",\",                                                           0000251101806000\n    \"TOTALES SCBM   \",\",\",                                              0000251201807000\n  % ⋯ 5 líneas omitidas\n   RSLT_IO_CON:= WRITE(CON,MR_CON,E_ARY_STS);                           0000251801813000\n   RSLT_IQ:= INSERTSPLKQ(RSLT_LF,ARY_FWDR_RESP,E_ARY_STS);              0000251901832000\n  % ⋯ 9 líneas omitidas\n   END; % FOR I1                                                        0000252901843000", "java": "@Component\n@RequiredArgsConstructor\npublic class TotalesCsvWriter {\n\n    private final SplunkHecGateway splunk;     // Spring Integration: reemplaza INSERTSPLKQ\n    private final ArchivoConWriter archivo;    // .../CON/S{sis}/{AAMMDD}/{HHMM}\n\n    public ResultadoEnvio emite(Encabezado e, List<Concepto> conceptos, SortedMap<ClaveScbm, AcumuladorScbm> tabla) {\n        var r = new ResultadoEnvio();\n        emiteUno(\"1,\" + e.marca() + \",NUM_REGS,CSI,SISTEMA,FECHA_PROC,NUMARC_DIA,SUCURSAL,CAJA,\"\n                 + \"BANCO,MONEDA,RENGLON,CONCEPTO,NUM_CR,IMP_CR,NUM_AB,IMP_AB,\", r);\n        tabla.forEach((k, acc) -> {\n            for (Concepto c : conceptos) {\n                if (c.sistema() != e.sistema() || !c.activo()) continue;\n                int pos = c.renglon();                                       // CXS_CTL_REN\n                emiteUno(linea(\"2\", e, r.siguiente(), k, \"%02d\".formatted(pos), c.nombre(),\n                               acc.numCr(pos), acc.impCr(pos), acc.numAb(pos), acc.impAb(pos)), r);\n            }\n            emiteUno(linea(\"3\", e, r.siguiente(), k, \"99\", \"TOTALES SCBM   \",\n                           acc.totNumCr(), acc.totImpCr(), acc.totNumAb(), acc.totImpAb()), r);\n        });\n        emiteUno(trailer(e, r.siguiente()), r);\n        return r;                     // a diferencia del ALGOL, el error se propaga al Step\n    }\n\n    private void emiteUno(String csv, ResultadoEnvio r) {\n        archivo.escribe(csv);                         // WRITE(CON, MR_CON, E_ARY_STS)\n        if (splunk.envia(csv)) r.enviado();           // RSLT_IQ = 1\n        else r.error();                               // cuenta todos los fallos, no solo el último código\n    }\n\n    /** Importes con escala 2 y punto decimal fijo; el ALGOL los imprime con ST(REAL,*). */\n    private static String imp(BigDecimal v) { return v.setScale(2, RoundingMode.UNNECESSARY).toPlainString(); }\n}", "rationale": "Por cada llave se emite un registro tipo 2 por cada concepto activo del sistema y enseguida un tipo 3 con los totales de esa llave; el encabezado tipo 1 y el trailer tipo 9 enmarcan el envío. Cada registro se escribe en el archivo <code>CON</code> de la corrida y se encola a Splunk de inmediato con <code>INSERTSPLKQ</code>. En el destino el envío pasa por un gateway de Spring Integration hacia el HTTP Event Collector de Splunk, y el archivo queda como evidencia. Dos cambios deliberados: el resultado se devuelve al <code>Step</code> para que un error de envío no se pierda, y se cuentan todos los fallos en lugar de guardar solo el último código.", "risk": "GENERA_ARCH devuelve siempre 0 y sus llamadores ignoran el valor, de modo que una falla de envío a Splunk solo queda en la bitácora con el último código de error (IQ_ERR se sobrescribe en cada fallo).", "rules": [], "lines": "L2452–2529", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CORE-GL · P010 → Java · Enterprise Digital Brain · LegacyCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#A100FF;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #A100FF;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#A100FF;box-shadow:0 0 8px #A100FF;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/accenture.png" alt="Accenture"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · CORE-GL P010</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Validador-Actualizador</div>
+  <h1><span class="cw">CORE-GL · P010</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">LINEA espera eventos de COMS con ESPERACOMS y, cuando llega un mensaje, lo recibe en un buffer de 1920 bytes cuyo header trae el código de resultado que decide si se procesa, se rechaza o se reenvía a otro nodo CSI. Por cada pantalla (11 a 30 de consulta y 81 a 88 de administración) separa los campos con UNSTRING, valida numéricos con JUSTIFIER de LOCSUP, aplica la validación de entidad y facultad cuando la seguridad está activa, y llama a CORE-GLLIB030 en la librería LIB-CONS del sistema. Registra cada operación en la bitácora de CORE-GLL010 y responde por COMS. No genera asientos contables. Las interrupciones del operador (HI) encienden el monitor, activan o desactivan la seguridad, recargan catálogos y terminan el programa.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="CORE-GL_P007.html">← CORE-GL · P007</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P011.html">CORE-GL · P011 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">CORE-GL · P010 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">18,943 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Programa online persistente de CORE-GL registrado en COMS que recibe pantallas de consulta y administración de unos 30 sistemas contables, valida seguridad y fechas, y delega la consulta a la librería LIB-CONS del sistema destino.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#28a745">Validador-Actualizador</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">18 de 32 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Integration</div></div>
+  </div>
+  <div class="sec-hdr">1 · Mensaje COMS y ciclo de atención</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P010.txt</span><span class="fname">WORKING-STORAGE WKS-MSG · 200000-PROC · 600000-REC-MSG</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Buffer WKS-MSG con header de ruteo a record y enum de resultado · L346–388"> <span class="num">01</span>  <span class="var">WKS-MSG</span>                       <span class="kw">PIC</span> X(<span class="num">1920</span>) <span class="kw">WITH</span> <span class="var">LOWER-BOUNDS</span>. <span class="num">003500</span>
+ <span class="num">01</span>  <span class="var">WKS-MSG-R</span>                     <span class="kw">REDEFINES</span> <span class="var">WKS-MSG</span>.             <span class="num">003600</span>
+     <span class="num">02</span> <span class="var">WKS-MSG-HEADER</span>.                                           <span class="num">003700</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-PREFIJO</span>      <span class="kw">PIC</span> X(<span class="num">01</span>).                     <span class="num">003800</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-APL-DES</span>      <span class="kw">PIC</span> X(<span class="num">01</span>).                     <span class="num">003900</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-CCR-DES</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">004000</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-LST-ORG</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).                     <span class="num">004100</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-LST-ORG-R</span>    <span class="kw">REDEFINES</span>                      <span class="num">004200</span>
+           <span class="var">WKS-MSGHDR-LST-ORG</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">004300</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-STATION</span>.                                    <span class="num">004400</span>
+           <span class="num">04</span> <span class="var">WKS-MSGHDR-TPO</span>       <span class="kw">PIC</span> X(<span class="num">01</span>).                     <span class="num">004500</span>
+           <span class="num">04</span> <span class="var">WKS-MSGHDR-SUC</span>       <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>).                     <span class="num">004600</span>
+           <span class="num">04</span> <span class="var">WKS-MSGHDR-CJAL</span>      <span class="kw">PIC</span> X(<span class="num">03</span>).                     <span class="num">004610</span>
+           <span class="num">04</span> <span class="var">WKS-MSGHDR-CJAL-R</span>    <span class="kw">REDEFINES</span> <span class="var">WKS-MSGHDR-CJAL</span>.     <span class="num">004615</span>
+              <span class="num">05</span> <span class="var">WKS-MSGHDR-PRIV</span>   <span class="kw">PIC</span> X(<span class="num">01</span>).                     <span class="num">004700</span>
+              <span class="num">05</span> <span class="var">WKS-MSGHDR-CAJ</span>    <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">004800</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-CCR-ORG</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">004900</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-COP-ORG</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">005000</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-FAC</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">005100</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-FAC-R</span>        <span class="kw">REDEFINES</span>                      <span class="num">005200</span>
+           <span class="var">WKS-MSGHDR-FAC</span>          <span class="kw">PIC</span> X(<span class="num">02</span>).                     <span class="num">005300</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-APL-ORG</span>      <span class="kw">PIC</span> X(<span class="num">01</span>).                     <span class="num">005400</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-RES</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">005500</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-APL</span>       <span class="kw">VALUE</span> <span class="num">2</span>, <span class="num">4</span>.                    <span class="num">005600</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-RED</span>       <span class="kw">VALUE</span> <span class="num">11</span>, <span class="num">12</span>.                  <span class="num">005700</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-REDFOR</span>    <span class="kw">VALUE</span> <span class="num">12</span>.                      <span class="num">005800</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-MAS</span>       <span class="kw">VALUE</span> <span class="num">3</span>.                       <span class="num">005900</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-TER</span>       <span class="kw">VALUE</span> <span class="num">1</span>.                       <span class="num">006000</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-ERR</span>       <span class="kw">VALUE</span> <span class="num">31</span>, <span class="num">32</span>, <span class="num">33</span>.              <span class="num">006100</span>
+           <span class="num">88</span> <span class="var">W88-MSGRES-NOEXIAPL</span>  <span class="kw">VALUE</span> <span class="num">32</span>.                      <span class="num">006200</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-MASC</span>         <span class="kw">PIC</span> X(<span class="num">5</span>).                      <span class="num">006300</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-MASC-R</span>       <span class="kw">REDEFINES</span> <span class="var">WKS-MSGHDR-MASC</span>.     <span class="num">006400</span>
+           <span class="num">04</span> <span class="var">WKS-MSGHDR-MASC-1ER</span>  <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">03</span>).                     <span class="num">006500</span>
+           <span class="num">04</span> <span class="var">WKS-MSGHDR-MASC-2DO</span>  <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>).                     <span class="num">006600</span>
+        <span class="num">03</span> <span class="var">WKS-MSGHDR-PWR</span>          <span class="kw">PIC</span> X(<span class="num">6</span>).                      <span class="num">006700</span>
+     <span class="num">02</span> <span class="var">WKS-TEXTO</span>                  <span class="kw">PIC</span> X(<span class="num">1884</span>).                   <span class="num">006800</span>
+     <span class="num">02</span> <span class="var">WKS-TEXTO-R</span>                <span class="kw">REDEFINES</span> <span class="var">WKS-TEXTO</span>.           <span class="num">006900</span>
+        <span class="num">03</span> <span class="var">WKS-MSGTRAN-CODDES</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                     <span class="num">007000</span>
+        <span class="num">03</span> <span class="var">WKS-MSGTRAN-CODORI</span>      <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>).                     <span class="num">007100</span>
+        <span class="num">03</span> <span class="var">WKS-MSG-TEXTO</span>           <span class="kw">PIC</span> X(<span class="num">1872</span>).                   <span class="num">007200</span>
+     <span class="num">02</span> <span class="var">WKS-TEXTO-TABLA</span>            <span class="kw">REDEFINES</span>                      <span class="num">007300</span>
+        <span class="var">WKS-TEXTO</span>                  <span class="kw">OCCURS</span> <span class="num">1884</span> <span class="kw">TIMES</span>.             <span class="num">007400</span>
+        <span class="num">03</span> <span class="var">WKS-MSGREM-TEXTO-CHAR</span>   <span class="kw">PIC</span> X(<span class="num">01</span>).                     <span class="num">007500</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Despacho por resultado del header y mensajes de rechazo · L11469–11505"> <span class="num">200000</span>-<span class="var">PROC</span>.                                                     <span class="num">145800</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span> <span class="kw">TO</span> <span class="var">TIPO-LJ</span>.                                         <span class="num">145900</span>
+     <span class="kw">MOVE</span> <span class="num">050110</span> <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>.                                    <span class="num">146000</span>
+     <span class="kw">PERFORM</span> <span class="num">210000</span>-<span class="var">INIC-VAR</span>.                                     <span class="num">146100</span>
+     <span class="kw">PERFORM</span> <span class="num">600000</span>-<span class="var">RECEIVE-MSG</span>.                                  <span class="num">146200</span>
+     <span class="kw">IF</span> <span class="var">W77-FIN</span> = <span class="kw">ZEROS</span>                                           <span class="num">146300</span>
+        <span class="kw">IF</span> <span class="var">W88-MSGRES-APL</span> <span class="kw">OR</span> <span class="var">W88-MSGRES-RED</span> <span class="kw">OR</span> <span class="var">W88-MSGRES-MAS</span> <span class="kw">OR</span>  <span class="num">146400</span>
+           <span class="var">W88-MSGRES-TER</span>                                         <span class="num">146500</span>
+           <span class="kw">PERFORM</span> <span class="num">300000</span>-<span class="var">PROCESA-MSG</span>                             <span class="num">146600</span>
+           <span class="kw">PERFORM</span> <span class="num">600000</span>-<span class="var">SEND-MSG</span>                                <span class="num">146700</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">146800</span>
+        <span class="kw">IF</span> <span class="var">W88-MSGRES-NOEXIAPL</span>                                    <span class="num">146900</span>
+           <span class="kw">MOVE</span> <span class="num">29</span>                 <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">147000</span>
+           <span class="kw">MOVE</span> <span class="kw">SPACES</span>             <span class="kw">TO</span> <span class="var">WKS-SAL-ERRDATOS</span>            <span class="num">147100</span>
+           <span class="kw">MOVE</span> <span class="var">WKS-ELE-MSG</span>(<span class="var">W77-RES-MSG</span>)                          <span class="num">147200</span>
+                                   <span class="kw">TO</span> <span class="var">WKS-SAL-ERRLEY</span>              <span class="num">147300</span>
+           <span class="kw">MOVE</span> <span class="num">1867</span>               <span class="kw">TO</span> <span class="var">W77-LONG-MSG</span>                <span class="num">147400</span>
+           <span class="kw">MOVE</span> <span class="var">WKS-SAL-TEXTO</span>      <span class="kw">TO</span> <span class="var">WKS-DATOS-RES</span>               <span class="num">147500</span>
+           <span class="kw">PERFORM</span> <span class="num">600000</span>-<span class="var">SEND-MSG</span>                                <span class="num">147600</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">147700</span>
+        <span class="kw">IF</span> <span class="var">W88-MSGRES-ERR</span>                                         <span class="num">147800</span>
+           <span class="kw">MOVE</span> <span class="num">30</span>                 <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">147900</span>
+           <span class="kw">MOVE</span> <span class="kw">SPACES</span>             <span class="kw">TO</span> <span class="var">WKS-SAL-ERRDATOS</span>            <span class="num">148000</span>
+           <span class="kw">MOVE</span> <span class="var">WKS-ELE-MSG</span>(<span class="var">W77-RES-MSG</span>)                          <span class="num">148100</span>
+                                   <span class="kw">TO</span> <span class="var">WKS-SAL-ERRLEY</span>              <span class="num">148200</span>
+           <span class="kw">MOVE</span> <span class="num">1867</span>               <span class="kw">TO</span> <span class="var">W77-LONG-MSG</span>                <span class="num">148300</span>
+           <span class="kw">MOVE</span> <span class="var">WKS-SAL-TEXTO</span>      <span class="kw">TO</span> <span class="var">WKS-DATOS-RES</span>               <span class="num">148400</span>
+           <span class="kw">PERFORM</span> <span class="num">600000</span>-<span class="var">SEND-MSG</span>                                <span class="num">148500</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">148600</span>
+           <span class="kw">MOVE</span> <span class="num">31</span>                 <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">148700</span>
+           <span class="kw">MOVE</span> <span class="kw">SPACES</span>             <span class="kw">TO</span> <span class="var">WKS-SAL-ERRDATOS</span>            <span class="num">148800</span>
+           <span class="kw">MOVE</span> <span class="var">WKS-ELE-MSG</span>(<span class="var">W77-RES-MSG</span>)                          <span class="num">148900</span>
+                                   <span class="kw">TO</span> <span class="var">WKS-SAL-ERRLEY</span>              <span class="num">149000</span>
+           <span class="kw">MOVE</span> <span class="num">1867</span>               <span class="kw">TO</span> <span class="var">W77-LONG-MSG</span>                <span class="num">149100</span>
+           <span class="kw">MOVE</span> <span class="var">WKS-SAL-TEXTO</span>      <span class="kw">TO</span> <span class="var">WKS-DATOS-RES</span>               <span class="num">149200</span>
+           <span class="kw">PERFORM</span> <span class="num">600000</span>-<span class="var">SEND-MSG</span>.                               <span class="num">149300</span>
+     <span class="kw">GO</span> <span class="kw">TO</span> <span class="num">299999</span>-<span class="kw">EXIT</span>.                                           <span class="num">149400</span></span>
+<span class="seg" data-cid="s3" data-jid="j3" title="Espera de eventos COMS y fin por interrupción del operador · L17103–17138"> <span class="num">600000</span>-<span class="var">REC-MSG</span>.                                                  <span class="num">667500</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span> <span class="kw">TO</span> <span class="var">W77-CONTROL</span>.                                    <span class="num">667600</span>
+     <span class="kw">CALL</span> <span class="str">&quot;ESPERACOMS OF SOPORTECOMS&quot;</span>                             <span class="num">667700</span>
+           <span class="kw">USING</span>  <span class="var">W77-ESPERACOMS-TIEMPO</span>                           <span class="num">667800</span>
+           <span class="kw">GIVING</span> <span class="var">W77-ESPERACOMS-TIPO-EVENTO</span>.                     <span class="num">667900</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="var">W88-POR-MSG</span> <span class="kw">OR</span> <span class="var">W88-POR-EVENTO</span>                             <span class="num">668100</span>
+        <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                             <span class="num">668200</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">668300</span>
+        <span class="kw">IF</span> <span class="var">W88-POR-ACCEPT</span>                                         <span class="num">668400</span>
+           <span class="kw">ACCEPT</span> <span class="var">WKS-SCRATCH</span>                                     <span class="num">668500</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">W77-CONTROL</span>                 <span class="num">668600</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">668700</span>
+        <span class="kw">IF</span> <span class="var">W88-POR-HI</span>                                             <span class="num">668800</span>
+           <span class="kw">IF</span> <span class="var">W88-HI-FIN-NORMAL</span> <span class="kw">OR</span> <span class="var">W88-HI-FIN-EMERGENCIA</span>          <span class="num">668900</span>
+              <span class="kw">MOVE</span> <span class="num">1</span>               <span class="kw">TO</span> <span class="var">W77-FIN</span>                     <span class="num">669000</span>
+                                      <span class="var">W77-CONTROL</span>                 <span class="num">669100</span>
+              <span class="kw">PERFORM</span> <span class="num">999999</span>-<span class="var">FIN</span>                                  <span class="num">669200</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">669300</span>
+              <span class="kw">MOVE</span> <span class="num">1</span>               <span class="kw">TO</span> <span class="var">W77-CONTROL</span>                 <span class="num">669400</span>
+              <span class="kw">MOVE</span> <span class="kw">ZERO</span>            <span class="kw">TO</span> <span class="var">W77-HI-INTERRUPT</span>            <span class="num">669500</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">669600</span>
+        <span class="kw">IF</span> <span class="var">W88-POR-TIMEOUT</span>                                        <span class="num">669700</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>                  <span class="kw">TO</span> <span class="var">W77-CONTROL</span>                 <span class="num">669800</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">669900</span>
+           <span class="kw">MOVE</span> <span class="var">W77-ESPERACOMS-TIPO-EVENTO</span> <span class="kw">TO</span>                     <span class="num">670000</span>
+                <span class="var">WKS-ESPERACOMS-TIPO-EVENTO</span>                        <span class="num">670100</span>
+           <span class="kw">STRING</span> <span class="str">&quot;EVENTO DESCONOCIDO &quot;</span><span class="var">WKS-ESPERACOMS-TIPO-EVENTO</span> <span class="num">670200</span>
+           <span class="var">DELIMITED</span> <span class="kw">BY</span> <span class="kw">SIZE</span> <span class="kw">INTO</span> <span class="var">TEXTO-LJ</span>                        <span class="num">670300</span>
+           <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span>                <span class="kw">TO</span> <span class="var">TIPO-LJ</span>                     <span class="num">670400</span>
+           <span class="kw">PERFORM</span> <span class="num">800000</span>-<span class="kw">DISPLAY</span>                                 <span class="num">670500</span>
+           <span class="kw">MOVE</span> <span class="num">1</span>        <span class="kw">TO</span> <span class="var">W77-CONTROL</span>.                          <span class="num">670600</span>
+     <span class="kw">IF</span> <span class="var">W77-CONTROL</span> = <span class="kw">ZEROS</span>                                       <span class="num">670700</span>
+        <span class="var">RECEIVE</span> <span class="var">CS-COMS-IN</span> <span class="var">MESSAGE</span> <span class="kw">INTO</span> <span class="var">WKS-MSG</span>                   <span class="num">670800</span>
+        NO <span class="kw">DATA</span>                                                   <span class="num">670900</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>.                                         <span class="num">671000</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ComsMessage.java · LineaGateway.java</span><span class="fname">record · enum · @ServiceActivator</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** WKS-MSG: 1920 bytes = header de 36 posiciones + WKS-TEXTO X(1884). */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">ComsMessage</span>(<span class="type">Header</span> header, <span class="type">String</span> texto) {
+
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">Header</span>(<span class="kw">char</span> prefijo, <span class="kw">char</span> aplDestino,
+                         <span class="kw">int</span> csiDestino,            <span class="cmt">// WKS-MSGHDR-CCR-DES 9(02)</span>
+                         <span class="kw">int</span> lstOrigen,             <span class="cmt">// 9(04), REDEFINES binario 9(08) COMP</span>
+                         <span class="type">Estacion</span> estacion,
+                         <span class="kw">int</span> csiOrigen,             <span class="cmt">// WKS-MSGHDR-CCR-ORG 9(02)</span>
+                         <span class="kw">int</span> copOrigen, <span class="type">String</span> facultad,
+                         <span class="kw">char</span> aplOrigen,
+                         <span class="kw">int</span> resultado,             <span class="cmt">// WKS-MSGHDR-RES 9(02)</span>
+                         <span class="type">String</span> mascara,            <span class="cmt">// X(5): 3 dígitos de sistema + 2 de pantalla</span>
+                         <span class="type">String</span> pwr) {
+        <span class="kw">public</span> <span class="type">ResultadoHeader</span> tipo() { <span class="kw">return</span> <span class="type">ResultadoHeader</span>.of(resultado); }
+    }
+
+<span class="cmt">    /** TPO X + sucursal 9(04) + privilegio X + caja 9(02). La sucursal se conserva con ceros. */</span>
+    <span class="kw">public</span> <span class="kw">record</span> <span class="type">Estacion</span>(<span class="kw">char</span> tipo, <span class="type">String</span> sucursal, <span class="kw">char</span> privilegio, <span class="type">String</span> caja) {}
+}
+
+<span class="cmt">/** Niveles 88 de WKS-MSGHDR-RES. */</span>
+<span class="kw">public</span> <span class="kw">enum</span> <span class="type">ResultadoHeader</span> {
+    TERMINAL(<span class="num">1</span>), APLICACION(<span class="num">2</span>, <span class="num">4</span>), MAESTRO(<span class="num">3</span>), RED(<span class="num">11</span>, <span class="num">12</span>),
+    NO_EXISTE_APLICACION(<span class="num">32</span>), ERROR(<span class="num">31</span>, <span class="num">33</span>), OTRO;
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Set</span>&lt;<span class="type">Integer</span>&gt; valores;
+    <span class="type">ResultadoHeader</span>(<span class="type">Integer</span>... v) { <span class="kw">this</span>.valores = <span class="type">Set</span>.of(v); }
+
+    <span class="kw">static</span> <span class="type">ResultadoHeader</span> of(<span class="kw">int</span> r) {
+        <span class="kw">return</span> <span class="type">Arrays</span>.stream(values()).filter(t -&gt; t.valores.contains(r)).findFirst().orElse(OTRO);
+    }
+}</span>
+<span class="seg java-seg" data-jid="j2"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">LineaGateway</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">PantallaDispatcher</span> pantallas;      <span class="cmt">// 300000-PROCESA-MSG</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">CatalogoMensajes</span> mensajes;         <span class="cmt">// WKS-ELE-MSG(n)</span>
+
+<span class="cmt">    /** 200000-PROC: una iteración del ciclo por cada mensaje recibido de COMS. */</span>
+    <span class="ann">@ServiceActivator</span>(inputChannel = <span class="str">&quot;comsEntrada&quot;</span>, outputChannel = <span class="str">&quot;comsSalida&quot;</span>)
+    <span class="kw">public</span> <span class="type">ComsRespuesta</span> atiende(<span class="type">ComsMessage</span> msg) {
+        <span class="kw">return</span> <span class="kw">switch</span> (msg.header().tipo()) {
+            <span class="kw">case</span> APLICACION, RED, MAESTRO, TERMINAL -&gt; pantallas.procesa(msg);
+            <span class="kw">case</span> NO_EXISTE_APLICACION -&gt; rechazo(msg, <span class="num">29</span>);
+            <span class="kw">case</span> ERROR                -&gt; rechazo(msg, <span class="num">30</span>);
+            <span class="kw">case</span> OTRO                 -&gt; rechazo(msg, <span class="num">31</span>);
+        };
+    }
+
+    <span class="kw">private</span> <span class="type">ComsRespuesta</span> rechazo(<span class="type">ComsMessage</span> msg, <span class="kw">int</span> codigo) {
+        <span class="cmt">// MOVE 1867 TO W77-LONG-MSG: la respuesta de error ocupa el área de texto completa</span>
+        <span class="kw">return</span> <span class="type">ComsRespuesta</span>.error(msg.header(), mensajes.texto(codigo), <span class="num">1867</span>);
+    }
+}</span>
+<span class="seg java-seg" data-jid="j3"><span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ComsIntegrationConfig</span> {
+
+<span class="cmt">    /** ESPERACOMS + RECEIVE CS-COMS-IN: el adaptador entrega solo eventos de tipo mensaje. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">IntegrationFlow</span> entradaComs(<span class="type">ComsInboundAdapter</span> coms, <span class="type">LineaGateway</span> gateway) {
+        <span class="kw">return</span> <span class="type">IntegrationFlow</span>.from(coms, c -&gt; c.poller(<span class="type">Pollers</span>.fixedDelay(<span class="type">Duration</span>.ZERO)))
+                .filter(<span class="type">ComsEvento</span>.<span class="kw">class</span>, <span class="type">ComsEvento</span>::esMensaje)      <span class="cmt">// ACCEPT, TIMEOUT y HI no generan respuesta</span>
+                .transform(<span class="type">ComsEvento</span>::mensaje)
+                .handle(gateway, <span class="str">&quot;atiende&quot;</span>)
+                .channel(<span class="str">&quot;comsSalida&quot;</span>)
+                .get();
+    }
+}
+
+<span class="cmt">/** HI 4 (fin normal) y HI 6 (emergencia) pasan a ser el apagado ordenado del contenedor. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">ComsLifecycle</span> <span class="kw">implements</span> <span class="type">SmartLifecycle</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ComsAdministracion</span> coms;
+    <span class="kw">private</span> <span class="kw">volatile</span> <span class="kw">boolean</span> activo;
+
+    <span class="ann">@Override</span> <span class="kw">public</span> <span class="kw">void</span> start() { coms.habilitaPrograma(); activo = <span class="kw">true</span>; }   <span class="cmt">// 140000-ALTA-COMS</span>
+    <span class="ann">@Override</span> <span class="kw">public</span> <span class="kw">void</span> stop()  { coms.deshabilitaPrograma(); activo = <span class="kw">false</span>; } <span class="cmt">// 999999-FIN: SMCOMS &quot;DISABLE PROGRAM&quot;</span>
+    <span class="ann">@Override</span> <span class="kw">public</span> <span class="kw">boolean</span> isRunning() { <span class="kw">return</span> activo; }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Seguridad: interruptor HI, entidad, facultad y clave de supervisor</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P010.txt</span><span class="fname">DECLARATIVES · 300000-PROC-PANTALLAS · 300010-CHECA-ENTIDAD · 310081-PANTALLA-81</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s4" data-jid="j4" title="HI 41, 42 y 43: activar, desactivar y consultar la validación de seguridad · L10656–10676">     <span class="kw">IF</span> <span class="var">W88-HI-ALTA-SEGURIDAD</span>                                     <span class="num">078900</span>
+        <span class="kw">MOVE</span> <span class="num">010132</span>                            <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>       <span class="num">079000</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;VALIDA SEGURIDAD&quot;</span>                <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>        <span class="num">079100</span>
+        <span class="kw">MOVE</span> <span class="num">1</span>                                 <span class="kw">TO</span> <span class="var">W77-VALIDA-SEG</span>  <span class="num">079200</span>
+        <span class="kw">PERFORM</span> <span class="num">800000</span>-<span class="kw">DISPLAY</span>                                    <span class="num">079300</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">079400</span>
+     <span class="kw">IF</span> <span class="var">W88-HI-BAJA-SEGURIDAD</span>                                     <span class="num">079500</span>
+        <span class="kw">MOVE</span> <span class="num">010132</span>                            <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>       <span class="num">079600</span>
+        <span class="kw">MOVE</span> <span class="str">&quot;NO VALIDA SEGURIDAD&quot;</span>             <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>        <span class="num">079700</span>
+        <span class="kw">MOVE</span> <span class="num">2</span>                                 <span class="kw">TO</span> <span class="var">W77-VALIDA-SEG</span>  <span class="num">079800</span>
+        <span class="kw">PERFORM</span> <span class="num">800000</span>-<span class="kw">DISPLAY</span>                                    <span class="num">079900</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">080000</span>
+     <span class="kw">IF</span> <span class="var">W88-HI-ESTATUS-SEGURIDAD</span>                                  <span class="num">080100</span>
+        <span class="kw">IF</span> <span class="var">W88-VALIDA-SEG</span>                                         <span class="num">080110</span>
+           <span class="kw">MOVE</span> <span class="str">&quot;VALIDANDO SEGURIDAD&quot;</span>             <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>     <span class="num">080120</span>
+           <span class="kw">MOVE</span> <span class="num">010132</span>                            <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>    <span class="num">080200</span>
+           <span class="kw">PERFORM</span> <span class="num">800000</span>-<span class="kw">DISPLAY</span>                                 <span class="num">080400</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">080410</span>
+          <span class="kw">MOVE</span> <span class="str">&quot;SIN VALIDAR SEGURIDAD&quot;</span>           <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>      <span class="num">080420</span>
+          <span class="kw">MOVE</span> <span class="num">010132</span>                            <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>     <span class="num">080430</span>
+          <span class="kw">PERFORM</span> <span class="num">800000</span>-<span class="kw">DISPLAY</span>                                  <span class="num">080440</span></span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Compuertas de seguridad y armado del registro de bitácora · L11997–12011">     <span class="kw">IF</span> <span class="var">W88-VALIDA-SEG</span> <span class="kw">AND</span> <span class="var">WKS-MSGHDR-RES</span> <span class="kw">NOT</span> = <span class="num">2</span>                 <span class="num">156900</span>
+        <span class="kw">PERFORM</span> <span class="num">300010</span>-<span class="var">CHECA-ENTIDAD</span>.                             <span class="num">157000</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">IF</span> <span class="var">W88-VALIDA-SEG</span> <span class="kw">AND</span> (<span class="var">WKS-MSGHDR-RES</span> <span class="kw">NOT</span> = <span class="num">2</span>) <span class="kw">AND</span>           <span class="num">157200</span>
+        <span class="var">W77-RES-MSG</span> = <span class="kw">ZEROS</span>                                       <span class="num">157300</span>
+        <span class="kw">PERFORM</span> <span class="num">420210</span>-<span class="var">CHECA-SEGURIDAD</span>.                           <span class="num">157400</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="kw">SPACES</span>                  <span class="kw">TO</span> <span class="var">WKS-BIT-MSG-ANT</span>              <span class="num">157600</span>
+                                     <span class="var">WKS-BIT-MSG-POST</span>.            <span class="num">157700</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">MOVE</span> <span class="var">WS-FAC-ELEM2</span>(<span class="num">1</span>)         <span class="kw">TO</span> <span class="var">WKS-BIT-NOMINA</span>   .           <span class="num">157900</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-MSGHDR-STATION</span>      <span class="kw">TO</span> <span class="var">WKS-BIT-ESTACION</span>  .          <span class="num">158000</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-MSGHDR-MASC</span>         <span class="kw">TO</span> <span class="var">WKS-BIT-CVE-PANTALLA</span>.        <span class="num">158100</span>
+     <span class="kw">MOVE</span> <span class="str">&quot;CORE-GL&quot;</span>                  <span class="kw">TO</span> <span class="var">WKS-BIT-SISTEMA</span>  .           <span class="num">158200</span>
+     <span class="kw">MOVE</span> <span class="var">W77-CVE-RESOL</span>           <span class="kw">TO</span> <span class="var">WKS-BIT-CVE-RESULT</span>.          <span class="num">158300</span></span>
+<span class="seg" data-cid="s6" data-jid="j6" title="Facultad por sucursal: bloqueo de P17 y acceso cruzado · L12139–12190"> <span class="num">300010</span>-<span class="var">CHECA-ENTIDAD</span>.                                            <span class="num">171100</span>
+<span class="cmt">*=====================                                            171200</span>
+     <span class="kw">MOVE</span> <span class="kw">ZERO</span>                     <span class="kw">TO</span> <span class="var">W77-SALIDA</span>                  <span class="num">171300</span>
+                                      <span class="var">W77-ENTIDAD</span>.                <span class="num">171400</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-TAB-INDSIS</span>(<span class="var">WKS-MSGHDR-SUC</span>) <span class="kw">TO</span> <span class="var">W77-IND1</span>.             <span class="num">171500</span>
+     <span class="kw">MOVE</span> <span class="var">W77-IND1</span>                       <span class="kw">TO</span> <span class="var">W77-SUCURSAL</span>.         <span class="num">171600</span>
+     <span class="kw">IF</span> <span class="var">W88-SUC-0001-999</span>                                          <span class="num">171700</span>
+        <span class="kw">PERFORM</span> <span class="num">300012</span>-<span class="var">BUSCA-SISTEMA</span> <span class="kw">VARYING</span> <span class="var">W77-IND2</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span> <span class="num">171800</span>
+                                     <span class="kw">UNTIL</span>   <span class="var">W77-IND2</span> &gt; <span class="num">30</span>   <span class="kw">OR</span>   <span class="num">171900</span>
+                                             <span class="var">W77-SALIDA</span> = <span class="num">1</span>       <span class="num">172000</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">172100</span>
+     <span class="kw">IF</span> <span class="var">W88-SUC-1000-1999</span>                                         <span class="num">172200</span>
+        <span class="kw">COMPUTE</span> <span class="var">W77-IND1</span> = <span class="var">W77-IND1</span> - <span class="num">999</span>                         <span class="num">172300</span>
+        <span class="kw">PERFORM</span> <span class="num">300013</span>-<span class="var">BUSCA1-SISTEMA</span> <span class="kw">VARYING</span> <span class="var">W77-IND2</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1172400</span>
+                                      <span class="kw">UNTIL</span>   <span class="var">W77-IND2</span> &gt; <span class="num">30</span>   <span class="kw">OR</span>  <span class="num">172500</span>
+                                              <span class="var">W77-SALIDA</span> = <span class="num">1</span>      <span class="num">172600</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">172700</span>
+     <span class="kw">IF</span> <span class="var">W88-SUC-2000-2999</span>                                         <span class="num">172800</span>
+        <span class="kw">COMPUTE</span> <span class="var">W77-IND1</span> = <span class="var">W77-IND1</span> - <span class="num">1999</span>                        <span class="num">172900</span>
+        <span class="kw">PERFORM</span> <span class="num">300014</span>-<span class="var">BUSCA2-SISTEMA</span> <span class="kw">VARYING</span> <span class="var">W77-IND2</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1173000</span>
+                                      <span class="kw">UNTIL</span>   <span class="var">W77-IND2</span> &gt; <span class="num">30</span>   <span class="kw">OR</span>  <span class="num">173100</span>
+                                              <span class="var">W77-SALIDA</span> = <span class="num">1</span>      <span class="num">173200</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">173300</span>
+     <span class="kw">IF</span> <span class="var">W88-SUC-3000-3999</span>                                         <span class="num">173400</span>
+        <span class="kw">COMPUTE</span> <span class="var">W77-IND1</span> = <span class="var">W77-IND1</span> - <span class="num">2999</span>                        <span class="num">173500</span>
+        <span class="kw">PERFORM</span> <span class="num">300015</span>-<span class="var">BUSCA3-SISTEMA</span> <span class="kw">VARYING</span> <span class="var">W77-IND2</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1173600</span>
+                                      <span class="kw">UNTIL</span>   <span class="var">W77-IND2</span> &gt; <span class="num">30</span>   <span class="kw">OR</span>  <span class="num">173700</span>
+                                              <span class="var">W77-SALIDA</span> = <span class="num">1</span>      <span class="num">173800</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">173900</span>
+     <span class="kw">IF</span> <span class="var">W88-SUC-4000-4999</span>                                         <span class="num">174000</span>
+        <span class="kw">COMPUTE</span> <span class="var">W77-IND1</span> = <span class="var">W77-IND1</span> - <span class="num">3999</span>                        <span class="num">174100</span>
+        <span class="kw">PERFORM</span> <span class="num">300016</span>-<span class="var">BUSCA4-SISTEMA</span> <span class="kw">VARYING</span> <span class="var">W77-IND2</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1174200</span>
+                                      <span class="kw">UNTIL</span>   <span class="var">W77-IND2</span> &gt; <span class="num">30</span>   <span class="kw">OR</span>  <span class="num">174300</span>
+                                              <span class="var">W77-SALIDA</span> = <span class="num">1</span>.     <span class="num">174400</span>
+    <span class="kw">MOVE</span> <span class="kw">ZERO</span>                      <span class="kw">TO</span> <span class="var">W77-CVE-RESOL</span>.              <span class="num">174500</span>
+    <span class="kw">IF</span> <span class="var">W77-FACULTAD</span> = <span class="num">1</span>                                           <span class="num">174600</span>
+      <span class="kw">IF</span> <span class="var">WKS-PAN-ENTNUMPAN</span> = <span class="num">17</span>                                   <span class="num">174700</span>
+         <span class="kw">MOVE</span> <span class="num">3</span>                    <span class="kw">TO</span> <span class="var">W77-CVE-RESOL</span>               <span class="num">174800</span>
+         <span class="kw">MOVE</span> <span class="num">87</span>                   <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">174900</span>
+      <span class="kw">ELSE</span>                                                        <span class="num">175000</span>
+      <span class="kw">IF</span> <span class="var">W77-SUC-CAPTURA</span> = <span class="var">WKS-MSGHDR-SUC</span>                         <span class="num">175100</span>
+         <span class="kw">MOVE</span> <span class="num">1</span>                    <span class="kw">TO</span> <span class="var">W77-CVE-RESOL</span>               <span class="num">175200</span>
+      <span class="kw">ELSE</span>                                                        <span class="num">175300</span>
+         <span class="kw">MOVE</span> <span class="num">3</span>                    <span class="kw">TO</span> <span class="var">W77-CVE-RESOL</span>               <span class="num">175400</span>
+         <span class="kw">MOVE</span> <span class="num">87</span>                   <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">175500</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">175600</span>
+    <span class="kw">IF</span> <span class="var">W77-FACULTAD</span> = <span class="num">2</span>                                           <span class="num">175700</span>
+       <span class="kw">MOVE</span> <span class="num">1</span>                       <span class="kw">TO</span> <span class="var">W77-CVE-RESOL</span>              <span class="num">175800</span>
+    <span class="kw">ELSE</span>                                                          <span class="num">175900</span>
+    <span class="kw">IF</span> <span class="var">W77-FACULTAD</span> = <span class="num">3</span>                                           <span class="num">176000</span>
+       <span class="kw">MOVE</span> <span class="num">3</span>                       <span class="kw">TO</span> <span class="var">W77-CVE-RESOL</span>              <span class="num">176100</span>
+       <span class="kw">MOVE</span> <span class="num">87</span>                      <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.               <span class="num">176200</span></span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Pantalla 81: transacción válida y clave de supervisor · L14201–14222">     <span class="kw">MOVE</span> <span class="var">WKS-ENT-P81TRA</span>           <span class="kw">TO</span> <span class="var">W77-CVE-TRA</span>                 <span class="num">377300</span>
+     <span class="kw">IF</span> <span class="kw">NOT</span> <span class="var">W88-CVE-TRA</span>                                           <span class="num">377400</span>
+        <span class="kw">MOVE</span> <span class="num">36</span>                    <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.                <span class="num">377500</span>
+     <span class="kw">IF</span> <span class="var">W77-RES-MSG</span> = <span class="num">0</span>                                           <span class="num">377600</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-APU-SIS</span>(<span class="var">WKS-ENT-P81SIS</span>) <span class="kw">TO</span> <span class="var">W77-I</span>                 <span class="num">377700</span>
+        <span class="kw">IF</span> <span class="var">W77-I</span> = <span class="kw">ZERO</span>                                           <span class="num">377800</span>
+           <span class="kw">IF</span> <span class="var">W88-CVE-ALTA</span>                                        <span class="num">377900</span>
+              <span class="kw">MOVE</span> <span class="kw">ZEROS</span>           <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">378000</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">378100</span>
+              <span class="kw">MOVE</span> <span class="num">40</span>              <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.                <span class="num">378200</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-ENT-P81CSI-A</span>         <span class="kw">TO</span> <span class="var">WKS-CSI-ALFA</span>                <span class="num">378300</span>
+     <span class="kw">PERFORM</span> <span class="num">420070</span>-<span class="var">VALIDA-NUM-CSI</span>                                <span class="num">378400</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-CSI-NUME</span>             <span class="kw">TO</span> <span class="var">WKS-ENT-P81CSI</span>.             <span class="num">378500</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-ENT-P81SUP</span>           <span class="kw">TO</span> <span class="var">W77-NUM-SUP</span>                 <span class="num">378600</span>
+     <span class="kw">PERFORM</span> <span class="num">420100</span>-<span class="var">VALIDA-CVE-SUP</span>.                               <span class="num">378700</span>
+     <span class="kw">IF</span> <span class="var">W88-NUM-SUPACT</span> <span class="kw">AND</span> <span class="var">W88-CVE-TRA</span>                            <span class="num">378800</span>
+        <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                             <span class="num">378900</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">379000</span>
+     <span class="kw">IF</span> <span class="var">W88-CVE-CONS</span> <span class="kw">AND</span> <span class="var">W88-NUM-SUPCONS</span>                          <span class="num">379100</span>
+        <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                             <span class="num">379200</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">379300</span>
+        <span class="kw">MOVE</span> <span class="num">98</span>                    <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.                <span class="num">379400</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>SeguridadProperties.java · AutorizacionService.java</span><span class="fname">@RefreshScope · @Service</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j4"># application.yml
+linea:
+  seguridad:
+    validar: <span class="kw">true</span>        # W77-VALIDA-SEG: <span class="num">1</span> = valida, <span class="num">2</span> = no valida
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@RefreshScope</span>
+<span class="ann">@ConfigurationProperties</span>(<span class="str">&quot;linea.seguridad&quot;</span>)
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">SeguridadProperties</span>(<span class="kw">boolean</span> validar) {}
+
+<span class="cmt">/** Reemplaza HI 41/42/43 por un endpoint de Actuator protegido y auditado. */</span>
+<span class="ann">@Component</span>
+<span class="ann">@Endpoint</span>(id = <span class="str">&quot;seguridad-linea&quot;</span>)
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">SeguridadEndpoint</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ConfigToggle</span> toggle;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Auditoria</span> auditoria;
+
+    <span class="ann">@ReadOperation</span>
+    <span class="kw">public</span> <span class="type">String</span> estatus() {                                     <span class="cmt">// HI 43</span>
+        <span class="kw">return</span> toggle.validar() ? <span class="str">&quot;VALIDANDO SEGURIDAD&quot;</span> : <span class="str">&quot;SIN VALIDAR SEGURIDAD&quot;</span>;
+    }
+
+    <span class="ann">@WriteOperation</span>
+    <span class="kw">public</span> <span class="kw">void</span> cambia(<span class="kw">boolean</span> validar, <span class="ann">@Selector</span> <span class="type">String</span> usuario) { <span class="cmt">// HI 41 / HI 42</span>
+        auditoria.registra(<span class="str">&quot;linea.seguridad.validar&quot;</span>, toggle.validar(), validar, usuario);
+        toggle.validar(validar);
+    }
+}</span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Service</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">AutorizacionService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SeguridadProperties</span> seguridad;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">EntidadService</span> entidades;          <span class="cmt">// 300010-CHECA-ENTIDAD</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">FacultadClient</span> facultades;         <span class="cmt">// 420210-CHECA-SEGURIDAD -&gt; VALIDA_FACULTAD</span>
+
+    <span class="kw">public</span> <span class="type">Autorizacion</span> autoriza(<span class="type">Peticion</span> p, <span class="type">ComsMessage</span>.<span class="type">Header</span> h) {
+        <span class="kw">boolean</span> local = h.resultado() != <span class="num">2</span>;          <span class="cmt">// un mensaje reenviado (RES = 2) ya se validó en el nodo origen</span>
+        <span class="type">Autorizacion</span> a = <span class="type">Autorizacion</span>.noEvaluada();
+        <span class="kw">if</span> (seguridad.validar() &amp;&amp; local) {
+            a = entidades.checa(p, h);
+        }
+        <span class="kw">if</span> (seguridad.validar() &amp;&amp; local &amp;&amp; p.sinError()) {
+            a = a.con(facultades.valida(p.claveTransaccion(), h));
+        }
+        <span class="kw">return</span> a;
+    }
+}
+
+<span class="cmt">/** WKS-REG-BITACORA, parte común a todas las pantallas. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">Bitacora</span>(<span class="type">String</span> nomina, <span class="type">String</span> estacion, <span class="type">String</span> clavePantalla,
+                       <span class="type">String</span> sistema,                 <span class="cmt">// &quot;CORE-GL&quot; fijo</span>
+                       <span class="kw">int</span> claveResultado,             <span class="cmt">// W77-CVE-RESOL</span>
+                       <span class="type">String</span> antes, <span class="type">String</span> despues) {}</span>
+<span class="seg java-seg" data-jid="j6"><span class="ann">@Service</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">EntidadService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">EntidadSucursalRepository</span> entidades;   <span class="cmt">// WKS-TAB..WKS-TAB4: 5 bloques de 999 x 30</span>
+
+    <span class="kw">public</span> <span class="type">Autorizacion</span> checa(<span class="type">Peticion</span> p, <span class="type">ComsMessage</span>.<span class="type">Header</span> h) {
+        <span class="type">String</span> sucursalTerminal = h.estacion().sucursal();
+        <span class="kw">int</span> facultad = entidades.facultad(sucursalTerminal, p.sistema())   <span class="cmt">// 300012..300016-BUSCA</span>
+                                .orElse(<span class="num">0</span>);                                <span class="cmt">// no encontrado: W77-FACULTAD queda en 0</span>
+        <span class="kw">return</span> <span class="kw">switch</span> (facultad) {
+            <span class="kw">case</span> <span class="num">1</span> -&gt; (p.pantalla() == <span class="num">17</span>)
+                        ? <span class="type">Autorizacion</span>.denegada(<span class="num">87</span>)                      <span class="cmt">// P17 Totales Nacionales</span>
+                        : p.sucursalCaptura().equals(sucursalTerminal)
+                            ? <span class="type">Autorizacion</span>.autorizada()
+                            : <span class="type">Autorizacion</span>.denegada(<span class="num">87</span>);
+            <span class="kw">case</span> <span class="num">2</span> -&gt; <span class="type">Autorizacion</span>.autorizada();                         <span class="cmt">// acceso a cualquier sucursal</span>
+            <span class="kw">case</span> <span class="num">3</span> -&gt; <span class="type">Autorizacion</span>.denegada(<span class="num">87</span>);
+            <span class="kw">default</span> -&gt; <span class="type">Autorizacion</span>.noEvaluada();                        <span class="cmt">// W77-CVE-RESOL = 0, sin error</span>
+        };
+    }
+}</span>
+<span class="seg java-seg" data-jid="j7"># application.yml  (las claves dejan de estar compiladas en niveles <span class="num">88</span>)
+linea:
+  supervisores:
+    actualizan: ${LINEA_SUP_ACTUALIZAN}   # W88-NUM-SUPACT, desde el gestor de secretos
+    consultan:  ${LINEA_SUP_CONSULTAN}    # W88-NUM-SUPCONS
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="kw">enum</span> <span class="type">Transaccion</span> { ALTA, BAJA, CAMB, CONS }       <span class="cmt">// W88-CVE-TRA</span>
+
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">ClaveSupervisorValidator</span> {
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">SupervisoresProperties</span> sup;
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">CsiValidator</span> csi;                <span class="cmt">// 420070-VALIDA-NUM-CSI</span>
+
+<span class="cmt">    /** 310081-PANTALLA-81. Se respeta el orden del COBOL: cada paso puede sobrescribir el código anterior. */</span>
+    <span class="kw">int</span> valida(<span class="type">String</span> trx, <span class="kw">int</span> apuntadorSistema, <span class="type">String</span> csiCapturado, <span class="type">String</span> claveSup) {
+        <span class="kw">int</span> codigo = <span class="num">0</span>;
+        <span class="type">Optional</span>&lt;<span class="type">Transaccion</span>&gt; t = <span class="type">Transaccion</span>.parse(trx);
+        <span class="kw">if</span> (t.isEmpty()) codigo = <span class="num">36</span>;
+        <span class="kw">if</span> (codigo == <span class="num">0</span> &amp;&amp; apuntadorSistema == <span class="num">0</span>) {
+            codigo = (t.get() == <span class="type">Transaccion</span>.ALTA) ? <span class="num">0</span> : <span class="num">40</span>;
+        }
+        codigo = csi.valida(csiCapturado, codigo);
+        <span class="kw">if</span> (!sup.todas().contains(claveSup)) codigo = <span class="num">35</span>;                <span class="cmt">// 420100-VALIDA-CVE-SUP</span>
+        <span class="kw">boolean</span> actualiza = t.isPresent() &amp;&amp; sup.actualizan().contains(claveSup);
+        <span class="kw">boolean</span> consulta  = t.filter(x -&gt; x == <span class="type">Transaccion</span>.CONS).isPresent()
+                            &amp;&amp; sup.consultan().contains(claveSup);
+        <span class="kw">if</span> (!actualiza &amp;&amp; !consulta) codigo = <span class="num">98</span>;
+        <span class="kw">return</span> codigo;
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Validación de estatus, fechas y ruteo entre nodos CSI</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P010.txt</span><span class="fname">400000-VERIFICA-TIPO-ESQUEMA · 420120-VALIDA-NUM-FEC · 420030-VALIDA-NUM-SUC</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s8" data-jid="j8" title="Estatus del sistema antes de llamar a su librería de consulta · L16028–16041"> <span class="num">400000</span>-<span class="var">VERIFICA-TIPO-ESQUEMA</span>.                                    <span class="num">560000</span>
+     <span class="kw">IF</span> <span class="var">W77-I</span> &gt; <span class="kw">ZEROS</span> <span class="kw">AND</span>  <span class="var">W77-I</span> &lt; <span class="num">500</span>                            <span class="num">560100</span>
+        <span class="kw">IF</span> <span class="var">WKS-TAB-STASIS</span>(<span class="var">W77-I</span>) = <span class="num">3</span>                              <span class="num">560200</span>
+           <span class="kw">IF</span> <span class="var">WKS-STA-EXPGM</span>(<span class="var">W77-I</span>) = <span class="num">2</span>                            <span class="num">560300</span>
+              <span class="kw">PERFORM</span> <span class="num">410000</span>-<span class="var">CALL-LIBXSIS</span>                         <span class="num">560400</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">560500</span>
+              <span class="kw">MOVE</span> <span class="num">41</span>              <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">560600</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">560700</span>
+        <span class="kw">IF</span> <span class="var">WKS-TAB-STASIS</span>(<span class="var">W77-I</span>) = <span class="num">2</span> <span class="kw">OR</span> <span class="num">1</span>                         <span class="num">560800</span>
+           <span class="kw">MOVE</span> <span class="num">40</span>              <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                    <span class="num">560900</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">561000</span>
+           <span class="kw">MOVE</span> <span class="num">26</span>                 <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">561100</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">561200</span>
+        <span class="kw">MOVE</span> <span class="num">40</span>                    <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.                <span class="num">561300</span></span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Fecha de consulta contra FECCON, FECPRO y las diez fechas archivadas · L16464–16484"> <span class="num">420120</span>-<span class="var">VALIDA-NUM-FEC</span>.                                           <span class="num">603600</span>
+     <span class="kw">MOVE</span> <span class="num">3</span>                        <span class="kw">TO</span> <span class="var">WKS-FUNCION</span>                 <span class="num">603700</span>
+     <span class="kw">MOVE</span> <span class="num">0</span>                        <span class="kw">TO</span> <span class="var">WKS-FORMATO</span>                 <span class="num">603800</span>
+     <span class="kw">CALL</span> <span class="str">&quot;JUSTIFIER IN LOCSUP&quot;</span>                                   <span class="num">603900</span>
+           <span class="kw">USING</span> <span class="var">WKS-FEC-ALFA</span>,<span class="var">WKS-FUNCION</span>,<span class="var">WKS-FORMATO</span>.            <span class="num">604000</span>
+     <span class="kw">IF</span> <span class="var">WKS-FUNCION</span> &gt; <span class="kw">ZEROS</span> <span class="kw">OR</span> <span class="var">WKS-FEC-NUME</span> = <span class="kw">ZEROS</span>               <span class="num">604100</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-TAB-FECCON</span>(<span class="var">W77-I</span>) <span class="kw">TO</span> <span class="var">WKS-FEC-NUME</span>.               <span class="num">604200</span>
+     <span class="kw">IF</span> <span class="var">WKS-PAN-ENTNUMPAN</span> &lt; <span class="num">30</span>                                    <span class="num">604300</span>
+        <span class="kw">IF</span> (<span class="var">WKS-FEC-NUME</span> = <span class="var">WKS-TAB-FECCON</span>(<span class="var">W77-I</span>)) <span class="kw">OR</span>              <span class="num">604400</span>
+           (<span class="var">WKS-FEC-NUME</span> = <span class="var">WKS-TAB-FECPRO</span>(<span class="var">W77-I</span>))                 <span class="num">604500</span>
+           <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                          <span class="num">604600</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">604700</span>
+           <span class="kw">PERFORM</span> <span class="num">420122</span>-<span class="var">VALIDA-FEC</span> <span class="kw">VARYING</span> <span class="var">W77-K</span> <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span>    <span class="num">604800</span>
+                                     <span class="kw">UNTIL</span> <span class="var">W77-K</span> &gt; <span class="num">10</span>           <span class="var">OR604900</span>
+                                    <span class="var">WKS-TAB-FECPROC</span>(<span class="var">W77-I</span> <span class="var">W77-K</span>) =<span class="num">605000</span>
+                                    <span class="kw">ZEROS</span>.                        <span class="num">605100</span>
+ <span class="num">420122</span>-<span class="var">VALIDA-FEC</span>.                                               <span class="num">605200</span>
+     <span class="kw">MOVE</span> <span class="num">19</span>                       <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.                <span class="num">605300</span>
+     <span class="kw">IF</span> <span class="var">WKS-FEC-NUME</span> = <span class="var">WKS-TAB-FECPROC</span>(<span class="var">W77-I</span> <span class="var">W77-K</span>)               <span class="num">605400</span>
+        <span class="kw">MOVE</span> <span class="num">11</span>                    <span class="kw">TO</span> <span class="var">W77-K</span>                       <span class="num">605500</span>
+        <span class="kw">MOVE</span> <span class="kw">ZEROS</span>                 <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>.                <span class="num">605600</span></span>
+<span class="seg" data-cid="s10" data-jid="j10" title="Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema · L16226–16273"> <span class="num">420030</span>-<span class="var">VALIDA-NUM-SUC</span>.                                           <span class="num">579800</span>
+     <span class="kw">MOVE</span> <span class="num">3</span>                        <span class="kw">TO</span> <span class="var">WKS-FUNCION</span>                 <span class="num">579900</span>
+     <span class="kw">MOVE</span> <span class="num">0</span>                        <span class="kw">TO</span> <span class="var">WKS-FORMATO</span>                 <span class="num">580000</span>
+     <span class="kw">CALL</span> <span class="str">&quot;JUSTIFIER IN LOCSUP&quot;</span>                                   <span class="num">580100</span>
+          <span class="kw">USING</span> <span class="var">WKS-SUC-ALFA</span>,<span class="var">WKS-FUNCION</span>,<span class="var">WKS-FORMATO</span>.             <span class="num">580200</span>
+     <span class="kw">IF</span> <span class="var">WKS-FUNCION</span> &gt; <span class="kw">ZEROS</span>                                       <span class="num">580300</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-MSGHDR-SUC</span>        <span class="kw">TO</span> <span class="var">WKS-SUC-NUME</span>.               <span class="num">580400</span>
+     <span class="kw">IF</span> <span class="var">W77-CAMB-CSI</span> = <span class="kw">ZEROS</span>                                      <span class="num">580500</span>
+     <span class="kw">IF</span> <span class="var">WKS-SUC-NUME</span> &gt; <span class="kw">ZEROS</span>                                      <span class="num">580600</span>
+        <span class="kw">IF</span> <span class="var">WKS-SIS-NUME</span> = <span class="num">1</span> <span class="kw">OR</span> <span class="num">66</span>                                 <span class="num">580700</span>
+            <span class="kw">MOVE</span> <span class="num">99</span>              <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                   <span class="num">580800</span>
+            <span class="kw">IF</span> <span class="var">WKS-MSGHDR-RES</span> = <span class="num">2</span>                                 <span class="num">580900</span>
+               <span class="kw">MOVE</span> <span class="num">3</span>            <span class="kw">TO</span> <span class="var">WKS-MSGHDR-RES</span>                <span class="num">581000</span>
+               <span class="kw">MOVE</span> <span class="var">WKS-MSGHDR-CCR-ORG</span> <span class="kw">TO</span> <span class="var">WKS-MSGHDR-CCR-DES</span>      <span class="num">581100</span>
+            <span class="kw">ELSE</span>                                                  <span class="num">581200</span>
+               <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                      <span class="num">581300</span>
+        <span class="kw">ELSE</span>                                                      <span class="num">581400</span>
+        <span class="kw">IF</span> <span class="var">WKS-MSGHDR-RES</span> <span class="kw">NOT</span> = <span class="num">2</span>                                 <span class="num">581500</span>
+           <span class="kw">IF</span> <span class="var">WKS-TAB-MODSIS</span>(<span class="var">W77-I</span>) = <span class="kw">ZEROS</span>                       <span class="num">581600</span>
+              <span class="kw">IF</span> (<span class="var">WKS-PAN-ENTNUMPAN</span> &gt; <span class="num">12</span> <span class="kw">AND</span> &lt; <span class="num">17</span>) <span class="kw">OR</span>             <span class="num">581700</span>
+                 (<span class="var">WKS-PAN-ENTNUMPAN</span> &gt; <span class="num">18</span> <span class="kw">AND</span> &lt; <span class="num">27</span>) <span class="kw">OR</span>             <span class="num">581800</span>
+                 (<span class="var">WKS-PAN-ENTNUMPAN</span> = <span class="num">11</span>)                         <span class="num">581900</span>
+                 <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                    <span class="num">582000</span>
+              <span class="kw">ELSE</span>                                                <span class="num">582100</span>
+              <span class="kw">IF</span> <span class="var">WKS-NUM-CSI</span>(<span class="var">WKS-SUC-NUME</span>) = <span class="kw">ZEROS</span>                <span class="num">582200</span>
+                 <span class="kw">MOVE</span> <span class="num">45</span>           <span class="kw">TO</span> <span class="var">W77-RES-MSG</span>                 <span class="num">582300</span>
+              <span class="kw">ELSE</span>                                                <span class="num">582400</span>
+              <span class="kw">IF</span> <span class="var">WKS-SIS-NUME</span> =  <span class="num">264</span>                              <span class="num">582500</span>
+<span class="cmt">*                 OR 501                                          582600</span>
+                 <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                    <span class="num">582700</span>
+              <span class="kw">ELSE</span>                                                <span class="num">582800</span>
+              <span class="kw">IF</span> <span class="var">WKS-NUM-CSI</span>(<span class="var">WKS-SUC-NUME</span>) <span class="kw">NOT</span> =                  <span class="num">582900</span>
+                 <span class="var">WKS-MSGHDR-CCR-DES</span>                               <span class="num">583000</span>
+                 <span class="kw">MOVE</span> <span class="num">2</span>                      <span class="kw">TO</span> <span class="var">WKS-MSGHDR-RES</span>    <span class="num">583100</span>
+                 <span class="kw">MOVE</span> <span class="var">WKS-MSGHDR-CCR-DES</span>     <span class="kw">TO</span> <span class="var">WKS-MSGHDR-CCR-ORG583200</span>
+                 <span class="kw">MOVE</span> <span class="var">WKS-NUM-CSI</span>(<span class="var">WKS-SUC-NUME</span>) <span class="kw">TO</span>                <span class="num">583300</span>
+                      <span class="var">WKS-MSGHDR-CCR-DES</span>                          <span class="num">583400</span>
+              <span class="kw">ELSE</span>                                                <span class="num">583500</span>
+                 <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                    <span class="num">583600</span>
+           <span class="kw">ELSE</span>                                                   <span class="num">583700</span>
+           <span class="kw">IF</span> (<span class="var">WKS-TAB-CSIRES</span>(<span class="var">W77-I</span>) &gt; <span class="kw">ZEROS</span>)                     <span class="num">583800</span>
+              <span class="kw">IF</span> <span class="var">WKS-TAB-CSIRES</span>(<span class="var">W77-I</span>) = <span class="var">WKS-MSGHDR-CCR-DES</span>       <span class="num">583900</span>
+                 <span class="kw">NEXT</span> <span class="var">SENTENCE</span>                                    <span class="num">584000</span>
+              <span class="kw">ELSE</span>                                                <span class="num">584100</span>
+                 <span class="kw">MOVE</span> <span class="num">2</span>               <span class="kw">TO</span> <span class="var">WKS-MSGHDR-RES</span>           <span class="num">584200</span>
+                 <span class="kw">MOVE</span> <span class="var">WKS-MSGHDR-CCR-DES</span> <span class="kw">TO</span> <span class="var">WKS-MSGHDR-CCR-ORG</span>    <span class="num">584300</span>
+                 <span class="kw">MOVE</span> <span class="var">WKS-TAB-CSIRES</span>(<span class="var">W77-I</span>)                       <span class="num">584400</span>
+                                         <span class="kw">TO</span> <span class="var">WKS-MSGHDR-CCR-DES</span>.   <span class="num">584500</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>EsquemaSistemaValidator.java · FechaConsultaValidator.java · RuteoCsiService.java</span><span class="fname">@Component · Spring Integration router</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j8"><span class="ann">@Component</span>
+<span class="kw">class</span> <span class="type">EsquemaSistemaValidator</span> {
+
+<span class="cmt">    /** 400000-VERIFICA-TIPO-ESQUEMA: 0 = se puede llamar a la librería de consulta. */</span>
+    <span class="kw">int</span> valida(<span class="kw">int</span> apuntador, <span class="type">SistemaCatalogo</span> s) {
+        <span class="kw">if</span> (apuntador &lt;= <span class="num">0</span> || apuntador &gt;= <span class="num">500</span>) <span class="kw">return</span> <span class="num">40</span>;
+        <span class="kw">return</span> <span class="kw">switch</span> (s.estatus()) {                          <span class="cmt">// WKS-TAB-STASIS desde B04SISTEM</span>
+            <span class="kw">case</span> <span class="num">3</span>    -&gt; s.tipoExpgm() == <span class="num">2</span> ? <span class="num">0</span> : <span class="num">41</span>;          <span class="cmt">// 410000-CALL-LIBXSIS</span>
+            <span class="kw">case</span> <span class="num">1</span>, <span class="num">2</span> -&gt; <span class="num">40</span>;
+            <span class="kw">default</span>   -&gt; <span class="num">26</span>;
+        };
+    }
+}</span>
+<span class="seg java-seg" data-jid="j9"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">FechaConsultaValidator</span> {
+
+<span class="cmt">    /** 420120-VALIDA-NUM-FEC + 420122-VALIDA-FEC. Devuelve la fecha efectiva y el código. */</span>
+    <span class="type">Resultado</span> valida(<span class="type">String</span> fechaCapturada, <span class="kw">int</span> pantalla, <span class="type">FechasSistema</span> f) {
+        <span class="cmt">// JUSTIFIER IN LOCSUP función 3: no numérico o cero se reemplaza por FECCON, sin error</span>
+        <span class="type">String</span> fecha = <span class="type">Numerico</span>.esValido(fechaCapturada) &amp;&amp; !<span class="type">Numerico</span>.esCero(fechaCapturada)
+                ? fechaCapturada : f.feccon();
+        <span class="kw">if</span> (pantalla &gt;= <span class="num">30</span>) {
+            <span class="kw">return</span> <span class="kw">new</span> <span class="type">Resultado</span>(fecha, <span class="num">0</span>);                      <span class="cmt">// pantallas 30 en adelante no validan pertenencia</span>
+        }
+        <span class="kw">if</span> (fecha.equals(f.feccon()) || fecha.equals(f.fecpro())) {
+            <span class="kw">return</span> <span class="kw">new</span> <span class="type">Resultado</span>(fecha, <span class="num">0</span>);
+        }
+        <span class="type">List</span>&lt;<span class="type">String</span>&gt; archivadas = f.fechasArchivadas().stream()   <span class="cmt">// FECPROC(1..10), hasta el primer cero</span>
+                .takeWhile(d -&gt; !<span class="type">Numerico</span>.esCero(d)).toList();
+        <span class="kw">if</span> (archivadas.isEmpty()) {
+            <span class="kw">return</span> <span class="kw">new</span> <span class="type">Resultado</span>(fecha, <span class="num">0</span>);   <span class="cmt">// comportamiento actual: sin fechas archivadas no se asigna el 19</span>
+        }
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">Resultado</span>(fecha, archivadas.contains(fecha) ? <span class="num">0</span> : <span class="num">19</span>);
+    }
+
+    <span class="kw">record</span> <span class="type">Resultado</span>(<span class="type">String</span> fecha, <span class="kw">int</span> codigo) {}
+}</span>
+<span class="seg java-seg" data-jid="j10"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">class</span> <span class="type">RuteoCsiService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">RuteoProperties</span> props;   <span class="cmt">// linea.ruteo.sistemas-sin-sucursal: [1, 66]</span>
+                                           <span class="cmt">// linea.ruteo.sistemas-siempre-locales: [264]</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">CatalogoSucursales</span> sucursales;   <span class="cmt">// WKS-NUM-CSI(sucursal)</span>
+
+<span class="cmt">    /** 420030-VALIDA-NUM-SUC: decide si se atiende aquí o se reenvía a otro CSI. */</span>
+    <span class="type">Ruteo</span> decide(<span class="type">Peticion</span> p, <span class="type">ComsMessage</span>.<span class="type">Header</span> h, <span class="type">SistemaCatalogo</span> s, <span class="kw">boolean</span> csiYaCambiado) {
+        <span class="kw">if</span> (csiYaCambiado || p.sucursal() == <span class="num">0</span>) <span class="kw">return</span> <span class="type">Ruteo</span>.local();
+        <span class="kw">if</span> (props.sistemasSinSucursal().contains(p.sistema())) {
+            <span class="kw">return</span> h.resultado() == <span class="num">2</span> ? <span class="type">Ruteo</span>.regresaAlOrigen(<span class="num">99</span>)      <span class="cmt">// RES = 3, CCR-DES = CCR-ORG</span>
+                                      : <span class="type">Ruteo</span>.error(<span class="num">99</span>);
+        }
+        <span class="kw">if</span> (h.resultado() == <span class="num">2</span>) <span class="kw">return</span> <span class="type">Ruteo</span>.local();                  <span class="cmt">// ya viene reenviado</span>
+        <span class="kw">if</span> (s.modoSistema() == <span class="num">0</span>) {
+            <span class="kw">if</span> (<span class="type">Pantallas</span>.noRuteables(p.pantalla())) <span class="kw">return</span> <span class="type">Ruteo</span>.local(); <span class="cmt">// 11, 13-16, 19-26</span>
+            <span class="kw">int</span> csi = sucursales.csiDe(p.sucursal());
+            <span class="kw">if</span> (csi == <span class="num">0</span>) <span class="kw">return</span> <span class="type">Ruteo</span>.error(<span class="num">45</span>);
+            <span class="kw">if</span> (props.sistemasSiempreLocales().contains(p.sistema())) <span class="kw">return</span> <span class="type">Ruteo</span>.local();
+            <span class="kw">return</span> csi != h.csiDestino() ? <span class="type">Ruteo</span>.reenvia(csi) : <span class="type">Ruteo</span>.local();   <span class="cmt">// RES = 2</span>
+        }
+        <span class="kw">int</span> csiRestringido = s.csiRestringido();                       <span class="cmt">// WKS-TAB-CSIRES (RESCSI de B03)</span>
+        <span class="kw">return</span> (csiRestringido &gt; <span class="num">0</span> &amp;&amp; csiRestringido != h.csiDestino())
+                ? <span class="type">Ruteo</span>.reenvia(csiRestringido) : <span class="type">Ruteo</span>.local();
+    }
+}</span></pre></div>
+</div>
+  <div class="sec-hdr">Reglas de negocio trazadas</div><table class="rules-table"><thead><tr><th>ID regla</th><th>Descripción (brain)</th><th>Segmento</th></tr></thead><tbody><tr><td>RN-CORE-GL-241</td><td>LINEA (P010) no registra asientos contables ni genera movimientos en el General Ledger. Su único rol es actuar como **dispatcher online**: recibe el mensaje del terminal, determina sistema y pantalla, y delega la lógica de consulta a la biblioteca LIB-CONS{NNN} correspondiente (ej. LIB-CONS0017, LIB-CONS0084, LIB-CONS0264). No existe lógica GL en su PROCEDURE DIVISION; toda lectura de datos de negocio ocurre en la biblioteca destino.</td><td>Buffer WKS-MSG con header de ruteo a record y enum de resultado · Despacho por resultado del header y mensajes de rechazo</td></tr><tr><td>RN-CORE-GL-242</td><td>Cada sistema registrado en el hub mantiene **tres fechas de proceso independientes** administradas vía Pantalla 81: (1) `FECPRO` — fecha de proceso del día corriente; (2) `FECCON` — fecha de contabilización oficial del asiento GL; (3) `FEC151` — fecha interna propia del sistema 151. Estas tres fechas pueden diferir entre sí y se gestionan por separado, lo que permite reconciliaciones asíncronas entre el procesamiento operativo y el cierre contable.</td><td>Fecha de consulta contra FECCON, FECPRO y las diez fechas archivadas</td></tr><tr><td>RN-CORE-GL-243</td><td>El hub P010 solo enruta peticiones a sistemas cuyo `WKS-TAB-STASIS` sea igual a **3** (operación normal) o **5** (alternativo activo). Sistemas con STASIS diferente son excluidos del routing online. El valor de estatus se carga desde el dataset `B04SISTEM` durante la inicialización y se puede modificar vía Pantalla P86.</td><td>Estatus del sistema antes de llamar a su librería de consulta</td></tr><tr><td>RN-CORE-GL-244</td><td>**Corrección SME (Cristian Dueñas, sesión 24-jul):** La autorización en P010 NO es un modelo de &quot;3 niveles&quot; único — son **2 validaciones separadas** resueltas vía CALL al sistema **S41 (SEGURIDAD)**: (1) **validación de entidad/sucursal** (esta regla — `300010-CHECA-ENTIDAD`) y (2) **validación de operador por pantalla** (RN-CORE-GL-245 — códigos Q015{NNN}). El paragraph `300010-CHECA-ENTIDAD` evalúa el campo `W77-FACULTAD` para la validación de entidad: **FACULTAD=1** limita la operación a la propia sucursal de captura; **FACULTAD=2** autoriza consulta cross-sucursal; **FACULTAD=3** niega el acceso con error de seguridad (mensaje 87). El valor de FACULTAD se recupera de las tablas `WKS-TAB-FAC`, `WKS-TAB1-FAC` ... `WKS-TAB4-FAC` indexadas por (sucursal, sistema). **Gap call-graph:** la dependencia de P010 sobre S41 (CALL &quot;VALIDA\_FACULTAD IN SEGURIDAD&quot;) no está registrada en el call-graph actual — requiere actualización.</td><td>Compuertas de seguridad y armado del registro de bitácora · Facultad por sucursal: bloqueo de P17 y acceso cruzado</td></tr><tr><td>RN-CORE-GL-245</td><td>Cada pantalla del hub tiene asignado un código de transacción de seguridad `Q015{NNN}` hardcodeado en el COBOL. Estos códigos son consultados contra el sistema de seguridad `SEGURIDAD` vía `VALIDA_FACULTAD` para determinar si el usuario tiene permiso de operar la pantalla. El catálogo completo cubre pantallas 111–130C (consultas estándar) y pantallas 181A/B/M/C (administración). El código `Q015130C` identifica la pantalla de administración compuesta.</td><td>Compuertas de seguridad y armado del registro de bitácora</td></tr><tr><td>RN-CORE-GL-246</td><td>El operador de sistemas puede habilitar (`HI 41` → `W77-VALIDA-SEG=1`) o deshabilitar (`HI 42` → `W77-VALIDA-SEG=2`) la validación de seguridad en **tiempo de ejecución** sin reinicio del programa. Este mecanismo es una **herramienta de soporte operativo dev/QA** (KEYIN en sección HIGH del código fuente). En producción, deshabilitar la validación de seguridad **está penado** — existen controles y consecuencias para su uso no autorizado (SME Cristian Dueñas, sesión 24-jul). No es un riesgo sin controles compensatorios; es un interruptor de emergencia/QA con penalización explícita en producción.</td><td>HI 41, 42 y 43: activar, desactivar y consultar la validación de seguridad</td></tr><tr><td>RN-CORE-GL-247</td><td>La Pantalla P17 (Totales Nacionales — vista consolidada de movimientos a nivel nacional) está explícitamente bloqueada para operadores con `FACULTAD=1` (acceso solo a sucursal propia). Cuando FACULTAD=1 y el número de pantalla es 17, se establece `W77-CVE-RESOL=3` y se emite el mensaje de error 87 (SEG; NIVEL DE FACULTADES INSUFICIENTE). Esta restricción evita que cajeros o tellers de sucursal accedan a información de totales nacionales.</td><td>Facultad por sucursal: bloqueo de P17 y acceso cruzado</td></tr><tr><td>RN-CORE-GL-250</td><td>El dataset `CORE-GLB01SISDIA` (BD99CONTROL) mantiene hasta **10 fechas de proceso archivadas** por sistema en la estructura `B01-SIS-CTL-DIA OCCURS 10 TIMES` (campos `FECARCMOV/NIVARCMOV/NIVBDMOV/STAARCHLOG`). P010 las carga en la tabla en memoria `WKS-TAB-ELEFECCON(1..10)` → `WKS-TAB-FECPROC` durante la inicialización. La estructura permite consultas históricas a fechas anteriores, con ventana de hasta 10 días de proceso. &lt;span style=&quot;background:#FFF3CD;border-left:3px solid #A100FF;padding:2px 6px&quot;&gt;**Enriquecido [SME Cristian Dueñas, CORE-GL-10, 2026-08-01]:** El mecanismo de indexación usa **aritmética módulo-5** para determinar qué slot (1..10) usar en función de la fecha solicitada. El SME mencionó &quot;estructuras 1,11,21,31,41&quot; — referencia a posiciones de renglón dentro de BD99 donde residen los slots de fechas (espaciados ×10). El SME también citó &quot;P010→P130&quot; para la consulta histórica — pendiente aclarar si &quot;P130&quot; refiere al Agrupador Contable P130 o al entry-point CONSISDIA embebido en P010 (funciones 1-22 sobre B01SISDIA). **[PENDIENTE VERIFICACIÓN código: buscar COMPUTE/DIVIDE con MOD o REMAINDER en paragraphs de consulta histórica de P010]**&lt;/span&gt; **⚠ Corrección SME (Cristian Dueñas, sesión 24-jul):** En producción, el CORE-GL opera solo con la **fecha del día actual** (slot 1). La ventana multi-fecha existe en el código pero **no está activa en producción** — los slots 2..10 no se usan actualmente en producción CORE-GL.</td><td>Fecha de consulta contra FECCON, FECPRO y las diez fechas archivadas</td></tr><tr><td>RN-CORE-GL-251</td><td>El campo `WKS-B03-RESCSI` define a qué nodo CSI (Centro de Servicios Informáticos) está restringido cada sistema. Cuando `RESCSI = WKS-NUMCSI-HOST` (nodo local), el sistema solo puede ser consultado desde ese nodo. Este mecanismo implementa la topología distribuida de la red Unisys de LegacyCore, donde cada CSI es un nodo físico de cómputo. La restricción se evalúa en el routing para determinar si la petición puede ser procesada localmente o debe redirigirse.</td><td>Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema</td></tr><tr><td>RN-CORE-GL-254</td><td>El paragraph `420120-VALIDA-NUM-FEC` valida que la fecha ingresada por el usuario sea miembro del conjunto de fechas válidas: (1) igual a `FECCON` del sistema, (2) igual a `FECPRO` del sistema, o (3) igual a alguna de las 10 fechas procesadas históricas `FECPROC(1..10)` del sistema. Si no pertenece a ninguna de estas, se emite error 19. La validación numérica previa usa `JUSTIFIER IN LOCSUP`.</td><td>Fecha de consulta contra FECCON, FECPRO y las diez fechas archivadas</td></tr><tr><td>RN-CORE-GL-255</td><td>Cuando el campo `WKS-MSGHDR-RES=2` en el header del mensaje, P010 interpreta que la petición debe ser redirigida a otro nodo CSI (routing inter-nodo). En ese caso se modifica `WKS-MSGHDR-RES=3` y se copia el origen en el destino para redirigir. El sistema **264** es una excepción explícita que salta el routing CSI (`NEXT SENTENCE` cuando `SIS-NUME=264`), procesándose siempre localmente. Esta excepción también aplica al bypass de bitácora (ver RN-269).</td><td>Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema</td></tr><tr><td>RN-CORE-GL-256</td><td>Los sistemas con número **1** o **66** reciben tratamiento especial en el routing de sucursal: si el campo `WKS-SUC-NUME` tiene valor (sucursal ingresada), se emite el error **99** y se fuerza un redirect de mensaje (cuando WKS-MSGHDR-RES=2). Esto indica que los sistemas 1 y 66 son de tipo &quot;sin sucursal&quot; o de nivel nacional — toda consulta que lleve una sucursal específica es inválida para estos sistemas.</td><td>Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema</td></tr><tr><td>RN-CORE-GL-257</td><td>El programa LINEA se ejecuta como un proceso online persistente (daemon) en el nodo Unisys. El loop principal `PERFORM 200000-PROCESO UNTIL W77-FIN = 1` mantiene el programa activo indefinidamente, esperando mensajes. La terminación se activa mediante interrupciones del operador: `HI 4` = fin normal (cierre ordenado), `HI 6` = terminación de emergencia. Ambas rutas convergen en `PERFORM 999999-FIN` que ejecuta `SMCOMS DISABLE PROGRAM`.</td><td>Despacho por resultado del header y mensajes de rechazo · Espera de eventos COMS y fin por interrupción del operador</td></tr><tr><td>RN-CORE-GL-259</td><td>P010 llama a `GRABA_BITACORA IN CORE-GLL010` para registrar toda operación administrativa (cambios en fechas, estatus, parámetros de BD) con el estado anterior (`WKS-BIT-MSG-ANT`, 63 bytes) y posterior (`WKS-BIT-MSG-POST`, 1142 bytes). La bitácora incluye: nómina del operador, fecha/hora de inicio y fin, estación, sistema, pantalla y código de resultado. **Excepción**: cuando `NUMCSI-HOST=32 AND MSGHDR-RES=2`, la bitácora se omite (nodo especial CSI=32 sin registro).</td><td>Compuertas de seguridad y armado del registro de bitácora</td></tr><tr><td>RN-CORE-GL-261</td><td>Al recibir HI 4 (fin normal) o HI 6 (emergencia), P010 ejecuta el paragraph `999999-FIN` que invoca `SMCOMS OF SOPORTECOMS` con el comando `&quot;DISABLE PROGRAM&quot;`. Este comando Unisys MCP desregistra el programa del sistema de comunicaciones (COMS) para que no reciba más mensajes, antes de terminar la ejecución. Si SMCOMS retorna error, se registra en el log operativo pero la terminación continúa.</td><td>Espera de eventos COMS y fin por interrupción del operador</td></tr><tr><td>RN-CORE-GL-262</td><td>La evaluación de FACULTAD en `300010-CHECA-ENTIDAD` produce tres posibles resultados en `W77-CVE-RESOL`: **0** = no evaluado (inicial), **1** = acceso autorizado (FACULTAD=1 en propia sucursal, o FACULTAD=2 cross-sucursal), **3** = acceso denegado con error 87 (FACULTAD=1 en otra sucursal o FACULTAD=3). El paragraph `420300-CALL-FACULTAD` invoca `VALIDA_FACULTAD IN SEGURIDAD` para casos de validación externa; sus códigos negativos (-9=suspendido, -11..-2=error de validación) se mapean al campo `W77-RES-MSG` con código 78.</td><td>Facultad por sucursal: bloqueo de P17 y acceso cruzado</td></tr><tr><td>RN-CORE-GL-270</td><td>El sistema **264** tiene dos excepciones hardcodeadas: (1) en el routing CSI, se salta el ruteo estándar (`NEXT SENTENCE`) procesándose siempre localmente; (2) en la inicialización, recibe `CHANGE ATTRIBUTE TITLE` propio (LIB-CONS0264). Adicionalmente, en la inicialización hay código comentado para el sistema **501** (`*CHANGE ATTRIBUTE TITLE OF &quot;LIB-CONS0501&quot;`), lo que indica que el sistema 501 estuvo incluido y fue excluido deliberadamente en una versión posterior — riesgo de historia de cambios incompleta.</td><td>Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema</td></tr><tr><td>RN-CORE-GL-272</td><td>Toda operación en las pantallas de administración del sistema (P81, P82, P83 y similares) requiere la validación de una clave de supervisor (`CVE-SUP`) mediante el paragraph `420100-VALIDA-CVE-SUP`. Si la clave no es válida (campo no numérico o igual a cero — condición `NOT W88-NUM-SUP`), se emite el código de error **35** (`ERR035`). Este mecanismo implementa el principio de doble control: el operador ingresa la operación y el supervisor la autoriza con su clave.</td><td>Pantalla 81: transacción válida y clave de supervisor</td></tr></tbody></table>
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Claves de supervisor en el fuente</b><p>Las claves que autorizan las pantallas de administración 81 a 88 están compiladas como valores de los niveles 88 W88-NUM-SUP, W88-NUM-SUPACT y W88-NUM-SUPCONS (líneas 10305-10313). Cualquier persona con acceso al fuente o al listado de compilación las conoce, y cambiarlas exige recompilar. No se reproducen en esta página a propósito.</p></div><div class="risk"><b>Validación de entidad que no niega por omisión</b><p>En 300010-CHECA-ENTIDAD, si la combinación sucursal y sistema no está en el catálogo, la facultad queda en 0 y no se asigna el error 87 (líneas 12173-12190). La petición sigue y solo la detiene 420210-CHECA-SEGURIDAD.</p></div><div class="risk"><b>Seguridad desactivable en caliente</b><p>HI 42 desactiva todas las validaciones de entidad y facultad sin reinicio (líneas 10662-10666). El brain indica que existen controles administrativos, pero el programa no exige ninguna autorización adicional.</p></div><div class="risk"><b>Fechas de consulta aceptadas sin validar</b><p>En 420120-VALIDA-NUM-FEC una fecha no numérica o en cero se reemplaza por FECCON (líneas 16469-16470), y si no hay fechas archivadas el error 19 nunca se asigna.</p></div><div class="risk"><b>Ruteo y librerías por número de sistema compilados</b><p>410000-CALL-LIBXSIS tiene una cadena de 25 IF con el número de sistema y el nombre de librería LIB-CONSnnnn fijos (líneas 16049-16186), con los sistemas 43 y 501 comentados. Los sistemas 1, 66 y 264, la sucursal 859 de la pantalla 24 y el CSI 32 tienen tratamiento especial en código.</p></div><div class="risk"><b>Contenido del mensaje en el log</b><p>Ante un error de RECEIVE el programa escribe en el log LJ el header completo y WKS-TEXTO (líneas 17160-17167), que puede incluir números de cuenta capturados por el usuario.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>RN-CORE-GL-243 dice que se enrutan los sistemas con STASIS 3 o 5; en 400000-VERIFICA-TIPO-ESQUEMA solo el 3 llega a la librería y el 5 responde con el mensaje 26. Confirmar si el 5 se atiende por otra ruta.</li><li>RN-CORE-GL-255 dice que con RES = 2 el mensaje se cambia a RES = 3; en el fuente ese cambio solo ocurre para los sistemas 1 y 66 con sucursal capturada (líneas 16235-16239). El ruteo normal pone RES = 2. Revisar la redacción de la regla.</li><li>RN-CORE-GL-272 describe la clave de supervisor como un campo que no debe ser cero ni no numérico; en el fuente es pertenencia a una lista fija de claves (líneas 10305-10313). Revisar la regla.</li><li>Confirmar con el SME de COMS si tras DISABLE PROGRAM el RECEIVE devuelve siempre el estatus 99, que es lo que hoy termina el programa.</li><li>No se revisó 420300-CALL-FACULTAD ni el detalle de cada pantalla 11 a 30; la traducción de las pantallas queda fuera de esta demostración.</li><li>Confirmar el significado del tope de 500 en 400000-VERIFICA-TIPO-ESQUEMA frente a los 9999 sistemas que recorre 700000-ALTA-LIBS-CONS en la inicialización.</li></ul>
+  <div class="pn"><a href="CORE-GL_P007.html">← CORE-GL · P007</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P011.html">CORE-GL · P011 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · LegacyCore · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Buffer WKS-MSG con header de ruteo a record y enum de resultado", "cobol": " 01  WKS-MSG                       PIC X(1920) WITH LOWER-BOUNDS. 003500\n 01  WKS-MSG-R                     REDEFINES WKS-MSG.             003600\n     02 WKS-MSG-HEADER.                                           003700\n        03 WKS-MSGHDR-PREFIJO      PIC X(01).                     003800\n        03 WKS-MSGHDR-APL-DES      PIC X(01).                     003900\n        03 WKS-MSGHDR-CCR-DES      PIC 9(02).                     004000\n        03 WKS-MSGHDR-LST-ORG      PIC 9(04).                     004100\n        03 WKS-MSGHDR-LST-ORG-R    REDEFINES                      004200\n           WKS-MSGHDR-LST-ORG      PIC 9(08) COMP.                004300\n        03 WKS-MSGHDR-STATION.                                    004400\n           04 WKS-MSGHDR-TPO       PIC X(01).                     004500\n           04 WKS-MSGHDR-SUC       PIC 9(04).                     004600\n           04 WKS-MSGHDR-CJAL      PIC X(03).                     004610\n           04 WKS-MSGHDR-CJAL-R    REDEFINES WKS-MSGHDR-CJAL.     004615\n              05 WKS-MSGHDR-PRIV   PIC X(01).                     004700\n              05 WKS-MSGHDR-CAJ    PIC 9(02).                     004800\n        03 WKS-MSGHDR-CCR-ORG      PIC 9(02).                     004900\n        03 WKS-MSGHDR-COP-ORG      PIC 9(02).                     005000\n        03 WKS-MSGHDR-FAC          PIC 9(02).                     005100\n        03 WKS-MSGHDR-FAC-R        REDEFINES                      005200\n           WKS-MSGHDR-FAC          PIC X(02).                     005300\n        03 WKS-MSGHDR-APL-ORG      PIC X(01).                     005400\n        03 WKS-MSGHDR-RES          PIC 9(02).                     005500\n           88 W88-MSGRES-APL       VALUE 2, 4.                    005600\n           88 W88-MSGRES-RED       VALUE 11, 12.                  005700\n           88 W88-MSGRES-REDFOR    VALUE 12.                      005800\n           88 W88-MSGRES-MAS       VALUE 3.                       005900\n           88 W88-MSGRES-TER       VALUE 1.                       006000\n           88 W88-MSGRES-ERR       VALUE 31, 32, 33.              006100\n           88 W88-MSGRES-NOEXIAPL  VALUE 32.                      006200\n        03 WKS-MSGHDR-MASC         PIC X(5).                      006300\n        03 WKS-MSGHDR-MASC-R       REDEFINES WKS-MSGHDR-MASC.     006400\n           04 WKS-MSGHDR-MASC-1ER  PIC 9(03).                     006500\n           04 WKS-MSGHDR-MASC-2DO  PIC 9(02).                     006600\n        03 WKS-MSGHDR-PWR          PIC X(6).                      006700\n     02 WKS-TEXTO                  PIC X(1884).                   006800\n     02 WKS-TEXTO-R                REDEFINES WKS-TEXTO.           006900\n        03 WKS-MSGTRAN-CODDES      PIC 9(06).                     007000\n        03 WKS-MSGTRAN-CODORI      PIC 9(06).                     007100\n        03 WKS-MSG-TEXTO           PIC X(1872).                   007200\n     02 WKS-TEXTO-TABLA            REDEFINES                      007300\n        WKS-TEXTO                  OCCURS 1884 TIMES.             007400\n        03 WKS-MSGREM-TEXTO-CHAR   PIC X(01).                     007500", "java": "/** WKS-MSG: 1920 bytes = header de 36 posiciones + WKS-TEXTO X(1884). */\npublic record ComsMessage(Header header, String texto) {\n\n    public record Header(char prefijo, char aplDestino,\n                         int csiDestino,            // WKS-MSGHDR-CCR-DES 9(02)\n                         int lstOrigen,             // 9(04), REDEFINES binario 9(08) COMP\n                         Estacion estacion,\n                         int csiOrigen,             // WKS-MSGHDR-CCR-ORG 9(02)\n                         int copOrigen, String facultad,\n                         char aplOrigen,\n                         int resultado,             // WKS-MSGHDR-RES 9(02)\n                         String mascara,            // X(5): 3 dígitos de sistema + 2 de pantalla\n                         String pwr) {\n        public ResultadoHeader tipo() { return ResultadoHeader.of(resultado); }\n    }\n\n    /** TPO X + sucursal 9(04) + privilegio X + caja 9(02). La sucursal se conserva con ceros. */\n    public record Estacion(char tipo, String sucursal, char privilegio, String caja) {}\n}\n\n/** Niveles 88 de WKS-MSGHDR-RES. */\npublic enum ResultadoHeader {\n    TERMINAL(1), APLICACION(2, 4), MAESTRO(3), RED(11, 12),\n    NO_EXISTE_APLICACION(32), ERROR(31, 33), OTRO;\n\n    private final Set<Integer> valores;\n    ResultadoHeader(Integer... v) { this.valores = Set.of(v); }\n\n    static ResultadoHeader of(int r) {\n        return Arrays.stream(values()).filter(t -> t.valores.contains(r)).findFirst().orElse(OTRO);\n    }\n}", "rationale": "El header de COMS se lee por posición y cada <code>REDEFINES</code> se vuelve un tipo propio: la estación se separa en sucursal, privilegio y caja, y el resultado se interpreta con un <code>enum</code> que reproduce los niveles 88. En COBOL el valor 32 pertenece a la vez a <code>W88-MSGRES-ERR</code> y a <code>W88-MSGRES-NOEXIAPL</code>; como 200000-PROC pregunta primero por NOEXIAPL, el enum lo separa en su propia constante para conservar ese orden de evaluación. La sucursal y la caja se guardan como <code>String</code> para no perder ceros a la izquierda.", "risk": "", "rules": ["RN-CORE-GL-241"], "lines": "L346–388", "verified": true, "score": 100}, "s2": {"title": "Despacho por resultado del header y mensajes de rechazo", "cobol": " 200000-PROC.                                                     145800\n     MOVE \"I\" TO TIPO-LJ.                                         145900\n     MOVE 050110 TO CODIGO-LJ.                                    146000\n     PERFORM 210000-INIC-VAR.                                     146100\n     PERFORM 600000-RECEIVE-MSG.                                  146200\n     IF W77-FIN = ZEROS                                           146300\n        IF W88-MSGRES-APL OR W88-MSGRES-RED OR W88-MSGRES-MAS OR  146400\n           W88-MSGRES-TER                                         146500\n           PERFORM 300000-PROCESA-MSG                             146600\n           PERFORM 600000-SEND-MSG                                146700\n        ELSE                                                      146800\n        IF W88-MSGRES-NOEXIAPL                                    146900\n           MOVE 29                 TO W77-RES-MSG                 147000\n           MOVE SPACES             TO WKS-SAL-ERRDATOS            147100\n           MOVE WKS-ELE-MSG(W77-RES-MSG)                          147200\n                                   TO WKS-SAL-ERRLEY              147300\n           MOVE 1867               TO W77-LONG-MSG                147400\n           MOVE WKS-SAL-TEXTO      TO WKS-DATOS-RES               147500\n           PERFORM 600000-SEND-MSG                                147600\n        ELSE                                                      147700\n        IF W88-MSGRES-ERR                                         147800\n           MOVE 30                 TO W77-RES-MSG                 147900\n           MOVE SPACES             TO WKS-SAL-ERRDATOS            148000\n           MOVE WKS-ELE-MSG(W77-RES-MSG)                          148100\n                                   TO WKS-SAL-ERRLEY              148200\n           MOVE 1867               TO W77-LONG-MSG                148300\n           MOVE WKS-SAL-TEXTO      TO WKS-DATOS-RES               148400\n           PERFORM 600000-SEND-MSG                                148500\n        ELSE                                                      148600\n           MOVE 31                 TO W77-RES-MSG                 148700\n           MOVE SPACES             TO WKS-SAL-ERRDATOS            148800\n           MOVE WKS-ELE-MSG(W77-RES-MSG)                          148900\n                                   TO WKS-SAL-ERRLEY              149000\n           MOVE 1867               TO W77-LONG-MSG                149100\n           MOVE WKS-SAL-TEXTO      TO WKS-DATOS-RES               149200\n           PERFORM 600000-SEND-MSG.                               149300\n     GO TO 299999-EXIT.                                           149400", "java": "@Component\n@RequiredArgsConstructor\npublic class LineaGateway {\n\n    private final PantallaDispatcher pantallas;      // 300000-PROCESA-MSG\n    private final CatalogoMensajes mensajes;         // WKS-ELE-MSG(n)\n\n    /** 200000-PROC: una iteración del ciclo por cada mensaje recibido de COMS. */\n    @ServiceActivator(inputChannel = \"comsEntrada\", outputChannel = \"comsSalida\")\n    public ComsRespuesta atiende(ComsMessage msg) {\n        return switch (msg.header().tipo()) {\n            case APLICACION, RED, MAESTRO, TERMINAL -> pantallas.procesa(msg);\n            case NO_EXISTE_APLICACION -> rechazo(msg, 29);\n            case ERROR                -> rechazo(msg, 30);\n            case OTRO                 -> rechazo(msg, 31);\n        };\n    }\n\n    private ComsRespuesta rechazo(ComsMessage msg, int codigo) {\n        // MOVE 1867 TO W77-LONG-MSG: la respuesta de error ocupa el área de texto completa\n        return ComsRespuesta.error(msg.header(), mensajes.texto(codigo), 1867);\n    }\n}", "rationale": "Cada vuelta de <code>PERFORM 200000-PROCESO UNTIL W77-FIN = 1</code> atiende un mensaje. En Spring Integration el ciclo infinito lo da el adaptador de entrada y el párrafo queda como un <code>@ServiceActivator</code> sin estado entre mensajes, lo que permite escalar horizontalmente. Los tres rechazos solo difieren en el número de mensaje (29, 30 y 31), por eso se factorizan en un método. El <code>switch</code> sobre el enum es exhaustivo, igual que la cadena de IF anidados.", "risk": "", "rules": ["RN-CORE-GL-241", "RN-CORE-GL-257"], "lines": "L11469–11505", "verified": true, "score": 100}, "s3": {"title": "Espera de eventos COMS y fin por interrupción del operador", "cobol": " 600000-REC-MSG.                                                  667500\n     MOVE ZERO TO W77-CONTROL.                                    667600\n     CALL \"ESPERACOMS OF SOPORTECOMS\"                             667700\n           USING  W77-ESPERACOMS-TIEMPO                           667800\n           GIVING W77-ESPERACOMS-TIPO-EVENTO.                     667900\n      *> ⋯ 1 línea omitida\n     IF W88-POR-MSG OR W88-POR-EVENTO                             668100\n        NEXT SENTENCE                                             668200\n     ELSE                                                         668300\n        IF W88-POR-ACCEPT                                         668400\n           ACCEPT WKS-SCRATCH                                     668500\n           MOVE 1                  TO W77-CONTROL                 668600\n        ELSE                                                      668700\n        IF W88-POR-HI                                             668800\n           IF W88-HI-FIN-NORMAL OR W88-HI-FIN-EMERGENCIA          668900\n              MOVE 1               TO W77-FIN                     669000\n                                      W77-CONTROL                 669100\n              PERFORM 999999-FIN                                  669200\n           ELSE                                                   669300\n              MOVE 1               TO W77-CONTROL                 669400\n              MOVE ZERO            TO W77-HI-INTERRUPT            669500\n        ELSE                                                      669600\n        IF W88-POR-TIMEOUT                                        669700\n           MOVE 1                  TO W77-CONTROL                 669800\n        ELSE                                                      669900\n           MOVE W77-ESPERACOMS-TIPO-EVENTO TO                     670000\n                WKS-ESPERACOMS-TIPO-EVENTO                        670100\n           STRING \"EVENTO DESCONOCIDO \"WKS-ESPERACOMS-TIPO-EVENTO 670200\n           DELIMITED BY SIZE INTO TEXTO-LJ                        670300\n           MOVE \"I\"                TO TIPO-LJ                     670400\n           PERFORM 800000-DISPLAY                                 670500\n           MOVE 1        TO W77-CONTROL.                          670600\n     IF W77-CONTROL = ZEROS                                       670700\n        RECEIVE CS-COMS-IN MESSAGE INTO WKS-MSG                   670800\n        NO DATA                                                   670900\n           NEXT SENTENCE.                                         671000", "java": "@Configuration\npublic class ComsIntegrationConfig {\n\n    /** ESPERACOMS + RECEIVE CS-COMS-IN: el adaptador entrega solo eventos de tipo mensaje. */\n    @Bean\n    IntegrationFlow entradaComs(ComsInboundAdapter coms, LineaGateway gateway) {\n        return IntegrationFlow.from(coms, c -> c.poller(Pollers.fixedDelay(Duration.ZERO)))\n                .filter(ComsEvento.class, ComsEvento::esMensaje)      // ACCEPT, TIMEOUT y HI no generan respuesta\n                .transform(ComsEvento::mensaje)\n                .handle(gateway, \"atiende\")\n                .channel(\"comsSalida\")\n                .get();\n    }\n}\n\n/** HI 4 (fin normal) y HI 6 (emergencia) pasan a ser el apagado ordenado del contenedor. */\n@Component\n@RequiredArgsConstructor\nclass ComsLifecycle implements SmartLifecycle {\n    private final ComsAdministracion coms;\n    private volatile boolean activo;\n\n    @Override public void start() { coms.habilitaPrograma(); activo = true; }   // 140000-ALTA-COMS\n    @Override public void stop()  { coms.deshabilitaPrograma(); activo = false; } // 999999-FIN: SMCOMS \"DISABLE PROGRAM\"\n    @Override public boolean isRunning() { return activo; }\n}", "rationale": "600000-REC-MSG combina espera, filtrado de eventos y recepción. Los eventos que no son mensaje (ACCEPT, timeout, otras HI) solo ponen <code>W77-CONTROL = 1</code> y regresan a esperar; en Java eso es un <code>filter</code> en el flujo de entrada. La terminación por HI 4 o HI 6 llama a 999999-FIN, que deshabilita el programa en COMS; su equivalente es el <code>stop()</code> de un <code>SmartLifecycle</code>, de modo que un apagado del pod o del servicio produce la misma baja ordenada.", "risk": "Tras HI 4 o HI 6 el párrafo deja W77-CONTROL = 1 y vuelve a 600000-REC-MSG (líneas 17232-17233), por lo que el ciclo no sale por W77-FIN sino cuando COMS devuelve el estatus 99 que ejecuta STOP RUN (línea 17146). Además 999999-FIN se invoca de nuevo desde 000000-INIPGM si el ciclo llegara a terminar.", "rules": ["RN-CORE-GL-257", "RN-CORE-GL-261"], "lines": "L17103–17138", "verified": true, "score": 100}, "s4": {"title": "HI 41, 42 y 43: activar, desactivar y consultar la validación de seguridad", "cobol": "     IF W88-HI-ALTA-SEGURIDAD                                     078900\n        MOVE 010132                            TO CODIGO-LJ       079000\n        MOVE \"VALIDA SEGURIDAD\"                TO TEXTO-LJ        079100\n        MOVE 1                                 TO W77-VALIDA-SEG  079200\n        PERFORM 800000-DISPLAY                                    079300\n     ELSE                                                         079400\n     IF W88-HI-BAJA-SEGURIDAD                                     079500\n        MOVE 010132                            TO CODIGO-LJ       079600\n        MOVE \"NO VALIDA SEGURIDAD\"             TO TEXTO-LJ        079700\n        MOVE 2                                 TO W77-VALIDA-SEG  079800\n        PERFORM 800000-DISPLAY                                    079900\n     ELSE                                                         080000\n     IF W88-HI-ESTATUS-SEGURIDAD                                  080100\n        IF W88-VALIDA-SEG                                         080110\n           MOVE \"VALIDANDO SEGURIDAD\"             TO TEXTO-LJ     080120\n           MOVE 010132                            TO CODIGO-LJ    080200\n           PERFORM 800000-DISPLAY                                 080400\n        ELSE                                                      080410\n          MOVE \"SIN VALIDAR SEGURIDAD\"           TO TEXTO-LJ      080420\n          MOVE 010132                            TO CODIGO-LJ     080430\n          PERFORM 800000-DISPLAY                                  080440", "java": "# application.yml\nlinea:\n  seguridad:\n    validar: true        # W77-VALIDA-SEG: 1 = valida, 2 = no valida\n\n// ---------------------------------------------------------------------------\n@RefreshScope\n@ConfigurationProperties(\"linea.seguridad\")\npublic record SeguridadProperties(boolean validar) {}\n\n/** Reemplaza HI 41/42/43 por un endpoint de Actuator protegido y auditado. */\n@Component\n@Endpoint(id = \"seguridad-linea\")\n@RequiredArgsConstructor\nclass SeguridadEndpoint {\n    private final ConfigToggle toggle;\n    private final Auditoria auditoria;\n\n    @ReadOperation\n    public String estatus() {                                     // HI 43\n        return toggle.validar() ? \"VALIDANDO SEGURIDAD\" : \"SIN VALIDAR SEGURIDAD\";\n    }\n\n    @WriteOperation\n    public void cambia(boolean validar, @Selector String usuario) { // HI 41 / HI 42\n        auditoria.registra(\"linea.seguridad.validar\", toggle.validar(), validar, usuario);\n        toggle.validar(validar);\n    }\n}", "rationale": "La interrupción del operador cambia en caliente <code>W77-VALIDA-SEG</code> y deja una línea en el log LJ. En la arquitectura destino ese interruptor es una propiedad refrescable expuesta por un endpoint de Actuator que exige rol administrativo y registra quién lo movió, porque el brain documenta que apagar la seguridad en producción está penado. Se conserva el texto de estatus de HI 43.", "risk": "Con HI 42 se omiten tanto 300010-CHECA-ENTIDAD como 420210-CHECA-SEGURIDAD para todas las pantallas, sin reinicio y sin más rastro que el mensaje del log LJ.", "rules": ["RN-CORE-GL-246"], "lines": "L10656–10676", "verified": true, "score": 100}, "s5": {"title": "Compuertas de seguridad y armado del registro de bitácora", "cobol": "     IF W88-VALIDA-SEG AND WKS-MSGHDR-RES NOT = 2                 156900\n        PERFORM 300010-CHECA-ENTIDAD.                             157000\n      *> ⋯ 1 línea omitida\n     IF W88-VALIDA-SEG AND (WKS-MSGHDR-RES NOT = 2) AND           157200\n        W77-RES-MSG = ZEROS                                       157300\n        PERFORM 420210-CHECA-SEGURIDAD.                           157400\n      *> ⋯ 1 línea omitida\n     MOVE SPACES                  TO WKS-BIT-MSG-ANT              157600\n                                     WKS-BIT-MSG-POST.            157700\n      *> ⋯ 1 línea omitida\n     MOVE WS-FAC-ELEM2(1)         TO WKS-BIT-NOMINA   .           157900\n     MOVE WKS-MSGHDR-STATION      TO WKS-BIT-ESTACION  .          158000\n     MOVE WKS-MSGHDR-MASC         TO WKS-BIT-CVE-PANTALLA.        158100\n     MOVE \"CORE-GL\"                  TO WKS-BIT-SISTEMA  .           158200\n     MOVE W77-CVE-RESOL           TO WKS-BIT-CVE-RESULT.          158300", "java": "@Service\n@RequiredArgsConstructor\npublic class AutorizacionService {\n\n    private final SeguridadProperties seguridad;\n    private final EntidadService entidades;          // 300010-CHECA-ENTIDAD\n    private final FacultadClient facultades;         // 420210-CHECA-SEGURIDAD -> VALIDA_FACULTAD\n\n    public Autorizacion autoriza(Peticion p, ComsMessage.Header h) {\n        boolean local = h.resultado() != 2;          // un mensaje reenviado (RES = 2) ya se validó en el nodo origen\n        Autorizacion a = Autorizacion.noEvaluada();\n        if (seguridad.validar() && local) {\n            a = entidades.checa(p, h);\n        }\n        if (seguridad.validar() && local && p.sinError()) {\n            a = a.con(facultades.valida(p.claveTransaccion(), h));\n        }\n        return a;\n    }\n}\n\n/** WKS-REG-BITACORA, parte común a todas las pantallas. */\npublic record Bitacora(String nomina, String estacion, String clavePantalla,\n                       String sistema,                 // \"CORE-GL\" fijo\n                       int claveResultado,             // W77-CVE-RESOL\n                       String antes, String despues) {}", "rationale": "Las dos validaciones se ejecutan solo si la seguridad está activa y el mensaje no viene reenviado desde otro nodo. La segunda, contra el sistema de seguridad, además exige que la primera no haya dejado error. El registro de bitácora toma la nómina del usuario, la estación y la máscara de pantalla, y guarda la clave de resolución de la entidad. El literal <code>CORE-GL</code> se deja como constante porque identifica al propio sistema.", "risk": "", "rules": ["RN-CORE-GL-244", "RN-CORE-GL-245", "RN-CORE-GL-259"], "lines": "L11997–12011", "verified": true, "score": 100}, "s6": {"title": "Facultad por sucursal: bloqueo de P17 y acceso cruzado", "cobol": " 300010-CHECA-ENTIDAD.                                            171100\n*=====================                                            171200\n     MOVE ZERO                     TO W77-SALIDA                  171300\n                                      W77-ENTIDAD.                171400\n     MOVE WKS-TAB-INDSIS(WKS-MSGHDR-SUC) TO W77-IND1.             171500\n     MOVE W77-IND1                       TO W77-SUCURSAL.         171600\n     IF W88-SUC-0001-999                                          171700\n        PERFORM 300012-BUSCA-SISTEMA VARYING W77-IND2 FROM 1 BY 1 171800\n                                     UNTIL   W77-IND2 > 30   OR   171900\n                                             W77-SALIDA = 1       172000\n     ELSE                                                         172100\n     IF W88-SUC-1000-1999                                         172200\n        COMPUTE W77-IND1 = W77-IND1 - 999                         172300\n        PERFORM 300013-BUSCA1-SISTEMA VARYING W77-IND2 FROM 1 BY 1172400\n                                      UNTIL   W77-IND2 > 30   OR  172500\n                                              W77-SALIDA = 1      172600\n     ELSE                                                         172700\n     IF W88-SUC-2000-2999                                         172800\n        COMPUTE W77-IND1 = W77-IND1 - 1999                        172900\n        PERFORM 300014-BUSCA2-SISTEMA VARYING W77-IND2 FROM 1 BY 1173000\n                                      UNTIL   W77-IND2 > 30   OR  173100\n                                              W77-SALIDA = 1      173200\n     ELSE                                                         173300\n     IF W88-SUC-3000-3999                                         173400\n        COMPUTE W77-IND1 = W77-IND1 - 2999                        173500\n        PERFORM 300015-BUSCA3-SISTEMA VARYING W77-IND2 FROM 1 BY 1173600\n                                      UNTIL   W77-IND2 > 30   OR  173700\n                                              W77-SALIDA = 1      173800\n     ELSE                                                         173900\n     IF W88-SUC-4000-4999                                         174000\n        COMPUTE W77-IND1 = W77-IND1 - 3999                        174100\n        PERFORM 300016-BUSCA4-SISTEMA VARYING W77-IND2 FROM 1 BY 1174200\n                                      UNTIL   W77-IND2 > 30   OR  174300\n                                              W77-SALIDA = 1.     174400\n    MOVE ZERO                      TO W77-CVE-RESOL.              174500\n    IF W77-FACULTAD = 1                                           174600\n      IF WKS-PAN-ENTNUMPAN = 17                                   174700\n         MOVE 3                    TO W77-CVE-RESOL               174800\n         MOVE 87                   TO W77-RES-MSG                 174900\n      ELSE                                                        175000\n      IF W77-SUC-CAPTURA = WKS-MSGHDR-SUC                         175100\n         MOVE 1                    TO W77-CVE-RESOL               175200\n      ELSE                                                        175300\n         MOVE 3                    TO W77-CVE-RESOL               175400\n         MOVE 87                   TO W77-RES-MSG                 175500\n    ELSE                                                          175600\n    IF W77-FACULTAD = 2                                           175700\n       MOVE 1                       TO W77-CVE-RESOL              175800\n    ELSE                                                          175900\n    IF W77-FACULTAD = 3                                           176000\n       MOVE 3                       TO W77-CVE-RESOL              176100\n       MOVE 87                      TO W77-RES-MSG.               176200", "java": "@Service\n@RequiredArgsConstructor\npublic class EntidadService {\n\n    private final EntidadSucursalRepository entidades;   // WKS-TAB..WKS-TAB4: 5 bloques de 999 x 30\n\n    public Autorizacion checa(Peticion p, ComsMessage.Header h) {\n        String sucursalTerminal = h.estacion().sucursal();\n        int facultad = entidades.facultad(sucursalTerminal, p.sistema())   // 300012..300016-BUSCA\n                                .orElse(0);                                // no encontrado: W77-FACULTAD queda en 0\n        return switch (facultad) {\n            case 1 -> (p.pantalla() == 17)\n                        ? Autorizacion.denegada(87)                      // P17 Totales Nacionales\n                        : p.sucursalCaptura().equals(sucursalTerminal)\n                            ? Autorizacion.autorizada()\n                            : Autorizacion.denegada(87);\n            case 2 -> Autorizacion.autorizada();                         // acceso a cualquier sucursal\n            case 3 -> Autorizacion.denegada(87);\n            default -> Autorizacion.noEvaluada();                        // W77-CVE-RESOL = 0, sin error\n        };\n    }\n}", "rationale": "El COBOL parte la tabla de entidades en cinco arreglos de 999 posiciones porque el índice de sucursal no cabía en uno solo; en Java es una consulta por llave sucursal y sistema contra un repositorio JPA o una caché cargada al arranque. La regla de facultad se traduce literal: facultad 1 solo ve su propia sucursal y nunca la pantalla 17, facultad 2 ve todas y facultad 3 se rechaza con el mensaje 87. Cualquier otro valor deja la resolución en 0 sin error, igual que el fuente.", "risk": "Si la sucursal o el sistema no están en el catálogo, W77-FACULTAD queda en 0, no se asigna el error 87 y la petición continúa a 420210-CHECA-SEGURIDAD. La validación de entidad no niega por omisión.", "rules": ["RN-CORE-GL-244", "RN-CORE-GL-247", "RN-CORE-GL-262"], "lines": "L12139–12190", "verified": true, "score": 100}, "s7": {"title": "Pantalla 81: transacción válida y clave de supervisor", "cobol": "     MOVE WKS-ENT-P81TRA           TO W77-CVE-TRA                 377300\n     IF NOT W88-CVE-TRA                                           377400\n        MOVE 36                    TO W77-RES-MSG.                377500\n     IF W77-RES-MSG = 0                                           377600\n        MOVE WKS-APU-SIS(WKS-ENT-P81SIS) TO W77-I                 377700\n        IF W77-I = ZERO                                           377800\n           IF W88-CVE-ALTA                                        377900\n              MOVE ZEROS           TO W77-RES-MSG                 378000\n           ELSE                                                   378100\n              MOVE 40              TO W77-RES-MSG.                378200\n     MOVE WKS-ENT-P81CSI-A         TO WKS-CSI-ALFA                378300\n     PERFORM 420070-VALIDA-NUM-CSI                                378400\n     MOVE WKS-CSI-NUME             TO WKS-ENT-P81CSI.             378500\n     MOVE WKS-ENT-P81SUP           TO W77-NUM-SUP                 378600\n     PERFORM 420100-VALIDA-CVE-SUP.                               378700\n     IF W88-NUM-SUPACT AND W88-CVE-TRA                            378800\n        NEXT SENTENCE                                             378900\n     ELSE                                                         379000\n     IF W88-CVE-CONS AND W88-NUM-SUPCONS                          379100\n        NEXT SENTENCE                                             379200\n     ELSE                                                         379300\n        MOVE 98                    TO W77-RES-MSG.                379400", "java": "# application.yml  (las claves dejan de estar compiladas en niveles 88)\nlinea:\n  supervisores:\n    actualizan: ${LINEA_SUP_ACTUALIZAN}   # W88-NUM-SUPACT, desde el gestor de secretos\n    consultan:  ${LINEA_SUP_CONSULTAN}    # W88-NUM-SUPCONS\n\n// ---------------------------------------------------------------------------\nenum Transaccion { ALTA, BAJA, CAMB, CONS }       // W88-CVE-TRA\n\n@Component\n@RequiredArgsConstructor\nclass ClaveSupervisorValidator {\n    private final SupervisoresProperties sup;\n\n    private final CsiValidator csi;                // 420070-VALIDA-NUM-CSI\n\n    /** 310081-PANTALLA-81. Se respeta el orden del COBOL: cada paso puede sobrescribir el código anterior. */\n    int valida(String trx, int apuntadorSistema, String csiCapturado, String claveSup) {\n        int codigo = 0;\n        Optional<Transaccion> t = Transaccion.parse(trx);\n        if (t.isEmpty()) codigo = 36;\n        if (codigo == 0 && apuntadorSistema == 0) {\n            codigo = (t.get() == Transaccion.ALTA) ? 0 : 40;\n        }\n        codigo = csi.valida(csiCapturado, codigo);\n        if (!sup.todas().contains(claveSup)) codigo = 35;                // 420100-VALIDA-CVE-SUP\n        boolean actualiza = t.isPresent() && sup.actualizan().contains(claveSup);\n        boolean consulta  = t.filter(x -> x == Transaccion.CONS).isPresent()\n                            && sup.consultan().contains(claveSup);\n        if (!actualiza && !consulta) codigo = 98;\n        return codigo;\n    }\n}", "rationale": "La autorización de las pantallas de administración depende de dos listas de claves de supervisor declaradas como valores de niveles 88 en WORKING-STORAGE (líneas 10305 a 10313). En Java esas listas salen del código y se leen de un gestor de secretos; idealmente se sustituyen por roles del IdP. La traducción conserva el orden exacto de los IF porque cada uno puede sobrescribir el código anterior: transacción, existencia del sistema, CSI, clave en la lista general y, al final, la combinación de clave y transacción.", "risk": "Los códigos 36 (transacción inválida) y 35 (clave no reconocida) nunca llegan al usuario: en ambos casos la condición final es falsa y el 98 los sobrescribe, porque las listas de actualización y consulta son subconjuntos de la lista general.", "rules": ["RN-CORE-GL-272"], "lines": "L14201–14222", "verified": true, "score": 100}, "s8": {"title": "Estatus del sistema antes de llamar a su librería de consulta", "cobol": " 400000-VERIFICA-TIPO-ESQUEMA.                                    560000\n     IF W77-I > ZEROS AND  W77-I < 500                            560100\n        IF WKS-TAB-STASIS(W77-I) = 3                              560200\n           IF WKS-STA-EXPGM(W77-I) = 2                            560300\n              PERFORM 410000-CALL-LIBXSIS                         560400\n           ELSE                                                   560500\n              MOVE 41              TO W77-RES-MSG                 560600\n        ELSE                                                      560700\n        IF WKS-TAB-STASIS(W77-I) = 2 OR 1                         560800\n           MOVE 40              TO W77-RES-MSG                    560900\n        ELSE                                                      561000\n           MOVE 26                 TO W77-RES-MSG                 561100\n     ELSE                                                         561200\n        MOVE 40                    TO W77-RES-MSG.                561300", "java": "@Component\nclass EsquemaSistemaValidator {\n\n    /** 400000-VERIFICA-TIPO-ESQUEMA: 0 = se puede llamar a la librería de consulta. */\n    int valida(int apuntador, SistemaCatalogo s) {\n        if (apuntador <= 0 || apuntador >= 500) return 40;\n        return switch (s.estatus()) {                          // WKS-TAB-STASIS desde B04SISTEM\n            case 3    -> s.tipoExpgm() == 2 ? 0 : 41;          // 410000-CALL-LIBXSIS\n            case 1, 2 -> 40;\n            default   -> 26;\n        };\n    }\n}", "rationale": "Solo un sistema con estatus 3 y librería de consulta de tipo 2 llega a la llamada de consulta; estatus 1 o 2 regresa el mensaje 40 y cualquier otro el 26. El tope de 500 corresponde al tamaño de la tabla en memoria y en Java se valida igual para no cambiar los códigos de respuesta.", "risk": "El fuente no trata el estatus 5 en este párrafo: cae en la rama final y responde 26.", "rules": ["RN-CORE-GL-243"], "lines": "L16028–16041", "verified": true, "score": 100}, "s9": {"title": "Fecha de consulta contra FECCON, FECPRO y las diez fechas archivadas", "cobol": " 420120-VALIDA-NUM-FEC.                                           603600\n     MOVE 3                        TO WKS-FUNCION                 603700\n     MOVE 0                        TO WKS-FORMATO                 603800\n     CALL \"JUSTIFIER IN LOCSUP\"                                   603900\n           USING WKS-FEC-ALFA,WKS-FUNCION,WKS-FORMATO.            604000\n     IF WKS-FUNCION > ZEROS OR WKS-FEC-NUME = ZEROS               604100\n        MOVE WKS-TAB-FECCON(W77-I) TO WKS-FEC-NUME.               604200\n     IF WKS-PAN-ENTNUMPAN < 30                                    604300\n        IF (WKS-FEC-NUME = WKS-TAB-FECCON(W77-I)) OR              604400\n           (WKS-FEC-NUME = WKS-TAB-FECPRO(W77-I))                 604500\n           NEXT SENTENCE                                          604600\n        ELSE                                                      604700\n           PERFORM 420122-VALIDA-FEC VARYING W77-K FROM 1 BY 1    604800\n                                     UNTIL W77-K > 10           OR604900\n                                    WKS-TAB-FECPROC(W77-I W77-K) =605000\n                                    ZEROS.                        605100\n 420122-VALIDA-FEC.                                               605200\n     MOVE 19                       TO W77-RES-MSG.                605300\n     IF WKS-FEC-NUME = WKS-TAB-FECPROC(W77-I W77-K)               605400\n        MOVE 11                    TO W77-K                       605500\n        MOVE ZEROS                 TO W77-RES-MSG.                605600", "java": "@Component\n@RequiredArgsConstructor\nclass FechaConsultaValidator {\n\n    /** 420120-VALIDA-NUM-FEC + 420122-VALIDA-FEC. Devuelve la fecha efectiva y el código. */\n    Resultado valida(String fechaCapturada, int pantalla, FechasSistema f) {\n        // JUSTIFIER IN LOCSUP función 3: no numérico o cero se reemplaza por FECCON, sin error\n        String fecha = Numerico.esValido(fechaCapturada) && !Numerico.esCero(fechaCapturada)\n                ? fechaCapturada : f.feccon();\n        if (pantalla >= 30) {\n            return new Resultado(fecha, 0);                      // pantallas 30 en adelante no validan pertenencia\n        }\n        if (fecha.equals(f.feccon()) || fecha.equals(f.fecpro())) {\n            return new Resultado(fecha, 0);\n        }\n        List<String> archivadas = f.fechasArchivadas().stream()   // FECPROC(1..10), hasta el primer cero\n                .takeWhile(d -> !Numerico.esCero(d)).toList();\n        if (archivadas.isEmpty()) {\n            return new Resultado(fecha, 0);   // comportamiento actual: sin fechas archivadas no se asigna el 19\n        }\n        return new Resultado(fecha, archivadas.contains(fecha) ? 0 : 19);\n    }\n\n    record Resultado(String fecha, int codigo) {}\n}", "rationale": "La fecha se compara como texto numérico, igual que en el COBOL, para no introducir una conversión a <code>LocalDate</code> que el programa no hace en este punto. La búsqueda en las diez fechas archivadas se detiene en el primer cero, lo que reproduce la condición <code>UNTIL W77-K &amp;gt; 10 OR ... = ZEROS</code>. El caso de fecha vacía se conserva tal cual: se sustituye por FECCON sin avisar al usuario.", "risk": "Si no hay ninguna fecha archivada (FECPROC(1) = 0), el PERFORM VARYING no ejecuta ni una vuelta y no se asigna el 19, por lo que una fecha que no es FECCON ni FECPRO pasa como válida. La traducción conserva ese comportamiento de forma explícita para que el SME decida si se corrige.", "rules": ["RN-CORE-GL-254", "RN-CORE-GL-242", "RN-CORE-GL-250"], "lines": "L16464–16484", "verified": true, "score": 100}, "s10": {"title": "Ruteo de la petición al nodo CSI dueño de la sucursal o del sistema", "cobol": " 420030-VALIDA-NUM-SUC.                                           579800\n     MOVE 3                        TO WKS-FUNCION                 579900\n     MOVE 0                        TO WKS-FORMATO                 580000\n     CALL \"JUSTIFIER IN LOCSUP\"                                   580100\n          USING WKS-SUC-ALFA,WKS-FUNCION,WKS-FORMATO.             580200\n     IF WKS-FUNCION > ZEROS                                       580300\n        MOVE WKS-MSGHDR-SUC        TO WKS-SUC-NUME.               580400\n     IF W77-CAMB-CSI = ZEROS                                      580500\n     IF WKS-SUC-NUME > ZEROS                                      580600\n        IF WKS-SIS-NUME = 1 OR 66                                 580700\n            MOVE 99              TO W77-RES-MSG                   580800\n            IF WKS-MSGHDR-RES = 2                                 580900\n               MOVE 3            TO WKS-MSGHDR-RES                581000\n               MOVE WKS-MSGHDR-CCR-ORG TO WKS-MSGHDR-CCR-DES      581100\n            ELSE                                                  581200\n               NEXT SENTENCE                                      581300\n        ELSE                                                      581400\n        IF WKS-MSGHDR-RES NOT = 2                                 581500\n           IF WKS-TAB-MODSIS(W77-I) = ZEROS                       581600\n              IF (WKS-PAN-ENTNUMPAN > 12 AND < 17) OR             581700\n                 (WKS-PAN-ENTNUMPAN > 18 AND < 27) OR             581800\n                 (WKS-PAN-ENTNUMPAN = 11)                         581900\n                 NEXT SENTENCE                                    582000\n              ELSE                                                582100\n              IF WKS-NUM-CSI(WKS-SUC-NUME) = ZEROS                582200\n                 MOVE 45           TO W77-RES-MSG                 582300\n              ELSE                                                582400\n              IF WKS-SIS-NUME =  264                              582500\n*                 OR 501                                          582600\n                 NEXT SENTENCE                                    582700\n              ELSE                                                582800\n              IF WKS-NUM-CSI(WKS-SUC-NUME) NOT =                  582900\n                 WKS-MSGHDR-CCR-DES                               583000\n                 MOVE 2                      TO WKS-MSGHDR-RES    583100\n                 MOVE WKS-MSGHDR-CCR-DES     TO WKS-MSGHDR-CCR-ORG583200\n                 MOVE WKS-NUM-CSI(WKS-SUC-NUME) TO                583300\n                      WKS-MSGHDR-CCR-DES                          583400\n              ELSE                                                583500\n                 NEXT SENTENCE                                    583600\n           ELSE                                                   583700\n           IF (WKS-TAB-CSIRES(W77-I) > ZEROS)                     583800\n              IF WKS-TAB-CSIRES(W77-I) = WKS-MSGHDR-CCR-DES       583900\n                 NEXT SENTENCE                                    584000\n              ELSE                                                584100\n                 MOVE 2               TO WKS-MSGHDR-RES           584200\n                 MOVE WKS-MSGHDR-CCR-DES TO WKS-MSGHDR-CCR-ORG    584300\n                 MOVE WKS-TAB-CSIRES(W77-I)                       584400\n                                         TO WKS-MSGHDR-CCR-DES.   584500", "java": "@Component\n@RequiredArgsConstructor\nclass RuteoCsiService {\n\n    private final RuteoProperties props;   // linea.ruteo.sistemas-sin-sucursal: [1, 66]\n                                           // linea.ruteo.sistemas-siempre-locales: [264]\n    private final CatalogoSucursales sucursales;   // WKS-NUM-CSI(sucursal)\n\n    /** 420030-VALIDA-NUM-SUC: decide si se atiende aquí o se reenvía a otro CSI. */\n    Ruteo decide(Peticion p, ComsMessage.Header h, SistemaCatalogo s, boolean csiYaCambiado) {\n        if (csiYaCambiado || p.sucursal() == 0) return Ruteo.local();\n        if (props.sistemasSinSucursal().contains(p.sistema())) {\n            return h.resultado() == 2 ? Ruteo.regresaAlOrigen(99)      // RES = 3, CCR-DES = CCR-ORG\n                                      : Ruteo.error(99);\n        }\n        if (h.resultado() == 2) return Ruteo.local();                  // ya viene reenviado\n        if (s.modoSistema() == 0) {\n            if (Pantallas.noRuteables(p.pantalla())) return Ruteo.local(); // 11, 13-16, 19-26\n            int csi = sucursales.csiDe(p.sucursal());\n            if (csi == 0) return Ruteo.error(45);\n            if (props.sistemasSiempreLocales().contains(p.sistema())) return Ruteo.local();\n            return csi != h.csiDestino() ? Ruteo.reenvia(csi) : Ruteo.local();   // RES = 2\n        }\n        int csiRestringido = s.csiRestringido();                       // WKS-TAB-CSIRES (RESCSI de B03)\n        return (csiRestringido > 0 && csiRestringido != h.csiDestino())\n                ? Ruteo.reenvia(csiRestringido) : Ruteo.local();\n    }\n}", "rationale": "Este párrafo concentra la topología distribuida: si la sucursal pertenece a otro nodo, o el sistema está restringido a un CSI, se marca <code>RES = 2</code>, se guarda el CSI actual como origen y se pone el CSI destino. En la arquitectura destino es un router de Spring Integration que publica en el canal del nodo correspondiente. Las excepciones por número de sistema (1 y 66 sin sucursal, 264 siempre local) dejan de estar en el código y se declaran en <code>application.yml</code>.", "risk": "El sistema 501 aparece comentado junto al 264 (línea 16254); si volviera a requerir trato local habría que recompilar. Cuando JUSTIFIER falla, la sucursal se sustituye por la del terminal (línea 16232) y la petición se rutea con ella sin avisar.", "rules": ["RN-CORE-GL-255", "RN-CORE-GL-256", "RN-CORE-GL-270", "RN-CORE-GL-251"], "lines": "L16226–16273", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>

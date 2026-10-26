@@ -1,0 +1,778 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CORE-GL · P360 → Java · Enterprise Digital Brain · LegacyCore</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#071c23;--bg2:#0a2530;--panel:#0e2e3a;--line:#1a4555;
+  --txt:#F0F8FA;--muted:#7fb8c8;--muted2:#5a98a8;
+  --red:#A100FF;--red2:rgba(193,39,45,.18);
+  --gold:#6CC5D8;
+  --java:#28a745;--java2:rgba(40,167,69,.15);
+  --cobol:#d4a017;--cobol2:rgba(212,160,23,.12);
+  --hi-cobol:rgba(212,160,23,.28);
+  --hi-java:rgba(40,167,69,.28);
+}
+body{background:var(--bg);color:var(--txt);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* HERO */
+.hero{padding:44px 32px 24px;max-width:1420px;margin:0 auto}
+.eyebrow{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:24px;height:2px;background:var(--gold);border-radius:2px}
+.hero h1{font-size:clamp(24px,3.2vw,40px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hero h1 .cw{background:linear-gradient(90deg,var(--cobol),#f0d080);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .jw{background:linear-gradient(90deg,#28a745,#6ee89f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:14px;color:var(--muted);margin-top:12px;max-width:90ch;line-height:1.6}
+.hint{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:rgba(108,197,216,.1);border:1px solid rgba(108,197,216,.3);border-radius:24px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--gold)}
+.hint::before{content:"👆";font-size:14px}
+
+/* MAIN LAYOUT */
+.wrap{max-width:1420px;margin:0 auto;padding:0 32px 60px}
+
+/* CONTEXT BAR */
+.ctx{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.ctx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;font-size:12px}
+.ctx-chip .cl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:3px}
+.ctx-chip .cv{font-weight:700;color:var(--txt)}
+
+/* SPLIT */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.split{grid-template-columns:1fr}}
+
+/* PANE */
+.pane{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.pane-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.pane-hdr.ch{background:rgba(212,160,23,.12)}
+.pane-hdr.jh{background:rgba(40,167,69,.12)}
+.pane-hdr .dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:#28c840}
+.pane-hdr .fname{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+.pane-hdr .lang-label{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:4px}
+.ll-c{background:rgba(212,160,23,.2);color:#f0d080}
+.ll-j{background:rgba(40,167,69,.2);color:#6ee89f}
+pre{background:var(--bg2);padding:18px 16px;overflow-x:auto;font-family:'Cascadia Code','JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.75;tab-size:2}
+
+/* SYNTAX */
+.kw{color:#ff79c6;font-weight:700}
+.str{color:#f1fa8c}
+.num{color:#bd93f9}
+.cmt{color:#6272a4;font-style:italic}
+.var{color:#8be9fd}
+.proc{color:#50fa7b;font-weight:700}
+.type{color:#ffb86c}
+.ann{color:#ff79c6}
+.rule-ann{color:#f8b4b4;font-size:11px;background:rgba(193,39,45,.1);border-left:2px solid #A100FF;padding:1px 6px;border-radius:0 3px 3px 0;display:inline-block;margin-top:1px}
+
+/* ── INTERACTIVE SEGMENTS ── */
+.seg{
+  display:block;
+  padding:2px 6px;
+  margin:1px -6px;
+  border-radius:5px;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.seg:hover{background:rgba(108,197,216,.1);border-left-color:rgba(108,197,216,.5)}
+.seg.peer-java{background:rgba(40,167,69,.18) !important;border-left-color:rgba(40,167,69,.6) !important;transition:background .12s,border-color .12s}
+.seg.peer-cobol{background:rgba(212,160,23,.18) !important;border-left-color:rgba(212,160,23,.6) !important;transition:background .12s,border-color .12s}
+.seg.active-cobol{
+  background:var(--hi-cobol) !important;
+  border-left-color:var(--cobol) !important;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.25);
+}
+.seg.active-java{
+  background:var(--hi-java) !important;
+  border-left-color:var(--java) !important;
+  box-shadow:inset 0 0 0 1px rgba(40,167,69,.25);
+}
+
+/* ── POPUP ── */
+#popup{
+  display:none;
+  position:fixed;
+  z-index:200;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(640px,92vw);
+  background:var(--bg2);
+  border:1px solid rgba(108,197,216,.4);
+  border-radius:20px;
+  box-shadow:0 24px 80px rgba(0,0,0,.75),0 0 0 1px rgba(108,197,216,.15);
+  overflow:hidden;
+  animation:popin .22s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes popin{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#popup-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(212,160,23,.12),rgba(40,167,69,.08));
+  border-bottom:1px solid var(--line);
+}
+#popup-hdr .arrow{font-size:20px}
+#popup-hdr .from-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(212,160,23,.2);border:1px solid rgba(212,160,23,.4);color:#f0d080;padding:3px 10px;border-radius:6px}
+#popup-hdr .to-badge{font-size:10px;font-weight:800;letter-spacing:.1em;background:rgba(40,167,69,.2);border:1px solid rgba(40,167,69,.4);color:#6ee89f;padding:3px 10px;border-radius:6px}
+#popup-title{font-size:15px;font-weight:800;flex:1}
+#popup-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:0 0 2px;transition:.15s}
+#popup-close:hover{color:var(--txt)}
+#popup-body{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.pp-section{margin-bottom:16px}
+.pp-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.pp-code{background:#071c23;border-radius:8px;padding:10px 14px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;overflow-x:auto;border:1px solid var(--line)}
+.pp-code.pc{border-left:3px solid var(--cobol)}
+.pp-code.pj{border-left:3px solid var(--java)}
+.pp-rationale{font-size:13.5px;color:var(--muted);line-height:1.65}
+.pp-rationale b{color:var(--txt)}
+.pp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pp-rule-tag{font-size:11px;font-weight:700;background:rgba(193,39,45,.12);border:1px solid rgba(193,39,45,.35);color:#f8b4b4;padding:2px 10px;border-radius:12px;font-family:'Cascadia Code',monospace}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
+
+/* RULES TABLE */
+.rules-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:32px}
+.rules-table th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.rules-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;line-height:1.55}
+.rules-table tr:last-child td{border-bottom:none}
+.rules-table td:first-child{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#f8b4b4;white-space:nowrap}
+.rules-table td:nth-child(3){color:#6ee89f;font-size:12px;font-family:'Cascadia Code','Consolas',monospace}
+
+.sec-hdr{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+.sec-hdr::before{content:"";width:20px;height:2px;background:var(--gold);border-radius:2px}
+
+footer{font-size:10px;color:var(--muted2);padding:16px 32px;border-top:1px solid var(--line);text-align:center;line-height:1.6;margin-top:16px}
+nav.dbnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px 30px;
+  -webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(7,28,35,.65);border-bottom:1px solid rgba(255,255,255,.06)}
+nav.dbnav .nlogo{display:inline-flex;flex-shrink:0}
+nav.dbnav img{height:26px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+nav.dbnav .nt{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;white-space:nowrap}
+nav.dbnav .sp{flex:1}
+nav.dbnav a.jump{font-size:12.5px;color:var(--muted);padding:7px 13px;border-radius:20px;transition:.22s;text-decoration:none;white-space:nowrap}
+nav.dbnav a.jump:hover{color:var(--txt,#F0F8FA);background:rgba(255,255,255,.07)}
+nav.dbnav a.jump.cur{color:var(--gold);background:rgba(108,197,216,.10)}
+nav.dbnav a.chat-link{font-size:12px;font-weight:700;color:#6CC5D8;padding:6px 14px;border-radius:20px;border:1px solid rgba(108,197,216,.35);
+  background:rgba(108,197,216,.08);transition:.22s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+nav.dbnav a.chat-link:hover{background:rgba(108,197,216,.18);border-color:rgba(108,197,216,.65)}
+nav.dbnav .brief-badge{display:flex;align-items:center;gap:8px;background:rgba(193,39,45,.18);border:1px solid rgba(193,39,45,.45);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#f8b4b4;white-space:nowrap}
+nav.dbnav .brief-badge .bdot{width:7px;height:7px;border-radius:50%;background:#A100FF;box-shadow:0 0 8px #A100FF;display:inline-block}
+@media (max-width:1280px){nav.dbnav .nt{display:none}}
+@media (max-width:1000px){nav.dbnav a.jump{display:none}}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.aurora::before,.aurora::after,.aurora .blob{content:"";position:absolute;border-radius:50%;filter:blur(90px)}
+.aurora::before{width:62vw;height:62vw;left:-12vw;top:-16vw;background:radial-gradient(circle,rgba(0,80,110,.65),transparent 70%);animation:au1 24s ease-in-out infinite}
+.aurora::after{width:56vw;height:56vw;right:-14vw;top:6vw;background:radial-gradient(circle,rgba(0,55,80,.7),transparent 70%);animation:au2 28s ease-in-out infinite}
+.aurora .blob{width:40vw;height:40vw;left:34vw;bottom:-14vw;background:radial-gradient(circle,rgba(108,197,216,.15),transparent 70%);animation:au3 32s ease-in-out infinite}
+@keyframes au1{50%{transform:translate(6vw,8vh) scale(1.15)}}
+@keyframes au2{50%{transform:translate(-7vw,10vh) scale(1.12)}}
+@keyframes au3{50%{transform:translate(-9vw,-9vh) scale(1.22)}}
+@media (prefers-reduced-motion:reduce){.aurora::before,.aurora::after,.aurora .blob{animation:none}}
+
+/* ── borrador / navegación entre componentes ── */
+.draft{display:inline-flex;align-items:center;gap:8px;margin-top:14px;margin-right:10px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.4);border-radius:24px;padding:6px 14px;font-size:11.5px;font-weight:700;color:#f0d080}
+.draft::before{content:"";width:7px;height:7px;border-radius:50%;background:#d4a017}
+.pn{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px;font-size:12.5px}
+.pn a{color:var(--gold);text-decoration:none;padding:6px 12px;border-radius:16px;border:1px solid rgba(108,197,216,.25)}
+.pn a:hover{background:rgba(108,197,216,.1)}
+.seg.unverified{border-left-color:rgba(255,95,87,.75)!important;background:rgba(255,95,87,.06)}
+.seg.nosrc{border-left-color:rgba(159,184,192,.5)!important}
+.risks{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.risk{background:rgba(193,39,45,.07);border:1px solid rgba(193,39,45,.3);border-radius:12px;padding:12px 14px}
+.risk b{color:#f8b4b4;font-size:13px}.risk p{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:4px}
+ul.pend{list-style:none;display:grid;gap:8px}
+ul.pend li{background:rgba(212,160,23,.07);border-left:3px solid #d4a017;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.rules-table td:nth-child(3){color:var(--muted)!important;font-family:inherit!important}
+/* ── landing ── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.kpi{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px 18px}
+.kn{font-size:28px;font-weight:800;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px}
+.fsys,.fchip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:18px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.fsys.on{color:var(--gold);border-color:rgba(108,197,216,.5);background:rgba(108,197,216,.1)}
+.fchip b{color:var(--c)}.fchip span{opacity:.6;margin-left:2px}
+.fchip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--txt)}
+#q{flex:1;min-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:7px 14px;color:var(--txt);font-family:inherit;font-size:12.5px}
+.only{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+table.inv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.inv th{text-align:left;padding:9px 10px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+table.inv td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+table.inv tr.go{cursor:pointer}table.inv tr.go:hover td{background:rgba(108,197,216,.06)}
+table.inv .r{text-align:right;white-space:nowrap}
+table.inv td.pc a{color:var(--gold);font-weight:700;text-decoration:none;font-family:'Cascadia Code','Consolas',monospace}
+table.inv td.dsc{color:var(--muted);max-width:520px}
+table.inv .pend{color:var(--muted2);font-style:italic}
+table.inv .warn{color:#ff8a80;font-weight:700}
+.abadge{font-size:10.5px;font-weight:700;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:10px;padding:2px 8px;white-space:nowrap}
+.cnt{font-size:11.5px;color:var(--muted2);margin-top:10px}
+
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob"></div></div>
+<nav class="dbnav">
+  <a class="nlogo" href="../index.html"><img src="../assets/logos/accenture.png" alt="Accenture"></a>
+  <span class="nt">Enterprise Digital Brain · COBOL → Java · CORE-GL P360</span><span class="sp"></span>
+  <a class="jump" href="../index.html">Inicio</a><a class="jump" href="../modelo-capacidades.html">Capacidades</a><a class="jump" href="../cap-relationships.html">Relaciones</a><a class="jump" href="../arq-tobe.html">Arquitectura TO-BE</a><a class="jump cur" href="../cobol-java.html">COBOL → Java</a>
+  <a class="chat-link" href="https://d39amrbevv1r5f.cloudfront.net/chatbot" target="_blank" rel="noopener noreferrer">💬 Chat Enterprise Digital Brain</a>
+</nav>
+
+<div id="scrim" onclick="closePopup()"></div>
+<div id="popup"><div id="popup-hdr"><span class="from-badge">COBOL85</span><span class="arrow">→</span><span class="to-badge">Java 21</span>
+<span id="popup-title"></span><button id="popup-close" onclick="closePopup()">×</button></div>
+<div id="popup-body">
+<div class="pp-section"><div class="pp-label">Código original <span id="pp-lines"></span></div><div class="pp-code pc" id="pp-cobol"></div></div>
+<div class="pp-section"><div class="pp-label">Equivalente Java 21 · Spring Boot 3</div><div class="pp-code pj" id="pp-java"></div></div>
+<div class="pp-section"><div class="pp-label">Racional de equivalencia</div><div class="pp-rationale" id="pp-rat"></div></div>
+<div class="pp-section" id="pp-risk-sec"><div class="pp-label">Riesgo de migración</div><div class="pp-rationale" id="pp-risk"></div></div>
+<div class="pp-section"><div class="pp-label">Reglas de negocio trazadas</div><div class="pp-rules" id="pp-rules"></div></div>
+</div></div>
+<div class="hero">
+  <div class="eyebrow">Enterprise Digital Brain · COBOL → Java · Intercambiador</div>
+  <h1><span class="cw">CORE-GL · P360</span> a <span class="jw">Java 21 Spring Boot</span></h1>
+  <p class="sub">P360 recibe por parámetro el número de sistema y el pack donde P330 dejó los archivos extraídos. Resuelve con la librería de control el nombre físico de la base de saldos del sistema, la abre en actualización y, para cada una de las seis estructuras, ordena el archivo plano con SORT, lo recorre creando y guardando un registro DMSII por renglón, y al final lo purga. Cualquier error al guardar termina la base con DMTERMINATE. Al terminar imprime un listado con el número de registros integrados por estructura y un importe de control por estructura.</p>
+  <div class="hint">Haz clic en cualquier bloque de código original para ver su equivalencia en Java y el racional de la traducción</div>
+</div>
+<div class="wrap">
+  <div class="pn"><a href="CORE-GL_P330.html">← CORE-GL · P330</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P600.html">CORE-GL · P600 →</a></div>
+  <div class="ctx">
+    <div class="ctx-chip"><div class="cl">Programa</div><div class="cv">CORE-GL · P360 · COBOL85</div></div>
+    <div class="ctx-chip"><div class="cl">Tamaño fuente</div><div class="cv">2,538 LOC</div></div>
+    <div class="ctx-chip"><div class="cl">Función</div><div class="cv">Paso batch de CORE-GL que, después de la extracción P330, carga en la base de saldos CORE-GLBD11SDOSnnn los seis archivos planos de las estructuras B20, B21, B70, B71, B72 y B80 y emite un listado de control.</div></div>
+    <div class="ctx-chip"><div class="cl">Arquetipo</div><div class="cv" style="color:#ffb86c">Intercambiador</div></div>
+    <div class="ctx-chip"><div class="cl">Reglas vinculadas</div><div class="cv">15 de 15 del brain</div></div>
+    <div class="ctx-chip"><div class="cl">Target</div><div class="cv">Java 21 · Spring Boot 3 · Spring Batch · Spring Integration</div></div>
+  </div>
+  <div class="sec-hdr">1 · Parámetros de corrida y apertura de la base de saldos</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P360.txt</span><span class="fname">PROCEDURE DIVISION USING WKS-PARAMETROS · 00-0100 / 01-0110 / 01-0130</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s1" data-jid="j1" title="Parámetro sistema y pack, y secuencia fija de seis estructuras · L1291–1496"> <span class="num">01</span>  <span class="var">WKS-PARAMETROS</span>.                                              <span class="num">042700</span>
+     <span class="num">03</span> <span class="var">WKS-PARAM-SIS-NOMPACK</span>.                                    <span class="num">042800</span>
+        <span class="num">05</span> <span class="var">WKS-PARAM-SIS</span>           <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">03</span>).                     <span class="num">042900</span>
+        <span class="num">05</span> <span class="var">WKS-NOMBRE-PACK</span>         <span class="kw">PIC</span> X(<span class="num">12</span>).                     <span class="num">043000</span>
+<span class="cmt">      *&gt; ⋯ 160 líneas omitidas</span>
+  <span class="kw">PROCEDURE</span> <span class="kw">DIVISION</span> <span class="kw">USING</span> <span class="var">WKS-PARAMETROS</span>.                        <span class="num">059100</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+ <span class="num">00</span>-<span class="num">0000</span>-<span class="var">INICIO</span> <span class="kw">SECTION</span>.                                          <span class="num">059400</span>
+<span class="cmt">      *&gt; ⋯ 3 líneas omitidas</span>
+ <span class="num">00</span>-<span class="num">0100</span>-<span class="var">CTL-PROCESO</span>.                                             <span class="num">059800</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-NOMBRE-PACK</span>         <span class="kw">TO</span>  <span class="var">WKS-B20-PACK</span>, <span class="var">WKS-B21-PACK</span>, <span class="num">060100</span>
+                                      <span class="var">WKS-B70-PACK</span>, <span class="var">WKS-B71-PACK</span>, <span class="num">060200</span>
+                                      <span class="var">WKS-B72-PACK</span>, <span class="var">WKS-B80-PACK</span>. <span class="num">060300</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIB-DISP&quot;</span> <span class="kw">TO</span>                      <span class="num">060500</span>
+        <span class="str">&quot;(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.&quot;</span>.          <span class="num">060600</span>
+<span class="cmt">      *&gt; ⋯ 15 líneas omitidas</span>
+     <span class="kw">PERFORM</span> <span class="num">01</span>-<span class="num">0000</span>-<span class="var">VERIFICACION</span>.                                <span class="num">062200</span>
+     <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">0000</span>-<span class="var">PROC-STRUCTURE-B20</span>.                          <span class="num">062300</span>
+     <span class="kw">PERFORM</span> <span class="num">03</span>-<span class="num">0000</span>-<span class="var">PROC-STRUCTURE-B21</span>.                          <span class="num">062400</span>
+     <span class="kw">PERFORM</span> <span class="num">04</span>-<span class="num">0000</span>-<span class="var">PROC-STRUCTURE-B70</span>.                          <span class="num">062500</span>
+     <span class="kw">PERFORM</span> <span class="num">05</span>-<span class="num">0000</span>-<span class="var">PROC-STRUCTURE-B71</span>.                          <span class="num">062600</span>
+     <span class="kw">PERFORM</span> <span class="num">06</span>-<span class="num">0000</span>-<span class="var">PROC-STRUCTURE-B72</span>.                          <span class="num">062700</span>
+     <span class="kw">PERFORM</span> <span class="num">07</span>-<span class="num">0000</span>-<span class="var">PROC-STRUCTURE-B80</span>.                          <span class="num">062800</span>
+     <span class="kw">PERFORM</span> <span class="num">09</span>-<span class="num">0000</span>-<span class="var">PROC-IMPRESION</span>.                              <span class="num">062900</span>
+     <span class="kw">PERFORM</span> <span class="num">10</span>-<span class="num">0000</span>-<span class="var">PROC-TERMINA</span>.                                <span class="num">063000</span>
+                                                                  <span class="num">063100</span>
+     <span class="kw">STOP</span> <span class="kw">RUN</span>.                                                    <span class="num">063200</span></span>
+<span class="seg" data-cid="s2" data-jid="j2" title="Librería de control y origen de la fecha de proceso · L1545–1566">     <span class="kw">MOVE</span> <span class="str">&quot;CORE-GLL001CTL&quot;</span>            <span class="kw">TO</span> <span class="var">WKS-LIBID</span>.                  <span class="num">068000</span>
+     <span class="kw">CALL</span> <span class="str">&quot;DAME_TIT IN CTLVER&quot;</span> <span class="kw">USING</span>  <span class="var">WKS-LIBID</span>, <span class="var">WKS-NOMBLIB</span>      <span class="num">068100</span>
+                               <span class="kw">GIVING</span> <span class="var">W77-ERR-CTLVER</span>.             <span class="num">068200</span>
+     <span class="kw">IF</span> <span class="var">W77-ERR-CTLVER</span> = <span class="num">0</span>                                        <span class="num">068300</span>
+        <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIB-CONTROL&quot;</span> <span class="kw">TO</span> <span class="var">WKS-NOMBLIB</span>    <span class="num">068400</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">068500</span>
+        <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="str">&quot;LIB-CONTROL&quot;</span> <span class="kw">TO</span>                <span class="num">068600</span>
+               <span class="str">&quot;(CORE-GL)CORE-GL/OBJECT/L001/CONTROL ON CMEMP&quot;</span>.         <span class="num">068700</span>
+                                                                  <span class="num">068800</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PARAM-SIS</span>            <span class="kw">TO</span> <span class="var">WKS-B01-SISTEMA</span>.            <span class="num">068900</span>
+                                                                  <span class="num">069000</span>
+     <span class="kw">MOVE</span> <span class="num">1</span>                        <span class="kw">TO</span> <span class="var">WKS-B01-FUNCION</span>.            <span class="num">069100</span>
+                                                                  <span class="num">069200</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-NUMCSI</span>               <span class="kw">TO</span> <span class="var">WKS-B01-CSI</span>.                <span class="num">069300</span>
+                                                                  <span class="num">069400</span>
+     <span class="kw">IF</span> <span class="var">ATTRIBUTE</span> <span class="kw">VALUE</span> <span class="kw">OF</span> <span class="var">MYSELF</span> = <span class="num">0</span>                             <span class="num">069500</span>
+        <span class="kw">CALL</span> <span class="str">&quot;CONSISDIA IN LIB-CONTROL&quot;</span>                           <span class="num">069600</span>
+              <span class="kw">USING</span>  <span class="var">WKS-CORE-GLB01SISDIA</span>                            <span class="num">069700</span>
+              <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>                            <span class="num">069800</span>
+        <span class="kw">MOVE</span> <span class="var">WKS-B01-FECPRO</span>               <span class="kw">TO</span> <span class="var">WKS-FECHA-PROCESO</span>    <span class="num">069900</span>
+     <span class="kw">ELSE</span>                                                         <span class="num">070000</span>
+        <span class="kw">MOVE</span> <span class="var">ATTRIBUTE</span> <span class="kw">VALUE</span> <span class="kw">OF</span> <span class="var">MYSELF</span>    <span class="kw">TO</span> <span class="var">WKS-FECHA-PROCESO</span>.   <span class="num">070100</span></span>
+<span class="seg" data-cid="s3" data-jid="j3" title="Nombre físico de la base por sistema y validaciones de control · L1569–1628"> <span class="num">01</span>-<span class="num">0130</span>-<span class="var">ABRE-SALDOS</span>.                                             <span class="num">070400</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">WKS-PARAM-SIS</span>            <span class="kw">TO</span> <span class="var">WKS-B04-SISTEMA</span>             <span class="num">070700</span>
+     <span class="kw">MOVE</span> <span class="num">1</span>                        <span class="kw">TO</span> <span class="var">WKS-B04-FUNCION</span>             <span class="num">070800</span>
+     <span class="kw">CALL</span> <span class="str">&quot;B04SISTEM IN LIB-CONTROL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-B04SISTEMA</span>         <span class="num">070900</span>
+                                     <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>.    <span class="num">071000</span>
+                                                                  <span class="num">071100</span>
+     <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">0</span>                                     <span class="num">071200</span>
+      <span class="kw">IF</span> <span class="var">WKS-B04-ESTATUS</span> = <span class="num">3</span>                                      <span class="num">071300</span>
+<span class="cmt">      *&gt; ⋯ 4 líneas omitidas</span>
+       <span class="kw">MOVE</span> <span class="var">LOW-VALUES</span>             <span class="kw">TO</span> <span class="var">WKS-NULOS</span>                   <span class="num">071800</span>
+       <span class="kw">MOVE</span> <span class="var">WKS-PARAM-SIS</span>          <span class="kw">TO</span> <span class="var">WKS-B03-SISTEMA</span>             <span class="num">071900</span>
+       <span class="kw">MOVE</span> <span class="num">1</span>                      <span class="kw">TO</span> <span class="var">WKS-B03-FUNCION</span>             <span class="num">072000</span>
+       <span class="kw">CALL</span> <span class="str">&quot;CONSISMEN IN  LIB-CONTROL&quot;</span> <span class="kw">USING</span> <span class="var">WKS-CORE-GLB03SISMEN</span>   <span class="num">072100</span>
+                                        <span class="kw">GIVING</span> <span class="var">W77-RESULT-LIBCON</span>  <span class="num">072200</span>
+       <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">0</span>                                   <span class="num">072300</span>
+         <span class="kw">IF</span> <span class="var">WKS-B03-TIPBD</span> = <span class="num">1</span> <span class="kw">OR</span> <span class="num">2</span> <span class="kw">OR</span> <span class="num">5</span> <span class="kw">OR</span> <span class="num">6</span>                      <span class="num">072400</span>
+            <span class="kw">MOVE</span> <span class="var">WKS-B03-NOMBDSAL</span>   <span class="kw">TO</span> <span class="var">WKS-BD-SALDOS</span>              <span class="num">072500</span>
+            <span class="kw">IF</span> <span class="var">WKS-BD-SALDOS</span> = <span class="var">WKS-BLANCOS</span> <span class="kw">OR</span>                     <span class="num">072600</span>
+               <span class="var">WKS-BD-SALDOS</span> = <span class="var">WKS-NULOS</span>                          <span class="num">072700</span>
+               <span class="kw">MOVE</span> <span class="str">&quot;NO EXISTE EN NOMB. DE BD SALDOS&quot;</span> <span class="kw">TO</span> <span class="var">TEXTO-LJ</span> <span class="num">072800</span>
+<span class="cmt">      *&gt; ⋯ 4 líneas omitidas</span>
+               <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>            <span class="num">073300</span>
+            <span class="kw">ELSE</span>                                                  <span class="num">073400</span>
+              <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">TITLE</span> <span class="kw">OF</span> <span class="var">SALDOS</span> <span class="kw">TO</span> <span class="var">WKS-NOMBD-SALDOS073500</span>
+              <span class="kw">OPEN</span> <span class="var">UPDATE</span> <span class="var">SALDOS</span>                                  <span class="num">073600</span>
+                   <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                   <span class="num">073700</span>
+                      <span class="kw">PERFORM</span> <span class="num">900000</span>-<span class="var">CHE-STA</span>                      <span class="num">073800</span>
+                      <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>     <span class="num">073900</span>
+         <span class="kw">ELSE</span>                                                     <span class="num">074000</span>
+<span class="cmt">      *&gt; ⋯ 5 líneas omitidas</span>
+           <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>                <span class="num">074600</span>
+       <span class="kw">ELSE</span>                                                       <span class="num">074700</span>
+          <span class="kw">IF</span> <span class="var">W77-RESULT-LIBCON</span> = <span class="num">1</span>                                <span class="num">074800</span>
+<span class="cmt">      *&gt; ⋯ 6 líneas omitidas</span>
+             <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>              <span class="num">075500</span>
+          <span class="kw">ELSE</span>                                                    <span class="num">075600</span>
+<span class="cmt">      *&gt; ⋯ 6 líneas omitidas</span>
+             <span class="var">CHANGE</span> <span class="var">ATTRIBUTE</span> <span class="var">STATUS</span> <span class="kw">OF</span> <span class="var">MYSELF</span> <span class="kw">TO</span> -<span class="num">1</span>.             <span class="num">076300</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>IntegracionSaldosJobConfig.java · BaseSaldosResolver.java · P360Properties.java</span><span class="fname">Spring Integration file adapter · Spring Batch Job · DataSource routing</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j1"><span class="cmt">/** WKS-PARAMETROS: sistema PIC 9(03) y pack X(12), recibidos al invocar el programa. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">ParametrosIntegracion</span>(<span class="kw">int</span> sistema, <span class="type">String</span> pack) {
+    <span class="type">JobParameters</span> toJobParameters(<span class="type">LocalDate</span> fechaProceso) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">JobParametersBuilder</span>()
+                .addLong(<span class="str">&quot;sistema&quot;</span>, (<span class="kw">long</span>) sistema)
+                .addString(<span class="str">&quot;pack&quot;</span>, pack)
+                .addLocalDate(<span class="str">&quot;fechaProceso&quot;</span>, fechaProceso)
+                .toJobParameters();
+    }
+}
+
+<span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">IntegracionSaldosJobConfig</span> {
+
+<span class="cmt">    /** 00-0100-CTL-PROCESO: verificación, seis estructuras en orden fijo, listado y cierre. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">Job</span> integracionSaldos(<span class="type">JobRepository</span> repo, <span class="type">Step</span> verificacion,
+                          <span class="type">Step</span> b20, <span class="type">Step</span> b21, <span class="type">Step</span> b70, <span class="type">Step</span> b71, <span class="type">Step</span> b72, <span class="type">Step</span> b80,
+                          <span class="type">Step</span> listadoControl) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">JobBuilder</span>(<span class="str">&quot;CORE-GLP360&quot;</span>, repo)
+                .start(verificacion)            <span class="cmt">// 01-0000-VERIFICACION</span>
+                .next(b20).next(b21).next(b70)  <span class="cmt">// 02 .. 04</span>
+                .next(b71).next(b72).next(b80)  <span class="cmt">// 05 .. 07</span>
+                .next(listadoControl)           <span class="cmt">// 09-0000-PROC-IMPRESION</span>
+                .build();                       <span class="cmt">// 10-0000-PROC-TERMINA: cierre de recursos por Spring</span>
+    }
+
+<span class="cmt">    /** Disparo por llegada de archivos: reemplaza la invocación con parámetros desde el WFL. */</span>
+    <span class="ann">@Bean</span>
+    <span class="type">IntegrationFlow</span> llegadaExtraccion(<span class="type">JobLauncher</span> launcher, <span class="type">Job</span> integracionSaldos, <span class="type">P360Properties</span> p) {
+        <span class="kw">return</span> <span class="type">IntegrationFlow</span>.from(<span class="type">Files</span>.inboundAdapter(<span class="kw">new</span> <span class="type">File</span>(p.directorioExtraccion()))
+                        .patternFilter(<span class="str">&quot;*.done&quot;</span>), e -&gt; e.poller(<span class="type">Pollers</span>.fixedDelay(<span class="num">6</span><span class="num">0</span>_000)))
+                .transform(<span class="type">File</span>.<span class="kw">class</span>, f -&gt; <span class="kw">new</span> <span class="type">JobLaunchRequest</span>(integracionSaldos,
+                        <span class="type">ParametrosIntegracion</span>.desdeMarca(f).toJobParameters(p.fechaProceso())))
+                .handle(<span class="kw">new</span> <span class="type">JobLaunchingGateway</span>(launcher))
+                .get();
+    }
+}</span>
+<span class="seg java-seg" data-jid="j2"># application.yml
+p360:
+  libreria-control-default: <span class="str">&quot;(CORE-GL)CORE-GL/OBJECT/L001/CONTROL ON CMEMP&quot;</span>   # respaldo si CTLVERS falla
+
+<span class="cmt">// ---------------------------------------------------------------------------</span>
+<span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">FechaProcesoResolver</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlSistemasClient</span> control;   <span class="cmt">// CONSISDIA IN LIB-CONTROL (CORE-GLB01SISDIA)</span>
+
+<span class="cmt">    /**</span>
+<span class="cmt">     * Si la tarea trae VALUE distinto de cero, ese valor es la fecha de proceso;</span>
+<span class="cmt">     * si no, se consulta el control diario del sistema.</span>
+<span class="cmt">     */</span>
+    <span class="kw">public</span> <span class="type">LocalDate</span> resuelve(<span class="kw">int</span> sistema, <span class="kw">int</span> csi, <span class="type">OptionalLong</span> valueTarea) {
+        <span class="kw">if</span> (valueTarea.isPresent() &amp;&amp; valueTarea.getAsLong() != <span class="num">0</span>) {
+            <span class="kw">return</span> <span class="type">LocalDate</span>.parse(<span class="type">String</span>.valueOf(valueTarea.getAsLong()),
+                    <span class="type">DateTimeFormatter</span>.BASIC_ISO_DATE);           <span class="cmt">// AAAAMMDD</span>
+        }
+        <span class="kw">var</span> r = control.consultaSistemaDia(sistema, csi);
+        <span class="kw">if</span> (r.result() != <span class="num">0</span>) {
+            <span class="cmt">// El fuente no revisa W77-RESULT-LIBCON aquí; en Java se falla explícitamente.</span>
+            <span class="kw">throw</span> <span class="kw">new</span> <span class="type">ControlSistemaException</span>(<span class="str">&quot;CONSISDIA RESULT &quot;</span> + r.result());
+        }
+        <span class="kw">return</span> r.fechaProceso();
+    }
+}</span>
+<span class="seg java-seg" data-jid="j3"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">BaseSaldosResolver</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ControlSistemasClient</span> control;     <span class="cmt">// B04SISTEM / CONSISMEN IN LIB-CONTROL</span>
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">Map</span>&lt;<span class="type">String</span>, <span class="type">DataSource</span>&gt; bases;     <span class="cmt">// una por base CORE-GLBD11SDOSnnn</span>
+
+<span class="cmt">    /** 01-0130-ABRE-SALDOS: devuelve la base de saldos del sistema o falla con el motivo. */</span>
+    <span class="kw">public</span> <span class="type">DataSource</span> resuelve(<span class="kw">int</span> sistema) {
+        <span class="kw">var</span> b04 = control.sistema(sistema);
+        <span class="kw">if</span> (b04.result() != <span class="num">0</span> || b04.estatus() != <span class="num">3</span>) {
+            <span class="cmt">// En el fuente esta rama no existe: no hay mensaje ni baja de la tarea.</span>
+            <span class="kw">throw</span> <span class="kw">new</span> <span class="type">BaseSaldosException</span>(<span class="str">&quot;SISTEMA &quot;</span> + sistema + <span class="str">&quot; NO DISPONIBLE EN B04&quot;</span>);
+        }
+        <span class="kw">var</span> b03 = control.sistemaMensual(sistema);
+        <span class="kw">if</span> (b03.result() == <span class="num">1</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">BaseSaldosException</span>(<span class="str">&quot;NO EXITE EL NUMERO DE SISTEMA EN BASE MENSUAL&quot;</span>);
+        <span class="kw">if</span> (b03.result() != <span class="num">0</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="type">BaseSaldosException</span>(<span class="str">&quot;ERROR EN BASE DE CONTROL&quot;</span>);
+        <span class="kw">if</span> (!<span class="type">Set</span>.of(<span class="num">1</span>, <span class="num">2</span>, <span class="num">5</span>, <span class="num">6</span>).contains(b03.tipoBd()))
+            <span class="kw">throw</span> <span class="kw">new</span> <span class="type">BaseSaldosException</span>(<span class="str">&quot;EL SISTEMA NO UTILIZA BASE DE SALDOS&quot;</span>);
+        <span class="type">String</span> nombre = b03.nombreBdSaldos();
+        <span class="kw">if</span> (nombre == <span class="kw">null</span> || nombre.isBlank())
+            <span class="kw">throw</span> <span class="kw">new</span> <span class="type">BaseSaldosException</span>(<span class="str">&quot;NO EXISTE EN NOMB. DE BD SALDOS&quot;</span>);
+        <span class="kw">return</span> <span class="type">Optional</span>.ofNullable(bases.get(nombre))
+                .orElseThrow(() -&gt; <span class="kw">new</span> <span class="type">BaseSaldosException</span>(<span class="str">&quot;BASE &quot;</span> + nombre + <span class="str">&quot; NO CONFIGURADA&quot;</span>));
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">2 · Integración de cada estructura: ordenar, crear y guardar</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P360.txt</span><span class="fname">FILE SECTION REG-B72POSCONTA · 02-0100 / 02-0150 / 06-0150</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s4" data-jid="j4" title="Registro B72 de posición contable con importes con signo · L220–236"> <span class="num">01</span>  <span class="var">REG-B72POSCONTA</span>.                                             <span class="num">020500</span>
+     <span class="num">03</span> <span class="var">R72-SDO-KEYPOS</span>.                                           <span class="num">020600</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYCSI</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">020700</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYFEC</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">08</span>) <span class="kw">COMP</span>.                <span class="num">020800</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYBCO</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">020900</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYMON</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">021000</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYFID</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">021100</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYPRD</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">021200</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYINS</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">04</span>) <span class="kw">COMP</span>.                <span class="num">021300</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYCTA</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">12</span>) <span class="kw">COMP</span>.                <span class="num">021400</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYCVEC</span>         <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">06</span>) <span class="kw">COMP</span>.                <span class="num">021500</span>
+        <span class="num">05</span> <span class="var">R72-SDO-KEYSEC</span>          <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">021600</span>
+     <span class="num">03</span> <span class="var">R72-SDO-NATCTA</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">COMP</span>.                <span class="num">021700</span>
+     <span class="num">03</span> <span class="var">R72-SDO-SDOANT</span>             <span class="kw">PIC</span> S9(<span class="num">15</span>)V9(<span class="num">02</span>) <span class="kw">COMP</span>.         <span class="num">021800</span>
+     <span class="num">03</span> <span class="var">R72-SDO-CARGOS</span>             <span class="kw">PIC</span> S9(<span class="num">15</span>)V9(<span class="num">02</span>) <span class="kw">COMP</span>.         <span class="num">021900</span>
+     <span class="num">03</span> <span class="var">R72-SDO-ABONOS</span>             <span class="kw">PIC</span> S9(<span class="num">15</span>)V9(<span class="num">02</span>) <span class="kw">COMP</span>.         <span class="num">022000</span>
+     <span class="num">03</span> <span class="var">R72-SDO-SDOACT</span>             <span class="kw">PIC</span> S9(<span class="num">15</span>)V9(<span class="num">02</span>) <span class="kw">COMP</span>.         <span class="num">022100</span></span>
+<span class="seg" data-cid="s5" data-jid="j5" title="Orden previo con SORT y recorrido del archivo · L1683–1713"> <span class="num">02</span>-<span class="num">0100</span>-<span class="var">PROCESO-B20</span>.                                             <span class="num">081800</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">SET</span> <span class="var">R20SDOMENCON</span>(<span class="var">TITLE</span>) <span class="kw">TO</span> <span class="var">WS-TITLE-B20SDOMENCON</span>.            <span class="num">082100</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">SORT</span> <span class="var">A20-SORT</span> <span class="kw">ON</span> <span class="kw">ASCENDING</span> <span class="kw">KEY</span>                               <span class="num">082400</span>
+                        <span class="var">A20-R20-AM</span>,                               <span class="num">082500</span>
+                        <span class="var">A20-R20-CON</span>                               <span class="num">082600</span>
+                        <span class="var">A20-R20-PRD</span>,                              <span class="num">082700</span>
+                        <span class="var">A20-R20-INS</span>,                              <span class="num">082800</span>
+                        <span class="var">A20-R20-MON</span>                               <span class="num">082900</span>
+                        <span class="kw">USING</span>  <span class="var">R20SDOMENCON</span>                       <span class="num">083000</span>
+                        <span class="kw">GIVING</span> <span class="var">R20SDOMENCON</span>                       <span class="num">083100</span>
+                        <span class="var">MEMORY</span> <span class="kw">SIZE</span> <span class="num">30</span> <span class="var">MODULES</span>                    <span class="num">083200</span>
+                        <span class="var">DISK</span>   <span class="kw">SIZE</span> <span class="num">90</span> <span class="var">MODULES</span>.                   <span class="num">083300</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="num">0</span>               <span class="kw">TO</span>       <span class="var">WS-EOF-B20</span>.                    <span class="num">083600</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">OPEN</span> <span class="kw">INPUT</span> <span class="var">R20SDOMENCON</span>.                                     <span class="num">083800</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">READ</span> <span class="var">R20SDOMENCON</span> <span class="kw">INTO</span> <span class="var">REG-B20SDOMENCON</span>                      <span class="num">084000</span>
+          <span class="kw">AT</span> <span class="kw">END</span>                                                  <span class="num">084100</span>
+             <span class="kw">MOVE</span> <span class="num">1</span>                <span class="kw">TO</span> <span class="var">WS-EOF-B20</span>.                 <span class="num">084200</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">0150</span>-<span class="var">INTEGRA-SDOMENCON</span> <span class="kw">UNTIL</span> <span class="var">WS-EOF-B20</span> = <span class="num">1</span>.      <span class="num">084500</span>
+     <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">0500</span>-<span class="var">FIN-SDOMENCON</span>.                               <span class="num">084600</span>
+<span class="cmt">      *&gt; ⋯ 1 línea omitida</span>
+     <span class="kw">GO</span> <span class="kw">TO</span> <span class="num">02</span>-<span class="num">0900</span>-<span class="kw">EXIT</span>.                                          <span class="num">084800</span></span>
+<span class="seg" data-cid="s6" data-jid="j6" title="CREATE y STORE por registro con terminación ante error · L1716–1759"> <span class="num">02</span>-<span class="num">0150</span>-<span class="var">INTEGRA-SDOMENCON</span>.                                       <span class="num">085100</span>
+<span class="cmt">      *&gt; ⋯ 3 líneas omitidas</span>
+     <span class="kw">CREATE</span> <span class="var">CORE-GLB20SDOMENCON</span>.                                     <span class="num">085500</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-KEYAM</span>            <span class="kw">TO</span> <span class="var">B20-SDO-KEYAM</span>.              <span class="num">085600</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-KEYCON</span>           <span class="kw">TO</span> <span class="var">B20-SDO-KEYCON</span>.             <span class="num">085700</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-KEYPRD</span>           <span class="kw">TO</span> <span class="var">B20-SDO-KEYPRD</span>.             <span class="num">085800</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-KEYINS</span>           <span class="kw">TO</span> <span class="var">B20-SDO-KEYINS</span>.             <span class="num">085900</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-KEYMON</span>           <span class="kw">TO</span> <span class="var">B20-SDO-KEYMON</span>.             <span class="num">086000</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-SUCPRO</span>           <span class="kw">TO</span> <span class="var">B20-SDO-SUCPRO</span>.             <span class="num">086100</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-STAMOV</span>           <span class="kw">TO</span> <span class="var">B20-SDO-STAMOV</span>.             <span class="num">086200</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-APUIMP</span>           <span class="kw">TO</span> <span class="var">B20-SDO-APUIMP</span>.             <span class="num">086300</span>
+     <span class="kw">PERFORM</span> <span class="num">02</span>-<span class="num">0200</span>-<span class="var">MUEVE-SALDO</span> <span class="kw">VARYING</span> <span class="var">W77-C</span>                    <span class="num">086400</span>
+                     <span class="kw">FROM</span> <span class="num">1</span> <span class="kw">BY</span> <span class="num">1</span> <span class="kw">UNTIL</span> <span class="var">W77-C</span> &gt; <span class="num">10</span>.                <span class="num">086500</span>
+     <span class="kw">STORE</span> <span class="var">CORE-GLB20SDOMENCON</span>                                       <span class="num">086600</span>
+           <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                           <span class="num">086700</span>
+              <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span>             <span class="kw">TO</span> <span class="var">TIPO-LJ</span>                     <span class="num">086800</span>
+              <span class="kw">MOVE</span> <span class="num">010105</span>          <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>                   <span class="num">086900</span>
+              <span class="kw">MOVE</span> <span class="str">&quot; &gt;&gt; ERROR AL ESCRIBIR CORE-GLB20SDOMENCON. &lt;&lt; &quot;</span>  <span class="num">087000</span>
+                                   <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>                    <span class="num">087100</span>
+              <span class="kw">CALL</span> <span class="str">&quot;LJ IN LIB-DISP&quot;</span> <span class="kw">USING</span> <span class="var">CONTADOR-LJ</span>,            <span class="num">087200</span>
+                                          <span class="var">MENSAJE-LJ</span>              <span class="num">087300</span>
+              <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>.                            <span class="num">087400</span>
+                                                                  <span class="num">087500</span>
+     <span class="kw">ADD</span> <span class="num">1</span>                         <span class="kw">TO</span> <span class="var">WS-INTEGRADOS-B20</span>.          <span class="num">087600</span>
+     <span class="kw">ADD</span> <span class="var">R20-SDO-SD</span>(<span class="num">2</span>)             <span class="kw">TO</span> <span class="var">WS-TOTALB20SDOSD2</span>.          <span class="num">087700</span>
+                                                                  <span class="num">087800</span>
+     <span class="kw">READ</span> <span class="var">R20SDOMENCON</span> <span class="kw">INTO</span> <span class="var">REG-B20SDOMENCON</span>                      <span class="num">087900</span>
+          <span class="kw">AT</span> <span class="kw">END</span>                                                  <span class="num">088000</span>
+             <span class="kw">MOVE</span> <span class="num">1</span>                <span class="kw">TO</span> <span class="var">WS-EOF-B20</span>.                 <span class="num">088100</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+ <span class="num">02</span>-<span class="num">0200</span>-<span class="var">MUEVE-SALDO</span>.                                             <span class="num">088400</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-CNTMOV</span>(<span class="var">W77-C</span>)    <span class="kw">TO</span> <span class="var">B20-SDO-CNTMOV</span>(<span class="var">W77-C</span>).      <span class="num">088700</span>
+     <span class="kw">MOVE</span> <span class="var">R20-SDO-SD</span>(<span class="var">W77-C</span>)        <span class="kw">TO</span> <span class="var">B20-SDO-SD</span>(<span class="var">W77-C</span>).          <span class="num">088800</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+ <span class="num">02</span>-<span class="num">0500</span>-<span class="var">FIN-SDOMENCON</span>.                                           <span class="num">089100</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">CLOSE</span> <span class="var">R20SDOMENCON</span> <span class="kw">WITH</span> <span class="var">PURGE</span>.                               <span class="num">089400</span></span>
+<span class="seg" data-cid="s7" data-jid="j7" title="Integración de B72 y acumulado de saldo actual · L2057–2092"> <span class="num">06</span>-<span class="num">0150</span>-<span class="var">INTEGRA-POSCONTA</span>.                                        <span class="num">119200</span>
+<span class="cmt">      *&gt; ⋯ 3 líneas omitidas</span>
+     <span class="kw">CREATE</span> <span class="var">CORE-GLB72POSCONTA</span>.                                      <span class="num">119600</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-KEYCSI</span>           <span class="kw">TO</span> <span class="var">B72-SDO-KEYCSI</span>.             <span class="num">119700</span>
+<span class="cmt">      *&gt; ⋯ 8 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-KEYSEC</span>           <span class="kw">TO</span> <span class="var">B72-SDO-KEYSEC</span>.             <span class="num">120600</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-NATCTA</span>           <span class="kw">TO</span> <span class="var">B72-SDO-NATCTA</span>.             <span class="num">120700</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-SDOANT</span>           <span class="kw">TO</span> <span class="var">B72-SDO-SDOANT</span>.             <span class="num">120800</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-CARGOS</span>           <span class="kw">TO</span> <span class="var">B72-SDO-CARGOS</span>.             <span class="num">120900</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-ABONOS</span>           <span class="kw">TO</span> <span class="var">B72-SDO-ABONOS</span>.             <span class="num">121000</span>
+     <span class="kw">MOVE</span> <span class="var">R72-SDO-SDOACT</span>           <span class="kw">TO</span> <span class="var">B72-SDO-SDOACT</span>.             <span class="num">121100</span>
+     <span class="kw">STORE</span> <span class="var">CORE-GLB72POSCONTA</span>                                        <span class="num">121200</span>
+           <span class="kw">ON</span> <span class="kw">EXCEPTION</span>                                           <span class="num">121300</span>
+              <span class="kw">MOVE</span> <span class="str">&quot;I&quot;</span>             <span class="kw">TO</span> <span class="var">TIPO-LJ</span>                     <span class="num">121400</span>
+              <span class="kw">MOVE</span> <span class="num">010105</span>          <span class="kw">TO</span> <span class="var">CODIGO-LJ</span>                   <span class="num">121500</span>
+              <span class="kw">MOVE</span> <span class="str">&quot; &gt;&gt; ERROR AL ESCRIBIR CORE-GLB72POSCONTA. &lt;&lt; &quot;</span>   <span class="num">121600</span>
+                                   <span class="kw">TO</span> <span class="var">TEXTO-LJ</span>                    <span class="num">121700</span>
+              <span class="kw">CALL</span> <span class="str">&quot;LJ IN LIB-DISP&quot;</span> <span class="kw">USING</span> <span class="var">CONTADOR-LJ</span>,            <span class="num">121800</span>
+                                          <span class="var">MENSAJE-LJ</span>              <span class="num">121900</span>
+              <span class="kw">CALL</span> <span class="var">SYSTEM</span> <span class="var">DMTERMINATE</span>.                            <span class="num">122000</span>
+                                                                  <span class="num">122100</span>
+     <span class="kw">ADD</span> <span class="num">1</span>                         <span class="kw">TO</span> <span class="var">WS-INTEGRADOS-B72</span>.          <span class="num">122200</span>
+     <span class="kw">ADD</span> <span class="var">R72-SDO-SDOACT</span>            <span class="kw">TO</span> <span class="var">WS-TOTALB72SDOACT</span>.          <span class="num">122300</span>
+                                                                  <span class="num">122400</span>
+     <span class="kw">READ</span> <span class="var">R72POSCONTA</span> <span class="kw">INTO</span> <span class="var">REG-B72POSCONTA</span>                        <span class="num">122500</span>
+          <span class="kw">AT</span> <span class="kw">END</span>                                                  <span class="num">122600</span>
+             <span class="kw">MOVE</span> <span class="num">1</span>                <span class="kw">TO</span> <span class="var">WS-EOF-B72</span>.                 <span class="num">122700</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>PosicionContableRecord.java · EstructuraStepFactory.java</span><span class="fname">record · ItemReader binario · JdbcBatchItemWriter · @Transactional</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j4"><span class="cmt">/** REG-B72POSCONTA: llave de 10 campos y cuatro importes S9(15)V9(02) COMP. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">PosicionContableRecord</span>(
+        <span class="kw">int</span> csi, <span class="type">LocalDate</span> fecha, <span class="kw">int</span> banco, <span class="kw">int</span> moneda, <span class="kw">int</span> fideicomiso,
+        <span class="kw">int</span> producto, <span class="kw">int</span> instrumento,
+        <span class="type">String</span> cuenta,              <span class="cmt">// 9(12): como String para conservar ceros</span>
+        <span class="type">String</span> claveContable,       <span class="cmt">// 9(06)</span>
+        <span class="kw">int</span> secuencia,              <span class="cmt">// 9(02)</span>
+        <span class="kw">int</span> naturalezaCuenta,       <span class="cmt">// 9(02)</span>
+        <span class="type">BigDecimal</span> saldoAnterior,   <span class="cmt">// S9(15)V9(02) escala 2, con signo</span>
+        <span class="type">BigDecimal</span> cargos,
+        <span class="type">BigDecimal</span> abonos,
+        <span class="type">BigDecimal</span> saldoActual) {
+
+<span class="cmt">    /** Los campos COMP de Unisys se decodifican con un lector binario propio. */</span>
+    <span class="kw">static</span> <span class="type">PosicionContableRecord</span> decode(<span class="type">UnisysBinaryReader</span> r) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">PosicionContableRecord</span>(r.comp(<span class="num">4</span>), r.fechaAmd(r.comp(<span class="num">8</span>)), r.comp(<span class="num">4</span>),
+                r.comp(<span class="num">4</span>), r.comp(<span class="num">4</span>), r.comp(<span class="num">4</span>), r.comp(<span class="num">4</span>),
+                r.compAsString(<span class="num">12</span>), r.compAsString(<span class="num">6</span>), r.comp(<span class="num">2</span>), r.comp(<span class="num">2</span>),
+                r.compDecimal(<span class="num">15</span>, <span class="num">2</span>), r.compDecimal(<span class="num">15</span>, <span class="num">2</span>),
+                r.compDecimal(<span class="num">15</span>, <span class="num">2</span>), r.compDecimal(<span class="num">15</span>, <span class="num">2</span>));
+    }
+}</span>
+<span class="seg java-seg" data-jid="j5"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">EstructuraStepFactory</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">JobRepository</span> repo;
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">PlatformTransactionManager</span> tx;
+
+<span class="cmt">    /** Un step por estructura: ordenar, leer, guardar y purgar el archivo plano. */</span>
+    <span class="kw">public</span> &lt;T&gt; <span class="type">Step</span> paso(<span class="type">EstructuraSaldos</span>&lt;T&gt; e) {
+        <span class="kw">return</span> <span class="kw">new</span> <span class="type">StepBuilder</span>(<span class="str">&quot;integra&quot;</span> + e.nombre(), repo)
+                .&lt;T, T&gt;chunk(<span class="num">1</span>_000, tx)
+                .reader(<span class="kw">new</span> <span class="type">SortedRecordReader</span>&lt;&gt;(e.archivo(), e.decoder(), e.ordenNatural()))
+                .writer(e.writer())                       <span class="cmt">// CREATE + STORE</span>
+                .listener(<span class="kw">new</span> <span class="type">PurgaArchivoListener</span>(e.archivo()))   <span class="cmt">// CLOSE ... WITH PURGE</span>
+                .listener(<span class="kw">new</span> <span class="type">TotalesControlListener</span>(e))
+                .build();
+    }
+}
+
+<span class="cmt">// B20: orden AM, CON, PRD, INS, MON; equivale a SORT A20-SORT ... USING / GIVING R20SDOMENCON.</span>
+<span class="kw">static</span> <span class="kw">final</span> <span class="type">Comparator</span>&lt;<span class="type">SaldoMensualContrato</span>&gt; ORDEN_B20 =
+        <span class="type">Comparator</span>.comparingInt(<span class="type">SaldoMensualContrato</span>::anioMes)
+                  .thenComparing(<span class="type">SaldoMensualContrato</span>::contrato)
+                  .thenComparingInt(<span class="type">SaldoMensualContrato</span>::producto)
+                  .thenComparingInt(<span class="type">SaldoMensualContrato</span>::instrumento)
+                  .thenComparingInt(<span class="type">SaldoMensualContrato</span>::moneda);</span>
+<span class="seg java-seg" data-jid="j6"><span class="ann">@Bean</span>
+<span class="type">JdbcBatchItemWriter</span>&lt;<span class="type">SaldoMensualContrato</span>&gt; writerB20(<span class="type">DataSource</span> saldos) {
+    <span class="kw">return</span> <span class="kw">new</span> <span class="type">JdbcBatchItemWriterBuilder</span>&lt;<span class="type">SaldoMensualContrato</span>&gt;()
+            .dataSource(saldos)
+            .sql(<span class="str">&quot;&quot;</span><span class="str">&quot;</span>
+                INSERT INTO core-glb20sdomencon
+                  (key_am, key_con, key_prd, key_ins, key_mon, suc_pro, sta_mov, apu_imp,
+                   cnt_mov_01, sd_01, /* ... */ cnt_mov_10, sd_10)
+                VALUES (:anioMes, :contrato, :producto, :instrumento, :moneda, :sucursal,
+                        :estatusMov, :apuntadorImp, :cnt01, :sd01, /* ... */ :cnt10, :sd10)
+                <span class="str">&quot;&quot;</span><span class="str">&quot;</span>)
+            .itemSqlParameterSourceProvider(<span class="type">SaldoMensualContrato</span>::parametros)  <span class="cmt">// 10 pares CNTMOV/SD</span>
+            .assertUpdates(<span class="kw">true</span>)
+            .build();
+}
+
+<span class="cmt">// STORE ... ON EXCEPTION -&gt; CALL SYSTEM DMTERMINATE.</span>
+<span class="cmt">// Spring Batch: la excepción revierte el chunk y deja el step en FAILED; no hay skip ni retry,</span>
+<span class="cmt">// para conservar la semántica de &quot;todo o nada&quot; por estructura que el operador espera.</span></span>
+<span class="seg java-seg" data-jid="j7"><span class="ann">@Component</span>
+<span class="ann">@StepScope</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">TotalesControlListener</span> <span class="kw">implements</span> <span class="type">ItemWriteListener</span>&lt;<span class="type">PosicionContableRecord</span>&gt; {
+
+    <span class="kw">private</span> <span class="kw">long</span> integrados;                                   <span class="cmt">// WS-INTEGRADOS-B72</span>
+    <span class="kw">private</span> <span class="type">BigDecimal</span> totalSaldoActual = <span class="type">BigDecimal</span>.ZERO.setScale(<span class="num">2</span>);   <span class="cmt">// WS-TOTALB72SDOACT</span>
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="kw">void</span> afterWrite(<span class="type">Chunk</span>&lt;? <span class="kw">extends</span> <span class="type">PosicionContableRecord</span>&gt; chunk) {
+        <span class="kw">for</span> (<span class="kw">var</span> r : chunk) {
+            integrados++;
+            totalSaldoActual = totalSaldoActual.add(r.saldoActual());     <span class="cmt">// suma con signo</span>
+        }
+    }
+
+    <span class="ann">@AfterStep</span>
+    <span class="type">ExitStatus</span> publica(<span class="type">StepExecution</span> se) {
+        se.getExecutionContext().putLong(<span class="str">&quot;integradosB72&quot;</span>, integrados);
+        se.getExecutionContext().put(<span class="str">&quot;totalB72SdoAct&quot;</span>, totalSaldoActual);
+        <span class="kw">return</span> se.getExitStatus();
+    }
+}</span></pre></div>
+</div>
+<div class="sec-hdr">3 · Listado de control y conversión de fechas Y2K</div>
+<div class="split">
+<div class="pane"><div class="pane-hdr ch"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>COBOL_P360.txt</span><span class="fname">09-0100-PROCESO-IMPRESION · COPY CORE-GL/CRONOS2K/CPY/PD</span><span class="lang-label ll-c">COBOL85</span></div><pre><span class="seg" data-cid="s8" data-jid="j8" title="Totales por estructura en el listado de integración · L486–2229"> <span class="num">77</span>  <span class="var">WS-TOTALB20SDOSD2</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">18</span>)V9(<span class="num">02</span>).               <span class="num">030200</span>
+ <span class="num">77</span>  <span class="var">WS-TOTALB21SDOSD2</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">18</span>)V9(<span class="num">02</span>).               <span class="num">030300</span>
+ <span class="num">77</span>  <span class="var">WS-TOTALB70SDOSD2</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">18</span>)V9(<span class="num">02</span>).               <span class="num">030400</span>
+ <span class="num">77</span>  <span class="var">WS-TOTALB71SDOSD2</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">18</span>)V9(<span class="num">02</span>).               <span class="num">030500</span>
+ <span class="num">77</span>  <span class="var">WS-TOTALB72SDOACT</span>             <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">18</span>)V9(<span class="num">02</span>).               <span class="num">030600</span>
+<span class="cmt">      *&gt; ⋯ continúa en la línea 2205</span>
+ <span class="num">09</span>-<span class="num">0100</span>-<span class="var">PROCESO-IMPRESION</span>.                                       <span class="num">132400</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">IF</span> <span class="var">WS-LINEAS</span> &gt; <span class="num">55</span>                                            <span class="num">132700</span>
+        <span class="kw">PERFORM</span> <span class="num">09</span>-<span class="num">0200</span>-<span class="var">ENCABEZADOS</span>.                              <span class="num">132800</span>
+<span class="cmt">      *&gt; ⋯ 2 líneas omitidas</span>
+     <span class="kw">MOVE</span> <span class="var">WS-INTEGRADOS-B20</span>        <span class="kw">TO</span> <span class="var">TOTB20SDOMENCON</span>.            <span class="num">133100</span>
+     <span class="kw">MOVE</span> <span class="var">WS-TOTALB20SDOSD2</span>        <span class="kw">TO</span> <span class="var">TOTALB20SDOSD2</span>.             <span class="num">133200</span>
+     <span class="kw">MOVE</span> <span class="var">WS-INTEGRADOS-B21</span>        <span class="kw">TO</span> <span class="var">TOTB21SDMENCON1</span>.            <span class="num">133300</span>
+     <span class="kw">MOVE</span> <span class="var">WS-TOTALB21SDOSD2</span>        <span class="kw">TO</span> <span class="var">TOTALB21SDOSD2</span>.             <span class="num">133400</span>
+     <span class="kw">MOVE</span> <span class="var">WS-INTEGRADOS-B70</span>        <span class="kw">TO</span> <span class="var">TOTB70POSICION</span>.             <span class="num">133500</span>
+     <span class="kw">MOVE</span> <span class="var">WS-TOTALB70SDOSD2</span>        <span class="kw">TO</span> <span class="var">TOTALB70SDOSD2</span>.             <span class="num">133600</span>
+     <span class="kw">MOVE</span> <span class="var">WS-INTEGRADOS-B71</span>        <span class="kw">TO</span> <span class="var">TOTB71POSDIAAD1</span>.            <span class="num">133700</span>
+     <span class="kw">MOVE</span> <span class="var">WS-TOTALB71SDOSD2</span>        <span class="kw">TO</span> <span class="var">TOTALB71SDOSD2</span>.             <span class="num">133800</span>
+     <span class="kw">MOVE</span> <span class="var">WS-INTEGRADOS-B72</span>        <span class="kw">TO</span> <span class="var">TOTB72POSCONTA</span>.             <span class="num">133900</span>
+     <span class="kw">MOVE</span> <span class="var">WS-TOTALB72SDOACT</span>        <span class="kw">TO</span> <span class="var">TOTALB72SDOACT</span>.             <span class="num">134000</span>
+     <span class="kw">MOVE</span> <span class="var">WS-INTEGRADOS-B80</span>        <span class="kw">TO</span> <span class="var">TOTB80EDOCTA</span>.               <span class="num">134100</span>
+     <span class="kw">WRITE</span> <span class="var">LINEA-REP-INTEGRA</span> <span class="kw">FROM</span> <span class="var">REP-TITULO1</span>  <span class="kw">AFTER</span> <span class="num">15</span>.          <span class="num">134200</span>
+     <span class="kw">WRITE</span> <span class="var">LINEA-REP-INTEGRA</span> <span class="kw">FROM</span> <span class="var">REP-TITULO2</span>  <span class="kw">AFTER</span> <span class="num">3</span>.           <span class="num">134300</span>
+     <span class="kw">WRITE</span> <span class="var">LINEA-REP-INTEGRA</span> <span class="kw">FROM</span> <span class="var">REP-TITULO3</span>  <span class="kw">AFTER</span> <span class="num">3</span>.           <span class="num">134400</span>
+     <span class="kw">WRITE</span> <span class="var">LINEA-REP-INTEGRA</span> <span class="kw">FROM</span> <span class="var">REP-TITULO4</span>  <span class="kw">AFTER</span> <span class="num">3</span>.           <span class="num">134500</span>
+     <span class="kw">WRITE</span> <span class="var">LINEA-REP-INTEGRA</span> <span class="kw">FROM</span> <span class="var">REP-TITULO5</span>  <span class="kw">AFTER</span> <span class="num">3</span>.           <span class="num">134600</span>
+     <span class="kw">WRITE</span> <span class="var">LINEA-REP-INTEGRA</span> <span class="kw">FROM</span> <span class="var">REP-TITULO6</span>  <span class="kw">AFTER</span> <span class="num">3</span>.           <span class="num">134700</span>
+     <span class="kw">ADD</span> <span class="num">30</span>       <span class="kw">TO</span>      <span class="var">WS-LINEAS</span>.                              <span class="num">134800</span></span>
+<span class="seg" data-cid="s9" data-jid="j9" title="Siglo por pivote 50 en la conversión de fechas · L469–2480">  <span class="num">01</span>  <span class="var">A2K-BASE-YEAR</span>     <span class="kw">PIC</span> <span class="num">9</span>(<span class="num">02</span>) <span class="kw">VALUE</span> <span class="num">50</span>.                       <span class="num">028500</span>
+<span class="cmt">      *&gt; ⋯ continúa en la línea 2309</span>
+ <span class="var">A2K-CONV-AMD-TO-CAMD</span>.                                            <span class="num">003500</span>
+         <span class="kw">MOVE</span> <span class="kw">ZEROES</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-001</span>.                         <span class="num">003600</span>
+         <span class="kw">MOVE</span> <span class="var">A2K-FEC-AMD-AA-001</span> <span class="kw">TO</span> <span class="var">A2K-FEC-YEAR-AA</span>.              <span class="num">003700</span>
+         <span class="kw">IF</span> <span class="var">A2K-FEC-AMD-001</span> = <span class="num">0</span>                                   <span class="num">003720</span>
+            <span class="kw">MOVE</span> <span class="kw">ZEROES</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-001</span>                       <span class="num">003740</span>
+         <span class="kw">ELSE</span>                                                     <span class="num">003741</span>
+          <span class="kw">IF</span> <span class="var">A2K-FEC-AMD-001</span> = <span class="num">999999</span>                             <span class="num">003742</span>
+             <span class="kw">MOVE</span> <span class="num">99999999</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-001</span>                    <span class="num">003743</span>
+         <span class="kw">ELSE</span>                                                     <span class="num">003760</span>
+         <span class="kw">PERFORM</span> <span class="var">A2K-OBTAIN-CENTURY</span> <span class="kw">THRU</span>                          <span class="num">003800</span>
+                 <span class="var">A2K-OBTAIN-CENTURY-EXIT</span>                          <span class="num">003900</span>
+         <span class="kw">MOVE</span> <span class="var">A2K-FEC-YEAR-CC</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-CC-001</span>              <span class="num">004000</span>
+         <span class="kw">MOVE</span> <span class="var">A2K-FEC-AMD-AA-001</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-AA-001</span>           <span class="num">004100</span>
+         <span class="kw">MOVE</span> <span class="var">A2K-FEC-AMD-MM-001</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-MM-001</span>           <span class="num">004200</span>
+         <span class="kw">MOVE</span> <span class="var">A2K-FEC-AMD-DD-001</span> <span class="kw">TO</span> <span class="var">A2K-FEC-CAMD-DD-001</span>.          <span class="num">004300</span>
+<span class="cmt">      *&gt; ⋯ 152 líneas omitidas</span>
+ <span class="var">A2K-OBTAIN-CENTURY</span>.                                              <span class="num">018500</span>
+      <span class="kw">IF</span> <span class="var">A2K-FEC-YEAR-AA</span> &lt; <span class="var">A2K-BASE-YEAR</span>                          <span class="num">018600</span>
+          <span class="kw">MOVE</span> <span class="num">20</span> <span class="kw">TO</span> <span class="var">A2K-FEC-YEAR-CC</span>                              <span class="num">018700</span>
+      <span class="kw">ELSE</span>                                                        <span class="num">018800</span>
+          <span class="kw">MOVE</span> <span class="num">19</span> <span class="kw">TO</span> <span class="var">A2K-FEC-YEAR-CC</span>.                             <span class="num">018900</span></span></pre></div>
+<div class="pane"><div class="pane-hdr jh"><div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div><span>ListadoControlTasklet.java · FechasY2k.java</span><span class="fname">Tasklet · JasperReports · java.time</span><span class="lang-label ll-j">Java 21</span></div><pre><span class="seg java-seg" data-jid="j8"><span class="ann">@Component</span>
+<span class="ann">@RequiredArgsConstructor</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="type">ListadoControlTasklet</span> <span class="kw">implements</span> <span class="type">Tasklet</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> <span class="type">ReporteIntegracion</span> reporte;   <span class="cmt">// JasperReports: 001INTEGRACION</span>
+
+    <span class="ann">@Override</span>
+    <span class="kw">public</span> <span class="type">RepeatStatus</span> execute(<span class="type">StepContribution</span> c, <span class="type">ChunkContext</span> ctx) {
+        <span class="kw">var</span> job = ctx.getStepContext().getStepExecution().getJobExecution();
+        <span class="kw">var</span> totales = <span class="type">Stream</span>.of(<span class="str">&quot;B20&quot;</span>, <span class="str">&quot;B21&quot;</span>, <span class="str">&quot;B70&quot;</span>, <span class="str">&quot;B71&quot;</span>, <span class="str">&quot;B72&quot;</span>, <span class="str">&quot;B80&quot;</span>)
+                .map(e -&gt; <span class="kw">new</span> <span class="type">TotalEstructura</span>(e,
+                        sumaLong(job, <span class="str">&quot;integrados&quot;</span> + e),
+                        sumaDecimal(job, <span class="str">&quot;total&quot;</span> + e)))      <span class="cmt">// B80 no lleva importe</span>
+                .toList();
+        reporte.genera(job.getJobParameters(), totales);
+        <span class="kw">return</span> <span class="type">RepeatStatus</span>.FINISHED;
+    }
+}
+
+<span class="cmt">/** Los acumuladores se tipan como BigDecimal con signo y escala 2; no hay PIC sin signo que pierda el signo. */</span>
+<span class="kw">public</span> <span class="kw">record</span> <span class="type">TotalEstructura</span>(<span class="type">String</span> estructura, <span class="kw">long</span> registros, <span class="type">BigDecimal</span> importe) {}</span>
+<span class="seg java-seg" data-jid="j9"><span class="kw">public</span> <span class="kw">final</span> <span class="kw">class</span> <span class="type">FechasY2k</span> {
+
+<span class="cmt">    /** A2K-BASE-YEAR VALUE 50: AA &lt; 50 es 20AA, AA &gt;= 50 es 19AA. */</span>
+    <span class="kw">public</span> <span class="kw">static</span> <span class="kw">final</span> <span class="kw">int</span> PIVOTE = <span class="num">50</span>;
+
+    <span class="kw">private</span> <span class="kw">static</span> <span class="kw">final</span> <span class="type">DateTimeFormatter</span> AAMMDD = <span class="kw">new</span> <span class="type">DateTimeFormatterBuilder</span>()
+            .appendValueReduced(<span class="type">ChronoField</span>.YEAR, <span class="num">2</span>, <span class="num">2</span>, <span class="num">1950</span>)   <span class="cmt">// 50..99 -&gt; 1950..1999, 00..49 -&gt; 2000..2049</span>
+            .appendPattern(<span class="str">&quot;MMdd&quot;</span>)
+            .toFormatter();
+
+<span class="cmt">    /** A2K-CONV-AMD-TO-CAMD: 0 se conserva como &quot;sin fecha&quot; y 999999 como fecha máxima. */</span>
+    <span class="kw">public</span> <span class="kw">static</span> <span class="type">Optional</span>&lt;<span class="type">LocalDate</span>&gt; deAammdd(<span class="kw">int</span> aammdd) {
+        <span class="kw">if</span> (aammdd == <span class="num">0</span>)      <span class="kw">return</span> <span class="type">Optional</span>.empty();
+        <span class="kw">if</span> (aammdd == <span class="num">999999</span>) <span class="kw">return</span> <span class="type">Optional</span>.of(<span class="type">LocalDate</span>.MAX);       <span class="cmt">// 99999999 en el original</span>
+        <span class="kw">return</span> <span class="type">Optional</span>.of(<span class="type">LocalDate</span>.parse(<span class="str">&quot;%06d&quot;</span>.formatted(aammdd), AAMMDD));
+    }
+
+    <span class="kw">private</span> <span class="type">FechasY2k</span>() {}
+}</span></pre></div>
+</div>
+  <div class="sec-hdr">Reglas de negocio trazadas</div><table class="rules-table"><thead><tr><th>ID regla</th><th>Descripción (brain)</th><th>Segmento</th></tr></thead><tbody><tr><td>RN-CORE-GL-735</td><td>P360 recibe dos parámetros obligatorios al inicio de su ejecución: el número de sistema (`WKS-PARAM-SIS`, 3 dígitos) que identifica qué base destino se va a integrar (el &quot;XXX&quot; del nombre `CORE-GLBD11SDOSXXX`), y el nombre del pack (`WKS-NOMBRE-PACK`, 12 caracteres) donde residen los archivos planos generados por P330. El nombre del pack se propaga a los títulos de los seis archivos de entrada (B20, B21, B70, B71, B72, B80) antes de cualquier operación de lectura.</td><td>Parámetro sistema y pack, y secuencia fija de seis estructuras</td></tr><tr><td>RN-CORE-GL-736</td><td>P360 determina la fecha de proceso mediante lógica dual: si el programa se ejecuta sin valor en `ATTRIBUTE VALUE OF MYSELF` (valor = 0), consulta el dataset de control `CORE-GLB01SISDIA` mediante la librería `CONSISDIA` (función 1) y recupera el campo `WKS-B01-FECPRO`. Si se pasa un valor explícito al atributo, ese valor prevalece sobre la fecha del dataset de control. Esto permite reejecutar el proceso para una fecha específica diferente a la fecha vigente.</td><td>Librería de control y origen de la fecha de proceso</td></tr><tr><td>RN-CORE-GL-737</td><td>Antes de abrir la base de saldos, P360 consulta el dataset `CORE-GLB04SISTEM` (vía entry point `B04SISTEM`, función 1) con el número de sistema como clave. El campo `WKS-B04-ESTATUS` debe ser exactamente igual a 3 para que el proceso continúe. Cualquier otro valor, o un resultado de consulta distinto de 0 (no encontrado, error), provoca la terminación anormal del proceso con código de status -1 y emisión de mensaje de operador.</td><td>Nombre físico de la base por sistema y validaciones de control</td></tr><tr><td>RN-CORE-GL-738</td><td>Solo los sistemas con tipo de base (`WKS-B03-TIPBD`) igual a 1, 2, 5 o 6 (consultado desde `CORE-GLB03SISMEN`) son elegibles para la integración de saldos. Si el tipo no está en ese conjunto, el proceso emite el mensaje &quot;EL SISTEMA NO UTILIZA BASE DE SALDOS&quot; y termina con status -1. Esta regla asegura que estructuras GL como B20/B21/B70/B71/B72/B80 sólo se integren en sistemas que tengan habilitada la base de saldos.</td><td>Nombre físico de la base por sistema y validaciones de control</td></tr><tr><td>RN-CORE-GL-739</td><td>El nombre físico de la base de saldos destino no está hardcodeado sino que se obtiene dinámicamente del campo `WKS-B03-NOMBDSAL` (consultado desde `CORE-GLB03SISMEN`). Antes de la apertura, el programa valida que el nombre no sea espacios ni valores nulos. Si es válido, se asigna como título del archivo lógico `SALDOS` mediante `CHANGE ATTRIBUTE TITLE OF SALDOS` y se abre en modo UPDATE. Cualquier excepción en la apertura provoca terminación con status -1.</td><td>Nombre físico de la base por sistema y validaciones de control</td></tr><tr><td>RN-CORE-GL-740</td><td>El archivo plano B20SDOMENCON (generado por P330) se ordena de forma ascendente por la clave compuesta (AM, CON, PRD, INS, MON) antes de la integración. Por cada registro, se crea un nuevo registro en `CORE-GLB20SDOMENCON` con todos sus campos clave y datos, incluyendo 10 ocurrencias del par (CNTMOV, SD) que representan contadores de movimientos y saldos por slot. El campo de saldo SD en posición 2 (`R20-SDO-SD(2)`) se acumula en el total de control `WS-TOTALB20SDOSD2`. Cualquier error en STORE causa terminación inmediata vía DMTERMINATE.</td><td>Orden previo con SORT y recorrido del archivo · CREATE y STORE por registro con terminación ante error</td></tr><tr><td>RN-CORE-GL-741</td><td>El archivo B21SDMENCON1 se ordena ascendentemente por (AM, CON, PRD, INS) — sin moneda, diferencia clave respecto a B20. La clave de B21 incluye un campo `KEYIND` (indicador) en lugar de `KEYMON` (moneda). Cada registro contiene 12 ocurrencias de (CNTMOV, SD), a diferencia de las 10 de B20; los 12 slots probablemente representen los 12 meses del año. El campo SD en posición 2 (`R21-SDO-SD(2)`) se acumula en `WS-TOTALB21SDOSD2`.</td><td>Totales por estructura en el listado de integración</td></tr><tr><td>RN-CORE-GL-742</td><td>B70POSICION almacena la posición de cartera por CSI (centro de servicio/sistema de información), fecha, producto, instrumento y moneda. A diferencia de B20/B21 que tienen clave por contrato, B70 tiene clave dimensional por fecha y CSI. El importe de saldo está en 15 dígitos (S9(15)V9(02)) vs. 13 en B20/B21, lo que indica importes de mayor magnitud. Contiene 10 slots de (CNTMOV, SD). El campo `APUIMP` (indicador de apunte importado) es parte del registro pero no de la clave. El SD(2) se acumula en `WS-TOTALB70SDOSD2`.</td><td>Totales por estructura en el listado de integración</td></tr><tr><td>RN-CORE-GL-743</td><td>B71POSDIAAD1 es el complemento de B70: mantiene posición adicional diaria con un campo `KEYIND` adicional en la clave (CSI + FEC + PRD + INS + MON + IND), permitiendo múltiples tipos de posición por la misma combinación CSI/fecha/producto/instrumento/moneda. Tiene 12 slots de (CNTMOV, SD) en lugar de 10, alineado con B21. El importe SD también es de 15 dígitos como B70. El sort incluye MON e IND como claves adicionales respecto a B70. El SD(2) se acumula en `WS-TOTALB71SDOSD2`.</td><td>Totales por estructura en el listado de integración</td></tr><tr><td>RN-CORE-GL-744</td><td>B72POSCONTA es la estructura contable más compleja: su clave tiene 10 campos (CSI + FEC + BCO + MON + FID + PRD + INS + CTA + CVEC + SEC). A diferencia de B20/B21/B70/B71, no usa arrays de slots sino cuatro importes individuales con significado contable explícito: saldo anterior (`SDOANT`), cargos del período (`CARGOS`), abonos del período (`ABONOS`) y saldo actual (`SDOACT`). Además incluye `NATCTA` (naturaleza de la cuenta, p.ej. deudora/acreedora). El total de control acumula `SDOACT` (no SD(2) como en las otras estructuras).</td><td>Registro B72 de posición contable con importes con signo · Integración de B72 y acumulado de saldo actual</td></tr><tr><td>RN-CORE-GL-745</td><td>B80EDOCTA almacena el estado de cuenta por contrato. Su clave es únicamente el número de contrato (`KEYCON`, 20 dígitos). El registro incluye: fecha del contrato (`FECCON`, 8 dígitos), producto, instrumento, fecha de inicio de vigencia (`FCHINI`, 8 dígitos), fecha de fin de vigencia (`FCHFIN`, 8 dígitos), y un campo blob de datos adicionales (`DATOS`, 146 bytes alfanuméricos). El sort de B80 ordena por (FECCON, CON, PRD, INS), a diferencia de las demás estructuras que ordenan por la clave primaria. B80 no genera total de importe (solo recuento de contratos), reflejando su naturaleza de catálogo de estados de cuenta en lugar de saldos.</td><td>Totales por estructura en el listado de integración</td></tr><tr><td>RN-CORE-GL-746</td><td>Toda operación `STORE` sobre las seis estructuras (B20, B21, B70, B71, B72, B80) está protegida con una cláusula `ON EXCEPTION`. Ante cualquier fallo de escritura en DMSII, el programa: (1) emite un mensaje de error al operador con código 010105, (2) describe el tipo de error mediante el texto del array `WKS-TAB-ERRDMSII` indexado por `WKS-ERR-DMSII`, y (3) llama a `CALL SYSTEM DMTERMINATE` que aborta la transacción DMSII de forma atómica, deshaciendo todos los STORE previos de la misma ejecución. No hay reintentos ni recuperación parcial.</td><td>CREATE y STORE por registro con terminación ante error · Integración de B72 y acumulado de saldo actual</td></tr><tr><td>RN-CORE-GL-747</td><td>Al finalizar la integración de las 6 estructuras, P360 genera un listado de control que reporta: total de contratos/registros integrados por estructura (B20, B21, B70, B71, B72, B80) y total del importe de saldo para B20, B21, B70, B71 y B72. Los totales de importe se refieren al campo SD(2) para B20/B21/B70/B71, y al campo SDOACT para B72. B80 sólo reporta conteo (sin importe, ya que no es tabla de saldos). El reporte incluye encabezado con: sistema, fecha de corrida, hora, fecha de proceso y número de página.</td><td>Totales por estructura en el listado de integración</td></tr><tr><td>RN-CORE-GL-748</td><td>P360 incorpora la biblioteca CRONOS2K de Unisys para gestión de fechas Y2K. La función `A2K-OBTAIN-CENTURY` determina el siglo de una fecha de 2 dígitos usando el año pivote `A2K-BASE-YEAR = 50`: si el año (AA) es menor a 50, el siglo es 20 (años 2000-2049); si es mayor o igual a 50, el siglo es 19 (años 1950-1999). Esta lógica se aplica en conversiones de formato AMD→CAMD, MDA→MDCA y DMA→DMCA que se usan principalmente para formatear la fecha de corrida en el encabezado del listado.</td><td>Siglo por pivote 50 en la conversión de fechas</td></tr><tr><td>RN-CORE-GL-749</td><td>P360 integra las 6 estructuras en un orden fijo y secuencial, nunca en paralelo: B20 → B21 → B70 → B71 → B72 → B80. Cada estructura se procesa completamente (sort + open + loop + close con purge) antes de iniciar la siguiente. El cierre con `CLOSE WITH PURGE` elimina los archivos planos temporales después de integrarlos, garantizando que no puedan ser reprocesados accidentalmente. Este orden no es aleatorio: B20 (saldo diario por contrato) precede a B21 (saldo mensual), y B70 (posición) precede a B71 (posición adicional) y B72 (contable), reflejando una jerarquía de dependencia entre estructuras.</td><td>Parámetro sistema y pack, y secuencia fija de seis estructuras · Orden previo con SORT y recorrido del archivo</td></tr></tbody></table>
+  <div class="sec-hdr">Riesgos de migración</div><div class="risks"><div class="risk"><b>Totales de control sin signo</b><p>Los acumuladores WS-TOTALB20SDOSD2 a WS-TOTALB72SDOACT (líneas 486-490) son PIC 9(18)V9(02) sin signo, mientras los importes de origen son S9(13)V9(02) y S9(15)V9(02) con signo. Cada ADD guarda el valor absoluto, así que el listado de control puede no cuadrar con la base.</p></div><div class="risk"><b>Error de B04 sin tratamiento</b><p>En 01-0130-ABRE-SALDOS, los IF de B04SISTEM (W77-RESULT-LIBCON = 0) y de estatus 3 no tienen rama ELSE. Si fallan, no hay mensaje ni baja de la tarea y la base de saldos no se abre.</p></div><div class="risk"><b>Integración no atómica entre estructuras</b><p>No hay transacción ni punto de reinicio: un error en una estructura deja las anteriores integradas, la actual parcial y los archivos planos de las anteriores ya purgados.</p></div><div class="risk"><b>Fecha de proceso sin validar</b><p>El resultado de CONSISDIA no se revisa (líneas 1560-1564) y un VALUE de tarea distinto de cero se toma como fecha sin validación.</p></div><div class="risk"><b>Hardcodes de rutas</b><p>Ruta de la librería de mensajes en S000, ruta de respaldo de LIB-CONTROL en CMEMP y la plantilla de títulos S{sistema}/FILE/EXTR/... están compiladas. Se trasladan a application.yml.</p></div></div>
+  <div class="sec-hdr">Pendiente de revisión SME</div><ul class="pend"><li>Confirmar si la base CORE-GLBD11SDOSnnn se inicializa vacía antes de P360 (por ejemplo, con una reorganización en el WFL); el programa solo hace CREATE y STORE y un registro duplicado terminaría la corrida.</li><li>Confirmar por qué el importe de control de B20, B21, B70 y B71 es el saldo de la posición 2 del arreglo.</li><li>Confirmar si operación concilia contra los totales del listado; con importes negativos, el total actual es un valor absoluto acumulado.</li><li>RN-CORE-GL-737 afirma que un estatus de B04 distinto de 3 o un error de B04SISTEM terminan el proceso con status -1; en 01-0130-ABRE-SALDOS esos dos IF no tienen rama ELSE y el programa continúa sin abrir la base. Corregir la regla o el fuente.</li><li>RN-CORE-GL-746 afirma que DMTERMINATE deshace todos los STORE previos de la ejecución; el fuente no tiene BEGIN-TRANSACTION ni END-TRANSACTION, así que la reversión depende de la configuración de auditoría de CORE-GLBD11SDOSnnn. Confirmar con el DBA antes de dar la integración por atómica.</li><li>RN-CORE-GL-747 describe los totales de importe del listado como sumas; los acumuladores son PIC 9(18)V9(02) sin signo y guardan el valor absoluto en cada ADD, por lo que no son la suma real con importes negativos.</li><li>RN-CORE-GL-749 atribuye el orden B20 a B80 a una jerarquía de dependencia entre estructuras; el fuente no muestra dependencia de datos entre ellas, solo una secuencia fija.</li></ul>
+  <div class="pn"><a href="CORE-GL_P330.html">← CORE-GL · P330</a><a href="../cobol-java.html">Inventario</a><a href="CORE-GL_P600.html">CORE-GL · P600 →</a></div>
+</div>
+
+<footer>Enterprise Digital Brain · LegacyCore · Transpilación asistida por IA con revisión humana obligatoria · Accenture México · High Velocity Modernization</footer>
+<script>
+const MAPPINGS = {"s1": {"title": "Parámetro sistema y pack, y secuencia fija de seis estructuras", "cobol": " 01  WKS-PARAMETROS.                                              042700\n     03 WKS-PARAM-SIS-NOMPACK.                                    042800\n        05 WKS-PARAM-SIS           PIC 9(03).                     042900\n        05 WKS-NOMBRE-PACK         PIC X(12).                     043000\n      *> ⋯ 160 líneas omitidas\n  PROCEDURE DIVISION USING WKS-PARAMETROS.                        059100\n      *> ⋯ 2 líneas omitidas\n 00-0000-INICIO SECTION.                                          059400\n      *> ⋯ 3 líneas omitidas\n 00-0100-CTL-PROCESO.                                             059800\n      *> ⋯ 2 líneas omitidas\n     MOVE WKS-NOMBRE-PACK         TO  WKS-B20-PACK, WKS-B21-PACK, 060100\n                                      WKS-B70-PACK, WKS-B71-PACK, 060200\n                                      WKS-B72-PACK, WKS-B80-PACK. 060300\n      *> ⋯ 1 línea omitida\n     CHANGE ATTRIBUTE TITLE OF \"LIB-DISP\" TO                      060500\n        \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\".          060600\n      *> ⋯ 15 líneas omitidas\n     PERFORM 01-0000-VERIFICACION.                                062200\n     PERFORM 02-0000-PROC-STRUCTURE-B20.                          062300\n     PERFORM 03-0000-PROC-STRUCTURE-B21.                          062400\n     PERFORM 04-0000-PROC-STRUCTURE-B70.                          062500\n     PERFORM 05-0000-PROC-STRUCTURE-B71.                          062600\n     PERFORM 06-0000-PROC-STRUCTURE-B72.                          062700\n     PERFORM 07-0000-PROC-STRUCTURE-B80.                          062800\n     PERFORM 09-0000-PROC-IMPRESION.                              062900\n     PERFORM 10-0000-PROC-TERMINA.                                063000\n                                                                  063100\n     STOP RUN.                                                    063200", "java": "/** WKS-PARAMETROS: sistema PIC 9(03) y pack X(12), recibidos al invocar el programa. */\npublic record ParametrosIntegracion(int sistema, String pack) {\n    JobParameters toJobParameters(LocalDate fechaProceso) {\n        return new JobParametersBuilder()\n                .addLong(\"sistema\", (long) sistema)\n                .addString(\"pack\", pack)\n                .addLocalDate(\"fechaProceso\", fechaProceso)\n                .toJobParameters();\n    }\n}\n\n@Configuration\npublic class IntegracionSaldosJobConfig {\n\n    /** 00-0100-CTL-PROCESO: verificación, seis estructuras en orden fijo, listado y cierre. */\n    @Bean\n    Job integracionSaldos(JobRepository repo, Step verificacion,\n                          Step b20, Step b21, Step b70, Step b71, Step b72, Step b80,\n                          Step listadoControl) {\n        return new JobBuilder(\"CORE-GLP360\", repo)\n                .start(verificacion)            // 01-0000-VERIFICACION\n                .next(b20).next(b21).next(b70)  // 02 .. 04\n                .next(b71).next(b72).next(b80)  // 05 .. 07\n                .next(listadoControl)           // 09-0000-PROC-IMPRESION\n                .build();                       // 10-0000-PROC-TERMINA: cierre de recursos por Spring\n    }\n\n    /** Disparo por llegada de archivos: reemplaza la invocación con parámetros desde el WFL. */\n    @Bean\n    IntegrationFlow llegadaExtraccion(JobLauncher launcher, Job integracionSaldos, P360Properties p) {\n        return IntegrationFlow.from(Files.inboundAdapter(new File(p.directorioExtraccion()))\n                        .patternFilter(\"*.done\"), e -> e.poller(Pollers.fixedDelay(60_000)))\n                .transform(File.class, f -> new JobLaunchRequest(integracionSaldos,\n                        ParametrosIntegracion.desdeMarca(f).toJobParameters(p.fechaProceso())))\n                .handle(new JobLaunchingGateway(launcher))\n                .get();\n    }\n}", "rationale": "P360 es un solo binario que sirve a cualquier instancia de CORE-GL: el número de sistema y el pack llegan como parámetro y se propagan a los títulos de los seis archivos y al nombre de la base. En Spring Batch esos datos son parámetros del job, lo que permite reejecutar una instancia sin afectar otras. La secuencia de seis pasos se conserva tal cual, porque cada estructura se integra completa antes de la siguiente. El disparo, que hoy hace el WFL después de P330, se modela con un adaptador de archivos de Spring Integration, propio del arquetipo A4.", "risk": "La ruta de la librería de mensajes \"(S000)S000/UTILITY/DESPLIEGA/OBJ/LIB ON PACK.\" está fija en el programa; pasa a configuración.", "rules": ["RN-CORE-GL-735", "RN-CORE-GL-749"], "lines": "L1291–1496", "verified": true, "score": 100}, "s2": {"title": "Librería de control y origen de la fecha de proceso", "cobol": "     MOVE \"CORE-GLL001CTL\"            TO WKS-LIBID.                  068000\n     CALL \"DAME_TIT IN CTLVER\" USING  WKS-LIBID, WKS-NOMBLIB      068100\n                               GIVING W77-ERR-CTLVER.             068200\n     IF W77-ERR-CTLVER = 0                                        068300\n        CHANGE ATTRIBUTE TITLE OF \"LIB-CONTROL\" TO WKS-NOMBLIB    068400\n     ELSE                                                         068500\n        CHANGE ATTRIBUTE TITLE OF \"LIB-CONTROL\" TO                068600\n               \"(CORE-GL)CORE-GL/OBJECT/L001/CONTROL ON CMEMP\".         068700\n                                                                  068800\n     MOVE WKS-PARAM-SIS            TO WKS-B01-SISTEMA.            068900\n                                                                  069000\n     MOVE 1                        TO WKS-B01-FUNCION.            069100\n                                                                  069200\n     MOVE WKS-NUMCSI               TO WKS-B01-CSI.                069300\n                                                                  069400\n     IF ATTRIBUTE VALUE OF MYSELF = 0                             069500\n        CALL \"CONSISDIA IN LIB-CONTROL\"                           069600\n              USING  WKS-CORE-GLB01SISDIA                            069700\n              GIVING W77-RESULT-LIBCON                            069800\n        MOVE WKS-B01-FECPRO               TO WKS-FECHA-PROCESO    069900\n     ELSE                                                         070000\n        MOVE ATTRIBUTE VALUE OF MYSELF    TO WKS-FECHA-PROCESO.   070100", "java": "# application.yml\np360:\n  libreria-control-default: \"(CORE-GL)CORE-GL/OBJECT/L001/CONTROL ON CMEMP\"   # respaldo si CTLVERS falla\n\n// ---------------------------------------------------------------------------\n@Component\n@RequiredArgsConstructor\npublic class FechaProcesoResolver {\n\n    private final ControlSistemasClient control;   // CONSISDIA IN LIB-CONTROL (CORE-GLB01SISDIA)\n\n    /**\n     * Si la tarea trae VALUE distinto de cero, ese valor es la fecha de proceso;\n     * si no, se consulta el control diario del sistema.\n     */\n    public LocalDate resuelve(int sistema, int csi, OptionalLong valueTarea) {\n        if (valueTarea.isPresent() && valueTarea.getAsLong() != 0) {\n            return LocalDate.parse(String.valueOf(valueTarea.getAsLong()),\n                    DateTimeFormatter.BASIC_ISO_DATE);           // AAAAMMDD\n        }\n        var r = control.consultaSistemaDia(sistema, csi);\n        if (r.result() != 0) {\n            // El fuente no revisa W77-RESULT-LIBCON aquí; en Java se falla explícitamente.\n            throw new ControlSistemaException(\"CONSISDIA RESULT \" + r.result());\n        }\n        return r.fechaProceso();\n    }\n}", "rationale": "La librería de control se localiza por CTLVERS y, si no responde, se usa una ruta fija de respaldo, que pasa a <code>application.yml</code>. La fecha de proceso tiene dos orígenes: el valor numérico con que se lanza la tarea, que permite forzar una fecha, o el control diario del sistema en CORE-GLB01SISDIA. La traducción conserva los dos orígenes y agrega la verificación del resultado de la consulta, que el fuente omite.", "risk": "El resultado de CONSISDIA (W77-RESULT-LIBCON) no se revisa: si la consulta falla, WKS-FECHA-PROCESO queda con lo que haya en WKS-B01-FECPRO.", "rules": ["RN-CORE-GL-736"], "lines": "L1545–1566", "verified": true, "score": 100}, "s3": {"title": "Nombre físico de la base por sistema y validaciones de control", "cobol": " 01-0130-ABRE-SALDOS.                                             070400\n      *> ⋯ 2 líneas omitidas\n     MOVE WKS-PARAM-SIS            TO WKS-B04-SISTEMA             070700\n     MOVE 1                        TO WKS-B04-FUNCION             070800\n     CALL \"B04SISTEM IN LIB-CONTROL\" USING WKS-B04SISTEMA         070900\n                                     GIVING W77-RESULT-LIBCON.    071000\n                                                                  071100\n     IF W77-RESULT-LIBCON = 0                                     071200\n      IF WKS-B04-ESTATUS = 3                                      071300\n      *> ⋯ 4 líneas omitidas\n       MOVE LOW-VALUES             TO WKS-NULOS                   071800\n       MOVE WKS-PARAM-SIS          TO WKS-B03-SISTEMA             071900\n       MOVE 1                      TO WKS-B03-FUNCION             072000\n       CALL \"CONSISMEN IN  LIB-CONTROL\" USING WKS-CORE-GLB03SISMEN   072100\n                                        GIVING W77-RESULT-LIBCON  072200\n       IF W77-RESULT-LIBCON = 0                                   072300\n         IF WKS-B03-TIPBD = 1 OR 2 OR 5 OR 6                      072400\n            MOVE WKS-B03-NOMBDSAL   TO WKS-BD-SALDOS              072500\n            IF WKS-BD-SALDOS = WKS-BLANCOS OR                     072600\n               WKS-BD-SALDOS = WKS-NULOS                          072700\n               MOVE \"NO EXISTE EN NOMB. DE BD SALDOS\" TO TEXTO-LJ 072800\n      *> ⋯ 4 líneas omitidas\n               CHANGE ATTRIBUTE STATUS OF MYSELF TO -1            073300\n            ELSE                                                  073400\n              CHANGE ATTRIBUTE TITLE OF SALDOS TO WKS-NOMBD-SALDOS073500\n              OPEN UPDATE SALDOS                                  073600\n                   ON EXCEPTION                                   073700\n                      PERFORM 900000-CHE-STA                      073800\n                      CHANGE ATTRIBUTE STATUS OF MYSELF TO -1     073900\n         ELSE                                                     074000\n      *> ⋯ 5 líneas omitidas\n           CHANGE ATTRIBUTE STATUS OF MYSELF TO -1                074600\n       ELSE                                                       074700\n          IF W77-RESULT-LIBCON = 1                                074800\n      *> ⋯ 6 líneas omitidas\n             CHANGE ATTRIBUTE STATUS OF MYSELF TO -1              075500\n          ELSE                                                    075600\n      *> ⋯ 6 líneas omitidas\n             CHANGE ATTRIBUTE STATUS OF MYSELF TO -1.             076300", "java": "@Component\n@RequiredArgsConstructor\npublic class BaseSaldosResolver {\n\n    private final ControlSistemasClient control;     // B04SISTEM / CONSISMEN IN LIB-CONTROL\n    private final Map<String, DataSource> bases;     // una por base CORE-GLBD11SDOSnnn\n\n    /** 01-0130-ABRE-SALDOS: devuelve la base de saldos del sistema o falla con el motivo. */\n    public DataSource resuelve(int sistema) {\n        var b04 = control.sistema(sistema);\n        if (b04.result() != 0 || b04.estatus() != 3) {\n            // En el fuente esta rama no existe: no hay mensaje ni baja de la tarea.\n            throw new BaseSaldosException(\"SISTEMA \" + sistema + \" NO DISPONIBLE EN B04\");\n        }\n        var b03 = control.sistemaMensual(sistema);\n        if (b03.result() == 1) throw new BaseSaldosException(\"NO EXITE EL NUMERO DE SISTEMA EN BASE MENSUAL\");\n        if (b03.result() != 0) throw new BaseSaldosException(\"ERROR EN BASE DE CONTROL\");\n        if (!Set.of(1, 2, 5, 6).contains(b03.tipoBd()))\n            throw new BaseSaldosException(\"EL SISTEMA NO UTILIZA BASE DE SALDOS\");\n        String nombre = b03.nombreBdSaldos();\n        if (nombre == null || nombre.isBlank())\n            throw new BaseSaldosException(\"NO EXISTE EN NOMB. DE BD SALDOS\");\n        return Optional.ofNullable(bases.get(nombre))\n                .orElseThrow(() -> new BaseSaldosException(\"BASE \" + nombre + \" NO CONFIGURADA\"));\n    }\n}", "rationale": "El nombre de la base de saldos no está en el programa: se obtiene del catálogo mensual de sistemas, y solo los tipos de base 1, 2, 5 y 6 tienen base de saldos. Cada condición de error del fuente baja la tarea con <code>STATUS -1</code> y un mensaje al operador; en Java cada una es una excepción con el mismo texto, que deja el step de verificación en FAILED antes de tocar datos. La selección de la base física se hace con un mapa de <code>DataSource</code> por nombre.", "risk": "Si B04SISTEM devuelve error o el estatus del sistema no es 3, ninguna rama del IF lo atiende: no hay mensaje, la base no se abre y el programa sigue a la integración.", "rules": ["RN-CORE-GL-737", "RN-CORE-GL-738", "RN-CORE-GL-739"], "lines": "L1569–1628", "verified": true, "score": 100}, "s4": {"title": "Registro B72 de posición contable con importes con signo", "cobol": " 01  REG-B72POSCONTA.                                             020500\n     03 R72-SDO-KEYPOS.                                           020600\n        05 R72-SDO-KEYCSI          PIC 9(04) COMP.                020700\n        05 R72-SDO-KEYFEC          PIC 9(08) COMP.                020800\n        05 R72-SDO-KEYBCO          PIC 9(04) COMP.                020900\n        05 R72-SDO-KEYMON          PIC 9(04) COMP.                021000\n        05 R72-SDO-KEYFID          PIC 9(04) COMP.                021100\n        05 R72-SDO-KEYPRD          PIC 9(04) COMP.                021200\n        05 R72-SDO-KEYINS          PIC 9(04) COMP.                021300\n        05 R72-SDO-KEYCTA          PIC 9(12) COMP.                021400\n        05 R72-SDO-KEYCVEC         PIC 9(06) COMP.                021500\n        05 R72-SDO-KEYSEC          PIC 9(02) COMP.                021600\n     03 R72-SDO-NATCTA             PIC 9(02) COMP.                021700\n     03 R72-SDO-SDOANT             PIC S9(15)V9(02) COMP.         021800\n     03 R72-SDO-CARGOS             PIC S9(15)V9(02) COMP.         021900\n     03 R72-SDO-ABONOS             PIC S9(15)V9(02) COMP.         022000\n     03 R72-SDO-SDOACT             PIC S9(15)V9(02) COMP.         022100", "java": "/** REG-B72POSCONTA: llave de 10 campos y cuatro importes S9(15)V9(02) COMP. */\npublic record PosicionContableRecord(\n        int csi, LocalDate fecha, int banco, int moneda, int fideicomiso,\n        int producto, int instrumento,\n        String cuenta,              // 9(12): como String para conservar ceros\n        String claveContable,       // 9(06)\n        int secuencia,              // 9(02)\n        int naturalezaCuenta,       // 9(02)\n        BigDecimal saldoAnterior,   // S9(15)V9(02) escala 2, con signo\n        BigDecimal cargos,\n        BigDecimal abonos,\n        BigDecimal saldoActual) {\n\n    /** Los campos COMP de Unisys se decodifican con un lector binario propio. */\n    static PosicionContableRecord decode(UnisysBinaryReader r) {\n        return new PosicionContableRecord(r.comp(4), r.fechaAmd(r.comp(8)), r.comp(4),\n                r.comp(4), r.comp(4), r.comp(4), r.comp(4),\n                r.compAsString(12), r.compAsString(6), r.comp(2), r.comp(2),\n                r.compDecimal(15, 2), r.compDecimal(15, 2),\n                r.compDecimal(15, 2), r.compDecimal(15, 2));\n    }\n}", "rationale": "B72 es la estructura de posición contable: por centro, fecha, banco, moneda, fideicomiso, producto, instrumento, cuenta, clave contable y secuencia guarda saldo anterior, cargos, abonos y saldo actual. Los importes son <code>S9(15)V9(02)</code> con signo y pasan a <code>BigDecimal</code> con escala 2. Como todo el registro está en formato <code>COMP</code> de Unisys, el archivo no es texto: el lector Java necesita un decodificador binario explícito, que es parte del trabajo de migración de este intercambio.", "risk": "", "rules": ["RN-CORE-GL-744"], "lines": "L220–236", "verified": true, "score": 100}, "s5": {"title": "Orden previo con SORT y recorrido del archivo", "cobol": " 02-0100-PROCESO-B20.                                             081800\n      *> ⋯ 2 líneas omitidas\n     SET R20SDOMENCON(TITLE) TO WS-TITLE-B20SDOMENCON.            082100\n      *> ⋯ 2 líneas omitidas\n     SORT A20-SORT ON ASCENDING KEY                               082400\n                        A20-R20-AM,                               082500\n                        A20-R20-CON                               082600\n                        A20-R20-PRD,                              082700\n                        A20-R20-INS,                              082800\n                        A20-R20-MON                               082900\n                        USING  R20SDOMENCON                       083000\n                        GIVING R20SDOMENCON                       083100\n                        MEMORY SIZE 30 MODULES                    083200\n                        DISK   SIZE 90 MODULES.                   083300\n      *> ⋯ 2 líneas omitidas\n     MOVE 0               TO       WS-EOF-B20.                    083600\n      *> ⋯ 1 línea omitida\n     OPEN INPUT R20SDOMENCON.                                     083800\n      *> ⋯ 1 línea omitida\n     READ R20SDOMENCON INTO REG-B20SDOMENCON                      084000\n          AT END                                                  084100\n             MOVE 1                TO WS-EOF-B20.                 084200\n      *> ⋯ 2 líneas omitidas\n     PERFORM 02-0150-INTEGRA-SDOMENCON UNTIL WS-EOF-B20 = 1.      084500\n     PERFORM 02-0500-FIN-SDOMENCON.                               084600\n      *> ⋯ 1 línea omitida\n     GO TO 02-0900-EXIT.                                          084800", "java": "@Component\n@RequiredArgsConstructor\npublic class EstructuraStepFactory {\n\n    private final JobRepository repo;\n    private final PlatformTransactionManager tx;\n\n    /** Un step por estructura: ordenar, leer, guardar y purgar el archivo plano. */\n    public <T> Step paso(EstructuraSaldos<T> e) {\n        return new StepBuilder(\"integra\" + e.nombre(), repo)\n                .<T, T>chunk(1_000, tx)\n                .reader(new SortedRecordReader<>(e.archivo(), e.decoder(), e.ordenNatural()))\n                .writer(e.writer())                       // CREATE + STORE\n                .listener(new PurgaArchivoListener(e.archivo()))   // CLOSE ... WITH PURGE\n                .listener(new TotalesControlListener(e))\n                .build();\n    }\n}\n\n// B20: orden AM, CON, PRD, INS, MON; equivale a SORT A20-SORT ... USING / GIVING R20SDOMENCON.\nstatic final Comparator<SaldoMensualContrato> ORDEN_B20 =\n        Comparator.comparingInt(SaldoMensualContrato::anioMes)\n                  .thenComparing(SaldoMensualContrato::contrato)\n                  .thenComparingInt(SaldoMensualContrato::producto)\n                  .thenComparingInt(SaldoMensualContrato::instrumento)\n                  .thenComparingInt(SaldoMensualContrato::moneda);", "rationale": "Cada estructura sigue el mismo patrón: titula el archivo con sistema y pack, lo ordena sobre sí mismo por la llave de la estructura, lo lee hasta fin y lo purga. El orden importa porque la carga en DMSII por llave ascendente es más eficiente y deja la base en el mismo estado que hoy. En Java el patrón se factoriza en una fábrica de steps parametrizada por estructura, con un lector que ordena antes de entregar y un listener que borra el archivo solo si el step terminó bien.", "risk": "El archivo se purga al terminar su estructura aunque una estructura posterior falle; un reproceso exige volver a correr P330.", "rules": ["RN-CORE-GL-740", "RN-CORE-GL-749"], "lines": "L1683–1713", "verified": true, "score": 100}, "s6": {"title": "CREATE y STORE por registro con terminación ante error", "cobol": " 02-0150-INTEGRA-SDOMENCON.                                       085100\n      *> ⋯ 3 líneas omitidas\n     CREATE CORE-GLB20SDOMENCON.                                     085500\n     MOVE R20-SDO-KEYAM            TO B20-SDO-KEYAM.              085600\n     MOVE R20-SDO-KEYCON           TO B20-SDO-KEYCON.             085700\n     MOVE R20-SDO-KEYPRD           TO B20-SDO-KEYPRD.             085800\n     MOVE R20-SDO-KEYINS           TO B20-SDO-KEYINS.             085900\n     MOVE R20-SDO-KEYMON           TO B20-SDO-KEYMON.             086000\n     MOVE R20-SDO-SUCPRO           TO B20-SDO-SUCPRO.             086100\n     MOVE R20-SDO-STAMOV           TO B20-SDO-STAMOV.             086200\n     MOVE R20-SDO-APUIMP           TO B20-SDO-APUIMP.             086300\n     PERFORM 02-0200-MUEVE-SALDO VARYING W77-C                    086400\n                     FROM 1 BY 1 UNTIL W77-C > 10.                086500\n     STORE CORE-GLB20SDOMENCON                                       086600\n           ON EXCEPTION                                           086700\n              MOVE \"I\"             TO TIPO-LJ                     086800\n              MOVE 010105          TO CODIGO-LJ                   086900\n              MOVE \" >> ERROR AL ESCRIBIR CORE-GLB20SDOMENCON. << \"  087000\n                                   TO TEXTO-LJ                    087100\n              CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,            087200\n                                          MENSAJE-LJ              087300\n              CALL SYSTEM DMTERMINATE.                            087400\n                                                                  087500\n     ADD 1                         TO WS-INTEGRADOS-B20.          087600\n     ADD R20-SDO-SD(2)             TO WS-TOTALB20SDOSD2.          087700\n                                                                  087800\n     READ R20SDOMENCON INTO REG-B20SDOMENCON                      087900\n          AT END                                                  088000\n             MOVE 1                TO WS-EOF-B20.                 088100\n      *> ⋯ 2 líneas omitidas\n 02-0200-MUEVE-SALDO.                                             088400\n      *> ⋯ 2 líneas omitidas\n     MOVE R20-SDO-CNTMOV(W77-C)    TO B20-SDO-CNTMOV(W77-C).      088700\n     MOVE R20-SDO-SD(W77-C)        TO B20-SDO-SD(W77-C).          088800\n      *> ⋯ 2 líneas omitidas\n 02-0500-FIN-SDOMENCON.                                           089100\n      *> ⋯ 2 líneas omitidas\n     CLOSE R20SDOMENCON WITH PURGE.                               089400", "java": "@Bean\nJdbcBatchItemWriter<SaldoMensualContrato> writerB20(DataSource saldos) {\n    return new JdbcBatchItemWriterBuilder<SaldoMensualContrato>()\n            .dataSource(saldos)\n            .sql(\"\"\"\n                INSERT INTO core-glb20sdomencon\n                  (key_am, key_con, key_prd, key_ins, key_mon, suc_pro, sta_mov, apu_imp,\n                   cnt_mov_01, sd_01, /* ... */ cnt_mov_10, sd_10)\n                VALUES (:anioMes, :contrato, :producto, :instrumento, :moneda, :sucursal,\n                        :estatusMov, :apuntadorImp, :cnt01, :sd01, /* ... */ :cnt10, :sd10)\n                \"\"\")\n            .itemSqlParameterSourceProvider(SaldoMensualContrato::parametros)  // 10 pares CNTMOV/SD\n            .assertUpdates(true)\n            .build();\n}\n\n// STORE ... ON EXCEPTION -> CALL SYSTEM DMTERMINATE.\n// Spring Batch: la excepción revierte el chunk y deja el step en FAILED; no hay skip ni retry,\n// para conservar la semántica de \"todo o nada\" por estructura que el operador espera.", "rationale": "Por cada renglón se crea el registro DMSII, se copian la llave, los datos y los diez pares de contador de movimientos y saldo, y se guarda. Si el <code>STORE</code> falla, el programa avisa al operador y termina la base con <code>DMTERMINATE</code>. En Java la escritura es un <code>JdbcBatchItemWriter</code> por chunk dentro de una transacción; una excepción revierte el chunk y detiene el step sin reintentos, que es lo más cercano al comportamiento actual. A diferencia de DMSII, el reinicio de Spring Batch permite retomar desde el último chunk confirmado.", "risk": "No hay BEGIN-TRANSACTION ni punto de reinicio: si el STORE falla a mitad de una estructura, la base queda con las estructuras anteriores completas, la actual parcial y las siguientes vacías.", "rules": ["RN-CORE-GL-740", "RN-CORE-GL-746"], "lines": "L1716–1759", "verified": true, "score": 100}, "s7": {"title": "Integración de B72 y acumulado de saldo actual", "cobol": " 06-0150-INTEGRA-POSCONTA.                                        119200\n      *> ⋯ 3 líneas omitidas\n     CREATE CORE-GLB72POSCONTA.                                      119600\n     MOVE R72-SDO-KEYCSI           TO B72-SDO-KEYCSI.             119700\n      *> ⋯ 8 líneas omitidas\n     MOVE R72-SDO-KEYSEC           TO B72-SDO-KEYSEC.             120600\n     MOVE R72-SDO-NATCTA           TO B72-SDO-NATCTA.             120700\n     MOVE R72-SDO-SDOANT           TO B72-SDO-SDOANT.             120800\n     MOVE R72-SDO-CARGOS           TO B72-SDO-CARGOS.             120900\n     MOVE R72-SDO-ABONOS           TO B72-SDO-ABONOS.             121000\n     MOVE R72-SDO-SDOACT           TO B72-SDO-SDOACT.             121100\n     STORE CORE-GLB72POSCONTA                                        121200\n           ON EXCEPTION                                           121300\n              MOVE \"I\"             TO TIPO-LJ                     121400\n              MOVE 010105          TO CODIGO-LJ                   121500\n              MOVE \" >> ERROR AL ESCRIBIR CORE-GLB72POSCONTA. << \"   121600\n                                   TO TEXTO-LJ                    121700\n              CALL \"LJ IN LIB-DISP\" USING CONTADOR-LJ,            121800\n                                          MENSAJE-LJ              121900\n              CALL SYSTEM DMTERMINATE.                            122000\n                                                                  122100\n     ADD 1                         TO WS-INTEGRADOS-B72.          122200\n     ADD R72-SDO-SDOACT            TO WS-TOTALB72SDOACT.          122300\n                                                                  122400\n     READ R72POSCONTA INTO REG-B72POSCONTA                        122500\n          AT END                                                  122600\n             MOVE 1                TO WS-EOF-B72.                 122700", "java": "@Component\n@StepScope\npublic class TotalesControlListener implements ItemWriteListener<PosicionContableRecord> {\n\n    private long integrados;                                   // WS-INTEGRADOS-B72\n    private BigDecimal totalSaldoActual = BigDecimal.ZERO.setScale(2);   // WS-TOTALB72SDOACT\n\n    @Override\n    public void afterWrite(Chunk<? extends PosicionContableRecord> chunk) {\n        for (var r : chunk) {\n            integrados++;\n            totalSaldoActual = totalSaldoActual.add(r.saldoActual());     // suma con signo\n        }\n    }\n\n    @AfterStep\n    ExitStatus publica(StepExecution se) {\n        se.getExecutionContext().putLong(\"integradosB72\", integrados);\n        se.getExecutionContext().put(\"totalB72SdoAct\", totalSaldoActual);\n        return se.getExitStatus();\n    }\n}", "rationale": "B72 se integra con el mismo patrón, copiando la llave de diez campos, la naturaleza de la cuenta y los cuatro importes. Después de cada <code>STORE</code> se cuenta el registro y se suma su saldo actual al total de control que aparece en el listado. En Java el conteo y la suma se hacen en un listener de escritura, solo sobre registros efectivamente confirmados, y la suma respeta el signo de cada importe.", "risk": "R72-SDO-SDOACT es S9(15)V9(02) con signo, pero WS-TOTALB72SDOACT es PIC 9(18)V9(02) sin signo: cada ADD guarda el valor absoluto del resultado. Con saldos acreedores o negativos, el total de control del listado no corresponde a la suma real. Lo mismo ocurre con los totales de B20, B21, B70 y B71.", "rules": ["RN-CORE-GL-744", "RN-CORE-GL-746"], "lines": "L2057–2092", "verified": true, "score": 100}, "s8": {"title": "Totales por estructura en el listado de integración", "cobol": " 77  WS-TOTALB20SDOSD2             PIC 9(18)V9(02).               030200\n 77  WS-TOTALB21SDOSD2             PIC 9(18)V9(02).               030300\n 77  WS-TOTALB70SDOSD2             PIC 9(18)V9(02).               030400\n 77  WS-TOTALB71SDOSD2             PIC 9(18)V9(02).               030500\n 77  WS-TOTALB72SDOACT             PIC 9(18)V9(02).               030600\n      *> ⋯ continúa en la línea 2205\n 09-0100-PROCESO-IMPRESION.                                       132400\n      *> ⋯ 2 líneas omitidas\n     IF WS-LINEAS > 55                                            132700\n        PERFORM 09-0200-ENCABEZADOS.                              132800\n      *> ⋯ 2 líneas omitidas\n     MOVE WS-INTEGRADOS-B20        TO TOTB20SDOMENCON.            133100\n     MOVE WS-TOTALB20SDOSD2        TO TOTALB20SDOSD2.             133200\n     MOVE WS-INTEGRADOS-B21        TO TOTB21SDMENCON1.            133300\n     MOVE WS-TOTALB21SDOSD2        TO TOTALB21SDOSD2.             133400\n     MOVE WS-INTEGRADOS-B70        TO TOTB70POSICION.             133500\n     MOVE WS-TOTALB70SDOSD2        TO TOTALB70SDOSD2.             133600\n     MOVE WS-INTEGRADOS-B71        TO TOTB71POSDIAAD1.            133700\n     MOVE WS-TOTALB71SDOSD2        TO TOTALB71SDOSD2.             133800\n     MOVE WS-INTEGRADOS-B72        TO TOTB72POSCONTA.             133900\n     MOVE WS-TOTALB72SDOACT        TO TOTALB72SDOACT.             134000\n     MOVE WS-INTEGRADOS-B80        TO TOTB80EDOCTA.               134100\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO1  AFTER 15.          134200\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO2  AFTER 3.           134300\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO3  AFTER 3.           134400\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO4  AFTER 3.           134500\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO5  AFTER 3.           134600\n     WRITE LINEA-REP-INTEGRA FROM REP-TITULO6  AFTER 3.           134700\n     ADD 30       TO      WS-LINEAS.                              134800", "java": "@Component\n@RequiredArgsConstructor\npublic class ListadoControlTasklet implements Tasklet {\n\n    private final ReporteIntegracion reporte;   // JasperReports: 001INTEGRACION\n\n    @Override\n    public RepeatStatus execute(StepContribution c, ChunkContext ctx) {\n        var job = ctx.getStepContext().getStepExecution().getJobExecution();\n        var totales = Stream.of(\"B20\", \"B21\", \"B70\", \"B71\", \"B72\", \"B80\")\n                .map(e -> new TotalEstructura(e,\n                        sumaLong(job, \"integrados\" + e),\n                        sumaDecimal(job, \"total\" + e)))      // B80 no lleva importe\n                .toList();\n        reporte.genera(job.getJobParameters(), totales);\n        return RepeatStatus.FINISHED;\n    }\n}\n\n/** Los acumuladores se tipan como BigDecimal con signo y escala 2; no hay PIC sin signo que pierda el signo. */\npublic record TotalEstructura(String estructura, long registros, BigDecimal importe) {}", "rationale": "El listado final reporta, por estructura, el número de registros integrados y un importe de control: el segundo saldo del arreglo para B20, B21, B70 y B71, el saldo actual para B72 y solo el conteo para B80. En Java los totales viajan en el <code>ExecutionContext</code> de cada step y un tasklet final los entrega al reporte. Los acumuladores se definen con signo, lo que corrige la pérdida de signo del original y debe comunicarse a quien concilia contra este listado.", "risk": "Solo se suma el saldo de la posición 2 de cada arreglo (R20-SDO-SD(2), etc.); el fuente no explica por qué esa posición y no otra.", "rules": ["RN-CORE-GL-741", "RN-CORE-GL-742", "RN-CORE-GL-743", "RN-CORE-GL-745", "RN-CORE-GL-747"], "lines": "L486–2229", "verified": true, "score": 100}, "s9": {"title": "Siglo por pivote 50 en la conversión de fechas", "cobol": "  01  A2K-BASE-YEAR     PIC 9(02) VALUE 50.                       028500\n      *> ⋯ continúa en la línea 2309\n A2K-CONV-AMD-TO-CAMD.                                            003500\n         MOVE ZEROES TO A2K-FEC-CAMD-001.                         003600\n         MOVE A2K-FEC-AMD-AA-001 TO A2K-FEC-YEAR-AA.              003700\n         IF A2K-FEC-AMD-001 = 0                                   003720\n            MOVE ZEROES TO A2K-FEC-CAMD-001                       003740\n         ELSE                                                     003741\n          IF A2K-FEC-AMD-001 = 999999                             003742\n             MOVE 99999999 TO A2K-FEC-CAMD-001                    003743\n         ELSE                                                     003760\n         PERFORM A2K-OBTAIN-CENTURY THRU                          003800\n                 A2K-OBTAIN-CENTURY-EXIT                          003900\n         MOVE A2K-FEC-YEAR-CC TO A2K-FEC-CAMD-CC-001              004000\n         MOVE A2K-FEC-AMD-AA-001 TO A2K-FEC-CAMD-AA-001           004100\n         MOVE A2K-FEC-AMD-MM-001 TO A2K-FEC-CAMD-MM-001           004200\n         MOVE A2K-FEC-AMD-DD-001 TO A2K-FEC-CAMD-DD-001.          004300\n      *> ⋯ 152 líneas omitidas\n A2K-OBTAIN-CENTURY.                                              018500\n      IF A2K-FEC-YEAR-AA < A2K-BASE-YEAR                          018600\n          MOVE 20 TO A2K-FEC-YEAR-CC                              018700\n      ELSE                                                        018800\n          MOVE 19 TO A2K-FEC-YEAR-CC.                             018900", "java": "public final class FechasY2k {\n\n    /** A2K-BASE-YEAR VALUE 50: AA < 50 es 20AA, AA >= 50 es 19AA. */\n    public static final int PIVOTE = 50;\n\n    private static final DateTimeFormatter AAMMDD = new DateTimeFormatterBuilder()\n            .appendValueReduced(ChronoField.YEAR, 2, 2, 1950)   // 50..99 -> 1950..1999, 00..49 -> 2000..2049\n            .appendPattern(\"MMdd\")\n            .toFormatter();\n\n    /** A2K-CONV-AMD-TO-CAMD: 0 se conserva como \"sin fecha\" y 999999 como fecha máxima. */\n    public static Optional<LocalDate> deAammdd(int aammdd) {\n        if (aammdd == 0)      return Optional.empty();\n        if (aammdd == 999999) return Optional.of(LocalDate.MAX);       // 99999999 en el original\n        return Optional.of(LocalDate.parse(\"%06d\".formatted(aammdd), AAMMDD));\n    }\n\n    private FechasY2k() {}\n}", "rationale": "El copybook CRONOS2K resuelve el siglo de una fecha de dos dígitos con un pivote fijo: los años menores que 50 son del siglo 21 y los demás del siglo 20. En Java el pivote queda explícito con <code>appendValueReduced</code> y base 1950. Se conservan los dos valores especiales del original: cero como ausencia de fecha y 999999 como fecha máxima. En P360 la conversión solo se usa para el encabezado del listado, no para los datos que se integran.", "risk": "El pivote 50 dejará de funcionar para fechas de dos dígitos a partir de 2050; conviene eliminar los formatos AAMMDD en la migración.", "rules": ["RN-CORE-GL-748"], "lines": "L469–2480", "verified": true, "score": 100}};
+
+let active = null;
+function openPopup(cid){
+  const m = MAPPINGS[cid]; if(!m) return;
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  const c = document.querySelector(`.seg[data-cid="${cid}"]`); if(c) c.classList.add('active-cobol');
+  const j = c && document.querySelector(`.java-seg[data-jid="${c.dataset.jid}"]`);
+  if(j){ j.classList.add('active-java'); j.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  document.getElementById('popup-title').textContent = m.title;
+  document.getElementById('pp-lines').textContent = '· ' + m.lines + (m.verified ? ' · verificado contra fuente' : (m.score===null ? ' · sin fuente para verificar' : ' · NO coincide con el fuente (' + m.score + '%)'));
+  document.getElementById('pp-cobol').textContent = m.cobol;
+  document.getElementById('pp-java').textContent = m.java;
+  document.getElementById('pp-rat').innerHTML = m.rationale;
+  document.getElementById('pp-risk').innerHTML = m.risk;
+  document.getElementById('pp-risk-sec').style.display = m.risk ? '' : 'none';
+  document.getElementById('pp-rules').innerHTML = m.rules.length
+    ? m.rules.map(r=>`<span class="pp-rule-tag">${r}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted2)">Sin regla de negocio específica: decisión de arquitectura de la traducción</span>';
+  document.getElementById('popup').style.display='block';
+  document.getElementById('scrim').style.display='block';
+  active = cid;
+}
+function closePopup(){
+  document.getElementById('popup').style.display='none';
+  document.getElementById('scrim').style.display='none';
+  document.querySelectorAll('.seg.active-cobol,.seg.active-java').forEach(e=>e.classList.remove('active-cobol','active-java'));
+  active = null;
+}
+document.querySelectorAll('.seg[data-cid]').forEach(el=>{
+  el.addEventListener('click',()=>openPopup(el.dataset.cid));
+  el.addEventListener('mouseenter',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.add('peer-java'));
+  el.addEventListener('mouseleave',()=>document.querySelector(`.java-seg[data-jid="${el.dataset.jid}"]`)?.classList.remove('peer-java'));
+});
+document.querySelectorAll('.java-seg[data-jid]').forEach(el=>{
+  const peer = ()=>document.querySelector(`.seg[data-jid="${el.dataset.jid}"]:not(.java-seg)`);
+  el.addEventListener('mouseenter',()=>peer()?.classList.add('peer-cobol'));
+  el.addEventListener('mouseleave',()=>peer()?.classList.remove('peer-cobol'));
+  el.addEventListener('click',()=>{ const p = peer(); if(p) openPopup(p.dataset.cid); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePopup(); });
+</script>
+</body></html>
