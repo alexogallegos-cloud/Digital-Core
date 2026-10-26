@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INC-011, intercard:movimiento double-scan, BanCoppel Informix, 14 septiembre 2026</title>
+<style>
+:root {
+  /* BanCoppel Design Studio — paleta_clientes.md */
+  --ancla: #122FB1;
+  --senal: #F0D224;
+  --plano: #EEF0FA;
+  --trazo: #C5CCE8;
+  /* aliases internos */
+  --blue: #122FB1;
+  --yellow: #F0D224;
+  /* dark theme base */
+  --bg: #EEF0FA;
+  --card: #ffffff;
+  --node: #f5f6fe;
+  --ok: #22c55e;
+  --err: #ef4444;
+  --warn: #f97316;
+  --amber: #f59e0b;
+  --info: #60a5fa;
+  --txt: #0d1a3a;
+  --dim: #4a5a8a;
+  --border: #C5CCE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HUD helpers ── */
+.hud-sep   { color: #C5CCE8; font-size: 20px; }
+.hud-right { margin-left: auto; }
+.hud-status-pill {
+  font-size: 11px;
+  color: var(--dim);
+  background: rgba(255,255,255,.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── SIGNAL BAR (Design Studio — 3px señal al tope) ── */
+.signal-top {
+  height: 3px;
+  background: var(--senal);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--ancla);
+  border-bottom: 1px solid rgba(240,210,36,.35);
+  padding: 14px 28px 13px;
+  flex-shrink: 0;
+}
+.hdr-row1 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.bc-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bc-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+.bc-wordmark-sub {
+  font-size: 9px;
+  color: rgba(255,255,255,.50);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-top: 3px;
+  padding-left: 2px;
+}
+.hdr-title { font-size: 17px; font-weight: 700; color: #fff; }
+.hdr-sub   { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 1px; }
+.metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.met {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-bottom: 2px solid var(--senal);
+  border-radius: 6px 6px 0 0;
+  padding: 6px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+.met-v {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--err);
+  white-space: nowrap;
+}
+.met-v.w { color: var(--warn); }
+.met-v.i { color: var(--senal); }
+.met-v.g { color: var(--ok); }
+.met-l {
+  font-size: 9px;
+  color: rgba(255,255,255,.70);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── PANELS ── */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #EEF0FA;
+}
+.panel {
+  padding: 16px 20px;
+  border-right: 1px solid #C5CCE8;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #EEF0FA;
+}
+.panel:last-child { border-right: none; }
+
+.panel-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.ph-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+}
+.pb-ok  { background: rgba(34,197,94,.15); color: var(--ok); border:1px solid var(--ok); }
+.pb-err { background: rgba(239,68,68,.15); color: var(--err); border:1px solid var(--err); }
+.ph-title { font-size: 14px; font-weight: 700; }
+.ph-sub   { font-size: 11px; color: var(--dim); }
+
+/* ── SVG FLOW ── */
+.flow-wrap { width: 100%; display: flex; justify-content: center; }
+.flow-wrap svg { display: block; width: 100%; max-width: 340px; height: auto; }
+svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* ── HUD (failure panel) ── */
+.hud {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(239,68,68,.06);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+.hud-item { text-align: center; }
+.hud-v {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--err);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hud-v.t { color: var(--warn); }
+.hud-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .4px; }
+
+/* ── LOG STREAM ── */
+.log-stream {
+  background: #e8ebf8;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  min-height: 100px;
+  max-height: 180px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.le {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,.025);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.le.show { opacity: 1; transform: none; }
+.le-t  { color: var(--dim); min-width: 46px; flex-shrink: 0; }
+.le-ok  { color: var(--ok); min-width: 38px; flex-shrink: 0; }
+.le-err { color: var(--err); min-width: 38px; flex-shrink: 0; }
+.le-m  { flex: 1; color: var(--txt); word-break: break-all; }
+
+/* ── ROOT CAUSE ── */
+.root-cause {
+  background: rgba(239,68,68,.04);
+  border: 1px solid rgba(239,68,68,.25);
+  border-left: 3px solid var(--err);
+  border-radius: 8px;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+.rc-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--err);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 6px;
+}
+.rc-body {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.6;
+}
+code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+.fix-list {
+  margin-top: 8px;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fix-list li {
+  font-size: 11px;
+  color: #64748b;
+  display: flex;
+  gap: 6px;
+}
+.fix-list li::before {
+  content: attr(data-n);
+  background: rgba(239,68,68,.15);
+  color: var(--err);
+  font-weight: 700;
+  font-size: 10px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── TIMELINE ── */
+.tl-section {
+  padding: 14px 28px 16px;
+  background: #EEF0FA;
+  border-top: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.tl-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 10px;
+}
+.tl-rows { display: flex; flex-direction: column; gap: 8px; }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-lbl { font-size: 11px; color: var(--dim); min-width: 200px; }
+.tl-bg {
+  flex: 1;
+  height: 14px;
+  background: #dde0f0;
+  border-radius: 7px;
+  position: relative;
+  overflow: visible;
+}
+.tl-fill {
+  height: 100%;
+  border-radius: 7px;
+  position: absolute;
+  left: 0;
+  transition: width .5s ease;
+}
+.tl-ok    { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.tl-err   { background: linear-gradient(90deg, #991b1b, #ef4444); }
+.tl-amber { background: linear-gradient(90deg, #b45309, #f59e0b); }
+.tl-dur { font-size: 11px; min-width: 60px; text-align: right; }
+.tl-markers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 5px;
+  padding: 0 0;
+}
+.retry-dot {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 20px;
+  background: rgba(239,68,68,.6);
+  border-radius: 1px;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 99;
+}
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: #1a3ed4; transform: translateY(-1px); }
+.btn-reset {
+  background: var(--card);
+  color: var(--dim);
+  border: 1px solid var(--border);
+}
+.btn-reset:hover { background: var(--node); color: var(--txt); }
+
+/* ── CONTEXTO FUNCIONAL ── */
+.ctx-section {
+  padding: 14px 28px 16px;
+  background: #e8ebf8;
+  border-top: 1px solid #C5CCE8;
+  border-bottom: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.ctx-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ancla);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.ctx-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ctx-card {
+  background: #ffffff;
+  border: 1px solid #C5CCE8;
+  border-top: 2px solid var(--ancla);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.ctx-card-reg {
+  border-top-color: var(--err);
+}
+.ctx-card-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ancla);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.ctx-card-num.ctx-reg { color: var(--err); }
+.ctx-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+.ctx-card-body {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.55;
+}
+.ctx-card-body strong { color: var(--ancla); font-weight: 700; }
+.ctx-card-body code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  border: none;
+  font-size: 10px;
+}
+
+
+/* ── IMPACTO DE NEGOCIO ── */
+.impact-section {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 28px;
+  background: #ffffff;
+  border-bottom: 2px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.impact-severity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid #C5CCE8;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+.impact-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.impact-critical {
+  background: rgba(220,38,38,.08);
+  color: #dc2626;
+  border: 1px solid rgba(220,38,38,.25);
+}
+.impact-sev-lbl {
+  font-size: 10px;
+  color: #4a5a8a;
+  line-height: 1.3;
+  text-align: center;
+}
+.impact-items {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+.impact-item {
+  flex: 1;
+  padding: 0 16px;
+  border-right: 1px solid #C5CCE8;
+}
+.impact-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #4a5a8a;
+  margin-bottom: 2px;
+}
+.impact-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d1a3a;
+  line-height: 1.2;
+}
+.impact-val.impact-crit { color: #dc2626; }
+.impact-val.impact-reg  { color: #122FB1; }
+.impact-sub {
+  font-size: 10px;
+  color: #4a5a8a;
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+/* ── D05 DOMAIN HEALTH ── */
+.d05-section {
+  margin: 0 28px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.d05-hdr {
+  background: #f0f2fb;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table td {
+  padding: 7px 14px;
+  font-size: 11px;
+  color: var(--txt);
+  border-bottom: 1px solid #eef0fa;
+  vertical-align: top;
+}
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-gating   { background: #fef3c7; color: #92400e; }
+.d05-badge-restrict { background: #dbeafe; color: #1e40af; }
+.d05-badge-warn     { background: #ffedd5; color: #c2410c; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note {
+  padding: 7px 14px 8px;
+  font-size: 10px;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+  background: #f8f9fd;
+}
+/* INC-010 column widths */
+.d05-table th:nth-child(1) { width:  7%; }
+.d05-table th:nth-child(2) { width: 26%; }
+.d05-table th:nth-child(3) { width:  9%; }
+/* Descripción (4th) takes remaining ~58% */
+
+/* Animations */
+@keyframes blink-err {
+  0%,100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+.blink { animation: blink-err 1s infinite; }
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+</style>
+</head>
+<body>
+
+<div class="signal-top"></div>
+
+<header>
+  <div class="hdr-row1">
+    <div class="bc-logo-wrap">
+      <img class="bc-logo" src="data:image/png;base64,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" alt="BanCoppel">
+      <div class="bc-wordmark-sub">Modernización Core Bancario</div>
+    </div>
+    <div>
+      <div class="hdr-title">INC-011 <span style="background:rgba(240,210,36,.20);color:#F0D224;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:800;letter-spacing:.3px;">14 sep 2026</span> Vista intercard:movimiento, double-scan y ondas de concurrencia</div>
+      <div class="hdr-sub">Diagnóstico de incidente en producción, Informix, 14 de septiembre de 2026, ventana observada 12:29 a 13:28 CDMX, 60 capturas de onstat</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="met"><div class="met-v">50-60</div><div class="met-l">Load average pico</div></div>
+    <div class="met"><div class="met-v w">12</div><div class="met-l">Instancias concurrentes</div></div>
+    <div class="met"><div class="met-v w">650 MB</div><div class="met-l">Memoria agregada</div></div>
+    <div class="met"><div class="met-v">472</div><div class="met-l">Apariciones en running</div></div>
+    <div class="met"><div class="met-v i">50</div><div class="met-l">SPs sobre la vista</div></div>
+    <div class="met"><div class="met-v g">19:20 CST</div><div class="met-l">Deploy del fix</div></div>
+  </div>
+</header>
+
+<div class="impact-section">
+  <div class="impact-severity">
+    <div>
+      <div class="impact-badge impact-critical">N3 CRÍTICO</div>
+      <div class="impact-sev-lbl">Severidad<br>de impacto</div>
+    </div>
+  </div>
+  <div class="impact-items">
+      <div class="impact-item">
+        <div class="impact-lbl">Dominio afectado</div>
+        <div class="impact-val">bdicred, intercard, bdicnweb, bdicheq</div>
+        <div class="impact-sub">Cuatro dominios sobre la misma vista compartida</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Capacidad afectada</div>
+        <div class="impact-val">Consulta de movimientos de tarjeta</div>
+        <div class="impact-sub">Canal BPI, reportes a meses sin intereses e historial de cuenta</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Qué deja de funcionar</div>
+        <div class="impact-val impact-crit">Degradación general del motor</div>
+        <div class="impact-sub">El load average sostenido afecta a toda sesión concurrente, no solo al SP culpable</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">SP principal</div>
+        <div class="impact-val">bdicred:sp_msi_consultmovs_bpi</div>
+        <div class="impact-sub">Invocado por el canal BPI con usuario interbpi</div>
+      </div>
+      <div class="impact-item" style="border-right:none">
+        <div class="impact-lbl">Riesgo regulatorio</div>
+        <div class="impact-val impact-reg">SLA operativo CNBV</div>
+        <div class="impact-sub">Degradación en horario de mayor operación transaccional</div>
+      </div>
+  </div>
+</div>
+
+<div class="ctx-section">
+  <div class="ctx-title">Contexto funcional, por qué sucede esto</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">01</div>
+      <div class="ctx-card-title">¿Qué es la vista intercard:movimiento?</div>
+      <div class="ctx-card-body">La tabla original de movimientos de tarjeta se partió en dos tablas físicas, <code>movimiento_dia</code> con los movimientos del día en curso y <code>movimiento_all</code> con el histórico. Para no tocar el código existente se creó una vista de compatibilidad <code>movimiento = movimiento_dia UNION ALL movimiento_all</code>. La vista preserva la compatibilidad pero no la eficiencia.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">02</div>
+      <div class="ctx-card-title">¿Por qué duele la vista?</div>
+      <div class="ctx-card-body">Todo acceso a la vista resuelve internamente el <code>UNION ALL</code>, de modo que el motor recorre <strong>ambas</strong> tablas aunque el predicado solo necesite una. Con N instancias concurrentes el costo de entrada y salida es de 2N barridos en lugar de N.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">03</div>
+      <div class="ctx-card-title">¿Qué es el patrón de onda?</div>
+      <div class="ctx-card-body">El SP tarda tanto que el canal BPI lanza otra instancia antes de que la anterior termine. Cada instancia retiene memoria a razón de unos <strong>9.5 MB por minuto</strong>. Se acumulan instancias hasta que colapsan o son terminadas, y el ciclo reinicia. En la ventana observada se contaron dos ondas completas.</div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">¿Por qué puede repetirse?</div>
+      <div class="ctx-card-body">El fix corrigió un SP. Quedan <strong>50 SPs</strong> que siguen accediendo a la vista. El de mayor riesgo inmediato es <code>bdicnweb:sp_msi_genrepmsi</code>, con patrón idéntico al corregido y todavía sin atender.</div>
+    </div>
+  </div>
+</div>
+
+<div class="ctx-section" style="border-top:2px solid rgba(18,47,177,.2);">
+  <div class="ctx-title" style="color:var(--ancla);">Evidencia raw, análisis independiente de 60 capturas onstat</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">S</div>
+      <div class="ctx-card-title">Volumen de sesiones</div>
+      <div class="ctx-card-body">Promedio de <strong>5,818 sesiones</strong> por captura, con mínimo de 5,615 y máximo de 6,121. Sesiones en estado <code>running</code>: promedio 28.7, máximo 44.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">R</div>
+      <div class="ctx-card-title">Dominancia del SP</div>
+      <div class="ctx-card-body"><code>sp_msi_consultmovs_bpi</code> aparece <strong>472 veces</strong> en estado running a lo largo de la ventana. El segundo lugar tiene 59 apariciones. Es dominancia absoluta, no un SP más entre varios.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">M</div>
+      <div class="ctx-card-title">Crecimiento de memoria</div>
+      <div class="ctx-card-body">Onda uno de 12:39 a 13:02, con la instancia mayor pasando de 12.8 MB a 211.9 MB. Colapso a las 13:03 y reinicio inmediato. Onda dos de 13:03 a 13:25, con pico agregado de <strong>650.6 MB</strong> en doce instancias simultáneas.</div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">F</div>
+      <div class="ctx-card-title">Forma del fix</div>
+      <div class="ctx-card-body">En el <code>UNION ALL</code> del <code>FOREACH</code>, la rama de <code>sd_movdiacrd</code> pasa a unir contra <code>movimiento_dia</code> y la de <code>sd_movhiscrd</code> contra <code>movimiento_all</code>. El optimizador usa el índice de la tabla física correcta sin resolver la vista.</div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--dim);margin-top:8px;">Fuente: 60 capturas de <code>onstat -g ses</code> entre 12:29 y 13:28 CDMX, más tribal_knowledge y decisions_history de brain.db (ADR-INTERCARD-001 y ADR-INTERCARD-002).</div>
+</div>
+
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">Hallazgos confirmados, código y logs verificados</div>
+    <div class="d05-hdr-sub">evidencia 2026-09-14, 60 capturas</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr><th>Clase</th><th>Artefacto</th><th>Ubicación</th><th>Descripción del hallazgo</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">CRÍTICO</span></td>
+        <td>
+          <div class="d05-sp">bdicred_sp_msi_consultmovs_bpi.sql</div>
+          <div class="d05-src">bdicred, consulta de movimientos canal BPI</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">UNION ALL</span></td>
+        <td class="d05-type">Ambas ramas del <code>FOREACH</code> unían contra la vista <code>intercard:movimiento</code>, forzando double-scan en cada rama. Corregido y desplegado a las 19:20 CST del mismo día.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">PENDIENTE</span></td>
+        <td>
+          <div class="d05-sp">bdicnweb_sp_msi_genrepmsi.sql</div>
+          <div class="d05-src">bdicnweb, reportes de meses sin intereses</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">1604, 1749, 1760, 1796</span></td>
+        <td class="d05-type">Único SP de clasificación Tier A todavía sin corregir. Patrón idéntico al corregido: <code>UNION ALL</code> con <code>sd_movdiacrd</code> y <code>sd_movhiscrd</code> uniendo contra la vista.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">RIESGO</span></td>
+        <td>
+          <div class="d05-sp">bdicheq:sp_histmovcheq, familia de 13 SPs</div>
+          <div class="d05-src">bdicheq, historial de cuenta de cheques</div>
+        </td>
+        <td><span class="d05-rate ">Tier D</span></td>
+        <td class="d05-type">bdicheq concentra el 20% de las sesiones de producción. Trece SPs distintos sobre la misma vista en el mismo horario suman una presión agregada potencialmente mayor que la del SP ya corregido.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">RIESGO</span></td>
+        <td>
+          <div class="d05-sp">bdireports, 8 SPs de reporte</div>
+          <div class="d05-src">bdireports, batch nocturno</div>
+        </td>
+        <td><span class="d05-rate ">Tier D</span></td>
+        <td class="d05-type">Si el double-scan alarga estos trabajos, el batch se solapa con la apertura bancaria y el SPEI matutino. Mismo mecanismo, distinto horario.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">El fix resuelve un SP de cincuenta. El riesgo de recurrencia persiste hasta completar el inventario, cuya prioridad es Tier A, luego Tier C, luego la familia bdicheq y por último el resto de Tier D.</div>
+</div>
+
+<div style="padding:20px 28px 24px;background:#ffffff;border-top:1px solid var(--border);">
+  <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px;">Simulación &mdash; Vista de compatibilidad contra acceso directo a la partición</div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:16px;">La vista <code>intercard:movimiento</code> resuelve <code>movimiento_dia UNION ALL movimiento_all</code> en cada acceso. Escala visual: cada celda es una fracción del barrido completo.</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <div style="border:2px solid #ef4444;border-radius:8px;padding:16px;background:#fff8f8;">
+      <div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <span style="background:#ef4444;color:white;border-radius:4px;padding:2px 6px;font-size:10px;">ACTUAL</span>Double-scan, la vista recorre ambas tablas
+      </div>
+      <div style="background:#1e293b;border-radius:6px;padding:10px;margin-bottom:12px;font-family:monospace;font-size:10px;color:#94a3b8;line-height:1.7;"><span style="color:#64748b;">-- el UNION ALL se resuelve en cada rama</span><br><span style="color:#f87171;">JOIN intercard:movimiento</span><span style="color:#e2e8f0;"> m</span></div>
+      <div id="sgL" style="display:grid;grid-template-columns:repeat(25,1fr);gap:2px;margin-bottom:12px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:#fff1f2;border-radius:6px;padding:8px 4px;"><div id="sgLa" style="font-size:17px;font-weight:700;color:#ef4444;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">instancias</div></div>
+        <div style="background:#fff1f2;border-radius:6px;padding:8px 4px;"><div id="sgLb" style="font-size:17px;font-weight:700;color:#f97316;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">MB retenidos</div></div>
+        <div style="background:#fff1f2;border-radius:6px;padding:8px 4px;"><div id="sgLc" style="font-size:14px;font-weight:700;color:#dc2626;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">barridos físicos</div></div>
+      </div>
+    </div>
+
+    <div style="border:2px solid #22c55e;border-radius:8px;padding:16px;background:#f0fdf4;">
+      <div style="font-size:11px;font-weight:700;color:#15803d;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <span style="background:#22c55e;color:white;border-radius:4px;padding:2px 6px;font-size:10px;">PROPUESTA</span>Un barrido, índice de la tabla física
+      </div>
+      <div style="background:#1e293b;border-radius:6px;padding:10px;margin-bottom:12px;font-family:monospace;font-size:10px;color:#94a3b8;line-height:1.7;"><span style="color:#64748b;">-- cada rama ataca su partición</span><br><span style="color:#86efac;">JOIN intercard:movimiento_dia</span><span style="color:#e2e8f0;"> m</span></div>
+      <div id="sgR" style="display:grid;grid-template-columns:repeat(25,1fr);gap:2px;margin-bottom:12px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:#dcfce7;border-radius:6px;padding:8px 4px;"><div id="sgRa" style="font-size:17px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">instancias</div></div>
+        <div style="background:#dcfce7;border-radius:6px;padding:8px 4px;"><div id="sgRb" style="font-size:17px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">MB retenidos</div></div>
+        <div style="background:#dcfce7;border-radius:6px;padding:8px 4px;"><div id="sgRc" style="font-size:14px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">barridos físicos</div></div>
+      </div>
+    </div>
+  </div>
+
+  <button id="btnSim" style="padding:8px 24px;background:var(--ancla);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;">&#9654; Ejecutar simulación</button>
+  <span id="simStatus" style="font-size:10px;color:var(--dim);margin-left:12px;"></span>
+  <div style="font-size:9px;color:var(--dim);margin-top:10px;line-height:1.5;">Cifras de la izquierda tomadas de la ventana 12:29 a 13:28 del 14 de septiembre: la concurrencia pasa de 4 a 12 instancias y la memoria agregada de 9.2 a 650.6 MB. La derecha refleja el comportamiento esperado tras el fix desplegado a las 19:20 CST, con una instancia que termina antes de que el canal reintente.</div>
+</div>
+
+<script>
+(function(){
+  var CFG = {"lA": 12, "lB": 651, "lC": 24, "fmtA": "%", "fmtB": "% MB", "fmtC": "%", "rA": "1", "rB": "3 MB", "rC": "1", "rFill": 50, "rAt": 24, "rHit": 2, "breakAt": 25, "ms": 58, "done": "Completado, 12 instancias y 650 MB"};
+  var CELLS = 50, running = false, timer = null;
+  function grid(id){
+    var g = document.getElementById(id); if(!g) return; g.innerHTML = '';
+    for(var i=0;i<CELLS;i++){
+      var d = document.createElement('div'); d.id = id+'_'+i;
+      d.style.cssText = 'height:10px;border-radius:2px;background:#e2e8f0;transition:background .08s;';
+      g.appendChild(d);
+    }
+  }
+  function cell(id,i,c){ var e=document.getElementById(id+'_'+i); if(e) e.style.background=c; }
+  function clear(id){ for(var i=0;i<CELLS;i++) cell(id,i,'#e2e8f0'); }
+  function txt(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+  function fmt(t,v){ return t.replace('%', v); }
+
+  function reset(){
+    if(timer){ clearTimeout(timer); timer=null; }
+    running=false; clear('sgL'); clear('sgR');
+    txt('sgLa','0'); txt('sgLb','0'); txt('sgLc','0');
+    txt('sgRa','0'); txt('sgRb','0'); txt('sgRc','0'); txt('simStatus','');
+    var b=document.getElementById('btnSim');
+    if(b){ b.disabled=false; b.innerHTML='&#9654; Ejecutar simulación'; b.onclick=run; }
+  }
+
+  function run(){
+    if(running) return; running=true;
+    var b=document.getElementById('btnSim'); if(b) b.disabled=true;
+    txt('simStatus','Simulando...'); clear('sgL'); clear('sgR');
+    setTimeout(function(){
+      for(var i=0;i<CFG.rFill;i++) cell('sgR',i,'#bbf7d0');
+      for(var j=0;j<CFG.rHit;j++) cell('sgR',CFG.rAt+j,'#15803d');
+      txt('sgRa',CFG.rA); txt('sgRb',CFG.rB); txt('sgRc',CFG.rC);
+    },160);
+    var i=0;
+    function step(){
+      if(i>=CELLS){
+        txt('simStatus', CFG.done);
+        if(b){ b.disabled=false; b.innerHTML='&#8635; Reiniciar'; b.onclick=reset; }
+        running=false; return;
+      }
+      var over = (i >= CFG.breakAt);
+      cell('sgL', i, over ? '#ef4444' : '#fed7aa');
+      var f=(i+1)/CELLS;
+      txt('sgLa', fmt(CFG.fmtA, Math.round(CFG.lA*f*10)/10));
+      txt('sgLb', fmt(CFG.fmtB, Math.round(CFG.lB*f)));
+      txt('sgLc', fmt(CFG.fmtC, Math.round(CFG.lC*f)));
+      i++; timer=setTimeout(step, CFG.ms);
+    }
+    step();
+  }
+  grid('sgL'); grid('sgR');
+  var b0=document.getElementById('btnSim'); if(b0) b0.onclick=run;
+})();
+</script>
+
+<div class="tl-section">
+  <div class="tl-title">Línea de tiempo, escala 12:29 a 19:20 CDMX</div>
+  <div class="tl-rows">
+    <div class="tl-row">
+      <div class="tl-lbl">Onda uno, 12:39 a 13:02, memoria 12.8 a 211.9 MB</div>
+      <div class="tl-bg"><div class="tl-fill tl-amber" id="tlF0" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--amber)" id="tlD0">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Colapso y reinicio, 13:03</div>
+      <div class="tl-bg"><div class="tl-fill tl-err" id="tlF1" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--err)" id="tlD1">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Onda dos, 13:03 a 13:25, pico agregado 650.6 MB</div>
+      <div class="tl-bg"><div class="tl-fill tl-err" id="tlF2" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--err)" id="tlD2">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Pico de load average, 14:12 a 14:45</div>
+      <div class="tl-bg"><div class="tl-fill tl-err" id="tlF3" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--err)" id="tlD3">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Deploy del fix, 19:20</div>
+      <div class="tl-bg"><div class="tl-fill tl-ok" id="tlF4" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--ok)" id="tlD4">&mdash;</div>
+    </div>
+  </div>
+  <div class="tl-markers"><span>12:29</span><span>12:39</span><span>13:03</span><span>13:25</span><span>14:12</span><span>14:45</span><span>19:20</span></div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">&#8635; Reiniciar</button>
+  <button class="btn btn-primary" id="btnPlay" onclick="onPlay()">&#9654; Reproducir</button>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-err">OBS</span>
+      <div>
+        <div class="ph-title">Secuencia observada</div>
+        <div class="ph-sub">Canal BPI sobre la vista de compatibilidad</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+<svg id="svgL" viewBox="0 0 380 482" width="100%">
+  <defs>
+    <filter id="glowL" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect id="Ln0" x="60" y="10" width="260" height="50" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+  <text x="190" y="29" text-anchor="middle" fill="#4a5a8a" font-size="10">Canal BPI, usuario interbpi</text>
+  <text x="190" y="46" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Solicitud de movimientos</text>
+  <line x1="190" y1="64" x2="190" y2="88" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,88 184,76 196,76" fill="#A0AEDC"/>
+  <rect id="Ln1" x="60" y="88" width="260" height="50" rx="8" fill="#f0f2fe" stroke="#122FB1" stroke-width="2"/>
+  <text x="190" y="107" text-anchor="middle" fill="#4a5a8a" font-size="10">bdicred</text>
+  <text x="190" y="124" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">sp_msi_consultmovs_bpi</text>
+  <line x1="190" y1="142" x2="190" y2="166" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,166 184,154 196,154" fill="#A0AEDC"/>
+  <rect id="Ln2" x="60" y="166" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="185" text-anchor="middle" fill="#4a5a8a" font-size="10">UNION ALL del FOREACH</text>
+  <text x="190" y="202" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">JOIN intercard:movimiento</text>
+  <text x="8" y="188" fill="#ef4444" font-size="9" font-weight="700">x2</text>
+  <text x="8" y="200" fill="#64748b" font-size="8.5">double-scan</text>
+  <line x1="190" y1="220" x2="190" y2="244" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,244 184,232 196,232" fill="#A0AEDC"/>
+  <rect id="Ln3" x="60" y="244" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="263" text-anchor="middle" fill="#4a5a8a" font-size="10">La vista resuelve ambas ramas</text>
+  <text x="190" y="280" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">movimiento_dia y movimiento_all</text>
+  <line x1="190" y1="298" x2="190" y2="322" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,322 184,310 196,310" fill="#A0AEDC"/>
+  <rect id="Ln4" x="60" y="322" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="341" text-anchor="middle" fill="#4a5a8a" font-size="10">El SP no termina a tiempo</text>
+  <text x="190" y="358" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">BPI lanza otra instancia</text>
+  <text x="8" y="344" fill="#f59e0b" font-size="9" font-weight="700">9.5 MB</text>
+  <text x="8" y="356" fill="#64748b" font-size="8.5">por minuto</text>
+  <line x1="190" y1="376" x2="190" y2="400" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,400 184,388 196,388" fill="#A0AEDC"/>
+  <rect id="Ln5" x="60" y="400" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="419" text-anchor="middle" fill="#4a5a8a" font-size="10">Hasta 12 simultáneas</text>
+  <text x="190" y="436" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Load average 50 a 60</text>
+</svg>
+    </div>
+    <div class="hud"><div class="hud-item"><div class="hud-v" id="Lh0">0</div><div class="hud-l">Instancias</div></div><div class="hud-item"><div class="hud-v t" id="Lh1">0 MB</div><div class="hud-l">Memoria</div></div><div class="hud-item"><div class="hud-v" id="Lh2">0</div><div class="hud-l">Barridos</div></div></div>
+    <div class="log-stream" id="logL"></div>
+    <div class="root-cause">
+      <div class="rc-title">Causa raíz</div>
+      <div class="rc-body">La vista de compatibilidad <code>intercard:movimiento</code> oculta un <code>UNION ALL</code> que obliga a recorrer las dos tablas físicas en cada rama del <code>FOREACH</code>. El SP se alarga, el canal reintenta y las instancias se apilan.</div>
+      <ul class="fix-list"><li data-n="1">La vista da compatibilidad, no eficiencia</li><li data-n="2">Cada instancia retiene unos 9.5 MB por minuto</li><li data-n="3">Quedan 50 SPs con el mismo patrón</li></ul>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-ok">FIX</span>
+      <div>
+        <div class="ph-title">Con el fix aplicado</div>
+        <div class="ph-sub">Acceso directo a la partición correcta, desplegado 19:20 CST</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+<svg id="svgR" viewBox="0 0 380 482" width="100%">
+  <defs>
+    <filter id="glowR" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect id="Rn0" x="60" y="10" width="260" height="50" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+  <text x="190" y="29" text-anchor="middle" fill="#4a5a8a" font-size="10">Canal BPI, usuario interbpi</text>
+  <text x="190" y="46" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Solicitud de movimientos</text>
+  <line x1="190" y1="64" x2="190" y2="88" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,88 184,76 196,76" fill="#A0AEDC"/>
+  <rect id="Rn1" x="60" y="88" width="260" height="50" rx="8" fill="#f0f2fe" stroke="#122FB1" stroke-width="2"/>
+  <text x="190" y="107" text-anchor="middle" fill="#4a5a8a" font-size="10">bdicred</text>
+  <text x="190" y="124" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">sp_msi_consultmovs_bpi_NEW</text>
+  <line x1="190" y1="142" x2="190" y2="166" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,166 184,154 196,154" fill="#A0AEDC"/>
+  <rect id="Rn2" x="60" y="166" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="185" text-anchor="middle" fill="#4a5a8a" font-size="10">Rama sd_movdiacrd</text>
+  <text x="190" y="202" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">JOIN movimiento_dia</text>
+  <line x1="190" y1="220" x2="190" y2="244" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,244 184,232 196,232" fill="#A0AEDC"/>
+  <rect id="Rn3" x="60" y="244" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="263" text-anchor="middle" fill="#4a5a8a" font-size="10">Rama sd_movhiscrd</text>
+  <text x="190" y="280" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">JOIN movimiento_all</text>
+  <line x1="190" y1="298" x2="190" y2="322" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,322 184,310 196,310" fill="#A0AEDC"/>
+  <rect id="Rn4" x="60" y="322" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="341" text-anchor="middle" fill="#4a5a8a" font-size="10">Índice de la tabla física</text>
+  <text x="190" y="358" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Sin resolver la vista</text>
+  <line x1="190" y1="376" x2="190" y2="400" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,400 184,388 196,388" fill="#A0AEDC"/>
+  <rect id="Rn5" x="60" y="400" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="419" text-anchor="middle" fill="#4a5a8a" font-size="10">El SP termina a tiempo</text>
+  <text x="190" y="436" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Load average normalizado</text>
+</svg>
+    </div>
+    <div class="hud"><div class="hud-item"><div class="hud-v g" id="Rh0">0</div><div class="hud-l">Instancias</div></div><div class="hud-item"><div class="hud-v g" id="Rh1">0 MB</div><div class="hud-l">Memoria</div></div><div class="hud-item"><div class="hud-v g" id="Rh2">0</div><div class="hud-l">Barridos</div></div></div>
+    <div class="log-stream" id="logR"></div>
+    <div class="root-cause">
+      <div class="rc-title">Resultado</div>
+      <div class="rc-body">Cada rama ataca la tabla física que le corresponde. El optimizador usa el índice directo, el SP termina antes de que el canal reintente y las instancias dejan de apilarse.</div>
+      <ul class="fix-list"><li data-n="1">Un barrido por rama en lugar de dos</li><li data-n="2">Referencia para corregir los 50 SPs restantes</li></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+var STEPS = [{"node": "Ln0", "log": [["L", "12:29", "ok", "Canal BPI solicita movimientos de tarjeta"]], "ms": 800, "color": "#122FB1", "hud": [["L", 0, "4", "0"]]}, {"node": "Ln1", "log": [["L", "12:29", "ok", "bdicred:sp_msi_consultmovs_bpi inicia"]], "ms": 800, "color": "#ef4444", "hud": [["L", 1, "9.2 MB", "0 MB"]]}, {"node": "Ln2", "log": [["L", "12:31", "err", "JOIN contra la vista en ambas ramas del UNION ALL"]], "ms": 800, "color": "#ef4444", "hud": [["L", 2, "2x", "0"]]}, {"node": "Ln3", "log": [["L", "12:39", "err", "La vista recorre movimiento_dia y movimiento_all"]], "ms": 800, "color": "#ef4444", "hud": [["L", 1, "24.2 MB", "0 MB"]], "tl": 0, "tlw": 35, "tld": "23 min"}, {"node": "Ln4", "log": [["L", "12:49", "err", "El SP no termina, BPI lanza otra instancia"], ["L", "13:02", "err", "Instancia mayor en 211.9 MB, colapso inminente"]], "ms": 800, "color": "#ef4444", "hud": [["L", 0, "10", "0"], ["L", 1, "477 MB", "0 MB"]], "tl": 1, "tlw": 100, "tld": "13:03"}, {"node": "Ln5", "log": [["L", "13:16", "err", "Doce instancias simultáneas, 650.6 MB agregados"], ["L", "14:12", "err", "Load average entre 50 y 60"]], "ms": 800, "color": "#ef4444", "hud": [["L", 0, "12", "0"], ["L", 1, "650 MB", "0 MB"], ["L", 2, "24", "0"]], "tl": 2, "tlw": 100, "tld": "22 min"}, {"node": "Rn1", "log": [["R", "19:20", "ok", "Deploy de sp_msi_consultmovs_bpi_NEW"]], "ms": 800, "color": "#22c55e", "hud": [["R", 0, "1", "0"]]}, {"node": "Rn2", "log": [["R", "19:20", "ok", "Rama sd_movdiacrd apunta a movimiento_dia"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn3", "log": [["R", "19:20", "ok", "Rama sd_movhiscrd apunta a movimiento_all"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn4", "log": [["R", "19:20", "ok", "El optimizador usa el índice de la tabla física"]], "ms": 800, "color": "#22c55e", "hud": [["R", 2, "1", "0"]]}, {"node": "Rn5", "log": [["R", "19:30", "ok", "El SP termina antes del reintento, load average normalizado"]], "ms": 800, "color": "#22c55e", "hud": [["R", 1, "3 MB", "0 MB"]], "tl": 4, "tlw": 100, "tld": "fix"}];
+var TLROWS = ["Onda uno, 12:39 a 13:02, memoria 12.8 a 211.9 MB", "Colapso y reinicio, 13:03", "Onda dos, 13:03 a 13:25, pico agregado 650.6 MB", "Pico de load average, 14:12 a 14:45", "Deploy del fix, 19:20"];
+var playing = false, cancelled = false;
+
+function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function el(id){ return document.getElementById(id); }
+
+function hilite(id, color, w){
+  var n = el(id); if(!n) return;
+  n.setAttribute('stroke', color);
+  n.setAttribute('stroke-width', w || 3);
+  n.setAttribute('filter', 'url(#glow' + id.charAt(0) + ')');
+}
+function unhilite(id, color, w){
+  var n = el(id); if(!n) return;
+  n.setAttribute('stroke', color);
+  n.setAttribute('stroke-width', w);
+  n.removeAttribute('filter');
+}
+function addLog(side, t, type, msg){
+  var box = el('log' + side); if(!box) return;
+  var d = document.createElement('div');
+  d.className = 'le';
+  d.innerHTML = '<span class="le-t">' + t + '</span>' +
+                '<span class="le-' + type + '">' + (type === 'ok' ? 'OK ' : 'ERR') + '</span>' +
+                '<span class="le-m">' + msg + '</span>';
+  box.appendChild(d);
+  requestAnimationFrame(function(){ d.classList.add('show'); });
+  box.scrollTop = box.scrollHeight;
+}
+function setHud(side, i, v){ var n = el(side + 'h' + i); if(n) n.textContent = v; }
+
+function resetAnim(){
+  cancelled = true; playing = false;
+  ['L','R'].forEach(function(s){
+    var box = el('log' + s); if(box) box.innerHTML = '';
+    document.querySelectorAll('#svg' + s + ' rect').forEach(function(r){
+      r.removeAttribute('filter');
+      r.setAttribute('stroke-width', r.getAttribute('data-sw') || '1.5');
+      r.setAttribute('stroke', r.getAttribute('data-st') || '#122FB1');
+    });
+  });
+  STEPS.forEach(function(st){
+    (st.hud || []).forEach(function(h){ setHud(h[0], h[1], h[3]); });
+  });
+  TLROWS.forEach(function(_, i){
+    var f = el('tlF' + i), d = el('tlD' + i);
+    if(f) f.style.width = '0%';
+    if(d) d.innerHTML = '&mdash;';
+  });
+  var b = el('btnPlay');
+  if(b){ b.disabled = false; b.innerHTML = '&#9654; Reproducir'; }
+}
+
+async function onPlay(){
+  if(playing) return;
+  playing = true; cancelled = false;
+  var b = el('btnPlay');
+  if(b){ b.disabled = true; b.innerHTML = 'Reproduciendo...'; }
+  ['L','R'].forEach(function(s){ var x = el('log' + s); if(x) x.innerHTML = ''; });
+
+  for(var i = 0; i < STEPS.length; i++){
+    if(cancelled) return;
+    var st = STEPS[i];
+    if(st.node) hilite(st.node, st.color || '#ef4444', st.w || 3);
+    (st.log || []).forEach(function(l){ addLog(l[0], l[1], l[2], l[3]); });
+    (st.hud || []).forEach(function(h){ setHud(h[0], h[1], h[2]); });
+    if(st.tl != null){
+      var f = el('tlF' + st.tl), d = el('tlD' + st.tl);
+      if(f) f.style.width = st.tlw + '%';
+      if(d) d.textContent = st.tld;
+    }
+    await wait(st.ms || 700);
+  }
+  playing = false;
+  if(b){ b.disabled = false; b.innerHTML = '&#9654; Reproducir'; }
+}
+
+document.querySelectorAll('#svgL rect, #svgR rect').forEach(function(r){
+  r.setAttribute('data-sw', r.getAttribute('stroke-width'));
+  r.setAttribute('data-st', r.getAttribute('stroke'));
+});
+</script>
+
+<footer style="text-align:center;font-size:11px;color:var(--dim);padding:16px;border-top:1px solid var(--border);background:#EEF0FA;">
+  Informix Digital Brain, BanCoppel Application Modernization, SPE-AM-001, Accenture &mdash; generado 2026-10-12
+</footer>
+</body>
+</html>

@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INC-013, duplicidad de IP y partición PowerHA, BanCoppel Informix, 8 octubre 2026</title>
+<style>
+:root {
+  /* BanCoppel Design Studio — paleta_clientes.md */
+  --ancla: #122FB1;
+  --senal: #F0D224;
+  --plano: #EEF0FA;
+  --trazo: #C5CCE8;
+  /* aliases internos */
+  --blue: #122FB1;
+  --yellow: #F0D224;
+  /* dark theme base */
+  --bg: #EEF0FA;
+  --card: #ffffff;
+  --node: #f5f6fe;
+  --ok: #22c55e;
+  --err: #ef4444;
+  --warn: #f97316;
+  --amber: #f59e0b;
+  --info: #60a5fa;
+  --txt: #0d1a3a;
+  --dim: #4a5a8a;
+  --border: #C5CCE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HUD helpers ── */
+.hud-sep   { color: #C5CCE8; font-size: 20px; }
+.hud-right { margin-left: auto; }
+.hud-status-pill {
+  font-size: 11px;
+  color: var(--dim);
+  background: rgba(255,255,255,.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── SIGNAL BAR (Design Studio — 3px señal al tope) ── */
+.signal-top {
+  height: 3px;
+  background: var(--senal);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--ancla);
+  border-bottom: 1px solid rgba(240,210,36,.35);
+  padding: 14px 28px 13px;
+  flex-shrink: 0;
+}
+.hdr-row1 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.bc-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bc-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+.bc-wordmark-sub {
+  font-size: 9px;
+  color: rgba(255,255,255,.50);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-top: 3px;
+  padding-left: 2px;
+}
+.hdr-title { font-size: 17px; font-weight: 700; color: #fff; }
+.hdr-sub   { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 1px; }
+.metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.met {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-bottom: 2px solid var(--senal);
+  border-radius: 6px 6px 0 0;
+  padding: 6px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+.met-v {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--err);
+  white-space: nowrap;
+}
+.met-v.w { color: var(--warn); }
+.met-v.i { color: var(--senal); }
+.met-v.g { color: var(--ok); }
+.met-l {
+  font-size: 9px;
+  color: rgba(255,255,255,.70);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── PANELS ── */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #EEF0FA;
+}
+.panel {
+  padding: 16px 20px;
+  border-right: 1px solid #C5CCE8;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #EEF0FA;
+}
+.panel:last-child { border-right: none; }
+
+.panel-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.ph-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+}
+.pb-ok  { background: rgba(34,197,94,.15); color: var(--ok); border:1px solid var(--ok); }
+.pb-err { background: rgba(239,68,68,.15); color: var(--err); border:1px solid var(--err); }
+.ph-title { font-size: 14px; font-weight: 700; }
+.ph-sub   { font-size: 11px; color: var(--dim); }
+
+/* ── SVG FLOW ── */
+.flow-wrap { width: 100%; display: flex; justify-content: center; }
+.flow-wrap svg { display: block; width: 100%; max-width: 340px; height: auto; }
+svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* ── HUD (failure panel) ── */
+.hud {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(239,68,68,.06);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+.hud-item { text-align: center; }
+.hud-v {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--err);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hud-v.t { color: var(--warn); }
+.hud-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .4px; }
+
+/* ── LOG STREAM ── */
+.log-stream {
+  background: #e8ebf8;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  min-height: 100px;
+  max-height: 180px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.le {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,.025);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.le.show { opacity: 1; transform: none; }
+.le-t  { color: var(--dim); min-width: 46px; flex-shrink: 0; }
+.le-ok  { color: var(--ok); min-width: 38px; flex-shrink: 0; }
+.le-err { color: var(--err); min-width: 38px; flex-shrink: 0; }
+.le-m  { flex: 1; color: var(--txt); word-break: break-all; }
+
+/* ── ROOT CAUSE ── */
+.root-cause {
+  background: rgba(239,68,68,.04);
+  border: 1px solid rgba(239,68,68,.25);
+  border-left: 3px solid var(--err);
+  border-radius: 8px;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+.rc-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--err);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 6px;
+}
+.rc-body {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.6;
+}
+code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+.fix-list {
+  margin-top: 8px;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fix-list li {
+  font-size: 11px;
+  color: #64748b;
+  display: flex;
+  gap: 6px;
+}
+.fix-list li::before {
+  content: attr(data-n);
+  background: rgba(239,68,68,.15);
+  color: var(--err);
+  font-weight: 700;
+  font-size: 10px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── TIMELINE ── */
+.tl-section {
+  padding: 14px 28px 16px;
+  background: #EEF0FA;
+  border-top: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.tl-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 10px;
+}
+.tl-rows { display: flex; flex-direction: column; gap: 8px; }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-lbl { font-size: 11px; color: var(--dim); min-width: 200px; }
+.tl-bg {
+  flex: 1;
+  height: 14px;
+  background: #dde0f0;
+  border-radius: 7px;
+  position: relative;
+  overflow: visible;
+}
+.tl-fill {
+  height: 100%;
+  border-radius: 7px;
+  position: absolute;
+  left: 0;
+  transition: width .5s ease;
+}
+.tl-ok    { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.tl-err   { background: linear-gradient(90deg, #991b1b, #ef4444); }
+.tl-amber { background: linear-gradient(90deg, #b45309, #f59e0b); }
+.tl-dur { font-size: 11px; min-width: 60px; text-align: right; }
+.tl-markers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 5px;
+  padding: 0 0;
+}
+.retry-dot {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 20px;
+  background: rgba(239,68,68,.6);
+  border-radius: 1px;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 99;
+}
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: #1a3ed4; transform: translateY(-1px); }
+.btn-reset {
+  background: var(--card);
+  color: var(--dim);
+  border: 1px solid var(--border);
+}
+.btn-reset:hover { background: var(--node); color: var(--txt); }
+
+/* ── CONTEXTO FUNCIONAL ── */
+.ctx-section {
+  padding: 14px 28px 16px;
+  background: #e8ebf8;
+  border-top: 1px solid #C5CCE8;
+  border-bottom: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.ctx-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ancla);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.ctx-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ctx-card {
+  background: #ffffff;
+  border: 1px solid #C5CCE8;
+  border-top: 2px solid var(--ancla);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.ctx-card-reg {
+  border-top-color: var(--err);
+}
+.ctx-card-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ancla);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.ctx-card-num.ctx-reg { color: var(--err); }
+.ctx-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+.ctx-card-body {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.55;
+}
+.ctx-card-body strong { color: var(--ancla); font-weight: 700; }
+.ctx-card-body code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  border: none;
+  font-size: 10px;
+}
+
+
+/* ── IMPACTO DE NEGOCIO ── */
+.impact-section {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 28px;
+  background: #ffffff;
+  border-bottom: 2px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.impact-severity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid #C5CCE8;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+.impact-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.impact-critical {
+  background: rgba(220,38,38,.08);
+  color: #dc2626;
+  border: 1px solid rgba(220,38,38,.25);
+}
+.impact-sev-lbl {
+  font-size: 10px;
+  color: #4a5a8a;
+  line-height: 1.3;
+  text-align: center;
+}
+.impact-items {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+.impact-item {
+  flex: 1;
+  padding: 0 16px;
+  border-right: 1px solid #C5CCE8;
+}
+.impact-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #4a5a8a;
+  margin-bottom: 2px;
+}
+.impact-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d1a3a;
+  line-height: 1.2;
+}
+.impact-val.impact-crit { color: #dc2626; }
+.impact-val.impact-reg  { color: #122FB1; }
+.impact-sub {
+  font-size: 10px;
+  color: #4a5a8a;
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+/* ── D05 DOMAIN HEALTH ── */
+.d05-section {
+  margin: 0 28px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.d05-hdr {
+  background: #f0f2fb;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table td {
+  padding: 7px 14px;
+  font-size: 11px;
+  color: var(--txt);
+  border-bottom: 1px solid #eef0fa;
+  vertical-align: top;
+}
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-gating   { background: #fef3c7; color: #92400e; }
+.d05-badge-restrict { background: #dbeafe; color: #1e40af; }
+.d05-badge-warn     { background: #ffedd5; color: #c2410c; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note {
+  padding: 7px 14px 8px;
+  font-size: 10px;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+  background: #f8f9fd;
+}
+/* INC-010 column widths */
+.d05-table th:nth-child(1) { width:  7%; }
+.d05-table th:nth-child(2) { width: 26%; }
+.d05-table th:nth-child(3) { width:  9%; }
+/* Descripción (4th) takes remaining ~58% */
+
+/* Animations */
+@keyframes blink-err {
+  0%,100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+.blink { animation: blink-err 1s infinite; }
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+</style>
+</head>
+<body>
+
+<div class="signal-top"></div>
+
+<header>
+  <div class="hdr-row1">
+    <div class="bc-logo-wrap">
+      <img class="bc-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALsAAAAhCAYAAACBbdpPAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAgESURBVHgB7VtdUhs5EO4ZeF9zgogiqdqXXfAJGE4Qc4KYEwROYHOCOCfwcALICTycwCb7slWblGdPYGdf16DtnpGw3CPN39qAw3xVKttSqyW1Wq1WSwZo0KBBgwY/FzzYMkgph/ghckhiTHeYbjzPi2GLgGNr4UcH0zGmAJbjnGOaQDquwbaN67mA8hzBNgMHEMvyuMYkYAuA/exhmpUc13BbxvWc4EKDbUNFZSdMX7JiUN8wjWV10MLoQAMnuMBg21BD2QkvcjtTij6V/w8foIEVXFCwbZBZZQ9Y+RGm0KIULXhhkHaLTha7L43diPqOqYPpxkEvoEEGP72yG3SzMnTPBexP16K446JFqRYCx3YfxDYELqRdF+FsLIT+vteOY9g+xJiOyhAqBQswtVS9CUY85qpMmLQ6ElKQT7yo/hzzI0ezPcj290S36wKW91V/PxrZAS1mV1uqTySLzPgstC1FpzE3ZHGk+NDvGPMnm+KRw5fqijr1V4AK3vpx97Y3//p2hkkaafbj68HQXADPhTKWXaa+MIew0JHLM5J2DIk3y5sadTP8HbymmLqs3U6Z/uXIgNyaiUxloVPfQhfI/PEJS52uQw7TMmNTPPju01djLs2D8SPZhtIerXLW54SPBbPx28Ci5JmEdOfwjJBZZR+oCdJpYBFKZOHzQRaH+nh5nrJPZT7OjboDVnYDawby/CTLocfqdQtkYAOFeFsGD67s0xI8ho5xHNXpg6q7gsSNmY3fHXk75fw+bwc+ocKja/NtAC8DHwvKY0xdM0OmW2kIxahyqBUF5T1sN1Tb+SEri2CNkKkClzVKpJjkDlw5ysvIgEKgNK4zR7mAYtAiI3fnQmfIdOcZVegD0Z24CPzZ+Ffh+XANFYAK3+MuDS2Y2d3BAK3/CNP1bHzQtdVFui6VEx3RP4FrZLtJtY03xHQKqbBI4DFUw1zV38O0j+mSlevbURvq+Z0WyNSt60O2b9QfUsYr9dvEQBZHq0LIl09XFgcBwgIe54wHV3SipzGQfNuKhzkWcre64ABa9vsAvMqhqxb4O2Q5Euvxz93BhwdPhubrA2/H66D//+aXw2+Pk04KjtMRPNJ4XoB83uMCON1r/7W2CWcgAbawrcTqKGEKRnOG5aHxO5KpazGCclaJcIk8tDtCE0AWU1/7awhHXVd+HfCDL8nVPPiGhsUUKo8Uiuay7+B5gfXNnVzLh4zGkZFPMf+oIg8u444q67D8GFObHazp3DJRPDRopw/BAt/brXcpgY0m9WhneFgdxCOkB306C6R077qwOvGaEe4sD5V2FgZtsXSi37eMhqxOX30PWFnIFF11K9kNPkN5RJY83o836vMHyxewPgTs9ymPvKixcZfjGOy49Szzq3hcFLRdhgfvx3v1yXdBGgP55SMzQXZxH0nHYX8XZLnwnAWt1AX5F+t7zi3Q30kWU+T50u1bo8KTG1TTuke2kBsOmIRrtkn96ENWsb6AG2R5PkEJVAyBRbCcVMIxVIRlQkkZeN6t69EYyUyu3rO49CBy5Gse1K6ef7FGHm8YaRU9DcBi3X2odgjLwvdEXvGD9Mi/wjWV+LI5WPsNZ5/9FlAdc9gM+MIIZIV3LkrRpyyVrm/AHN+65e9q59mwi4v7b8/LrKKymONymUDuRazUE0ufOe0sYngacMGTxbhx0Nbd9XKhrFkEq9v+kPzPoue76iBpi5xFkB3boTqvzC189CWThmtnOs7pi2A85jk8BhV5cFfvM5RfNNaxoGV33vDlw4MJ3qzO9377FuH3yE4kY3i4H6iWBi5WOODPG7il5W6TFhRX7I/SfaEzhM3BFq0Z50UTLAfLR160SJRSR4xnz8GOu2cuZQ9yoiycx52DrqMWVxke+pwTsXwKS/Z5Aou74nIpffBlCDVACvr4fbF7JiWP0+Llz71/qpWYFoW8lxh2WrVciaIffj+H+iBBmpdK5+rg0md0WslJEHz7Hqm6LdWnQPEQsCGocwY/AFP7ZOGncnnr2FFjokM8uStcaWI16RpsHpJo1FCNSRhjCxgdX3wmrh3y4a5TuAYeNwYvc5560riYUzwEpBGhnpGc3kMSK6S4N1Ty+WTc+v37Ps+lyAzsLgQsvHneYXP2RxqhgcUi2R2gAugCBKCW27VvvF8hoZU6eDKQYu0rHivOG+Z7nFhFgEzLGuoQqEETQnp4roMY0rBizHjalDkPl3rBqJ2lzo5myqYP7h2lFI8cPrFKtGgEZM8a5jyvzFFygyrvF2eevytQ9Uv4qGSx7623VHvtP2MocRmTuD5PB1pMF6ZCUBhMWZiiCTGjBBsB9qWrFnBV5aDtvuN40EULquzOdMV2hjqIIefmsi4P9ehNwKoxEOAe11nemYeiMfSqcS4fFiema2IDLpNbUvQteQVJSkBhxbYjjt6HVCliR33KP4UngOoLWbSrEuSk5DSpgUPRdfy6XcBPG4EuFLf3paD8pOBgfQXFId62jYfqH7lYMRT3Icyhyf7hOnFF/AW5NHizilZNqj/7+hA9sUW2QoXoiqwtuVCxV/Bc1uDZheUTWKpzoyIm/Ip/rm9J+UHSJmi5fM6qEXtefkBALp8bUz0Bq2OaFNW38BMGPz0+4nXjiNJ0YdWNSVwvdUgNjD45+2NxPy6VlbbxKPXHeEMuASznP1cmsuA1ZYNXDml54gsVIS1PfOEFwIcGDV4JGmVv8GrQKHuDV4NG2Ru8GjTK3qBBgwYNGjRo0KDBy8Z/S64dF/JuqYkAAAAASUVORK5CYII=" alt="BanCoppel">
+      <div class="bc-wordmark-sub">Modernización Core Bancario</div>
+    </div>
+    <div>
+      <div class="hdr-title">INC-013 <span style="background:rgba(240,210,36,.20);color:#F0D224;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:800;letter-spacing:.3px;">8 oct 2026</span> Duplicidad de la IP 10.36.197.51 entre POWER8 y POWER10, y partición del clúster</div>
+      <div class="hdr-sub">Diagnóstico de incidente en producción, 8 de octubre de 2026. Síntoma a las 12:32 CST, partición del clúster DCMSIF a las 12:44:19. Investigación abierta con el equipo de redes e IBM</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="met"><div class="met-v">12:32</div><div class="met-l">Falla el ping a la .51</div></div>
+    <div class="met"><div class="met-v">2</div><div class="met-l">vPC anunciando la misma IP</div></div>
+    <div class="met"><div class="met-v w">12:44:19</div><div class="met-l">Split del clúster</div></div>
+    <div class="met"><div class="met-v w">3</div><div class="met-l">Grupos de recursos tomados</div></div>
+    <div class="met"><div class="met-v">None</div><div class="met-l">Política de partición</div></div>
+    <div class="met"><div class="met-v i">ABIERTA</div><div class="met-l">Causa del disparador</div></div>
+  </div>
+</header>
+
+<div class="impact-section">
+  <div class="impact-severity">
+    <div>
+      <div class="impact-badge impact-critical">N4 CRÍTICO</div>
+      <div class="impact-sev-lbl">Severidad<br>de impacto</div>
+    </div>
+  </div>
+  <div class="impact-items">
+      <div class="impact-item">
+        <div class="impact-lbl">Causa identificada</div>
+        <div class="impact-val impact-crit">IP 10.36.197.51 duplicada</div>
+        <div class="impact-sub">Aprendida simultáneamente en el vPC del POWER8 y en el del POWER10, mismo EPG</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Condición habilitante</div>
+        <div class="impact-val">Renumeración de clúster incompleta</div>
+        <div class="impact-sub">La .51 fue la dirección de servicio del clúster viejo y el /etc/hosts conserva ambos juegos</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Síntoma en servicio</div>
+        <div class="impact-val impact-crit">Pérdida de alcance a la .51 a las 12:32</div>
+        <div class="impact-sub">Es la dirección productiva del clúster nuevo, con la instancia Informix activa</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Efecto de segundo orden</div>
+        <div class="impact-val">Partición y toma de recursos</div>
+        <div class="impact-sub">El clúster viejo pierde heartbeat a las 12:44 y toma tres grupos del nodo par</div>
+      </div>
+      <div class="impact-item" style="border-right:none">
+        <div class="impact-lbl">Qué sigue abierto</div>
+        <div class="impact-val impact-reg">Qué levantó la .51 en el POWER8</div>
+        <div class="impact-sub">Ventana 12:15 a 12:32. Sin evidencia de ese nodo. Casos abiertos con redes e IBM</div>
+      </div>
+  </div>
+</div>
+
+<div class="ctx-section" style="background:#fff8f8; border-top:2px solid rgba(239,68,68,.25);">
+  <div class="ctx-title" style="color:var(--err);">La causa identificada, duplicidad de 10.36.197.51</div>
+  <div class="ctx-grid">
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">A</div>
+      <div class="ctx-card-title">Lo que ve la fabric</div>
+      <div class="ctx-card-body">El rastreador de endpoints de APIC muestra la misma dirección <code>10.36.197.51</code> aprendida al mismo tiempo en <strong>dos vPC distintos</strong>: <code>vPC_BC_IBMPower880</code>, que es el chasis POWER8, y <code>vPC_BC_IBMPOWER10_Po3</code>, que es el POWER10. Mismo tenant, misma aplicación y mismo EPG <code>EPG_1_USUARIOS</code>. Dos chasis anunciando la misma IP.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">B</div>
+      <div class="ctx-card-title">Por qué esa dirección y no otra</div>
+      <div class="ctx-card-body">La <code>10.36.197.51</code> <strong>fue la dirección de servicio del clúster viejo</strong>. Su propia verificación la valida así en 2019: <code>DCMSIF01_SRV (10.36.197.51) PASS</code>. En algún momento ese clúster se renumeró a <code>DCMSIF01_SRVN</code> en <code>10.36.197.207</code>, y la .51 se reasignó al clúster nuevo. En la configuración vigente al 7 de octubre de 2026 el clúster viejo ya no la menciona ni una vez.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">C</div>
+      <div class="ctx-card-title">La condición habilitante</div>
+      <div class="ctx-card-body">El <code>/etc/hosts</code> conserva los dos juegos de direcciones a la vez, y un bloque lo rotula literalmente <code># IPs PowerHA Cluster (Migracion)</code>. La etiqueta <code>DCMSIF01_SRV</code> sigue resolviendo a la .51 en dos bloques distintos, y <code>DCMSIF01_TSRV</code> resuelve a dos direcciones diferentes según el bloque que se lea. Cualquier script o alias del lado POWER8 que invoque esas etiquetas levanta la IP del otro servidor.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">?</div>
+      <div class="ctx-card-title">Lo que todavía no se sabe</div>
+      <div class="ctx-card-body">Qué levantó la .51 en el POWER8 entre las <strong>12:15 y las 12:32</strong>. De ese nodo no se recolectó ningún registro de autenticación ni de comandos, su <code>cluster.log</code> dejó de escribirse a las 03:04 y sus trazas de clúster no tienen nada antes de las 12:44. Es la pregunta que cierran los casos abiertos con redes e IBM.</div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--dim);margin-top:8px;">Fuente: capturas de APIC EP Tracker aportadas por el equipo de telecomunicaciones, <code>clverify.log</code> del clúster DCMSIF, ODM <code>HACMPadapter</code> del 7-oct-2026 y <code>/etc/hosts</code> respaldado por PowerHA.</div>
+</div>
+
+<div class="ctx-section">
+  <div class="ctx-title">Contexto funcional, el efecto de segundo orden en el clúster</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">01</div>
+      <div class="ctx-card-title">¿Qué es el clúster DCMSIF?</div>
+      <div class="ctx-card-body">Dos nodos AIX en PowerHA SystemMirror, <strong>DCMSIF01</strong> y <strong>DCMSIF02</strong>, con <strong>tres redes de heartbeat independientes</strong> sobre en0, en1 y en2, más disco de repositorio CAA con respaldo. El grupo productivo <code>DCMSIF1_RG</code> agrupa el controlador <code>SIF_APP</code>, la dirección <code>DCMSIF01_SRVN</code> y 35 volume groups de modo concurrente mejorado, entre ellos <code>ifx01vg</code>.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">02</div>
+      <div class="ctx-card-title">¿Por qué no lo impidió nada?</div>
+      <div class="ctx-card-body">El registro interno del gestor, recuperado del paquete FFDC, lo dice literalmente a las 12:44:49: <code>Split policy is None</code> y <code>quarantine=0</code>. No hay política de partición ni tie breaker configurados. La isla que conserva el quórum procede a tomar los recursos del otro <strong>sin ningún arbitraje</strong>.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">03</div>
+      <div class="ctx-card-title">¿Por qué tardó casi ocho minutos?</div>
+      <div class="ctx-card-body">La adquisición pasa los 34 volume groups de modo pasivo a activo de forma secuencial. <code>ifx01vg</code> tarda <strong>71.5 segundos</strong> por sí solo. El umbral de alerta <code>config_too_long</code> está en 360 segundos, por debajo del tiempo normal de la operación que vigila, de modo que cualquier toma de control legítima lo dispara.</div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">¿Por qué falló el release?</div>
+      <div class="ctx-card-body">Al revertir, el clúster intentó detener Informix con <code>SIFHAOFF.sh</code>. El script devolvió 1 con <code>shared memory not initialized for INFORMIXSERVER coppel_shm</code>. La captura de procesos de las 12:50:59 confirma que no había ningún <code>oninit</code> en ese nodo, y nunca se ejecutó <code>start_server</code>. Detener algo que no corre debería ser éxito, no error.</div>
+    </div>
+  </div>
+</div>
+
+<div class="ctx-section" style="border-top:2px solid rgba(18,47,177,.2);">
+  <div class="ctx-title" style="color:var(--ancla);">Integridad de la evidencia, lo que el paquete no permite afirmar</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">A</div>
+      <div class="ctx-card-title">El paquete mezcla dos clústeres</div>
+      <div class="ctx-card-body">La evidencia contiene artefactos del clúster <code>DCMSIF</code>, identificador 1471564138, y del clúster <code>DCMSIF01_cluster</code>, identificador 1175813769, con nodos, redes, grupos de recursos, volume groups y discos de repositorio <strong>completamente distintos</strong>. Las carpetas venían rotuladas por dirección IP, lo que induce a tratarlas como dos nodos del mismo clúster.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">B</div>
+      <div class="ctx-card-title">No hay evidencia del nodo declarado caído</div>
+      <div class="ctx-card-body">Del nodo DCMSIF01 del clúster DCMSIF no existe un solo archivo: ni logs de PowerHA, ni reporte de errores, ni telemetría. <strong>Todo el incidente está documentado por el nodo que tomó la decisión</strong>, que es la parte interesada.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">C</div>
+      <div class="ctx-card-title">La telemetría disponible es de otra máquina</div>
+      <div class="ctx-card-body">El único nmon del paquete pertenece al nodo <code>DCMSIF02N2</code> del clúster nuevo. Su inventario de volume groups es la familia <code>vgifx*</code> y no contiene <code>ifx01vg</code> ni ninguno de los <code>sif01vg</code> a <code>sif32vg</code>. No describe a ninguno de los dos nodos del clúster que falló.</div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">Trampas de lectura detectadas</div>
+      <div class="ctx-card-body">El <code>cluster.log</code> de AIX es acumulativo desde 2019 y el formato syslog no escribe el año: filtrar por "Oct 8" mezcla 2023, 2024 y 2026. Y el archivo <code>clverify.2026.10.08.*</code> no es una verificación de ese día; arrastra un error de junio de 2019. Ambas produjeron conclusiones falsas en el primer análisis.</div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--dim);margin-top:8px;">Verificado contra los objetos <code>HACMPcluster</code>, <code>HACMPadapter</code>, <code>HACMPnetwork</code> y <code>HACMPsircol</code> de cada bundle, y contra la sección <code>VGSIZE</code> del archivo nmon.</div>
+</div>
+
+<div class="ctx-section" style="background:#f0fdf4; border-top:2px solid rgba(34,197,94,.35);">
+  <div class="ctx-title" style="color:#166534;">Siguientes pasos de la investigación</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">R1</div>
+      <div class="ctx-card-title">Redes: historial del endpoint con direcciones MAC</div>
+      <div class="ctx-card-body">La tabla <code>State Transitions</code> sale vacía en las dos capturas, y es justo donde vive el historial. Se requiere el movimiento de la <code>10.36.197.51</code> el 8 de octubre entre las <strong>11:45 y las 13:30</strong>, con las direcciones MAC de cada aprendizaje. La MAC identifica qué adaptador físico reclamó la dirección, y con eso se cierra quién fue.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">R2</div>
+      <div class="ctx-card-title">Redes: faults de endpoint y Rogue Endpoint Control</div>
+      <div class="ctx-card-body">Se requieren los eventos de movimiento de endpoint y si se activó <strong>Rogue Endpoint Control</strong> sobre ese EPG y esos dos vPC en la ventana. Importa porque, si la fabric puso el endpoint en cuarentena, la acción pudo afectar al vPC completo y no solo a la .51. Eso explicaría la pérdida de heartbeat de las 12:44 en las redes 7.36.x, que no tienen relación con la dirección duplicada.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">R3</div>
+      <div class="ctx-card-title">Redes: ¿se duplicaron también las otras dos?</div>
+      <div class="ctx-card-body">Chequeo de alto valor y bajo esfuerzo. Si <code>10.36.198.51</code> y <code>10.36.199.51</code> se duplicaron junto con la .51, el disparador levantó el juego completo de etiquetas de migración, lo que apunta a un mecanismo de clúster o de arranque. Si solo se duplicó la .51, apunta a una acción puntual.</div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">I1</div>
+      <div class="ctx-card-title">IBM: qué puede levantar DCMSIF01_SRV en el POWER8</div>
+      <div class="ctx-card-body">Resource group residual, alias en <code>/etc/rc.net</code>, script de arranque o entrada heredada. Junto con eso, los tres defectos de configuración que este análisis documenta y que son hallazgos válidos para el mismo caso: <code>netmon.cf</code> vacío, política de partición en <code>None</code> sin desempate, y <code>SIFHAOFF.sh</code> no idempotente.</div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--dim);margin-top:8px;">Pendiente además, del lado de la evidencia: el <code>/var/hacmp/</code> completo del nodo DCMSIF01 del clúster 1471564138, la salida de <code>lscluster -i</code> y <code>clctrl -tune -a</code> de ambos nodos, y los registros del VIOS y del switch para la ventana de 12:15 a 13:05. Y la confirmación operativa de si <code>10.36.198.146</code> y <code>10.36.199.129</code> fueron liberadas manualmente del nodo en espera.</div>
+</div>
+
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">Hallazgos confirmados, red y configuración de clúster</div>
+    <div class="d05-hdr-sub">evidencia 2026-10-08, APIC y bundles PowerHA</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr><th>Clase</th><th>Artefacto</th><th>Ubicación</th><th>Descripción del hallazgo</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">CAUSA</span></td>
+        <td>
+          <div class="d05-sp">IP 10.36.197.51 duplicada</div>
+          <div class="d05-src">APIC EP Tracker, EPG_1_USUARIOS</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">2 vPC</span></td>
+        <td class="d05-type">La misma dirección aprendida de forma simultánea en <code>vPC_BC_IBMPower880</code>, chasis POWER8, y en <code>vPC_BC_IBMPOWER10_Po3</code>, chasis POWER10. El ping a la .51 empieza a fallar a las <strong>12:32</strong>. Es la dirección productiva del clúster nuevo, con la instancia Informix activa detrás.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">HABILITANTE</span></td>
+        <td>
+          <div class="d05-sp">Renumeración de clúster incompleta</div>
+          <div class="d05-src">/etc/hosts y clverify histórico</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">DCMSIF01_SRV</span></td>
+        <td class="d05-type">La .51 fue la dirección de servicio del clúster viejo, validada como <code>DCMSIF01_SRV (10.36.197.51) PASS</code> en 2019 y renumerada después a <code>DCMSIF01_SRVN</code> en .207. El <code>/etc/hosts</code> conserva ambos juegos bajo un bloque rotulado <code># IPs PowerHA Cluster (Migracion)</code>, y <code>DCMSIF01_TSRV</code> resuelve a dos direcciones distintas según el bloque.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">CRÍTICO</span></td>
+        <td>
+          <div class="d05-sp">netmon.cf vacío en ambos nodos</div>
+          <div class="d05-src">/usr/es/sbin/cluster/netmon.cf</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">2 bytes</span></td>
+        <td class="d05-type">El archivo contiene un espacio y un salto de línea. Con redes de un solo adaptador por nodo, sin objetivos en <code>netmon.cf</code> PowerHA no puede distinguir entre su propio adaptador caído y el nodo remoto caído. La verificación del clúster lo marca como <code>FAIL</code> en las tres redes y en los dos nodos, y lo viene marcando desde al menos 2019.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">CRÍTICO</span></td>
+        <td>
+          <div class="d05-sp">Política de partición en None, sin tie breaker</div>
+          <div class="d05-src">ODM HACMPsplitmerge</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">12:44:49</span></td>
+        <td class="d05-type"><code>split = None</code>, <code>merge = Majority</code>, <code>action = Reboot</code>, y la consulta en runtime del desempate devuelve vacío. El gestor lo registra literalmente: <code>Split policy is None</code>. Ante una partición, la isla con quórum procede a tomar los recursos del par sin arbitraje alguno.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">CRÍTICO</span></td>
+        <td>
+          <div class="d05-sp">SIFHAOFF.sh, controlador SIF_APP</div>
+          <div class="d05-src">/usr/es/sbin/cluster/scripts/</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">12:53:08, rc=1</span></td>
+        <td class="d05-type">Devolvió <code>shared memory not initialized for INFORMIXSERVER coppel_shm</code> y código 1. El paro no es idempotente: detener una instancia que no está corriendo se trata como error. Consecuencia directa: <code>rg_move RELEASE</code> falló y el grupo quedó en <code>event_error</code>.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-defecto">CRÍTICO</span></td>
+        <td>
+          <div class="d05-sp">Toma de control sin arranque de aplicación</div>
+          <div class="d05-src">PowerHA, rg_move ACQUIRE</div>
+        </td>
+        <td><span class="d05-rate d05-rate-high">12:44:59 a 12:52:57</span></td>
+        <td class="d05-type">Se activaron 34 volume groups y se tomó la dirección de servicio productiva, pero no se ejecutó ningún <code>start_server</code>. El nodo pasivo quedó con los datos montados y la IP tomada, sin dar servicio. Expone sin sustituir.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">ALTO</span></td>
+        <td>
+          <div class="d05-sp">Umbral config_too_long descalibrado</div>
+          <div class="d05-src">PowerHA, valor en runtime</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">360 s</span></td>
+        <td class="d05-type">La adquisición real tarda 478 segundos por la topología de 35 volume groups. El umbral está por debajo del tiempo normal de la operación que vigila, de modo que siempre dispara y pierde valor como señal. El valor 360 no existe en ningún objeto de configuración del bundle.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">ALTO</span></td>
+        <td>
+          <div class="d05-sp">Reset de LUN sobre 86 discos</div>
+          <div class="d05-src">cl_fscsilunreset, fase de adquisición</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">SC_FORCED_OPEN_LUN</span></td>
+        <td class="d05-type">No hubo forced varyon ni ruptura de reservas sobre los volume groups, pero sí reset de LUN con apertura forzada sobre 86 discos. El emparejamiento disco a volume group dentro del script es posicional y no de pertenencia real, por lo que no se puede descartar que discos de <code>ifx01vg</code> lo recibieran.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-restrict">ALTO</span></td>
+        <td>
+          <div class="d05-sp">Evidencia de dos clústeres mezclada</div>
+          <div class="d05-src">Paquete de recolección</div>
+        </td>
+        <td><span class="d05-rate ">DCMSIF y DCMSIF01_cluster</span></td>
+        <td class="d05-type">Las carpetas vienen rotuladas por dirección IP y pertenecen a clústeres distintos. No existe ningún archivo del nodo que fue declarado caído. Toda la reconstrucción descansa en un solo testigo, que es el nodo que tomó la decisión.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">MEDIO</span></td>
+        <td>
+          <div class="d05-sp">Retención de clstrmgr.debug</div>
+          <div class="d05-src">log/clstrmgr.debug y 7 rotaciones</div>
+        </td>
+        <td><span class="d05-rate ">3 min 17 s</span></td>
+        <td class="d05-type">Ocho copias cubren tres minutos diecisiete segundos en total, rotando cada 24 a 28 segundos. La ventana del incidente se recuperó únicamente porque el paquete FFDC congeló una copia a las 12:50:59 que cubre de 12:40:54 en adelante, y la familia <code>.long</code> desde 12:23:15.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">MEDIO</span></td>
+        <td>
+          <div class="d05-sp">cluster.log mudo diez horas antes</div>
+          <div class="d05-src">adm/cluster.log</div>
+        </td>
+        <td><span class="d05-rate ">03:04:16</span></td>
+        <td class="d05-type">El log que un operador consultaría primero dejó de escribirse el mismo día a las 03:04:16, casi diez horas antes del incidente. En la captura de procesos conviven <code>syslogd</code> y <code>rsyslogd</code>.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-restrict">MEDIO</span></td>
+        <td>
+          <div class="d05-sp">/var en umbral permanente</div>
+          <div class="d05-src">errpt, CL_VAR_FULL</div>
+        </td>
+        <td><span class="d05-rate ">75%</span></td>
+        <td class="d05-type">Alertas desde el 2 de octubre, trece solo el 7 de octubre entre las 18:31 y las 23:48. El mensaje advierte que RSCT puede fallar si <code>/var</code> se llena, de modo que el ruido crónico es además un riesgo latente.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">La causa del incidente es la duplicidad de la 10.36.197.51, habilitada por una renumeración de clúster que dejó el /etc/hosts con los dos juegos de direcciones. Lo que ocurre en el clúster a partir de las 12:44 es un efecto de segundo orden, y los tres defectos de configuración son lo que lo convirtió en una toma de control con reversión fallida. Esos tres son corregibles de inmediato y con independencia de lo que resuelvan los casos abiertos con redes e IBM.</div>
+</div>
+
+<div style="padding:20px 28px 24px;background:#ffffff;border-top:1px solid var(--border);">
+  <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px;">
+    Simulación &mdash; Partición del clúster DCMSIF y toma de control
+  </div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:16px;">
+    Reproduce la ventana de 12:15 a 14:01 CST en tiempo comprimido, desde la causa hasta la remediación. Fuentes: <code>cluster.10082026</code>, <code>hacmp.out</code>,
+    <code>clavailability.log</code>, <code>clevmgrd.debug</code> y los paquetes FFDC.
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 150px 1fr;gap:14px;align-items:start;margin-bottom:16px;">
+
+    <div id="csN1" style="border:2px solid #22c55e;border-radius:8px;padding:14px;background:#f0fdf4;transition:all .3s;">
+      <div style="font-size:11px;font-weight:700;color:#15803d;margin-bottom:2px;">POWER10 &mdash; vPC_BC_IBMPOWER10_Po3</div>
+      <div style="font-size:9px;color:#64748b;margin-bottom:10px;">Clúster nuevo. Aloja 10.36.197.51 con la instancia Informix activa</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:#ffffff;border-radius:6px;padding:7px 4px;"><div id="csCpu" style="font-size:15px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">OK</div><div style="font-size:8.5px;color:#64748b;">ping a la .51</div></div>
+        <div style="background:#ffffff;border-radius:6px;padding:7px 4px;"><div id="csEn0" style="font-size:15px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">1</div><div style="font-size:8.5px;color:#64748b;">chasis con la IP</div></div>
+      </div>
+      <div id="csIp1" style="margin-top:9px;font-size:10px;font-weight:700;color:#15803d;text-align:center;padding:5px;background:#dcfce7;border-radius:5px;">10.36.197.51</div>
+    </div>
+
+    <div style="text-align:center;padding-top:28px;">
+      <div id="csHb" style="font-size:19px;letter-spacing:2px;color:#22c55e;font-family:monospace;">&bull;&bull;&bull;&bull;</div>
+      <div style="font-size:8.5px;color:#64748b;margin-top:5px;">heartbeat en0</div>
+      <div id="csClock" style="margin-top:12px;font-size:16px;font-weight:800;color:#122FB1;font-variant-numeric:tabular-nums;">12:15:00</div>
+      <div id="csState" style="font-size:9px;color:#64748b;margin-top:3px;">Antes del evento</div>
+    </div>
+
+    <div id="csN2" style="border:2px solid #C5CCE8;border-radius:8px;padding:14px;background:#f8fafc;transition:all .3s;">
+      <div style="font-size:11px;font-weight:700;color:#4a5a8a;margin-bottom:2px;">POWER8 &mdash; vPC_BC_IBMPower880</div>
+      <div style="font-size:9px;color:#64748b;margin-bottom:10px;">Clúster viejo, nodo DCMSIF02 en espera. Sin Informix arrancado</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:#ffffff;border-radius:6px;padding:7px 4px;"><div id="csVg" style="font-size:15px;font-weight:700;color:#4a5a8a;font-variant-numeric:tabular-nums;">0</div><div style="font-size:8.5px;color:#64748b;">VGs activados</div></div>
+        <div style="background:#ffffff;border-radius:6px;padding:7px 4px;"><div id="csEl" style="font-size:15px;font-weight:700;color:#4a5a8a;font-variant-numeric:tabular-nums;">0s</div><div style="font-size:8.5px;color:#64748b;">acquire</div></div>
+      </div>
+      <div id="csIp2" style="margin-top:9px;font-size:10px;font-weight:700;color:#94a3b8;text-align:center;padding:5px;background:#f1f5f9;border-radius:5px;">sin IP de servicio</div>
+    </div>
+  </div>
+
+  <div id="csLog" style="background:#e8ebf8;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Cascadia Code','Consolas',monospace;font-size:11px;height:132px;overflow-y:auto;margin-bottom:14px;"></div>
+
+  <button id="btnCs" style="padding:8px 24px;background:var(--ancla);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;">&#9654; Ejecutar simulación</button>
+  <span id="csStatus" style="font-size:10px;color:var(--dim);margin-left:12px;"></span>
+
+  <div style="font-size:9px;color:var(--dim);margin-top:10px;line-height:1.5;">
+    El contador de volume groups avanza a escala real: 34 grupos procesados, con <code>ifx01vg</code> consumiendo
+    71.5 s de los 478 totales. La barra de heartbeat representa el estado de membresía que registró DCMSIF02, no una
+    medición de tráfico. El panel izquierdo aparece en trazo discontinuo de forma deliberada: del nodo que el clúster
+    declaró caído no se recolectó ningún archivo, de modo que su estado real durante el episodio es desconocido.
+  </div>
+</div>
+
+<script>
+(function(){
+  var SEQ = [
+    {t:'12:15:00', hb:4, st:'Antes del evento',      msg:'La .51 vive solo en el POWER10. DCMSIF01_SRV sigue resolviendo a esa IP en /etc/hosts', cls:'ok'},
+    {t:'12:15-12:32', hb:4, st:'Ventana sin evidencia', msg:'Algo levanta 10.36.197.51 en el POWER8. Del POWER8 no se recolectó ningún registro', cls:'err', dup:true},
+    {t:'12:3x', hb:3, st:'IP duplicada en la fabric', msg:'APIC aprende la .51 en vPC_BC_IBMPower880 y en vPC_BC_IBMPOWER10_Po3 a la vez', cls:'err', split:true},
+    {t:'12:32:00', hb:2, st:'Falla el ping a la .51', msg:'Pérdida de alcance a la dirección productiva del clúster nuevo', cls:'err', pingfail:true},
+    {t:'12:34:08', hb:2, st:'Reacción humana',       msg:'Ocho sesiones interactivas en seis minutos. Diagnósticos de red desde las 12:38:13', cls:'err'},
+    {t:'12:44:19', hb:0, st:'SPLIT del clúster viejo', msg:'CL_SPLIT_DETECTED y REASON=LINK_DOWN. 70 LVM_GS_RLEAVE sobre 35 volume groups', cls:'err'},
+    {t:'12:44:49', hb:0, st:'Split policy is None',  msg:'Sin política de partición y sin tie breaker: nada arbitra', cls:'err'},
+    {t:'12:44:50', hb:0, st:'node_down DCMSIF01',    msg:'El clúster declara caído a su par. No hay evidencia de ese nodo para contrastarlo', cls:'err', down:true},
+    {t:'12:44:59', hb:0, st:'rg_move ACQUIRE',       msg:'Tres grupos de recursos, 34 volume groups de pasivo a activo', cls:'err', vg:[0,34,478]},
+    {t:'12:45:02', hb:0, st:'3 IP aliasadas',        msg:'10.36.197.207, 10.36.198.146 y 10.36.199.129 pasan al nodo en espera', cls:'err', ip:true},
+    {t:'12:50:59', hb:0, st:'config_too_long',       msg:'El acquire supera el umbral de 360 s. Se dispara la captura FFDC', cls:'err'},
+    {t:'12:53:08', hb:1, st:'stop_server FALLA',     msg:'SIFHAOFF.sh rc=1: shared memory not initialized for INFORMIXSERVER coppel_shm', cls:'err', fail:true},
+    {t:'12:55:09', hb:2, st:'VGs a modo pasivo',     msg:'varyonvg -c -n -P sobre 35 grupos. No quedaron activos', cls:'ok'},
+    {t:'12:55:12', hb:2, st:'event_error',           msg:'rg_move RELEASE FAILED. Manual intervention is required', cls:'err', ipback:true},
+    {t:'13:17:44', hb:3, st:'NODE_UP',               msg:'El nodo remoto vuelve a estado vivo, 33 minutos después del split', cls:'ok'},
+    {t:'14:01:06', hb:4, st:'Remediación',           msg:'Termina la recolección en el POWER8. El apagado del nodo es posterior a esta marca', cls:'ok', done:true}
+  ];
+  var running=false, idx=0, timer=null;
+  function id(x){ return document.getElementById(x); }
+  function hb(n){
+    var m=['&#9643;&#9643;&#9643;&#9643;','&bull;&#9643;&#9643;&#9643;','&bull;&bull;&#9643;&#9643;','&bull;&bull;&bull;&#9643;','&bull;&bull;&bull;&bull;'];
+    var c=['#ef4444','#ef4444','#f97316','#f59e0b','#22c55e'];
+    id('csHb').innerHTML=m[n]; id('csHb').style.color=c[n];
+  }
+  function log(t,cls,msg){
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;gap:6px;padding:2px 0;opacity:0;transition:opacity .25s;';
+    d.innerHTML='<span style="color:#4a5a8a;min-width:58px;">'+t+'</span>'+
+                '<span style="min-width:30px;color:'+(cls==='ok'?'#22c55e':'#ef4444')+';">'+(cls==='ok'?'OK ':'ERR')+'</span>'+
+                '<span style="flex:1;color:#0d1a3a;">'+msg+'</span>';
+    id('csLog').appendChild(d);
+    requestAnimationFrame(function(){ d.style.opacity='1'; });
+    id('csLog').scrollTop=id('csLog').scrollHeight;
+  }
+  function reset(){
+    if(timer){ clearTimeout(timer); timer=null; }
+    running=false; idx=0;
+    id('csLog').innerHTML=''; id('csClock').textContent='12:15:00';
+    id('csState').textContent='Antes del evento'; id('csState').style.color='#64748b';
+    id('csCpu').textContent='OK'; id('csCpu').style.color='#15803d';
+    id('csEn0').textContent='1'; id('csEn0').style.color='#15803d';
+    id('csVg').textContent='0'; id('csEl').textContent='0s';
+    hb(4);
+    id('csN1').style.borderColor='#22c55e'; id('csN1').style.background='#f0fdf4';
+    id('csN2').style.borderColor='#C5CCE8'; id('csN2').style.background='#f8fafc';
+    id('csIp1').textContent='10.36.197.51'; id('csIp1').style.background='#dcfce7'; id('csIp1').style.color='#15803d';
+    id('csIp2').textContent='sin IP de servicio'; id('csIp2').style.background='#f1f5f9'; id('csIp2').style.color='#94a3b8';
+    id('csStatus').textContent='';
+    var b=id('btnCs'); b.disabled=false; b.innerHTML='&#9654; Ejecutar simulación'; b.onclick=run;
+  }
+  function vgRamp(from,to,secs,dur){
+    var t0=Date.now();
+    (function tick(){
+      var p=Math.min((Date.now()-t0)/dur,1);
+      id('csVg').textContent=Math.round(from+(to-from)*p);
+      id('csEl').textContent=Math.round(secs*p)+'s';
+      if(p<1) requestAnimationFrame(tick);
+    })();
+  }
+  function run(){
+    if(running) return; running=true;
+    var b=id('btnCs'); b.disabled=true; id('csStatus').textContent='Reproduciendo...';
+    id('csLog').innerHTML=''; idx=0;
+    (function next(){
+      if(idx>=SEQ.length){
+        id('csStatus').textContent='Completado, 29 minutos reproducidos';
+        b.disabled=false; b.innerHTML='&#8635; Reiniciar'; b.onclick=reset; running=false; return;
+      }
+      var e=SEQ[idx++];
+      id('csClock').textContent=e.t;
+      id('csState').textContent=e.st;
+      id('csState').style.color = (e.cls==='ok') ? '#15803d' : '#ef4444';
+      hb(e.hb);
+      log(e.t,e.cls,e.msg);
+      if(e.dup){
+        id('csN2').style.borderColor='#f59e0b'; id('csN2').style.background='#fffbeb';
+        id('csIp2').textContent='10.36.197.51 (!)'; id('csIp2').style.background='#fef3c7'; id('csIp2').style.color='#b45309';
+      }
+      if(e.pingfail){
+        id('csCpu').textContent='FALLA'; id('csCpu').style.color='#ef4444';
+        id('csIp1').style.background='#fef3c7'; id('csIp1').style.color='#b45309';
+      }
+      if(e.split){
+        id('csEn0').textContent='2'; id('csEn0').style.color='#ef4444';
+        id('csN1').style.borderColor='#f59e0b'; id('csN2').style.borderColor='#ef4444';
+      }
+      if(e.down){ id('csN2').style.background='#fff5f5'; }
+      if(e.vg){ vgRamp(e.vg[0],e.vg[1],e.vg[2],5200); id('csN2').style.borderColor='#ef4444'; id('csN2').style.background='#fff5f5'; }
+      if(e.ip){
+        id('csIp2').textContent='.51 + 3 IP del viejo'; id('csIp2').style.background='#fee2e2'; id('csIp2').style.color='#ef4444';
+      }
+      if(e.fail){ id('csN2').style.borderColor='#ef4444'; }
+      if(e.ipback){
+        id('csIp2').textContent='2 IP sin liberar'; id('csIp2').style.background='#fef3c7'; id('csIp2').style.color='#b45309';
+      }
+      if(e.done){ id('csN1').style.borderColor='#22c55e'; id('csN1').style.background='#f0fdf4'; }
+      timer=setTimeout(next, e.vg ? 5400 : 1250);
+    })();
+  }
+  hb(4);
+  var b0=id('btnCs'); if(b0) b0.onclick=run;
+})();
+</script>
+
+<div class="tl-section">
+  <div class="tl-title">Línea de tiempo, de la causa a la remediación. Escala 12:15 a 14:01 CST</div>
+  <div class="tl-rows">
+    <div class="tl-row">
+      <div class="tl-lbl">Ventana del disparador, 12:15 a 12:32. Sin evidencia</div>
+      <div class="tl-bg"><div class="tl-fill tl-amber" id="tlF0" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--amber)" id="tlD0">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Síntoma: falla el ping a la .51, 12:32</div>
+      <div class="tl-bg"><div class="tl-fill tl-err" id="tlF1" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--err)" id="tlD1">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Reacción humana, 12:34:08 a 12:43</div>
+      <div class="tl-bg"><div class="tl-fill tl-amber" id="tlF2" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--amber)" id="tlD2">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Segundo orden: split y toma de recursos, 12:44:19 a 12:55:12</div>
+      <div class="tl-bg"><div class="tl-fill tl-err" id="tlF3" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--err)" id="tlD3">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Remediación: apagado del POWER8, posterior a las 14:01</div>
+      <div class="tl-bg"><div class="tl-fill tl-ok" id="tlF4" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--ok)" id="tlD4">&mdash;</div>
+    </div>
+  </div>
+  <div class="tl-markers"><span>12:15</span><span>12:32</span><span>12:34</span><span>12:44</span><span>12:55</span><span>13:17</span><span>13:45</span><span>14:01</span></div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">&#8635; Reiniciar</button>
+  <button class="btn btn-primary" id="btnPlay" onclick="onPlay()">&#9654; Reproducir</button>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-err">OBS</span>
+      <div>
+        <div class="ph-title">Secuencia observada</div>
+        <div class="ph-sub">Reconstruida desde el historial de eventos de DCMSIF02</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+<svg id="svgL" viewBox="0 0 380 482" width="100%">
+  <defs>
+    <filter id="glowL" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect id="Ln0" x="60" y="10" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="29" text-anchor="middle" fill="#4a5a8a" font-size="10">12:15 a 12:32, sin evidencia</text>
+  <text x="190" y="46" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Algo levanta la .51 en el POWER8</text>
+  <text x="8" y="32" fill="#94a3b8" font-size="9" font-weight="700">caso</text>
+  <text x="8" y="44" fill="#64748b" font-size="8.5">abierto</text>
+  <line x1="190" y1="64" x2="190" y2="88" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,88 184,76 196,76" fill="#A0AEDC"/>
+  <rect id="Ln1" x="60" y="88" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="107" text-anchor="middle" fill="#4a5a8a" font-size="10">APIC, EPG_1_USUARIOS</text>
+  <text x="190" y="124" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Misma IP en dos vPC</text>
+  <text x="8" y="110" fill="#ef4444" font-size="9" font-weight="700">P8</text>
+  <text x="8" y="122" fill="#64748b" font-size="8.5">y P10</text>
+  <line x1="190" y1="142" x2="190" y2="166" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,166 184,154 196,154" fill="#A0AEDC"/>
+  <rect id="Ln2" x="60" y="166" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="185" text-anchor="middle" fill="#4a5a8a" font-size="10">12:32, síntoma en servicio</text>
+  <text x="190" y="202" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Falla el ping a 10.36.197.51</text>
+  <line x1="190" y1="220" x2="190" y2="244" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,244 184,232 196,232" fill="#A0AEDC"/>
+  <rect id="Ln3" x="60" y="244" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="263" text-anchor="middle" fill="#4a5a8a" font-size="10">12:44:19, clúster viejo</text>
+  <text x="190" y="280" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Split detectado, dos islas</text>
+  <line x1="190" y1="298" x2="190" y2="322" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,322 184,310 196,310" fill="#A0AEDC"/>
+  <rect id="Ln4" x="60" y="322" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="341" text-anchor="middle" fill="#4a5a8a" font-size="10">12:44:49, gestor de clúster</text>
+  <text x="190" y="358" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Split policy is None</text>
+  <text x="8" y="344" fill="#ef4444" font-size="9" font-weight="700">sin</text>
+  <text x="8" y="356" fill="#64748b" font-size="8.5">arbitraje</text>
+  <line x1="190" y1="376" x2="190" y2="400" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,400 184,388 196,388" fill="#A0AEDC"/>
+  <rect id="Ln5" x="60" y="400" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="419" text-anchor="middle" fill="#4a5a8a" font-size="10">12:44:59 a 12:55:12</text>
+  <text x="190" y="436" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">3 grupos tomados, release falla</text>
+  <text x="8" y="422" fill="#ef4444" font-size="9" font-weight="700">rc=1</text>
+  <text x="8" y="434" fill="#64748b" font-size="8.5">event_error</text>
+</svg>
+    </div>
+    <div class="hud"><div class="hud-item"><div class="hud-v" id="Lh0">0</div><div class="hud-l">Chasis con la IP</div></div><div class="hud-item"><div class="hud-v t" id="Lh1">0</div><div class="hud-l">VGs movidos</div></div><div class="hud-item"><div class="hud-v" id="Lh2">0</div><div class="hud-l">Eventos fallidos</div></div></div>
+    <div class="log-stream" id="logL"></div>
+    <div class="root-cause">
+      <div class="rc-title">Causa, efecto y lo que sigue abierto</div>
+      <div class="rc-body">La causa es la duplicidad de la <code>10.36.197.51</code> entre el POWER8 y el POWER10, habilitada por una renumeración de clúster que dejó el <code>/etc/hosts</code> con los dos juegos de direcciones. Lo que ocurre desde las 12:44 en el clúster viejo es efecto de segundo orden. Sigue abierto qué levantó la dirección en el POWER8.</div>
+      <ul class="fix-list"><li data-n="1">El apagado del POWER8 fue remediación, posterior a las 14:01</li><li data-n="2">Los VGs volvieron a modo pasivo, no quedaron activos</li><li data-n="3">Los defectos de configuración son corregibles ya</li></ul>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-ok">REM</span>
+      <div>
+        <div class="ph-title">Con la remediación propuesta</div>
+        <div class="ph-sub">Cuatro correcciones, cada una corta la cadena en un punto distinto</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+<svg id="svgR" viewBox="0 0 380 482" width="100%">
+  <defs>
+    <filter id="glowR" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect id="Rn0" x="60" y="10" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="29" text-anchor="middle" fill="#4a5a8a" font-size="10">Saneo de /etc/hosts en los 4 nodos</text>
+  <text x="190" y="46" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Un solo juego de direcciones</text>
+  <line x1="190" y1="64" x2="190" y2="88" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,88 184,76 196,76" fill="#A0AEDC"/>
+  <rect id="Rn1" x="60" y="88" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="107" text-anchor="middle" fill="#4a5a8a" font-size="10">Retiro de etiquetas de migración</text>
+  <text x="190" y="124" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">DCMSIF01_SRV ya no resuelve a la .51</text>
+  <line x1="190" y1="142" x2="190" y2="166" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,166 184,154 196,154" fill="#A0AEDC"/>
+  <rect id="Rn2" x="60" y="166" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="185" text-anchor="middle" fill="#4a5a8a" font-size="10">netmon.cf poblado</text>
+  <text x="190" y="202" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">El nodo valida si la falla es suya</text>
+  <line x1="190" y1="220" x2="190" y2="244" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,244 184,232 196,232" fill="#A0AEDC"/>
+  <rect id="Rn3" x="60" y="244" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="263" text-anchor="middle" fill="#4a5a8a" font-size="10">Política de partición y desempate</text>
+  <text x="190" y="280" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Gana quien ya tiene el grupo</text>
+  <line x1="190" y1="298" x2="190" y2="322" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,322 184,310 196,310" fill="#A0AEDC"/>
+  <rect id="Rn4" x="60" y="322" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="341" text-anchor="middle" fill="#4a5a8a" font-size="10">Umbral calibrado a la topología</text>
+  <text x="190" y="358" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">config_too_long deja de ser ruido</text>
+  <line x1="190" y1="376" x2="190" y2="400" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,400 184,388 196,388" fill="#A0AEDC"/>
+  <rect id="Rn5" x="60" y="400" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="419" text-anchor="middle" fill="#4a5a8a" font-size="10">SIFHAOFF.sh idempotente</text>
+  <text x="190" y="436" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Sin event_error residual</text>
+</svg>
+    </div>
+    <div class="hud"><div class="hud-item"><div class="hud-v g" id="Rh0">0</div><div class="hud-l">Chasis con la IP</div></div><div class="hud-item"><div class="hud-v g" id="Rh1">0</div><div class="hud-l">VGs movidos</div></div><div class="hud-item"><div class="hud-v g" id="Rh2">0</div><div class="hud-l">Eventos fallidos</div></div></div>
+    <div class="log-stream" id="logR"></div>
+    <div class="root-cause">
+      <div class="rc-title">Qué corta la cadena, y en qué orden</div>
+      <div class="rc-body">Las dos primeras atacan la causa: mientras el <code>/etc/hosts</code> siga con los dos juegos de direcciones, la duplicidad puede repetirse. Las cuatro siguientes atacan el efecto de segundo orden y son independientes de lo que resuelvan redes e IBM, de modo que no hay razón para esperar a cerrarlos.</div>
+      <ul class="fix-list"><li data-n="1">Prioridad uno: un solo juego de direcciones por clúster</li><li data-n="2">Prioridad dos: política de partición con desempate</li><li data-n="3">Verificar si .198.51 y .199.51 también se duplicaron</li></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+var STEPS = [{"node": "Ln0", "log": [["L", "12:15", "err", "Ventana del disparador. Del POWER8 no se recolectó ningún registro"], ["L", "12:15", "err", "DCMSIF01_SRV sigue resolviendo a 10.36.197.51 en /etc/hosts"]], "ms": 800, "color": "#ef4444", "tl": 0, "tlw": 100, "tld": "17 min"}, {"node": "Ln1", "log": [["L", "12:3x", "err", "APIC aprende 10.36.197.51 en vPC_BC_IBMPower880, chasis POWER8"], ["L", "12:3x", "err", "y a la vez en vPC_BC_IBMPOWER10_Po3, chasis POWER10"]], "ms": 800, "color": "#ef4444", "hud": [["L", 0, "2", "0"]]}, {"node": "Ln2", "log": [["L", "12:32", "err", "Falla el ping a 10.36.197.51, dirección productiva del clúster nuevo"], ["L", "12:34:08", "err", "Entran ocho sesiones interactivas en seis minutos"], ["L", "12:38:13", "err", "Diagnósticos de red fuera de toda cadencia automática"]], "ms": 1000, "color": "#ef4444", "tl": 1, "tlw": 100, "tld": "12:32"}, {"node": "Ln3", "log": [["L", "12:44:19", "err", "CL_SPLIT_DETECTED en el clúster viejo, REASON=LINK_DOWN"], ["L", "12:44:19", "err", "70 LVM_GS_RLEAVE, 35 volume groups por duplicado"]], "ms": 800, "color": "#ef4444", "tl": 2, "tlw": 100, "tld": "9 min"}, {"node": "Ln4", "log": [["L", "12:44:49", "err", "Split policy is None, quarantine=0. No hay tie breaker configurado"], ["L", "12:44:50", "err", "node_down DCMSIF01 sin posibilidad de contraste"]], "ms": 800, "color": "#ef4444", "hud": [["L", 2, "1", "0"]]}, {"node": "Ln5", "log": [["L", "12:44:59", "err", "rg_move ACQUIRE sobre tres grupos, 34 VGs de pasivo a activo"], ["L", "12:50:59", "err", "config_too_long, el acquire supera los 360 s"], ["L", "12:53:08", "err", "SIFHAOFF.sh rc=1, shared memory not initialized coppel_shm"], ["L", "12:55:09", "ok", "Los 35 VGs vuelven a modo pasivo con varyonvg -c -n -P"], ["L", "12:55:12", "err", "rg_move RELEASE FAILED, event_error"], ["L", "14:01:06", "ok", "Termina la recolección en el POWER8. El apagado es posterior"]], "ms": 1400, "color": "#ef4444", "hud": [["L", 1, "34", "0"], ["L", 2, "3", "0"]], "tl": 3, "tlw": 100, "tld": "10m53s"}, {"node": "Rn0", "log": [["R", "—", "ok", "Un solo juego de direcciones por clúster en los cuatro nodos"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn1", "log": [["R", "—", "ok", "Retirar el bloque de migración: DCMSIF01_SRV deja de resolver a la .51"]], "ms": 800, "color": "#22c55e", "hud": [["R", 0, "1", "0"]]}, {"node": "Rn2", "log": [["R", "—", "ok", "netmon.cf con objetivos: el nodo verifica si la falla es de su propio adaptador"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn3", "log": [["R", "—", "ok", "Política de partición con desempate: gana quien ya tiene el grupo"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn4", "log": [["R", "—", "ok", "Umbral por encima de los 478 s que tarda la operación real"], ["R", "—", "ok", "Sin toma de control, cero volume groups movidos"]], "ms": 800, "color": "#22c55e", "hud": [["R", 1, "0", "0"]]}, {"node": "Rn5", "log": [["R", "—", "ok", "SIFHAOFF.sh idempotente: detener lo que no corre devuelve cero"]], "ms": 800, "color": "#22c55e", "hud": [["R", 2, "0", "0"]], "tl": 4, "tlw": 100, "tld": "limpio"}];
+var TLROWS = ["Ventana del disparador, 12:15 a 12:32. Sin evidencia", "Síntoma: falla el ping a la .51, 12:32", "Reacción humana, 12:34:08 a 12:43", "Segundo orden: split y toma de recursos, 12:44:19 a 12:55:12", "Remediación: apagado del POWER8, posterior a las 14:01"];
+var playing = false, cancelled = false;
+
+function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function el(id){ return document.getElementById(id); }
+
+function hilite(id, color, w){
+  var n = el(id); if(!n) return;
+  n.setAttribute('stroke', color);
+  n.setAttribute('stroke-width', w || 3);
+  n.setAttribute('filter', 'url(#glow' + id.charAt(0) + ')');
+}
+function unhilite(id, color, w){
+  var n = el(id); if(!n) return;
+  n.setAttribute('stroke', color);
+  n.setAttribute('stroke-width', w);
+  n.removeAttribute('filter');
+}
+function addLog(side, t, type, msg){
+  var box = el('log' + side); if(!box) return;
+  var d = document.createElement('div');
+  d.className = 'le';
+  d.innerHTML = '<span class="le-t">' + t + '</span>' +
+                '<span class="le-' + type + '">' + (type === 'ok' ? 'OK ' : 'ERR') + '</span>' +
+                '<span class="le-m">' + msg + '</span>';
+  box.appendChild(d);
+  requestAnimationFrame(function(){ d.classList.add('show'); });
+  box.scrollTop = box.scrollHeight;
+}
+function setHud(side, i, v){ var n = el(side + 'h' + i); if(n) n.textContent = v; }
+
+function resetAnim(){
+  cancelled = true; playing = false;
+  ['L','R'].forEach(function(s){
+    var box = el('log' + s); if(box) box.innerHTML = '';
+    document.querySelectorAll('#svg' + s + ' rect').forEach(function(r){
+      r.removeAttribute('filter');
+      r.setAttribute('stroke-width', r.getAttribute('data-sw') || '1.5');
+      r.setAttribute('stroke', r.getAttribute('data-st') || '#122FB1');
+    });
+  });
+  STEPS.forEach(function(st){
+    (st.hud || []).forEach(function(h){ setHud(h[0], h[1], h[3]); });
+  });
+  TLROWS.forEach(function(_, i){
+    var f = el('tlF' + i), d = el('tlD' + i);
+    if(f) f.style.width = '0%';
+    if(d) d.innerHTML = '&mdash;';
+  });
+  var b = el('btnPlay');
+  if(b){ b.disabled = false; b.innerHTML = '&#9654; Reproducir'; }
+}
+
+async function onPlay(){
+  if(playing) return;
+  playing = true; cancelled = false;
+  var b = el('btnPlay');
+  if(b){ b.disabled = true; b.innerHTML = 'Reproduciendo...'; }
+  ['L','R'].forEach(function(s){ var x = el('log' + s); if(x) x.innerHTML = ''; });
+
+  for(var i = 0; i < STEPS.length; i++){
+    if(cancelled) return;
+    var st = STEPS[i];
+    if(st.node) hilite(st.node, st.color || '#ef4444', st.w || 3);
+    (st.log || []).forEach(function(l){ addLog(l[0], l[1], l[2], l[3]); });
+    (st.hud || []).forEach(function(h){ setHud(h[0], h[1], h[2]); });
+    if(st.tl != null){
+      var f = el('tlF' + st.tl), d = el('tlD' + st.tl);
+      if(f) f.style.width = st.tlw + '%';
+      if(d) d.textContent = st.tld;
+    }
+    await wait(st.ms || 700);
+  }
+  playing = false;
+  if(b){ b.disabled = false; b.innerHTML = '&#9654; Reproducir'; }
+}
+
+document.querySelectorAll('#svgL rect, #svgR rect').forEach(function(r){
+  r.setAttribute('data-sw', r.getAttribute('stroke-width'));
+  r.setAttribute('data-st', r.getAttribute('stroke'));
+});
+</script>
+
+<footer style="text-align:center;font-size:11px;color:var(--dim);padding:16px;border-top:1px solid var(--border);background:#EEF0FA;">
+  Informix Digital Brain, BanCoppel Application Modernization, SPE-AM-001, Accenture &mdash; generado 2026-10-12
+</footer>
+</body>
+</html>

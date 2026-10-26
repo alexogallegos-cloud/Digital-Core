@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INC-012, batch nocturno línea base, BanCoppel Informix, 24 agosto 2026</title>
+<style>
+:root {
+  /* BanCoppel Design Studio — paleta_clientes.md */
+  --ancla: #122FB1;
+  --senal: #F0D224;
+  --plano: #EEF0FA;
+  --trazo: #C5CCE8;
+  /* aliases internos */
+  --blue: #122FB1;
+  --yellow: #F0D224;
+  /* dark theme base */
+  --bg: #EEF0FA;
+  --card: #ffffff;
+  --node: #f5f6fe;
+  --ok: #22c55e;
+  --err: #ef4444;
+  --warn: #f97316;
+  --amber: #f59e0b;
+  --info: #60a5fa;
+  --txt: #0d1a3a;
+  --dim: #4a5a8a;
+  --border: #C5CCE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HUD helpers ── */
+.hud-sep   { color: #C5CCE8; font-size: 20px; }
+.hud-right { margin-left: auto; }
+.hud-status-pill {
+  font-size: 11px;
+  color: var(--dim);
+  background: rgba(255,255,255,.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── SIGNAL BAR (Design Studio — 3px señal al tope) ── */
+.signal-top {
+  height: 3px;
+  background: var(--senal);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--ancla);
+  border-bottom: 1px solid rgba(240,210,36,.35);
+  padding: 14px 28px 13px;
+  flex-shrink: 0;
+}
+.hdr-row1 {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.bc-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bc-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+.bc-wordmark-sub {
+  font-size: 9px;
+  color: rgba(255,255,255,.50);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-top: 3px;
+  padding-left: 2px;
+}
+.hdr-title { font-size: 17px; font-weight: 700; color: #fff; }
+.hdr-sub   { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 1px; }
+.metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.met {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-bottom: 2px solid var(--senal);
+  border-radius: 6px 6px 0 0;
+  padding: 6px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+.met-v {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--err);
+  white-space: nowrap;
+}
+.met-v.w { color: var(--warn); }
+.met-v.i { color: var(--senal); }
+.met-v.g { color: var(--ok); }
+.met-l {
+  font-size: 9px;
+  color: rgba(255,255,255,.70);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── PANELS ── */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #EEF0FA;
+}
+.panel {
+  padding: 16px 20px;
+  border-right: 1px solid #C5CCE8;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #EEF0FA;
+}
+.panel:last-child { border-right: none; }
+
+.panel-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.ph-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+}
+.pb-ok  { background: rgba(34,197,94,.15); color: var(--ok); border:1px solid var(--ok); }
+.pb-err { background: rgba(239,68,68,.15); color: var(--err); border:1px solid var(--err); }
+.ph-title { font-size: 14px; font-weight: 700; }
+.ph-sub   { font-size: 11px; color: var(--dim); }
+
+/* ── SVG FLOW ── */
+.flow-wrap { width: 100%; display: flex; justify-content: center; }
+.flow-wrap svg { display: block; width: 100%; max-width: 340px; height: auto; }
+svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* ── HUD (failure panel) ── */
+.hud {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(239,68,68,.06);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+.hud-item { text-align: center; }
+.hud-v {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--err);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hud-v.t { color: var(--warn); }
+.hud-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .4px; }
+
+/* ── LOG STREAM ── */
+.log-stream {
+  background: #e8ebf8;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  min-height: 100px;
+  max-height: 180px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.le {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,.025);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.le.show { opacity: 1; transform: none; }
+.le-t  { color: var(--dim); min-width: 46px; flex-shrink: 0; }
+.le-ok  { color: var(--ok); min-width: 38px; flex-shrink: 0; }
+.le-err { color: var(--err); min-width: 38px; flex-shrink: 0; }
+.le-m  { flex: 1; color: var(--txt); word-break: break-all; }
+
+/* ── ROOT CAUSE ── */
+.root-cause {
+  background: rgba(239,68,68,.04);
+  border: 1px solid rgba(239,68,68,.25);
+  border-left: 3px solid var(--err);
+  border-radius: 8px;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+.rc-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--err);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 6px;
+}
+.rc-body {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.6;
+}
+code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+.fix-list {
+  margin-top: 8px;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fix-list li {
+  font-size: 11px;
+  color: #64748b;
+  display: flex;
+  gap: 6px;
+}
+.fix-list li::before {
+  content: attr(data-n);
+  background: rgba(239,68,68,.15);
+  color: var(--err);
+  font-weight: 700;
+  font-size: 10px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── TIMELINE ── */
+.tl-section {
+  padding: 14px 28px 16px;
+  background: #EEF0FA;
+  border-top: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.tl-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 10px;
+}
+.tl-rows { display: flex; flex-direction: column; gap: 8px; }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-lbl { font-size: 11px; color: var(--dim); min-width: 200px; }
+.tl-bg {
+  flex: 1;
+  height: 14px;
+  background: #dde0f0;
+  border-radius: 7px;
+  position: relative;
+  overflow: visible;
+}
+.tl-fill {
+  height: 100%;
+  border-radius: 7px;
+  position: absolute;
+  left: 0;
+  transition: width .5s ease;
+}
+.tl-ok    { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.tl-err   { background: linear-gradient(90deg, #991b1b, #ef4444); }
+.tl-amber { background: linear-gradient(90deg, #b45309, #f59e0b); }
+.tl-dur { font-size: 11px; min-width: 60px; text-align: right; }
+.tl-markers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 5px;
+  padding: 0 0;
+}
+.retry-dot {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 20px;
+  background: rgba(239,68,68,.6);
+  border-radius: 1px;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 99;
+}
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: #1a3ed4; transform: translateY(-1px); }
+.btn-reset {
+  background: var(--card);
+  color: var(--dim);
+  border: 1px solid var(--border);
+}
+.btn-reset:hover { background: var(--node); color: var(--txt); }
+
+/* ── CONTEXTO FUNCIONAL ── */
+.ctx-section {
+  padding: 14px 28px 16px;
+  background: #e8ebf8;
+  border-top: 1px solid #C5CCE8;
+  border-bottom: 1px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.ctx-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ancla);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.ctx-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ctx-card {
+  background: #ffffff;
+  border: 1px solid #C5CCE8;
+  border-top: 2px solid var(--ancla);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.ctx-card-reg {
+  border-top-color: var(--err);
+}
+.ctx-card-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ancla);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.ctx-card-num.ctx-reg { color: var(--err); }
+.ctx-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+.ctx-card-body {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.55;
+}
+.ctx-card-body strong { color: var(--ancla); font-weight: 700; }
+.ctx-card-body code {
+  background: rgba(18,47,177,.08);
+  color: #122FB1;
+  border: none;
+  font-size: 10px;
+}
+
+
+/* ── IMPACTO DE NEGOCIO ── */
+.impact-section {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 28px;
+  background: #ffffff;
+  border-bottom: 2px solid #C5CCE8;
+  flex-shrink: 0;
+}
+.impact-severity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid #C5CCE8;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+.impact-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.impact-critical {
+  background: rgba(220,38,38,.08);
+  color: #dc2626;
+  border: 1px solid rgba(220,38,38,.25);
+}
+.impact-sev-lbl {
+  font-size: 10px;
+  color: #4a5a8a;
+  line-height: 1.3;
+  text-align: center;
+}
+.impact-items {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+.impact-item {
+  flex: 1;
+  padding: 0 16px;
+  border-right: 1px solid #C5CCE8;
+}
+.impact-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #4a5a8a;
+  margin-bottom: 2px;
+}
+.impact-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d1a3a;
+  line-height: 1.2;
+}
+.impact-val.impact-crit { color: #dc2626; }
+.impact-val.impact-reg  { color: #122FB1; }
+.impact-sub {
+  font-size: 10px;
+  color: #4a5a8a;
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+/* ── D05 DOMAIN HEALTH ── */
+.d05-section {
+  margin: 0 28px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.d05-hdr {
+  background: #f0f2fb;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.d05-hdr-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.d05-hdr-sub   { font-size: 10px; color: var(--dim); }
+.d05-table { width: 100%; border-collapse: collapse; }
+.d05-table th {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: #f8f9fd;
+}
+.d05-table td {
+  padding: 7px 14px;
+  font-size: 11px;
+  color: var(--txt);
+  border-bottom: 1px solid #eef0fa;
+  vertical-align: top;
+}
+.d05-table tr:last-child td { border-bottom: none; }
+.d05-sp  { font-family: monospace; font-size: 11px; color: var(--ancla); font-weight: 600; }
+.d05-src { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.d05-rate      { font-weight: 700; font-size: 12px; }
+.d05-rate-high { color: #ef4444; }
+.d05-rate-mid  { color: #f97316; }
+.d05-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.d05-badge-defecto  { background: #fee2e2; color: #dc2626; }
+.d05-badge-gating   { background: #fef3c7; color: #92400e; }
+.d05-badge-restrict { background: #dbeafe; color: #1e40af; }
+.d05-badge-warn     { background: #ffedd5; color: #c2410c; }
+.d05-type { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.d05-note {
+  padding: 7px 14px 8px;
+  font-size: 10px;
+  color: var(--dim);
+  border-top: 1px solid var(--border);
+  background: #f8f9fd;
+}
+/* INC-010 column widths */
+.d05-table th:nth-child(1) { width:  7%; }
+.d05-table th:nth-child(2) { width: 26%; }
+.d05-table th:nth-child(3) { width:  9%; }
+/* Descripción (4th) takes remaining ~58% */
+
+/* Animations */
+@keyframes blink-err {
+  0%,100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+.blink { animation: blink-err 1s infinite; }
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+</style>
+</head>
+<body>
+
+<div class="signal-top"></div>
+
+<header>
+  <div class="hdr-row1">
+    <div class="bc-logo-wrap">
+      <img class="bc-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALsAAAAhCAYAAACBbdpPAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAgESURBVHgB7VtdUhs5EO4ZeF9zgogiqdqXXfAJGE4Qc4KYEwROYHOCOCfwcALICTycwCb7slWblGdPYGdf16DtnpGw3CPN39qAw3xVKttSqyW1Wq1WSwZo0KBBgwY/FzzYMkgph/ghckhiTHeYbjzPi2GLgGNr4UcH0zGmAJbjnGOaQDquwbaN67mA8hzBNgMHEMvyuMYkYAuA/exhmpUc13BbxvWc4EKDbUNFZSdMX7JiUN8wjWV10MLoQAMnuMBg21BD2QkvcjtTij6V/w8foIEVXFCwbZBZZQ9Y+RGm0KIULXhhkHaLTha7L43diPqOqYPpxkEvoEEGP72yG3SzMnTPBexP16K446JFqRYCx3YfxDYELqRdF+FsLIT+vteOY9g+xJiOyhAqBQswtVS9CUY85qpMmLQ6ElKQT7yo/hzzI0ezPcj290S36wKW91V/PxrZAS1mV1uqTySLzPgstC1FpzE3ZHGk+NDvGPMnm+KRw5fqijr1V4AK3vpx97Y3//p2hkkaafbj68HQXADPhTKWXaa+MIew0JHLM5J2DIk3y5sadTP8HbymmLqs3U6Z/uXIgNyaiUxloVPfQhfI/PEJS52uQw7TMmNTPPju01djLs2D8SPZhtIerXLW54SPBbPx28Ci5JmEdOfwjJBZZR+oCdJpYBFKZOHzQRaH+nh5nrJPZT7OjboDVnYDawby/CTLocfqdQtkYAOFeFsGD67s0xI8ho5xHNXpg6q7gsSNmY3fHXk75fw+bwc+ocKja/NtAC8DHwvKY0xdM0OmW2kIxahyqBUF5T1sN1Tb+SEri2CNkKkClzVKpJjkDlw5ysvIgEKgNK4zR7mAYtAiI3fnQmfIdOcZVegD0Z24CPzZ+Ffh+XANFYAK3+MuDS2Y2d3BAK3/CNP1bHzQtdVFui6VEx3RP4FrZLtJtY03xHQKqbBI4DFUw1zV38O0j+mSlevbURvq+Z0WyNSt60O2b9QfUsYr9dvEQBZHq0LIl09XFgcBwgIe54wHV3SipzGQfNuKhzkWcre64ABa9vsAvMqhqxb4O2Q5Euvxz93BhwdPhubrA2/H66D//+aXw2+Pk04KjtMRPNJ4XoB83uMCON1r/7W2CWcgAbawrcTqKGEKRnOG5aHxO5KpazGCclaJcIk8tDtCE0AWU1/7awhHXVd+HfCDL8nVPPiGhsUUKo8Uiuay7+B5gfXNnVzLh4zGkZFPMf+oIg8u444q67D8GFObHazp3DJRPDRopw/BAt/brXcpgY0m9WhneFgdxCOkB306C6R077qwOvGaEe4sD5V2FgZtsXSi37eMhqxOX30PWFnIFF11K9kNPkN5RJY83o836vMHyxewPgTs9ymPvKixcZfjGOy49Szzq3hcFLRdhgfvx3v1yXdBGgP55SMzQXZxH0nHYX8XZLnwnAWt1AX5F+t7zi3Q30kWU+T50u1bo8KTG1TTuke2kBsOmIRrtkn96ENWsb6AG2R5PkEJVAyBRbCcVMIxVIRlQkkZeN6t69EYyUyu3rO49CBy5Gse1K6ef7FGHm8YaRU9DcBi3X2odgjLwvdEXvGD9Mi/wjWV+LI5WPsNZ5/9FlAdc9gM+MIIZIV3LkrRpyyVrm/AHN+65e9q59mwi4v7b8/LrKKymONymUDuRazUE0ufOe0sYngacMGTxbhx0Nbd9XKhrFkEq9v+kPzPoue76iBpi5xFkB3boTqvzC189CWThmtnOs7pi2A85jk8BhV5cFfvM5RfNNaxoGV33vDlw4MJ3qzO9377FuH3yE4kY3i4H6iWBi5WOODPG7il5W6TFhRX7I/SfaEzhM3BFq0Z50UTLAfLR160SJRSR4xnz8GOu2cuZQ9yoiycx52DrqMWVxke+pwTsXwKS/Z5Aou74nIpffBlCDVACvr4fbF7JiWP0+Llz71/qpWYFoW8lxh2WrVciaIffj+H+iBBmpdK5+rg0md0WslJEHz7Hqm6LdWnQPEQsCGocwY/AFP7ZOGncnnr2FFjokM8uStcaWI16RpsHpJo1FCNSRhjCxgdX3wmrh3y4a5TuAYeNwYvc5560riYUzwEpBGhnpGc3kMSK6S4N1Ty+WTc+v37Ps+lyAzsLgQsvHneYXP2RxqhgcUi2R2gAugCBKCW27VvvF8hoZU6eDKQYu0rHivOG+Z7nFhFgEzLGuoQqEETQnp4roMY0rBizHjalDkPl3rBqJ2lzo5myqYP7h2lFI8cPrFKtGgEZM8a5jyvzFFygyrvF2eevytQ9Uv4qGSx7623VHvtP2MocRmTuD5PB1pMF6ZCUBhMWZiiCTGjBBsB9qWrFnBV5aDtvuN40EULquzOdMV2hjqIIefmsi4P9ehNwKoxEOAe11nemYeiMfSqcS4fFiema2IDLpNbUvQteQVJSkBhxbYjjt6HVCliR33KP4UngOoLWbSrEuSk5DSpgUPRdfy6XcBPG4EuFLf3paD8pOBgfQXFId62jYfqH7lYMRT3Icyhyf7hOnFF/AW5NHizilZNqj/7+hA9sUW2QoXoiqwtuVCxV/Bc1uDZheUTWKpzoyIm/Ip/rm9J+UHSJmi5fM6qEXtefkBALp8bUz0Bq2OaFNW38BMGPz0+4nXjiNJ0YdWNSVwvdUgNjD45+2NxPy6VlbbxKPXHeEMuASznP1cmsuA1ZYNXDml54gsVIS1PfOEFwIcGDV4JGmVv8GrQKHuDV4NG2Ru8GjTK3qBBgwYNGjRo0KDBy8Z/S64dF/JuqYkAAAAASUVORK5CYII=" alt="BanCoppel">
+      <div class="bc-wordmark-sub">Modernización Core Bancario</div>
+    </div>
+    <div>
+      <div class="hdr-title">INC-012 <span style="background:rgba(240,210,36,.20);color:#F0D224;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:800;letter-spacing:.3px;">24 ago 2026</span> Batch nocturno, línea base estable con hallazgos precursores</div>
+      <div class="hdr-sub">Observación de ventana batch, Informix, 24 de agosto de 2026, 01:00 a 01:29 CDMX, 30 capturas de onstat</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="met"><div class="met-v i">30</div><div class="met-l">Capturas analizadas</div></div>
+    <div class="met"><div class="met-v i">3,439</div><div class="met-l">Sesiones promedio</div></div>
+    <div class="met"><div class="met-v g">8.2</div><div class="met-l">Running promedio</div></div>
+    <div class="met"><div class="met-v w">5</div><div class="met-l">Instancias cons_sdos1</div></div>
+    <div class="met"><div class="met-v w">104.9 MB</div><div class="met-l">Memoria agregada</div></div>
+    <div class="met"><div class="met-v g">ESTABLE</div><div class="met-l">Veredicto</div></div>
+  </div>
+</header>
+
+<div class="impact-section">
+  <div class="impact-severity">
+    <div>
+      <div class="impact-badge impact-critical">N1 OBSERVACIÓN</div>
+      <div class="impact-sev-lbl">Severidad<br>de impacto</div>
+    </div>
+  </div>
+  <div class="impact-items">
+      <div class="impact-item">
+        <div class="impact-lbl">Naturaleza</div>
+        <div class="impact-val">No es un incidente</div>
+        <div class="impact-sub">Ventana de observación tomada como línea base del batch nocturno</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Estado del sistema</div>
+        <div class="impact-val">Estable en toda la ventana</div>
+        <div class="impact-sub">Sin lock waits, sin degradación, sin errores de aplicación</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Valor del registro</div>
+        <div class="impact-val">Referencia de comparación</div>
+        <div class="impact-sub">Permite distinguir carga normal de carga anómala en ventanas futuras</div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-lbl">Hallazgo principal</div>
+        <div class="impact-val impact-crit">bdicheq:cons_sdos1 en IO Wait</div>
+        <div class="impact-sub">Cinco instancias simultáneas con 21 MB cada una, mezcla de running e IO Wait</div>
+      </div>
+      <div class="impact-item" style="border-right:none">
+        <div class="impact-lbl">Señal precursora</div>
+        <div class="impact-val">SQL de batch sobre la vista</div>
+        <div class="impact-sub">La misma vista intercard:movimiento del INC-011, ahora en horario nocturno</div>
+      </div>
+  </div>
+</div>
+
+<div class="ctx-section">
+  <div class="ctx-title">Contexto funcional, qué se observó</div>
+  <div class="ctx-grid">
+    <div class="ctx-card">
+      <div class="ctx-card-num">01</div>
+      <div class="ctx-card-title">¿Por qué registrar una ventana sin incidente?</div>
+      <div class="ctx-card-body">Sin línea base, cualquier cifra de un incidente futuro carece de referencia. Saber que el batch nocturno opera con <strong>3,439 sesiones</strong> y apenas <strong>8.2 en ejecución</strong> convierte cualquier desviación en señal medible.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">02</div>
+      <div class="ctx-card-title">¿Qué domina el batch nocturno?</div>
+      <div class="ctx-card-body">La familia <code>sp_ics_*</code> de bdicred encabeza con 28 apariciones de <code>sp_ics_cuotas</code> y 13 de <code>sp_ics_personas</code>. Les siguen <code>bdicheq:cons_sdos1</code> y <code>bdicheq:sp_actsdodiarioc</code> con 13 y 12.</div>
+    </div>
+    <div class="ctx-card">
+      <div class="ctx-card-num">03</div>
+      <div class="ctx-card-title">¿Qué llama la atención en cons_sdos1?</div>
+      <div class="ctx-card-body">Alcanza <strong>cinco instancias simultáneas</strong> a la 01:13, con 21 MB exactos cada una y 104.9 MB agregados. Varias permanecen en <code>IO Wait</code>, no en <code>running</code>, lo que indica espera de entrada y salida, no cómputo.</div>
+    </div>
+    <div class="ctx-card ctx-card-reg">
+      <div class="ctx-card-num ctx-reg">!</div>
+      <div class="ctx-card-title">¿Qué conecta esta ventana con el INC-011?</div>
+      <div class="ctx-card-body">Aparece SQL de batch accediendo a <code>intercard:movimiento</code> como vista, seis veces en la ventana. Es el mismo mecanismo de double-scan del incidente de septiembre, operando de noche sobre un motor con holgura.</div>
+    </div>
+  </div>
+</div>
+
+<div class="d05-section">
+  <div class="d05-hdr">
+    <div class="d05-hdr-title">Hallazgos de la ventana, sin impacto en servicio</div>
+    <div class="d05-hdr-sub">evidencia 2026-08-24, 01:00 a 01:29 CDMX</div>
+  </div>
+  <table class="d05-table">
+    <thead>
+      <tr><th>Clase</th><th>Artefacto</th><th>Ubicación</th><th>Descripción del hallazgo</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">OBSERVACIÓN</span></td>
+        <td>
+          <div class="d05-sp">bdicheq:cons_sdos1</div>
+          <div class="d05-src">bdicheq, consulta de saldos</div>
+        </td>
+        <td><span class="d05-rate d05-rate-mid">01:13</span></td>
+        <td class="d05-type">Cinco instancias simultáneas de 21.0 MB cada una, 104.9 MB agregados, repartidas entre <code>running</code> e <code>IO Wait</code>. El perfil de memoria idéntico por instancia sugiere una misma consulta con el mismo plan, lanzada en paralelo.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-warn">PRECURSOR</span></td>
+        <td>
+          <div class="d05-sp">SQL inline de batch</div>
+          <div class="d05-src">intercard, acceso directo sin SP</div>
+        </td>
+        <td><span class="d05-rate ">6 apariciones</span></td>
+        <td class="d05-type">Sentencias de batch que consultan <code>intercard:movimiento</code> como vista, heredando el double-scan. De noche el motor absorbe el costo; en apertura bancaria no necesariamente.</td>
+      </tr>
+      <tr>
+        <td><span class="d05-badge d05-badge-gating">LÍNEA BASE</span></td>
+        <td>
+          <div class="d05-sp">Perfil de carga nocturna</div>
+          <div class="d05-src">30 capturas de onstat</div>
+        </td>
+        <td><span class="d05-rate ">01:00 a 01:29</span></td>
+        <td class="d05-type">Sesiones por captura entre 3,315 y 3,558. Sesiones en ejecución entre 0 y 34, promedio 8.2. Este es el patrón contra el que debe compararse cualquier ventana batch futura.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="d05-note">Esta ventana no documenta una falla. Documenta cómo se ve la normalidad, y deja señalados dos elementos que en otro horario podrían dejar de serlo.</div>
+</div>
+
+<div style="padding:20px 28px 24px;background:#ffffff;border-top:1px solid var(--border);">
+  <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px;">Simulación &mdash; Concurrencia de <code>bdicheq:cons_sdos1</code> en la ventana batch</div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:16px;">Cinco instancias simultáneas de 21.0 MB exactos, repartidas entre <code>running</code> e <code>IO Wait</code>. Escala visual: cada celda es un instante de la ventana de 29 minutos.</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <div style="border:2px solid #ef4444;border-radius:8px;padding:16px;background:#fff8f8;">
+      <div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <span style="background:#ef4444;color:white;border-radius:4px;padding:2px 6px;font-size:10px;">ACTUAL</span>Observado, concurrencia con espera de disco
+      </div>
+      <div style="background:#1e293b;border-radius:6px;padding:10px;margin-bottom:12px;font-family:monospace;font-size:10px;color:#94a3b8;line-height:1.7;"><span style="color:#64748b;">-- mismo plan, lanzado en paralelo</span><br><span style="color:#fbbf24;">bdicheq:cons_sdos1</span><span style="color:#e2e8f0;"> x5, IO Wait</span></div>
+      <div id="sgL" style="display:grid;grid-template-columns:repeat(25,1fr);gap:2px;margin-bottom:12px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:#fff1f2;border-radius:6px;padding:8px 4px;"><div id="sgLa" style="font-size:17px;font-weight:700;color:#ef4444;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">instancias</div></div>
+        <div style="background:#fff1f2;border-radius:6px;padding:8px 4px;"><div id="sgLb" style="font-size:17px;font-weight:700;color:#f97316;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">MB agregados</div></div>
+        <div style="background:#fff1f2;border-radius:6px;padding:8px 4px;"><div id="sgLc" style="font-size:14px;font-weight:700;color:#dc2626;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">en IO Wait</div></div>
+      </div>
+    </div>
+
+    <div style="border:2px solid #22c55e;border-radius:8px;padding:16px;background:#f0fdf4;">
+      <div style="font-size:11px;font-weight:700;color:#15803d;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <span style="background:#22c55e;color:white;border-radius:4px;padding:2px 6px;font-size:10px;">PROPUESTA</span>Referencia, el resto de la ventana
+      </div>
+      <div style="background:#1e293b;border-radius:6px;padding:10px;margin-bottom:12px;font-family:monospace;font-size:10px;color:#94a3b8;line-height:1.7;"><span style="color:#64748b;">-- perfil normal del batch nocturno</span><br><span style="color:#86efac;">8.2 sesiones en ejecución</span></div>
+      <div id="sgR" style="display:grid;grid-template-columns:repeat(25,1fr);gap:2px;margin-bottom:12px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+        <div style="background:#dcfce7;border-radius:6px;padding:8px 4px;"><div id="sgRa" style="font-size:17px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">instancias</div></div>
+        <div style="background:#dcfce7;border-radius:6px;padding:8px 4px;"><div id="sgRb" style="font-size:17px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">MB agregados</div></div>
+        <div style="background:#dcfce7;border-radius:6px;padding:8px 4px;"><div id="sgRc" style="font-size:14px;font-weight:700;color:#15803d;font-variant-numeric:tabular-nums;">0</div><div style="font-size:9px;color:#64748b;">en IO Wait</div></div>
+      </div>
+    </div>
+  </div>
+
+  <button id="btnSim" style="padding:8px 24px;background:var(--ancla);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;">&#9654; Ejecutar simulación</button>
+  <span id="simStatus" style="font-size:10px;color:var(--dim);margin-left:12px;"></span>
+  <div style="font-size:9px;color:var(--dim);margin-top:10px;line-height:1.5;">Esta ventana no registra falla. Las cifras provienen de 30 capturas entre 01:00 y 01:29 CDMX del 24 de agosto. El valor del registro es servir de referencia: sin saber cómo se ve la normalidad, ninguna cifra de un incidente futuro tiene contra qué compararse.</div>
+</div>
+
+<script>
+(function(){
+  var CFG = {"lA": 5, "lB": 105, "lC": 3, "fmtA": "%", "fmtB": "% MB", "fmtC": "%", "rA": "1", "rB": "21 MB", "rC": "0", "rFill": 50, "rAt": 20, "rHit": 1, "breakAt": 36, "ms": 52, "done": "Completado, pico de 5 instancias a la 01:13"};
+  var CELLS = 50, running = false, timer = null;
+  function grid(id){
+    var g = document.getElementById(id); if(!g) return; g.innerHTML = '';
+    for(var i=0;i<CELLS;i++){
+      var d = document.createElement('div'); d.id = id+'_'+i;
+      d.style.cssText = 'height:10px;border-radius:2px;background:#e2e8f0;transition:background .08s;';
+      g.appendChild(d);
+    }
+  }
+  function cell(id,i,c){ var e=document.getElementById(id+'_'+i); if(e) e.style.background=c; }
+  function clear(id){ for(var i=0;i<CELLS;i++) cell(id,i,'#e2e8f0'); }
+  function txt(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+  function fmt(t,v){ return t.replace('%', v); }
+
+  function reset(){
+    if(timer){ clearTimeout(timer); timer=null; }
+    running=false; clear('sgL'); clear('sgR');
+    txt('sgLa','0'); txt('sgLb','0'); txt('sgLc','0');
+    txt('sgRa','0'); txt('sgRb','0'); txt('sgRc','0'); txt('simStatus','');
+    var b=document.getElementById('btnSim');
+    if(b){ b.disabled=false; b.innerHTML='&#9654; Ejecutar simulación'; b.onclick=run; }
+  }
+
+  function run(){
+    if(running) return; running=true;
+    var b=document.getElementById('btnSim'); if(b) b.disabled=true;
+    txt('simStatus','Simulando...'); clear('sgL'); clear('sgR');
+    setTimeout(function(){
+      for(var i=0;i<CFG.rFill;i++) cell('sgR',i,'#bbf7d0');
+      for(var j=0;j<CFG.rHit;j++) cell('sgR',CFG.rAt+j,'#15803d');
+      txt('sgRa',CFG.rA); txt('sgRb',CFG.rB); txt('sgRc',CFG.rC);
+    },160);
+    var i=0;
+    function step(){
+      if(i>=CELLS){
+        txt('simStatus', CFG.done);
+        if(b){ b.disabled=false; b.innerHTML='&#8635; Reiniciar'; b.onclick=reset; }
+        running=false; return;
+      }
+      var over = (i >= CFG.breakAt);
+      cell('sgL', i, over ? '#ef4444' : '#fed7aa');
+      var f=(i+1)/CELLS;
+      txt('sgLa', fmt(CFG.fmtA, Math.round(CFG.lA*f*10)/10));
+      txt('sgLb', fmt(CFG.fmtB, Math.round(CFG.lB*f)));
+      txt('sgLc', fmt(CFG.fmtC, Math.round(CFG.lC*f)));
+      i++; timer=setTimeout(step, CFG.ms);
+    }
+    step();
+  }
+  grid('sgL'); grid('sgR');
+  var b0=document.getElementById('btnSim'); if(b0) b0.onclick=run;
+})();
+</script>
+
+<div class="tl-section">
+  <div class="tl-title">Línea de tiempo, escala 01:00 a 01:29 CDMX</div>
+  <div class="tl-rows">
+    <div class="tl-row">
+      <div class="tl-lbl">Ventana de observación completa</div>
+      <div class="tl-bg"><div class="tl-fill tl-ok" id="tlF0" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--ok)" id="tlD0">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Concurrencia de cons_sdos1, 01:11 a 01:27</div>
+      <div class="tl-bg"><div class="tl-fill tl-amber" id="tlF1" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--amber)" id="tlD1">&mdash;</div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-lbl">Pico de 5 instancias, 01:13</div>
+      <div class="tl-bg"><div class="tl-fill tl-amber" id="tlF2" style="width:0%"></div></div>
+      <div class="tl-dur" style="color:var(--amber)" id="tlD2">&mdash;</div>
+    </div>
+  </div>
+  <div class="tl-markers"><span>01:00</span><span>01:05</span><span>01:11</span><span>01:13</span><span>01:20</span><span>01:27</span><span>01:29</span></div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">&#8635; Reiniciar</button>
+  <button class="btn btn-primary" id="btnPlay" onclick="onPlay()">&#9654; Reproducir</button>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-err">OBS</span>
+      <div>
+        <div class="ph-title">Lo observado en la ventana</div>
+        <div class="ph-sub">Batch nocturno con concurrencia moderada</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+<svg id="svgL" viewBox="0 0 380 482" width="100%">
+  <defs>
+    <filter id="glowL" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect id="Ln0" x="60" y="10" width="260" height="50" rx="8" fill="#ffffff" stroke="#122FB1" stroke-width="1.5"/>
+  <text x="190" y="29" text-anchor="middle" fill="#4a5a8a" font-size="10">Control-M</text>
+  <text x="190" y="46" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Disparo del batch nocturno</text>
+  <line x1="190" y1="64" x2="190" y2="88" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,88 184,76 196,76" fill="#A0AEDC"/>
+  <rect id="Ln1" x="60" y="88" width="260" height="50" rx="8" fill="#f0f2fe" stroke="#122FB1" stroke-width="2"/>
+  <text x="190" y="107" text-anchor="middle" fill="#4a5a8a" font-size="10">bdicred</text>
+  <text x="190" y="124" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Familia sp_ics_*</text>
+  <line x1="190" y1="142" x2="190" y2="166" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,166 184,154 196,154" fill="#A0AEDC"/>
+  <rect id="Ln2" x="60" y="166" width="260" height="50" rx="8" fill="#f0f2fe" stroke="#122FB1" stroke-width="2"/>
+  <text x="190" y="185" text-anchor="middle" fill="#4a5a8a" font-size="10">bdicheq</text>
+  <text x="190" y="202" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">cons_sdos1</text>
+  <text x="8" y="188" fill="#f59e0b" font-size="9" font-weight="700">5x</text>
+  <text x="8" y="200" fill="#64748b" font-size="8.5">21 MB c/u</text>
+  <line x1="190" y1="220" x2="190" y2="244" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,244 184,232 196,232" fill="#A0AEDC"/>
+  <rect id="Ln3" x="60" y="244" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="263" text-anchor="middle" fill="#4a5a8a" font-size="10">Varias instancias esperan disco</text>
+  <text x="190" y="280" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Estado IO Wait</text>
+  <line x1="190" y1="298" x2="190" y2="322" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,322 184,310 196,310" fill="#A0AEDC"/>
+  <rect id="Ln4" x="60" y="322" width="260" height="50" rx="8" fill="#fff5f5" stroke="#ef4444" stroke-width="2"/>
+  <text x="190" y="341" text-anchor="middle" fill="#4a5a8a" font-size="10">SQL inline de batch</text>
+  <text x="190" y="358" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">intercard:movimiento como vista</text>
+  <line x1="190" y1="376" x2="190" y2="400" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,400 184,388 196,388" fill="#A0AEDC"/>
+  <rect id="Ln5" x="60" y="400" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="419" text-anchor="middle" fill="#4a5a8a" font-size="10">El motor absorbe el costo</text>
+  <text x="190" y="436" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Sistema estable</text>
+</svg>
+    </div>
+    <div class="hud"><div class="hud-item"><div class="hud-v" id="Lh0">0</div><div class="hud-l">Instancias</div></div><div class="hud-item"><div class="hud-v t" id="Lh1">0 MB</div><div class="hud-l">Memoria</div></div><div class="hud-item"><div class="hud-v" id="Lh2">0</div><div class="hud-l">En IO Wait</div></div></div>
+    <div class="log-stream" id="logL"></div>
+    <div class="root-cause">
+      <div class="rc-title">Lectura de la ventana</div>
+      <div class="rc-body">No hubo falla. Hubo dos señales que conviene no perder de vista: concurrencia repetida de <code>cons_sdos1</code> con espera de disco, y batch accediendo a la vista compartida.</div>
+      <ul class="fix-list"><li data-n="1">Ninguna acción urgente</li><li data-n="2">Vigilar si la concurrencia crece</li><li data-n="3">El acceso por vista hereda el double-scan</li></ul>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="ph-badge pb-ok">REF</span>
+      <div>
+        <div class="ph-title">Uso como línea base</div>
+        <div class="ph-sub">Qué convierte a esta ventana en referencia</div>
+      </div>
+    </div>
+    <div class="flow-wrap">
+<svg id="svgR" viewBox="0 0 380 482" width="100%">
+  <defs>
+    <filter id="glowR" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect id="Rn0" x="60" y="10" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="29" text-anchor="middle" fill="#4a5a8a" font-size="10">30 capturas de un minuto</text>
+  <text x="190" y="46" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Cobertura continua</text>
+  <line x1="190" y1="64" x2="190" y2="88" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,88 184,76 196,76" fill="#A0AEDC"/>
+  <rect id="Rn1" x="60" y="88" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="107" text-anchor="middle" fill="#4a5a8a" font-size="10">Sesiones por captura</text>
+  <text x="190" y="124" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">3,315 a 3,558</text>
+  <line x1="190" y1="142" x2="190" y2="166" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,166 184,154 196,154" fill="#A0AEDC"/>
+  <rect id="Rn2" x="60" y="166" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="185" text-anchor="middle" fill="#4a5a8a" font-size="10">Sesiones en ejecución</text>
+  <text x="190" y="202" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Promedio 8.2</text>
+  <line x1="190" y1="220" x2="190" y2="244" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,244 184,232 196,232" fill="#A0AEDC"/>
+  <rect id="Rn3" x="60" y="244" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="263" text-anchor="middle" fill="#4a5a8a" font-size="10">Sin lock waits</text>
+  <text x="190" y="280" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Sin contención observada</text>
+  <line x1="190" y1="298" x2="190" y2="322" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,322 184,310 196,310" fill="#A0AEDC"/>
+  <rect id="Rn4" x="60" y="322" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="341" text-anchor="middle" fill="#4a5a8a" font-size="10">Perfil de SPs dominantes</text>
+  <text x="190" y="358" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Familia sp_ics_* al frente</text>
+  <line x1="190" y1="376" x2="190" y2="400" stroke="#C5CCE8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="190,400 184,388 196,388" fill="#A0AEDC"/>
+  <rect id="Rn5" x="60" y="400" width="260" height="50" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="190" y="419" text-anchor="middle" fill="#4a5a8a" font-size="10">Comparable contra</text>
+  <text x="190" y="436" text-anchor="middle" fill="#0d1a3a" font-size="11" font-weight="700">Cualquier ventana batch futura</text>
+</svg>
+    </div>
+    <div class="hud"><div class="hud-item"><div class="hud-v g" id="Rh0">0</div><div class="hud-l">Capturas</div></div><div class="hud-item"><div class="hud-v g" id="Rh1">0</div><div class="hud-l">Sesiones</div></div><div class="hud-item"><div class="hud-v g" id="Rh2">0</div><div class="hud-l">Running</div></div></div>
+    <div class="log-stream" id="logR"></div>
+    <div class="root-cause">
+      <div class="rc-title">Valor del registro</div>
+      <div class="rc-body">Esta ventana fija el patrón de normalidad del batch nocturno. Sin ella, una cifra como "ocho sesiones en ejecución" no significa nada.</div>
+      <ul class="fix-list"><li data-n="1">Referencia para detección de anomalías</li><li data-n="2">Insumo del gemelo de telemetría</li></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+var STEPS = [{"node": "Ln0", "log": [["L", "01:00", "ok", "Control-M dispara la malla nocturna"]], "ms": 800, "color": "#122FB1", "hud": [["L", 0, "0", "0"]]}, {"node": "Ln1", "log": [["L", "01:05", "ok", "Familia sp_ics_* domina la ventana, 28 apariciones"]], "ms": 800, "color": "#122FB1", "tl": 0, "tlw": 40, "tld": "29 min"}, {"node": "Ln2", "log": [["L", "01:11", "err", "cons_sdos1 alcanza 4 instancias, 84.0 MB"]], "ms": 800, "color": "#ef4444", "hud": [["L", 0, "4", "0"], ["L", 1, "84 MB", "0 MB"]], "tl": 1, "tlw": 55, "tld": "16 min"}, {"node": "Ln3", "log": [["L", "01:13", "err", "Pico de 5 instancias, 104.9 MB, varias en IO Wait"]], "ms": 800, "color": "#ef4444", "hud": [["L", 0, "5", "0"], ["L", 1, "105 MB", "0 MB"], ["L", 2, "3", "0"]], "tl": 2, "tlw": 100, "tld": "01:13"}, {"node": "Ln4", "log": [["L", "01:20", "err", "SQL inline de batch sobre intercard:movimiento, 6 apariciones"]], "ms": 800, "color": "#f59e0b"}, {"node": "Ln5", "log": [["L", "01:29", "ok", "Ventana cerrada sin contención ni lock waits"]], "ms": 800, "color": "#22c55e", "tl": 0, "tlw": 100, "tld": "estable"}, {"node": "Rn0", "log": [["R", "01:00", "ok", "30 capturas de un minuto, cobertura continua"]], "ms": 800, "color": "#22c55e", "hud": [["R", 0, "30", "0"]]}, {"node": "Rn1", "log": [["R", "01:29", "ok", "Sesiones por captura entre 3,315 y 3,558"]], "ms": 800, "color": "#22c55e", "hud": [["R", 1, "3,439", "0"]]}, {"node": "Rn2", "log": [["R", "01:29", "ok", "Promedio de 8.2 sesiones en ejecución"]], "ms": 800, "color": "#22c55e", "hud": [["R", 2, "8.2", "0"]]}, {"node": "Rn3", "log": [["R", "01:29", "ok", "Sin lock waits en toda la ventana"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn4", "log": [["R", "01:29", "ok", "Perfil de SPs dominantes registrado"]], "ms": 800, "color": "#22c55e"}, {"node": "Rn5", "log": [["R", "01:29", "ok", "Línea base disponible para comparación futura"]], "ms": 800, "color": "#22c55e"}];
+var TLROWS = ["Ventana de observación completa", "Concurrencia de cons_sdos1, 01:11 a 01:27", "Pico de 5 instancias, 01:13"];
+var playing = false, cancelled = false;
+
+function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function el(id){ return document.getElementById(id); }
+
+function hilite(id, color, w){
+  var n = el(id); if(!n) return;
+  n.setAttribute('stroke', color);
+  n.setAttribute('stroke-width', w || 3);
+  n.setAttribute('filter', 'url(#glow' + id.charAt(0) + ')');
+}
+function unhilite(id, color, w){
+  var n = el(id); if(!n) return;
+  n.setAttribute('stroke', color);
+  n.setAttribute('stroke-width', w);
+  n.removeAttribute('filter');
+}
+function addLog(side, t, type, msg){
+  var box = el('log' + side); if(!box) return;
+  var d = document.createElement('div');
+  d.className = 'le';
+  d.innerHTML = '<span class="le-t">' + t + '</span>' +
+                '<span class="le-' + type + '">' + (type === 'ok' ? 'OK ' : 'ERR') + '</span>' +
+                '<span class="le-m">' + msg + '</span>';
+  box.appendChild(d);
+  requestAnimationFrame(function(){ d.classList.add('show'); });
+  box.scrollTop = box.scrollHeight;
+}
+function setHud(side, i, v){ var n = el(side + 'h' + i); if(n) n.textContent = v; }
+
+function resetAnim(){
+  cancelled = true; playing = false;
+  ['L','R'].forEach(function(s){
+    var box = el('log' + s); if(box) box.innerHTML = '';
+    document.querySelectorAll('#svg' + s + ' rect').forEach(function(r){
+      r.removeAttribute('filter');
+      r.setAttribute('stroke-width', r.getAttribute('data-sw') || '1.5');
+      r.setAttribute('stroke', r.getAttribute('data-st') || '#122FB1');
+    });
+  });
+  STEPS.forEach(function(st){
+    (st.hud || []).forEach(function(h){ setHud(h[0], h[1], h[3]); });
+  });
+  TLROWS.forEach(function(_, i){
+    var f = el('tlF' + i), d = el('tlD' + i);
+    if(f) f.style.width = '0%';
+    if(d) d.innerHTML = '&mdash;';
+  });
+  var b = el('btnPlay');
+  if(b){ b.disabled = false; b.innerHTML = '&#9654; Reproducir'; }
+}
+
+async function onPlay(){
+  if(playing) return;
+  playing = true; cancelled = false;
+  var b = el('btnPlay');
+  if(b){ b.disabled = true; b.innerHTML = 'Reproduciendo...'; }
+  ['L','R'].forEach(function(s){ var x = el('log' + s); if(x) x.innerHTML = ''; });
+
+  for(var i = 0; i < STEPS.length; i++){
+    if(cancelled) return;
+    var st = STEPS[i];
+    if(st.node) hilite(st.node, st.color || '#ef4444', st.w || 3);
+    (st.log || []).forEach(function(l){ addLog(l[0], l[1], l[2], l[3]); });
+    (st.hud || []).forEach(function(h){ setHud(h[0], h[1], h[2]); });
+    if(st.tl != null){
+      var f = el('tlF' + st.tl), d = el('tlD' + st.tl);
+      if(f) f.style.width = st.tlw + '%';
+      if(d) d.textContent = st.tld;
+    }
+    await wait(st.ms || 700);
+  }
+  playing = false;
+  if(b){ b.disabled = false; b.innerHTML = '&#9654; Reproducir'; }
+}
+
+document.querySelectorAll('#svgL rect, #svgR rect').forEach(function(r){
+  r.setAttribute('data-sw', r.getAttribute('stroke-width'));
+  r.setAttribute('data-st', r.getAttribute('stroke'));
+});
+</script>
+
+<footer style="text-align:center;font-size:11px;color:var(--dim);padding:16px;border-top:1px solid var(--border);background:#EEF0FA;">
+  Informix Digital Brain, BanCoppel Application Modernization, SPE-AM-001, Accenture &mdash; generado 2026-10-12
+</footer>
+</body>
+</html>
