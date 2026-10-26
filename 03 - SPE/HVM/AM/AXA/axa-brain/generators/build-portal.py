@@ -6,6 +6,23 @@ Lee axa-brain.db y embebe los datos como constantes JS en el HTML.
 Ejecutar desde: AXA/axa-brain/
     python generators/build-portal.py
 """
+import sys
+
+# ─────────────────────────────────────────────────────────────────────────
+# SUPERADO — este generador escribe el mismo portal/index.html que
+# build-index.py, que es el generador vigente desde 2026-09-07.
+# Ejecutarlo pisa el portal bueno con una version mas vieja y sin las
+# cifras vivas del brain. Se deja por referencia, no por uso.
+# Para generar el portal:  python generators/build-index.py
+# ─────────────────────────────────────────────────────────────────────────
+if "--force" not in sys.argv:
+    raise SystemExit(
+        "[SUPERADO] build-portal.py quedo sustituido por build-index.py." "\n"
+        "           Ejecuta: python generators/build-index.py" "\n"
+        "           Si de verdad quieres correr este, pasa --force."
+    )
+
+
 
 import sqlite3
 import os

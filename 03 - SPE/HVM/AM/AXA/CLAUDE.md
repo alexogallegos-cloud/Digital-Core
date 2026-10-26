@@ -27,125 +27,79 @@ tecnología que soportan el negocio de Seguros de Daños (Property & Casualty) e
 
 ---
 
-## LANDSCAPE DE SISTEMAS — TOGAF
+## LANDSCAPE DE SISTEMAS
 
-> **v2.0 — Landscape completo multi-línea** confirmado desde `source/arquitectura_TOGAF_accenture_v19.pdf` (Fases A–H) + `source/2608_Suscripción_Entregable_Anexo Competitive Discovery Suscripción Daños.xlsx`
+> **Fuente única de verdad**: `axa-brain/knowledge-base/landscape/landscape-axa-v2.json`.
+> Se genera con `axa-brain/generators/build-landscape-v2.py` y carga `axa-brain.db`.
+> No duplicar el inventario aquí: este archivo apunta al registro, no lo copia.
 
-### core/ — Sistemas Core de Negocio (por línea)
+El registro v2.0 tiene **88 sistemas** con procedencia verificable por sistema, derivados de
+tres fuentes: el PDF TOGAF (Fases A a H), el Excel de Competitive Discovery de Suscripción
+Daños y la tabla de landscape de la v2.0 de este archivo.
 
-| Sistema (slug) | Nombre real | Línea | Descripción | Estado |
-|----------------|-------------|-------|-------------|--------|
-| policy-admin-danos | **General Daños / SED** | Daños | Sistema de emisión de pólizas de daños — captura condiciones aprobadas, genera la póliza y gestiona endosos | CONFIRMED |
-| policy-admin-autos | **Visual Time** | Autos | SaaS de gestión de pólizas, productos y tarifas de Autos | CONFIRMED |
-| policy-admin-salud | **Visual Time** | Salud | SaaS de gestión de pólizas de Salud (mismo producto, instancia Salud) | CONFIRMED |
-| policy-admin-vida | **Progress/COBOL** | Vida | Core de Vida AS IS — monolítico legacy (pólizas, productos, tarifas, tomadores, historial) | CONFIRMED |
-| claims-autos | **Guidewire Claims** | Autos | Core SaaS de siniestros de Autos — integración directa Audatex + FIS Payments | CONFIRMED |
-| claims-danos | Por confirmar | Daños | Gestión de siniestros Daños/Property — no identificado en Discovery | SCAFFOLD |
-| claims-salud | **SaludWeb · SIGAME · DictaMedic · Qantev · RedPres** | Salud | Autorización, reembolso, prestaciones, telemedicina | CONFIRMED |
+| Categoría | Sistemas | Qué agrupa |
+|-----------|----------|------------|
+| `core` | 7 | Administración de pólizas y siniestros, un core distinto por línea |
+| `processors` | 15 | Suscripción, reaseguro, modelación de riesgo y capa agéntica |
+| `channels` | 19 | Portales B2C y B2B, apps móviles y canales internos |
+| `integration` | 14 | Bus, gateway, perímetro, contenedores y pasarelas de pago |
+| `data` | 11 | Golden record, Oracle por línea, plataforma de datos y BI |
+| `compliance` | 22 | Regulatorio, finanzas, identidad, Azure y corporativos |
 
-### processors/ — Motores de Procesamiento
+Estados del registro: 49 CONFIRMED, 24 PARTIAL, 4 SHADOW-IT, 4 DEPRECATED, 3 IN-MIGRATION,
+2 SCAFFOLD, 1 PILOT, 1 DIVESTED.
 
-| Sistema (slug) | Nombre real | Descripción | Estado |
-|----------------|-------------|-------------|--------|
-| underwriting-engine | **Vector** | Workflow core de suscripción Daños — gestión de folios/casos desde recepción hasta decisión técnica | CONFIRMED |
-| reinsurance | **SAFAC** | Reaseguro Facultativo — registro de colocaciones, capas, reaseguradores; solo estructura lineal (gap) | CONFIRMED |
-| actuarial-cat | **ERN** | Modelación catastrófica — PML, cúmulos, exposición sísmica/hidro | CONFIRMED |
-| fraud-detection | **Shift Technology** | Detección de fraude ML en paralelo para siniestros de Autos | CONFIRMED |
-| peritacion | **Audatex** | Peritación y valoración de daños de Autos — integración directa con Guidewire | CONFIRMED |
-| hsd-excel | **HSD (Excel)** | Hoja de Suscripción de Daños — herramienta Excel de cálculo técnico, NO sistema; gap crítico de automatización | GAP-CRITICAL |
+Además del inventario, el brain tiene **36 componentes** (subelementos nombrados dentro de un
+sistema, como los seis agentes de la capa agéntica o los cinco cores de Salud) y **53
+dependencias cross-sistema**: 39 declaradas en el TOGAF con cita de página y 14 derivadas
+empíricamente de la coocurrencia de sistemas en los pasos del Discovery.
 
-### channels/ — Canales de Distribución y Engagement
+### Consultar el landscape
 
-| Sistema (slug) | Nombre real | Descripción | Estado |
-|----------------|-------------|-------------|--------|
-| my-axa-web | **My AXA (web)** | Self-service tomadores — consulta/descarga pólizas, pago online, pólizas colectivas | CONFIRMED |
-| my-axa-app | **My AXA (iOS + Android)** | App móvil — Salud/Vida/AP, reembolsos, rastreo ajustador, tarjeta digital, Tu Médico 24h | CONFIRMED |
-| axa-mx | **axa.mx** | Portal público — cotizador, siniestros, buscador red prestadores, acceso My AXA | CONFIRMED |
-| axa-keralty | **AXA Keralty (web + app)** | Portal y app salud — citas médicas, historial, resultados laboratorio, clínicas AXA Keralty | CONFIRMED |
-| axa-drive | **AXA Drive (iOS + Android)** | Telemática de Autos — reporte siniestros online con datos de conducción | CONFIRMED |
-| portal-distribuidores | **distribuidores.axa.com.mx** | Portal agentes y promotorías — cotizadores, trámites, SSO B2B | CONFIRMED |
-| axa-partners | **axapartners.mx** | Portal B2B — asistencia y reaseguro, API | CONFIRMED |
-| atc-plus | **ATC Plus** | Canal atención al cliente interno | CONFIRMED |
-| sistema-ventas | **Sistema Ventas AXA · Socio AXA** | Apps internas — fuerza de ventas | CONFIRMED |
-| crm | **SINCO** | Base de cuentas y antecedentes — búsqueda por razón social + dirección; sin ID confiable (gap) | CONFIRMED |
-
-### integration/ — Capa de Integración y Seguridad
-
-| Sistema (slug) | Nombre real | Descripción | Estado |
-|----------------|-------------|-------------|--------|
-| api-gateway | **Datapower MPG** | API gateway de seguridad — OAuth 2.0, TLS 1.2, X509, timestamp; servciosweb.axa.com.mx | CONFIRMED |
-| esb | **Mulesoft** | iPaaS Anypoint — bus canónico, mediación, orquestación, adaptadores a sistemas de negocio | CONFIRMED-IN-IMPL |
-| perimeter | **F5** | Balanceo de carga, SSL offload | CONFIRMED |
-| waf | **WAF · IPS/IDS** | Web Application Firewall, detección de intrusión, IP listing | CONFIRMED |
-| containers | **OpenShift** | Plataforma de contenedores — nube privada | CONFIRMED |
-| payments | **FIS Payments** | Pasarela de pagos SaaS (híbrido) — integración Guidewire para siniestros | CONFIRMED |
-| procurement | **Coupa** | Procurement SaaS — talleres homologados, proveedores | CONFIRMED |
-| itsm | **ServiceNow** | ITSM corporativo | CONFIRMED |
-
-### data/ — Datos y Analítica
-
-| Sistema (slug) | Nombre real | Descripción | Estado |
-|----------------|-------------|-------------|--------|
-| oracle-golden-record | **Oracle DB (corporativo)** | Golden record — clientes, pólizas master, finanzas, contratos. Prerequisito capa agéntica | CONFIRMED |
-| oracle-danos | **Oracle DB (Daños)** | Core de datos Daños/Property | CONFIRMED |
-| oracle-salud | **Oracle DB (Salud)** | Core de datos Salud | CONFIRMED |
-| oracle-autos | **Oracle DB (Autos)** | Core de datos Autos | CONFIRMED |
-| analytics | **Power BI** | Analytics, BI y reportes — siniestralidad histórica, primas, reporting gerencial | CONFIRMED |
-| data-platform-legacy | **MySQL Data Hub + Pentaho** | Data Hub legado AS IS — en decommission hacia Azure | DEPRECATED |
-| data-platform-target | **Azure ADF + ADL + Databricks** | Data Platform TO BE — ETL (ADF), repositorio (ADL), ML/procesamiento (Databricks) | IN-MIGRATION |
-| reporting-cnsf | **Monitor** | Herramienta de consulta/reporte; rol exacto por confirmar | PARTIAL |
-
-### compliance/ — Regulatorio y Finanzas
-
-| Sistema (slug) | Nombre real | Descripción | Estado |
-|----------------|-------------|-------------|--------|
-| finance | **SAP ECC v8** | Finanzas y RRHH — FICO, consolidación al Grupo AXA | CONFIRMED |
-| iam | **One Account + Ping + LISA** | IAM B2C → Azure AD · IAM B2B → Azure AD · IGA global (migración desde LDAP) | CONFIRMED-IN-MIGRATION |
-| cloud-backbone | **Azure** | AD/Entra ID · APIM · Service Bus · Key Vault · Monitor · Sentinel · Azure AI (Foundry/OpenAI) | CONFIRMED |
-| cnsf | Por confirmar | Cumplimiento CNSF, notas técnicas, reportes periódicos | SCAFFOLD |
-| solvency | Por confirmar | Solvencia C, cálculo de reservas, capital mínimo garantizado | SCAFFOLD |
-| jfrog | **JFrog** | Artefactos y CI/CD | CONFIRMED |
-
-### Capa Agéntica
-
-| Componente | Descripción | Estado |
-|------------|-------------|--------|
-| **Orquestador agéntico** | Coordina flujo entre agentes — gestiona estado, decide siguiente paso | PILOTO |
-| **Agente 1** — Validación de acceso | Verifica identidad y permisos del solicitante | PILOTO |
-| **Agente 2** — Verificación de condiciones | Valida condiciones aplicables por línea/producto | PILOTO |
-| **Agente 3** — Cálculo financiero | Cálculo de primas, reservas, indemnización | PILOTO |
-| **Agente 4** — Validación clínica/técnica | Validación especializada (salud/siniestros) | PILOTO |
-| **Agente generativo (LLM)** | Azure AI Foundry/OpenAI — nota de resolución, comunicación multicanal | PILOTO |
-| Triggers | My AXA / axa.mx (B2C) · ATC Plus · AXA Keralty (Salud) · Sistemas B2B externos | — |
+```bash
+cd axa-brain
+python build-axa-brain.py --status          # resumen por categoría
+python -c "import sqlite3;[print(r) for r in sqlite3.connect('axa-brain.db').execute(  \"select system_a,system_b,evidence from cross_dependencies where criticality='critical'\")]"
+```
 
 ---
 
-## SISTEMAS REALES — RESUMEN DE DESCUBRIMIENTO
+## CORRECCIONES DE LA v2.0
 
-| Sistema real | Slug brain | Fuente | Categoría gap |
-|-------------|-----------|--------|---------------|
-| **Vector** | `underwriting-engine` | Competitive Discovery Suscripción Daños | Workflow fragmentado; sin integración automática con otros sistemas |
-| **SINCO** | `crm` | Competitive Discovery Suscripción Daños | Solo búsqueda por razón social + dirección; sin identificador confiable |
-| **HSD** (Excel) | — (no es sistema) | Competitive Discovery Suscripción Daños | **Gap crítico**: cálculo técnico en Excel manual; sin integración con Vector, ERN ni SAFAC |
-| **ERN** | `actuarial-cat` | Competitive Discovery Suscripción Daños | Herramienta de modelación catastrófica; resultados se trasladan manualmente a HSD |
-| **SAFAC** | `reinsurance` | Competitive Discovery Suscripción Daños | Solo estructura lineal; sin carga masiva de capas/reaseguradores |
-| **General Daños / SED** | `policy-admin-danos` | Competitive Discovery Suscripción Daños | Recaptura manual de condiciones desde el slip; fallas técnicas en catálogos |
-| **Power BI** | `analytics` | Competitive Discovery Suscripción Daños | Consulta de siniestralidad disponible pero acceso fragmentado |
-| **Monitor** | `reporting-cnsf` (tentativo) | Competitive Discovery Suscripción Daños | Rol exacto por confirmar |
-| **Progress/COBOL** | `policy-admin-vida` | TOGAF PDF Fase B | Core Vida AS IS monolítico legacy |
-| **Visual Time** | `policy-admin-autos` + `policy-admin-salud` | TOGAF PDF Fase B | SaaS pólizas Autos + Salud |
-| **Guidewire** | `claims-autos` | TOGAF PDF Fases B/C | Core SaaS siniestros Autos |
-| **Audatex** | `peritacion` | TOGAF PDF Fase C (flujo Autos) | Peritación y valoración daños Autos |
-| **Shift Technology** | `fraud-detection` | TOGAF PDF Fase C | Detección fraude ML Autos |
-| **FIS Payments** | `payments` | TOGAF PDF Fases C/D | Pasarela de pagos SaaS híbrido |
-| **Mulesoft** | `esb` | TOGAF PDF Fase C | iPaaS en implementación — bus canónico de integración |
-| **Datapower MPG** | `api-gateway` | TOGAF PDF Fases C/D | API gateway de seguridad perimetral |
-| **Oracle DB** (4 instancias) | `oracle-*` | TOGAF PDF Fase C/D | Golden record + instancias por línea; sin MDM entre ellas (gap crítico) |
-| **SAP ECC v8** | `finance` | TOGAF PDF Fase D | Finanzas, FICO, RRHH |
-| **Azure** (stack completo) | `cloud-backbone` | TOGAF PDF Fase D | Backbone de infraestructura, datos e IA |
-| **One Account + Ping + LISA** | `iam` | TOGAF PDF Fase B/C | IAM en migración LDAP → Global AD + Azure AD |
-| **My AXA (web + iOS + Android)** | `my-axa-app` | TOGAF PDF Fase B | Self-service B2C multi-línea |
-| **Capa agéntica** | — | TOGAF PDF Fase C | Orquestador + 4 agentes + LLM generativo — piloto activo |
+La sincronización del landscape contra las fuentes corrigió cuatro atribuciones que estaban
+equivocadas en la v2.0 de este archivo:
+
+| Punto | Decía la v2.0 | Dice la fuente |
+|-------|---------------|----------------|
+| Core de Autos | Visual Time gestiona pólizas de Autos | Visual Time es solo de Salud. Las pólizas, productos y tarifas de Autos viven en Oracle DB. Guidewire cubre únicamente siniestros (TOGAF p5, p7 y p11) |
+| Core de Salud | Visual Time | Visual Time acompañado de GMM 2000, GMCol, GMI e ISES (TOGAF p5 y p7) |
+| Siniestros de Daños | Por confirmar, sin sistema identificado | Se capturan en SED y General Daños sobre Oracle DB Daños. No hay core de siniestros dedicado (TOGAF p7) |
+| Scope del brain | Excluía Salud y AXA Partners | El landscape multilínea cubre Vida, Salud, Daños y Autos, más los canales B2B. Solo AXA XL queda fuera |
+
+### Hallazgos nuevos relevantes
+
+- **Shadow IT con cuatro hojas de cálculo que operan como sistema**: HSD, P&L, Tarifa RC y
+  Security List. El cálculo técnico de suscripción de Daños no vive en ningún motor.
+- **Mitec y BBVA** como pasarela de pagos online de axa.mx y My AXA, externa y sin
+  observabilidad unificada en Azure Sentinel.
+- **SecureGPT** como pasarela corporativa de modelos, ya usada en el proceso de suscripción.
+- **Datapower es hoy el bus principal**, no solo un gateway. Mulesoft es el bus canónico TO BE
+  y ambos coexisten sin criterio formal de ruteo.
+- **AXA IM** salió del perímetro: adquirida por BNP Paribas en diciembre de 2024, opera como
+  BNPP AM México desde enero de 2026.
+- La lámina de compliance del TOGAF cita **Solvencia II, RGPD y DGSFP**, que son el marco
+  europeo y el regulador español. Para México aplica CNSF, Solvencia C, CONDUSEF y LFPDPPP.
+  Probable plantilla heredada de otra entidad del Grupo AXA, a validar con el cliente.
+
+### Pendientes de confirmación con el cliente
+
+- Rol exacto de **Monitor**: herramienta de reporte a CNSF o solo monitoreo de cartera.
+- Alcance de los sistemas nombrados sin detalle en el mapa TOGAF: SAM Suite, EB Portal,
+  Billing & Collections, Tesorería, Centro de Notificaciones, Maestro Clientes, Maestro
+  Distribuidores, Comisiones, Genesys, Salesforce y WSO2.
+- Rol de **CIRCAM**, **InfoGral**, **Pegaso** y **Cotizador de Suscripción**, mencionados en el
+  Discovery sin descripción suficiente.
+- No se identificó sistema para cumplimiento CNSF ni para cálculo de reservas y solvencia.
 
 ---
 
@@ -178,4 +132,4 @@ Colores AXA: `#00008F` (azul primario) · `#FF1721` (rojo acento) · `#FFFFFF` �
 
 ---
 
-*Última actualización: 2026-09-06 · v2.0 · Landscape completo multi-línea desde TOGAF PDF (Fases A–H): Progress/COBOL (Vida) · Visual Time (Autos+Salud) · Guidewire (siniestros Autos) · Audatex · Shift Technology · FIS Payments · Mulesoft (en impl.) · Datapower MPG · Oracle DB (4 instancias) · SAP ECC v8 · Azure stack · IAM One Account+Ping+LISA · My AXA multi-línea · Capa agéntica (piloto). 22 sistemas nuevos confirmados.*
+*Última actualización: 2026-10-19 · v2.1 · El landscape deja de vivir en este archivo y pasa al registro canónico `landscape-axa-v2.json`, cargado en el brain: 88 sistemas, 36 componentes y 53 dependencias cross-sistema con procedencia por fuente. Corrige la atribución de Visual Time, el core de Autos, los siniestros de Daños y el scope del brain.*

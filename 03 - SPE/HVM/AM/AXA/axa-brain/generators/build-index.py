@@ -2,7 +2,7 @@
 build-index.py — Genera portal/index.html (hero dark style)
 AXA México P&C Commercial Lines · Digital Brain Portal
 """
-import pathlib, shutil
+import pathlib, shutil, sqlite3
 
 ROOT   = pathlib.Path(__file__).parent.parent
 OUT    = ROOT / "portal" / "index.html"
@@ -991,6 +991,49 @@ requestAnimationFrame(draw2d);
 
 </body>
 </html>"""
+
+# ── Cifras vivas desde el brain ──────────────────────────────────────────
+# El portal no lleva numeros escritos a mano: se leen de axa-brain.db.
+_db = ROOT / "axa-brain.db"
+if not _db.exists():
+    raise SystemExit(f"[ABORT] No existe {_db}. Ejecuta build-axa-brain.py primero.")
+_c = sqlite3.connect(_db)
+def _n(table):
+    return _c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+_meta = dict(_c.execute("SELECT key, value FROM brain_meta").fetchall())
+_counts = {
+    "systems":      _n("systems"),
+    "process":      _n("process_steps"),
+    "etb":          _n("etb_capabilities"),
+    "vocab":        _n("vocab"),
+    "pain":         _n("pain_points"),
+    "market":       _n("market_intel"),
+    "deps":         _n("cross_dependencies"),
+    "components":   _n("components"),
+}
+_dts = len([d for d in (ROOT / "dt").iterdir() if d.is_dir()]) if (ROOT / "dt").exists() else 0
+_c.close()
+
+_subs = {
+    "'16 sistemas'":   f"'{_counts['systems']} sistemas'",
+    "'541 pasos'":     f"'{_counts['process']} pasos'",
+    "'104 mapeadas'":  f"'{_counts['etb']} mapeadas'",
+    "'36 términos'": f"'{_counts['vocab']} términos'",
+    "'7 gemelos'":     f"'{_dts} gemelos'",
+    "'33 dolores'":    f"'{_counts['pain']} dolores'",
+    "'23 señales'":  f"'{_counts['market']} señales'",
+    "{name:'Dependencias Cross-Sistema',sub:'pendiente',mat:'scaffold'}":
+        f"{{name:'Dependencias Cross-Sistema',sub:'{_counts['deps']} enlaces',mat:'full'}}",
+    "Digital Brain v1.0.0": f"Digital Brain v{_meta.get('version','?')}",
+}
+for _old, _new in _subs.items():
+    if _old not in HTML:
+        print(f"  [WARN] marcador no encontrado, no se sustituyo: {_old[:50]}")
+    HTML = HTML.replace(_old, _new)
+
+print(f"[BRAIN] {_counts['systems']} sistemas, {_counts['deps']} dependencias, "
+      f"{_counts['components']} componentes, {_dts} DTs")
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(HTML, encoding="utf-8")

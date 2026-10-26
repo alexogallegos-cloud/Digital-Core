@@ -2,7 +2,7 @@
 build-axa-brain.py
 Pipeline principal del Digital Brain AXA México.
 
-Crea axa-brain.db con todas las tablas base, registra los 16 sistemas
+Crea axa-brain.db con todas las tablas base, registra los sistemas del landscape v2.0
 y adjunta (ATTACH) los system brains individuales cuando existen.
 
 Uso:
@@ -20,32 +20,28 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, "axa-brain.db")
 SYSTEMS_ROOT = os.path.join(os.path.dirname(BASE_DIR), "systems")
 
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 BUILT_AT = datetime.now().strftime("%Y-%m-%d %H:%M")
 
 # ──────────────────────────────────────────────
 # Registro canónico de sistemas
-# Fuente: CLAUDE.md AXA v1.1 + Competitive Discovery Suscripción Daños
+# Fuente única: knowledge-base/landscape/landscape-axa-v2.json
+# Se genera con generators/build-landscape-v2.py — NO editar aquí.
 # ──────────────────────────────────────────────
-SYSTEMS = [
-    # slug, display_name, real_name, category, togaf_type, lob, status, note
-    ("policy-admin",     "Policy Admin",          "General Daños",   "core",        "core",        "P&C Daños",            "confirmed-name", "Sistema de emisión de pólizas de daños"),
-    ("claims",           "Claims",                "Por confirmar",   "core",        "core",        "P&C Daños",            "scaffold",       "Gestión de siniestros"),
-    ("billing",          "Billing",               "Por confirmar",   "core",        "core",        "P&C Daños",            "scaffold",       "Facturación y cobranza de primas"),
-    ("underwriting-engine","Underwriting Engine", "Vector + HSD",    "processors",  "processors",  "P&C Daños",            "confirmed-name", "Vector: workflow de suscripción. HSD: Excel de cálculo técnico (gap crítico)"),
-    ("reinsurance",      "Reinsurance",           "SAFAC",           "processors",  "processors",  "P&C Daños",            "confirmed-name", "Sistema de Reaseguro Facultativo"),
-    ("actuarial",        "Actuarial",             "ERN + Por conf.", "processors",  "processors",  "P&C Daños",            "partial",        "ERN: modelación catastrófica. Reservas/pricing: por confirmar"),
-    ("portal-agentes",   "Portal Agentes",        "Por confirmar",   "channels",    "channels",    "P&C Daños",            "scaffold",       "Portal web para agentes, corredores y conductos"),
-    ("crm",              "CRM / Cuentas",         "SINCO",           "channels",    "channels",    "P&C Daños",            "confirmed-name", "Base de datos de cuentas, antecedentes y conductos"),
-    ("digital",          "Digital",               "Por confirmar",   "channels",    "channels",    "P&C Daños",            "scaffold",       "Canales digitales, web y app móvil"),
-    ("api-gateway",      "API Gateway",           "Por confirmar",   "integration", "integration", "P&C Daños",            "scaffold",       "API Gateway y exposición de capacidades"),
-    ("event-bus",        "Event Bus",             "Por confirmar",   "integration", "integration", "P&C Daños",            "scaffold",       "Bus de eventos y mensajería async"),
-    ("datawarehouse",    "Datawarehouse",         "Por confirmar",   "data",        "data",        "P&C Daños",            "scaffold",       "Datawarehouse corporativo"),
-    ("analytics",        "Analytics / BI",        "Power BI",        "data",        "data",        "P&C Daños",            "confirmed-name", "Analytics, BI y reportes de gestión; siniestralidad histórica"),
-    ("reporting-cnsf",   "Reporting CNSF",        "Monitor (tent.)", "data",        "data",        "Regulatorio",          "partial",        "Reportes CNSF, Solvencia C, IFRS 17. Monitor como probable herramienta"),
-    ("cnsf",             "CNSF Compliance",       "Por confirmar",   "compliance",  "compliance",  "Regulatorio",          "scaffold",       "Cumplimiento CNSF, notas técnicas, reportes periódicos"),
-    ("solvency",         "Solvency C",            "Por confirmar",   "compliance",  "compliance",  "Regulatorio",          "scaffold",       "Solvencia C, reservas técnicas, capital mínimo garantizado"),
-]
+LANDSCAPE_PATH = os.path.join(
+    BASE_DIR, "knowledge-base", "landscape", "landscape-axa-v2.json"
+)
+
+
+def load_landscape():
+    """Lee el registro canónico v2.0. Es la única fuente de verdad de sistemas."""
+    if not os.path.exists(LANDSCAPE_PATH):
+        raise SystemExit(
+            "[ABORT] Falta knowledge-base/landscape/landscape-axa-v2.json.\n"
+            "        Ejecuta primero: python generators/build-landscape-v2.py"
+        )
+    with open(LANDSCAPE_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
 # ──────────────────────────────────────────────
@@ -188,10 +184,10 @@ def set_meta(conn: sqlite3.Connection):
         ("version",      VERSION),
         ("built_at",     BUILT_AT),
         ("client",       "AXA Seguros S.A. de C.V."),
-        ("scope",        "P&C Commercial Lines — AXA Seguros (no AXA Partners, no AXA XL, no AXA Salud)"),
+        ("scope",        "AXA Seguros Mexico multilinea: Vida, Salud, Danos y Autos, mas canales B2C y B2B. Excluye AXA XL"),
         ("regulator",    "CNSF"),
         ("etb_ref",      "Insurance P&C Commercial Lines v3.0"),
-        ("systems_count", str(len(SYSTEMS))),
+        ("systems_count", str(len(load_landscape()["systems"]))),
         ("source_excel", "2608_Suscripción_Entregable_Anexo Competitive Discovery Suscripción Daños.xlsx"),
     ]
     conn.executemany(
@@ -201,20 +197,23 @@ def set_meta(conn: sqlite3.Connection):
 
 
 def register_systems(conn: sqlite3.Connection):
-    registered = 0
-    for s in SYSTEMS:
-        slug = s[0]
-        brain_path = os.path.join(SYSTEMS_ROOT, s[3], slug, "digital-brain", "brain.db")
+    """Registra los sistemas del landscape canónico v2.0."""
+    landscape = load_landscape()
+    systems = landscape["systems"]
+    conn.execute("DELETE FROM systems")
+    for s in systems:
+        slug = s["slug"]
+        brain_path = os.path.join(SYSTEMS_ROOT, s["category"], slug, "digital-brain", "brain.db")
         brain_path_rel = os.path.relpath(brain_path, BASE_DIR)
         conn.execute("""
-            INSERT OR REPLACE INTO systems
+            INSERT INTO systems
               (slug, display_name, real_name, category, togaf_type,
                lob, status, note, brain_path, brain_attached)
             VALUES (?,?,?,?,?,?,?,?,?,0)
-        """, (*s, brain_path_rel))
-        registered += 1
+        """, (slug, s["display_name"], s["real_name"], s["category"], s["category"],
+              s["lob"], s["status"], f"{s['note']} [fuente: {s['source']}]", brain_path_rel))
     conn.commit()
-    print(f"[OK] {registered} sistemas registrados.")
+    print(f"[OK] {len(systems)} sistemas registrados desde landscape v{landscape['version']}.")
 
 
 def attach_system_brains(conn: sqlite3.Connection):
