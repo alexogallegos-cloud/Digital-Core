@@ -43,7 +43,12 @@ b = Brain(str(db))
 fallos = []
 
 
+comprobaciones = 0
+
+
 def ok(nombre, cond, detalle=""):
+    global comprobaciones
+    comprobaciones += 1
     print(f"  {'OK  ' if cond else 'FALLA'} {nombre}" + (f" — {detalle}" if detalle else ""))
     if not cond:
         fallos.append(nombre)
@@ -121,11 +126,47 @@ ok("el DROP preserva las consultas", antes == 2 and despues == 2,
 ok("y sí borra lo que el pipeline reconstruye", reglas == 0,
    "el linaje se reconstruye desde source/, la consulta no")
 
+print("\nB1 · la ausencia legítima no se confunde con el error")
+
+# Un brain que solo tiene identidad: no implementa rules, vocabulary ni
+# documents. Preguntarle por ellas es ausencia prevista, no falla.
+flaco = tmp / "flaco.db"
+cf = sqlite3.connect(flaco)
+cf.execute("CREATE TABLE system_info (slug TEXT, display_name TEXT, "
+           "brain_type TEXT, hemisphere TEXT, status TEXT)")
+cf.execute("INSERT INTO system_info VALUES ('flaco','Flaco','enterprise','change','building')")
+cf.commit()
+cf.close()
+bf = Brain(str(flaco))
+ok("la tabla que no existe devuelve vacío", bf.search("lo que sea") == [])
+ok("y la ausencia queda registrada, no invisible", len(bf.ausencias) > 0,
+   f"{len(bf.ausencias)} ausencia(s) anotadas")
+ok("coverage sigue respondiendo sobre un brain flaco",
+   bf.coverage()["components"] == 0)
+
+# La misma tabla, con la columna cambiada: eso no es ausencia, es deriva de
+# esquema, y antes se devolvía [] igual que si no hubiera reglas.
+roto = tmp / "roto.db"
+cr = sqlite3.connect(roto)
+cr.execute("CREATE TABLE system_info (slug TEXT, brain_type TEXT)")
+cr.execute("CREATE TABLE rules (id TEXT, business_name TEXT)")
+cr.execute("INSERT INTO rules VALUES ('R-1','Regla')")
+cr.commit()
+cr.close()
+br = Brain(str(roto))
+try:
+    br.rules("algo")
+    subio = False
+except sqlite3.OperationalError as e:
+    subio = "no such column" in str(e)
+ok("la consulta rota sube el error en vez de fingir vacío", subio,
+   "un error disfrazado de dato es peor que un error")
+
 print()
 if fallos:
     print(f"HAY {len(fallos)} FALLAS: {', '.join(fallos)}")
 else:
-    print("Las 20 comprobaciones pasan, y las de negación fallan cuando deben.")
+    print(f"Las {comprobaciones} comprobaciones pasan, y las de negación fallan cuando deben.")
 import shutil
 shutil.rmtree(tmp, ignore_errors=True)
 sys.exit(1 if fallos else 0)

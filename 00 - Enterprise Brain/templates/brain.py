@@ -27,6 +27,16 @@ CONTRATO (Regla B1 + Regla B2 — Enterprise Brain):
       domains()       — dominios/módulos del sistema con conteos
 
     Todos los métodos retornan dicts/listas Python planos — serializables por JSON.
+
+AUSENCIA Y ERROR NO SON LO MISMO:
+    Un brain de sistema no tiene `documents` y uno de empresa no tiene `rules`.
+    Preguntar por ellas devuelve vacío y queda anotado en `brain.ausencias`,
+    que es el perfil real de ese brain y conviene poder leerlo.
+
+    Cualquier otro fallo sube. Esta API atrapaba `Exception` y devolvía lista
+    vacía en todas partes, de modo que un brain con una consulta rota contestaba
+    exactamente lo mismo que un brain sin hallazgos. Un error disfrazado de dato
+    es peor que un error.
 """
 
 import sqlite3
@@ -53,6 +63,10 @@ class SystemBrain:
             )
         self._path = db_path
         self._conn: sqlite3.Connection | None = None
+        #: Tablas del canon que este brain no implementa, tal como se fueron
+        #: descubriendo al consultarlas. No es un error: es el perfil real de
+        #: este brain, y conviene poder leerlo.
+        self.ausencias: list[str] = []
 
     # ── Conexión ─────────────────────────────────────────────────────────────
 
@@ -110,6 +124,31 @@ class SystemBrain:
                 return val
         return val
 
+    #: Lo que de verdad significa "esta parte del canon no vive en este brain".
+    #: Un brain de sistema no tiene `documents` y uno de empresa no tiene
+    #: `rules`: preguntar por ellas es ausencia legítima. También entra aquí el
+    #: FTS5 que no está compilado y la consulta MATCH que el usuario escribió
+    #: mal, porque las dos tienen un camino de respaldo previsto.
+    AUSENCIAS = ("no such table", "no such module", "fts5", "malformed match")
+
+    def _ausencia(self, error, defecto):
+        """Devuelve el valor neutro solo si la causa es una ausencia prevista.
+
+        Antes toda esta API atrapaba `Exception` y devolvía lista vacía. El
+        efecto era que un brain con una consulta rota contestaba exactamente lo
+        mismo que un brain sin hallazgos, y desde afuera nadie podía
+        distinguirlos. Un error que se disfraza de dato es peor que un error.
+
+        Lo que sí es ausencia queda registrado en `self.ausencias`, para que el
+        silencio tampoco sea invisible.
+        """
+        motivo = str(error).lower()
+        if any(a in motivo for a in self.AUSENCIAS):
+            if str(error) not in self.ausencias:
+                self.ausencias.append(str(error))
+            return defecto
+        raise
+
     # ── Interfaz estándar obligatoria (B1 contract) ───────────────────────────
 
     def coverage(self) -> dict:
@@ -123,8 +162,8 @@ class SystemBrain:
         def _count(sql: str, default=0):
             try:
                 return db.execute(sql).fetchone()[0]
-            except Exception:
-                return default
+            except sqlite3.OperationalError as _e:
+                return self._ausencia(_e, default)
 
         stats["components"] = _count("SELECT COUNT(*) FROM components")
         stats["rules"] = _count("SELECT COUNT(*) FROM rules")
@@ -142,8 +181,8 @@ class SystemBrain:
             info = db.execute("SELECT * FROM system_info LIMIT 1").fetchone()
             if info:
                 stats["system_info"] = dict(info)
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         # Gates de calidad (DoD-EB-02 y DoD-EB-03)
         stats["quality"] = {
@@ -183,8 +222,8 @@ class SystemBrain:
                     (limit, offset),
                 ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """
@@ -209,8 +248,8 @@ class SystemBrain:
                 (query, limit),
             ).fetchall()
             results.extend(self._rows(rows))
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         # Fallback LIKE si FTS5 no disponible o sin resultados
         if not results:
@@ -223,8 +262,8 @@ class SystemBrain:
                     (pattern, pattern, limit),
                 ).fetchall()
                 results.extend(self._rows(rows))
-            except Exception:
-                pass
+            except sqlite3.OperationalError as _e:
+                self._ausencia(_e, None)
 
         # Búsqueda en vocabulario
         if len(results) < limit:
@@ -237,8 +276,8 @@ class SystemBrain:
                     (pattern, pattern, limit - len(results)),
                 ).fetchall()
                 results.extend(self._rows(rows))
-            except Exception:
-                pass
+            except sqlite3.OperationalError as _e:
+                self._ausencia(_e, None)
 
         # Corpus documental. Se devuelve el encabezado y no el documento
         # entero: un contenido de cien kilobytes por resultado no es una
@@ -257,8 +296,8 @@ class SystemBrain:
                     (query, limit - len(results)),
                 ).fetchall()
                 docs = self._rows(rows)
-            except Exception:
-                pass
+            except sqlite3.OperationalError as _e:
+                self._ausencia(_e, None)
         # El LIKE es respaldo del índice, no un segundo pase: si corren los dos
         # con resultados, el mismo documento sale dos veces.
         if not docs and len(results) < limit:
@@ -274,8 +313,8 @@ class SystemBrain:
                     (pattern, pattern, limit - len(results)),
                 ).fetchall()
                 docs = self._rows(rows)
-            except Exception:
-                pass
+            except sqlite3.OperationalError as _e:
+                self._ausencia(_e, None)
         results.extend(docs)
 
         return results[:limit]
@@ -289,8 +328,8 @@ class SystemBrain:
                 (component_id,),
             ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def domains(self) -> list[dict]:
         """Dominios/módulos del sistema con conteo de componentes y reglas."""
@@ -309,8 +348,8 @@ class SystemBrain:
                    ORDER BY component_count DESC"""
             ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     # ── Métodos adicionales recomendados ──────────────────────────────────────
 
@@ -328,8 +367,8 @@ class SystemBrain:
                     "SELECT * FROM vocabulary ORDER BY term LIMIT ?", (limit,)
                 ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def journeys(self, domain: str | None = None) -> list[dict]:
         """Customer journeys del sistema."""
@@ -345,8 +384,8 @@ class SystemBrain:
                     "SELECT * FROM journeys ORDER BY domain, display_name"
                 ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def souls(self) -> list[dict]:
         """Módulos funcionales (almas) del sistema — componentes con is_soul=1 (ADR-EB-006)."""
@@ -356,8 +395,8 @@ class SystemBrain:
                 "SELECT * FROM components WHERE is_soul=1 ORDER BY soul_rank, name"
             ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     # ── Métodos de razonamiento ───────────────────────────────────────────────
     # Estos métodos cruzan múltiples tablas para inferir algo — no son SELECT
@@ -391,8 +430,8 @@ class SystemBrain:
                     (component_id,),
                 ).fetchall()
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         try:
             result["calls"] = self._rows(
@@ -402,8 +441,8 @@ class SystemBrain:
                     (component_id,),
                 ).fetchall()
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         try:
             result["processes"] = self._rows(
@@ -414,8 +453,8 @@ class SystemBrain:
                     (component_id,),
                 ).fetchall()
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         result["rules_count"] = len(self.rules(component_id))
         return result
@@ -431,8 +470,8 @@ class SystemBrain:
                     (component_id,),
                 ).fetchall()
             )
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def callees_of(self, component_id: str) -> list[dict]:
         """Componentes a los que llama este componente."""
@@ -445,8 +484,8 @@ class SystemBrain:
                     (component_id,),
                 ).fetchall()
             )
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def capability_gap(self) -> list[dict]:
         """
@@ -510,8 +549,8 @@ class SystemBrain:
                 else "SELECT * FROM knowledge_gaps ORDER BY id"
             )
             return self._rows(db.execute(sql).fetchall())
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def processes_gap(self) -> dict:
         """
@@ -534,8 +573,8 @@ class SystemBrain:
                        )"""
                 ).fetchall()
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
         try:
             result["journeys_without_process"] = self._rows(
                 db.execute(
@@ -546,8 +585,8 @@ class SystemBrain:
                           )"""
                 ).fetchall()
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
         return result
 
     TIER_RANK = {"gold": 3, "silver": 2, "bronze": 1, "rejected": 0}
@@ -566,8 +605,8 @@ class SystemBrain:
             return self._rows(db.execute(
                 "SELECT * FROM knowledge_lineage WHERE entity_table=? AND entity_id=? "
                 "ORDER BY recorded_at DESC, id DESC", (entity_table, entity_id)).fetchall())
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     # Peso para la cola HITL: primero lo que sostiene decisiones de gate y regulación
     HITL_WEIGHT = {"transitions": 5, "readiness_gates": 5, "regulatory_obligations": 4,
@@ -585,8 +624,8 @@ class SystemBrain:
                 "AND LOWER(tier) IN ('silver','bronze')").fetchall())
             kpi_procs = {r["process_id"] for r in self._rows(db.execute(
                 "SELECT DISTINCT process_id FROM kpis WHERE process_id IS NOT NULL").fetchall())}
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
         proc_cache: dict = {}
 
         def proc_of(t: str, i: str):
@@ -594,8 +633,8 @@ class SystemBrain:
                 try:
                     row = db.execute(f"SELECT process_id FROM {t} WHERE id=?", (i,)).fetchone()
                     proc_cache[(t, i)] = row[0] if row else None
-                except Exception:
-                    proc_cache[(t, i)] = None
+                except sqlite3.OperationalError as _e:
+                    proc_cache[(t, i)] = self._ausencia(_e, None)
             return proc_cache[(t, i)]
 
         for r in pending:
@@ -652,8 +691,8 @@ class SystemBrain:
             result["itom"] = self._rows(
                 db.execute("SELECT * FROM itom_layer ORDER BY layer").fetchall()
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         # Brain de sistema: componentes vía component_processes. Brain de proyecto: applications.
         proc_ids = [p["id"] for p in result["processes"]]
@@ -668,8 +707,8 @@ class SystemBrain:
                     result["components"].extend(
                         self._rows(db.execute(sql, proc_ids).fetchall())
                     )
-                except Exception:
-                    pass
+                except sqlite3.OperationalError as _e:
+                    self._ausencia(_e, None)
 
         # Eslabón Datos: entidades que tocan esos componentes (matriz CRUD)
         comp_ids = [c["id"] for c in result["components"] if c.get("id")]
@@ -681,8 +720,8 @@ class SystemBrain:
                     f"SELECT DISTINCT de.*, cd.access_type FROM data_entities de "
                     f"JOIN component_data cd ON cd.entity_id = de.id "
                     f"WHERE cd.component_id IN ({marks})", comp_ids).fetchall())
-            except Exception:
-                pass
+            except sqlite3.OperationalError as _e:
+                self._ausencia(_e, None)
         # Eslabón Infraestructura: tecnología donde viven esos datos, o todo el stack del brain
         try:
             tech_ids = sorted({d["technology_id"] for d in result["data"] if d.get("technology_id")})
@@ -693,8 +732,8 @@ class SystemBrain:
             else:
                 result["technology"] = self._rows(
                     db.execute("SELECT * FROM technology_components ORDER BY category").fetchall())
-        except Exception:
-            pass
+        except sqlite3.OperationalError as _e:
+            self._ausencia(_e, None)
 
         # Regla B35 y B37 — la respuesta declara con qué nivel de certeza se construyó
         chain = ("products", "kpis", "processes", "components", "data", "technology", "itom")
@@ -715,8 +754,8 @@ class SystemBrain:
                 "SELECT * FROM cross_dependencies ORDER BY criticality DESC, other_system"
             ).fetchall()
             return self._rows(rows)
-        except Exception:
-            return []
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, [])
 
     def capability_alignment(self) -> list[dict]:
         """
@@ -999,5 +1038,5 @@ class SystemBrain:
                 "SELECT * FROM components WHERE id=?", (component_id,)
             ).fetchone()
             return self._one(row)
-        except Exception:
-            return None
+        except sqlite3.OperationalError as _e:
+            return self._ausencia(_e, None)
