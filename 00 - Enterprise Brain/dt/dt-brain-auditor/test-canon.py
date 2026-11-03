@@ -61,6 +61,27 @@ caso("cifra de dimensiones mal", "cifras", 1,
      mutar=lambda t: re.sub(r"\b\d{1,2}(?= dimensiones)", "3", t, count=1),
      archivo=B / "quality-gates-enterprise-brain.md")
 
+caso("cifra de dimensiones escrita con letra", "cifras", 1,
+     # Una cifra en letra se queda vieja igual que una en digitos. El deck del
+     # asset dijo "nueve dimensiones" tres semanas despues de que fueran diez,
+     # y el validador solo miraba digitos.
+     mutar=lambda t: t.replace("Brain Auditor, diez dimensiones",
+                               "Brain Auditor, siete dimensiones", 1),
+     archivo=B / "portal" / "enterprise-brain-deck.html")
+
+caso("CORE nombrado al reves", "cifras", 1,
+     # "CORE: N tablas obligatorias" escapaba al patron viejo, que solo sabia
+     # leer "N tablas del CORE".
+     mutar=lambda t: re.sub(r"CORE: \d{1,2} tablas obligatorias",
+                            "CORE: 7 tablas obligatorias", t, count=1),
+     archivo=B / "portal" / "digital-brain-schema.html")
+
+caso("el diagrama deja de dibujar una tabla", "cifras", 1,
+     mutar=lambda t: t.replace(
+         '<div class="tname">driver_links</div>',
+         '<div class="tname">driver_linkz</div>', 1),
+     archivo=B / "portal" / "digital-brain-schema.html")
+
 caso("rango de DoD incompleto", "cifras", 1,
      mutar=lambda t: t.replace("DoD-EB-01 a DoD-EB-12", "DoD-EB-01 a DoD-EB-09", 1),
      archivo=B / "CLAUDE.md")

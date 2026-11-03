@@ -61,6 +61,54 @@ CIFRAS = {
 }
 
 SEV_BLOQ = "BLOQUEANTE"
+
+# ── Cifras escritas con letra ────────────────────────────────────────────────
+# Una cifra en letra se queda vieja igual que una en dígitos, y miente igual.
+# El validador solo miraba dígitos, y por eso el deck del asset pudo seguir
+# diciendo "nueve dimensiones" después de que fueran diez, sin que nada lo
+# detectara. El punto ciego valía más que el archivo.
+
+def _palabras_hasta_99() -> dict:
+    u = ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete",
+         "ocho", "nueve"]
+    especiales = {
+        10: "diez", 11: "once", 12: "doce", 13: "trece", 14: "catorce",
+        15: "quince", 16: "dieciséis", 17: "diecisiete", 18: "dieciocho",
+        19: "diecinueve", 20: "veinte", 21: "veintiuno", 22: "veintidós",
+        23: "veintitrés", 24: "veinticuatro", 25: "veinticinco",
+        26: "veintiséis", 27: "veintisiete", 28: "veintiocho",
+        29: "veintinueve",
+    }
+    decenas = {30: "treinta", 40: "cuarenta", 50: "cincuenta", 60: "sesenta",
+               70: "setenta", 80: "ochenta", 90: "noventa"}
+    mapa = {w: n for n, w in enumerate(u)}
+    mapa["un"] = 1
+    mapa["una"] = 1
+    for n, w in especiales.items():
+        mapa[w] = n
+        # Sin acento también se escribe, y el canon lo hace en algunos sitios.
+        mapa[w.replace("é", "e").replace("ó", "o").replace("í", "i")] = n
+    for d, w in decenas.items():
+        mapa[w] = d
+        for k in range(1, 10):
+            mapa[f"{w} y {u[k]}"] = d + k
+    return mapa
+
+
+PALABRAS = _palabras_hasta_99()
+#: Las más largas primero: sin eso, "treinta" casaría antes que "treinta y
+#: cinco" y la cifra leída sería otra.
+_ALT = "|".join(re.escape(w) for w in sorted(PALABRAS, key=len, reverse=True))
+NUM = rf"(?:\d{{1,3}}|{_ALT})"
+
+
+def valor(token: str):
+    """El número que expresa un token, venga en dígitos o en letra."""
+    t = token.strip().lower()
+    if t.isdigit():
+        return int(t)
+    return PALABRAS.get(t)
+
 SEV_AVISO = "aviso"
 
 
@@ -200,9 +248,10 @@ class CanonValidator:
         esquema = self.esquema()
         # CORE real = tablas de la sección CORE del DDL
         ddl = SCHEMA.read_text(encoding="utf-8")
-        ini = ddl.index("-- CORE")
-        fin = ddl.index("-- SYSTEM", ini)
-        core_real = len(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", ddl[ini:fin]))
+        ini_core = ddl.index("-- CORE")
+        fin_core = ddl.index("-- SYSTEM", ini_core)
+        core_real = len(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)",
+                                   ddl[ini_core:fin_core]))
         self.stats["core_real"] = core_real
 
         # dimensiones reales del validador
@@ -250,35 +299,90 @@ class CanonValidator:
                        (self.asset / "quality-gates-enterprise-brain.md").read_text(encoding="utf-8")))
         self.stats["dod_real"] = dod_real
 
+        # Cada chequeo captura la cifra en el grupo 1, venga en dígitos o en
+        # letra, y se compara por VALOR. Antes se comparaba por texto con una
+        # anticipación negativa, y eso solo sabía leer dígitos.
         chequeos = [
-            (rf"\b{core_real}\b\s+tablas del CORE|CORE[^.\n]{{0,30}}\b{core_real}\b\s+tablas",
-             rf"\b(?!{core_real}\b)(\d{{1,2}})\s+tablas del CORE", f"CORE son {core_real} tablas"),
+            # El CORE se nombra de varias formas y la vieja solo entendía una.
+            # "CORE: 18 tablas obligatorias" se quedó tres semanas viejo en el
+            # portal sin que el validador lo viera.
+            (rf"({NUM})\s+tablas\s+del\s+CORE", core_real, f"CORE son {core_real} tablas"),
+            (rf"CORE[^.\n]{{0,25}}?({NUM})\s+tablas", core_real, f"CORE son {core_real} tablas"),
             # "0 dimensiones bloqueantes" cuenta hallazgos; no declara el total.
-            (None, rf"\b(?!{dims_real}\b)(\d{{1,2}})\s+dimensiones(?!\s+bloqueante)",
+            # "dos dimensiones" de una matriz 2x2 no son las del auditor. Se
+            # exige el ancla: sin ella, el chequeo cosechaba cualquier frase
+            # que tuviera la palabra y el validador se volvia ruido.
+            (rf"(?:brain.?auditor|validaci|validador)[^.\n]{{0,60}}?({NUM})\s+"
+             rf"dimensiones(?!\s+bloqueante)", dims_real,
              f"son {dims_real} dimensiones"),
-            (None, rf"\b(?!{dts_real}\b)(\d{{1,2}})\s+DTs? canónicos", f"son {dts_real} DTs canónicos"),
-            # El conteo de reglas se deriva del cuerpo de brain-rules.md.
-            # Faltaba este chequeo: al agregar B44 y B45 el HTML siguió
-            # diciendo 43 y nada lo detectó.
+            (rf"({NUM})\s+dimensiones\s+de\s+validaci", dims_real,
+             f"son {dims_real} dimensiones"),
+            (rf"({NUM})\s+dimensiones\*{{0,2}},?\s+D1\s+a\s+D", dims_real,
+             f"son {dims_real} dimensiones"),
+            (rf"({NUM})\s+dimensiones\s+(?:de\s+validaci|D1\s+a\s+D)", dims_real,
+             f"son {dims_real} dimensiones"),
+            (rf"({NUM})\s+dimensiones\*{{0,2}},?\s+D1\s+a\s+D", dims_real,
+             f"son {dims_real} dimensiones"),
+            (rf"({NUM})\s+DTs?\s+canónicos", dts_real, f"son {dts_real} DTs canónicos"),
             # Solo el conteo del CANON. Un "8,955 reglas" de un brain son reglas
             # de negocio y no tienen relación: por eso se exige el calificador.
-            (None, rf"\b(?!{reglas_real}\b)(\d{{2,3}})\s+reglas\s+(?:canónicas|viven|en \d+ niveles)",
+            (rf"({NUM})\s+reglas\s+(?:canónicas|viven|en \d+ niveles)", reglas_real,
              f"son {reglas_real} reglas del canon"),
         ]
+        vistos = set()
         for p in self.docs("md", "html"):
+            # Un ADR declara las cifras que eran ciertas el dia que se aprobo, y
+            # eso no es un error: es el registro de una decision fechada.
+            # ADR-EB-006 dice "CORE de 15 tablas" porque eso fue lo que decidio.
+            # Lo que mantiene honestos a los ADR es D8, la propagacion, no esta
+            # dimension. Exigirles la cifra de hoy seria pedirles que mientan
+            # sobre lo que decidieron.
+            if "adr" in p.parts:
+                continue
             txt = p.read_text(encoding="utf-8", errors="ignore")
-            for _, mal, msg in chequeos:
-                for m in re.finditer(mal, txt):
+            for patron, esperado, msg in chequeos:
+                for m in re.finditer(patron, txt, re.I):
+                    dice = valor(m.group(1))
+                    if dice is None or dice == esperado:
+                        continue
                     ln = txt.count("\n", 0, m.start()) + 1
+                    # Dos patrones pueden ver la misma cifra: se reporta una vez.
+                    if (p, ln, m.group(1)) in vistos:
+                        continue
+                    vistos.add((p, ln, m.group(1)))
                     ctx = txt[max(0, m.start() - 70):m.start() + 50].replace("\n", " ")
                     # Con límites de palabra: sin ellos, "antes" casaba dentro de
                     # "bloqueantes" y silenciaba el hallazgo. Un filtro demasiado
                     # amplio vuelve ciego al validador sin que nadie lo note.
                     if re.search(r"(ENMIENDA|\bv1\.0\b|\bantes\b|\bhistórico\b|"
-                                 r"\bEran\b|\bera\b|\bhoy son\b)", ctx, re.I):
+                                 r"\bEran\b|\bera\b|\bhoy son\b|\bhoy tiene\b|\banterior\b|"
+                                 r"\ben esa fecha\b)",
+                                 ctx, re.I):
                         continue
                     self.add("cifras", SEV_BLOQ, f"{msg}; aquí dice {m.group(1)}",
                              f"{self.rel(p)}:{ln}")
+
+        # El diagrama del esquema dibuja el CORE tabla por tabla. Comparar su
+        # cifra no basta: puede decir 23 y dibujar otras 23. Se contrasta el
+        # contenido, que es lo unico que un lector del portal ve.
+        diagrama = self.asset / "portal" / "digital-brain-schema.html"
+        if diagrama.exists():
+            html = diagrama.read_text(encoding="utf-8", errors="ignore")
+            if '<div class="core-grid">' in html:
+                ini = html.index('<div class="core-grid">')
+                fin = html.find("ONTOLOGY MATRIX", ini)
+                dibujadas = set(re.findall(r'<div class="tname">([a-z_]+)</div>',
+                                           html[ini:fin if fin > 0 else len(html)]))
+                core = set(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)",
+                                      ddl[ini_core:fin_core]))
+                faltan = core - dibujadas
+                sobran = dibujadas - core
+                if faltan or sobran:
+                    self.add("cifras", SEV_BLOQ,
+                             "el diagrama del esquema no dibuja el CORE real: "
+                             + (f"faltan {sorted(faltan)} " if faltan else "")
+                             + (f"sobran {sorted(sobran)}" if sobran else ""),
+                             self.rel(diagrama))
 
         # rangos de DoD: nadie debe declarar un tope menor al real
         for p in self.docs("md"):
