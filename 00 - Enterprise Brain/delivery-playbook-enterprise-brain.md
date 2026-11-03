@@ -137,7 +137,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 **Actividades**:
 
 1. Verificar DoD-EB-01 a DoD-EB-12 (checklist completo, incluidos linaje poblado y roster canónico de DTs).
-2. Generar portal HTML: `python generators/build-portal.py` → `portal/` con el HTML generado (NUNCA hand-authored — Regla P4).
+2. Generar portal HTML: `python templates/build-portal.py` → `portal/` con el HTML generado (NUNCA hand-authored — Regla P4).
 3. Actualizar bank-brain si existe: ATTACH el nuevo brain.db + actualizar `capabilities_consolidated()`.
 4. Emitir seeds finales (Regla B11) — todos los sistemas externos conocidos con evidencia cuantificada.
 5. Actualizar `component-catalog-enterprise-brain.md` con el nuevo deployment.

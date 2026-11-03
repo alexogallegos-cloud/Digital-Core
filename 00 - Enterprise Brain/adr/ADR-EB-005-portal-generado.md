@@ -5,6 +5,12 @@
 **Autores**: alejandro.gallegos@accenture.com
 **Contexto**: Gestión y generación de los archivos HTML del portal del Enterprise Brain
 
+
+<!-- PROPAGACION
+templates/build-portal.py :: portal
+canon/brain-rules.md :: build-portal.py
+-->
+
 ---
 
 ## Contexto

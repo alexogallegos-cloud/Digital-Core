@@ -2,6 +2,12 @@
 
 > Estado: **APROBADO y ENMENDADO** · Fecha: 2026-09-29 · Enmendado: 2026-10-05 · Asset: Enterprise Brain · Digital Core
 
+
+<!-- PROPAGACION
+templates/schema.sql :: DESTILADO
+dt/dt-brain-auditor/validate-canon.py :: RETIRADOS
+-->
+
 ---
 
 ## Enmiendas posteriores

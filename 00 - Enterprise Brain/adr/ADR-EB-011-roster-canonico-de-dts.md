@@ -4,6 +4,13 @@
 > Formaliza la Regla B41. Extiende la excepción de ADR-EB-009 y enmienda el conteo del CORE de ADR-EB-010.
 > **`[ENMENDADO]` El roster creció de 20 a 24.** Este ADR fijó 20 DTs y rechazó por disciplina agregar los ocho dominios L1 de negocio en lugar de seis. Esa decisión se revirtió después con evidencia trazada al XLSX del ETB, y el roster incorporó `dt-business-support-owner`, `dt-sustainability-owner`, `dt-source-steward` (ADR-EB-014) y `dt-client-intelligence` (ADR-EB-015). El conteo vigente vive en la Regla B41 y en `dt/cobertura-dt.md`, no en este documento.
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS suppliers
+dt/cobertura-dt.md :: dt-supplier-relationship-manager
+canon/brain-rules.md :: roster exigible
+-->
+
 ---
 
 ## Contexto

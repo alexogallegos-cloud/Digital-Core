@@ -148,7 +148,7 @@ Bootstrap   → Knowledge  → Brain        → Brain      → Brain       → B
 | Regulación coverage | BUILD | `reg` anotado en 100% de reglas (vacío es válido si el SP no toca regulación) |
 | Brain Auditor PASS | TEST | 0 errores, 0 advertencias bloqueantes |
 | Seed emission | RELEASE | Todos los sistemas externos conocidos tienen `digital-brain/seeds/{receptor}-seed.json` |
-| Portal generado | RELEASE | portal/index.html existente, generado por generators/build-portal.py — NUNCA hand-authored |
+| Portal generado | RELEASE | portal/index.html existente, generado por `templates/build-portal.py` — NUNCA hand-authored |
 | ETB L3 coverage | RELEASE | ≥ 60% de componentes del sistema con `primary_capability` asignado |
 
 ### Definition of Done — Enterprise Brain
@@ -225,11 +225,22 @@ source/          knowledge-base/        brain.db (SQLite)
 
 ### ADRs canónicos del asset
 
-- ADR-EB-001: SQLite como motor del brain — por qué SQLite y no Postgres/Mongo/vector DB.
-- ADR-EB-002: brain.db en .gitignore, reconstruido desde pipeline — fuente de verdad es el código.
-- ADR-EB-003: ATTACH para federación — por qué ATTACH y no API runtime entre brains.
-- ADR-EB-004: Síntesis LLM source-read como fuente de business_name — por qué no heurísticos.
-- ADR-EB-005: Portal HTML generado desde brain.db — prohibición de HTML hand-authored.
+- [ADR-EB-001](adr/ADR-EB-001-sqlite-como-brain.md): SQLite como motor del Enterprise Brain
+- [ADR-EB-002](adr/ADR-EB-002-brain-db-gitignore.md): brain.db en .gitignore — pipeline como fuente de verdad
+- [ADR-EB-003](adr/ADR-EB-003-attach-federation.md): Federación via SQLite ATTACH (vs API runtime entre brains)
+- [ADR-EB-004](adr/ADR-EB-004-llm-source-read-business-name.md): Síntesis LLM source-read como fuente de business_name
+- [ADR-EB-005](adr/ADR-EB-005-portal-generado.md): Portal HTML generado siempre desde build-portal.py
+- [ADR-EB-006](adr/ADR-EB-006-canon-destilado-v2.md): Canon destilado del estate (v2.0) y retiro del schema aspiracional v1.0
+- [ADR-EB-007](adr/ADR-EB-007-semantica-por-industria.md): La industria determina la semántica del brain
+- [ADR-EB-008](adr/ADR-EB-008-cuerpo-calloso.md): Cuerpo calloso: puente Change–Run entre hemisferios
+- [ADR-EB-009](adr/ADR-EB-009-estructura-togaf-core.md): Estructura TOGAF en el CORE: cadena de valor completa
+- [ADR-EB-010](adr/ADR-EB-010-calidad-linaje-conocimiento.md): Calidad y linaje del conocimiento: gold, silver y bronze
+- [ADR-EB-011](adr/ADR-EB-011-roster-canonico-de-dts.md): Roster canónico de Digital Twins: 20 DTs en tres categorías
+- [ADR-EB-012](adr/ADR-EB-012-medicion-y-costo.md): Medición en el tiempo y costo: el tercer fundamento del CORE
+- [ADR-EB-013](adr/ADR-EB-013-objeto-consulta.md): La consulta como objeto: el lado del consumo entra al esquema
+- [ADR-EB-014](adr/ADR-EB-014-catalogo-de-fuentes.md): El catálogo de fuentes entra al esquema: el CORE llega a 19
+- [ADR-EB-015](adr/ADR-EB-015-pipeline-de-fuentes-y-etapa-identidad.md): El pipeline de fuentes y la Etapa 0: el brain deja de entrar solo por el código
+- [ADR-EB-016](adr/ADR-EB-016-roster-exigible-y-dominios-asimetricos.md): Qué exige B41 realmente, y qué hacer con un dominio que solo existe en una industria
 
 ---
 

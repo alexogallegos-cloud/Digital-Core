@@ -2,6 +2,12 @@
 
 > Estado: **APROBADO** · Fecha: 2026-09-29 · Asset: Enterprise Brain · Digital Core
 
+
+<!-- PROPAGACION
+templates/schema.sql :: ontology_bindings
+canon/brain-rules.md :: ontology_bindings
+-->
+
 ---
 
 ## Contexto

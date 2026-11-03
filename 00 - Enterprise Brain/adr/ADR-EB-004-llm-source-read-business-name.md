@@ -5,6 +5,11 @@
 **Autores**: alejandro.gallegos@accenture.com
 **Contexto**: Método canónico para asignar nombre de negocio a reglas extraídas de código legacy
 
+
+<!-- PROPAGACION
+canon/brain-rules.md :: business_name
+-->
+
 ---
 
 ## Contexto

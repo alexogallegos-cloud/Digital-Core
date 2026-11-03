@@ -5,6 +5,12 @@
 **Autores**: alejandro.gallegos@accenture.com
 **Contexto**: Arquitectura de agregación de múltiples brains de sistemas individuales en el bank-brain
 
+
+<!-- PROPAGACION
+templates/callosum.py :: ATTACH
+canon/brain-rules.md :: federated_brains
+-->
+
 ---
 
 ## Contexto

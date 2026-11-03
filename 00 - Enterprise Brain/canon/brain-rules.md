@@ -903,7 +903,7 @@ El script vive en dos lugares según el contexto, y confundirlos hacía que la r
 
 | Contexto | Ubicación | Qué es |
 |----------|-----------|--------|
-| Brain implementado | `generators/build-portal.py` | El generador del brain, adaptado a su corpus |
+| Brain implementado | `templates/build-portal.py` | El generador del brain, adaptado a su corpus |
 | Asset Enterprise Brain | `templates/build-portal.py` | La implementación de referencia que cada brain copia y adapta |
 
 El asset no tiene `generators/` y es correcto que no lo tenga: no construye un `brain.db` propio, define cómo construirlo. Dueño del script en ambos contextos: `dt-brain-engineer` (Regla B41).

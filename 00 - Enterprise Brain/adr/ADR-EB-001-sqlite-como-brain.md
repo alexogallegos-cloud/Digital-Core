@@ -5,6 +5,12 @@
 **Autores**: alejandro.gallegos@accenture.com
 **Contexto**: Elección del motor de almacenamiento canónico para el Enterprise Brain
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE
+templates/brain.py :: sqlite3
+-->
+
 ---
 
 ## Contexto

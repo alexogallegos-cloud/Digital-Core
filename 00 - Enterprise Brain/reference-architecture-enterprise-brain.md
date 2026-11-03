@@ -57,7 +57,7 @@ El **bank-brain** es el brain de nivel más alto del cliente (`brain_type='enter
     ATTACH 'systems/core/informix/digital-brain/brain.db' AS informix
     ATTACH 'systems/channels/appmovil/digital-brain/brain.db' AS appmovil
          │
-         ├── capabilities_consolidated()   ── UNION ALL etb_l3 de Change + Run
+         ├── capabilities_consolidated()   ── UNION ALL capabilities de Change y Run
          ├── capability_gap()              ── L3 sin cobertura en ningún brain
          ├── capability_alignment()        ── brains con etb_version desalineada
          ├── system_dependencies()         ── grafo global de dependencias

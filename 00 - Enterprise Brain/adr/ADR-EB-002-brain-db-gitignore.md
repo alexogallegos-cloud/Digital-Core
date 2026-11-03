@@ -5,6 +5,11 @@
 **Autores**: alejandro.gallegos@accenture.com
 **Contexto**: Gestión del brain.db en el repositorio git del proyecto
 
+
+<!-- PROPAGACION
+canon/brain-rules.md :: brain.db
+-->
+
 ---
 
 ## Contexto

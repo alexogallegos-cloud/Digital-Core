@@ -389,8 +389,11 @@ class CanonValidator:
         aprobados = pendientes = 0
         for p in sorted((self.asset / "adr").glob("ADR-EB-*.md")):
             txt = p.read_text(encoding="utf-8", errors="ignore")
-            # "APROBADO y ENMENDADO" también rige: \w+ no lo capturaba.
-            m_est = re.search(r"Estado:\s*\*\*([^*]+)\*\*", txt)
+            # Dos formatos conviven y los dos son válidos: "Estado: **APROBADO**"
+            # en los ADR nuevos y "**Estado**: APROBADO" en los cinco primeros.
+            # "APROBADO y ENMENDADO" también rige, así que no sirve \w+.
+            m_est = (re.search(r"Estado:\s*\*\*([^*\n]+)\*\*", txt)
+                     or re.search(r"\*\*Estado\*\*:\s*([^\n·]+)", txt))
             estado = m_est.group(1).strip().upper() if m_est else "SIN_ESTADO"
             aprobado = "APROBADO" in estado
             bloque = re.search(r"<!--\s*PROPAGACION\s*(.*?)-->", txt, re.S)

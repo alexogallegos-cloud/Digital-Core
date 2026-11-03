@@ -2,6 +2,12 @@
 
 > Estado: **APROBADO** · Propuesto: 2026-10-02 · Aprobado: 2026-10-02 · Asset: Enterprise Brain · Digital Core
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS data_entities
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS stakeholders
+-->
+
 ---
 
 ## Contexto

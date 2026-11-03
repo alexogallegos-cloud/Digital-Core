@@ -3,6 +3,13 @@
 > Estado: **APROBADO** · Propuesto: 2026-10-05 · Aprobado: 2026-10-05 · Asset: Enterprise Brain · Digital Core
 > Agrega un tercer fundamento al CORE. Extiende ADR-EB-006, ADR-EB-009 y ADR-EB-011.
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS measurements
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS costs
+dt/dt-demand-manager/CLAUDE.md :: `costs`
+-->
+
 ---
 
 ## Contexto

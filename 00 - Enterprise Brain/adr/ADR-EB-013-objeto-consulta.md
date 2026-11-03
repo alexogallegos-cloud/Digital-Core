@@ -3,6 +3,12 @@
 > Estado: **APROBADO** · Propuesto: 2026-10-06 · Aprobado: 2026-10-06 · Asset: Enterprise Brain · Digital Core
 > Segundo uso del tercer fundamento del CORE (ADR-EB-012). Da soporte de esquema a las Reglas B45, B42 y B43.
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS queries
+dt/dt-knowledge-manager/CLAUDE.md :: `queries`
+-->
+
 ---
 
 ## Contexto
