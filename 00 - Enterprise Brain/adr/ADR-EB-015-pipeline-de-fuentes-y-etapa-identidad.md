@@ -138,13 +138,12 @@ pertenecen a un proceso de negocio, y un hueco sobre quién es la compañía
 tampoco. La Etapa 0 modela a la empresa **por encima** del nivel de proceso, y
 B22 se escribió cuando todo el conocimiento del brain entraba por el sistema.
 
-Este ADR no lo resuelve porque no es suyo resolverlo: toca el enunciado de B22 y
-el alcance de D7. Queda declarado como decisión abierta, con las dos salidas
-sobre la mesa. La primera es acotar B22 al conocimiento de nivel proceso y
-exceptuar explícitamente lo que ancla a `company_profile`. La segunda es
-declarar un proceso canónico de nivel empresa al que la Etapa 0 ata sus filas.
-Mientras no se decida, un brain con Etapa 0 poblada reprueba D7, y eso es el
-canon funcionando como está escrito, no una falla silenciosa.
+Este ADR no lo resolvió porque no era suyo resolverlo: toca el enunciado de B22
+y el alcance de D7. **Lo cerró `ADR-EB-017` el mismo día**, acotando B22 al
+conocimiento de nivel proceso y exceptuando por ancla positiva lo que describe a
+la empresa como un todo. Se rechazó la alternativa de declarar un proceso
+canónico de nivel empresa, porque crea un proceso que no es un proceso y mueve
+el problema de sitio en vez de resolverlo.
 
 ---
 

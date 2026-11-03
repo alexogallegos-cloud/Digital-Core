@@ -2,8 +2,8 @@
 """Suite del Brain Auditor. Primera que tiene.
 
 El auditor decide si un brain puede activarse y hasta hoy nadie lo auditaba a
-él. Esta suite empieza por D10, la dimensión de roster, y es el lugar donde van
-los casos de las que se agreguen después.
+él. Cubre D10, la dimensión de roster, y el acote de D7 que trajo ADR-EB-017. Es
+el lugar donde van los casos de las dimensiones que se verifiquen después.
 
 El criterio es el mismo de siempre en este asset: cada veredicto tiene que
 poder darse por las dos razones. Una dimensión que solo sabe decir PASS no
@@ -158,6 +158,60 @@ def la_declaracion_se_busca_junto_al_brain():
     assert v.dim_status["roster"] == "PASS", v.dim_status["roster"]
 
 
+# ── D7 · nivel proceso contra nivel empresa (ADR-EB-017) ───────────────────
+
+def _con_filas(nombre, sentencias):
+    db = nuevo_brain(nombre)
+    c = sqlite3.connect(db)
+    c.execute("INSERT INTO processes (id, ontology, l1_name) "
+              "VALUES ('P-1', 'banca-etb', 'Cobranza')")
+    for s in sentencias:
+        c.execute(s)
+    c.commit()
+    c.close()
+    return db
+
+
+def nivel_empresa_no_cuenta_como_huerfano():
+    """Los ingresos totales de una empresa no son de ningún proceso."""
+    db = _con_filas("nivel-empresa", [
+        "INSERT INTO measurements (entity_table, entity_id, metric, value_num, "
+        "measured_at, recorded_at) VALUES "
+        "('company_profile','acme','ingresos',1000,'2025-12-31','2026-11-03')",
+        "INSERT INTO knowledge_gaps (id, gap_type, domain, description) VALUES "
+        "('GAP-1','dato','identidad','quién es la empresa')",
+        "INSERT INTO knowledge_gaps (id, gap_type, domain, description) VALUES "
+        "('GAP-2','source','fuentes','faltan los logs')",
+    ])
+    v = V.Validator(db).run("process_linkage")
+    assert v.dim_status["process_linkage"] == "PASS", v.dim_status
+    assert v.metrics["nivel_empresa"] == 3, v.metrics
+    assert not v.metrics["orphan_knowledge"], v.metrics
+
+
+def nivel_proceso_sin_proceso_sigue_bloqueando():
+    """El caso que hace fallar a D7. Sin él la excepción sería una puerta."""
+    db = _con_filas("nivel-proceso", [
+        "INSERT INTO measurements (entity_table, entity_id, metric, value_num, "
+        "measured_at, recorded_at) VALUES "
+        "('components','SP-1','latencia',120,'2026-10-01','2026-11-03')",
+    ])
+    v = V.Validator(db).run("process_linkage")
+    assert v.dim_status["process_linkage"] == "FAIL", v.dim_status
+    assert v.metrics["orphan_knowledge"].get("measurements") == 1, v.metrics
+
+
+def la_exencion_no_se_activa_por_omision():
+    """Omitir el ancla no exime: el hueco sin dominio sigue siendo huérfano."""
+    db = _con_filas("sin-ancla", [
+        "INSERT INTO knowledge_gaps (id, gap_type, description) VALUES "
+        "('GAP-3','dato','un hueco que no dice de qué es')",
+    ])
+    v = V.Validator(db).run("process_linkage")
+    assert v.dim_status["process_linkage"] == "FAIL", v.dim_status
+    assert v.metrics["nivel_empresa"] == 0, v.metrics
+
+
 # ── La dimensión no rompe a las otras nueve ─────────────────────────────────
 
 def el_auditor_completo_sigue_corriendo():
@@ -178,6 +232,9 @@ caso("un rol sin mención bloquea", rol_sin_mencion_bloquea)
 caso("cobertura con nombres propios", cobertura_con_nombres_propios)
 caso("un DT de dimensión avisa y no bloquea", dt_de_dimension_avisa_sin_bloquear)
 caso("la declaración se busca junto al brain", la_declaracion_se_busca_junto_al_brain)
+caso("nivel empresa no cuenta como huérfano", nivel_empresa_no_cuenta_como_huerfano)
+caso("nivel proceso sin proceso sigue bloqueando", nivel_proceso_sin_proceso_sigue_bloqueando)
+caso("la exención no se activa por omisión", la_exencion_no_se_activa_por_omision)
 caso("el auditor completo sigue corriendo", el_auditor_completo_sigue_corriendo)
 
 

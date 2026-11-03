@@ -85,6 +85,23 @@ PROCESS_LINKED_TABLES = [
     "measurements", "costs",         # ADR-EB-012
 ]
 
+#: Conocimiento de nivel empresa: el que describe a la compañía como un todo y
+#: no a una de sus operaciones (ADR-EB-017). Los ingresos totales de una
+#: empresa no pertenecen a un proceso de negocio, y declararles uno falso es
+#: peor que dejarlos sin él: contamina toda consulta por proceso con filas que
+#: no son de ningún proceso.
+#:
+#: La condición es POSITIVA a propósito. Si la exención fuera "no tiene
+#: proceso, entonces está exento", cualquier cargador descuidado lavaría su
+#: conocimiento huérfano omitiendo el campo, y D7 dejaría de poder dar
+#: negativo. Con el ancla declarada, una regla sin proceso sigue siendo
+#: hallazgo y una medición de la empresa no lo es.
+EXENTOS_POR_NIVEL = {
+    "measurements": "entity_table = 'company_profile'",
+    "costs": "entity_table = 'company_profile'",
+    "knowledge_gaps": "gap_type = 'source' OR domain IN ('identidad', 'fuentes')",
+}
+
 #: Roster exigible de la Regla B41, reformulado por ADR-EB-016. Son 24 ROLES y
 #: no 24 nombres de carpeta: un brain cumple cuando ninguna de estas
 #: responsabilidades queda sin dueño, con el nombre que ese brain use.
@@ -801,20 +818,36 @@ class Validator:
 
         missing_col: list[str] = []
         with_orphans: dict[str, int] = {}
+        nivel_empresa = 0
         for table in PROCESS_LINKED_TABLES:
             if not self._has(table):
                 continue
             if "process_id" not in self._columns(table):
                 missing_col.append(table)
                 continue
+            exencion = EXENTOS_POR_NIVEL.get(table)
+            if exencion:
+                # COALESCE no es cosmetico. Con `domain` nulo, `domain IN (...)`
+                # da NULL, `NOT NULL` da NULL y la fila se escapaba del conteo:
+                # omitir el ancla eximia, que es justo lo que ADR-EB-017
+                # prohibe. La suite lo encontro antes que ningun brain.
+                exencion = f"COALESCE(({exencion}), 0)"
+                # Se cuenta aparte lo que queda fuera por nivel: una excepción
+                # que no se ve es una excepción que crece sola.
+                nivel_empresa += self._scalar(
+                    f"SELECT COUNT(*) FROM {table} "
+                    f"WHERE process_id IS NULL AND ({exencion})", default=0) or 0
+            condicion = f"process_id IS NULL AND NOT ({exencion})" if exencion \
+                else "process_id IS NULL"
             n = self._scalar(
-                f"SELECT COUNT(*) FROM {table} WHERE process_id IS NULL",
+                f"SELECT COUNT(*) FROM {table} WHERE {condicion}",
                 default=0,
             ) or 0
             if n:
                 with_orphans[table] = n
 
         self.metrics["orphan_knowledge"] = with_orphans
+        self.metrics["nivel_empresa"] = nivel_empresa
 
         if missing_col:
             self._add(
@@ -1358,7 +1391,8 @@ def render(v: Validator, summary: bool = False) -> str:
         "process_linkage": (
             f"processes: {m.get('processes', 0)} · "
             f"huérfanos: {sum(m.get('orphan_knowledge', {}).values())} "
-            f"en {len(m.get('orphan_knowledge', {}))} tabla(s)"
+            f"en {len(m.get('orphan_knowledge', {}))} tabla(s) · "
+            f"nivel empresa: {m.get('nivel_empresa', 0)}"
         ),
         "callosum": (
             f"transiciones: {m.get('transitions', 0)} · "

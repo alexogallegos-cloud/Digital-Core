@@ -222,6 +222,10 @@ Cada industria trae **cuatro ontologías distintas e incompatibles entre sí**:
 | `journeys` | `process_id` — qué proceso realiza la traza |
 | `components` | `component_processes` (N:M — un componente sirve a varios procesos) |
 
+**`[ADR-EB-017]` La regla exige proceso al conocimiento de nivel proceso.** El conocimiento **de nivel empresa**, el que describe a la compañía como un todo y no a una de sus operaciones, no tiene proceso al que atar. Los ingresos totales de una empresa no pertenecen a un proceso de negocio, ni su año de fundación, ni un hueco sobre quién es la compañía. Declararles un proceso falso es peor que dejarlos sin él: contamina toda consulta por proceso con filas que no son de ningún proceso, de forma indistinguible de las que sí lo son.
+
+La excepción es cerrada y **se reconoce por el ancla, nunca por la ausencia del dato**. Una fila no queda exenta porque le falte `process_id`, sino porque declara positivamente que su ancla es la empresa: `entity_table = 'company_profile'` en `measurements` y `costs`, y `gap_type = 'source'` o `domain` en (`identidad`, `fuentes`) en `knowledge_gaps`. Si el criterio fuera la ausencia, cualquier cargador descuidado lavaría su conocimiento huérfano omitiendo el campo y D7 dejaría de poder dar negativo.
+
 **Por qué es regla y no recomendación.** Conocimiento sin proceso no se puede accionar ni priorizar. Una regla de negocio que no ata a un proceso no se sabe a quién afecta si cambia; un riesgo sin proceso no se sabe qué operación pone en peligro; un término de vocabulario sin proceso no se sabe dónde se usa. El brain deja de responder la pregunta que justifica su existencia: *¿qué parte del negocio toca esto?*
 
 Consecuencias operativas:

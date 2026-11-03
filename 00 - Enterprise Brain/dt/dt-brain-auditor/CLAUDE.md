@@ -183,6 +183,20 @@ SELECT COUNT(*) FROM processes;
 
 ---
 
+**`[ADR-EB-017]` Conocimiento de nivel empresa.** No toda fila sin `process_id`
+es huérfana. La que describe a la compañía como un todo y no a una de sus
+operaciones no tiene proceso al que atar, y los ingresos totales de una empresa
+son el ejemplo claro. Esas filas se cuentan aparte y se reportan como *nivel
+empresa*, nunca como hallazgo.
+
+La exención se reconoce por el **ancla positiva** y jamás por la ausencia del
+dato: `entity_table = 'company_profile'` en `measurements` y `costs`, y
+`gap_type = 'source'` o `domain` en (`identidad`, `fuentes`) en
+`knowledge_gaps`. Si bastara con omitir el campo, cualquier cargador
+descuidado lavaría su conocimiento huérfano y D7 dejaría de poder dar negativo.
+
+---
+
 ### Dimensión 8 — Puente Change–Run (cuerpo calloso)
 
 **Qué valida**: que el brain implementa correctamente **su lado** del puente entre hemisferios (Regla B24 · ADR-EB-008). El cruce entre brains no lo valida esta dimensión; lo razona `templates/callosum.py` desde el enterprise brain.
