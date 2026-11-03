@@ -48,7 +48,7 @@ Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqu
 
 | Capa | Tablas exigidas | A quién aplica |
 |------|----------------|---------------|
-| CORE | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` · `queries` | Todo brain |
+| CORE | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` · `queries` · `source_catalog` | Todo brain |
 | SYSTEM | `components` · `component_calls` · `component_data` · `rules` · `rule_enrichment_log` · `vocabulary` · `journeys` · `component_capabilities` · `component_processes` · `regulatory_obligations` · `external_systems` | `brain_type='system'` |
 | PROJECT | `applications` · `waves` · `risks` · `decisions` · `user_stories` | `brain_type='project'` |
 | ENTERPRISE | `federated_brains` · `documents` | `brain_type='enterprise'` |

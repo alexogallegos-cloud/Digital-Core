@@ -41,6 +41,7 @@ CORE_TABLES = [
     "itom_layer", "cross_dependencies", "signals", "knowledge_gaps",
     "knowledge_lineage",                 # Regla B37 — calidad y linaje (ADR-EB-010)
     "queries",                           # Regla B45 — objeto consulta (ADR-EB-013)
+    "source_catalog",                    # de dt-source-steward (ADR-EB-014)
 ]
 
 EXTENSION_TABLES = {

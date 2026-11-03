@@ -1,14 +1,14 @@
 # Mapa de tablas del canon
 
-> Generado el 2026-10-16 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
+> Generado el 2026-11-03 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
-El canon son **41 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
+El canon son **42 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
 ## Resumen por capa
 
 | Capa | Tablas | A quién aplica |
 |------|--------|----------------|
-| **CORE** | 18 | Todo brain, sin excepción |
+| **CORE** | 19 | Todo brain, sin excepción |
 | **SYSTEM** | 11 | `brain_type='system'`, sistemas en operación |
 | **PROJECT** | 5 | `brain_type='project'`, proyectos de transformación |
 | **ENTERPRISE** | 2 | `brain_type='enterprise'`, el brain de nivel cliente |
@@ -40,6 +40,7 @@ El canon son **41 tablas**. Ningún brain las implementa todas: implementa el CO
 | `costs` | `dt-demand-manager` | 16 | B22 B27 B37 | `kpis`, `processes`, `products` |
 | `queries` | `dt-knowledge-manager` | 15 | B17 B27 B35 B37 B42 B43 | `decisions` |
 | `knowledge_lineage` | `dt-knowledge-manager` | 19 | B29 B40 B42 | — |
+| `source_catalog` | `dt-source-steward` | 13 | — | — |
 
 ### SYSTEM
 
@@ -109,7 +110,7 @@ El conocimiento técnico se ancla en la cadena del negocio. Un componente que no
   `data_entities`, `component_data`
 
 **Fuera de la cadena** — gobierno, ontología, federación y calidad  
-  `capabilities`, `costs`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
+  `capabilities`, `costs`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `source_catalog`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
 
 ---
 
@@ -425,7 +426,7 @@ Componentes tecnológicos (dominio T de TOGAF). Eslabón Infraestructura de B27.
 
 **Capa**: CORE, **Dueño**: `dt-supplier-relationship-manager`, **Reglas**: B22 B30 B37 B38 B39
 
-Proveedores y socios estratégicos (Regla B41 · ADR-EB-011). Dueño: DT-Proveedores. Cierra los procesos ITOM 4 (Commercial Services Management) y 5 (Strategic Partner Management), los únicos dos del catálogo de 38 que ningún otro D
+Proveedores y socios estratégicos (Regla B41 · ADR-EB-011). Dueño: `dt-supplier-relationship-manager`. Cierra los procesos ITOM 4 (Commercial Services Management) y 5 (Strategic Partner Management), los únicos dos del catálogo de 
 
 | Columna | Tipo | Obligatoria | Qué guarda |
 |---------|------|-------------|------------|
@@ -555,6 +556,28 @@ Linaje del conocimiento (Regla B37 · ADR-EB-010). Generaliza rule_enrichment_lo
 | `valid_from` | TEXT | no | ISO date. NULL = verdad desde el origen del sistema |
 | `valid_to` | TEXT | no | ISO date. NULL = sigue siendo verdad hoy |
 | `recorded_at` | TEXT | sí |  |
+
+### `source_catalog`
+
+**Capa**: CORE, **Dueño**: `dt-source-steward`
+
+Catalogo de fuentes - ADR-EB-014. Dueno: dt-source-steward. El tier natural lo fija el tipo de fuente (funcion F2), no quien la carga: el tier de una afirmacion nunca puede superar el de la fuente que la sostiene (B37). Toda fila 
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | TEXT | no |  |
+| `ontology` | TEXT | sí |  |
+| `name` | TEXT | sí |  |
+| `source_type` | TEXT | no | codigo ,  doc ,  ppt ,  audio ,  git ,  jira ,  monitoring ,  cmdb ,  logs ,  regulacion |
+| `generator_type` | TEXT | no | parser (fuente estatica) ,  connector (sistema vivo) |
+| `cadence` | TEXT | no | batch ,  continuo ,  bajo demanda |
+| `status` | TEXT | no | activa ,  parcial ,  ausente ,  planeada |
+| `natural_tier` | TEXT | no | gold ,  silver ,  bronze - derivado de source_type |
+| `coverage_pct` | REAL | no | porcentaje del sistema que cubre esta fuente |
+| `enables` | TEXT | no | JSON: casos de uso que habilita |
+| `location` | TEXT | no | ruta o endpoint |
+| `last_refresh` | TEXT | no |  |
+| `owner` | TEXT | no |  |
 
 ### `components`
 

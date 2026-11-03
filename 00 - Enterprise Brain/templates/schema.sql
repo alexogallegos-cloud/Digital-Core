@@ -26,7 +26,7 @@
 
 
 -- =============================================================================
--- CORE — obligatorio en todo brain (18 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
+-- CORE — obligatorio en todo brain (19 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
 --
 -- Cubre cinco contratos irrenunciables:
 --   identidad       → system_info
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS signals (
 -- tarjeta con FICO-TRIAD, reguladas por CONDUSEF y Banxico).
 --
 -- Esta tabla declara la INTENCIÓN; `capabilities.ontology` registra lo que
--- de hecho está cargado. El DT-Validador contrasta ambas.
+-- de hecho está cargado. El `dt-brain-auditor` contrasta ambas.
 CREATE TABLE IF NOT EXISTS ontology_bindings (
     ontology       TEXT PRIMARY KEY,   -- retail | financial_services | insurance
     role           TEXT NOT NULL,      -- primary | secondary
@@ -423,7 +423,7 @@ CREATE TABLE IF NOT EXISTS technology_components (
 
 
 -- Proveedores y socios estratégicos (Regla B41 · ADR-EB-011).
--- Dueño: DT-Proveedores. Cierra los procesos ITOM 4 (Commercial Services
+-- Dueño: `dt-supplier-relationship-manager`. Cierra los procesos ITOM 4 (Commercial Services
 -- Management) y 5 (Strategic Partner Management), los únicos dos del catálogo
 -- de 38 que ningún otro DT canónico cubría.
 -- Un proveedor se evalúa contra su SLO medido, nunca contra su propuesta.
