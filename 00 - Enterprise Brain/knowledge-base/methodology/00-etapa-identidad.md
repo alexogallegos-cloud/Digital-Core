@@ -39,6 +39,28 @@ Toda fuente se registra antes en `source_catalog` y el tier se estampa en la fro
 | `measurements` | Cifras ancladas a `company_profile` | 10 a 50 filas |
 | `driver_links` | La traza de vuelta | crece con el brain |
 
+## Cómo se ejecuta
+
+Desde `ADR-EB-015` la etapa tiene pipeline y no se levanta a mano. El extractor
+`doc-identidad` lee un documento de texto ya registrado en el catálogo y deja
+los candidatos en `knowledge-base/extracted/`, de donde los cargadores los
+escriben al brain:
+
+```bash
+python extractors/doc-identidad.py     --fuente SRC-003 --slug {slug}     --catalogo ../knowledge-base/source-catalog.md     --documento ../source/docs/reporte-anual-2025.md     --salida ../knowledge-base/extracted
+python build-brain.py
+```
+
+Lo que el extractor hace es la parte mecánica: segmenta, encuentra los pasajes
+candidatos, normaliza las cifras, estampa el tier natural de la fuente y ata
+cada fila a la línea de la que salió. Lo que no hace es juzgar, y no finge
+hacerlo: si el documento no trae el dato, sale un hueco declarado y no una
+conjetura. El JSON intermedio existe para que alguien lo lea antes de que entre
+al brain, que es donde `dt-client-intelligence` y el humano hacen su parte.
+
+Un binario se convierte antes a texto y la conversión se registra como la
+fuente. Un PDF leído a medias es peor que un hueco declarado.
+
 ## El criterio de salida
 
 La etapa no termina cuando las tablas tienen filas. Termina cuando **cada driver tiene al menos un link, o está declarado como hueco**.

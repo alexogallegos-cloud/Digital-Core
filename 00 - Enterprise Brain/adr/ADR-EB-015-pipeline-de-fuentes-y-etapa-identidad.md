@@ -13,6 +13,11 @@ templates/build-brain.py :: def load_driver_links
 dt/dt-brain-auditor/validate.py :: "company_profile"
 dt/dt-brain-auditor/CLAUDE.md :: `driver_links`
 canon/brain-rules.md :: 24 DTs canónicos
+templates/extractors/contrato.py :: Nunca escribe en `brain.db`
+templates/extractors/tiers.py :: def tier_natural
+templates/extractors/doc-identidad.py :: class DocIdentidad
+templates/extractors/test-extractores.py :: escritura sobre brain.db
+templates/build-brain.py :: def _insert_cosecha
 canon/brain-rules.md :: `strategic_drivers`
 canon/mapa-tablas.md :: driver_links
 dt/cobertura-dt.md :: dt-client-intelligence
@@ -56,7 +61,7 @@ Todo tipo de fuente del catálogo tiene un **extractor** con contrato declarado.
 | `parser` | Fuente estática que se lee entera | batch | Código, PDF, PPT, transcripción, normativa publicada |
 | `connector` | Sistema vivo que se consulta | continuo o bajo demanda | Logs, monitoreo, CMDB, Jira, git |
 
-El contrato es el mismo para los dos: el extractor recibe una fuente registrada en `source_catalog` y emite registros normalizados con su procedencia, nunca escribe en `brain.db` directamente. La escritura sigue siendo de los veintinueve cargadores. Así el pipeline queda partido en dos mitades verificables por separado, y un extractor nuevo no puede corromper el esquema.
+El contrato es el mismo para los dos: el extractor recibe una fuente registrada en `source_catalog` y emite registros normalizados con su procedencia, nunca escribe en `brain.db` directamente. La escritura sigue siendo de los cargadores del constructor. Así el pipeline queda partido en dos mitades verificables por separado, y un extractor nuevo no puede corromper el esquema.
 
 ### 2. El tier se estampa en la frontera de entrada
 
@@ -121,6 +126,28 @@ Esa lista es larga a propósito. La auditoría de noviembre de 2026 encontró qu
 
 ---
 
+### `[VERIFICADO 2026-11-03]` La Etapa 0 choca con B22 y hay que resolverlo
+
+Al construir el primer extractor y correr la Etapa 0 de punta a punta contra un
+documento real, el Brain Auditor reprueba por D7: diez filas de `measurements` y
+nueve de `knowledge_gaps` quedan sin `process_id`, y B22 las cuenta como
+conocimiento huérfano, que es hallazgo bloqueante.
+
+No es un defecto del extractor. Es que los ingresos totales de una empresa no
+pertenecen a un proceso de negocio, y un hueco sobre quién es la compañía
+tampoco. La Etapa 0 modela a la empresa **por encima** del nivel de proceso, y
+B22 se escribió cuando todo el conocimiento del brain entraba por el sistema.
+
+Este ADR no lo resuelve porque no es suyo resolverlo: toca el enunciado de B22 y
+el alcance de D7. Queda declarado como decisión abierta, con las dos salidas
+sobre la mesa. La primera es acotar B22 al conocimiento de nivel proceso y
+exceptuar explícitamente lo que ancla a `company_profile`. La segunda es
+declarar un proceso canónico de nivel empresa al que la Etapa 0 ata sus filas.
+Mientras no se decida, un brain con Etapa 0 poblada reprueba D7, y eso es el
+canon funcionando como está escrito, no una falla silenciosa.
+
+---
+
 ## Alternativas consideradas y rechazadas
 
 **Dejar la Etapa 0 fuera del brain, en el `CLAUDE.md` del cliente.** Es donde vive hoy, en prosa. Se rechaza porque no es consultable ni trazable: `driver_links` no puede apuntar a un párrafo, y la pregunta "qué reto no tiene capacidad que lo atienda" no se responde leyendo.
@@ -129,7 +156,7 @@ Esa lista es larga a propósito. La auditoría de noviembre de 2026 encontró qu
 
 **Tabla propia para las cifras de negocio.** Se rechaza porque duplicaría `measurements`, que ya resuelve ventana temporal, unidad, origen y tier. Reusarla es además coherente con `ADR-EB-012`, que la creó genérica a propósito.
 
-**Extractores que escriban directo en `brain.db`.** Más corto de implementar. Se rechaza porque rompe la frontera que hace verificable al pipeline: con veintinueve cargadores como único punto de escritura, un extractor defectuoso produce datos malos pero nunca un esquema corrupto.
+**Extractores que escriban directo en `brain.db`.** Más corto de implementar. Se rechaza porque rompe la frontera que hace verificable al pipeline: con los cargadores como único punto de escritura, un extractor defectuoso produce datos malos pero nunca un esquema corrupto.
 
 **Meterlo como extensión y no como CORE.** Se rechaza por la misma razón que `source_catalog` en `ADR-EB-014`: toda instancia tiene cliente, y una tabla que toda instancia necesita es CORE por definición (B15).
 

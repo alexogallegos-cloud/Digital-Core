@@ -25,7 +25,7 @@ Ningún dato entra al brain con tier asignado de forma arbitraria. El tipo de fu
 
 ---
 
-## Las Seis Funciones
+## Las Siete Funciones
 
 ### F1 — Catálogo de Fuentes
 
@@ -123,15 +123,47 @@ Cuando el equipo pregunta "¿qué deberíamos agregar primero?", `dt-source-stew
 
 ---
 
+### F7 — El Pipeline de Extracción
+
+Desde `ADR-EB-015` este DT no solo clasifica las fuentes: **es dueño del
+pipeline que las convierte en conocimiento**. Cada tipo del catálogo tiene un
+extractor con contrato declarado, en una de dos familias que ya vivían en
+`source_catalog.generator_type`. Un `parser` lee una fuente estática entera;
+un `connector` consulta un sistema vivo.
+
+El contrato es el mismo para los dos y vive en `templates/extractors/contrato.py`:
+el extractor recibe una fuente del catálogo y emite registros normalizados con
+su procedencia, y **nunca escribe en `brain.db`**. La escritura sigue siendo de
+los cargadores. Esa frontera es lo que vuelve verificable al pipeline por
+mitades, y lo que hace que un extractor defectuoso produzca datos malos pero
+jamás un esquema corrupto.
+
+| Pieza | Qué es |
+|-------|--------|
+| `templates/extractors/contrato.py` | El contrato y sus cuatro garantías |
+| `templates/extractors/tiers.py` | La tabla F2 de arriba, ejecutable |
+| `templates/extractors/doc-identidad.py` | Primer extractor: documento a Etapa 0 |
+| `templates/extractors/test-extractores.py` | Viola cada garantía a propósito |
+| `templates/build-brain.py` | `_insert_cosecha`, la mitad de abajo |
+
+Aquí es donde F2 deja de ser una tabla que alguien debe recordar: el tier se
+estampa en la frontera de entrada y ninguna afirmación puede superar el tier
+natural de su fuente, porque el contrato la topa antes de dejarla pasar.
+
+Un tipo de fuente sin extractor es una brecha de F5, no un silencio.
+
+---
+
 ## Propiedad en el Schema
 
 | Qué posee | Dónde vive hoy | Estado |
 |-----------|---------------|--------|
-| Catálogo de fuentes (`source_catalog`) | `knowledge-base/source-catalog.md` por instancia | Pendiente ADR-EB-014 para entrar al CORE |
+| Catálogo de fuentes (`source_catalog`) | Tabla del CORE; el Markdown por instancia es el interim de DISCOVER | Activo desde ADR-EB-014 |
 | Clasificación de tier por fuente | Esta tabla canónica (F2) | En el CLAUDE.md del DT |
 | Brechas de fuente | Filas con `gap_type='source'` en `knowledge_gaps` | Activo — usa tabla existente |
+| Pipeline de extracción | `templates/extractors/` | Activo desde ADR-EB-015 |
 
-`source_catalog` entra al CORE por fundamento de exigencia de regla: B37 exige que todo dato tenga su nivel declarado, y sin un catálogo de fuentes ese nivel se asigna de forma arbitraria en cada pipeline. Mientras el ADR no se emite, el catálogo en markdown es el interim.
+`source_catalog` entró al CORE por fundamento de exigencia de regla: B37 exige que todo dato tenga su nivel declarado, y sin un catálogo de fuentes ese nivel se asigna de forma arbitraria en cada pipeline. El Markdown sigue siendo el interim de DISCOVER, cuando el brain todavía no existe; desde la primera carga manda la tabla.
 
 ---
 

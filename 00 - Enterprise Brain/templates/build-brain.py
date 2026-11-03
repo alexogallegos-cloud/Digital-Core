@@ -3,7 +3,7 @@ build-brain.py — Pipeline canónico del Enterprise Brain · Template
 Versión: 2.0.0 · Enterprise Brain · Digital Core · Accenture México
 
 INSTRUCCIONES DE USO:
-    1. Copia este archivo y `schema.sql` a {sistema}/digital-brain/
+    1. Copia este archivo, `schema.sql` y `extractors/` a {sistema}/digital-brain/
     2. Ajusta el bloque IDENTIDAD y ONTOLOGÍA
     3. Implementa los load_*() que apliquen a tu brain_type
     4. Corre: python build-brain.py && python build-brain.py --validate
@@ -19,6 +19,8 @@ PATRONES CANÓNICOS QUE IMPLEMENTA:
 FLUJO DE CARPETAS (Regla P1):
     source/  →  knowledge-base/  →  digital-brain/brain.db
     El builder NUNCA lee source/ directo: lee el corpus curado.
+    Quien cruza el primer tramo es un extractor de `extractors/`, que emite a
+    knowledge-base/extracted/ y nunca escribe en brain.db (ADR-EB-015).
 """
 
 import argparse
@@ -34,6 +36,13 @@ DB_PATH = HERE / "brain.db"
 SCHEMA_PATH = HERE / "schema.sql"
 KB_PATH = HERE.parent / "knowledge-base"
 SEEDS_PATH = HERE / "seeds"
+EXTRACTORS_PATH = HERE / "extractors"
+
+# El pipeline de fuentes es opcional para una instancia, no para el canon: si
+# la carpeta está, sus módulos quedan importables; si no, el build sigue y el
+# catálogo lo declara.
+if EXTRACTORS_PATH.is_dir():
+    sys.path.insert(0, str(EXTRACTORS_PATH))
 
 BRAIN_VERSION = "1.0.0"
 
@@ -92,6 +101,10 @@ class BrainBuilder:
         self.dry_run = dry_run
         self.counts: dict[str, int] = {}
         self.db: sqlite3.Connection | None = None
+        self._cosechas: list | None = None
+        #: Huecos que `load_source_catalog` descubre y que `load_knowledge_gaps`
+        #: escribe: una fuente ausente es una brecha, no un renglón vacío.
+        self._huecos_de_fuentes: list = []
 
     # ── Ciclo de vida ────────────────────────────────────────────────────────
 
@@ -200,6 +213,71 @@ class BrainBuilder:
                 )
         return len(rows)
 
+    # ── Cosechas del pipeline de fuentes (ADR-EB-015) ────────────────────────
+
+    def cosechas(self) -> list:
+        """Lo que los extractores dejaron en `knowledge-base/extracted/`.
+
+        Se lee una sola vez por build: un rebuild no debe depender del orden
+        en que los cargadores pregunten para ver lo mismo.
+        """
+        if self._cosechas is None:
+            carpeta = KB_PATH / "extracted"
+            self._cosechas = ([
+                json.loads(p.read_text(encoding="utf-8"))
+                for p in sorted(carpeta.glob("*.json"))
+            ] if carpeta.is_dir() else [])
+            if self._cosechas:
+                print(f"  pipeline: {len(self._cosechas)} cosecha(s) de extractores")
+        return self._cosechas
+
+    @staticmethod
+    def _alinea(filas: list) -> list:
+        """Mismas columnas para todas las filas del lote.
+
+        `_insert` toma los nombres de columna de la primera fila. Dos cosechas
+        de fuentes distintas pueden traer campos distintos para la misma tabla,
+        y sin alinear primero el INSERT escribe valores en la columna de al
+        lado. Falla silenciosa, de las caras.
+        """
+        cols = []
+        for f in filas:
+            for c in f:
+                if c not in cols:
+                    cols.append(c)
+        return [{c: f.get(c) for c in cols} for f in filas]
+
+    def _insert_cosecha(self, table: str, id_field: str = "id") -> int:
+        """Escribe en el brain lo que los extractores cosecharon para esa tabla.
+
+        El extractor emite, el cargador escribe: esta es la mitad de abajo del
+        contrato de ADR-EB-015 y el único punto donde una cosecha toca el brain.
+
+        El linaje se registra fila por fila y no en bloque, porque dentro de
+        una misma corrida pueden convivir tiers distintos y aplanarlos al
+        primero sería perder justo lo que B37 vino a conservar.
+        """
+        lote = []
+        for cosecha in self.cosechas():
+            for item in cosecha.get("registros", {}).get(table, []):
+                lote.append((item, cosecha["fuente"], cosecha))
+        if not lote:
+            self.counts[table] = 0
+            return 0
+        self._insert(table, self._alinea([i["fila"] for i, _, _ in lote]),
+                     id_field=id_field)
+        for item, fuente, cosecha in lote:
+            fila = item["fila"]
+            self.record_lineage(
+                table,
+                str(fila.get(id_field) or fila.get("id") or fila.get("slug")
+                    or item["source_ref"]),
+                item["tier"], fuente["source_type_linaje"], item["source_ref"],
+                asserted_by=cosecha["extractor"], method=cosecha["familia"],
+                notes=fuente.get("tier_basis"),
+            )
+        return len(lote)
+
     # ── Linaje del conocimiento (Reglas B37 y B40) ───────────────────────────
 
     GOLD_BY_ORIGIN = {"code", "log", "monitoring", "job_run", "regulation", "signed_artifact"}
@@ -258,7 +336,15 @@ class BrainBuilder:
                 f"ONTOLOGY_BINDINGS debe tener exactamente una ontología "
                 f"role='primary' (hay {len(primary)}) — Regla B18/B20"
             )
-        self._insert("ontology_bindings", ONTOLOGY_BINDINGS)
+        # La ontologia que un brain ancla es una decision declarada en su
+        # propia configuracion, igual que system_info: entra gold por origen.
+        # Sin esto, assert_lineage reprobaba al template recien copiado.
+        self._insert(
+            "ontology_bindings", ONTOLOGY_BINDINGS,
+            source_type="signed_artifact",
+            source_ref=lambda r: f"CLAUDE.md#ontologia:{r.get('ontology')}",
+            tier="gold", id_field="ontology",
+        )
 
     def load_cross_dependencies(self):
         """
@@ -271,8 +357,30 @@ class BrainBuilder:
         """
         Regla B17 — ningún hueco se deja muerto. Cada dato faltante se declara
         con resolution_action redactada como consulta concreta a un SME.
+
+        Absorbe tres orígenes: los huecos propios del brain, los que los
+        extractores declararon al no encontrar algo, y las fuentes que el
+        catálogo marcó ausentes. Los tres son la misma cosa vista desde
+        distinto lado, y separarlos en tablas los volvería invisibles.
         """
-        self._insert("knowledge_gaps", [])
+        propios: list[dict] = []
+        del_pipeline = [h for c in self.cosechas()
+                        for h in c.get("knowledge_gaps", [])]
+        filas = self._alinea(propios + del_pipeline + self._huecos_de_fuentes)
+        self._insert("knowledge_gaps", filas)
+        # Un hueco tambien es una afirmacion y tambien declara su procedencia:
+        # "no lo encontre en esta fuente" se verifica distinto que "nadie lo ha
+        # buscado".
+        for cosecha in self.cosechas():
+            for h in cosecha.get("knowledge_gaps", []):
+                self.record_lineage(
+                    "knowledge_gaps", h.get("id", ""), "bronze",
+                    cosecha["fuente"]["source_type_linaje"], cosecha["fuente"]["id"],
+                    asserted_by=cosecha["extractor"], method=cosecha["familia"])
+        for h in self._huecos_de_fuentes:
+            self.record_lineage("knowledge_gaps", h.get("id", ""), "silver",
+                                "signed_artifact", "source-catalog.md",
+                                asserted_by="dt-source-steward")
 
     def load_itom_layer(self):
         """
@@ -341,8 +449,54 @@ class BrainBuilder:
         nunca de captura libre: ninguna afirmación puede superar el tier de la
         fuente que la sostiene (B37). Toda fila con `status='ausente'` genera
         su fila en `knowledge_gaps` con `gap_type='source'`.
+
+        El catálogo se levanta a mano en DISCOVER y vive en
+        `knowledge-base/source-catalog.md` hasta esta primera carga. De aquí en
+        adelante manda la tabla (ADR-EB-014).
         """
-        self._insert("source_catalog", [])
+        md = KB_PATH / "source-catalog.md"
+        if not md.exists():
+            self._insert("source_catalog", [])
+            return
+        try:
+            import contrato
+        except ImportError:
+            # Una instancia puede no haber copiado `extractors/`. Se declara en
+            # vez de fallar: sin pipeline el brain sigue siendo válido, solo
+            # más ciego, y eso es exactamente lo que este catálogo mide.
+            print("  source_catalog: falta extractors/; el catálogo no se cargó")
+            self._insert("source_catalog", [])
+            return
+        catalogo = contrato.Catalogo.desde(md)
+        filas = [{
+            "id": f.id, "ontology": f.ontology or SYSTEM_INFO.get("industry", ""),
+            "name": f.name, "source_type": f.source_type,
+            "generator_type": f.generator_type, "cadence": f.cadence,
+            "status": f.status, "natural_tier": f.natural_tier,
+            "coverage_pct": f.coverage_pct, "enables": None,
+            "location": f.location, "last_refresh": f.last_refresh or None,
+            "owner": f.owner or "dt-source-steward",
+        } for f in catalogo.fuentes.values()]
+        self._insert("source_catalog", filas,
+                     source_type="signed_artifact",
+                     source_ref=lambda r: f"source-catalog.md#{r['id']}",
+                     tier="silver")
+        hoy = datetime.now(timezone.utc).date().isoformat()
+        for f in filas:
+            if f["status"] != "ausente":
+                continue
+            # La ausencia se ve igual que el silencio si nadie la declara.
+            self._huecos_de_fuentes.append({
+                "id": f"GAP-SRC-{f['id']}", "gap_type": "source",
+                "dimension": "tecnología", "domain": "fuentes", "process_id": None,
+                "description": f"{f['name']} no está disponible para este brain",
+                "impact": "Todo lo que esa fuente habilitaba queda fuera del alcance "
+                          "del brain, y nada lo advierte si no se declara aquí",
+                "required_for": "DISCOVER", "owner": f.get("owner"),
+                "resolution_action": f"Consulta dt-source-steward: ¿cómo se obtiene "
+                                     f"{f['name']}, y qué deja de responder el brain sin ella?",
+                "status": "open", "opened_at": hoy, "resolved_at": None,
+            })
 
     def load_company_profile(self):
         """
@@ -353,7 +507,7 @@ class BrainBuilder:
         Las CIFRAS no van aquí: ingresos, empleados y participación de mercado
         son filas de `measurements` ancladas a esta tabla.
         """
-        self._insert("company_profile", [])
+        self._insert_cosecha("company_profile", id_field="slug")
 
     def load_business_milestones(self):
         """
@@ -361,7 +515,7 @@ class BrainBuilder:
         como es hoy. Su tier es silver o bronze por origen: una nota de prensa
         no es un hecho firmado.
         """
-        self._insert("business_milestones", [])
+        self._insert_cosecha("business_milestones")
 
     def load_strategic_drivers(self):
         """
@@ -372,7 +526,7 @@ class BrainBuilder:
         es silver por origen (B37). Marcarlo gold contamina todo lo que cuelgue
         del driver.
         """
-        self._insert("strategic_drivers", [])
+        self._insert_cosecha("strategic_drivers")
 
     def load_driver_links(self):
         """
@@ -383,8 +537,29 @@ class BrainBuilder:
         está declarado como hueco. Un driver sin ningún link es un hallazgo, no
         un silencio: o el brain no cubre esa parte del estate, o la empresa
         declara una prioridad que su tecnología no sostiene.
+
+        Un documento no puede poblarla: la traza de vuelta necesita el estate,
+        no la narrativa. La cosecha de `doc-identidad` trae el hueco por cada
+        driver; el link lo pone quien conoce lo cargado.
         """
-        self._insert("driver_links", [])
+        self._insert_cosecha("driver_links")
+
+    def load_measurements(self):
+        """
+        ADR-EB-012 — toda medición del brain, genérica por `entity_table`.
+        Las cifras de negocio de la Etapa 0 anclan aquí a `company_profile`.
+
+        `source_type='forecast'` distingue una meta de una medición. Meterlas
+        juntas mete el futuro en la serie histórica y después nadie las separa.
+        """
+        self._insert_cosecha("measurements")
+
+    def load_costs(self):
+        """
+        ADR-EB-012 — el costo de lo que el brain describe. Gemela de
+        `measurements` y, como ella, genérica por entidad.
+        """
+        self._insert("costs", [])
 
     def load_technology_components(self):
         """Dominio T: qué opera TI. Cómo lo opera va en itom_layer (B36)."""
@@ -504,7 +679,12 @@ class BrainBuilder:
             {"signal": "finding_count", "value": str(self.counts.get("findings", 0)),
              "source": "build-brain.py", "ts": ts},
         ]
-        self._insert("signals", rows)
+        # Una signal no es conocimiento del cliente: es el registro de esta
+        # corrida. Declararla como job_run la deja con linaje sin inventarle
+        # una fuente, y evita abrir una lista de tablas exentas, que es donde
+        # se esconden las cosas.
+        self._insert("signals", rows, source_type="job_run",
+                     source_ref="build-brain.py", tier="gold", id_field="signal")
 
     def emit_seeds(self):
         """
@@ -556,9 +736,22 @@ class BrainBuilder:
         self.open()
         self.init_schema()
 
+        # Antes de poblar nada: con qué fuentes cuenta este brain y cuáles le
+        # faltan (ADR-EB-015). Una ausencia no declarada se ve igual que un
+        # silencio, y es la diferencia entre no saber y no haber mirado.
+        self.load_source_catalog()
+
         # CORE — ningún brain está exento
         self.load_system_info()
         self.load_ontology_bindings()
+
+        # Etapa 0 — Identidad: quién es la empresa, de dónde viene y qué la
+        # mueve, antes de que el método toque una línea de código (ADR-EB-015)
+        self.load_company_profile()
+        self.load_business_milestones()
+        self.load_strategic_drivers()
+        self.load_measurements()        # ADR-EB-012 — incluye las cifras de negocio
+        self.load_costs()               # ADR-EB-012
         self.load_capabilities()        # Regla B21 — ontología de negocio anclada
         self.load_processes()           # Regla B22 — ontología de procesos CORE
         self.load_products()            # Regla B27 — productos del cliente (ancla de KPI)
@@ -569,6 +762,9 @@ class BrainBuilder:
         self.load_data_entities()       # ADR-EB-009 — TOGAF dominio D
         self.load_itom_layer()          # Regla B23 — IT Operating Model (SME ancla)
         self.load_cross_dependencies()
+        # Va al final del CORE: ata los drivers con lo que ya se cargó. Es el
+        # criterio de salida de la Etapa 0 y lo que la vuelve eje rector.
+        self.load_driver_links()
         self.load_knowledge_gaps()
 
         bt = SYSTEM_INFO["brain_type"]
