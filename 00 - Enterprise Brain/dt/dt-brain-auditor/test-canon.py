@@ -82,6 +82,16 @@ caso("el diagrama deja de dibujar una tabla", "cifras", 1,
          '<div class="tname">driver_linkz</div>', 1),
      archivo=B / "portal" / "digital-brain-schema.html")
 
+caso("etapas del metodo desfasadas", "cifras", 1,
+     mutar=lambda t: t.replace("Cinco etapas de conocimiento",
+                               "Tres etapas de conocimiento", 1),
+     archivo=B / "portal" / "enterprise-brain-deck.html")
+
+caso("metodologia con otro numero de etapas", "cifras", 1,
+     mutar=lambda t: t.replace("Cinco etapas de metodología",
+                               "Nueve etapas de metodología", 1),
+     archivo=B / "reference-architecture-enterprise-brain.md")
+
 caso("rango de DoD incompleto", "cifras", 1,
      mutar=lambda t: t.replace("DoD-EB-01 a DoD-EB-12", "DoD-EB-01 a DoD-EB-09", 1),
      archivo=B / "CLAUDE.md")

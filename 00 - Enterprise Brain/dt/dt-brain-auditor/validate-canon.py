@@ -294,6 +294,16 @@ class CanonValidator:
         reglas_real = len(set(re.findall(r"^\*\*B(\d+)", br, re.M)))
         self.stats["reglas_real"] = reglas_real
 
+        # Etapas del método, derivadas de los archivos que las describen.
+        # El deck llamó "capas" a las etapas y se quedó en cuatro cuando ya
+        # eran cinco. Son dos ejes distintos y confundirlos es el error que el
+        # propio canon advierte en "Los Dos Ejes del Conocimiento": las capas
+        # son de arquitectura y son seis, las etapas son del método y son las
+        # que haya archivos en knowledge-base/methodology/.
+        met = self.asset / "knowledge-base" / "methodology"
+        etapas_real = len([f for f in met.glob("*.md")]) if met.is_dir() else 0
+        self.stats["etapas_real"] = etapas_real
+
         # DoD y SLO máximos declarados
         dod_real = max(int(x) for x in re.findall(r"DoD-EB-(\d+)",
                        (self.asset / "quality-gates-enterprise-brain.md").read_text(encoding="utf-8")))
@@ -328,6 +338,14 @@ class CanonValidator:
             # de negocio y no tienen relación: por eso se exige el calificador.
             (rf"({NUM})\s+reglas\s+(?:canónicas|viven|en \d+ niveles)", reglas_real,
              f"son {reglas_real} reglas del canon"),
+            # "etapas" a secas no sirve de ancla: el ciclo de vida de una
+            # consulta tiene seis y el pipeline tres, y las dos cosas son
+            # legítimas. Solo cuenta cuando la frase dice de qué etapas habla.
+            (rf"({NUM})\s+etapas\s+(?:de\s+(?:metodolog|conocimiento)|"
+             rf"del\s+m[ée]todo|del\s+Gemelo)", etapas_real,
+             f"son {etapas_real} etapas del método"),
+            (rf"metodolog[ií]a\s+de\s+({NUM})\s+etapas", etapas_real,
+             f"son {etapas_real} etapas del método"),
         ]
         vistos = set()
         for p in self.docs("md", "html"):

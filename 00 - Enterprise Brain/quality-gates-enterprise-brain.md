@@ -45,6 +45,8 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 | Schema canónico presente | Las 23 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
 | Ontología anclada | `SELECT COUNT(*) FROM ontology_bindings WHERE role='primary'` devuelve exactamente 1 (Reglas B20, B21) | **SÍ** |
 | Corpus fuente declarado | `system_info.source_of_truth` no vacío (Regla B31) | **SÍ** si el estado es `active` |
+| Catálogo de fuentes poblado | `SELECT COUNT(*) FROM source_catalog` mayor que 0. Sin catálogo, una fuente ausente se ve igual que un silencio y nadie puede saber qué deja de responder el brain por no tenerla (ADR-EB-014) | **SÍ** |
+| Fuentes ausentes declaradas | Toda fila con `status='ausente'` tiene su fila en `knowledge_gaps` con `gap_type='source'`. Lo emite `load_source_catalog` | **SÍ** |
 | Estudio histórico iniciado | `knowledge-base/history/` existe con al menos las cinco dimensiones esbozadas (Regla B26) | NO (advertencia) |
 | Productos declarados | `SELECT COUNT(*) FROM products` mayor que 0. Sin producto, ningún KPI sabe por qué importa (Regla B27) | NO (advertencia) |
 | Vocabulario mínimo | `SELECT COUNT(*) FROM vocabulary WHERE maturity='confirmed'` al menos 50 | NO (advertencia) |
@@ -65,6 +67,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 | business_name coverage | `SELECT COUNT(*) FROM rules WHERE business_name IS NULL OR business_name=''` igual a 0, más detector anti-genérico sin hallazgos (Regla B30) | **SÍ** |
 | Clase coverage | `SELECT COUNT(*) FROM rules WHERE clase IS NULL` igual a 0 | **SÍ** |
 | Regulación coverage | `SELECT COUNT(*) FROM rules WHERE reg IS NULL` igual a 0. La cadena vacía es válida cuando no aplica regulación; NULL no | **SÍ** |
+| Tier estampado en la frontera | Ninguna afirmación con `tier` superior al `natural_tier` de la fuente que la sostiene (Regla B37, ADR-EB-015). El contrato del extractor lo topa antes de emitir, y lo topado se declara en la cosecha | **SÍ** |
 | Linaje poblado | `SELECT COUNT(*) FROM knowledge_lineage` mayor que 0. Un brain sin linaje no es un brain honesto: es un volcado sin procedencia (Regla B37). `build-brain.py` lo verifica con `assert_lineage()` | **SÍ** |
 | Niveles declarados | Ninguna tabla de conocimiento con `tier` inválido. Lo verifica D9 | **SÍ** |
 | Trazabilidad a proceso | Conocimiento huérfano sin `process_id` por tabla. Lo verifica D7 (Regla B22) | **SÍ** |

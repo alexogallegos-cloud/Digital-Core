@@ -104,6 +104,25 @@ Los scaffolds no son deuda: son la Regla B9 operando — todo sistema descubiert
 
 ## Estado de Homologación
 
+### Pipeline de fuentes
+
+Entregado con el asset, copiable a cualquier instancia. Es la capa que convierte
+una fuente registrada en conocimiento cargable, y la frontera dura del canon: un
+extractor **nunca** escribe en `brain.db`.
+
+| Componente | Qué es | Estado |
+|---|---|---|
+| `templates/extractors/contrato.py` | El contrato y sus cuatro garantías: tope de tier, procedencia exigida, tabla declarada y prohibición de escribir sobre un brain | ACTIVE |
+| `templates/extractors/tiers.py` | La tabla F2 de `dt-source-steward`, ejecutable. El tier deja de depender de que alguien la recuerde | ACTIVE |
+| `templates/extractors/doc-identidad.py` | Documento de texto a los candidatos de la Etapa 0, con procedencia hasta la línea | ACTIVE |
+| `templates/extractors/codigo-componentes.py` | Árbol de código a componentes y grafo de llamadas. El único que emite en gold | ACTIVE |
+| `templates/extractors/test-extractores.py` | Viola cada garantía a propósito. 27 casos | ACTIVE |
+
+Cobertura: **2 de los 16 tipos de fuente** que F2 clasifica. La familia
+`connector`, para sistemas vivos, no tiene implementación todavía.
+
+---
+
 Baseline vigente: `dt/dt-brain-auditor/baseline-2026-10-01.json`, que mide el canon anterior: un **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y sus dimensiones de entonces, **D1 a D9**. El canon vigente llegó a 23 tablas y 10 dimensiones (ADR-EB-012 a ADR-EB-016), así que ese baseline mide un canon anterior. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
 
 Los 11 brains de sistema y de proyecto reprueban D8 (puente Change–Run, ADR-EB-008); ninguno implementa el contrato común. Siete tienen piezas propias del lado Change y ninguno el lado Run con ruteo.

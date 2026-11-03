@@ -107,9 +107,9 @@ Las 6 capas de arquitectura y las 5 etapas del Gemelo Cognitivo son taxonomías 
 |-----|-----------|
 | Composición | Dos tipos de generador, cuatro actos. Los **parsers** procesan fuentes estáticas que el cliente entrega (código, documentación, presentaciones, diagramas) mediante cuatro actos: **(1) Extracción** — parseo para producir JSON crudo; **(2) Curación** — organización, deduplicación y estructura en `knowledge-base/`; **(3) Enriquecimiento** — síntesis LLM del `business_name` leyendo el artefacto completo (ADR-EB-004); **(4) Anclaje ontológico** — asignación de `process_id`, `capability_id` y `product_id`. Los **connectors** integran sistemas vivos (Git, Jira, herramientas de monitoreo, CMDB, pipelines de CI/CD) y pueden alimentar el brain de forma continua o bajo demanda, ejecutando los mismos cuatro actos sobre datos del sistema origen. La distinción entre parser y connector es de fuente y cadencia, no de función. |
 | Contrato de frontera | Entrada: (a) archivos crudos de `source/` para parsers; (b) APIs, webhooks o eventos de sistemas vivos para connectors. Salida: conocimiento curado con los campos críticos completos — `business_name`, `tier`, `process_id`, `capability_id`. El contrato de salida es invariante; el camino de entrada depende del tipo de fuente. |
-| Ubicación física | `generators/` (parsers y connectors ad-hoc por tipo de fuente y sistema origen — no existe un template único) · `knowledge-base/` (corpus curado — referencia canónica para parsers batch; algunos connectors pueden entregar directamente a `build-brain.py`). |
-| Reglas que la gobiernan | P1 (toda actualización del brain pasa por un generador o conector — nunca directo desde la fuente); P2 (principio de pipeline — ningún dato en `brain.db` sin el parser o conector capaz de recrearlo; para connectors, reproducir significa re-pull desde el historial del sistema origen); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); B40 (bi-temporalidad — los connectors de fuentes vivas acortan la latencia entre `valid_from` y `recorded_at`); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el artefacto completo, nunca mediante heurísticos). |
-| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal — eso es Capa 4. No existe un template único: la forma del generador depende del tipo de fuente y su cadencia. Lo que es invariante es P2, no el generador. |
+| Ubicación física | `templates/extractors/` del asset (el **contrato** del pipeline, común a toda familia: `contrato.py`, la tabla F2 ejecutable en `tiers.py` y los extractores canónicos) · `generators/` de la instancia (la **mecánica** propia de un tipo de fuente o sistema origen) · `knowledge-base/extracted/` (las cosechas que los cargadores leen) · `knowledge-base/` (corpus curado). |
+| Reglas que la gobiernan | P1 (toda actualización del brain pasa por un generador o conector — nunca directo desde la fuente); P2 (principio de pipeline — ningún dato en `brain.db` sin el parser o conector capaz de recrearlo; para connectors, reproducir significa re-pull desde el historial del sistema origen); P3 (marcas de alta confianza no se sobreescriben); B37 (cada afirmación recibe su nivel gold/silver/bronze al curar); B40 (bi-temporalidad — los connectors de fuentes vivas acortan la latencia entre `valid_from` y `recorded_at`); ADR-EB-004 (síntesis LLM — `business_name` se sintetiza leyendo el artefacto completo, nunca mediante heurísticos); ADR-EB-015 (el pipeline es capa de primera clase: el extractor nunca escribe en `brain.db` y el tier se estampa en la frontera de entrada, derivado del tipo de fuente y no de captura libre). |
+| Qué no es | No toca `brain.db` directamente — eso es Capa 3. No razona sobre el contenido del sistema — eso es Capa 4. No genera el portal — eso es Capa 4. **La mecánica varía por tipo de fuente; el contrato no** (ADR-EB-015). Un extractor recibe una fuente registrada en `source_catalog`, emite registros normalizados con su procedencia y **nunca escribe en `brain.db`**: la escritura sigue siendo de los cargadores. Esa frontera es lo que parte el pipeline en dos mitades verificables por separado y lo que hace que un extractor defectuoso produzca datos malos pero jamás un esquema corrupto. Lo invariante es P2 **y el contrato**; lo que depende de la fuente es cómo se lee. |
 
 **Definición funcional**
 
@@ -117,7 +117,7 @@ Las 6 capas de arquitectura y las 5 etapas del Gemelo Cognitivo son taxonomías 
 |-----|-----------|
 | Responsabilidad única | Convertir código opaco en conocimiento estructurado, nombrado y anclado a la ontología del negocio — listo para ser cargado en el brain. |
 | Operaciones | Parsear fuentes por tecnología (Specialist RE); sintetizar `business_name` vía LLM source-read en lotes de 70-80; asignar `tier` (gold para código productivo, silver para lo que puede cambiar, bronze para lo que espera validación); anclar a proceso, capability y producto del negocio. |
-| Digital Twin que la opera | `dt-build-operator` posee los tres primeros actos (extracción, curación, enriquecimiento). El anclaje ontológico no tiene DT dueño en el canon vigente — es la brecha activa de esta capa (requiere ADR). |
+| Digital Twin que la opera | `dt-source-steward` posee el **pipeline** y el contrato de sus extractores desde ADR-EB-015, además del catálogo de fuentes y la clasificación de tier en la frontera de entrada. `dt-build-operator` opera la corrida: extracción, curación y enriquecimiento. El anclaje ontológico sigue sin DT dueño en el canon vigente — es la brecha activa de esta capa (requiere ADR). |
 | Verificación | P2 idempotencia (correr el pipeline dos veces produce el mismo resultado); DoD-EB-02 (0 `business_name` vacíos o genéricos); D7 del Brain Auditor (0 `process_id` nulos en tablas de conocimiento — este criterio bloquea si el anclaje no se ejecutó). |
 | Qué significa que falle | `business_name` genéricos → D3 FAIL. `process_id` nulos → D7 FAIL (bloqueante). Extracción parcial → brain.db incompleto sin que el validador lo detecte por sí solo. El fallo más silencioso es un anclaje omitido: el brain carga y valida las dimensiones D1-D6, pero sus hallazgos no se pueden priorizar ni comparar entre sistemas porque el conocimiento no está conectado a la cadena de valor. |
 
@@ -223,13 +223,13 @@ Las 6 capas de arquitectura y las 5 etapas del Gemelo Cognitivo son taxonomías 
 
 El asset describe el conocimiento con dos modelos y ambos usan la palabra *capa*. No son versiones del mismo modelo ni uno sustituye al otro: son **ejes ortogonales**. Uno dice cómo está estructurado el sistema; el otro, en qué orden se construye el entendimiento. Leer uno como si fuera una versión vieja del otro es un error documentado — se ha cometido teniendo el repositorio completo a la vista — y esta sección existe para impedirlo.
 
-| | Seis capas de arquitectura | Cuatro etapas de metodología |
+| | Seis capas de arquitectura | Cinco etapas de metodología |
 |---|---|---|
 | Pregunta que responde | ¿Dónde vive el conocimiento y cómo fluye? | ¿En qué orden se construye hasta llegar a la intención del negocio? |
 | Naturaleza del eje | Estructural — son estratos simultáneos | Secuencial — son etapas que se ejecutan en orden |
-| Nombres | Corpus · Extracción y Curación · El Brain · Razonamiento y Agentes · Capa Agéntica · Decisiones y Acciones | Lenguaje · Almas · Biografía · Intención |
+| Nombres | Corpus, Extracción y Curación, El Brain, Razonamiento y Agentes, Capa Agéntica, Decisiones y Acciones | Identidad, Lenguaje, Almas, Biografía, Intención |
 | Alcance | Todo brain, sin excepción | Solo `brain_type = SYSTEM` (ver abajo) |
-| Dónde se define | Esta sección, "Arquitectura por Capas" | los cuatro archivos de `knowledge-base/methodology/` |
+| Dónde se define | Esta sección, "Arquitectura por Capas" | los cinco archivos de `knowledge-base/methodology/` |
 | Qué pasa si falta | El brain no se puede construir ni consultar | El brain de un sistema legacy se puebla sin orden y las reglas quedan sin vocabulario que las sostenga |
 
 ### Cómo se cruzan
@@ -254,7 +254,22 @@ La metodología de cinco etapas se declara a sí misma "del Gemelo Cognitivo del
 
 ---
 
+## Extractores del Asset
+
+Los que el asset entrega implementados, con el contrato de ADR-EB-015. Viven en `templates/extractors/` y se copian a la instancia.
+
+| Extractor | Familia | Tipos de fuente | Qué emite | Tier |
+|---|---|---|---|---|
+| `doc-identidad` | parser | doc, ppt, minuta, audio, regulación | `company_profile`, `business_milestones`, `strategic_drivers`, `measurements` | el natural de la fuente, silver o bronze |
+| `codigo-componentes` | parser | código, rama, git | `components` con `fan_in` y `fan_out`, `component_calls` | gold por origen |
+
+De los dieciséis tipos que la tabla F2 clasifica, dos tienen extractor. **La familia `connector` no tiene ninguno todavía**, así que la mitad del contrato está escrita y no ejercitada. Un tipo de fuente sin extractor es brecha declarada de la función F5 de `dt-source-steward`, no un silencio.
+
+---
+
 ## Extractores por Tecnología
+
+Distinto de lo anterior: aquí no se listan extractores del asset sino los **SMEs y Specialists de `Solutioning/` que saben leer una tecnología**. El asset aporta el contrato; ellos aportan la mecánica de un lenguaje concreto.
 
 | Tecnología | Extractor | Estado | Instancia de referencia |
 |-----------|-----------|--------|------------------------|
