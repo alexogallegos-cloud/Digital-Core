@@ -12,7 +12,7 @@
 -- Ver ADR-EB-006.
 --
 -- ESTRUCTURA:
---   CORE        — 19 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
+--   CORE        — 23 tablas · TODO brain, sin excepción (ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
 --   SYSTEM      — brains de sistema productivo (hemisphere='run')
 --   PROJECT     — brains de proyecto de transformación (hemisphere='change')
 --   ENTERPRISE  — {industria}-brain (brain_type='enterprise')
@@ -26,7 +26,7 @@
 
 
 -- =============================================================================
--- CORE — obligatorio en todo brain (19 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009, ADR-EB-010, ADR-EB-011, ADR-EB-012, ADR-EB-013, ADR-EB-014)
+-- CORE — obligatorio en todo brain (23 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009 a ADR-EB-015)
 --
 -- Cubre cinco contratos irrenunciables:
 --   identidad       → system_info
@@ -619,6 +619,78 @@ CREATE TABLE IF NOT EXISTS source_catalog (
     owner             TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_source_status ON source_catalog(status);
+
+-- Etapa 0 Identidad - ADR-EB-015. Dueno: dt-client-intelligence.
+-- El brain modela lo que el cliente hace, tiene y quien trabaja ahi. Estas
+-- cuatro tablas modelan QUIEN ES. Sin ellas un hallazgo no sabe por que le
+-- importa al negocio. Su tier dominante es silver/bronze por origen (B37):
+-- una estrategia declarada en un reporte anual es intencion, no hecho.
+
+-- Ficha de identidad. Una sola fila por brain, con el mismo slug de system_info.
+-- Las CIFRAS no viven aqui: ingresos, empleados y participacion de mercado son
+-- filas de measurements ancladas a esta tabla (ADR-EB-015 decision 5).
+CREATE TABLE IF NOT EXISTS company_profile (
+    slug              TEXT PRIMARY KEY,   -- mismo slug que system_info
+    tier              TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    legal_name        TEXT NOT NULL,      -- razon social completa
+    display_name      TEXT NOT NULL,      -- como se le nombra en el mercado
+    founded_year      INTEGER,
+    ownership         TEXT,               -- publica | privada | familiar | estatal | cooperativa | subsidiaria
+    parent_group      TEXT,               -- grupo controlador, si es subsidiaria
+    ticker            TEXT,               -- clave de cotizacion, si cotiza
+    hq_country        TEXT,
+    geographies       TEXT,               -- JSON: paises o regiones donde opera
+    industries        TEXT,               -- JSON: multi-industria es la norma (ADR-EB-007)
+    business_model    TEXT,               -- como gana dinero, en una frase
+    source_ref        TEXT                -- de donde salio: reporte anual, sitio, entrevista
+);
+
+-- Trayectoria. Lo que explica por que la empresa es como es hoy.
+CREATE TABLE IF NOT EXISTS business_milestones (
+    id                TEXT PRIMARY KEY,   -- "MIL-{nnn}"
+    tier              TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    occurred_year     INTEGER NOT NULL,
+    milestone_type    TEXT,               -- fundacion | fusion | adquisicion | ipo | crisis | entrada_mercado | salida_mercado | reestructura | sancion
+    title             TEXT NOT NULL,
+    description       TEXT,
+    impact            TEXT,               -- que cambio en el negocio a partir de aqui
+    source_ref        TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_milestone_year ON business_milestones(occurred_year);
+
+-- Pilares, objetivos, retos y amenazas. Tipados en una sola tabla porque
+-- comparten estructura y se consultan juntos: el eje rector del brain.
+CREATE TABLE IF NOT EXISTS strategic_drivers (
+    id                TEXT PRIMARY KEY,   -- "DRV-{nnn}"
+    tier              TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    driver_type       TEXT NOT NULL,      -- pilar | objetivo | reto | amenaza
+    title             TEXT NOT NULL,
+    description       TEXT,
+    horizon           TEXT,               -- ISO date o anio objetivo
+    priority          TEXT,               -- alta | media | baja
+    status            TEXT DEFAULT 'declarado',  -- declarado | en_ejecucion | logrado | abandonado
+    declared_by       TEXT,               -- FK logica a stakeholders.id, o el documento que lo declara
+    source_ref        TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_driver_type ON strategic_drivers(driver_type);
+
+-- La traza de vuelta: que parte del estate sirve a que driver. Es lo que
+-- convierte el estudio del cliente en eje rector y no en prologo. Generica por
+-- entity_table igual que measurements: un driver se sirve desde capabilities en
+-- un brain de empresa, desde user_stories en uno de proyecto y desde rules en
+-- uno de sistema. Un driver sin ningun link es un hallazgo, no un silencio.
+CREATE TABLE IF NOT EXISTS driver_links (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    tier              TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    driver_id         TEXT NOT NULL,      -- FK logica a strategic_drivers.id
+    entity_table      TEXT NOT NULL,      -- capabilities | products | processes | rules | findings | risks | user_stories | applications
+    entity_id         TEXT NOT NULL,
+    relation          TEXT,               -- sirve | bloquea | mide
+    rationale         TEXT,               -- por que este elemento se ata a este driver
+    source_ref        TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_driverlink_driver ON driver_links(driver_id);
+CREATE INDEX IF NOT EXISTS ix_driverlink_entity ON driver_links(entity_table, entity_id);
 
 -- =============================================================================
 -- SYSTEM — brains de sistema productivo (hemisphere='run')

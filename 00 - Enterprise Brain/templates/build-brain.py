@@ -331,6 +331,61 @@ class BrainBuilder:
         """
         self._insert("suppliers", [])
 
+    def load_source_catalog(self):
+        """
+        ADR-EB-014 y ADR-EB-015 — catálogo de fuentes. Poseída por
+        `dt-source-steward`. Es el PRIMER paso de todo build: antes de poblar
+        nada, el brain declara con qué fuentes cuenta y cuáles le faltan.
+
+        El `natural_tier` se deriva de `source_type` según la tabla F2 del DT,
+        nunca de captura libre: ninguna afirmación puede superar el tier de la
+        fuente que la sostiene (B37). Toda fila con `status='ausente'` genera
+        su fila en `knowledge_gaps` con `gap_type='source'`.
+        """
+        self._insert("source_catalog", [])
+
+    def load_company_profile(self):
+        """
+        ADR-EB-015, Etapa 0 — la ficha de identidad. Poseída por
+        `dt-client-intelligence`. Una sola fila, con el mismo slug que
+        `system_info`.
+
+        Las CIFRAS no van aquí: ingresos, empleados y participación de mercado
+        son filas de `measurements` ancladas a esta tabla.
+        """
+        self._insert("company_profile", [])
+
+    def load_business_milestones(self):
+        """
+        ADR-EB-015, Etapa 0 — la trayectoria que explica por qué la empresa es
+        como es hoy. Su tier es silver o bronze por origen: una nota de prensa
+        no es un hecho firmado.
+        """
+        self._insert("business_milestones", [])
+
+    def load_strategic_drivers(self):
+        """
+        ADR-EB-015, Etapa 0 — pilares, objetivos, retos y amenazas, tipados en
+        una sola tabla porque comparten estructura y se consultan juntos.
+
+        Un pilar declarado en un reporte anual es INTENCIÓN, no hecho: su tier
+        es silver por origen (B37). Marcarlo gold contamina todo lo que cuelgue
+        del driver.
+        """
+        self._insert("strategic_drivers", [])
+
+    def load_driver_links(self):
+        """
+        ADR-EB-015, Etapa 0 — la traza de vuelta que convierte el estudio del
+        cliente en eje rector y no en prólogo.
+
+        Criterio de salida de la Etapa 0: cada driver tiene al menos un link, o
+        está declarado como hueco. Un driver sin ningún link es un hallazgo, no
+        un silencio: o el brain no cubre esa parte del estate, o la empresa
+        declara una prioridad que su tecnología no sostiene.
+        """
+        self._insert("driver_links", [])
+
     def load_technology_components(self):
         """Dominio T: qué opera TI. Cómo lo opera va en itom_layer (B36)."""
         self._insert("technology_components", [])

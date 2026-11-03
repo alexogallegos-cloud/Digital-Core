@@ -4,13 +4,13 @@
 
 Este documento es **artefacto verificable**, no descriptivo. Si un proceso del IT Operating Model o una regla de pipeline queda sin DT dueño, es hallazgo bloqueante del Brain Auditor. Si dos DTs reclaman lo mismo, es solapamiento que se resuelve con ADR.
 
-Los 23 DTs canónicos se dividen en tres categorías con sistemas de coordenadas distintos. Confundirlas es lo que deja huecos estructurales.
+Los 24 DTs canónicos se dividen en tres categorías con sistemas de coordenadas distintos. Confundirlas es lo que deja huecos estructurales.
 
 | Categoría | Razona sobre | Se mide contra | DTs |
 |-----------|-------------|----------------|-----|
 | **A. Rol de TI** | La organización de TI del cliente | Los 38 procesos canónicos del IT Operating Model v9.0 | 10 |
 | **B. Ingeniería del brain** | El brain como producto | El Brain Lifecycle, las reglas de pipeline P1 a P5 y las capas de arquitectura | 5 |
-| **C. Negocio** | El modelo de negocio del cliente | Los 6 dominios L1 comunes a los catálogos de industria | 6 |
+| **C. Negocio** | El modelo de negocio del cliente | Los 7 dominios L1 comunes a los catálogos de industria, más la identidad de la empresa | 9 |
 
 **El modelo es de negocio, la evidencia es de TI, y la brecha es el hallazgo.** Esa es la razón de tener las dos caras. La categoría C declara qué dice el modelo de la industria; la categoría A aporta lo que el código demuestra. Una capability que el modelo exige y ningún componente cubre es brecha de negocio. Un componente que no mapea a ninguna capability es deuda sin propósito. Un proceso modelado que el código ejecuta de otra forma es la divergencia más reveladora de cualquier modernización. Es la Regla B20 generalizada.
 
@@ -223,10 +223,11 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 | `dt-human-reviewer` | La cola de validación, `validated_by`, el registro de aprobaciones |
 | `dt-brain-auditor` | Las 9 dimensiones. Audita todo y no posee ninguna tabla de contenido |
 | `dt-source-steward` | `source_catalog` (pendiente ADR-EB-014; interim en `knowledge-base/source-catalog.md`) · filas `gap_type='source'` en `knowledge_gaps` · clasificación canónica de tier por tipo de fuente |
+| `dt-client-intelligence` | `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links` · las filas de `measurements` ancladas a `company_profile` (ADR-EB-015) |
 
 ### Las tres capas de propiedad
 
-Cinco tablas de conocimiento no aparecen arriba: `rules`, `component_capabilities`, `component_processes`, `rule_enrichment_log` y `federated_brains`. No es un olvido. El modelo tiene tres capas y cada una responde de algo distinto:
+Cinco tablas de conocimiento se reparten entre varias capas y conviene explicitarlo: `rules`, `component_capabilities`, `component_processes`, `rule_enrichment_log` y `federated_brains`. Tienen dueño vertical en la tabla de arriba desde ADR-EB-011, y aun así su contenido lo llena otra capa. El modelo tiene tres capas y cada una responde de algo distinto:
 
 | Capa | Quién | De qué responde |
 |------|-------|-----------------|

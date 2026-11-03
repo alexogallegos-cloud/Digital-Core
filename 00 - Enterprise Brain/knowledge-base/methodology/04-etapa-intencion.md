@@ -1,7 +1,7 @@
 # Etapa 4 — Intención: Las Reglas de Negocio
 
 > Etapa 4 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
-> **Eje de metodología, no de arquitectura.** Esta es la etapa 4 de cuatro del método de extracción y puebla `rules` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
+> **Eje de metodología, no de arquitectura.** Esta es la etapa 4 de cinco del método de extracción y puebla `rules` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
 
 ## Objetivo
 

@@ -1,7 +1,7 @@
 # Etapa 1 — Lenguaje: El Vocabulario Empresarial
 
 > Etapa 1 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
-> **Eje de metodología, no de arquitectura.** Esta es la etapa 1 de cuatro del método de extracción y puebla `vocabulary` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
+> **Eje de metodología, no de arquitectura.** Esta es la etapa 1 de cinco del método de extracción y puebla `vocabulary` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
 
 ## Objetivo
 

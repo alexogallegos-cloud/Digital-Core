@@ -42,7 +42,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| Schema canónico presente | Las 19 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
+| Schema canónico presente | Las 23 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
 | Ontología anclada | `SELECT COUNT(*) FROM ontology_bindings WHERE role='primary'` devuelve exactamente 1 (Reglas B20, B21) | **SÍ** |
 | Corpus fuente declarado | `system_info.source_of_truth` no vacío (Regla B31) | **SÍ** si el estado es `active` |
 | Estudio histórico iniciado | `knowledge-base/history/` existe con al menos las cinco dimensiones esbozadas (Regla B26) | NO (advertencia) |
@@ -126,7 +126,7 @@ Los doce identificadores son estables y se referencian en otros documentos. Del 
 - [ ] **DoD-EB-09**: Cadena de valor recorrible: todo componente traza hasta un proceso, y de ahí hasta un KPI y un producto. Lo que no traza se declara en `knowledge_gaps` (Reglas B22, B27).
 - [ ] **DoD-EB-10**: Brain de nivel cliente actualizado con ATTACH del nuevo brain.db y `capabilities_consolidated()` probado. Aplica solo si el cliente tiene brain enterprise.
 - [ ] **DoD-EB-11**: `knowledge_lineage` poblada. Toda afirmación declara nivel y fuente; ninguna gold sin `source_ref`; ninguna gold por validación sin `validated_by`; los hechos irrefutables entran gold por origen (Reglas B37, B40).
-- [ ] **DoD-EB-12**: Los 23 DTs canónicos existen con su `CLAUDE.md`, y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
+- [ ] **DoD-EB-12**: Los 24 DTs canónicos existen con su `CLAUDE.md`, y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
 
 ---
 
@@ -172,7 +172,7 @@ Los identificadores SLO-EB-01 a 04 son estables. SLO-EB-05 se agrega con la Regl
 - [ ] Metadata: `togaf_type`, `togaf_state`, `brain_type`, `hemisphere`, `industry`, `industry_sme`.
 - [ ] Ontología declarada: `capability_model`, `process_ontology` y `ontology_bindings` con exactamente una primaria.
 - [ ] SMEs por fase, con rutas canónicas.
-- [ ] Los 23 DTs canónicos, con el estado de cada uno, SCAFFOLD o ACTIVE.
+- [ ] Los 24 DTs canónicos, con el estado de cada uno, SCAFFOLD o ACTIVE.
 - [ ] Estado actual de la fase del lifecycle.
 - [ ] Bloqueantes activos, si los hay.
 - [ ] Pipeline canónico de rebuild documentado.

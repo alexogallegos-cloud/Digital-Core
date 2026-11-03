@@ -166,7 +166,7 @@ Adicional a DoD universal §2.2:
 - [ ] DoD-EB-09: Taxonomía de negocio del cliente como hilo conductor de todos los artefactos.
 - [ ] DoD-EB-10: bank-brain federado actualizado (si existe).
 - [ ] DoD-EB-11: `knowledge_lineage` poblada — toda afirmación con nivel y fuente; ninguna gold sin `source_ref`; ninguna gold por validación sin `validated_by` (Reglas B37, B40).
-- [ ] DoD-EB-12: los 23 DTs canónicos existen con su `CLAUDE.md` y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
+- [ ] DoD-EB-12: los 24 DTs canónicos existen con su `CLAUDE.md` y `dt/cobertura-dt.md` no deja ningún proceso del modelo operativo sin dueño (Regla B41).
 
 ---
 
@@ -487,7 +487,7 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 - [ ] Taxonomía de negocio del cliente como hilo conductor (DoD-EB-09).
 - [ ] bank-brain federado actualizado (DoD-EB-10).
 - [ ] Linaje del conocimiento poblado, sin gold huérfano de fuente (DoD-EB-11).
-- [ ] Roster de 23 DTs canónicos completo y cobertura sin huecos (DoD-EB-12).
+- [ ] Roster de 24 DTs canónicos completo y cobertura sin huecos (DoD-EB-12).
 - [ ] brain.db en .gitignore — nunca commiteado.
 - [ ] Pipeline canónico de rebuild documentado en CLAUDE.md del sistema.
 - [ ] DORA baseline (frescura brain, cobertura, uso por DTs) registrada.

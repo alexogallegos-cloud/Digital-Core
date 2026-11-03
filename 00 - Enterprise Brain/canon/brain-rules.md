@@ -17,7 +17,7 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 |-------|-------|----------------------|----------------------|
 | 1 | **B25** | El brain es el espejo de la empresa, no su idealización | Fuente de verdad declarada en `system_info` |
 | 2 | **B29** | Los DTs construyen el brain en enjambre — como abejas | `build_agent` en `system_info` |
-| 3 | **B41** | 23 DTs canónicos en tres categorías: 10 de rol de TI, 8 de negocio y 5 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
+| 3 | **B41** | 24 DTs canónicos en tres categorías: 10 de rol de TI, 9 de negocio y 5 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
 | 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | `queries.purpose` NOT NULL · `knowledge_lineage.exposed_for` · `brain.py abrir_consulta()` (ADR-EB-013) |
 | 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |
@@ -167,7 +167,7 @@ El bank-brain del cliente es el único brain de tipo `enterprise`. Los demás so
 
 ### Schema y contrato (B15-B17)
 
-**B15 — CORE + una extensión**: todo brain implementa las 19 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`, `source_catalog`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
+**B15 — CORE + una extensión**: todo brain implementa las 23 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`, `source_catalog`, `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
 
 **El CORE tiene dos fundamentos legítimos** (ADR-EB-011). El primero es la destilación: una tabla entra cuando existe en tres o más brains independientes (ADR-EB-006), con la excepción acotada de ADR-EB-009 para `kpis`, `data_entities` y `technology_components`. El segundo es la implicación del roster: si un DT canónico obligatorio posee una tabla, esa tabla es CORE por consecuencia, y es el caso de `suppliers`. Hay un **tercer fundamento** (ADR-EB-012): una tabla entra cuando una regla vigente exige una capacidad que ninguna tabla sostiene, como ocurrió con `measurements` y `costs`. Exige tres condiciones simultáneas: que la regla ya esté aprobada y no se escriba junto con la tabla, que ninguna tabla existente pueda sostener la capacidad, y que el ADR nombre la frase exacta que queda incumplida sin ella. Existe porque la destilación tiene un punto ciego: solo canoniza lo que alguien ya construyó, y el canon puede prometer en una regla lo que su esquema no puede cumplir.
 
@@ -694,15 +694,15 @@ Tres reglas de tiempo:
 
 **Relación con el estudio histórico (B26).** El estudio histórico es el reloj del negocio aplicado al pasado profundo: explica por qué una regla nació cuando nació. B40 es el mecanismo que permite que esa historia siga viva en el brain en lugar de quedarse en un documento aparte.
 
-**B41 — Todo brain implementa los 23 DTs canónicos, en tres categorías**: B29 establece que los Digital Twins construyen el brain en enjambre, pero no dice cuáles deben existir siempre. Sin un roster fijo, cada brain inventa su propio conjunto y nadie responde por lo que ninguno reclamó. La evidencia lo confirma: en los 16 brains del estate hay 124 DTs, de los cuales unos 115 son dimensiones de análisis y solo dos tipos encarnan un rol de TI. No existía ni un `dt-arquitecto` ni un `dt-change-manager` en ningún brain.
+**B41 — Todo brain implementa los 24 DTs canónicos, en tres categorías**: B29 establece que los Digital Twins construyen el brain en enjambre, pero no dice cuáles deben existir siempre. Sin un roster fijo, cada brain inventa su propio conjunto y nadie responde por lo que ninguno reclamó. La evidencia lo confirma: en los 16 brains del estate hay 124 DTs, de los cuales unos 115 son dimensiones de análisis y solo dos tipos encarnan un rol de TI. No existía ni un `dt-arquitecto` ni un `dt-change-manager` en ningún brain.
 
-Los 23 DTs canónicos se dividen en tres categorías con **sistemas de coordenadas distintos**. Confundirlas es lo que deja huecos estructurales: diez agentes pueden cubrir el modelo operativo completo de TI y nadie responder por la reproducibilidad del pipeline ni por el modelo de negocio contra el que se compara la evidencia.
+Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenadas distintos**. Confundirlas es lo que deja huecos estructurales: diez agentes pueden cubrir el modelo operativo completo de TI y nadie responder por la reproducibilidad del pipeline ni por el modelo de negocio contra el que se compara la evidencia.
 
 | Categoría | Razona sobre | Se mide contra | DTs |
 |-----------|-------------|----------------|-----|
 | **A. Rol de TI** | La organización de TI del cliente | Los 38 procesos del IT Operating Model (B23) | 10 |
-| **B. Ingeniería del brain** | El brain como producto | El Brain Lifecycle y las reglas P1 a P5 | 4 |
-| **C. Negocio** | El modelo de negocio del cliente | Los 6 dominios L1 comunes a los catálogos de industria | 6 |
+| **B. Ingeniería del brain** | El brain como producto | El Brain Lifecycle y las reglas P1 a P5 | 5 |
+| **C. Negocio** | El modelo de negocio del cliente | Los 7 dominios L1 comunes a los catálogos de industria, más la identidad de la empresa | 9 |
 
 **Categoría A, los diez DTs de rol.** Cada uno encarna un rol del catálogo de 46 que prescribe el SME de IT Operating Model, y es dueño único de una porción del schema:
 
@@ -719,7 +719,7 @@ Los 23 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-programme-manager` | Programme Manager, Project Manager, Resource Manager | 13, 14, 17 | `applications`, `waves`, `user_stories` |
 | `dt-supplier-relationship-manager` | IT Sourcing Manager, Contracts Manager | 4, 5 | `suppliers` |
 
-**Categoría B, los cuatro DTs de ingeniería.** No razonan sobre el cliente: construyen y cuidan el brain.
+**Categoría B, los cinco DTs de ingeniería.** No razonan sobre el cliente: construyen y cuidan el brain.
 
 | DT | Rol que encarna | Cubre | Pregunta que responde |
 |----|----------------|-------|----------------------|
@@ -727,8 +727,9 @@ Los 23 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-human-reviewer` | Data Steward, orquestador de validación | B37 y B39 en su operación | ¿Quién debe validar o aprobar qué, desde cuándo y qué se decidió? |
 | `dt-brain-engineer` | Application Developer, Test Manager | P4, P5, B16, B1 | ¿El código que construye y consulta el brain está sano y consistente entre deployments? |
 | `dt-brain-auditor` | Quality Manager | Proceso 18, las 9 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
+| `dt-source-steward` | Data Source Owner | B17, B35, B37 en la frontera de entrada | ¿Con qué fuentes cuenta este brain y cuáles le faltan? Posee `source_catalog` |
 
-**Categoría C, los seis DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos seis dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:
+**Categoría C, los nueve DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos seis dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:
 
 | DT | Dominio L1 | Banca | Seguros | Retail |
 |----|-----------|-------|---------|--------|
@@ -738,6 +739,9 @@ Los 23 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-customer-owner` | Gestión de cliente | Customer & Partner Mgmt | Gestión de Cliente | SERVICE y lealtad |
 | `dt-operations-owner` | Operaciones del core | Business Support | Pólizas, Cobranza, Siniestros | MOVE |
 | `dt-enterprise-functions-owner` | Funciones de empresa | Enterprise Functions | Finanzas y Regulatorio | Finanzas y personas |
+| `dt-business-support-owner` | Soporte corporativo | Business Support | Sin equivalente en ACORD | Enterprise Foundation (subconjunto) |
+| `dt-sustainability-owner` | Negocio responsable | Responsible Business | Sin equivalente | ESG como L3, no L1 |
+| `dt-client-intelligence` | Identidad de la empresa | Transversal: no es un L1, es quién es el cliente | Transversal | Transversal |
 
 "Enterprise Functions" aparece con etiqueta textual en tres de los cuatro catálogos, lo que lo vuelve el dominio con más respaldo. Quedaron fuera dos candidatos con evidencia de solo dos de cuatro: socios y ecosistema, que se absorbe en distribución porque en seguros el distribuidor es el socio y en retail el proveedor vive en BUY; y analítica de negocio, que en el lado de TI ya cubre `dt-information-architect` con el proceso 34.
 

@@ -1,7 +1,7 @@
 # Etapa 2 — Almas: Los Módulos Funcionales
 
 > Etapa 2 del Gemelo Cognitivo del Sistema. Metodología Enterprise Brain · Digital Core.
-> **Eje de metodología, no de arquitectura.** Esta es la etapa 2 de cuatro del método de extracción y puebla `components.is_soul` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
+> **Eje de metodología, no de arquitectura.** Esta es la etapa 2 de cinco del método de extracción y puebla `components.is_soul` de la extensión `SYSTEM`. No es una de las seis capas de la arquitectura; el método completo es el trabajo de la Capa 2 y su producto aterriza en la Capa 3. Ver "Los Dos Ejes del Conocimiento" en `reference-architecture-enterprise-brain.md`.
 > Versión 2.0 · 2026-10-05. La v1.0 publicaba el DDL de una tabla de almas que el canon no tiene; ver la nota al final.
 
 ## Objetivo

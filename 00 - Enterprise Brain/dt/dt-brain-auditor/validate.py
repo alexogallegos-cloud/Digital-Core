@@ -42,6 +42,8 @@ CORE_TABLES = [
     "knowledge_lineage",                 # Regla B37 — calidad y linaje (ADR-EB-010)
     "queries",                           # Regla B45 — objeto consulta (ADR-EB-013)
     "source_catalog",                    # de dt-source-steward (ADR-EB-014)
+    # Etapa 0 Identidad — de dt-client-intelligence (ADR-EB-015)
+    "company_profile", "business_milestones", "strategic_drivers", "driver_links",
 ]
 
 EXTENSION_TABLES = {

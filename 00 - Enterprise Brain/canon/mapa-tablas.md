@@ -2,13 +2,13 @@
 
 > Generado el 2026-11-03 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
-El canon son **42 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
+El canon son **46 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
 ## Resumen por capa
 
 | Capa | Tablas | A quién aplica |
 |------|--------|----------------|
-| **CORE** | 19 | Todo brain, sin excepción |
+| **CORE** | 23 | Todo brain, sin excepción |
 | **SYSTEM** | 11 | `brain_type='system'`, sistemas en operación |
 | **PROJECT** | 5 | `brain_type='project'`, proyectos de transformación |
 | **ENTERPRISE** | 2 | `brain_type='enterprise'`, el brain de nivel cliente |
@@ -41,6 +41,10 @@ El canon son **42 tablas**. Ningún brain las implementa todas: implementa el CO
 | `queries` | `dt-knowledge-manager` | 15 | B17 B27 B35 B37 B42 B43 | `decisions` |
 | `knowledge_lineage` | `dt-knowledge-manager` | 19 | B29 B40 B42 | — |
 | `source_catalog` | `dt-source-steward` | 13 | — | — |
+| `company_profile` | `dt-client-intelligence` | 13 | B37 | — |
+| `business_milestones` | `dt-client-intelligence` | 8 | B37 | — |
+| `strategic_drivers` | `dt-client-intelligence` | 10 | B37 | — |
+| `driver_links` | `dt-client-intelligence` | 8 | B37 | — |
 
 ### SYSTEM
 
@@ -110,7 +114,7 @@ El conocimiento técnico se ancla en la cadena del negocio. Un componente que no
   `data_entities`, `component_data`
 
 **Fuera de la cadena** — gobierno, ontología, federación y calidad  
-  `capabilities`, `costs`, `cross_dependencies`, `decisions`, `documents`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `source_catalog`, `stakeholders`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
+  `business_milestones`, `capabilities`, `company_profile`, `costs`, `cross_dependencies`, `decisions`, `documents`, `driver_links`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `source_catalog`, `stakeholders`, `strategic_drivers`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
 
 ---
 
@@ -578,6 +582,81 @@ Catalogo de fuentes - ADR-EB-014. Dueno: dt-source-steward. El tier natural lo f
 | `location` | TEXT | no | ruta o endpoint |
 | `last_refresh` | TEXT | no |  |
 | `owner` | TEXT | no |  |
+
+### `company_profile`
+
+**Capa**: CORE, **Dueño**: `dt-client-intelligence`, **Reglas**: B37
+
+Ficha de identidad. Una sola fila por brain, con el mismo slug de system_info. Las CIFRAS no viven aqui: ingresos, empleados y participacion de mercado son filas de measurements ancladas a esta tabla (ADR-EB-015 decision 5).
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `slug` (PK) | TEXT | no | mismo slug que system_info |
+| `tier` | TEXT | sí | Regla B37 |
+| `legal_name` | TEXT | sí | razon social completa |
+| `display_name` | TEXT | sí | como se le nombra en el mercado |
+| `founded_year` | INTEGER | no |  |
+| `ownership` | TEXT | no | publica ,  privada ,  familiar ,  estatal ,  cooperativa ,  subsidiaria |
+| `parent_group` | TEXT | no | grupo controlador, si es subsidiaria |
+| `ticker` | TEXT | no | clave de cotizacion, si cotiza |
+| `hq_country` | TEXT | no |  |
+| `geographies` | TEXT | no | JSON: paises o regiones donde opera |
+| `industries` | TEXT | no | JSON: multi-industria es la norma (ADR-EB-007) |
+| `business_model` | TEXT | no | como gana dinero, en una frase |
+| `source_ref` | TEXT | no | de donde salio: reporte anual, sitio, entrevista |
+
+### `business_milestones`
+
+**Capa**: CORE, **Dueño**: `dt-client-intelligence`, **Reglas**: B37
+
+Trayectoria. Lo que explica por que la empresa es como es hoy.
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | TEXT | no | "MIL-{nnn}" |
+| `tier` | TEXT | sí | Regla B37 |
+| `occurred_year` | INTEGER | sí |  |
+| `milestone_type` | TEXT | no | fundacion ,  fusion ,  adquisicion ,  ipo ,  crisis ,  entrada_mercado ,  salida_mercado ,  reestructu |
+| `title` | TEXT | sí |  |
+| `description` | TEXT | no |  |
+| `impact` | TEXT | no | que cambio en el negocio a partir de aqui |
+| `source_ref` | TEXT | no |  |
+
+### `strategic_drivers`
+
+**Capa**: CORE, **Dueño**: `dt-client-intelligence`, **Reglas**: B37
+
+Pilares, objetivos, retos y amenazas. Tipados en una sola tabla porque comparten estructura y se consultan juntos: el eje rector del brain.
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | TEXT | no | "DRV-{nnn}" |
+| `tier` | TEXT | sí | Regla B37 |
+| `driver_type` | TEXT | sí | pilar ,  objetivo ,  reto ,  amenaza |
+| `title` | TEXT | sí |  |
+| `description` | TEXT | no |  |
+| `horizon` | TEXT | no | ISO date o anio objetivo |
+| `priority` | TEXT | no | alta ,  media ,  baja |
+| `status` | TEXT | no | declarado ,  en_ejecucion ,  logrado ,  abandonado |
+| `declared_by` | TEXT | no | FK logica a stakeholders.id, o el documento que lo declara |
+| `source_ref` | TEXT | no |  |
+
+### `driver_links`
+
+**Capa**: CORE, **Dueño**: `dt-client-intelligence`, **Reglas**: B37
+
+La traza de vuelta: que parte del estate sirve a que driver. Es lo que convierte el estudio del cliente en eje rector y no en prologo. Generica por entity_table igual que measurements: un driver se sirve desde capabilities en un b
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | INTEGER | no |  |
+| `tier` | TEXT | sí | Regla B37 |
+| `driver_id` | TEXT | sí | FK logica a strategic_drivers.id |
+| `entity_table` | TEXT | sí | capabilities ,  products ,  processes ,  rules ,  findings ,  risks ,  user_stories ,  applications |
+| `entity_id` | TEXT | sí |  |
+| `relation` | TEXT | no | sirve ,  bloquea ,  mide |
+| `rationale` | TEXT | no | por que este elemento se ata a este driver |
+| `source_ref` | TEXT | no |  |
 
 ### `components`
 

@@ -71,7 +71,7 @@ El **bank-brain** es el brain de nivel más alto del cliente (`brain_type='enter
 
 Seis capas organizan el Enterprise Brain de extremo a extremo. Cada capa tiene una **definición arquitectónica** (qué es, qué contiene, dónde vive, qué reglas la gobiernan, qué no es) y una **definición funcional** (qué hace, cómo se verifica, qué significa que falle). La definición rige para toda instancia del asset; el contenido varía por cliente y sistema, la estructura no.
 
-Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías distintas y no se confunden: las 4 capas (Lenguaje, Almas, Biografía, Intención) describen **qué tipo de conocimiento** se construye; las 6 capas de arquitectura describen **dónde y cómo** se construye, almacena y usa ese conocimiento.
+Las 6 capas de arquitectura y las 5 etapas del Gemelo Cognitivo son taxonomías distintas y no se confunden: las 5 etapas (Identidad, Lenguaje, Almas, Biografía, Intención) describen **qué tipo de conocimiento** se construye; las 6 capas de arquitectura describen **dónde y cómo** se construye, almacena y usa ese conocimiento.
 
 ---
 
@@ -156,7 +156,7 @@ Las 6 capas de arquitectura y las 4 capas del Gemelo Cognitivo son taxonomías d
 | Composición | `brain.py` (Agent API — interfaz estándar de métodos obligatorios) + el enjambre de 20 Digital Twins canónicos (B41) + `build-portal.py` (generador del portal HTML). |
 | Contrato de frontera | Entrada: `brain.db` vía `brain.py` (conexión read-only, `PRAGMA query_only=1`). Salida: respuestas estructuradas a consultas, hallazgos, portal HTML, seeds para sistemas vecinos. La Capa 4 nunca escribe en `brain.db` salvo `registrar_consulta()` que usa `_db_registro()` — conexión de escritura separada, solo para `queries` (B45). |
 | Ubicación física | `templates/brain.py` · `dt/` (cada DT con su `CLAUDE.md`) · `generators/build-portal.py` · `portal/` (output generado — nunca hand-authored, ADR-EB-005). |
-| Reglas que la gobiernan | B41 (23 DTs canónicos); B42 (confidencialidad por propósito — `abrir_consulta()` valida propósito antes de recuperar); B43 (autoevaluación en 5 ejes); B45 (toda consulta es un objeto con ciclo de vida de 6 etapas); B39 (autonomía graduada A0-A3); ADR-EB-005 (portal generado); ADR-EB-003 (federación vía ATTACH). |
+| Reglas que la gobiernan | B41 (24 DTs canónicos); B42 (confidencialidad por propósito — `abrir_consulta()` valida propósito antes de recuperar); B43 (autoevaluación en 5 ejes); B45 (toda consulta es un objeto con ciclo de vida de 6 etapas); B39 (autonomía graduada A0-A3); ADR-EB-005 (portal generado); ADR-EB-003 (federación vía ATTACH). |
 | Qué no es | No modifica el conocimiento del brain — eso va por el pipeline (Capas 2→3). No ejecuta acciones en sistemas de producción del cliente — eso es Capas 5/6 con nivel de autonomía declarado. No es el corpus ni el pipeline. |
 
 **Definición funcional**
@@ -234,22 +234,23 @@ El asset describe el conocimiento con dos modelos y ambos usan la palabra *capa*
 
 ### Cómo se cruzan
 
-Las cuatro etapas **no son una capa de la arquitectura: son el método de trabajo de la Capa 2** (Extracción y Curación) cuando la fuente es un sistema legacy. Su producto aterriza en la Capa 3, y cada etapa llena exactamente una tabla de la extensión `SYSTEM`:
+Las cinco etapas **no son una capa de la arquitectura: son el método de trabajo de la Capa 2** (Extracción y Curación) cuando la fuente es un sistema legacy. Su producto aterriza en la Capa 3, y cada etapa llena exactamente una tabla de la extensión `SYSTEM`:
 
 | Etapa | Qué extrae | Tabla que puebla | Capa que la ejecuta | Capa donde aterriza |
 |------|-----------|------------------|---------------------|---------------------|
+| 0 · Identidad | Quién es la empresa: su trayectoria, sus cifras, sus pilares y sus retos. Única etapa que no sale de código | `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links` | Capa 2 | Capa 3 |
 | 1 · Lenguaje | El vocabulario nativo del sistema: los términos con que nombra conceptos, procesos, actores y estados | `vocabulary` | Capa 2 | Capa 3 |
 | 2 · Almas | Los módulos funcionales con identidad propia, reconocibles como actores del dominio y no como agrupaciones técnicas | `components.is_soul` | Capa 2 | Capa 3 |
 | 3 · Biografía | Los flujos de negocio: cómo una transacción atraviesa el sistema desde el punto de entrada hasta el resultado | `journeys` | Capa 2 | Capa 3 |
 | 4 · Intención | Las decisiones de negocio: qué valida, qué calcula, qué transforma, bajo qué condiciones y con qué consecuencia | `rules` | Capa 2 | Capa 3 |
 
-**El orden de las etapas no es arbitrario y por eso es una secuencia y no un conjunto.** Sin el vocabulario de la etapa 1, las almas se nombran con jerga técnica en lugar de términos de negocio. Sin las almas de la etapa 2, los journeys no tienen actores entre los cuales trazarse. Sin los journeys de la etapa 3, las reglas quedan sueltas, sin el flujo que explica cuándo se disparan. La etapa 4 es el destino del método: la intención del negocio es lo que hay que preservar en una modernización, y las tres etapas previas existen para poder enunciarla sin inventarla.
+**El orden de las etapas no es arbitrario y por eso es una secuencia y no un conjunto.** Sin la identidad de la etapa 0, un hallazgo no sabe por qué le importa al negocio. Sin el vocabulario de la etapa 1, las almas se nombran con jerga técnica en lugar de términos de negocio. Sin las almas de la etapa 2, los journeys no tienen actores entre los cuales trazarse. Sin los journeys de la etapa 3, las reglas quedan sueltas, sin el flujo que explica cuándo se disparan. La etapa 4 es el destino del método: la intención del negocio es lo que hay que preservar en una modernización, y las tres etapas previas existen para poder enunciarla sin inventarla.
 
 ### Alcance y fronteras
 
-La metodología de cuatro etapas se declara a sí misma "del Gemelo Cognitivo del **Sistema**" y eso es literal: aplica a `brain_type = SYSTEM`, donde la fuente es código productivo de un sistema en Run. Los brains `PROJECT` y `ENTERPRISE` se pueblan de otras fuentes — artefactos firmados, documentos, brains federados — y por eso no recorren estas cuatro etapas. La arquitectura de seis capas, en cambio, rige para los tres tipos sin excepción.
+La metodología de cinco etapas se declara a sí misma "del Gemelo Cognitivo del **Sistema**" y eso es literal: aplica a `brain_type = SYSTEM`, donde la fuente es código productivo de un sistema en Run. Los brains `PROJECT` y `ENTERPRISE` se pueblan de otras fuentes — artefactos firmados, documentos, brains federados — y por eso no recorren estas cuatro etapas. La arquitectura de seis capas, en cambio, rige para los tres tipos sin excepción.
 
-**Qué no es.** Las cuatro etapas no son capas de la arquitectura y no deben numerarse junto a ellas. No son los niveles de calidad del conocimiento, que son bronze, silver y gold de la Regla B37. No son los `plateaus` del puente Change-Run (ADR-EB-008), que son estados de una transformación y no etapas de extracción. Y no son un pipeline alterno: el invariante P2 de la Capa 2 — todo brain se reconstruye desde cero y produce el mismo resultado — rige igual para las cuatro etapas.
+**Qué no es.** Las cinco etapas no son capas de la arquitectura y no deben numerarse junto a ellas. No son los niveles de calidad del conocimiento, que son bronze, silver y gold de la Regla B37. No son los `plateaus` del puente Change-Run (ADR-EB-008), que son estados de una transformación y no etapas de extracción. Y no son un pipeline alterno: el invariante P2 de la Capa 2 — todo brain se reconstruye desde cero y produce el mismo resultado — rige igual para las cuatro etapas.
 
 ---
 
