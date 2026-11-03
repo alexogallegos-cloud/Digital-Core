@@ -569,6 +569,47 @@ class BrainBuilder:
         """Dominio D. En brains de sistema se deriva de las referencias componente-tabla."""
         self._insert("data_entities", [])
 
+    # ── Extensión ENTERPRISE ─────────────────────────────────────────────────
+
+    def load_federated_brains(self):
+        """
+        Regla B4 — federación por ATTACH, nunca por copia. El brain de empresa
+        declara qué brains de sistema y de proyecto cuelgan de él; el cruce lo
+        razona `callosum.py` en tiempo de consulta.
+
+        Una fila por brain federado, con la ruta relativa a su `brain.db`. Si
+        un brain declarado no se puede atar, `brain_attached` queda en 0 y eso
+        es un hecho del build, no un error que se traga.
+        """
+        self._insert("federated_brains", [])
+
+    def load_documents(self):
+        """
+        El corpus documental del cliente, íntegro. Es la red de seguridad de
+        cero pérdida: la destilación se queda con lo que entendió, y el texto
+        completo indexado garantiza que lo que no entendió siga ahí.
+
+        Lee `knowledge-base/`, nunca `source/` directo (Regla P1). En un brain
+        de empresa suele ser la única tabla de contenido, y de ella depende que
+        `search()` responda algo.
+        """
+        rows = []
+        if KB_PATH.is_dir():
+            for f in sorted(KB_PATH.rglob("*.md")):
+                texto = f.read_text(encoding="utf-8", errors="replace")
+                rows.append({
+                    "path": f.relative_to(KB_PATH.parent).as_posix(),
+                    "filename": f.name,
+                    "categoria": f.parent.name if f.parent != KB_PATH else "raiz",
+                    "n_lineas": len(texto.splitlines()),
+                    "contenido": texto,
+                })
+        # Sin `valid_from`: la fecha del archivo es del sistema de archivos, no
+        # del documento. Inventarla sería peor que el aviso de B40.
+        self._insert("documents", rows, source_type="doc",
+                     source_ref=lambda r: r["path"], tier="silver",
+                     id_field="path")
+
     # ── Extensión SYSTEM ─────────────────────────────────────────────────────
 
     def load_component_data(self):
@@ -651,17 +692,31 @@ class BrainBuilder:
     # ── Cierre ───────────────────────────────────────────────────────────────
 
     def rebuild_fts(self):
-        pairs = [
+        """Reconstruye los índices de búsqueda desde las tablas ya cargadas.
+
+        `documents_fts` estaba declarado en el esquema y nadie lo poblaba. En
+        un brain de empresa, cuya única tabla de contenido es `documents`, eso
+        dejaba `search()` sin nada que responder.
+
+        El error ya no se traga: un índice que no se puede reconstruir es un
+        problema del build, y una excepción amplia que devuelve en silencio lo
+        vuelve indistinguible de un índice vacío legítimo.
+        """
+        pares = [
             ("rules_fts", "rules", "id, business_name, description, fragmento"),
             ("vocabulary_fts", "vocabulary", "id, term, definition"),
             ("components_fts", "components", "id, name, display_name, description"),
+            ("documents_fts", "documents", "path, filename, contenido"),
         ]
-        for fts, src, cols in pairs:
-            try:
-                self.db.execute(f"DELETE FROM {fts}")
-                self.db.execute(f"INSERT INTO {fts} SELECT {cols} FROM {src}")
-            except sqlite3.Error:
-                pass
+        existentes = {
+            r["name"] for r in self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type IN ('table','view')")
+        }
+        for fts, src, cols in pares:
+            if fts not in existentes or src not in existentes:
+                continue
+            self.db.execute(f"DELETE FROM {fts}")
+            self.db.execute(f"INSERT INTO {fts} SELECT {cols} FROM {src}")
 
     def emit_signals(self):
         """Bus entre brains — se emite al cierre del pipeline."""
@@ -768,6 +823,14 @@ class BrainBuilder:
         self.load_knowledge_gaps()
 
         bt = SYSTEM_INFO["brain_type"]
+        if bt not in ("system", "project", "enterprise"):
+            raise ValueError(
+                f"brain_type '{bt}' no existe; son enterprise, project o system. "
+                f"Sin rama, el build termina vacío y parece exitoso")
+        if bt == "enterprise":
+            # Extensión ENTERPRISE
+            self.load_federated_brains()   # Regla B4 — federación por ATTACH
+            self.load_documents()          # corpus íntegro, cero pérdida
         if bt == "system":
             self.load_components()
             self.load_component_data()

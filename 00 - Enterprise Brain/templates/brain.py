@@ -188,8 +188,12 @@ class SystemBrain:
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """
-        Búsqueda fulltext sobre el brain — reglas, vocabulario, componentes.
+        Búsqueda fulltext sobre el brain — reglas, vocabulario, documentos.
         Usa FTS5 si está disponible, fallback a LIKE si no.
+
+        Los documentos entran porque en un brain de empresa son la única tabla
+        de contenido: sin esa rama, `search()` no devolvía nada en el tipo de
+        brain donde más falta hace.
         """
         db = self._db()
         results: list[dict] = []
@@ -235,6 +239,44 @@ class SystemBrain:
                 results.extend(self._rows(rows))
             except Exception:
                 pass
+
+        # Corpus documental. Se devuelve el encabezado y no el documento
+        # entero: un contenido de cien kilobytes por resultado no es una
+        # respuesta, es un volcado.
+        docs: list[dict] = []
+        if len(results) < limit:
+            try:
+                rows = db.execute(
+                    """SELECT d.path, d.filename, d.categoria, d.n_lineas,
+                              substr(d.contenido, 1, 400) AS extracto,
+                              'document' AS result_type
+                       FROM documents_fts fts
+                       JOIN documents d ON d.path = fts.path
+                       WHERE documents_fts MATCH ?
+                       LIMIT ?""",
+                    (query, limit - len(results)),
+                ).fetchall()
+                docs = self._rows(rows)
+            except Exception:
+                pass
+        # El LIKE es respaldo del índice, no un segundo pase: si corren los dos
+        # con resultados, el mismo documento sale dos veces.
+        if not docs and len(results) < limit:
+            pattern = f"%{query}%"
+            try:
+                rows = db.execute(
+                    """SELECT path, filename, categoria, n_lineas,
+                              substr(contenido, 1, 400) AS extracto,
+                              'document' AS result_type
+                       FROM documents
+                       WHERE filename LIKE ? OR contenido LIKE ?
+                       LIMIT ?""",
+                    (pattern, pattern, limit - len(results)),
+                ).fetchall()
+                docs = self._rows(rows)
+            except Exception:
+                pass
+        results.extend(docs)
 
         return results[:limit]
 
