@@ -2,7 +2,7 @@
 -- schema.sql — Schema Canónico del Enterprise Brain
 -- Versión 2.0 · 2026-09-29 · Digital Core · Accenture México
 --
--- Este schema NO es aspiracional: está DESTILADO de la auditoría de los 15
+-- Este schema NO es aspiracional: está DESTILADO de la auditoría de los 16
 -- brains con implementación real del estate (BanCoppel, Banamex, MONEX,
 -- Santander, Liverpool, AXA, Coppel, Gentera). Cada tabla del CORE existe
 -- hoy en producción en al menos 3 brains independientes.

@@ -60,8 +60,9 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `itom_layer` | CORE | Que dominios del IT Operating Model cubre el brain y en que madurez (Regla B23) |
 | `decisions` | PROJECT | Los ADRs del cliente: que se decidió, con que razón y quien la firmó |
 | `plateaus` | BRIDGE | Los estados de arquitectura baseline, transitional y target (Regla B28) |
+| `federated_brains` | ENTERPRISE | Los brains federados: la federación es estructura, y por eso es de este DT (ADR-EB-011) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT. Donde una fila declara propiedad parcial, por columna o por dimensión, la otra parte es de quien esa misma fila nombra. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

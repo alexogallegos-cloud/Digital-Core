@@ -1,5 +1,6 @@
 # Delivery Playbook — Enterprise Brain
-> Versión 1.0 · 2026-09-29 · Ecosistema Digital Core · Accenture México
+> Versión 2.0 · 2026-11-03 · Ecosistema Digital Core · Accenture México
+> v1.0 a v2.0: el playbook mandaba inicializar el esquema con `souls` y `etb_l3`, retiradas por ADR-EB-006, y su gate de salida de DISCOVER exigía almas en una tabla inexistente. Era la única instrucción ejecutable del asset que fallaba si alguien la seguía al pie de la letra. Además anunciaba nueve dimensiones del Brain Auditor y enumeraba seis, omitiendo justo D7, D8 y D9.
 
 ## Lifecycle Variant: Brain Lifecycle
 
@@ -24,7 +25,7 @@ El Brain Lifecycle es una especialización del SDLC canónico de 8 fases para la
 **Actividades**:
 
 1. Crear estructura canónica de carpetas: `source/`, `digital-brain/`, `knowledge-base/`, `generators/`, `dt/`, `portal/`, `old/`.
-2. Inicializar schema de brain.db con las tablas canónicas (components, rules, vocabulary, journeys, souls, etb_l3, cross_dependencies, external_systems, system_info).
+2. Inicializar schema de brain.db con las tablas canónicas (components, rules, vocabulary, journeys, `components.is_soul`, capabilities, cross_dependencies, external_systems, system_info).
 3. Ejecutar extractor de componentes (mine-source.py o equivalente tecnológico).
 4. Construir vocabulario inicial (Capa 1 — Lenguaje): ≥ 50 términos confirmados.
 5. Identificar módulos funcionales / almas candidatos (Capa 2): ≥ 2 almas.
@@ -35,7 +36,7 @@ El Brain Lifecycle es una especialización del SDLC canónico de 8 fases para la
 
 - brain.db con `status='building'` y schema completo
 - Vocabulario Capa 1 con ≥ 50 términos
-- Al menos 2 almas identificadas en `souls`
+- Al menos 2 almas identificadas en `components.is_soul`
 - Seeds emitidos en `digital-brain/seeds/manifest.json`
 
 **SMEs involucrados**: Specialist RE de la tecnología del sistema · DBA (si base de datos propietaria) · Industry SME del cliente (vocabulario de negocio)
@@ -119,6 +120,9 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 | 4. Regulación coverage | 100% de reglas con `reg` anotada (vacío válido si no aplica) |
 | 5. Clase coverage | 100% de reglas con `clase` asignada |
 | 6. Cross-references | Seeds emitidos · bank-brain actualizado si aplica |
+| 7. Process linkage | Todo conocimiento trazado a un `process_id` (Regla B22) |
+| 8. Puente Change-Run | Las transiciones declaradas en ambos lados, con el contrato de `transitions` (ADR-EB-008) |
+| 9. Calidad y linaje | Ninguna afirmación gold sin `source_ref`; ninguna gold por validación sin `validated_by` (Regla B37) |
 
 **Gate de salida**: Brain Auditor PASS — 0 errores, 0 advertencias bloqueantes
 

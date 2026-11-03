@@ -149,7 +149,7 @@ Bootstrap   → Knowledge  → Brain        → Brain      → Brain       → B
 | Brain Auditor PASS | TEST | 0 errores, 0 advertencias bloqueantes |
 | Seed emission | RELEASE | Todos los sistemas externos conocidos tienen `digital-brain/seeds/{receptor}-seed.json` |
 | Portal generado | RELEASE | portal/index.html existente, generado por generators/build-portal.py — NUNCA hand-authored |
-| ETB L3 coverage | RELEASE | ≥ 60% de componentes del sistema con primary_l3 asignado |
+| ETB L3 coverage | RELEASE | ≥ 60% de componentes del sistema con `primary_capability` asignado |
 
 ### Definition of Done — Enterprise Brain
 

@@ -36,7 +36,7 @@ WHERE tier = 'gold' AND valid_to IS NULL AND entity_id LIKE :prefijo_del_sistema
 
 ## Gates por fase SDLC
 
-Todas las consultas son ejecutables contra el schema canónico (`templates/schema.sql`, 15 tablas en el CORE).
+Todas las consultas son ejecutables contra el schema canónico (`templates/schema.sql`, 23 tablas en el CORE).
 
 ### DISCOVER
 
@@ -53,7 +53,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| Roster canónico de DTs | Los 20 DTs de la Regla B41 existen en `dt/` con su `CLAUDE.md`. Una carpeta sin `CLAUDE.md` no cuenta: no es invocable ni verificable | **SÍ** |
+| Roster exigible de DTs | Las 24 responsabilidades de la Regla B41 tienen dueño declarado, con el nombre que cada brain use (ADR-EB-016). Los `CLAUDE.md` que las asumen existen en `dt/` con su `CLAUDE.md`. Una carpeta sin `CLAUDE.md` no cuenta: no es invocable ni verificable | **SÍ** |
 | Cobertura del modelo operativo | `dt/cobertura-dt.md` sin proceso ITOM huérfano. Hoy la cobertura canónica es 38 de 38 | **SÍ** |
 | ITOM anclado | `SELECT COUNT(*) FROM itom_layer` mayor que 0 para brains en estado `active` (Regla B23) | **SÍ** si el estado es `active` |
 | Almas identificadas | `SELECT COUNT(*) FROM components WHERE is_soul=1` al menos 2. `is_soul` es columna, no tabla | NO (advertencia) |

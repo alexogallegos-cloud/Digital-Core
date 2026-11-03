@@ -58,8 +58,10 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `kpis` | CORE | Como se mide el éxito de cada producto, con su target de Change y su current de Run |
 | `processes` | CORE | Como opera el negocio para entregar el producto, según la ontología de su industria |
 | `journeys` | SYSTEM | La traza real por el código de como un stakeholder experimenta un proceso |
+| `costs` | CORE | El costo de la tecnología por producto y por KPI. Este DT es su **único dueño** en todo el canon (ADR-EB-012) |
+| `measurements` | CORE | Las mediciones **en su dimensión de negocio**. La dimensión de servicio es de `dt-service-operations-lead` (ADR-EB-012) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT. Donde una fila declara propiedad parcial, por columna o por dimensión, la otra parte es de quien esa misma fila nombra. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

@@ -62,8 +62,9 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `signals` | CORE | El bus de mensajes entre brains |
 | `slos` | BRIDGE | El campo `current`. El `target` lo fija Change Manager con el mismo identificador |
 | El catalogo de servicios operativo | SYSTEM | Lo que se puede solicitar hoy, emparejado con el portafolio de Demand Manager |
+| `measurements` | CORE | Las mediciones **en su dimensión de servicio**. La dimensión de negocio es de `dt-demand-manager` (ADR-EB-012) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT. Donde una fila declara propiedad parcial, por columna o por dimensión, la otra parte es de quien esa misma fila nombra. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

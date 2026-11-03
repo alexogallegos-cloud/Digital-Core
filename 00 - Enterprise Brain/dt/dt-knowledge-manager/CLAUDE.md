@@ -56,8 +56,10 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `stakeholders` | CORE | Quien es quien en la organización, quien decide y quien tiene autoridad real |
 | `documents` | ENTERPRISE | El corpus documental federado del cliente |
 | La columna `tier` en toda tabla de conocimiento | Transversal | El nivel de certeza de cada fila, sin importar que DT puso el contenido |
+| `queries` | CORE | El objeto consulta: qué se le preguntó al brain y qué respondió (Regla B45, ADR-EB-013) |
+| `rule_enrichment_log` | SYSTEM | La bitácora de enriquecimiento semántico de reglas (ADR-EB-011) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT. Donde una fila declara propiedad parcial, por columna o por dimensión, la otra parte es de quien esa misma fila nombra. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

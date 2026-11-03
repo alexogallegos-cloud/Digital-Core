@@ -712,14 +712,14 @@ Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 
 | DT | Rol ITOM que encarna | Procesos | Posee |
 |----|---------------------|----------|-------|
-| `dt-domain-architect` | Domain Architect, CAO, Lead-Architecture | 6, 7, 8, 10, 11 | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus` |
+| `dt-domain-architect` | Domain Architect, CAO, Lead-Architecture | 6, 7, 8, 10, 11 | `system_info`, `ontology_bindings`, `capabilities`, `itom_layer`, `decisions`, `plateaus`, `federated_brains` |
 | `dt-information-architect` | Information Architect | 33, 34 | `data_entities`, `component_data`, `vocabulary` |
-| `dt-knowledge-manager` | Knowledge Manager | 35, 38 | `knowledge_lineage`, `knowledge_gaps`, `stakeholders`, la columna `tier` en toda tabla |
-| `dt-asset-configuration-manager` | Asset and Configuration Manager | 26, 28 | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems` |
+| `dt-knowledge-manager` | Knowledge Manager | 35, 38 | `knowledge_lineage`, `knowledge_gaps`, `queries`, `stakeholders`, `documents`, `rule_enrichment_log`, la columna `tier` en toda tabla |
+| `dt-asset-configuration-manager` | Asset and Configuration Manager | 26, 28 | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems`, `rules`, `component_capabilities`, `component_processes` |
 | `dt-change-manager` | Change Manager, Service Readiness Manager | 2, 15, 16, 27 | `transitions`, `readiness_gates`, el `target` de `slos` |
-| `dt-service-operations-lead` | Lead-SM&O, Incident y Problem Manager | 2, 19, 21, 22, 23, 24, 25, 29, 30 | `findings`, `signals`, el `current` de `slos` |
-| `dt-it-risk-manager` | IT Risk Manager, CISO, Business Continuity Manager | 20, 31, 32, 37 | `regulatory_obligations`, `risks` |
-| `dt-demand-manager` | Demand Manager, IT Finance Manager, UX Architect | 1, 3, 9, 12, 36 | `products`, `kpis`, `processes`, `journeys` |
+| `dt-service-operations-lead` | Lead-SM&O, Incident y Problem Manager | 2, 19, 21, 22, 23, 24, 25, 29, 30 | `findings`, `signals`, el `current` de `slos`, `measurements` en su dimensión de servicio |
+| `dt-it-risk-manager` | IT Risk Manager, CISO, Business Continuity Manager | 20, 31, 32, 37 | `regulatory_obligations`, `risks`, la columna `reg` de `rules`, la política de confidencialidad de B42 y la clasificación de `data_entities` |
+| `dt-demand-manager` | Demand Manager, IT Finance Manager, UX Architect | 1, 3, 9, 12, 36 | `products`, `kpis`, `processes`, `journeys`, `costs`, `measurements` en su dimensión de negocio |
 | `dt-programme-manager` | Programme Manager, Project Manager, Resource Manager | 13, 14, 17 | `applications`, `waves`, `user_stories` |
 | `dt-supplier-relationship-manager` | IT Sourcing Manager, Contracts Manager | 4, 5 | `suppliers` |
 
@@ -741,7 +741,7 @@ Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-distribution-owner` | Distribución, marketing y ventas | Marketing & Sales | Distribución e intermediarios | PLAN y SELL |
 | `dt-product-owner` | Producto y servicio | Product & Service | Producto y Actuaría | PLAN y BUY |
 | `dt-customer-owner` | Gestión de cliente | Customer & Partner Mgmt | Gestión de Cliente | SERVICE y lealtad |
-| `dt-operations-owner` | Operaciones del core | Business Support | Pólizas, Cobranza, Siniestros | MOVE |
+| `dt-operations-owner` | Operaciones del core | Product & Service, de 3.2 a 3.18 | Pólizas, Cobranza, Siniestros | MOVE |
 | `dt-enterprise-functions-owner` | Funciones de empresa | Enterprise Functions | Finanzas y Regulatorio | Finanzas y personas |
 | `dt-business-support-owner` | Soporte corporativo | Business Support | Sin equivalente en ACORD | Enterprise Foundation (subconjunto) |
 | `dt-sustainability-owner` | Negocio responsable | Responsible Business | Sin equivalente | ESG como L3, no L1 |
@@ -765,7 +765,9 @@ Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | Extracción | Los DTs de dimensión propios de cada brain | El contenido de `rules`, `journeys`, `vocabulary`, almas |
 | Calidad | `dt-knowledge-manager`, `dt-human-reviewer` y `dt-brain-auditor` | El nivel, el linaje, la validación humana y la auditoría |
 
-Por eso `rules` no tiene dueño en el roster y es correcto: la llena el DT de dimensión, la ancla `dt-demand-manager`, responde por su nivel `dt-knowledge-manager`, consigue su validación `dt-human-reviewer` y la audita `dt-brain-auditor`.
+Por eso `rules` tiene un dueño vertical y aun así pasa por cinco manos, sin que eso sea contradicción: su **estructura** la posee `dt-asset-configuration-manager` (ADR-EB-011), su **contenido** lo llena el DT de dimensión, la **ancla** a proceso y producto `dt-demand-manager`, responde por su **nivel** `dt-knowledge-manager`, consigue su **validación** `dt-human-reviewer` y la **audita** `dt-brain-auditor`.
+
+Lo mismo vale para `component_capabilities`, `component_processes`, `rule_enrichment_log` y `federated_brains`. Las cinco tienen dueño vertical desde ADR-EB-011; lo que se reparte entre capas es el trabajo sobre ellas, no la propiedad de su estructura.
 
 **Los DTs canónicos no sustituyen a los de dimensión.** Los 115 que ya existen en el estate siguen siendo los que extraen conocimiento del código y del negocio. Los canónicos organizan lo que esos extraen y responden por su calidad. Es la diferencia entre la abeja que trae el néctar y la que construye la celda (B29).
 

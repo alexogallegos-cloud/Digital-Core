@@ -56,8 +56,11 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `regulatory_obligations` | SYSTEM | Las obligaciones del instrumento regulatorio, trazadas hasta el componente que las cumple |
 | `risks` | PROJECT | El registro de riesgos con su severidad, su dueño y su mitigación |
 | La columna `reg` de `rules` | SYSTEM | Que regla de negocio responde a que obligación regulatoria |
+| `rules.reg` | SYSTEM | La columna `reg`: qué regla responde a qué instrumento regulatorio |
+| Política de confidencialidad | — | La política de la Regla **B42**. Este DT la define; `dt-information-architect` clasifica el dato |
+| `data_entities.classification` | CORE | El criterio de sensibilidad. Sin clasificar, una entidad se trata como sensible (B42) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT. Donde una fila declara propiedad parcial, por columna o por dimensión, la otra parte es de quien esa misma fila nombra. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

@@ -56,8 +56,11 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `technology_components` | CORE | Las plataformas que sostienen las aplicaciones, incluidas las herramientas de TI (Regla B38). Supplier Relationship Manager lee su columna `vendor` para enlazar con `suppliers`, pero la tabla es de este DT |
 | `cross_dependencies` | CORE | Las dependencias entre sistemas, declaradas en ambos lados con evidencia (Regla B5) |
 | `external_systems` | SYSTEM | Los sistemas vecinos sin brain propio pero con dependencia conocida |
+| `rules` | SYSTEM | La **estructura** de las reglas extraídas: es lógica de los componentes que este DT ya posee (ADR-EB-011). El contenido lo llena el DT de dimensión |
+| `component_capabilities` | SYSTEM | El N:M entre componente y capability (ADR-EB-011) |
+| `component_processes` | SYSTEM | El N:M entre componente y proceso, que materializa B22 (ADR-EB-011) |
 
-**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
+**Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT. Donde una fila declara propiedad parcial, por columna o por dimensión, la otra parte es de quien esa misma fila nombra. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 
 ---
 

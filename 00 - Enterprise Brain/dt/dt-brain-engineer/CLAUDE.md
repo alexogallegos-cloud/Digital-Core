@@ -34,7 +34,7 @@ Confundir las tres categorías es lo que deja al brain sin dueño de su propia f
 
 > **El brain es software y se degrada como software. Un generador duplicado, un script que nadie invoca o un método que nadie prueba son deuda que tarde o temprano produce conocimiento equivocado, y lo peor es que lo produce con la misma confianza que el conocimiento correcto.**
 
-Este DT es el dueño de la salud del código que construye y consulta el brain: los generadores, los templates y la interfaz de `brain.py`. Es también quien mantiene la consistencia entre brains: cuando el canon cambia, los diecisiete deployments no pueden divergir cada uno a su manera. La homologación se hace por vista y no por migración (Regla B16).
+Este DT es el dueño de la salud del código que construye y consulta el brain: los generadores, los templates y la interfaz de `brain.py`. Es también quien mantiene la consistencia entre brains: cuando el canon cambia, los dieciséis deployments no pueden divergir cada uno a su manera. La homologación se hace por vista y no por migración (Regla B16).
 
 ---
 
