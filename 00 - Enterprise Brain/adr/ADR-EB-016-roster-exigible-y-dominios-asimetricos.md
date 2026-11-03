@@ -8,6 +8,10 @@ canon/brain-rules.md :: roster exigible
 canon/brain-rules.md :: DTs de dimensión
 dt/dt-sustainability-owner/CLAUDE.md :: ADR-EB-016
 dt/cobertura-dt.md :: roster exigible
+dt/dt-brain-auditor/validate.py :: ROSTER_CANONICO
+dt/dt-brain-auditor/test-validate.py :: un rol sin mención bloquea
+dt/dt-brain-auditor/CLAUDE.md :: Dimensión 10
+templates/roster-dt.md :: Roster de Digital Twins
 -->
 
 ---
@@ -59,7 +63,7 @@ Esto generaliza más allá de sostenibilidad y aplica a cualquier dominio futuro
 
 ## Consecuencias
 
-**Lo que se gana.** B41 pasa de ser incumplible a ser auditable. La dimensión de roster que `ADR-EB-011` pedía y nunca se implementó ahora tiene algo que medir: no la existencia de 24 carpetas, sino 24 responsabilidades con dueño.
+**Lo que se gana.** B41 pasa de ser incumplible a ser auditable. La dimensión de roster que `ADR-EB-011` pedía existe desde el 2026-11-03 como **D10** del Brain Auditor, y mide lo que la regla quería decir: no la existencia de 24 carpetas, sino 24 responsabilidades con dueño. Un brain que no declara su mapeo queda en N/A y no en FAIL, porque cobertura desconocida no es cobertura cero.
 
 **Lo que cuesta.** Cada brain tiene que declarar su mapeo de rol a DT propio, que es trabajo que hoy no hace ninguno. Mientras no lo haga, su cobertura de B41 es desconocida y no cero, y esa distinción importa: desconocido es un hueco declarable, cero es un juicio que la evidencia no sostiene.
 

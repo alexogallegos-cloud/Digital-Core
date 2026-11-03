@@ -110,7 +110,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 
 **Objetivo**: garantizar la integridad del brain antes de activarlo. Un brain con datos incorrectos produce peores decisiones que no tener brain.
 
-**Brain Auditor — 9 dimensiones de validación**:
+**Brain Auditor — 10 dimensiones de validación**:
 
 | Dimensión | Criterio de PASS |
 |-----------|-----------------|
@@ -123,6 +123,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 | 7. Process linkage | Todo conocimiento trazado a un `process_id` (Regla B22) |
 | 8. Puente Change-Run | Las transiciones declaradas en ambos lados, con el contrato de `transitions` (ADR-EB-008) |
 | 9. Calidad y linaje | Ninguna afirmación gold sin `source_ref`; ninguna gold por validación sin `validated_by` (Regla B37) |
+| 10. Roster exigible | Ninguna de las 24 responsabilidades sin dueño ni hueco declarado, con el nombre que este brain use (B41, ADR-EB-016) |
 
 **Gate de salida**: Brain Auditor PASS — 0 errores, 0 advertencias bloqueantes
 
@@ -217,7 +218,7 @@ Bronze, Silver y Gold no son etapas: son el nivel de calidad de cada afirmación
 | `build-vocab-inventory.py` | Inventario de vocabulario del sistema | BUILD |
 | `bootstrap-from-seeds.py` | Inicialización de estructuras desde seeds (bank-brain) | DISCOVER |
 | `initialize-seed-brains.py` | Inicialización de brain.db mínimo desde seeds (Regla B12) | DISCOVER |
-| Brain Auditor | Health check del brain — 9 dimensiones | TEST/OBSERVE |
+| Brain Auditor | Health check del brain — 10 dimensiones | TEST/OBSERVE |
 
 ---
 

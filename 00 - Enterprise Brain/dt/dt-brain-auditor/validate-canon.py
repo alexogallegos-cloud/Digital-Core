@@ -218,6 +218,28 @@ class CanonValidator:
                         if d.is_dir() and d.name.startswith("dt-")])
         self.stats["dts_real"] = dts_real
 
+        # El roster que el auditor exige, contra las carpetas que existen.
+        # Es una lista escrita a mano en validate.py y por tanto puede derivar;
+        # sin esta comprobación, D10 mediría contra un roster viejo y lo haría
+        # en silencio, que es el modo de falla que esta auditoría persigue.
+        carpetas = {d.name for d in (self.asset / "dt").iterdir()
+                    if d.is_dir() and d.name.startswith("dt-")}
+        m_roster = re.search(r"ROSTER_CANONICO\s*=\s*\((.*?)\n\)", vp, re.S)
+        if m_roster:
+            declarado = set(re.findall(r'"(dt-[a-z-]+)"', m_roster.group(1)))
+            faltan = carpetas - declarado
+            sobran = declarado - carpetas
+            if faltan or sobran:
+                self.add("cifras", SEV_BLOQ,
+                         "ROSTER_CANONICO no coincide con las carpetas de dt/: "
+                         + (f"faltan {sorted(faltan)} " if faltan else "")
+                         + (f"sobran {sorted(sobran)}" if sobran else ""),
+                         "dt/dt-brain-auditor/validate.py")
+        else:
+            self.add("cifras", SEV_BLOQ,
+                     "validate.py ya no declara ROSTER_CANONICO; D10 no tiene "
+                     "contra qué medir B41", "dt/dt-brain-auditor/validate.py")
+
         # reglas B reales
         br = (self.asset / "canon" / "brain-rules.md").read_text(encoding="utf-8")
         reglas_real = len(set(re.findall(r"^\*\*B(\d+)", br, re.M)))

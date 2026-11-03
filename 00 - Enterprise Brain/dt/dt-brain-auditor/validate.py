@@ -85,6 +85,45 @@ PROCESS_LINKED_TABLES = [
     "measurements", "costs",         # ADR-EB-012
 ]
 
+#: Roster exigible de la Regla B41, reformulado por ADR-EB-016. Son 24 ROLES y
+#: no 24 nombres de carpeta: un brain cumple cuando ninguna de estas
+#: responsabilidades queda sin dueño, con el nombre que ese brain use.
+#:
+#: La auditoría de noviembre de 2026 midió el cumplimiento de la formulación
+#: vieja y dio cero de ocho brains, con intersección vacía entre los 44 nombres
+#: del estate y estos 24. Una regla que nadie cumple y que nadie citó nunca no
+#: está siendo incumplida: está mal escrita. Por eso aquí se mide cobertura de
+#: responsabilidad y no coincidencia de nombres.
+ROSTER_CANONICO = (
+    # Categoría A — rol de TI (10). Cada uno encarna un rol del catálogo ITOM
+    # de 46 que prescribe el SME de IT Operating Model.
+    "dt-domain-architect", "dt-information-architect", "dt-knowledge-manager",
+    "dt-asset-configuration-manager", "dt-change-manager",
+    "dt-service-operations-lead", "dt-it-risk-manager", "dt-demand-manager",
+    "dt-programme-manager", "dt-supplier-relationship-manager",
+    # Categoría B — ingeniería del brain (5). No razonan sobre el cliente:
+    # construyen y cuidan el brain.
+    "dt-build-operator", "dt-human-reviewer", "dt-brain-engineer",
+    "dt-brain-auditor", "dt-source-steward",
+    # Categoría C — negocio (9). Destilados de los catálogos de industria,
+    # no inventados.
+    "dt-channel-owner", "dt-distribution-owner", "dt-product-owner",
+    "dt-customer-owner", "dt-operations-owner", "dt-enterprise-functions-owner",
+    "dt-business-support-owner", "dt-sustainability-owner",
+    "dt-client-intelligence",
+)
+
+#: Dónde una instancia declara su mapeo de rol a DT propio. El primero que
+#: exista manda. Sin ninguno, la cobertura es DESCONOCIDA y no cero, y esa
+#: distinción es justo lo que ADR-EB-016 vino a fijar.
+ROSTER_DECLARACIONES = ("dt/roster-dt.md", "roster-dt.md",
+                        "knowledge-base/roster-dt.md")
+
+#: Cómo una instancia declara que un rol no tiene dueño todavía. Un hueco
+#: declarado es conocimiento; uno callado es el defecto.
+ROSTER_HUECOS = {"", "—", "-", "–", "n/a", "na", "hueco", "[hueco]",
+                 "sin dueño", "sin dueno", "pendiente", "ninguno"}
+
 # Modelos lógicos de negocio admitidos como ancla de la ontología (B21)
 VALID_MODEL_TYPES = {
     "etb", "bian", "regulatory", "it-capability", "value-chain", "client-logical", "itom",
@@ -158,6 +197,7 @@ CODE_TOKEN_GLOBS = [
 DIMENSIONS = [
     "schema", "coverage", "business_name", "regulacion", "clase",
     "cross_refs", "process_linkage", "callosum", "knowledge_quality",
+    "roster",
 ]
 
 
@@ -1136,6 +1176,93 @@ class Validator:
 
     # ── Orquestación ─────────────────────────────────────────────────────────
 
+    # ── D10 · Cobertura del roster exigible ──────────────────────────────────
+
+    def d10_roster(self):
+        """
+        Regla B41, tal como la reformuló ADR-EB-016: lo exigible no es que
+        existan 24 carpetas con nombre canónico, sino que ninguna de las 24
+        responsabilidades quede sin dueño declarado.
+
+        Un brain que no declara su mapeo no reprueba: queda en DESCONOCIDO.
+        Reprobarlo sería afirmar que su cobertura es cero, y eso es un juicio
+        que la evidencia no sostiene. Lo que sí reprueba es declarar el mapeo y
+        dejar responsabilidades fuera sin siquiera nombrarlas como hueco.
+        """
+        ruta = self._roster_path()
+        self.metrics["roster_total"] = len(ROSTER_CANONICO)
+        if ruta is None:
+            self._na(
+                "roster",
+                "Este brain no declara su mapeo de rol a DT propio. Su cobertura "
+                "de B41 es DESCONOCIDA, que no es lo mismo que cero. Declara el "
+                "mapeo en " + ROSTER_DECLARACIONES[0] + " (plantilla en "
+                "templates/roster-dt.md del asset)",
+            )
+            return
+
+        self.metrics["roster_file"] = ruta.name
+        cubiertos, huecos, ajenos = {}, [], []
+        for linea in ruta.read_text(encoding="utf-8").splitlines():
+            if not linea.strip().startswith("|"):
+                continue
+            celdas = [c.strip().strip("`*") for c in linea.strip().strip("|").split("|")]
+            if len(celdas) < 2:
+                continue
+            rol = celdas[0].lower()
+            if rol in ("rol", "rol canónico", "rol canonico") or set(rol) <= set("- :"):
+                continue
+            dueno = celdas[1]
+            if rol not in ROSTER_CANONICO:
+                ajenos.append(celdas[0])
+                continue
+            if dueno.lower() in ROSTER_HUECOS:
+                huecos.append(rol)
+            else:
+                cubiertos[rol] = dueno
+
+        sin_mencion = [r for r in ROSTER_CANONICO
+                       if r not in cubiertos and r not in huecos]
+        self.metrics["roster_cubiertos"] = len(cubiertos)
+        self.metrics["roster_huecos"] = len(huecos)
+        self.metrics["roster_sin_mencion"] = len(sin_mencion)
+
+        if sin_mencion:
+            self._add(
+                "roster", True,
+                f"{len(sin_mencion)} responsabilidad(es) del roster exigible no "
+                f"aparecen en {ruta.name}: ni con dueño ni declaradas como hueco. "
+                f"Un rol sin mención no es un rol cubierto",
+                sample=sin_mencion[:8],
+            )
+        if huecos:
+            self._add(
+                "roster", False,
+                f"{len(huecos)} responsabilidad(es) declaradas sin dueño. Es "
+                f"admisible y es mejor que el silencio, pero cada una es una "
+                f"pregunta abierta sobre quién responde por ese dominio",
+                sample=huecos[:8],
+            )
+        if ajenos:
+            self._add(
+                "roster", False,
+                f"{len(ajenos)} fila(s) nombran un rol que no es del roster "
+                f"exigible. Si son DTs de dimensión no van en esta tabla: son "
+                f"población libre y no se enumeran (ADR-EB-016)",
+                sample=ajenos[:8],
+            )
+        self._seal("roster")
+
+    def _roster_path(self):
+        """Busca la declaración desde el brain hacia arriba, dos niveles."""
+        base = Path(self.db_path).resolve().parent
+        for raiz in (base, base.parent):
+            for rel in ROSTER_DECLARACIONES:
+                cand = raiz / rel
+                if cand.is_file():
+                    return cand
+        return None
+
     def run(self, only: str | None = None):
         steps = {
             "schema": self.d1_schema,
@@ -1147,6 +1274,7 @@ class Validator:
             "process_linkage": self.d7_process_linkage,
             "callosum": self.d8_callosum,
             "knowledge_quality": self.d9_knowledge_quality,
+            "roster": self.d10_roster,
         }
         # D1 siempre corre: fija el inventario de tablas y el brain_type
         self.d1_schema()
@@ -1192,6 +1320,7 @@ LABELS = {
     "process_linkage": "D7 Process Linkage  ",
     "callosum": "D8 Puente Change-Run",
     "knowledge_quality": "D9 Calidad conocim. ",
+    "roster": "D10 Roster exigible",
 }
 
 
@@ -1241,6 +1370,12 @@ def render(v: Validator, summary: bool = False) -> str:
             f"silver {m.get('tier_pct', {}).get('silver', 0)}% · "
             f"bronze {m.get('tier_pct', {}).get('bronze', 0)}% · "
             f"linaje: {m.get('lineage_rows', 0)}"
+        ),
+        "roster": (
+            f"cubiertos: {m.get('roster_cubiertos', 0)}/{m.get('roster_total', 0)} · "
+            f"huecos declarados: {m.get('roster_huecos', 0)} · "
+            f"sin mención: {m.get('roster_sin_mencion', 0)}"
+            if m.get("roster_file") else "no declarado — cobertura DESCONOCIDA"
         ),
     }
 

@@ -223,7 +223,7 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 | `dt-build-operator` | Los extractores, `build-brain.py`, `digital-brain/seeds/` |
 | `dt-brain-engineer` | `generators/`, `templates/`, `brain.py`, `build-portal.py`, las vistas de homologación |
 | `dt-human-reviewer` | La cola de validación, `validated_by`, el registro de aprobaciones |
-| `dt-brain-auditor` | Las 9 dimensiones. Audita todo y no posee ninguna tabla de contenido |
+| `dt-brain-auditor` | Las 10 dimensiones. Audita todo y no posee ninguna tabla de contenido |
 | `dt-source-steward` | `source_catalog` (tabla CORE desde ADR-EB-014); filas `gap_type='source'` en `knowledge_gaps`; clasificación canónica de tier por tipo de fuente |
 | `dt-client-intelligence` | `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links` · las filas de `measurements` ancladas a `company_profile` (ADR-EB-015) |
 

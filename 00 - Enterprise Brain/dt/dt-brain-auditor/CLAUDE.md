@@ -19,7 +19,7 @@
 
 ## Principio Rector
 
-El Brain Auditor **reporta, no corrige**. Su función es ejecutar las 9 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
+El Brain Auditor **reporta, no corrige**. Su función es ejecutar las 10 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
 
 Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqueada). Un brain ACTIVE que falla el Brain Auditor en OBSERVE entra en estado STALE hasta que se corrija.
 
@@ -38,7 +38,7 @@ Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqu
 
 ---
 
-## Las 9 Dimensiones de Validación
+## Las 10 Dimensiones de Validación
 
 ### Dimensión 1 — Schema Integridad
 
@@ -223,6 +223,45 @@ python templates/callosum.py --enterprise bank-brain/digital-brain/bank-brain.db
 - Silver sin revisión en más de 90 días: va a la cola HITL (`brain.py hitl_queue()`).
 
 **Métrica reportada**: distribución porcentual de gold, silver y bronze en todas las tablas de conocimiento, y número de registros de linaje.
+
+---
+
+### Dimensión 10 — Cobertura del roster exigible
+
+**Qué valida**: que ninguna de las 24 responsabilidades del roster de B41 queda
+sin dueño declarado en este brain, con el nombre que este brain use
+(ADR-EB-016). Aplica a todo `brain_type`.
+
+**Dónde lo lee**: el archivo `roster-dt.md` dentro del `dt/` del brain, ya sea
+junto al `brain.db` o un nivel arriba. La plantilla vive en `templates/roster-dt.md` del asset.
+
+**Los tres veredictos, y por qué son tres**:
+
+| Situación | Veredicto |
+|---|---|
+| El brain no declara su mapeo | **N/A** — cobertura DESCONOCIDA |
+| Declara y cubre o declara hueco en los 24 | **PASS** |
+| Declara y deja roles sin mención | **FAIL** |
+
+La distinción entre desconocido y cero no es un tecnicismo. La auditoría de
+noviembre de 2026 midió la formulación vieja de B41 contra los ocho brains del
+estate y dio cero de ocho, con intersección vacía entre los 44 nombres
+instanciados y los 24 canónicos. Reprobar a un brain que no declaró su mapeo
+sería afirmar que no cubre nada, y eso es un juicio que la evidencia no
+sostiene: lo único cierto es que nadie lo ha mirado.
+
+**Hallazgos bloqueantes**:
+- Un rol del roster que no aparece en la declaración, ni con dueño ni como
+  hueco. No mencionarlo no es cubrirlo.
+
+**Hallazgos no bloqueantes**:
+- Roles declarados sin dueño. Es admisible y es mejor que el silencio, pero
+  cada uno es una pregunta abierta sobre quién responde por ese dominio.
+- Filas que nombran algo que no es del roster. Si son DTs de dimensión no van
+  en esa tabla: son población libre y no se enumeran.
+
+**Métrica reportada**: cubiertos sobre 24, huecos declarados y roles sin
+mención.
 
 ---
 

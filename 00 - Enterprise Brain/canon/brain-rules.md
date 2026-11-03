@@ -730,7 +730,7 @@ Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-build-operator` | Data Engineer, DataOps | P1, P2, P3, B11, B12 | ¿Se puede reconstruir este brain desde cero y obtener el mismo resultado? |
 | `dt-human-reviewer` | Data Steward, orquestador de validación | B37 y B39 en su operación | ¿Quién debe validar o aprobar qué, desde cuándo y qué se decidió? |
 | `dt-brain-engineer` | Application Developer, Test Manager | P4, P5, B16, B1 | ¿El código que construye y consulta el brain está sano y consistente entre deployments? |
-| `dt-brain-auditor` | Quality Manager | Proceso 18, las 9 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
+| `dt-brain-auditor` | Quality Manager | Proceso 18, las 10 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
 | `dt-source-steward` | Data Source Owner | B17, B35, B37 en la frontera de entrada | ¿Con qué fuentes cuenta este brain y cuáles le faltan? Posee `source_catalog` |
 
 **Categoría C, los nueve DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos seis dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:

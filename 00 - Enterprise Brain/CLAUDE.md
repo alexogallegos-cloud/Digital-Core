@@ -263,7 +263,7 @@ El Enterprise Brain es un artefacto de conocimiento, no código de negocio. No a
 
 | Capa | Qué valida | Quién lo ejecuta | Fase |
 |------|-----------|-----------------|------|
-| **Brain Auditor (9 dimensiones)** | Integridad del schema, coverage, business_name quality, regulación, clase, cross-references, trazabilidad a proceso (D7), puente Change-Run (D8), calidad y linaje (D9) | Brain Auditor (meta-agente) | TEST · OBSERVE |
+| **Brain Auditor (10 dimensiones)** | Integridad del schema, coverage, business_name quality, regulación, clase, cross-references, trazabilidad a proceso (D7), puente Change-Run (D8), calidad y linaje (D9), cobertura del roster exigible (D10) | Brain Auditor (meta-agente) | TEST · OBSERVE |
 | **Anti-genérico detector** | Detecta business_names con tokens de código fuente, nombres descriptivos vacíos ("proceso", "validación") o genéricos | Pipeline enrich-rules.py | BUILD |
 | **Smoke test de portal** | portal/index.html se carga sin errores, todos los KPI cards renderizan, las tablas no están vacías | Inspección visual post-build-portal.py | RELEASE |
 

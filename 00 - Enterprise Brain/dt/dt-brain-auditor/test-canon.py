@@ -55,7 +55,10 @@ def caso(nombre, dim, esperado, mutar=None, archivo=None, contenido=None):
 caso("asset limpio", None, 0)
 
 caso("cifra de dimensiones mal", "cifras", 1,
-     mutar=lambda t: t.replace("9 dimensiones", "3 dimensiones", 1),
+     # Se deriva igual que la del CORE: con "9" a mano, el caso dejo de
+     # inyectar nada el dia que el validador paso a 10 dimensiones, y la
+     # suite fallo por la razon equivocada.
+     mutar=lambda t: re.sub(r"\b\d{1,2}(?= dimensiones)", "3", t, count=1),
      archivo=B / "quality-gates-enterprise-brain.md")
 
 caso("rango de DoD incompleto", "cifras", 1,
