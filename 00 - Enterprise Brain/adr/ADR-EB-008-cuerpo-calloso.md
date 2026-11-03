@@ -75,6 +75,8 @@ Lo que Change decide tiene que llegar a Run: qué se migra, a dónde, cuándo, q
 - Los brains de sistema deben exponer `findings`.
 - Algunas severidades del estate no son mapeables sin juicio humano (por ejemplo, `tribal_knowledge` no tiene severidad). Se registran con `confidence='inferred'` hasta que las valide el SME.
 
-**Pendiente.**
-- Validar el contrato contra bank-brain (`migrations`) y Exodus (`ams_support_proposal`) antes de pasar a APROBADO.
+**`[VERIFICADO 2026-11-03]` La validación que este ADR puso como condición nunca se hizo, y el contrato no se cumple.** Se contrastaron las dos tablas contra los 25 campos del contrato canónico `transitions`: `bank-brain.migrations` tiene 9 campos y comparte exactamente uno (`confidence`) sobre 11,391 filas; `exodus.ams_support_proposal` tiene 21 campos y comparte exactamente uno (`id`) sobre 8 filas. Los dos brains que este ADR nombró siguen operando con las estructuras propias que decía venir a unificar.
+
+El ADR **se mantiene en APROBADO** porque el contrato en sí es sano y ya vive en el CORE, pero la condición deja de redactarse como requisito previo y pasa a ser **deuda declarada**: 
+- Migrar `bank-brain.migrations` y `exodus.ams_support_proposal` al contrato canónico `transitions`. Sin eso, el razonamiento cross-brain del puente sigue sin poder ejecutarse sobre esos dos.
 - Federar SmartVista, Transact, Cobranza y Atlas como brains de Run. Hoy C1 marca 9 transiciones de Unity hacia sistemas sin brain.

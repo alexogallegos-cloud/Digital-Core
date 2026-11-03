@@ -108,7 +108,7 @@ if reg_desc and not name:
 
 ---
 
-## SMOKE TESTS (Capa 2 — DT-Validador los invoca)
+## SMOKE TESTS (Capa 2 — Brain Auditor los invoca)
 
 Al ejecutar estos smoke tests, reportar con formato `| ID | Descripción | Resultado | Detalle |`.
 

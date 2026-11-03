@@ -59,7 +59,7 @@ Los riesgos del canal son distintos a los del core Informix: mientras Informix t
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
 - **Artefacto central**: `dt/dt-riesgos/registro-riesgos-appmovil.md` — registro completo en formato ID / Título / Categoría / Probabilidad / Impacto / Severidad / Mitigación / Estado
-- **Cross-reference**: `dt-sp-dependencies` (fuente de RISK-JDBC-*) · `dt-regulatorio` (fuente de RISK-REG-*) · `dt-java-analysis` (fuente de RISK-ARCH-*) · `dt-validador` (smoke tests que validan que los riesgos están cubiertos)
+- **Cross-reference**: `dt-sp-dependencies` (fuente de RISK-JDBC-*) · `dt-regulatorio` (fuente de RISK-REG-*) · `dt-java-analysis` (fuente de RISK-ARCH-*) · `dt-brain-auditor` (smoke tests que validan que los riesgos están cubiertos)
 - **Referencia hermana**: `Informix/dt/dt-riesgos/registro-riesgos-informix.md` — riesgos del core Informix; los riesgos del canal se suman al panorama global AM
 - **Regla de actualización**: cualquier nuevo hallazgo en otro DT que represente un riesgo de migración debe registrarse aquí con su ID canónico
 
@@ -84,7 +84,7 @@ Los riesgos del canal son distintos a los del core Informix: mientras Informix t
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

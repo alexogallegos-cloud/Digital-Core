@@ -130,7 +130,7 @@ Confirmación → App + notificación push al beneficiario (si es BanCoppel)
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

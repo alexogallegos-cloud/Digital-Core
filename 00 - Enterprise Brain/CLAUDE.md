@@ -461,17 +461,9 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 
 ## Instancias de Referencia — Deployments Activos
 
-| ID | Cliente | Sistema | Tipo TOGAF | Estado | N Componentes | N Reglas Negocio |
-|----|---------|---------|-----------|--------|---------------|-----------------|
-| EB-001 | BanCoppel | Informix PISA | core (SoR) | ACTIVE | 12,812 SPs | 6,819 |
-| EB-002 | BanCoppel | AppMóvil | channels (SoD) | ACTIVE | — | — |
-| EB-003 | BanCoppel | Unity R4 | core (SoR) | ACTIVE | — | — |
-| EB-004 | Banamex | S500 Unisys | core (SoR) | ACTIVE | — | — |
-| EB-005 | Banamex | S151 Reglas | core (SoR) | ACTIVE | — | 1,550 |
-| EB-006 | MONEX | 11 sistemas | core + channels | ACTIVE | — | — |
-| EB-007 | Liverpool | RTB | core (SoR) | ACTIVE | — | — |
-| EB-008 | AXA | Core | core (SoR) | BUILDING | — | — |
+El registro de deployments es [`component-catalog-enterprise-brain.md`](component-catalog-enterprise-brain.md), y es la única fuente de los identificadores `EB-{NNN}`. Hoy lista 11.
 
+Este archivo mantenía una tabla paralela con ocho filas y una numeración distinta: `EB-002` era AppMóvil aquí y ControlM en el catálogo, y las cifras de `EB-001` tampoco coincidían. Se retiró en lugar de sincronizarla, porque dos registros del mismo hecho vuelven a divergir.
 ---
 
 ## Checklist DoD Antes de Cerrar OPERATE

@@ -84,7 +84,7 @@ Un journey de AppMovil es distinto a un journey de Informix: mientras que Inform
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

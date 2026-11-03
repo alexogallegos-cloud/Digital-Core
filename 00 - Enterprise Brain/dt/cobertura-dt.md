@@ -6,6 +6,8 @@ Este documento es **artefacto verificable**, no descriptivo. Si un proceso del I
 
 Los 24 DTs canónicos se dividen en tres categorías con sistemas de coordenadas distintos. Confundirlas es lo que deja huecos estructurales.
 
+> **`[ADR-EB-016]`** Estas 24 filas son el **roster exigible**: responsabilidades que ningún brain puede dejar sin dueño. Lo que se audita es cobertura de rol, no coincidencia de nombre de carpeta. Los DTs de dimensión de cada brain no entran aquí y no se enumeran.
+
 | Categoría | Razona sobre | Se mide contra | DTs |
 |-----------|-------------|----------------|-----|
 | **A. Rol de TI** | La organización de TI del cliente | Los 38 procesos canónicos del IT Operating Model v9.0 | 10 |

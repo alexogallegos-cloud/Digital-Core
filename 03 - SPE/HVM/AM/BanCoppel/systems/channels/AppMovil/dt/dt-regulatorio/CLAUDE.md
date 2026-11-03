@@ -95,7 +95,7 @@ Cuando AppMovil migre del stack actual (Java 17 + Informix) al sistema target, c
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

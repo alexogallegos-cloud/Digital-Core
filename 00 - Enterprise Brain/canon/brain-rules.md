@@ -694,7 +694,11 @@ Tres reglas de tiempo:
 
 **Relación con el estudio histórico (B26).** El estudio histórico es el reloj del negocio aplicado al pasado profundo: explica por qué una regla nació cuando nació. B40 es el mecanismo que permite que esa historia siga viva en el brain en lugar de quedarse en un documento aparte.
 
-**B41 — Todo brain implementa los 24 DTs canónicos, en tres categorías**: B29 establece que los Digital Twins construyen el brain en enjambre, pero no dice cuáles deben existir siempre. Sin un roster fijo, cada brain inventa su propio conjunto y nadie responde por lo que ninguno reclamó. La evidencia lo confirma: en los 16 brains del estate hay 124 DTs, de los cuales unos 115 son dimensiones de análisis y solo dos tipos encarnan un rol de TI. No existía ni un `dt-arquitecto` ni un `dt-change-manager` en ningún brain.
+**B41 — Todo brain cubre las 24 responsabilidades del roster exigible, en tres categorías**: B29 establece que los Digital Twins construyen el brain en enjambre, pero no dice cuáles deben existir siempre. Sin un roster fijo, cada brain inventa su propio conjunto y nadie responde por lo que ninguno reclamó. La evidencia lo confirma: en los 16 brains del estate hay 124 DTs, de los cuales unos 115 son dimensiones de análisis y solo dos tipos encarnan un rol de TI. No existía ni un `dt-arquitecto` ni un `dt-change-manager` en ningún brain.
+
+**`[ADR-EB-016]` Lo exigible es el rol, no el nombre de la carpeta.** Un brain cumple B41 cuando, para cada uno de los 24 roles, existe un DT que lo asume con el nombre que ese brain use. La auditoría de noviembre de 2026 midió la formulación anterior contra los ocho clientes del estate: 44 nombres de DT instanciados e intersección vacía con el roster. Una regla que nadie cumplió en tres meses y que nadie citó nunca no estaba siendo incumplida, estaba mal escrita.
+
+Junto al **roster exigible** conviven los **DTs de dimensión**, especialistas en una materia del sistema concreto (`dt-spei`, `dt-catalogo-errores`, `dt-java-analysis`). No pertenecen al roster, no se enumeran y cada brain instancia los que su materia pida. `ADR-EB-011` ya declaraba que no se sustituyen; lo que faltaba era decirlo en el enunciado.
 
 Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenadas distintos**. Confundirlas es lo que deja huecos estructurales: diez agentes pueden cubrir el modelo operativo completo de TI y nadie responder por la reproducibilidad del pipeline ni por el modelo de negocio contra el que se compara la evidencia.
 

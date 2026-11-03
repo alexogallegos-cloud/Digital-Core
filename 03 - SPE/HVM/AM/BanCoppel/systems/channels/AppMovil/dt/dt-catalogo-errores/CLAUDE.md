@@ -96,7 +96,7 @@ Los microservicios de capa D que llaman SPs Informix vía JDBC capturan:
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

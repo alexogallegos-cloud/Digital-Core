@@ -83,7 +83,7 @@ Un microservicio es candidato a alma si cumple al menos uno de:
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

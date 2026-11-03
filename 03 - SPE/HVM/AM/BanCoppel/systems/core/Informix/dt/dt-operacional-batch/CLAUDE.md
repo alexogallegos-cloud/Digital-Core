@@ -107,7 +107,7 @@ Para expandir la taxonomía, actualizar `classify_shell_cmd()` y la tabla de arr
 
 ---
 
-## SMOKE TESTS (Capa 2 — DT-Validador los invoca)
+## SMOKE TESTS (Capa 2 — Brain Auditor los invoca)
 
 Al ejecutar estos smoke tests, reportar con formato `| ID | Descripción | Resultado | Detalle |`.
 

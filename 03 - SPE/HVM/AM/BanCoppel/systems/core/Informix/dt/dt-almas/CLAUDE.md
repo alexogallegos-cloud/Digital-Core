@@ -65,7 +65,7 @@ Campo `[TAXONOMY: X / X.X]` en cada Alma indica su dominio y subdominio primario
 
 ---
 
-## SMOKE TESTS (Capa 2 — DT-Validador los invoca)
+## SMOKE TESTS (Capa 2 — Brain Auditor los invoca)
 
 Al ejecutar estos smoke tests, reportar con formato `| ID | Descripción | Resultado | Detalle |`.
 

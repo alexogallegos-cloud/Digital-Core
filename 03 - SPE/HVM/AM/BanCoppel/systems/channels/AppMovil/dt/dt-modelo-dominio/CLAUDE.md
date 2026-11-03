@@ -109,7 +109,7 @@ msaxd (Cross) ──→ todos : proveedor de datos compartidos (días hábiles, 
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

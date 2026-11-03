@@ -87,7 +87,7 @@ Informix PISA — D08 Pagos y SPEI / D04 Cheques y Cuentas
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

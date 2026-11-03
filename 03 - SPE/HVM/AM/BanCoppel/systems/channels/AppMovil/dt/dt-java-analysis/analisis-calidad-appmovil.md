@@ -272,7 +272,7 @@ La librería `msach-u-platform-cryptography` tiene certificación PCI-DSS implí
 
 ---
 
-## 8. Smoke Tests (para DT-Validador)
+## 8. Smoke Tests (para Brain Auditor)
 
 | ID | Test | Estado |
 |----|------|--------|

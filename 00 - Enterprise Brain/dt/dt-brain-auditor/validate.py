@@ -1198,7 +1198,7 @@ LABELS = {
 def render(v: Validator, summary: bool = False) -> str:
     m = v.metrics
     out = []
-    out.append("DT-VALIDADOR REPORT")
+    out.append("BRAIN AUDITOR REPORT")
     declared = m.get("brain_type") or f"~{m.get('brain_type_detected')} (inferido)"
     out.append(
         f"Sistema: {v.system or m.get('slug') or '—'} · "

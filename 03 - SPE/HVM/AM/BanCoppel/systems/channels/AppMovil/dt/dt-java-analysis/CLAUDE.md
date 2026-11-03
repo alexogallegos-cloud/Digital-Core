@@ -99,7 +99,7 @@ Mi foco no es documentar qué hace el código (eso lo hacen los otros DTs), sino
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

@@ -84,7 +84,7 @@ Los ~200 microservicios de AppMovil cubren las siguientes capacidades de negocio
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

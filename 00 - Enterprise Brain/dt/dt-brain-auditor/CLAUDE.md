@@ -231,7 +231,7 @@ python templates/callosum.py --enterprise bank-brain/digital-brain/bank-brain.db
 El Brain Auditor emite un reporte estructurado al final de cada ejecución:
 
 ```
-DT-VALIDADOR REPORT
+BRAIN AUDITOR REPORT
 Sistema: {slug} · Build: {built_at} · Versión brain: {versión}
 ══════════════════════════════════════════════════════════
 

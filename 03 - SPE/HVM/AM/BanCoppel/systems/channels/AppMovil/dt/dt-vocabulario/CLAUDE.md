@@ -111,7 +111,7 @@ Algunos términos del vocabulario de AppMovil tienen su contraparte directa en I
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

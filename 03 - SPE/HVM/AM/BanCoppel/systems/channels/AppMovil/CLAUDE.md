@@ -61,7 +61,7 @@
 | 10 | [dt-riesgos](dt/dt-riesgos/CLAUDE.md) | 14 riesgos de migración del canal | `registro-riesgos-appmovil.md` |
 | 11 | [dt-sp-dependencies](dt/dt-sp-dependencies/CLAUDE.md) | **Puente JDBC → SPs Informix** (crítico AM) | `inventario-sp-dependencies.md` |
 | 12 | [dt-spei](dt/dt-spei/CLAUDE.md) | Flujo SPEI saliente + CoDi interbank | `flujo-spei-appmovil.md` |
-| 13 | [dt-validador](dt/dt-validador/CLAUDE.md) | Meta-agente: smoke tests de los 14 DTs | `reporte-validacion-appmovil.md` |
+| 13 | [dt-brain-auditor](dt/dt-brain-auditor/CLAUDE.md) | Meta-agente: smoke tests de los 14 DTs | `reporte-validacion-appmovil.md` |
 | 14 | [dt-vocabulario](dt/dt-vocabulario/CLAUDE.md) | Vocabulario de negocio y técnico del canal | `vocabulario-appmovil.md` |
 
 ---
@@ -108,7 +108,7 @@
 - [x] Construir `digital-brain/build-brain.py` — brain.db activo (2026-08-14)
 - [x] Patrones P6c/P6d/P_DBINFER/P8 implementados — 49 SPs (2026-08-14)
 - [x] **dt-java-analysis poblado** — `analisis-calidad-appmovil.md` construido desde análisis estático de 216 repos (2026-08-14)
-- [ ] Ejecutar DT-Validador: smoke tests de los 14 DTs (pase de existencia)
+- [ ] Ejecutar Brain Auditor: smoke tests de los 14 DTs (pase de existencia)
 - [ ] Poblar artefactos centrales de DTs restantes (dt-riesgos · dt-regulatorio · dt-sp-dependencies · dt-modelo-dominio)
 - [ ] Emitir seeds propios (Regla B11) al terminar el rebuild con patrones P6-P8
 - [ ] Actualizar `bank-brain/build-bank-brain.py` con ATTACH a este brain

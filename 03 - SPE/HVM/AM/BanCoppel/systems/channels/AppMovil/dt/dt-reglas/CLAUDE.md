@@ -85,7 +85,7 @@ Las reglas de AppMovil son distintas a las de Informix: mientras Informix implem
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

@@ -1,4 +1,4 @@
-# DT-Validador — Digital Twin · AppMovil
+# Brain Auditor — Digital Twin · AppMovil
 > **Artefacto propietario**: Meta-agente de validación del ecosistema de Digital Twins de AppMovil
 > **Proyecto**: BanCoppel Application Modernization · `SPE-AM-001`
 > **Versión**: 0.1.0
@@ -42,7 +42,7 @@ Mi función es idéntica al Ontology Validator del ecosistema SME: reporto, no c
 | 10 | `dt-riesgos` | `dt/dt-riesgos/registro-riesgos-appmovil.md` | `RI-*` |
 | 11 | `dt-sp-dependencies` | `dt/dt-sp-dependencies/inventario-sp-dependencies.md` | `SP-*` |
 | 12 | `dt-spei` | `dt/dt-spei/flujo-spei-appmovil.md` | `SPEI-*` |
-| 13 | `dt-validador` | `dt/dt-validador/reporte-validacion-appmovil.md` | `VAL-*` |
+| 13 | `dt-brain-auditor` | `dt/dt-brain-auditor/reporte-validacion-appmovil.md` | `VAL-*` |
 | 14 | `dt-vocabulario` | `dt/dt-vocabulario/vocabulario-appmovil.md` | `VO-*` |
 
 ### Protocolo de validación
@@ -85,7 +85,7 @@ Mi función es idéntica al Ontology Validator del ecosistema SME: reporto, no c
 
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
-- **Artefacto central**: `dt/dt-validador/reporte-validacion-appmovil.md` — último reporte de validación del ecosistema de DTs
+- **Artefacto central**: `dt/dt-brain-auditor/reporte-validacion-appmovil.md` — último reporte de validación del ecosistema de DTs
 - **Fuente**: los `CLAUDE.md` de los 14 DTs + sus artefactos centrales declarados
 - **Regla de frecuencia**: ejecutar validación al inicio de cada fase SDLC (DISCOVER→DESIGN→BUILD) y ante cualquier cambio mayor en el ecosistema de DTs
 - **Regla de escalamiento**: fallas ERROR → escalar al DT responsable + notificar al equipo de delivery del proyecto AM; fallas WARN → registrar y revisar en siguiente sprint
@@ -114,7 +114,7 @@ Mi función es idéntica al Ontology Validator del ecosistema SME: reporto, no c
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|
 | VAL-01 | Los 14 `CLAUDE.md` de DTs existen en `systems/channels/AppMovil/dt/` | ERROR |
-| VAL-02 | `dt/dt-validador/reporte-validacion-appmovil.md` existe y tiene fecha reciente | WARN |
+| VAL-02 | `dt/dt-brain-auditor/reporte-validacion-appmovil.md` existe y tiene fecha reciente | WARN |
 | VAL-03 | Ningún DT referencia un SME con ruta inválida (el CLAUDE.md del SME no existe) | ERROR |
 | VAL-04 | El DT `dt-sp-dependencies` tiene al menos 1 SP documentado que también aparece en `dt-autorizador-pagos` o `dt-spei` | ERROR |
 | VAL-05 | El DT `dt-almas` tiene candidatos que aparecen en `dt-journeys` como microservicio orquestador | WARN |

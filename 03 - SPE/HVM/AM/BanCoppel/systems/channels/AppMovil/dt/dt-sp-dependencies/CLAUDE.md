@@ -212,7 +212,7 @@ Los siguientes SPs fueron detectados pero su microservicio origen necesita confi
 
 ---
 
-## SMOKE TESTS (DT-Validador los invoca)
+## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|

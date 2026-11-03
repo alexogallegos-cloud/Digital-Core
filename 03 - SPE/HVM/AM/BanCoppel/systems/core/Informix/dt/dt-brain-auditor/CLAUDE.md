@@ -1,4 +1,4 @@
-# DT-Validador — Digital Twin · Informix
+# Brain Auditor — Digital Twin · Informix
 > **Artefacto propietario**: Reporte de integridad del Knowledge Base
 > **Proyecto**: BanCoppel Informix · SPE-AM-001
 > **Versión**: 1.0.0
@@ -78,7 +78,7 @@ Los DTs pueden ejecutarse en paralelo. Consolidar resultados en la tabla de la s
 
 | ID | Descripción | Severidad si falla |
 |----|-------------|--------------------|
-| VAL-01 | Los 8 DT `CLAUDE.md` existen: dt-vocabulario, dt-almas, dt-journeys, dt-reglas, dt-capacidades, dt-riesgos, dt-modelo-dominio, dt-validador | ERROR |
+| VAL-01 | Los 8 DT `CLAUDE.md` existen: dt-vocabulario, dt-almas, dt-journeys, dt-reglas, dt-capacidades, dt-riesgos, dt-modelo-dominio, dt-brain-auditor | ERROR |
 | VAL-02 | La raíz de `knowledge-base/` solo contiene `README.md` y `migration-risk-register.md` | WARN |
 | VAL-03 | Los 4 subdirectorios `cross-reference/`, `ontology/`, `rules/`, `vocabulary/` existen dentro de `knowledge-base/` | ERROR |
 | VAL-04 | `knowledge-base/ontology/etb-capabilities.json` existe y es JSON válido | ERROR |

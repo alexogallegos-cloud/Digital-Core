@@ -108,7 +108,7 @@ Estas dos lentes alimentan flujos de valor distintos y no deben mezclarse en el 
 
 ## DIGITAL TWINS · `dt/`
 
-Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el DT-Validador (integridad de la KB), y dos especialistas de dominio de pagos. Cada DT hereda talento de los SMEs declarados y opera exclusivamente en el contexto de Informix.
+Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el Brain Auditor (integridad de la KB), y dos especialistas de dominio de pagos. Cada DT hereda talento de los SMEs declarados y opera exclusivamente en el contexto de Informix.
 
 | DT | Artefacto propietario | SMEs heredados | Versión |
 |----|----------------------|----------------|---------|
@@ -120,7 +120,7 @@ Diez Digital Twins de proyecto — siete por artefacto del Gemelo Cognitivo, el 
 | `dt-capacidades/` | Mapa ETB L3 (261 caps sobre D01-D16) | Core Banking Transformation · Industry Banking | 1.1.0 |
 | `dt-riesgos/` | Risk register — 11 producción/integración · 44 equivalencia en 05-risks.md | SPL Analysis · Cybersecurity · SRE & AIOps | 1.1.0 |
 | `dt-modelo-dominio/` | **Taxonomía negocio AS-IS** — 7 dominios · 24 subdominios · 67 capacidades (hilo conductor) | Core Banking Transformation · Industry Banking · DBA IBM Informix | 0.2.0 |
-| `dt-validador/` | Integridad del Knowledge Base — Capa 1 automática (`build-validation-report.py`) + Capa 2 smoke tests multi-DT | — (opera sobre estructura, no dominio) | 1.0.0 |
+| `dt-brain-auditor/` | Integridad del Knowledge Base — Capa 1 automática (`build-validation-report.py`) + Capa 2 smoke tests multi-DT | — (opera sobre estructura, no dominio) | 1.0.0 |
 | `dt-spei/` | Análisis AS-IS D08 — 7 BDs de pagos (bdispei + satélites) · riesgos regulatorios Banxico · interfaz con capa de autorización externa | Industry Payments/SPEI · Regulatory/Banxico · SPL Analysis | 0.1.0 |
 | `dt-autorizador-pagos/` | Capa de autorización externa (e-global) — arquitectura de integración, flows de autorización, touchpoints Informix, riesgos de migración para la capa media | Industry Payments · Integration Architecture · Interoperability | 0.1.0 |
 | `dt-operacional-batch/` | Taxonomía de scripts batch/shell (~1,104 reglas) — clasificación operacional por tipo (DESCARGA/CARGA/ELIMINACION/EJECUCION_SQL/etc.) · owner de RE_SHELL y classify_shell_cmd | SPL Analysis · DBA IBM Informix | 0.1.0 |
@@ -160,7 +160,7 @@ Confianza en cadena (regla ontológica v3.8): la confianza del equipo es la del 
   - **D17-D49** (1,216 reglas): extracción vocab-anchored `extract-rules-d17-d49.py` (2026-08-12) sobre 2,110 SPs — **797 FÓRMULA · 389 VALIDACIÓN · 30 UMBRAL**; **reg 100%** (triaje regulatorio `triaje-d17-d49.py` 2026-08-12: CONSAR/SAR D20·AFORE, CNBV-Serie-R D36·Repaut, Banxico-UDI D41·Corresponsalía, CNBV-LRSIC D24·Buró, CNBV-PLD D25·Sitio-Especial, +21 dominios con defaults por DB); **riesgo 39%** (485 reglas: FX conversión D36, UDI D41, MONEY/DIV/ROUND). Reemplazó 25,165 reglas crudas IF/THEN (ruido de control-flow técnico) por reglas de negocio genuinas — misma maquinaria que produjo los 4,597 FÓRMULA de D01-D16
   - **Portal**: filtro por `clase` (Negocio/Infra/Ensamblaje/Presentación) + hero "Reglas de negocio" (6,819) — `rules-catalog-bcop.html`
 - Risk register v1.2.0 — 11 riesgos producción/integración (2 DEFECTO-PROD N5 activos en P655) + 44 riesgos equivalencia
-- **DT-Validador Capa 1: PASS — 0 errores · 0 advertencias · 70 OK** (2026-08-06; cerradas 8 WARNs de links rotos con `generators/build-incidents.py`)
+- **Brain Auditor Capa 1: PASS — 0 errores · 0 advertencias · 70 OK** (2026-08-06; cerradas 8 WARNs de links rotos con `generators/build-incidents.py`)
 
 ### Phase B implementada — CALLEE_INFO lookup en diagramas (2026-08-03)
 
