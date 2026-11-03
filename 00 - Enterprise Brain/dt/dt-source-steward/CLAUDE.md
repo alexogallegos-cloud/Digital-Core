@@ -40,7 +40,7 @@ Registra todas las fuentes disponibles para la instancia del brain:
 | `coverage_pct` | porcentaje del sistema cubierto por esta fuente |
 | `last_refresh` | cuándo se actualizó por última vez |
 
-Mientras no existe la tabla `source_catalog` en el schema (pendiente ADR-EB-014), el catálogo vive en `knowledge-base/source-catalog.md` de la instancia.
+La tabla `source_catalog` es CORE desde `ADR-EB-014` y vive en `templates/schema.sql`. El catálogo autoritativo de una instancia es esa tabla; `knowledge-base/source-catalog.md` queda como vista legible para quien lee la carpeta sin abrir el brain, y no manda sobre la tabla.
 
 ---
 
