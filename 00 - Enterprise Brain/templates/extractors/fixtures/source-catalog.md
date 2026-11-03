@@ -12,3 +12,5 @@ catálogo se prueba contra la forma real y no contra una simplificada.
 | SRC-002 | Informe anual sin calificar | doc | parser | batch | activa | bronze | 40 | 2026-11-03 | Etapa 0 — Identidad |
 | SRC-003 | Minutas del comité | minuta | parser | batch | parcial | bronze | 10 | 2026-11-03 | Retos no publicados |
 | SRC-004 | Logs del core | logs | connector | continuo | ausente | gold | 0 | | Comportamiento en operación |
+| SRC-005 | Código del core | codigo | parser | batch | activa | gold | 60 | 2026-11-03 | Etapas 1 a 4 |
+| SRC-006 | Rama sin mergear | codigo_rama | parser | batch | activa | bronze | 5 | 2026-11-03 | Intención de cambio |

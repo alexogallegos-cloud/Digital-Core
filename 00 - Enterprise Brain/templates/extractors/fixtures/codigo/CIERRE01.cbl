@@ -1,0 +1,5 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. CIERRE01.
+       PROCEDURE DIVISION.
+           CALL "VALIDA01".
+           STOP RUN.

@@ -16,6 +16,8 @@ canon/brain-rules.md :: 24 DTs canónicos
 templates/extractors/contrato.py :: Nunca escribe en `brain.db`
 templates/extractors/tiers.py :: def tier_natural
 templates/extractors/doc-identidad.py :: class DocIdentidad
+templates/extractors/codigo-componentes.py :: class CodigoComponentes
+templates/build-brain.py :: def load_component_calls
 templates/extractors/test-extractores.py :: escritura sobre brain.db
 templates/build-brain.py :: def _insert_cosecha
 canon/brain-rules.md :: `strategic_drivers`

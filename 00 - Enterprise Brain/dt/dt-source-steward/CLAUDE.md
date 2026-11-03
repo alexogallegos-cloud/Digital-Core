@@ -142,7 +142,8 @@ jamás un esquema corrupto.
 |-------|--------|
 | `templates/extractors/contrato.py` | El contrato y sus cuatro garantías |
 | `templates/extractors/tiers.py` | La tabla F2 de arriba, ejecutable |
-| `templates/extractors/doc-identidad.py` | Primer extractor: documento a Etapa 0 |
+| `templates/extractors/doc-identidad.py` | Documento de texto a la Etapa 0 |
+| `templates/extractors/codigo-componentes.py` | Árbol de código a componentes y grafo de llamadas |
 | `templates/extractors/test-extractores.py` | Viola cada garantía a propósito |
 | `templates/build-brain.py` | `_insert_cosecha`, la mitad de abajo |
 
@@ -150,7 +151,9 @@ Aquí es donde F2 deja de ser una tabla que alguien debe recordar: el tier se
 estampa en la frontera de entrada y ninguna afirmación puede superar el tier
 natural de su fuente, porque el contrato la topa antes de dejarla pasar.
 
-Un tipo de fuente sin extractor es una brecha de F5, no un silencio.
+De los dieciséis tipos que F2 clasifica, dos tienen extractor. **Un tipo de fuente sin extractor es una brecha de F5, no un silencio**, y la lista de los que faltan es trabajo declarado, no olvido.
+
+El de código es el que entra en gold, porque el código fuente productivo es el único tipo que F2 clasifica como hecho irrefutable. Eso tiene una consecuencia que conviene tener presente: lo que emite entra sin revisión humana, así que solo emite lo que puede sostener. Qué archivos hay, qué componentes declaran y qué nombres se citan entre ellos. Si un componente es un alma, a qué capability sirve o qué regla encierra son preguntas que el código no contesta solo, y por eso sus filas llegan con `fill_quality='partial'`.
 
 ---
 

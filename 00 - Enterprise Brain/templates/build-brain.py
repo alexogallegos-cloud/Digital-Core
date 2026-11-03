@@ -268,10 +268,18 @@ class BrainBuilder:
                      id_field=id_field)
         for item, fuente, cosecha in lote:
             fila = item["fila"]
+            # Hay tablas cuya identidad es compuesta: una arista del grafo de
+            # llamadas es el par origen-destino, y quedarse con el origen
+            # colapsaria todas las salidas de un componente en una sola fila
+            # de linaje.
+            if isinstance(id_field, tuple):
+                ident = "|".join(str(fila.get(c, "")) for c in id_field)
+            else:
+                ident = str(fila.get(id_field) or fila.get("id")
+                            or fila.get("slug") or item["source_ref"])
             self.record_lineage(
                 table,
-                str(fila.get(id_field) or fila.get("id") or fila.get("slug")
-                    or item["source_ref"]),
+                ident,
                 item["tier"], fuente["source_type_linaje"], item["source_ref"],
                 asserted_by=cosecha["extractor"], method=cosecha["familia"],
                 notes=fuente.get("tier_basis"),
@@ -617,7 +625,28 @@ class BrainBuilder:
         self._insert("component_data", [])
 
     def load_components(self):
-        self._insert("components", [])
+        """
+        Las piezas del sistema. El extractor `codigo-componentes` las emite en
+        gold, porque el codigo fuente productivo es hecho irrefutable: es el
+        sistema (B37).
+
+        Lo que el parser NO emite y alguien tiene que poner: el nombre de
+        negocio, el dominio, la capability que sirve y si es alma. Son juicio,
+        y por eso llegan con `fill_quality='partial'`.
+        """
+        self._insert_cosecha("components")
+
+    def load_component_calls(self):
+        """
+        El grafo de llamadas. De el se leen las almas: un componente con mucho
+        fan-in no es automaticamente un alma, pero ninguna alma tiene poco.
+
+        Una llamada solo entra si su destino es un componente de este brain.
+        Un nombre invocado que no resuelve es dependencia externa y va a
+        `cross_dependencies`, nunca a un nodo inventado.
+        """
+        self._insert_cosecha("component_calls",
+                             id_field=("from_component", "to_component"))
 
     def load_rules(self):
         """business_name por síntesis LLM source-read (ADR-EB-004), nunca transcripción."""
@@ -833,6 +862,7 @@ class BrainBuilder:
             self.load_documents()          # corpus íntegro, cero pérdida
         if bt == "system":
             self.load_components()
+            self.load_component_calls()   # el grafo del que se leen las almas
             self.load_component_data()
             self.load_rules()
             self.load_vocabulary()

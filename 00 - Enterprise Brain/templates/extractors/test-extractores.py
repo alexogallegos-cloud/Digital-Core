@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Suite del pipeline de fuentes. Rompe a propósito cada garantía del contrato.
 
-Un contrato que nadie intentó violar no está verificado: está escrito. Aquí
+Un contrato que nadie intentó violar no está verificado: está escrito.
+Cubre el contrato y los dos extractores, el de documentos y el de código. Aquí
 cada una de las cuatro garantías de `contrato.py` tiene un caso que la viola y
 que debe terminar en excepción, y el caso feliz tiene cifras exactas contra el
 documento de prueba, para que una regresión en el parseo no pase como "corrió
@@ -36,6 +37,11 @@ except (AttributeError, ValueError):
 _spec = importlib.util.spec_from_file_location("doc_identidad", AQUI / "doc-identidad.py")
 di = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(di)
+
+_spec_c = importlib.util.spec_from_file_location(
+    "codigo_componentes", AQUI / "codigo-componentes.py")
+cc = importlib.util.module_from_spec(_spec_c)
+_spec_c.loader.exec_module(cc)
 
 FIXTURES = AQUI / "fixtures"
 CATALOGO = FIXTURES / "source-catalog.md"
@@ -115,6 +121,80 @@ def no_emite_driver_links():
     c = cosecha_fixture()
     assert "driver_links" not in c.por_tabla()
     assert "driver_links" not in di.DocIdentidad.tablas
+
+
+# ── El extractor de código ──────────────────────────────────────────────────
+
+def cosecha_codigo(**kw):
+    cat = contrato.Catalogo.desde(CATALOGO)
+    fuente = cat.obtener(kw.pop("fuente", "SRC-005"))
+    base = dict(raiz=str(FIXTURES / "codigo"), db="core")
+    base.update(kw)
+    return cc.CodigoComponentes().ejecutar(fuente, **base)
+
+
+def grafo_exacto():
+    c = cosecha_codigo()
+    r = c.resumen()
+    # Tres procedimientos, dos programas y cuatro llamadas que resuelven.
+    assert r["components"] == 5, r
+    assert r["component_calls"] == 4, r
+    fan = {x.a_fila()["id"]: (x.a_fila()["fan_in"], x.a_fila()["fan_out"])
+           for x in c.por_tabla()["components"]}
+    assert fan["core:sp_saldo_consulta"] == (2, 0), fan
+    assert fan["core:sp_pago_aplica"] == (0, 2), fan
+
+
+def el_codigo_entra_en_gold():
+    """El único tipo de fuente que es hecho irrefutable: es el sistema."""
+    c = cosecha_codigo()
+    assert all(r.tier == "gold" for r in c.registros), c.sellos
+    assert tiers.linaje("codigo") == "code", "debe caer en GOLD_BY_ORIGIN"
+
+
+def la_llamada_comentada_no_es_arista():
+    c = cosecha_codigo()
+    destinos = {x.a_fila()["to_component"] for x in c.por_tabla()["component_calls"]}
+    assert "core:sp_obsoleto_no_llamar" not in destinos, destinos
+
+
+def el_nombre_que_no_resuelve_no_inventa_nodo():
+    """O es dependencia externa o el árbol está incompleto. Las dos se declaran."""
+    c = cosecha_codigo()
+    ids = {x.a_fila()["id"] for x in c.por_tabla()["components"]}
+    assert "core:sp_de_otro_sistema" not in ids, ids
+    assert any("no resuelven" in (h.get("description") or "") for h in c.huecos), c.huecos
+
+
+def el_archivo_sin_perfil_se_declara():
+    c = cosecha_codigo()
+    assert any(".ini" in (h.get("description") or "") for h in c.huecos), c.huecos
+
+
+def una_rama_sin_mergear_no_es_gold():
+    """El mismo código leído igual, con otra confianza.
+
+    El tier lo pone la fuente y no el extractor: una rama sin mergear es
+    intención de cambio y no cambio efectivo, así que lo mismo que en main
+    entra gold aquí entra bronze. Y no hay sello de tope, porque el extractor
+    nunca pide por encima del techo: pedir de más se prueba en `tope_de_tier`.
+    """
+    cat = contrato.Catalogo.desde(CATALOGO)
+    rama = cc.CodigoComponentes().ejecutar(
+        cat.obtener("SRC-006"), raiz=str(FIXTURES / "codigo"), db="core")
+    main = cosecha_codigo()
+    assert all(r.tier == "bronze" for r in rama.registros), rama.resumen()
+    assert all(r.tier == "gold" for r in main.registros), main.resumen()
+    assert rama.resumen() == main.resumen(), "la lectura es la misma"
+    assert not rama.sellos, rama.sellos
+
+
+def un_arbol_vacio_lo_dice():
+    vacio = TMP / "vacio"
+    vacio.mkdir(exist_ok=True)
+    c = cosecha_codigo(raiz=str(vacio))
+    assert c.resumen().get("components", 0) == 0, c.resumen()
+    assert any("ningún componente" in (h.get("description") or "") for h in c.huecos)
 
 
 # ── Las cuatro garantías del contrato, violadas una por una ──────────────────
@@ -271,6 +351,13 @@ caso("caso feliz con cifras exactas", feliz)
 caso("procedencia hasta la línea", procedencia_hasta_la_linea)
 caso("criterio de salida: todo driver con hueco de link", criterio_de_salida)
 caso("no emite driver_links ni la declara", no_emite_driver_links)
+caso("el grafo de llamadas es exacto", grafo_exacto)
+caso("el código entra en gold por origen", el_codigo_entra_en_gold)
+caso("la llamada comentada no es arista", la_llamada_comentada_no_es_arista)
+caso("el nombre que no resuelve no inventa nodo", el_nombre_que_no_resuelve_no_inventa_nodo)
+caso("el archivo sin perfil se declara", el_archivo_sin_perfil_se_declara)
+caso("una rama sin mergear no es gold", una_rama_sin_mergear_no_es_gold)
+caso("un árbol vacío lo dice", un_arbol_vacio_lo_dice)
 caso("catálogo con tier inflado", tier_inflado, contrato.TierInflado)
 caso("tipo de fuente sin clasificar", tipo_desconocido, tiers.TipoDeFuenteDesconocido)
 caso("tier topado al natural de la fuente", tope_de_tier)

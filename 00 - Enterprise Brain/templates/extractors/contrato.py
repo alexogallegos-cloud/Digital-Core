@@ -70,6 +70,12 @@ COLUMNAS_LINAJE = {
     "driver_links":        {"tier", "source_ref"},
     "measurements":        {"tier", "source_ref"},
     "vocabulary":          {"tier", "source_ref"},
+    # Estas dos llevan tier pero no source_ref: la procedencia viaja en el
+    # registro y llega a knowledge_lineage, que es donde vive el linaje de una
+    # fila que no tiene dónde guardarlo. components tiene source_doc, que es
+    # otra cosa: el archivo del que salió, no la fuente que lo sostiene.
+    "components":          {"tier"},
+    "component_calls":     {"tier"},
     "source_catalog":      set(),
     "knowledge_gaps":      set(),
 }
