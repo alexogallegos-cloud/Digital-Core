@@ -494,4 +494,22 @@ El brain no sigue un ciclo DEV/QA/UAT/STG/PROD. Su path-to-production es:
 
 ---
 
+## Un ADR no está aprobado hasta que bajó
+
+El modo de falla más caro de este asset no fue decidir mal: fue decidir y no propagar. `ADR-EB-011`, `ADR-EB-012` y `ADR-EB-014` se aprobaron y nunca bajaron a los artefactos, al punto de que la Regla B41 terminó afirmando lo contrario de una decisión aprobada.
+
+Por eso todo ADR declara su propagación en un bloque legible por máquina, y la dimensión D8 del validador del canon la verifica:
+
+```
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS company_profile
+canon/brain-rules.md :: 24 DTs canónicos
+-->
+```
+
+Cada línea es una ruta y la cadena que debe aparecer en ella. Mientras el ADR esté en `PROPUESTO`, las aserciones pendientes se reportan como aviso: son su lista de trabajo. En cuanto pasa a `APROBADO`, cada aserción incumplida es **bloqueante**.
+
+La consecuencia práctica es que el estado `APROBADO` deja de ser una declaración de intención y pasa a ser algo que el repositorio verifica.
+
+
 *Component Delivery Agent creado: 2026-09-29 · v1.0 · Ecosistema Digital Core · Accenture México · alineado con Universal Rules DC v2.1*

@@ -3,6 +3,24 @@
 > Estado: **APROBADO** · Propuesto: 2026-11-03 · Aprobado: 2026-11-03 · Asset: Enterprise Brain · Digital Core
 > Enmienda la metodología de cuatro etapas. Lleva el CORE de 19 a 23 tablas.
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS company_profile
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS driver_links
+templates/schema.sql :: 23 tablas
+templates/build-brain.py :: def load_source_catalog
+templates/build-brain.py :: def load_driver_links
+dt/dt-brain-auditor/validate.py :: "company_profile"
+dt/dt-brain-auditor/CLAUDE.md :: `driver_links`
+canon/brain-rules.md :: 24 DTs canónicos
+canon/brain-rules.md :: `strategic_drivers`
+canon/mapa-tablas.md :: driver_links
+dt/cobertura-dt.md :: dt-client-intelligence
+dt/dt-client-intelligence/CLAUDE.md :: Client Intelligence
+knowledge-base/methodology/00-etapa-identidad.md :: Etapa 0
+knowledge-base/methodology/01-etapa-lenguaje.md :: de cinco
+reference-architecture-enterprise-brain.md :: 0 · Identidad
+-->
 ---
 
 ## Contexto

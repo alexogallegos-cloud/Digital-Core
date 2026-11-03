@@ -364,7 +364,74 @@ class CanonValidator:
         "ddl": ("DDL fuera del esquema", "d5_ddl"),
         "guardas": ("Guardas que pueden fallar", "d6_guardas"),
         "escapes": ("Escapes sin corromper", "d7_escapes"),
+        "propagacion": ("Propagación de ADRs", "d8_propagacion"),
     }
+
+    # ── D8 · Propagación de ADRs aprobados ────────────────────────────────
+    def d8_propagacion(self):
+        """
+        Un ADR aprobado que no bajó a los artefactos es el modo de falla que
+        esta auditoría encontró tres veces (EB-011, EB-012, EB-014): el canon
+        escrito terminó contradiciendo decisiones aprobadas.
+
+        El contrato: un ADR declara su propagación en un bloque legible por
+        máquina, y mientras esté en APROBADO toda aserción debe cumplirse.
+
+            <!-- PROPAGACION
+            templates/schema.sql :: 23 tablas
+            canon/brain-rules.md :: company_profile
+            -->
+
+        Cada línea es `ruta :: cadena que debe aparecer en esa ruta`. Un ADR en
+        PROPUESTO con aserciones pendientes es normal y se reporta como aviso:
+        es su lista de trabajo. Uno en APROBADO, no.
+        """
+        aprobados = pendientes = 0
+        for p in sorted((self.asset / "adr").glob("ADR-EB-*.md")):
+            txt = p.read_text(encoding="utf-8", errors="ignore")
+            # "APROBADO y ENMENDADO" también rige: \w+ no lo capturaba.
+            m_est = re.search(r"Estado:\s*\*\*([^*]+)\*\*", txt)
+            estado = m_est.group(1).strip().upper() if m_est else "SIN_ESTADO"
+            aprobado = "APROBADO" in estado
+            bloque = re.search(r"<!--\s*PROPAGACION\s*(.*?)-->", txt, re.S)
+
+            if estado == "SIN_ESTADO":
+                self.add("propagacion", SEV_AVISO,
+                         "no declara Estado: no se puede saber si rige", self.rel(p))
+                continue
+            if aprobado:
+                aprobados += 1
+            if not bloque:
+                if aprobado:
+                    self.add("propagacion", SEV_AVISO,
+                             "aprobado sin bloque PROPAGACION: su bajada a los "
+                             "artefactos no es verificable", self.rel(p))
+                continue
+
+            sev = SEV_BLOQ if aprobado else SEV_AVISO
+            for linea in bloque.group(1).splitlines():
+                linea = linea.strip()
+                if not linea or linea.startswith("#"):
+                    continue
+                if "::" not in linea:
+                    self.add("propagacion", SEV_BLOQ,
+                             f"línea de PROPAGACION mal formada: {linea[:60]}", self.rel(p))
+                    continue
+                ruta, esperado = (x.strip() for x in linea.split("::", 1))
+                destino = self.asset / ruta
+                if not destino.exists():
+                    pendientes += 1
+                    self.add("propagacion", sev,
+                             f"{estado}: la ruta de propagación no existe: {ruta}", self.rel(p))
+                    continue
+                cuerpo = destino.read_text(encoding="utf-8", errors="ignore")
+                if esperado not in cuerpo:
+                    pendientes += 1
+                    self.add("propagacion", sev,
+                             f"{estado}: {ruta} no contiene «{esperado[:45]}»", self.rel(p))
+
+        self.stats["adrs_aprobados"] = aprobados
+        self.stats["propagacion_pendiente"] = pendientes
 
     def run(self, solo=None):
         for clave, (_, metodo) in self.DIMS.items():

@@ -3,6 +3,14 @@
 > Estado: **APROBADO** · Propuesto: 2026-10-16 · Aprobado: 2026-10-16 · Asset: Enterprise Brain · Digital Core
 > Formaliza la tabla que `dt-source-steward` ya opera. Enmienda el conteo del CORE de ADR-EB-013.
 
+
+<!-- PROPAGACION
+templates/schema.sql :: CREATE TABLE IF NOT EXISTS source_catalog
+dt/dt-brain-auditor/validate.py :: "source_catalog"
+dt/dt-brain-auditor/CLAUDE.md :: `source_catalog`
+canon/brain-rules.md :: `source_catalog`
+canon/mapa-tablas.md :: source_catalog
+-->
 ---
 
 ## Contexto
