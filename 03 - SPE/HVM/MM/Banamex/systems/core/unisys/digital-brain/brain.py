@@ -181,12 +181,23 @@ class GemCogBrain:
         )
         return [dict(r) for r in rows]
 
+    # La columna `regulador` expresa la ausencia de regulador externo de al
+    # menos cinco formas distintas: '—' (438), 'Interno' (428), 'N/A' (175),
+    # 'N/A — control interno', 'N/A — operacional' y vacío. Por eso el filtro
+    # es POSITIVO, por nombre de regulador: excluir una lista de literales
+    # dejaba pasar 1,400 de 1,583 reglas bajo un método que promete
+    # "norma regulatoria explícita".
+    _REGULADORES = (
+        "regulador LIKE '%CNBV%' OR regulador LIKE '%Banxico%' "
+        "OR regulador LIKE '%SAT%' OR regulador LIKE '%IPAB%' "
+        "OR regulador LIKE '%CONDUSEF%' OR regulador LIKE '%UIF%'"
+    )
+
     def rules_with_regulator(self, sistema: str | None = None) -> list[dict]:
-        """Reglas con norma regulatoria explícita (no N/A)."""
+        """Reglas con norma regulatoria externa explícita."""
         sql = (
             "SELECT rule_id, nombre, bc_id, programa, regulador FROM rules "
-            "WHERE regulador NOT IN ('N/A', 'N/A — control de integridad', '') "
-            "AND regulador IS NOT NULL"
+            f"WHERE ({self._REGULADORES})"
         )
         params: list = []
         if sistema:
@@ -339,12 +350,11 @@ class GemCogBrain:
         return [dict(r) for r in rows]
 
     def regulatory_rules_by_cap(self) -> list[dict]:
-        """Reglas con norma regulatoria, agrupadas por capacidad."""
-        rows = self._q("""
+        """Reglas con norma regulatoria externa, agrupadas por capacidad."""
+        rows = self._q(f"""
             SELECT bc_id, COUNT(*) n, GROUP_CONCAT(DISTINCT regulador) normas
             FROM rules
-            WHERE regulador NOT IN ('N/A', 'N/A — control de integridad', '')
-              AND regulador IS NOT NULL
+            WHERE ({self._REGULADORES})
             GROUP BY bc_id
             ORDER BY n DESC
         """)

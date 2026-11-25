@@ -27,7 +27,7 @@ Uso:
   python build-brain.py
 """
 
-import sqlite3, re, sys
+import sqlite3, re, sys, os, subprocess
 from pathlib import Path
 
 BASE   = Path(__file__).parent
@@ -1889,6 +1889,22 @@ def main():
 
     conn.close()
     print(f"\nbrain.db → {DB}")
+
+    # Capa canónica del Enterprise Brain. Va encadenada y no como paso suelto
+    # porque este script ARRANCA borrando brain.db: si la alineación quedara
+    # como un comando aparte, cualquier rebuild dejaría el brain sin las tablas
+    # del canon mientras la documentación sigue afirmando que las tiene.
+    canon = Path(__file__).resolve().parent / "build-canon.py"
+    if canon.exists():
+        print()
+        rc = subprocess.run(
+            [sys.executable, str(canon), "--db", str(DB), "--report"],
+            env={**os.environ, "PYTHONUTF8": "1"},
+        ).returncode
+        if rc != 0:
+            print("  AVISO: la alineación al canon terminó con error.")
+    else:
+        print("  AVISO: no se encontró build-canon.py; brain sin capa canónica.")
 
 if __name__ == "__main__":
     main()
