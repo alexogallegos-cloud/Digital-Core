@@ -2,7 +2,9 @@
 build-vocab-v1.py — Vocabulario BanCoppel v1.0
 
 Sincroniza el vocabulario de Informix (634 términos) como semilla del
-vocabulario canónico del banco. Es la v1: todos los términos heredan
+vocabulario canónico del banco, y recoge los aportes de los demás sistemas
+desde `systems/*/*/knowledge-base/vocab/*.json` (Regla V1: el sistema propone,
+bank-brain es la autoridad). Es la v1: todos los términos heredan
 source_systems=["informix"] y maturity="live" (vienen de código verificado).
 
 Salida:
@@ -23,6 +25,12 @@ Scope rules (heurístico v1):
 import json
 import re
 import sqlite3
+import sys
+
+# La consola de Windows es cp1252 y el preview del final imprime una flecha:
+# sin esto el script muere al terminar, despues de haber escrito todo, y sale
+# con codigo de error aunque el trabajo este hecho.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from datetime import date
 from pathlib import Path
 
@@ -102,7 +110,65 @@ print(f"  enterprise: {scope_counts['enterprise']}  "
       f"system: {scope_counts['system']}  "
       f"review: {scope_counts['review']}")
 
-# ── 3. Escribir JSON ───────────────────────────────────────────────────────────
+# -- 2b. Aportes de los sistemas (Regla V1) -----------------------------------
+# V1 dice que cada sistema es contribuidor y bank-brain la autoridad, pero hasta
+# aqui el pipeline solo leia Informix: los terminos que aportaba otro sistema no
+# tenian por donde entrar y se quedaban en su carpeta. Esto cierra ese tramo.
+#
+# Los aportes llegan con scope 'review' a proposito. Entrar al vocabulario no es
+# lo mismo que ser canonico: la curacion decide si suben a 'enterprise', y los
+# conflictos de significado los resuelve el SME de dominio, no este script
+# (Regla V2).
+print("\nAportes de los sistemas (Regla V1):")
+ya = {t["term"].lower() for t in terms}
+aportes = confirmados = 0
+for ruta in sorted(BASE.glob("systems/*/*/knowledge-base/vocab/*.json")):
+    sistema = ruta.parts[-5]
+    try:
+        d = json.loads(ruta.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"  {ruta.name}: ilegible ({e})")
+        continue
+    nuevos = 0
+    for t in d.get("terms", []):
+        nombre = (t.get("term") or "").strip()
+        if not nombre:
+            continue
+        clave = nombre.lower()
+        if clave in ya:
+            # El sistema confirma un termino que el banco ya tenia: se anota como
+            # fuente adicional y no se duplica la fila.
+            for existente in terms:
+                if existente["term"].lower() == clave:
+                    origen = d.get("source_system", sistema)
+                    if origen not in existente["source_systems"]:
+                        existente["source_systems"].append(origen)
+                        confirmados += 1
+                    break
+            continue
+        fila = {
+            "term":           nombre,
+            "cat":            (t.get("cat") or "ENTIDAD").upper(),
+            "meaning":        t.get("meaning") or "",
+            "est":            t.get("est") or "conf",
+            "nivel":          t.get("nivel") or "MEDIA",
+            "scope":          "review",
+            "source_systems": [d.get("source_system", sistema)],
+            "maturity":       t.get("maturity") or "live",
+        }
+        for opcional in ("sigla", "ingles", "source_ref"):
+            if t.get(opcional):
+                fila[opcional] = t[opcional]
+        terms.append(fila)
+        scope_counts["review"] += 1
+        ya.add(clave)
+        nuevos += 1
+    aportes += nuevos
+    print(f"  {d.get('source_system', sistema):<12} {nuevos:>3} nuevos de {len(d.get('terms', []))}")
+
+print(f"  propuestos: {aportes}  ·  confirmaciones de terminos existentes: {confirmados}")
+
+# -- 3. Escribir JSON ---------------------------------------------------------──────
 payload = {
     "generated":     GENERATED,
     "version":       VERSION,

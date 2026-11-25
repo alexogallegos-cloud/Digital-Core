@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mitigación de capacidad de Caja</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#3D5FCD;--blued:#122FB1;--yellow:#F0D224;--yellow2:#f6e27a;
+ --ink:#F4F6FF;--muted:#aab3d4;--muted2:#818ab0;--glass:rgba(255,255,255,.055);--glassb:rgba(255,255,255,.10)}
+body{background:#060a1a;color:var(--ink);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aurora::before{content:"";position:absolute;width:62vw;height:62vw;left:-12vw;top:-16vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(27,63,208,.45),transparent 70%)}
+.aurora::after{content:"";position:absolute;width:40vw;height:40vw;right:-10vw;bottom:-12vw;border-radius:50%;filter:blur(90px);background:radial-gradient(circle,rgba(240,210,36,.16),transparent 70%)}
+.hero-bar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:18px;padding:14px 32px;
+ backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+ background:rgba(6,10,26,.6);border-bottom:1px solid rgba(255,255,255,.06)}
+.hero-bar img{height:34px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.hero-bar .hb-sep{width:1px;height:28px;background:rgba(255,255,255,.15)}
+.hero-bar .crumb{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.hero-bar .crumb em{color:var(--yellow);font-style:normal}
+.hero-bar .hb-sp{flex:1}
+.hero-bar a.back{font-size:12px;color:var(--muted);padding:6px 13px;border-radius:20px;border:1px solid rgba(255,255,255,.09);text-decoration:none;transition:.22s;white-space:nowrap}
+.hero-bar a.back:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.wrap{max-width:1260px;margin:0 auto;padding:0 30px}
+.head{padding:96px 0 26px}
+.kick{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--yellow);margin-bottom:11px}
+.head h1{font-size:clamp(26px,4vw,42px);font-weight:900;letter-spacing:-.03em;line-height:1.05;
+ background:linear-gradient(176deg,#fff 36%,#9fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.head p{color:var(--muted);font-size:14px;margin-top:14px;max-width:84ch;line-height:1.7}
+.head p b{color:#e4eaff;font-weight:600}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.sb{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 20px;min-width:96px}
+.sb .sn{font-size:24px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;
+ background:linear-gradient(135deg,var(--yellow),var(--yellow2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb.b .sn{background:linear-gradient(135deg,#93c5fd,#6f8ce6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb .sl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin-top:5px}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.legend-item{font-size:11px;color:var(--muted2);background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);
+ border-radius:10px;padding:6px 11px;display:flex;gap:8px;align-items:baseline}
+.legend-item b{color:#c9d3f5;font-weight:600}
+.legend-item span{font-variant-numeric:tabular-nums;color:var(--yellow);font-weight:700}
+.bar{position:sticky;top:62px;z-index:40;display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:14px 0;
+ background:linear-gradient(180deg,#060a1a 72%,transparent)}
+input[type=search],select{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;
+ color:var(--ink);font-size:12.5px;padding:9px 12px;font-family:inherit;outline:none;transition:.2s}
+input[type=search]{flex:1;min-width:230px}
+input[type=search]:focus,select:focus{border-color:rgba(240,210,36,.5);background:rgba(255,255,255,.08)}
+select option{background:#101733;color:#fff}
+.chip{font-size:11.5px;font-weight:600;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+ border-radius:20px;padding:8px 14px;cursor:pointer;transition:.2s;user-select:none}
+.chip:hover{color:var(--ink);background:rgba(255,255,255,.09)}
+.chip.on{color:#10101e;background:var(--yellow);border-color:var(--yellow);font-weight:700}
+a.dl{font-size:11.5px;font-weight:700;color:var(--yellow);text-decoration:none;border:1px solid rgba(240,210,36,.35);
+ background:rgba(240,210,36,.08);border-radius:20px;padding:8px 14px;white-space:nowrap}
+a.dl:hover{background:rgba(240,210,36,.16)}
+.count{font-size:12px;color:var(--muted2);padding:4px 0 14px;font-variant-numeric:tabular-nums}
+.count b{color:var(--yellow);font-weight:700}
+.tc{border:1px solid rgba(255,255,255,.07);border-left-width:3px;border-radius:13px;background:rgba(255,255,255,.028);
+ margin-bottom:9px;transition:.18s}
+.tc:hover{background:rgba(255,255,255,.055)}
+.tc.p1{border-left-color:#ff8787}.tc.p2{border-left-color:#74c0fc}.tc.p3{border-left-color:rgba(255,255,255,.14)}
+.tch{display:flex;gap:14px;align-items:center;padding:14px 18px;cursor:pointer}
+.tcid{font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted2);min-width:148px;flex-shrink:0}
+.tct{flex:1;font-size:13.5px;color:#e4eaff;font-weight:600;line-height:1.45}
+.tags{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.tag{font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:8px;white-space:nowrap}
+.t-tec{color:#c9d3f5;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.t-dom{color:var(--muted2);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-family:'SF Mono',ui-monospace,monospace}
+.t-reg{color:#8fd3a0;background:rgba(143,211,160,.1);border:1px solid rgba(143,211,160,.28)}
+.t-risk{color:#ffa94d;background:rgba(255,169,77,.12);border:1px solid rgba(255,169,77,.3)}
+.t-p1{color:#ff8787;background:rgba(255,135,135,.12);border:1px solid rgba(255,135,135,.3)}
+.t-p2{color:#74c0fc;background:rgba(116,192,252,.1);border:1px solid rgba(116,192,252,.26)}
+.t-p3{color:var(--muted2);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.det{padding:4px 18px 18px 18px;border-top:1px solid rgba(255,255,255,.06);margin-top:2px}
+.gw{display:grid;grid-template-columns:70px 1fr;gap:7px 14px;margin-top:14px}
+.gk{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--yellow);padding-top:3px}
+.gv{font-size:13px;color:var(--muted);line-height:1.6}
+.ev{margin-top:14px;padding:12px 15px;border-radius:10px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07)}
+.evk{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);margin-bottom:7px}
+.evv{font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:11.5px;color:#c9d3f5;line-height:1.6;word-break:break-word}
+.evm{font-size:11.5px;color:var(--muted2);margin-top:9px;display:flex;gap:16px;flex-wrap:wrap}
+.evm b{color:#c9d3f5;font-weight:600}
+table.dt{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+table.dt th{text-align:left;font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--muted2);padding:7px 10px 7px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+table.dt td{padding:8px 10px 8px 0;border-bottom:1px solid rgba(255,255,255,.05);color:var(--muted);vertical-align:top}
+table.dt tr:last-child td{border-bottom:none}
+table.dt td.val{color:var(--yellow);font-weight:700}
+.mono{font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:11.5px;color:#c9d3f5}
+.pager{display:flex;gap:9px;align-items:center;justify-content:center;padding:26px 0 60px}
+.pager button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:var(--ink);
+ font-size:12.5px;font-family:inherit;padding:9px 16px;cursor:pointer;transition:.2s}
+.pager button:hover:not(:disabled){background:rgba(255,255,255,.1)}
+.pager button:disabled{opacity:.3;cursor:default}
+.pager .pg{font-size:12px;color:var(--muted2);font-variant-numeric:tabular-nums;min-width:132px;text-align:center}
+.empty{text-align:center;padding:60px 0;color:var(--muted2);font-size:14px}
+footer{text-align:center;padding:36px 30px 60px;font-size:11.5px;color:var(--muted2);border-top:1px solid rgba(255,255,255,.06);line-height:1.8}
+footer code{font-family:'SF Mono',ui-monospace,monospace}
+
+.bloque{margin:34px 0}
+.bloque h2{font-size:19px;margin:0 0 6px;letter-spacing:-.01em}
+.bloque .sub{color:rgba(255,255,255,.55);font-size:13px;margin:0 0 16px;max-width:76ch;line-height:1.65}
+.bloque p{color:rgba(255,255,255,.72);font-size:13.5px;line-height:1.75;max-width:80ch;margin:0 0 12px}
+.destacado{border-left:3px solid var(--accent);background:rgba(240,210,36,.05);
+  padding:16px 20px;border-radius:0 8px 8px 0;margin:18px 0}
+.destacado p{margin:0;color:rgba(255,255,255,.85)}
+.acc{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.acc:last-child{border-bottom:0}
+.acc-n{flex:0 0 32px;height:32px;border-radius:50%;background:rgba(240,210,36,.12);
+  color:var(--accent);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px}
+.acc-b{flex:1;min-width:0}
+.acc h3{font-size:15px;margin:4px 0 6px;letter-spacing:-.01em}
+.acc-compra{color:rgba(255,255,255,.82);font-size:13.5px;line-height:1.6;margin:0 0 8px}
+.acc-desc{color:rgba(255,255,255,.52);font-size:12.5px;line-height:1.65;margin:0 0 10px;max-width:84ch}
+.acc-meta{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.06);
+  color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.08)}
+.chip-si{background:rgba(133,77,14,.22);color:#f0c674;border-color:rgba(240,198,116,.25)}
+.chip-no{background:rgba(26,92,48,.22);color:#7fcf99;border-color:rgba(127,207,153,.25)}
+table.pron{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+table.pron th{text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.4);font-weight:600;padding:8px 12px 8px 0;
+  border-bottom:1px solid rgba(255,255,255,.1)}
+table.pron td{padding:11px 12px 11px 0;border-bottom:1px solid rgba(255,255,255,.06);
+  color:rgba(255,255,255,.72);vertical-align:top;line-height:1.55}
+table.pron td:first-child{color:#fff;font-weight:600;white-space:nowrap}
+table.pron td.cifra{color:var(--accent);font-weight:600;white-space:nowrap}
+.aviso{border-left:3px solid #f0c674;background:rgba(240,198,116,.07);padding:13px 18px;
+  border-radius:0 8px 8px 0;margin:16px 0 0;color:#f0c674;font-size:12.5px;line-height:1.65}
+.procedencia{color:rgba(255,255,255,.5);font-size:12px;line-height:1.7;font-style:italic;
+  max-width:80ch;margin:0 0 10px}
+</style></head><body>
+<div class="aurora"></div>
+
+<div class="hero-bar">
+  <img src="bancoppel-logo.png" alt="BanCoppel">
+  <div class="hb-sep"></div>
+  <span class="crumb">BANK-BRAIN &nbsp;·&nbsp; SPE-AM-001 &nbsp;·&nbsp; <em>Mitigación</em></span>
+  <span class="hb-sp"></span>
+  
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <div class="kick">Plan sin despliegue</div>
+    <h1>Mitigación de capacidad de Caja</h1>
+    <p>Qué se puede hacer antes del Buen Fin sin desplegar código, qué requiere firma y qué no alcanza a evitarse. Las acciones y su nivel de autonomía salen del catálogo del brain; el orden y la fecha son editoriales.</p>
+    <div class="stats"><div class="sb"><div class="sn">7</div><div class="sl">Acciones</div></div><div class="sb"><div class="sn">6</div><div class="sl">Requieren firma</div></div><div class="sb b"><div class="sn">1</div><div class="sl">Preautorizables</div></div><div class="sb"><div class="sn">A1</div><div class="sl">Nivel efectivo hoy</div></div></div>
+    <div class="legend"><div class="legend-item"><b>Sustento</b><span>silver</span></div><div class="legend-item"><b>Ninguna requiere</b><span>Despliegue</span></div><div class="legend-item"><b>Regla</b><span>B39</span></div></div>
+  </div>
+
+    <div class="bloque">
+      <h2>La pregunta que destraba todo lo demás</h2>
+      <div class="destacado">
+        <p><b>¿El dimensionamiento del grupo de ejecución de Caja también está bloqueado,
+        o sólo el plugin del servidor web?</b></p>
+      </div>
+      <p>Son dos artefactos distintos y dos equipos distintos. El plugin vive en
+      <code>plugin-cfg.xml</code> del IBM HTTP Server, el servidor web que está al frente.
+      El grupo de ejecución, que es el proceso del bus que atiende el puerto 7806 y que IBM
+      renombró a Integration Server desde la versión 10, se administra del lado del broker.
+      Lo que quedó bloqueado fue el plugin; del otro nadie ha dicho nada.</p>
+      <p>Importa porque es la única palanca que baja la latencia, y la latencia es el motor
+      real. Con Caja respondiendo en 100 milisegundos harían falta más de 30,000 llamadas por
+      minuto para agotar el tope de conexiones; con Caja en 5 segundos bastan 8,000. El tope
+      sólo se alcanza cuando Caja ya está lenta, así que las demás acciones trabajan alrededor
+      del síntoma.</p>
+    </div>
+
+    <div class="bloque">
+      <h2>Las acciones, en orden de ejecución</h2>
+      <p class="sub">Ninguna requiere despliegue. Seis de siete requieren firma igual, porque
+      caen en los cuatro tipos que nunca bajan de nivel A3 y siempre exigen aprobación
+      explícita del rol responsable.</p>
+      
+    <article class="acc">
+      <div class="acc-n">1</div>
+      <div class="acc-b">
+        <h3>Configurar alertas sobre http_plugin.log y error.log del IHS</h3>
+        <p class="acc-compra">Enterarse a las 11:40 y no por los tickets de las 18:51.</p>
+        <p class="acc-desc">Marking down, maximum connections y 5xx hacia Caja, con los umbrales de la lamina de indicadores. Crea reglas de alerta nuevas y no toca el servicio: es la unica del workaround que puede ir preautorizada.</p>
+        <div class="acc-meta">
+          <span class="chip chip-no">Requiere firma: No</span>
+          <span class="chip">Nivel autorizado: A2</span>
+          <span class="chip">Rol responsable: Capacity and Availability Manager</span>
+          <span class="chip">Cuándo: Mañana</span>
+        </div>
+      </div>
+    </article>
+    <article class="acc">
+      <div class="acc-n">2</div>
+      <div class="acc-b">
+        <h3>Corregir el permiso de Cluster_27 hacia el puerto 7824</h3>
+        <p class="acc-compra">Limpia las marcas falsas que ensucian la señal de las alertas.</p>
+        <p class="acc-desc">Se marca caido cada dos minutos todo el mes por OS err=13. Habilitante de las alertas: ensucia justo la senal del http_plugin.log sobre la que se quiere alertar. Nunca baja de A3 por consecuencia regulatoria: tocar permisos de red entra en el alcance de PCI-DSS. Clasificada asi de forma conservadora, y aflojarla le toca al risk owner, no al brain.</p>
+        <div class="acc-meta">
+          <span class="chip chip-si">Requiere firma: Sí</span>
+          <span class="chip">Nivel autorizado: A3</span>
+          <span class="chip">Rol responsable: IT Risk Manager</span>
+          <span class="chip">Cuándo: Mañana</span>
+        </div>
+      </div>
+    </article>
+    <article class="acc">
+      <div class="acc-n">3</div>
+      <div class="acc-b">
+        <h3>Bajar a 1 el parametro 150 NUMERO_INTENTOS_WS_BUS</h3>
+        <p class="acc-compra">Rompe la espiral: el 12 por ciento de carga que la falla se genera sola.</p>
+        <p class="acc-desc">Apaga los reintentos inmediatos del cliente SOAP de CPlaSu contra el BUS. El valor seguro es 1: la condicion es intentos == numIntentosWs arrancando en cero, asi que 0 truena la primera llamada de toda operacion de ventanilla. Es dato en DB2, no codigo, asi que no requiere despliegue; requiere firma igual. Nunca baja de A3 porque las operaciones de ventanilla que ocurran mientras este puesto quedan hechas: revertir el parametro no revierte lo que paso con los clientes en esa ventana.</p>
+        <div class="acc-meta">
+          <span class="chip chip-si">Requiere firma: Sí</span>
+          <span class="chip">Nivel autorizado: A3</span>
+          <span class="chip">Rol responsable: Change Manager</span>
+          <span class="chip">Cuándo: Jueves</span>
+        </div>
+      </div>
+    </article>
+    <article class="acc">
+      <div class="acc-n">4</div>
+      <div class="acc-b">
+        <h3>Redactar el parametro 151 MENSAJE_INTENTOS_WS_BUS</h3>
+        <p class="acc-compra">Que el error que ahora sí se ve diga qué hacer.</p>
+        <p class="acc-desc">Es el texto que ve el cajero al agotarse los intentos. Va de la mano del 150: con un solo intento el error transitorio deja de absorberse y le llega al cajero. Nunca baja de A3 porque es texto de cara al cliente y lo que se le dijo mal ya se le dijo.</p>
+        <div class="acc-meta">
+          <span class="chip chip-si">Requiere firma: Sí</span>
+          <span class="chip">Nivel autorizado: A3</span>
+          <span class="chip">Rol responsable: Change Manager</span>
+          <span class="chip">Cuándo: Jueves</span>
+        </div>
+      </div>
+    </article>
+    <article class="acc">
+      <div class="acc-n">5</div>
+      <div class="acc-b">
+        <h3>Bajar los reintentos de reenvio de huella, parametro 916</h3>
+        <p class="acc-compra">Lo mismo sobre el segundo amplificador, el reenvío de huella.</p>
+        <p class="acc-desc">Mismo mecanismo sobre el segundo amplificador. El evento del 14 de octubre fue de huella y agoto los 1,200 hilos del IHS de puresys14. Nunca baja de A3 por la misma razon que el 150: afecta identificacion de clientes en vivo.</p>
+        <div class="acc-meta">
+          <span class="chip chip-si">Requiere firma: Sí</span>
+          <span class="chip">Nivel autorizado: A3</span>
+          <span class="chip">Rol responsable: Change Manager</span>
+          <span class="chip">Cuándo: Jueves</span>
+        </div>
+      </div>
+    </article>
+    <article class="acc">
+      <div class="acc-n">6</div>
+      <div class="acc-b">
+        <h3>Subir el entitlement de los IHS de 0.7 a 1.5-2 en la HMC</h3>
+        <p class="acc-compra">Seguro contra inanición del pool compartido. No es un arreglo.</p>
+        <p class="acc-desc">LPAR dinamica, sin reinicio. Seguro contra inanicion del pool compartido, que bajo a 0.86 CPU libres el 16 de octubre a las 17:45. No es un arreglo: ninguna capa satura CPU. Nunca baja de A3 porque mueve capacidad de un pool compartido y puede dejar corta a otra LPAR que nadie esta mirando.</p>
+        <div class="acc-meta">
+          <span class="chip chip-si">Requiere firma: Sí</span>
+          <span class="chip">Nivel autorizado: A3</span>
+          <span class="chip">Rol responsable: Change Manager</span>
+          <span class="chip">Cuándo: Lunes</span>
+        </div>
+      </div>
+    </article>
+    <article class="acc">
+      <div class="acc-n">7</div>
+      <div class="acc-b">
+        <h3>Dimensionar el grupo de ejecucion Caja del BUS para quincena</h3>
+        <p class="acc-compra">Lo único que baja la latencia, que es el motor real.</p>
+        <p class="acc-desc">Hilos del listener, instancias y backlog del EG 7806 a 2x la carga normal. Vive del lado del broker IIB, NO del plugin del IHS: son artefactos y equipos distintos. Es la unica accion que ataca la latencia, que es el motor real del techo de conexiones. Pendiente confirmar si tambien esta bloqueada o solo lo esta el plugin.</p>
+        <div class="acc-meta">
+          <span class="chip chip-si">Requiere firma: Sí</span>
+          <span class="chip">Nivel autorizado: A3</span>
+          <span class="chip">Rol responsable: Change Manager</span>
+          <span class="chip">Cuándo: Por confirmar</span>
+        </div>
+      </div>
+    </article>
+    </div>
+
+    <div class="bloque">
+      <h2>Por qué seis de siete necesitan firma</h2>
+      <p>El criterio son dos razones, no una: o el efecto sobre lo que ya ocurrió no se
+      recupera, o hay consecuencia regulatoria directa. Conviene no colapsarlas en la palabra
+      irreversible, porque describe mal la causa.</p>
+      <p>Cinco lo son por cambio en producción. El parámetro 150, por ejemplo, sí se revierte
+      con otro UPDATE en segundos. Lo que no se revierte son las operaciones de ventanilla que
+      ocurrieron mientras estuvo puesto: deshacer la configuración no deshace lo que pasó con
+      esos clientes. La sexta, el permiso del clúster de reportería, lo es por la otra razón,
+      porque tocar permisos de red entra en el alcance de PCI-DSS.</p>
+      <p>La única que puede ir preautorizada son las alertas, porque crean reglas nuevas de
+      monitoreo y no tocan el servicio.</p>
+    </div>
+
+    <div class="bloque">
+      <h2>Tres cosas que conviene tener claras antes de decidir</h2>
+      <p><b>El parámetro 150 va a 1, nunca a 0.</b> La condición en el código es
+      <code>intentos == numIntentosWs</code> arrancando en cero: con 1 hay un intento y ningún
+      reintento, y con 0 truena la primera llamada de toda operación de ventanilla. Antes de
+      proponerlo hay que leer su valor vigente en DB2, que no está en el código porque es dato.
+      Si ya estuviera en 1, el 12 por ciento medido viene de otro lado.</p>
+      <p><b>El timeout no se puede arreglar sin despliegue, sólo los reintentos.</b> No hay un
+      solo parámetro de timeout entre los 188 de la tabla, y el cliente SOAP construye su
+      <code>HttpClient</code> sin ningún <code>RequestConfig</code>, o sea sin timeout de
+      conexión, de socket ni de solicitud. Cada intento fallido seguirá costando los 20
+      segundos de <code>ConnectTimeout</code> del plugin; lo único que se logra es dejar de
+      multiplicarlos.</p>
+      <p><b>El plan no evita el evento del viernes.</b> El 12 por ciento es amplificación y no
+      demanda: aparece cuando ya empezaron los errores 5xx. Lo que el plan le quita al evento
+      es la espiral, no el evento.</p>
+      <p class="procedencia">Las cifras de esta tabla no salen del brain: están tomadas del
+      diagnóstico de performance en sucursales de octubre de 2026, que las construyó con
+      multiplicadores de quincena sobre el pico normal. Son un pronóstico con supuestos, no una
+      medición, y el propio diagnóstico deja el perfil de quincena por confirmar con negocio.</p>
+      <table class="pron">
+        <tr><th scope="col">Fecha</th><th scope="col">Motivo</th><th scope="col">Llamadas por minuto</th><th scope="col">Comportamiento esperado</th></tr>
+        <tr><td>Viernes 13 de noviembre</td><td>Quincena, con el 15 en domingo, y arranque del Buen Fin</td><td class='cifra'>8,039 a 9,825</td><td>Falla con errores 5xx todo el día</td></tr><tr><td>Sábado 14 de noviembre</td><td>Quincena y Buen Fin</td><td class='cifra'>5,806 a 8,039</td><td>Falla con errores 5xx todo el día</td></tr><tr><td>15 y 16 de noviembre</td><td>Buen Fin</td><td class='cifra'>4,913 a 6,252</td><td>Degradación de 11 a 19 horas</td></tr>
+      </table>
+      <p>Contra los 7,939 que tiraron el servicio el 16 de octubre, el viernes se esperan hasta
+      9,825. Ninguna combinación de parámetros cierra esa brecha.</p>
+    </div>
+
+    <div class="bloque">
+      <h2>Qué haría hoy</h2>
+      <p>Dos consultas, no dos cambios, y destraban el resto: preguntar por el estado del
+      grupo de ejecución y leer el parámetro 150 en DB2. La segunda además es el requisito
+      formal para que estas acciones pasen de proponer a poder ejecutarse, porque los niveles
+      A2 y A3 exigen conocimiento gold y hoy el sustento es silver.</p>
+    </div>
+</div>
+
+<footer>
+  Generado el 2026-11-11 por <code>generators/build-mitigacion-portal.py</code> desde <code>bank-brain.db::action_catalog</code> y <code>::actions</code>. Evidencia: diagnóstico de performance en sucursales de octubre de 2026 y el fuente de CPlaSu.
+</footer>
+
+<script></script>
+</body></html>

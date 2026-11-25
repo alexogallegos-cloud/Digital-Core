@@ -287,6 +287,8 @@ def slug_from_folder(folder_name: str) -> str:
         "PROSA":          "prosa-switch",
         "SmartVista":     "smartvista",
         "WesternUnion":   "western-union",
+        "BUS":            "bus",
+        "OFI":            "ofi",
         "CoDi":           "codi-banxico",
         "ControlM":       "controlm",
         "EGlobal":        "e-global",

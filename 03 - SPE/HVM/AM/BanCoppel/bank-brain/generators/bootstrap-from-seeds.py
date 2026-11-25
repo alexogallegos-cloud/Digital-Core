@@ -40,6 +40,8 @@ FOLDER_NAME: dict[str, str] = {
     "smartvista":         "SmartVista",
     "western-union":      "WesternUnion",
     # integration
+    "bus":                "BUS",
+    "ofi":                "OFI",
     "codi-banxico":       "CoDi",
     "controlm":           "ControlM",
     "e-global":           "EGlobal",
@@ -88,6 +90,8 @@ ABB: dict[str, str] = {
     "prosa-switch":       "card-processing",
     "smartvista":         "card-processing",
     "western-union":      "remittance",
+    "bus":                "esb-message-broker",
+    "ofi":                "branch-origination",
     "codi-banxico":       "instant-payments",
     "controlm":           "batch-orchestration",
     "e-global":           "payment-authorization",
@@ -114,6 +118,22 @@ EXTERNAL_SYSTEMS = {
     "spei-banxico", "codi-banxico", "spid-usd",
     "western-union", "moneygram", "buro-de-credito",
     "grandata", "prosa-switch",
+}
+
+# Un sistema, un nombre. Mismo criterio que `dep_aliases` del grafo: sin esto,
+# un emisor que llama `pld` a lo que la flota llama `pld-minds` hace que se
+# abra una carpeta nueva al lado de la que ya existe.
+SEED_ALIASES: dict[str, str] = {
+    "pld":            "pld-minds",
+    "bus-iib":        "bus",
+    "ofi-tradicional": "ofi",
+    "ofi-web":        "siweb",
+    "ofiweb":         "siweb",
+    "ibm-bus":        "bus",
+    "pisa":           "informix",
+    "eglobal":        "e-global",
+    "appmovil":       "app-movil",
+    "banca-internet": "banca-x-internet",
 }
 
 TODAY = date.today().isoformat()
@@ -221,8 +241,16 @@ def collect_all_seeds() -> dict[str, dict]:
             manifest = json.load(f)
         seeds_dir = manifest_path.parent
         for entry in manifest.get("seeds", []):
-            slug = entry["target_system"]
-            seed_file = seeds_dir / f"{slug}-seed.json"
+            # Dos formatos de manifiesto conviven en la flota: el de Informix
+            # nombra el destino `target_system` y el de los brains nuevos lo
+            # nombra `target`. El nombre del archivo esta en los dos, y el seed
+            # en si siempre trae el destino, el tipo TOGAF y la relacion; el
+            # manifiesto solo sirve para saber que archivos leer.
+            slug = entry.get("target_system") or entry.get("target")
+            if not slug:
+                continue
+            slug = SEED_ALIASES.get(slug, slug)
+            seed_file = seeds_dir / entry.get("file", f"{slug}-seed.json")
             if seed_file.exists():
                 with open(seed_file, encoding="utf-8") as f:
                     seed_data = json.load(f)

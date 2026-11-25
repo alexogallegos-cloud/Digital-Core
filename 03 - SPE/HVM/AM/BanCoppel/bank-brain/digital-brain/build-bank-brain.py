@@ -8,7 +8,8 @@ Crea bank-brain.db que integra:
   - Roadmap de releases Unity
 """
 
-import sqlite3, os, re, sys, shutil, tempfile
+import sqlite3
+import sys, os, re, sys, shutil, tempfile
 from pathlib import Path
 from datetime import datetime
 
@@ -621,6 +622,45 @@ def build():
          "Descubierto: inventario CTM 2026-08-12. 56 jobs en servidores Python "
          "(dccpyt01/dcmpyt01). DR-PT-001 pendiente: vendor vs desarrollo interno.",
          "channels", "baseline", "live", "unknown"),
+        ("siweb",      "SIWEB / Ventanilla de Sucursal", "legacy", "active",
+         "JavaFX por Java Web Start + Spring MVC sobre EAR (proveedor Solser)",
+         "Canal de sucursal, ventanilla y caja. ID 60 del inventario As-Is, alias OFI_WEB. "
+         "Cubre caja, depósitos, retiros, remesas, alta única de clientes y productos, "
+         "mantenimiento de servicios y procesos de fin de día. No abre JDBC contra el core: "
+         "pide cada operación al BUS por identificador de web service.",
+         "Brain propio desde 2026-11-04 sobre el fuente CPlaSu: 858 servicios de core, "
+         "810 invocados, 28 puentes de datos, 1,390 URLs y 492 pantallas. "
+         "El As-Is lo describe como Angular y el código dice JavaFX.",
+         "channels", "baseline", "live", "unknown"),
+        # -- Sistemas con brain propio desde evidencia de produccion 2026-11-04 (Regla B9) --
+        ("bus",        "BUS / IBM Integration Bus", "middleware", "active",
+         "IBM Integration Bus (IIB/ACE) sobre PureSystems + IBM MQ + SOAP/REST",
+         "Bus de servicios empresarial. Es la vía por la que los canales llegan a los "
+         "sistemas de negocio: sucursal, app móvil, corresponsales, pagos de servicios y "
+         "remesas entran por aquí. Ningún canal abre conexiones propias contra el core.",
+         "Brain propio desde 2026-11-04 sobre 4,132,180 trazas de producción en cuatro nodos: "
+         "110 servicios, 685 operaciones y 684 pares de datasource y procedure contra el core, "
+         "595 confirmados. El campo estatus mezcla falla técnica con ausencia de datos y no es "
+         "métrica de salud. Frontera con MuleSoft pendiente de confirmar con integración.",
+         "integration", "baseline", "live", "unknown"),
+        ("e-global",   "e-global / Autorizador de tarjetas", "legacy", "active",
+         "Autorizador propietario sobre AIX, mensajería ISO 8583",
+         "Autorizador de tarjetas. Resuelve cada operación de cajero y punto de venta: "
+         "valida la tarjeta, aplica el movimiento contra el core y arma la respuesta ISO "
+         "que regresa al tarjetahabiente.",
+         "Brain propio desde 2026-11-04 sobre un día completo de producción: 2,861,405 "
+         "transacciones, 114 validaciones de negocio, 95 funciones, 338 giros y 6 procedures "
+         "del core. Sustituye el estado DISCOVERED que traía del seed de Informix de agosto.",
+         "integration", "baseline", "live", "unknown"),
+        ("interact",   "InterAct / Front-end ISO 8583", "legacy", "active",
+         "InterAct v031300 sobre AIX, en /pisa/pisabanco/pisa_ftes/syndein/coppel",
+         "Front-end de la red de tarjetas. Recibe el mensaje ISO 8583, ejecuta en el HSM la "
+         "validación criptográfica que corresponde al canal (PIN, CVV, CVV2, criptograma EMV) "
+         "y entrega la solicitud ya resuelta al autorizador.",
+         "Brain propio desde 2026-11-04. Llegó rotulado como log de cajero automático y la "
+         "evidencia de volumen demostró que es el front-end completo de la red, no el driver "
+         "de un canal. Falta un lote de día completo.",
+         "integration", "baseline", "live", "unknown"),
     ]
     db.executemany(
         "INSERT OR REPLACE INTO systems VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -938,6 +978,69 @@ def build():
          "PRO_PAYTRUE_001 + PFR-PREVENCION_FRAUDES).",
          "Inventario CTM 2026-08-12: hosts dccpyt01/dcmpyt01.",
          "high", None),
+        # SIWEB -> PISA: la ventanilla consume el core, pero nunca directo.
+        ("siweb-pisa-via-bus",
+         "siweb", "pisa", "calls", "outbound",
+         "SIWEB pide cada operación de core al BUS por un identificador numérico de web "
+         "service. El BUS la resuelve contra los SPs de PISA. Para el core el canal es "
+         "tráfico del ESB, no un consumidor con nombre propio.",
+         "858 identificadores catalogados, 810 invocados desde 28 DAOs; 25 declaran una base "
+         "de PISA como destino. BDINTEG 223, BDICRED 124, BDICHEQ 117, BDISOLIC 74, BDISUC 54. "
+         "Fuente: systems/channels/SIWEB/digital-brain/brain.db::core_bridges, build 2026-11-04.",
+         "critical",
+         "Relación declarada en ambos brains. SIWEB: cross_dependencies SIWEB-DEP-001 y 002. "
+         "PISA: cross_dependencies pisa-siweb-ventanilla (inbound)."),
+        # SIWEB -> SmartVista: compras diferidas MCI desde caja.
+        ("siweb-smartvista-diferidas",
+         "siweb", "smartvista", "calls", "outbound",
+         "La transacción 623 de compras diferidas MCI se opera desde caja y se resuelve en "
+         "el módulo DPP de SmartVista.",
+         "Declarado en el DT del track siweb de Unity R4. Sin evidencia de código todavía: "
+         "el canal lo pide por el mismo catálogo de servicios del BUS.",
+         "high",
+         "Seed emitido a SmartVista el 2026-11-04 desde el brain de SIWEB."),
+        # -- Tarjetas y bus: evidencia de log de produccion 2026-11-04 --
+        ("bus-pisa-core",
+         "bus", "pisa", "calls", "outbound",
+         "El BUS resuelve contra el core cada operación que le piden los canales. Es la vía "
+         "por la que la sucursal, los pagos de servicios y las remesas llegan a Informix sin "
+         "abrir conexiones propias.",
+         "3,760,115 llamadas observadas en 684 pares de datasource y procedure, 615 procedures "
+         "con nombre único sobre 25 datasources declarados. 595 pares confirmados contra el "
+         "catálogo del core; los 89 restantes suman 98,340 llamadas. Fuente: "
+         "systems/integration/BUS/digital-brain/brain.db::informix_sp_calls, build 2026-11-04.",
+         "critical",
+         "Declarada en el brain del BUS como cross_dependencies bus-informix."),
+        ("siweb-bus-sucursal",
+         "siweb", "bus", "calls", "outbound",
+         "El canal de sucursal origina la carga principal del bus. Es el primer tramo de "
+         "siweb-pisa-via-bus, que hasta hoy se declaraba de punta a punta porque el BUS no "
+         "tenía entrada propia en este inventario.",
+         "2,171,891 invocaciones con sistemaOrigen OFI_WEB, el 53 por ciento del tráfico del "
+         "bus, contra los 858 identificadores de servicio del catálogo de SIWEB.",
+         "critical",
+         "Los dos brains la declaran. El de SIWEB cuenta 2,175,659 y el del BUS 2,175,664 "
+         "sumando las grafías OFI_WEB y OFIWEB: cinco trazas de diferencia por conciliar."),
+        ("eglobal-pisa-core",
+         "e-global", "pisa", "calls", "outbound",
+         "El autorizador invoca stored procedures del core para aplicar cada movimiento de "
+         "tarjeta. El core no tiene llamador estático para esos procedures: el llamador es "
+         "externo, así que fan_in cero no significa código muerto.",
+         "3,503,441 llamadas en un día: cargo_ref_cel 2,787,674, intercard:sp_registra_evento "
+         "645,116 y cons_saldo_cel 46,700. Fuente: "
+         "systems/integration/EGlobal/digital-brain/brain.db::informix_sp_calls.",
+         "critical",
+         "Sustituye en evidencia a pisa-eglobal-auth, que venía del seed sin volumetría."),
+        ("interact-eglobal-iso",
+         "interact", "e-global", "calls", "outbound",
+         "InterAct entrega al autorizador cada solicitud de la red y, antes de hacerlo, "
+         "resuelve en el HSM la validación criptográfica que corresponde al canal. El "
+         "autorizador no calcula PIN, CVV, CVV2 ni criptograma EMV: los recibe resueltos.",
+         "29,780 solicitudes en la ventana de control del 2026-11-04, pareadas uno a uno con "
+         "el volumen del autorizador en la misma franja. El log de InterAct nombra al "
+         "autorizador como icard.",
+         "critical",
+         "Declarada en ambos brains. Falta un lote de día completo de InterAct."),
     ]
     db.executemany(
         """INSERT OR REPLACE INTO system_dependencies
@@ -984,6 +1087,33 @@ def build():
     db.close()
     print()
     print(f"bank-brain.db listo en: {OUT_DB}")
+
+    # El grafo de dependencias es la vista global que esta base existe para dar.
+    # Se construye al final porque lee los brains de sistema y esta misma base.
+    # El catalogo de acciones de B39. Va antes del grafo porque esta base se borra
+    # y se recrea en cada corrida: si no se vuelve a sembrar, el dictamen de
+    # autonomia se pierde y la regla regresa a ser intencion.
+    print()
+    print("--- Catalogo de acciones y su linaje (Regla B39) ---")
+    import subprocess as _sp
+    _cat = Path(__file__).resolve().parent.parent / "generators" / "load-action-catalog.py"
+    if _cat.exists():
+        _r = _sp.run([sys.executable, str(_cat)], capture_output=True,
+                     text=True, encoding="utf-8", errors="replace")
+        print((_r.stdout or _r.stderr).strip())
+    else:
+        print(f"  (no se encontro {_cat.name})")
+
+    print()
+    print("--- Grafo de dependencias de la flota ---")
+    import subprocess
+    grafo = Path(__file__).resolve().parent.parent / "generators" / "build-dependency-graph.py"
+    if grafo.exists():
+        r = subprocess.run([sys.executable, str(grafo)], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace")
+        print((r.stdout or r.stderr).strip())
+    else:
+        print(f"  [FALTA] {grafo}")
 
 
 if __name__ == "__main__":

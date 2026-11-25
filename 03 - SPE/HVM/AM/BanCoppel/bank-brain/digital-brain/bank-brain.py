@@ -16,11 +16,134 @@ DB_PATH = Path(__file__).parent / "bank-brain.db"
 LEGACY_DB = Path(__file__).parent.parent.parent / "systems/core/Informix/digital-brain/brain.db"
 
 
+# -- Federacion de la flota de brains -----------------------------------------
+BASE = Path(__file__).parent.parent.parent          # BanCoppel/
+MAX_ATTACH = 9   # ver _Federacion: SQLite no deja pasar de 10 bases por conexion
+
+
+def descubrir_brains(base: Path = BASE) -> dict:
+    """Los brain.db del arbol, indexados por el nombre de la carpeta en minusculas."""
+    encontrados = {}
+    for patron in ("systems/*/*/digital-brain/brain.db",
+                   "projects/*/digital-brain/brain.db"):
+        for p in sorted(base.glob(patron)):
+            encontrados[p.parent.parent.name.lower()] = p
+    return encontrados
+
+
+class _Federacion:
+    """Recorre los brain.db de la flota por lotes.
+
+    La Regla B4 dice federar via ATTACH, y eso funciona mientras los brains sean
+    pocos. SQLite viene compilado con SQLITE_MAX_ATTACHED = 10 y
+    Connection.setlimit() no puede subir ese tope porque es de compilacion: con
+    36 brains en el arbol no caben juntos en una conexion. Por eso el recorrido
+    attachea de nueve en nueve y la agregacion ocurre en Python, no en un UNION
+    de SQL. Las bases se abren en modo lectura: ningun brain de sistema se toca
+    desde aqui.
+
+    La flota es heterogenea. Solo cuatro brains llevan etb_l3 y treinta y tres
+    llevan cross_dependencies, asi que toda consulta declara la tabla que
+    necesita y los brains que no la tienen se saltan en silencio.
+    """
+
+    def __init__(self, db, base: Path = BASE):
+        self._db = db
+        self._alias = self._cargar_alias()
+        self.brains = {}
+        for carpeta, path in descubrir_brains(base).items():
+            self.brains[self._identidad(carpeta, path)] = path
+
+    def _cargar_alias(self) -> dict:
+        """dep_aliases es la autoridad de nombres de la flota; no inventamos otra."""
+        try:
+            return {a: c for a, c in self._db.execute(
+                "SELECT alias, canonical FROM dep_aliases")}
+        except sqlite3.Error:
+            return {}
+
+    def _identidad(self, carpeta: str, path: Path) -> str:
+        """El id de un brain lo declara el brain, no la carpeta que lo contiene.
+
+        La carpeta dice CajeroATM y el sistema se llama cajero-atm; dice EGlobal y
+        se llama e-global. Indexar por carpeta rompia el cruce con dep_nodes y con
+        las cross_dependencies que se citan entre brains. Para los cinco brains sin
+        system_info queda la carpeta, normalizada contra dep_aliases.
+        """
+        try:
+            con = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
+            try:
+                fila = con.execute("SELECT slug FROM system_info LIMIT 1").fetchone()
+            finally:
+                con.close()
+            if fila and fila[0]:
+                return str(fila[0]).strip().lower()
+        except sqlite3.Error:
+            pass
+        return self.canonico(carpeta)
+
+    def canonico(self, slug: str) -> str:
+        return self._alias.get(slug, slug)
+
+    def _tiene(self, alias: str, tabla: str) -> bool:
+        return self._db.execute(
+            f"SELECT 1 FROM {alias}.sqlite_master WHERE type='table' AND name=? LIMIT 1",
+            (tabla,),
+        ).fetchone() is not None
+
+    def columnas(self, alias: str, tabla: str) -> set:
+        return {d[1] for d in self._db.execute(f"PRAGMA {alias}.table_info({tabla})")}
+
+    def recorre(self, tabla: str, sql: str, params: tuple = ()) -> list:
+        """Corre `sql` (con {b} por el alias) en cada brain que tenga `tabla`.
+
+        Devuelve [(sistema_canonico, [filas])]. Es ansioso a proposito: las bases
+        se detachean antes de volver, para no dejar slots tomados.
+
+        `sql` puede ser un dict {sistema: sql} cuando cada brain necesita su propia
+        consulta, que es lo que pide una flota con esquemas distintos.
+
+        Lo que no se pudo leer queda en self.saltados, no se pierde: un brain que
+        se cae en silencio es un hueco invisible en la vista global.
+        """
+        self.saltados = []
+        salida, items = [], list(self.brains.items())
+        for i in range(0, len(items), MAX_ATTACH):
+            lote = items[i:i + MAX_ATTACH]
+            puestos = []
+            try:
+                for n, (slug, path) in enumerate(lote):
+                    alias = f"fed{n}"
+                    self._db.execute(
+                        f"ATTACH DATABASE '{path.as_uri()}?mode=ro' AS {alias}")
+                    puestos.append((alias, slug))
+                for alias, sistema in puestos:
+                    if not self._tiene(alias, tabla):
+                        continue
+                    consulta = sql.get(sistema, sql.get(slug)) if isinstance(sql, dict) else sql
+                    if not consulta:
+                        self.saltados.append((sistema, tabla, "sin consulta para este esquema"))
+                        continue
+                    try:
+                        filas = self._db.execute(consulta.format(b=alias), params).fetchall()
+                    except sqlite3.Error as e:
+                        self.saltados.append((sistema, tabla, str(e)))
+                        continue
+                    if filas:
+                        salida.append((sistema, filas))
+            finally:
+                for alias, _ in puestos:
+                    self._db.execute(f"DETACH DATABASE {alias}")
+        return salida
+
+
 class BankBrain:
     def __init__(self, db_path: Path = DB_PATH):
         assert db_path.exists(), f"No existe {db_path}. Ejecuta build-bank-brain.py primero."
-        self._db = sqlite3.connect(str(db_path))
+        # uri=True habilita ATTACH con 'file:...?mode=ro' en la federacion.
+        self._db = sqlite3.connect(str(db_path), uri=True)
         self._db.row_factory = sqlite3.Row
+        self.fed = _Federacion(self._db)
         if LEGACY_DB.exists():
             self._db.execute(
                 f"ATTACH DATABASE '{str(LEGACY_DB).replace(chr(92), '/')}' AS legacy"
@@ -527,60 +650,155 @@ class BankBrain:
         }
 
     # â"€â"€ ETB federado â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    def brains(self) -> list[dict]:
+        """La flota de brain.db que el federador alcanza, con lo que cada uno aporta."""
+        filas = self.fed.recorre(
+            "system_info",
+            "SELECT slug, display_name, togaf_type, togaf_state, brain_version FROM {b}.system_info LIMIT 1")
+        info = {s: dict(f[0]) for s, f in filas}
+        salida = []
+        for slug, path in sorted(self.fed.brains.items()):
+            sistema = self.fed.canonico(slug)
+            d = {"system_id": sistema, "carpeta": str(path.parent.parent),
+                 "etb": False, "cross_dependencies": 0}
+            d.update({k: v for k, v in info.get(sistema, {}).items() if v is not None})
+            salida.append(d)
+        for sistema, f in self.fed.recorre("etb_l3", "SELECT COUNT(*) AS n FROM {b}.etb_l3"):
+            for d in salida:
+                if d["system_id"] == sistema:
+                    d["etb"] = f[0]["n"] > 0
+        for sistema, f in self.fed.recorre(
+                "cross_dependencies", "SELECT COUNT(*) AS n FROM {b}.cross_dependencies"):
+            for d in salida:
+                if d["system_id"] == sistema:
+                    d["cross_dependencies"] = f[0]["n"]
+        return salida
+
+    # -- ETB federado -------------------------------------------------------------
     def capabilities_consolidated(self) -> list[dict]:
-        """Capacidades ETB cubiertas en algÃºn sistema ATTACHED (COVERED o CROSS_CUTTING).
-        Cada fila incluye el sistema que la cubre y su etb_version local.
-        Permite a bank-brain responder "Â¿quiÃ©n cubre L3-ID-X?" sin conocer el sistema de antemano.
+        """Capacidades ETB que algun brain de la flota declara cubrir.
+
+        Recorre todos los brains con etb_l3, no solo el core. Cada fila dice que
+        sistema la cubre y con que etb_version local, de modo que bank-brain puede
+        responder "quien cubre L3-X" sin saber de antemano donde vive.
         """
-        # Construir UNION sobre todos los brains ATTACHed que tengan etb_l3
-        # Hoy solo 'legacy' (Informix); cuando Transact tenga brain.db se aÃ±ade otro UNION.
-        try:
-            rows = self._db.execute("""
-                SELECT 'informix' AS system_id,
-                       id AS l3_id, l1_id, l2_id, name,
-                       bcop_status, etb_version
-                FROM legacy.etb_l3
-                WHERE bcop_status IN ('COVERED', 'CROSS_CUTTING')
-                ORDER BY l1_id, l2_id, id
-            """).fetchall()
-        except Exception:
-            return []
-        return [dict(r) for r in rows]
+        salida = []
+        for sistema, filas in self.fed.recorre("etb_l3", """
+                SELECT id AS l3_id, l1_id, l2_id, name, bcop_status, etb_version
+                  FROM {b}.etb_l3
+                 WHERE bcop_status IN ('COVERED', 'CROSS_CUTTING')"""):
+            for r in filas:
+                d = dict(r)
+                d["system_id"] = sistema
+                salida.append(d)
+        salida.sort(key=lambda d: (d["l1_id"] or "", d["l2_id"] or "", d["l3_id"], d["system_id"]))
+        return salida
 
     def capability_gap(self) -> list[dict]:
-        """Capacidades ETB L3 que ningÃºn sistema cubre (NOT_COVERED en todos los brains).
-        Responde: Â¿quÃ© capacidades del modelo ETB quedan sin sistema despuÃ©s de la migraciÃ3n?
-        Es la validaciÃ3n de decommission de PISA: si una capability solo existe en legacy
-        y no hay sistema target que la cubra, es un riesgo de cutover.
+        """Capacidades L3 que ningun brain de la flota cubre.
+
+        Es el gate de decommission de la Regla B7, y por eso tiene que mirar a toda
+        la flota: mientras solo leia el brain del core, una capacidad marcada
+        NOT_COVERED ahi se reportaba como hueco aunque otro sistema la cubriera. Con
+        la evidencia del 2026-11-04 eso pasaba con 3.5.6 Switching, que el core no
+        cubre y resuelven e-global e InterAct.
+
+        NOT_ASSESSED no es cobertura: un brain que todavia no evalua el catalogo no
+        tapa un hueco, solo deja de opinar.
         """
-        try:
-            rows = self._db.execute("""
-                SELECT id AS l3_id, l1_id, l2_id, name, bcop_status, etb_version
-                FROM legacy.etb_l3
-                WHERE bcop_status = 'NOT_COVERED'
-                ORDER BY l1_id, l2_id, id
-            """).fetchall()
-        except Exception:
-            return []
-        return [dict(r) for r in rows]
+        cubiertas = {d["l3_id"] for d in self.capabilities_consolidated()}
+        catalogo, vistos = [], set()
+        for _sistema, filas in self.fed.recorre("etb_l3", """
+                SELECT id AS l3_id, l1_id, l2_id, name, etb_version FROM {b}.etb_l3"""):
+            for r in filas:
+                if r["l3_id"] in vistos:
+                    continue
+                vistos.add(r["l3_id"])
+                catalogo.append(dict(r))
+        hueco = [d for d in catalogo if d["l3_id"] not in cubiertas]
+        hueco.sort(key=lambda d: (d["l1_id"] or "", d["l2_id"] or "", d["l3_id"]))
+        return hueco
 
     def capability_alignment(self) -> list[dict]:
-        """VersiÃ3n ETB por sistema attached  -  detecta desalineaciÃ3n cuando el catÃ¡logo evoluciona.
-        bank-brain es el custodio del modelo ETB; cuando ETB sube de versiÃ3n, esta funciÃ3n
-        identifica quÃ© brains todavÃ­a usan una versiÃ3n anterior y necesitan rebuild.
+        """Version del catalogo ETB por brain: detecta desalineacion (Regla B3).
+
+        bank-brain es el custodio del modelo ETB. Cuando el catalogo sube de version
+        esta consulta dice que brains siguen en la anterior y necesitan rebuild. Solo
+        sirve si mira a todos; comparar un brain contra si mismo nunca da diferencia.
         """
-        systems_checked = [("informix", "legacy")]
-        result = []
-        for sys_id, schema in systems_checked:
-            try:
-                row = self._db.execute(
-                    f"SELECT DISTINCT etb_version FROM {schema}.etb_l3 LIMIT 1"
-                ).fetchone()
-                version = row["etb_version"] if row else "unknown"
-            except Exception:
-                version = "not_loaded"
-            result.append({"system_id": sys_id, "etb_version": version})
-        return result
+        salida = []
+        for sistema, filas in self.fed.recorre(
+                "etb_l3",
+                "SELECT etb_version, COUNT(*) AS l3 FROM {b}.etb_l3 GROUP BY etb_version"):
+            for r in filas:
+                salida.append({"system_id": sistema,
+                               "etb_version": r["etb_version"] or "unknown",
+                               "l3_count": r["l3"]})
+        salida.sort(key=lambda d: (d["etb_version"], d["system_id"]))
+        return salida
+
+    # Los brains viejos nombran distinto las mismas columnas. El esquema de la
+    # Regla B12 dice relationship/other_system; los hechos a mano antes de esa
+    # regla dicen dependency_type, y AppMovil parte el par en source/target.
+    _SINONIMOS = {
+        "other_system":  ("other_system", "target_system", "system"),
+        "relationship":  ("relationship", "dependency_type"),
+        "direction":     ("direction",),
+        "volume":        ("volume",),
+        "criticality":   ("criticality",),
+        "description":   ("description",),
+        "evidence":      ("evidence", "origin_artifact"),
+    }
+
+    def fleet_dependencies(self, system_id: Optional[str] = None) -> list[dict]:
+        """Las cross_dependencies que cada brain declara de su lado (Reglas B5 y B10).
+
+        Distinta de system_dependencies(), que es la tabla curada a mano dentro de
+        bank-brain. Esta lee la fuente: lo que cada sistema dice de si mismo. Si las
+        dos discrepan, manda el brain del sistema y la tabla curada se corrige.
+
+        La consulta se arma por brain porque el esquema no es uniforme: una lista
+        fija de columnas dejaba fuera a Informix, ControlM y AppMovil, que son
+        justo los que mas aristas declaran.
+        """
+        consultas = {}
+        for slug, path in self.fed.brains.items():
+            sistema = self.fed.canonico(slug)
+            cols = self._columnas_de(path, "cross_dependencies")
+            if not cols:
+                continue
+            trozos = ["id"] if "id" in cols else ["NULL AS id"]
+            for destino, candidatas in self._SINONIMOS.items():
+                origen = next((c for c in candidatas if c in cols), None)
+                trozos.append(f"{origen} AS {destino}" if origen else f"NULL AS {destino}")
+            consultas[sistema] = "SELECT " + ", ".join(trozos) + " FROM {b}.cross_dependencies"
+
+        salida = []
+        for sistema, filas in self.fed.recorre("cross_dependencies", consultas):
+            for r in filas:
+                d = dict(r)
+                d["system_id"] = sistema
+                d["other_system"] = self.fed.canonico((d["other_system"] or "").lower())
+                salida.append(d)
+        if system_id:
+            s = self.fed.canonico(system_id.lower())
+            salida = [d for d in salida if s in (d["system_id"], d["other_system"])]
+        salida.sort(key=lambda d: (d["system_id"], -(d["volume"] or 0)))
+        return salida
+
+    @staticmethod
+    def _columnas_de(path: Path, tabla: str) -> set:
+        """Columnas de una tabla de un brain, sin ocupar un slot de ATTACH."""
+        try:
+            con = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
+        except sqlite3.Error:
+            return set()
+        try:
+            return {d[1] for d in con.execute(f"PRAGMA table_info({tabla})")}
+        except sqlite3.Error:
+            return set()
+        finally:
+            con.close()
 
     def system_dependencies(
         self, system_id: Optional[str] = None, direction: Optional[str] = None
