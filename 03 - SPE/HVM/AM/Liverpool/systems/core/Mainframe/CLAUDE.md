@@ -33,7 +33,7 @@
 
 | Aplicación | Rol | Criticidad |
 |-----------|-----|-----------|
-| **VPL Vision Plus** (FIS Global) | Core LiverpoolCard — autorizaciones, estados de cuenta, cargos, intereses | CRÍTICO 24x7 |
+| **VPL Vision Plus** (Fiserv (vía First Data, origen PaySys) [VALIDAR contra contrato]) | Core LiverpoolCard — autorizaciones, estados de cuenta, cargos, intereses | CRÍTICO 24x7 |
 | **SOMS** | Administración de órdenes de entrega — gestión de remisiones y órdenes | CRÍTICO |
 | **Mainframe Clientes** | Contabilidad y accounting de clientes LiverpoolCard | CRÍTICO |
 | **MARC 90** | Devoluciones de mercancía (merchandise returns) | Operativo |

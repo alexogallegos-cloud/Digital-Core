@@ -18,7 +18,7 @@
 | Campo | Valor |
 |---|---|
 | Sistema | **VPL Vision Plus** |
-| Vendor | FIS Global |
+| Vendor | Fiserv (vía First Data, origen PaySys) [VALIDAR contra contrato] |
 | Host / Deployment | IBM z/OS (Mainframe) |
 | TOGAF Type | `processors` |
 | TOGAF State | `baseline` (Baseline→Transitional→Target) |
@@ -67,7 +67,7 @@ Core del procesamiento LiverpoolCard — autorizaciones de tarjeta, estados de c
 
 ## Notas Arquitectónicas
 
-Vendor FIS Global Vision Plus corriendo sobre IBM z/OS. NO es Oracle PL-SQL. Toda autorización LiverpoolCard pasa por este sistema.
+VisionPLUS corriendo sobre IBM z/OS. El vendor **no es FIS Global**: la plataforma nació en PaySys International, First Data la adquirió en 2001 y pasó a Fiserv con la fusión de 2019. FIS es una compañía distinta. Tampoco es Oracle PL-SQL. Toda autorización LiverpoolCard pasa por este sistema.
 
 ---
 

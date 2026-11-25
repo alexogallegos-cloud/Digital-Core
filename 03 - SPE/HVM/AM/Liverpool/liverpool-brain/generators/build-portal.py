@@ -405,6 +405,14 @@ def _coverage_stats(conn) -> dict:
         d["ams_new"]            = conn.execute("SELECT COUNT(*) FROM ams_applications WHERE is_new=1").fetchone()[0]
     except sqlite3.OperationalError:
         pass
+    try:
+        for k in ("mf_bench_total_base", "mf_bench_total_min", "mf_bench_total_max",
+                  "mf_bench_vpl_share_base", "mf_bench_java_share_base"):
+            row = conn.execute("SELECT value FROM brain_meta WHERE key=?", (k,)).fetchone()
+            if row:
+                d[k] = f"{float(row[0]):,.0f}" if "share" not in k else row[0]
+    except sqlite3.OperationalError:
+        pass
     return d
 
 
@@ -503,6 +511,13 @@ def views_section(conn) -> str:
             ("ams-applications-liv.html", "📋", f"{cs.get('ams_applications', 78)} apps · {cs.get('ams_in_scope', 7)} Apigee/BTP",
              "Catálogo AMS",
              f"Catálogo oficial de las {cs.get('ams_applications', 78)} aplicaciones bajo soporte AMS de Liverpool, mapeadas a los 7 dominios de negocio y a los eslabones ETB. Incluye flag de integración Apigee/BTP y renombramientos oficiales (ACC←CXEC, PEGA←FICO APM)."),
+        ]),
+        ("07", "Decisión de inversión",
+         "El orden de magnitud de salir del mainframe, con la cadena de supuestos a la vista para que cada cifra se pueda rebatir contra su fuente.", [
+            ("benchmark-mainframe-liv.html", "📐",
+             f"USD {cs.get('mf_bench_total_base', '102')} M caso base",
+             "Benchmark del Mainframe",
+             "Bandas de costo y duración para salir del mainframe, segmentadas por ruta 7R en cinco unidades de alcance. Muestra que VisionPLUS concentra la mayor parte del caso base y no se puede migrar a Java por ser producto empaquetado, mientras que la migración genuina a Java pesa una fracción menor. Incluye anclas de industria con su fuente y los datos que hoy mantienen la banda abierta."),
         ]),
     ]
 

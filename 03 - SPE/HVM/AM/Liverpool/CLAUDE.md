@@ -58,7 +58,7 @@
 
 | Sistema | Vendor | togaf_state | Rol |
 |---------|--------|-------------|-----|
-| [VPL-Vision-Plus](systems/processors/VPL-Vision-Plus/CLAUDE.md) | FIS Global | baseline | LiverpoolCard core — autorizaciones, estados de cuenta 24x7 |
+| [VPL-Vision-Plus](systems/processors/VPL-Vision-Plus/CLAUDE.md) | Fiserv (vía First Data) | baseline | LiverpoolCard core — autorizaciones, estados de cuenta 24x7 |
 | [FICO-TRIAD](systems/processors/FICO-TRIAD/CLAUDE.md) | FICO | baseline | Originación crédito APM+OM + scoring |
 | [Base24](systems/processors/Base24/CLAUDE.md) | ACI Worldwide | baseline | Switch transaccional — POS, ATG, ATM |
 | [Cyberfinancial](systems/processors/Cyberfinancial/CLAUDE.md) | EQUIFAX / Harman Navigator | transitional | Cobranza SaaS (v8.4→v9C en migración) |

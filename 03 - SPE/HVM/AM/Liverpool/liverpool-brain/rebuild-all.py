@@ -29,6 +29,7 @@ BRAIN_STEPS = [
     ("generators/load-cadena-valor-tickets.py", False),
     ("generators/load-procesos-criticos.py",   False),
     ("generators/load-ams-applications.py",   False),
+    ("generators/load-mainframe-benchmark.py", False),
 ]
 
 PORTAL_STEPS = [
@@ -41,6 +42,7 @@ PORTAL_STEPS = [
     ("generators/build-cadena-valor-tickets.py", False),
     ("generators/build-procesos-criticos.py",   False),
     ("generators/build-ams-applications.py",    False),
+    ("generators/build-mainframe-benchmark.py", False),
     ("generators/build-rules-catalog.py",       True),
     ("generators/build-vocab-catalog.py",       True),
     ("generators/build-interfaces-map.py",      True),
