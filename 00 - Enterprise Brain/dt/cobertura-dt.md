@@ -214,7 +214,7 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 | `dt-information-architect` | `data_entities`, `component_data`, `vocabulary` |
 | `dt-knowledge-manager` | `knowledge_lineage`, `knowledge_gaps`, `queries`, `stakeholders`, `documents`, `rule_enrichment_log`, la columna `tier` en toda tabla |
 | `dt-asset-configuration-manager` | `components`, `component_calls`, `technology_components`, `cross_dependencies`, `external_systems`, `rules`, `component_capabilities`, `component_processes` |
-| `dt-change-manager` | `transitions`, `readiness_gates`, el campo `target` de `slos` |
+| `dt-change-manager` | `transitions`, `readiness_gates`, el campo `target` de `slos`, `action_catalog` y `actions` (el catálogo de autonomía de B39 y su linaje de ejecuciones) |
 | `dt-service-operations-lead` | `findings`, `signals`, el campo `current` de `slos`, `measurements` en su dimensión de servicio |
 | `dt-it-risk-manager` | `regulatory_obligations`, `risks`, la columna `reg` de `rules`, la política de confidencialidad de B42 y la clasificación de `data_entities` |
 | `dt-demand-manager` | `products`, `kpis`, `processes`, `journeys`, `costs`, `measurements` en su dimensión de negocio |
@@ -223,7 +223,7 @@ Cada tabla tiene exactamente un DT dueño en el eje vertical. La propiedad es so
 | `dt-build-operator` | Los extractores, `build-brain.py`, `digital-brain/seeds/` |
 | `dt-brain-engineer` | `generators/`, `templates/`, `brain.py`, `build-portal.py`, las vistas de homologación |
 | `dt-human-reviewer` | La cola de validación, `validated_by`, el registro de aprobaciones |
-| `dt-brain-auditor` | Las 10 dimensiones. Audita todo y no posee ninguna tabla de contenido |
+| `dt-brain-auditor` | Las 11 dimensiones. Audita todo y no posee ninguna tabla de contenido |
 | `dt-source-steward` | `source_catalog` (tabla CORE desde ADR-EB-014); filas `gap_type='source'` en `knowledge_gaps`; clasificación canónica de tier por tipo de fuente |
 | `dt-client-intelligence` | `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links` · las filas de `measurements` ancladas a `company_profile` (ADR-EB-015) |
 

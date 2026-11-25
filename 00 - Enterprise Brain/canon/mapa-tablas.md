@@ -1,14 +1,14 @@
 # Mapa de tablas del canon
 
-> Generado el 2026-11-03 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
+> Generado el 2026-11-11 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
-El canon son **46 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
+El canon son **48 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
 ## Resumen por capa
 
 | Capa | Tablas | A quién aplica |
 |------|--------|----------------|
-| **CORE** | 23 | Todo brain, sin excepción |
+| **CORE** | 25 | Todo brain, sin excepción |
 | **SYSTEM** | 11 | `brain_type='system'`, sistemas en operación |
 | **PROJECT** | 5 | `brain_type='project'`, proyectos de transformación |
 | **ENTERPRISE** | 2 | `brain_type='enterprise'`, el brain de nivel cliente |
@@ -45,6 +45,8 @@ El canon son **46 tablas**. Ningún brain las implementa todas: implementa el CO
 | `business_milestones` | `dt-client-intelligence` | 8 | B37 | — |
 | `strategic_drivers` | `dt-client-intelligence` | 10 | B37 | — |
 | `driver_links` | `dt-client-intelligence` | 8 | B37 | — |
+| `action_catalog` | `dt-change-manager` | 13 | B23 B37 B38 B39 | — |
+| `actions` | `dt-change-manager` | 17 | B37 B39 | `decisions` |
 
 ### SYSTEM
 
@@ -114,7 +116,7 @@ El conocimiento técnico se ancla en la cadena del negocio. Un componente que no
   `data_entities`, `component_data`
 
 **Fuera de la cadena** — gobierno, ontología, federación y calidad  
-  `business_milestones`, `capabilities`, `company_profile`, `costs`, `cross_dependencies`, `decisions`, `documents`, `driver_links`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `source_catalog`, `stakeholders`, `strategic_drivers`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
+  `action_catalog`, `actions`, `business_milestones`, `capabilities`, `company_profile`, `costs`, `cross_dependencies`, `decisions`, `documents`, `driver_links`, `federated_brains`, `findings`, `itom_layer`, `knowledge_gaps`, `knowledge_lineage`, `measurements`, `ontology_bindings`, `plateaus`, `queries`, `readiness_gates`, `regulatory_obligations`, `risks`, `rule_enrichment_log`, `signals`, `slos`, `source_catalog`, `stakeholders`, `strategic_drivers`, `system_info`, `transitions`, `user_stories`, `vocabulary`, `waves`
 
 ---
 
@@ -657,6 +659,56 @@ La traza de vuelta: que parte del estate sirve a que driver. Es lo que convierte
 | `relation` | TEXT | no | sirve ,  bloquea ,  mide |
 | `rationale` | TEXT | no | por que este elemento se ata a este driver |
 | `source_ref` | TEXT | no |  |
+
+### `action_catalog`
+
+**Capa**: CORE, **Dueño**: `dt-change-manager`, **Reglas**: B23 B37 B38 B39
+
+El catalogo: que tipo de accion esta preautorizado y hasta que nivel. Lo define dt-change-manager, dueno del lado Change del puente calloso (B24). Los cuatro tipos que nunca bajan de A3 viven aqui con never_below_a3 en 1 y ningun 
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | TEXT | no | "ACT-{slug}" |
+| `tier` | TEXT | sí | Regla B37 |
+| `action_type` | TEXT | sí | que clase de accion es |
+| `itom_domain` | TEXT | no | dominio ITOM al que pertenece (Regla B23) |
+| `description` | TEXT | no |  |
+| `authorized_level` | TEXT | sí | A0 ,  A1 ,  A2 ,  A3 (Regla B39) |
+| `never_below_a3` | INTEGER | sí | 1 = siempre exige aprobacion, no baja |
+| `accountable_role` | TEXT | no | FK logica a stakeholders.id. Sin dueno humano la |
+| `tool` | TEXT | no | la herramienta por cuya puerta de entrada se crea (B38) |
+| `creates_only` | INTEGER | sí | 1 = solo crea registro nuevo. Modificar el |
+| `authorized_by` | TEXT | no | quien aprobo el catalogo, no la ejecucion |
+| `authorized_at` | TEXT | no |  |
+| `demoted_reason` | TEXT | no | por que regreso a A3, si regreso |
+
+### `actions`
+
+**Capa**: CORE, **Dueño**: `dt-change-manager`, **Reglas**: B37 B39
+
+El linaje de acciones: el equivalente de knowledge_lineage (B37) para lo que el brain hizo. Una fila por ejecucion, con el nivel, el conocimiento que la sustento, quien aprobo y como salio. Es la auditoria que permite mover un tip
+
+| Columna | Tipo | Obligatoria | Qué guarda |
+|---------|------|-------------|------------|
+| `id` (PK) | INTEGER | no |  |
+| `tier` | TEXT | sí | Regla B37 |
+| `catalog_id` | TEXT | sí | FK logica a action_catalog.id |
+| `level` | TEXT | sí | A0 ,  A1 ,  A2 ,  A3 con el que se ejecuto |
+| `what` | TEXT | sí | que se hizo, en una linea |
+| `target_table` | TEXT | no | sobre que entidad del brain, si aplica |
+| `target_id` | TEXT | no |  |
+| `knowledge_refs` | TEXT | no | JSON: ids de knowledge_lineage que la sustentan |
+| `knowledge_tier` | TEXT | no | el nivel que ese conocimiento tenia AL EJECUTAR. |
+| `approved_by` | TEXT | no | rol que aprobo esta ejecucion. Obligatorio en A3 |
+| `approved_at` | TEXT | no |  |
+| `executed_at` | TEXT | no |  |
+| `outcome` | TEXT | no | logrado ,  parcial ,  no_logrado ,  revertido ,  pendiente |
+| `incident_id` | TEXT | no | si causo incidente, el tipo regresa a A3 por B39 |
+| `outcome_notes` | TEXT | no |  |
+| `query_id` | TEXT | no | FK logica a queries.id: que consulta la motivo |
+| `decision_id` | TEXT | no | FK logica a decisions.id: que decision la ordeno |
+
+**Se relaciona con**: `decisions` (por `decision_id`)
 
 ### `components`
 

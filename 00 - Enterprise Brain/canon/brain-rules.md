@@ -19,13 +19,13 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 2 | **B29** | Los DTs construyen el brain en enjambre — como abejas | `build_agent` en `system_info` |
 | 3 | **B41** | 24 DTs canónicos en tres categorías: 10 de rol de TI, 9 de negocio y 5 de ingeniería | `dt/cobertura-dt.md` con cobertura 38 de 38 |
 | 4 | **B42** | Confidencialidad: el acceso se autoriza por propósito; tres fronteras, negado por defecto | `queries.purpose` NOT NULL · `knowledge_lineage.exposed_for` · `brain.py abrir_consulta()` (ADR-EB-013) |
-| 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto**: es un principio, no una regla verificable |
+| 5 | **B34** | Ambos hemisferios son transformacionales, impulsados por IA | **Sin artefacto por diseño**: es un principio rector, no una regla auditable. No es un pendiente |
 | 6 | **B35** | El brain evalúa el resultado esperado y solicita lo que falta | `knowledge_gaps` con consulta concreta al SME |
 | 7 | **B45** | Toda consulta es un objeto con ciclo de vida de seis etapas | Tabla `queries` · las seis etapas en `brain.py` (ADR-EB-013) |
-| 8 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | **Pendiente**: no hay catálogo de casos de uso |
-| 9 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | **Pendiente**: no existe registro de acciones ni de su autonomía |
+| 8 | **B38** | Capa agéntica que escala la IA en Run y Change, sin sustituir herramientas dedicadas (CMDB, Tosca) | `action_catalog` con 20 casos de uso anclados a su dominio ITOM · `templates/action-catalog-seed.sql` |
+| 9 | **B39** | Autonomía A0-A3: el nivel lo fija la acción, no la intención; se gana con historial y se pierde con incidentes | `action_catalog` y `actions` · `brain.py evalua_accion()`, `registrar_accion()` y `autonomia()` · `dt/dt-brain-auditor/test-b39.py` |
 | 10 | **B1** | Cada brain es auto-sustentable — 5 métodos sin federación | Interfaz `brain.py` |
-| 11 | **B15** | CORE (23 tablas) y exactamente una extensión por `brain_type` | D1 del Brain Auditor |
+| 11 | **B15** | CORE (25 tablas) y exactamente una extensión por `brain_type` | D1 del Brain Auditor |
 | 12 | **B21** | Ontología = matriz 2×2: ETB × ITOM, Change × Run | `ontology_bindings` poblada |
 | 13 | **B36** | Frameworks complementarios: ETB da el north star, ITOM habilita, TOGAF gobierna | Trazas `itom_layer.process_id` y SLO a KPI |
 | 14 | **B24** | Los hemisferios se hablan en ambos sentidos (puente calloso) | D8 del Brain Auditor |
@@ -77,7 +77,7 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 
 | Rango | Regla | Enunciado en una línea | Artefacto verificable |
 |-------|-------|----------------------|----------------------|
-| 39 | **B26** | Todo brain comienza con el estudio histórico de la organización | **Pendiente**: la carpeta no existe en el asset |
+| 39 | **B26** | Todo brain comienza con el estudio histórico de la organización | `templates/estudio-historico.md`, las cinco dimensiones, que se copia a `knowledge-base/history/` |
 | 40 | **B44** | El brain sobrevive al sistema que refleja y se archiva con reglas propias | `status='archived'` y `snapshot(date)` vigente |
 | 41 | **B8** | Evidencia operativa es prueba de existencia de un sistema | `system_info` semilla |
 | 42 | **B9** | Acción inmediata al descubrir un sistema significativo | Estructura canónica vacía + CLAUDE.md |
@@ -85,7 +85,9 @@ Los números de regla (B1-B45, V1-V2, P1-P5) son **IDs estables** referenciados 
 | 44 | **B11** | Seeds push: el brain emite evidencia a sus vecinos sin esperar | `seeds/{receptor}-seed.json` |
 | 45 | **B12** | Un sistema descubierto arranca con `brain.db` inicializado desde seeds | `brain.db` mínimo desde B9 |
 
-**Siete reglas no tienen artefacto verificable hoy, y el índice lo declara.** Cinco esperan implementación (B38, B39, B40, B42, B43), una espera un artefacto del asset (B26) y una es un principio y no una regla auditable (B34). `quality-gates-enterprise-brain.md` lista en su sección de gates no exigibles qué falta para poder exigir cada una. Mientras el índice prometía artefactos inexistentes, el canon no se podía usar para auditar nada, y B42 quedaba autorrefutada: dice que una política que vive en un documento y no en el filtro no es política sino intención.
+**Todas las reglas auditables tienen artefacto verificable.** Las cinco que esperaban implementación quedaron cerradas: B40, B42, B43 y B45 con el objeto consulta y el reloj bitemporal de ADR-EB-013, y B38 y B39 con el catálogo de acciones y su linaje. B26 estrenó plantilla en el asset. La única sin artefacto es **B34, y lo es por diseño**: es el principio rector de los dos hemisferios, no una condición que se pueda medir en una tabla. Declararla pendiente era un error de clasificación, no una deuda.
+
+Esto importa porque B42 se autorrefutaba mientras duró el hueco: dice que una política que vive en un documento y no en el filtro no es política sino intención, y lo mismo valía para B39. Una regla de autonomía que nada registra no gobierna nada; por eso su cierre no fue documentar mejor los cuatro niveles sino ponerlos en un método que niega lo que la regla niega.
 
 ### Reglas de Vocabulario (V1-V2)
 > Alcance: vocabulario empresarial cross-sistema. Importancia: alta para consistency semántica; no bloquea activación.
@@ -167,7 +169,7 @@ El bank-brain del cliente es el único brain de tipo `enterprise`. Los demás so
 
 ### Schema y contrato (B15-B17)
 
-**B15 — CORE + una extensión**: todo brain implementa las 23 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`, `source_catalog`, `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
+**B15 — CORE + una extensión**: todo brain implementa las 25 tablas del CORE (`system_info`, `ontology_bindings`, `capabilities`, `processes`, `products`, `kpis`, `stakeholders`, `data_entities`, `technology_components`, `suppliers`, `measurements`, `costs`, `itom_layer`, `cross_dependencies`, `signals`, `knowledge_gaps`, `knowledge_lineage`, `queries`, `source_catalog`, `company_profile`, `business_milestones`, `strategic_drivers`, `driver_links`, `action_catalog`, `actions`) más exactamente la extensión que le corresponde por `brain_type`. El DDL ejecutable es `templates/schema.sql` — única fuente de verdad, nunca transcrito en documentos.
 
 **El CORE tiene dos fundamentos legítimos** (ADR-EB-011). El primero es la destilación: una tabla entra cuando existe en tres o más brains independientes (ADR-EB-006), con la excepción acotada de ADR-EB-009 para `kpis`, `data_entities` y `technology_components`. El segundo es la implicación del roster: si un DT canónico obligatorio posee una tabla, esa tabla es CORE por consecuencia, y es el caso de `suppliers`. Hay un **tercer fundamento** (ADR-EB-012): una tabla entra cuando una regla vigente exige una capacidad que ninguna tabla sostiene, como ocurrió con `measurements` y `costs`. Exige tres condiciones simultáneas: que la regla ya esté aprobada y no se escriba junto con la tabla, que ninguna tabla existente pueda sostener la capacidad, y que el ADR nombre la frase exacta que queda incumplida sin ella. Existe porque la destilación tiene un punto ciego: solo canoniza lo que alguien ya construyó, y el canon puede prometer en una regla lo que su esquema no puede cumplir.
 
@@ -659,6 +661,8 @@ Cuatro reglas del nivel:
 
 Cuatro tipos de acción que **nunca bajan de A3**, independientemente del historial, porque su impacto es irreversible o tiene consecuencias regulatorias directas: cambio en producción, decommission de un sistema, cambio de configuración de seguridad e impacto financiero directo al cliente.
 
+**Dónde vive la regla.** El catálogo es `action_catalog` y el linaje de ejecuciones es `actions`, las dos del CORE y propiedad de `dt-change-manager`. El nivel no se declara al registrar: lo resuelve `brain.py evalua_accion()`, que aplica los tres cortes en orden y devuelve por qué. `registrar_accion()` valida contra ese veredicto antes de escribir y se niega si el nivel pedido excede el permitido, porque auditar después de escribir es lo que dejaba la regla en intención. `autonomia()` es la vista con la que un tipo sube a A2 por historial limpio o regresa a A3 por incidente. Los casos de uso sembrados viven en `templates/action-catalog-seed.sql` y son el mismo artefacto con el que cierra B38. La dimensión **D11** del Brain Auditor mide lo que los gates declaran bloqueante, y `ADR-EB-018` deja asentado por qué las dos tablas entran al CORE y qué parte de la anatomía de B38 todavía no modelan.
+
 **Qué puede ejecutar A2 sin contradecir a B38.** B38 prohíbe que el brain modifique el registro que otra herramienta custodia como verdad. A2 no lo contradice porque opera del otro lado de esa frontera:
 
 | El brain puede, en A2 | El brain no puede, en ningún nivel |
@@ -734,7 +738,7 @@ Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-build-operator` | Data Engineer, DataOps | P1, P2, P3, B11, B12 | ¿Se puede reconstruir este brain desde cero y obtener el mismo resultado? |
 | `dt-human-reviewer` | Data Steward, orquestador de validación | B37 y B39 en su operación | ¿Quién debe validar o aprobar qué, desde cuándo y qué se decidió? |
 | `dt-brain-engineer` | Application Developer, Test Manager | P4, P5, B16, B1 | ¿El código que construye y consulta el brain está sano y consistente entre deployments? |
-| `dt-brain-auditor` | Quality Manager | Proceso 18, las 10 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
+| `dt-brain-auditor` | Quality Manager | Proceso 18, las 11 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
 | `dt-source-steward` | Data Source Owner | B17, B35, B37 en la frontera de entrada | ¿Con qué fuentes cuenta este brain y cuáles le faltan? Posee `source_catalog` |
 
 **Categoría C, los nueve DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos seis dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:

@@ -971,6 +971,165 @@ class SystemBrain:
         db.commit()
         db.close()
 
+    # -- Regla B39 - del consejo a la accion -----------------------------------
+
+    NIVELES = ("A0", "A1", "A2", "A3")
+
+    def catalogo_acciones(self, nivel: str | None = None) -> list[dict]:
+        """El catálogo de B39: qué tipo de acción está preautorizado y hasta dónde."""
+        if "action_catalog" not in self._table_names():
+            return self._ausencia("action_catalog no existe", [])
+        sql = "SELECT * FROM action_catalog"
+        params: list = []
+        if nivel:
+            sql += " WHERE authorized_level = ?"
+            params.append(nivel)
+        return self._rows(self._db().execute(sql + " ORDER BY id", params).fetchall())
+
+    def acciones(self, catalog_id: str | None = None, limit: int = 100) -> list[dict]:
+        """El linaje de ejecuciones. Es lo que vuelve auditable a B39."""
+        if "actions" not in self._table_names():
+            return self._ausencia("actions no existe", [])
+        sql = "SELECT * FROM actions"
+        params: list = []
+        if catalog_id:
+            sql += " WHERE catalog_id = ?"
+            params.append(catalog_id)
+        sql += " ORDER BY executed_at DESC LIMIT ?"
+        params.append(limit)
+        return self._rows(self._db().execute(sql, params).fetchall())
+
+    def evalua_accion(self, catalog_id: str, knowledge_tier: str | None,
+                      approved_by: str | None = None) -> dict:
+        """
+        Resuelve con qué nivel PUEDE ejecutarse una acción, antes de ejecutarla.
+
+        Este método es la regla, no su descripción. B39 se puede escribir en un
+        documento y seguir sin cumplirse; aquí el nivel sale del catálogo y del
+        tier del conocimiento, y la respuesta dice por qué.
+
+        Tres cortes, en orden:
+        1. Sin fila en el catálogo no hay autorización que invocar.
+        2. A2 y A3 exigen conocimiento gold. Con silver o bronze el techo es A1:
+           el brain propone y el humano decide bajo incertidumbre.
+        3. Los cuatro tipos que nunca bajan de A3 se quedan ahi pase lo que pase,
+           y A3 sin aprobador declarado no se dispara.
+        """
+        fila = None
+        if "action_catalog" in self._table_names():
+            fila = self._one(self._db().execute(
+                "SELECT * FROM action_catalog WHERE id = ?", (catalog_id,)).fetchone())
+        if not fila:
+            return {"permitido": False, "nivel": None,
+                    "razon": f"{catalog_id} no esta en el catalogo de acciones: "
+                             "ninguna autorizacion lo cubre (B39)"}
+
+        autorizado = fila.get("authorized_level") or "A1"
+        if fila.get("never_below_a3"):
+            autorizado = "A3"
+
+        if autorizado in ("A2", "A3") and knowledge_tier != "gold":
+            return {"permitido": True, "nivel": "A1", "nivel_catalogo": autorizado,
+                    "razon": f"el conocimiento es {knowledge_tier or 'desconocido'} y "
+                             "A2 o A3 exigen gold: el brain propone, no ejecuta (B39)",
+                    "accountable": fila.get("accountable_role")}
+
+        if autorizado == "A3" and not approved_by:
+            return {"permitido": False, "nivel": "A3",
+                    "razon": "A3 exige aprobacion explicita del rol accountable "
+                             f"({fila.get('accountable_role') or 'sin declarar'}) antes de disparar",
+                    "accountable": fila.get("accountable_role")}
+
+        if not fila.get("accountable_role"):
+            return {"permitido": False, "nivel": autorizado,
+                    "razon": "toda accion tiene dueno humano y este tipo no lo declara (B39)"}
+
+        return {"permitido": True, "nivel": autorizado,
+                "razon": "autorizado por catalogo con conocimiento suficiente",
+                "accountable": fila.get("accountable_role")}
+
+    def registrar_accion(self, catalog_id: str, what: str, *, level: str,
+                         knowledge_tier: str | None = None,
+                         knowledge_refs: list | None = None,
+                         approved_by: str | None = None,
+                         target_table: str | None = None, target_id: str | None = None,
+                         outcome: str = "pendiente", query_id: str | None = None,
+                         decision_id: str | None = None) -> dict:
+        """
+        Deja el linaje de una acción ejecutada. Sin esto B39 no es auditable.
+
+        Valida contra `evalua_accion` antes de escribir y se niega si el nivel
+        pedido excede el que la regla permite. Escribir primero y auditar
+        después es justo lo que dejaba a B39 en intención.
+        """
+        import json
+        from datetime import datetime, timezone
+
+        if level not in self.NIVELES:
+            raise ValueError(f"nivel invalido: {level}")
+        veredicto = self.evalua_accion(catalog_id, knowledge_tier, approved_by)
+        permitido = veredicto.get("nivel")
+        if not veredicto.get("permitido") or (
+                permitido and self.NIVELES.index(level) > self.NIVELES.index(permitido)):
+            return {"registrado": False, "veredicto": veredicto}
+
+        if "actions" not in self._table_names():
+            return {"registrado": False, "veredicto": {"razon": "actions no existe"}}
+
+        ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        db = self._db_registro()
+        db.execute(
+            "INSERT INTO actions (tier, catalog_id, level, what, target_table, target_id, "
+            "knowledge_refs, knowledge_tier, approved_by, approved_at, executed_at, "
+            "outcome, query_id, decision_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("gold", catalog_id, level, what, target_table, target_id,
+             json.dumps(knowledge_refs or [], ensure_ascii=False), knowledge_tier,
+             approved_by, ahora if approved_by else None, ahora,
+             outcome, query_id, decision_id))
+        db.commit()
+        db.close()
+        return {"registrado": True, "veredicto": veredicto}
+
+    def autonomia(self) -> dict:
+        """
+        La vista con la que la autonomía se gana y se pierde.
+
+        Por tipo de acción: el nivel que tiene hoy, cuántas veces se ejecutó, si
+        alguna causó incidente y si el historial lo califica para subir a A2. Un
+        tipo con incidente regresa a A3 de inmediato, sin debate, y aquí se ve.
+        """
+        tablas = self._table_names()
+        if "action_catalog" not in tablas or "actions" not in tablas:
+            return self._ausencia("B39 sin artefacto: faltan action_catalog o actions", {})
+        db = self._db()
+        salida = []
+        for c in self.catalogo_acciones():
+            ej = db.execute(
+                "SELECT COUNT(*), SUM(CASE WHEN incident_id IS NOT NULL THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN outcome = 'logrado' THEN 1 ELSE 0 END) "
+                "FROM actions WHERE catalog_id = ?", (c["id"],)).fetchone()
+            total, incidentes, logradas = ej[0] or 0, ej[1] or 0, ej[2] or 0
+            if c.get("never_below_a3"):
+                veredicto = ("fijo en A3: siempre exige aprobacion, sea porque el efecto "
+                             "sobre lo ya ocurrido no se recupera o por consecuencia "
+                             "regulatoria directa")
+            elif incidentes:
+                veredicto = f"regresa a A3: {incidentes} ejecucion(es) con incidente"
+            elif c.get("authorized_level") == "A3" and total >= 10 and logradas == total:
+                veredicto = "califica para A2: historial limpio suficiente"
+            else:
+                veredicto = "sin cambio"
+            salida.append({"catalog_id": c["id"], "action_type": c.get("action_type"),
+                           "nivel": c.get("authorized_level"), "ejecuciones": total,
+                           "incidentes": incidentes, "logradas": logradas,
+                           "veredicto": veredicto})
+        sin_catalogo = db.execute(
+            "SELECT COUNT(*) FROM actions WHERE catalog_id NOT IN "
+            "(SELECT id FROM action_catalog)").fetchone()[0]
+        return {"tipos": salida, "acciones_sin_catalogo": sin_catalogo,
+                "nota": ("Una ejecucion sin tipo en el catalogo es una accion que nadie "
+                         "autorizo. No es silencio, es hallazgo.") if sin_catalogo else None}
+
     # ── Regla B43 · el brain se mide a sí mismo ──────────────────────────────
 
     def autoevaluacion(self) -> dict:

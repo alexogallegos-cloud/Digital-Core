@@ -3,7 +3,8 @@ build-brain.py — Pipeline canónico del Enterprise Brain · Template
 Versión: 2.0.0 · Enterprise Brain · Digital Core · Accenture México
 
 INSTRUCCIONES DE USO:
-    1. Copia este archivo, `schema.sql` y `extractors/` a {sistema}/digital-brain/
+    1. Copia este archivo, `schema.sql`, `action-catalog-seed.sql` y
+       `extractors/` a {sistema}/digital-brain/
     2. Ajusta el bloque IDENTIDAD y ONTOLOGÍA
     3. Implementa los load_*() que apliquen a tu brain_type
     4. Corre: python build-brain.py && python build-brain.py --validate
@@ -34,6 +35,7 @@ from pathlib import Path
 HERE = Path(__file__).parent
 DB_PATH = HERE / "brain.db"
 SCHEMA_PATH = HERE / "schema.sql"
+ACTION_SEED_PATH = HERE / "action-catalog-seed.sql"
 KB_PATH = HERE.parent / "knowledge-base"
 SEEDS_PATH = HERE / "seeds"
 EXTRACTORS_PATH = HERE / "extractors"
@@ -120,9 +122,12 @@ class BrainBuilder:
     #: no puede recrear. El registro de consultas de B45 ocurre al consultar y
     #: no existe en ningún archivo fuente: si el DROP lo borra, B43 pierde la
     #: serie con que mide el uso y B44 pierde lo que debía sobrevivir al
-    #: archivado. Se preserva entre builds, y es la única excepción a la
-    #: idempotencia dura.
-    RUNTIME_TABLES = ("queries",)
+    #: archivado. Lo mismo vale para la autonomía de B39: una ejecución ya
+    #: ocurrió y el rebinde de roles del catálogo lo hizo una persona, así que
+    #: un rebuild que las borrara destruiría justo la evidencia con la que un
+    #: tipo de acción gana o pierde nivel (ADR-EB-018).
+    #: Se preservan entre builds, y son la excepción a la idempotencia dura.
+    RUNTIME_TABLES = ("queries", "action_catalog", "actions")
 
     def init_schema(self):
         """
@@ -170,7 +175,31 @@ class BrainBuilder:
                 [tuple(f[i] for i in idx) for f in filas])
             print(f"  {t}: {len(filas)} filas preservadas del build anterior")
 
+        self.siembra_catalogo_acciones()
         self.db.commit()
+
+    def siembra_catalogo_acciones(self):
+        """
+        Regla B38 — un brain sin catálogo de acciones solo puede observar y
+        proponer, porque `evalua_accion()` niega todo lo que no esté ahí.
+
+        Siembra solo cuando el catálogo quedó vacío: si el build anterior lo
+        preservó, la semilla no pisa lo que el brain ya tiene rebindeado a sus
+        propios roles y herramientas. Un brain que no copió el archivo sigue
+        construyendo y es D11 del auditor quien reporta el catálogo vacío, no
+        el builder (ADR-EB-018).
+        """
+        if not ACTION_SEED_PATH.is_file():
+            return
+        try:
+            n = self.db.execute("SELECT COUNT(*) FROM action_catalog").fetchone()[0]
+        except sqlite3.Error:
+            return
+        if n:
+            return
+        self.db.executescript(ACTION_SEED_PATH.read_text(encoding="utf-8"))
+        total = self.db.execute("SELECT COUNT(*) FROM action_catalog").fetchone()[0]
+        print(f"  action_catalog: {total} casos de uso sembrados desde el asset")
 
     def close(self):
         if self.db:

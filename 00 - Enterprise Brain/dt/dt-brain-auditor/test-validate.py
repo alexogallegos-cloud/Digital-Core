@@ -2,8 +2,9 @@
 """Suite del Brain Auditor. Primera que tiene.
 
 El auditor decide si un brain puede activarse y hasta hoy nadie lo auditaba a
-él. Cubre D10, la dimensión de roster, y el acote de D7 que trajo ADR-EB-017. Es
-el lugar donde van los casos de las dimensiones que se verifiquen después.
+él. Cubre D10 (roster), el acote de D7 que trajo ADR-EB-017 y D11 (autonomía de
+las acciones, ADR-EB-018). Es el lugar donde van los casos de las dimensiones
+que se verifiquen después.
 
 El criterio es el mismo de siempre en este asset: cada veredicto tiene que
 poder darse por las dos razones. Una dimensión que solo sabe decir PASS no
@@ -15,6 +16,7 @@ Uso:
 Exit: 0 si todos los casos se comportan como se espera, 1 si alguno falla.
 """
 import importlib.util
+import re
 import shutil
 import sqlite3
 import sys
@@ -224,6 +226,145 @@ def el_auditor_completo_sigue_corriendo():
     assert "D10" in texto, texto[:200]
 
 
+
+
+# ── D11 · la autonomía se audita o no gobierna (B38, B39) ───────────────────
+
+SEMILLA = (ASSET / "templates" / "action-catalog-seed.sql").read_text(encoding="utf-8")
+
+
+def _con_catalogo(nombre, sembrar=True, sentencias=()):
+    db = nuevo_brain(nombre)
+    c = sqlite3.connect(db)
+    if sembrar:
+        c.executescript(SEMILLA)
+    for s in sentencias:
+        c.execute(s)
+    c.commit()
+    c.close()
+    return db
+
+
+def _ejecucion(catalog_id, level, tier="gold", aprobador="NULL"):
+    aprob = aprobador if aprobador == "NULL" else f"'{aprobador}'"
+    return ("INSERT INTO actions (tier, catalog_id, level, what, knowledge_tier, "
+            f"approved_by, outcome) VALUES ('gold','{catalog_id}','{level}',"
+            f"'caso de prueba','{tier}',{aprob},'logrado')")
+
+
+def la_semilla_del_asset_pasa():
+    """La semilla que el asset reparte no puede reprobar al brain que la copia."""
+    db = _con_catalogo("semilla")
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "PASS", [
+        f.message for f in v.findings if f.dim == "autonomia" and f.blocking]
+    ids = set(re.findall(r"\('(ACT-[a-z0-9-]+)'", SEMILLA))
+    assert v.metrics["act_catalogo"] == len(ids), (v.metrics["act_catalogo"], len(ids))
+
+
+def la_semilla_respeta_la_aprobacion_permanente():
+    """Un tipo marcado como nunca-bajo-A3 que no esté en A3 es la contradicción
+    que D11 existe para encontrar. La semilla no puede traerla de fábrica."""
+    db = _con_catalogo("semilla-a3")
+    c = sqlite3.connect(db)
+    filas = c.execute("SELECT id, authorized_level FROM action_catalog "
+                      "WHERE never_below_a3 = 1").fetchall()
+    c.close()
+    assert len(filas) >= 4, filas
+    assert all(nivel == "A3" for _, nivel in filas), filas
+
+
+def catalogo_vacio_avisa_sin_bloquear():
+    """Un brain en DISCOVER todavía no ejecuta nada: exigirle casos sembrados
+    sería reprobarlo por estar empezando."""
+    db = _con_catalogo("sin-catalogo", sembrar=False)
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "PASS", v.dim_status
+    avisos = [f for f in v.findings if f.dim == "autonomia" and not f.blocking]
+    assert any("vacío" in f.message for f in avisos), [f.message for f in avisos]
+
+
+def sin_las_tablas_es_no_evaluable():
+    """Desconocido no es cero, igual que en D10. D1 ya reporta el CORE ausente."""
+    db = nuevo_brain("sin-tablas")
+    c = sqlite3.connect(db)
+    c.executescript("DROP TABLE action_catalog; DROP TABLE actions;")
+    c.commit()
+    c.close()
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"].strip() == "N/A", v.dim_status
+    assert not [f for f in v.findings if f.dim == "autonomia" and f.blocking]
+
+
+def accion_sin_catalogo_bloquea():
+    """El hallazgo central de B39: una acción que nadie autorizó."""
+    db = _con_catalogo("huerfana", sentencias=[_ejecucion("ACT-inventada", "A1")])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "FAIL", v.dim_status
+    assert v.metrics["act_sin_autorizar"] == 1, v.metrics
+
+
+def a2_sobre_silver_bloquea():
+    """A2 y A3 solo sobre gold: bajo incertidumbre el brain propone."""
+    db = _con_catalogo("silver", sentencias=[
+        _ejecucion("ACT-ticket-abrir", "A2", tier="silver")])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "FAIL", v.dim_status
+    bloq = [f for f in v.findings if f.dim == "autonomia" and f.blocking]
+    assert any("gold" in f.message for f in bloq), [f.message for f in bloq]
+
+
+def a3_sin_aprobador_bloquea():
+    """A3 es aprobación explícita antes de disparar, no después."""
+    db = _con_catalogo("sin-aprobador", sentencias=[
+        _ejecucion("ACT-release-produccion", "A3")])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "FAIL", v.dim_status
+    bloq = [f for f in v.findings if f.dim == "autonomia" and f.blocking]
+    assert any("approved_by" in f.message for f in bloq), [f.message for f in bloq]
+
+
+def a3_con_aprobador_pasa():
+    """El mismo caso con aprobador tiene que pasar, o la dimensión solo sabe
+    decir FAIL y vuelve a no verificar nada."""
+    db = _con_catalogo("con-aprobador", sentencias=[
+        _ejecucion("ACT-release-produccion", "A3", aprobador="Change Manager")])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "PASS", [
+        f.message for f in v.findings if f.dim == "autonomia" and f.blocking]
+    assert v.metrics["act_ejecuciones"] == 1, v.metrics
+
+
+def nunca_bajo_a3_degradado_bloquea():
+    """Ningún historial limpio preautoriza un decommission."""
+    db = _con_catalogo("degradado", sentencias=[
+        "UPDATE action_catalog SET authorized_level='A2' WHERE id='ACT-decommission'"])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "FAIL", v.dim_status
+    bloq = [f for f in v.findings if f.dim == "autonomia" and f.blocking]
+    assert any("nunca-bajo-A3" in f.message for f in bloq), [f.message for f in bloq]
+
+
+def caso_de_uso_sin_ancla_itom_bloquea():
+    """B38: el mapa de los casos de uso es el IT Operating Model."""
+    db = _con_catalogo("sin-itom", sentencias=[
+        "UPDATE action_catalog SET itom_domain=NULL WHERE id='ACT-rca-documentar'"])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "FAIL", v.dim_status
+    bloq = [f for f in v.findings if f.dim == "autonomia" and f.blocking]
+    assert any("ITOM" in f.message for f in bloq), [f.message for f in bloq]
+
+
+def rol_sin_rebindear_avisa():
+    """La semilla trae el nombre del rol canónico. En un brain con stakeholders
+    poblados, que no resuelva es el rebinde pendiente: avisa, no bloquea."""
+    db = _con_catalogo("rebinde", sentencias=[
+        "INSERT INTO stakeholders (id, name, role) VALUES "
+        "('STK-change-manager','Quien responde','Change Manager')"])
+    v = V.Validator(db).run("autonomia")
+    assert v.dim_status["autonomia"] == "PASS", v.dim_status
+    avisos = [f for f in v.findings if f.dim == "autonomia" and not f.blocking]
+    assert any("stakeholders.id" in f.message for f in avisos), [f.message for f in avisos]
 caso("el roster exigido es el que existe en dt/", roster_completo)
 caso("la plantilla nombra los 24 roles", plantilla_nombra_a_todos)
 caso("sin declarar es DESCONOCIDO, no cero", sin_declarar_es_desconocido)
@@ -236,6 +377,17 @@ caso("nivel empresa no cuenta como huérfano", nivel_empresa_no_cuenta_como_huer
 caso("nivel proceso sin proceso sigue bloqueando", nivel_proceso_sin_proceso_sigue_bloqueando)
 caso("la exención no se activa por omisión", la_exencion_no_se_activa_por_omision)
 caso("el auditor completo sigue corriendo", el_auditor_completo_sigue_corriendo)
+caso("la semilla del asset pasa D11", la_semilla_del_asset_pasa)
+caso("la semilla respeta la aprobación permanente", la_semilla_respeta_la_aprobacion_permanente)
+caso("catálogo vacío avisa y no bloquea", catalogo_vacio_avisa_sin_bloquear)
+caso("sin las tablas, autonomía no es evaluable", sin_las_tablas_es_no_evaluable)
+caso("una acción que nadie autorizó bloquea", accion_sin_catalogo_bloquea)
+caso("A2 sobre silver bloquea", a2_sobre_silver_bloquea)
+caso("A3 sin aprobador bloquea", a3_sin_aprobador_bloquea)
+caso("A3 con aprobador pasa", a3_con_aprobador_pasa)
+caso("nunca-bajo-A3 degradado bloquea", nunca_bajo_a3_degradado_bloquea)
+caso("caso de uso sin ancla ITOM bloquea", caso_de_uso_sin_ancla_itom_bloquea)
+caso("rol sin rebindear avisa", rol_sin_rebindear_avisa)
 
 
 def main():

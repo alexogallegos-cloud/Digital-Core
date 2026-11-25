@@ -64,9 +64,12 @@ caso("cifra de dimensiones mal", "cifras", 1,
 caso("cifra de dimensiones escrita con letra", "cifras", 1,
      # Una cifra en letra se queda vieja igual que una en digitos. El deck del
      # asset dijo "nueve dimensiones" tres semanas despues de que fueran diez,
-     # y el validador solo miraba digitos.
-     mutar=lambda t: t.replace("Brain Auditor, diez dimensiones",
-                               "Brain Auditor, siete dimensiones", 1),
+     # y el validador solo miraba digitos. La mutacion no nombra la palabra de
+     # hoy: escribirla fijaba el caso a una cifra concreta y lo dejaba sin
+     # inyectar nada la primera vez que entrara una dimension nueva.
+     mutar=lambda t: re.sub(r"(Brain Auditor, )\w+( dimensiones)",
+                            lambda m: m.group(1) + "siete" + m.group(2),
+                            t, count=1),
      archivo=B / "portal" / "enterprise-brain-deck.html")
 
 caso("CORE nombrado al reves", "cifras", 1,
@@ -105,6 +108,16 @@ caso("cifra del CORE mal", "cifras", 1,
 caso("conteo de reglas desfasado", "cifras", 1,
      mutar=lambda t: t.replace("45 reglas viven", "40 reglas viven", 1),
      archivo=B / "source" / "README.md")
+
+caso("CORE_TABLES del auditor desfasado", "cifras", 1,
+     # El defecto que paso tres semanas sin verse: el DDL llego a 25 tablas con
+     # action_catalog y actions, y la lista del auditor se quedo en 23. D1 medía
+     # contra un canon viejo y pasaba en verde, porque nadie comparaba su lista
+     # con el esquema que dice gobernar. Quitar una tabla de la lista tiene que
+     # dar negativo.
+     mutar=lambda t: t.replace('    "action_catalog", "actions",\n',
+                               '    "actions",\n', 1),
+     archivo=B / "dt" / "dt-brain-auditor" / "validate.py")
 
 caso("SQL contra columna inexistente", "sql", 1,
      archivo=B / "knowledge-base" / "_t1.md",

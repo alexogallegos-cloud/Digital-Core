@@ -123,7 +123,7 @@ Cobertura: **2 de los 16 tipos de fuente** que F2 clasifica. La familia
 
 ---
 
-Baseline vigente: `dt/dt-brain-auditor/baseline-2026-10-01.json`, que mide el canon anterior: un **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y sus dimensiones de entonces, **D1 a D9**. El canon vigente llegó a 23 tablas y 10 dimensiones (ADR-EB-012 a ADR-EB-016), así que ese baseline mide un canon anterior. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
+Baseline vigente: `dt/dt-brain-auditor/baseline-2026-10-01.json`, que mide el canon anterior: un **CORE de 15 tablas** (ADR-EB-009, ADR-EB-010, ADR-EB-011), el puente Change-Run y sus dimensiones de entonces, **D1 a D9**. El canon vigente llegó a 25 tablas y 11 dimensiones (ADR-EB-012 a ADR-EB-018), así que ese baseline mide un canon anterior. Las columnas de cumplimiento de este catálogo se calcularon contra un canon anterior y deben recalcularse. El anterior, `baseline-2026-09-30.json`, queda como histórico. Ningún brain pasa D1 todavía: el canon v2.0 se adoptó el 2026-09-29 (ADR-EB-006) y la homologación no ha comenzado.
 
 Los 11 brains de sistema y de proyecto reprueban D8 (puente Change–Run, ADR-EB-008); ninguno implementa el contrato común. Siete tienen piezas propias del lado Change y ninguno el lado Run con ruteo.
 

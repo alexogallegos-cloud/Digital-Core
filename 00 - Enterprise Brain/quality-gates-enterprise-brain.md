@@ -36,13 +36,13 @@ WHERE tier = 'gold' AND valid_to IS NULL AND entity_id LIKE :prefijo_del_sistema
 
 ## Gates por fase SDLC
 
-Todas las consultas son ejecutables contra el schema canónico (`templates/schema.sql`, 23 tablas en el CORE).
+Todas las consultas son ejecutables contra el schema canónico (`templates/schema.sql`, 25 tablas en el CORE).
 
 ### DISCOVER
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| Schema canónico presente | Las 23 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
+| Schema canónico presente | Las 25 tablas del CORE existen, más la extensión que corresponde por `brain_type` y el lado del puente. Lo verifica D1 | **SÍ** |
 | Ontología anclada | `SELECT COUNT(*) FROM ontology_bindings WHERE role='primary'` devuelve exactamente 1 (Reglas B20, B21) | **SÍ** |
 | Corpus fuente declarado | `system_info.source_of_truth` no vacío (Regla B31) | **SÍ** si el estado es `active` |
 | Catálogo de fuentes poblado | `SELECT COUNT(*) FROM source_catalog` mayor que 0. Sin catálogo, una fuente ausente se ve igual que un silencio y nadie puede saber qué deja de responder el brain por no tenerla (ADR-EB-014) | **SÍ** |
@@ -78,7 +78,7 @@ Todas las consultas son ejecutables contra el schema canónico (`templates/schem
 
 | Gate | Criterio medible | Bloqueante |
 |------|-----------------|-----------|
-| Brain Auditor PASS | 0 errores y 0 advertencias bloqueantes en las **10 dimensiones**, D1 a D10 | **SÍ, gate de salida** |
+| Brain Auditor PASS | 0 errores y 0 advertencias bloqueantes en las **11 dimensiones**, D1 a D11 | **SÍ, gate de salida** |
 
 ### RELEASE
 
@@ -111,6 +111,10 @@ El archivado es decisión de nivel A3 y no baja de ahí por historial (Regla B39
 | Frescura del build | `brain_freshness_days` no mayor a 30 cuando hay cambios en `source/` desde el último build | NO (alerta) |
 | Hallazgos ruteados | Hallazgo grave abierto que toca una entidad en transición y no llegó al brain de proyecto. Lo verifica D8, código R1 (Regla B24) | **SÍ** |
 | Cola de validación atendida | Pendientes de `hitl_queue()` con plazo vencido (Regla B37, operado por `dt-human-reviewer`) | NO (alerta) |
+| Autonomía sustentada | Ninguna fila de `actions` con `level` en A2 o A3 y `knowledge_tier` distinto de gold; ninguna A3 sin `approved_by` (Regla B39) | **SÍ** |
+| Acción sin autorización | Filas de `actions` cuyo `catalog_id` no existe en `action_catalog`. Una acción que nadie autorizó no es silencio, es hallazgo (Regla B39) | **SÍ** |
+| Tipo de aprobación permanente degradado | Fila de `action_catalog` con `never_below_a3 = 1` y `authorized_level` distinto de A3. Son los cuatro que nunca bajan de A3: ningún historial limpio los preautoriza (Regla B39) | **SÍ** |
+| Estudio histórico presente | `knowledge-base/history/` existe con las cinco dimensiones de B26, aunque sea con huecos declarados en `knowledge_gaps` | NO (alerta) |
 
 ---
 
@@ -122,7 +126,7 @@ Los doce identificadores son estables y se referencian en otros documentos. Del 
 - [ ] **DoD-EB-02**: 0 reglas con business_name vacío o genérico. Síntesis LLM source-read completada con `enrichment_method='llm_synthesis_source_read'`. Detector anti-genérico corrido y sin hallazgos (Regla B30).
 - [ ] **DoD-EB-03**: `clase` clasificada en 100% de reglas, con su distribución documentada.
 - [ ] **DoD-EB-04**: `reg` anotada en 100% de reglas. Los componentes sin regulación aplicable llevan cadena vacía, nunca NULL.
-- [ ] **DoD-EB-05**: Brain Auditor PASS, 0 errores y 0 advertencias bloqueantes en las **10 dimensiones** D1 a D10, incluidas D7 trazabilidad a proceso, D8 puente Change-Run, D9 calidad y linaje y D10 cobertura del roster exigible. D10 queda en N/A, no en FAIL, mientras el brain no declare su mapeo de rol a DT propio: cobertura desconocida no es cobertura cero (ADR-EB-016).
+- [ ] **DoD-EB-05**: Brain Auditor PASS, 0 errores y 0 advertencias bloqueantes en las **11 dimensiones** D1 a D11, incluidas D7 trazabilidad a proceso, D8 puente Change-Run, D9 calidad y linaje, D10 cobertura del roster exigible y D11 autonomía de las acciones (ADR-EB-018). D10 queda en N/A, no en FAIL, mientras el brain no declare su mapeo de rol a DT propio: cobertura desconocida no es cobertura cero (ADR-EB-016).
 - [ ] **DoD-EB-06**: Seeds emitidos para todos los sistemas con dependencia conocida, como `seeds/{receptor}-seed.json` (Regla B11).
 - [ ] **DoD-EB-07**: Portal HTML generado desde brain.db por `build-portal.py`. Ningún `portal/*.html` editado a mano, confirmable con `git log -- portal/` (Regla P4, ADR-EB-005).
 - [ ] **DoD-EB-08**: `brain.py` expone la interfaz estándar de 5 métodos (`coverage`, `components`, `search`, `rules`, `domains`) devolviendo datos reales (Regla B1).
@@ -135,15 +139,19 @@ Los doce identificadores son estables y se referencian en otros documentos. Del 
 
 ## Gates declarados y todavía no exigibles
 
-Estas reglas forman parte del canon pero **no tienen implementación**, así que exigirlas hoy convertiría este documento en lo que era: una lista de criterios que nada puede verificar. Se declaran aquí para que su ausencia sea visible y deliberada.
+Ninguno. Las cinco reglas que esperaban implementación quedaron cerradas y sus gates subieron a la
+tabla de arriba: B40, B42, B43 y B45 con el objeto consulta y el reloj bitemporal de ADR-EB-013, y
+B38 y B39 con `action_catalog`, `actions` y los métodos que los gobiernan. B26 estrenó plantilla en
+`templates/estudio-historico.md`.
 
-| Regla | Gate que exigirá | Qué falta para poder exigirlo |
-|-------|-----------------|------------------------------|
-| **B39** | Toda acción A2 o A3 se sustenta en gold, y los cuatro tipos irreversibles nunca bajan de A3 | No existe registro de acciones con su nivel de autonomía, su aprobador y su resultado |
-| **B42** | Ninguna consulta cruza una frontera sin propósito declarado y autorizado | `brain.py` no tiene parámetro de propósito ni filtro de acceso; `knowledge_lineage` no tiene columna de propósito |
-| **B43** | Toda decisión de gate queda trazable a su evidencia y a su resultado | No existe registro de decisiones con opciones descartadas, conocimiento que las sostuvo y desenlace |
-| **B40** | Consulta de estado en una fecha dada | `snapshot(date)` no existe en `brain.py` |
-| **B45** | Ninguna consulta cruza una frontera sin propósito declarado, y toda decisión se rastrea hasta la respuesta que la motivó | No existe el objeto consulta: ni tabla, ni identificador, ni registro |
+Queda una regla sin gate, y es correcto que así sea:
+
+| Regla | Por qué no tiene gate |
+|-------|----------------------|
+| **B34** | Es el principio rector de los dos hemisferios transformacionales, no una condición medible en una tabla. Tenerla listada como pendiente era un error de clasificación: no hay nada que implementar |
+
+Esta sección se conserva vacía a propósito. Si una regla nueva entra al canon sin artefacto, aquí es
+donde su ausencia tiene que ser visible y deliberada, en vez de quedar prometida en el índice.
 
 ---
 

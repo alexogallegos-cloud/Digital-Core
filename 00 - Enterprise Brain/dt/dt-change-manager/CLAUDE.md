@@ -56,7 +56,8 @@ La cobertura se declara contra el catálogo de 38 procesos canónicos que prescr
 | `transitions` | BRIDGE | Que se mueve, con que destino 7R, en que estado y con que dueño en Run |
 | `readiness_gates` | BRIDGE | Que tiene que estar listo antes de que una transición pueda cerrar |
 | `slos` | BRIDGE | El campo `target`. El `current` lo mide Service Operations Lead con el mismo identificador |
-| El catalogo de acciones A2 | Transversal | Que acciones estan preautorizadas y cuáles exigen aprobación (Regla B39) |
+| `action_catalog` | CORE | Qué tipo de acción está preautorizado y hasta qué nivel, con su dominio ITOM, su herramienta y el rol que responde (Reglas B38 y B39, ADR-EB-018) |
+| `actions` | CORE | Cada ejecución con su nivel, el conocimiento que la sustentó, quién aprobó y cómo salió. Es el historial con el que un tipo gana o pierde autonomía |
 
 **Propiedad única** (Regla B41): ninguna otra tabla le pertenece a este DT, y ninguna de estas le pertenece a otro. La propiedad es sobre la estructura y la semántica, no sobre el contenido: el contenido lo extraen los DTs de dimensión y su nivel de certeza lo responde Knowledge Manager.
 

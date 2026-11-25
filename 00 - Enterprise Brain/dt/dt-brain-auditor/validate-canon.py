@@ -289,6 +289,29 @@ class CanonValidator:
                      "validate.py ya no declara ROSTER_CANONICO; D10 no tiene "
                      "contra qué medir B41", "dt/dt-brain-auditor/validate.py")
 
+        # El CORE que el auditor exige, contra el CORE que el DDL crea.
+        # Mismo modo de falla que el roster y ya ocurrió: el esquema llego a 25
+        # tablas con action_catalog y actions, y CORE_TABLES se quedo en 23. D1
+        # medía contra un canon viejo y pasaba en verde, porque nadie comparaba
+        # la lista del validador con la fuente de verdad que dice gobernar.
+        core_ddl = set(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)",
+                                  ddl[ini_core:fin_core]))
+        m_core = re.search(r"CORE_TABLES\s*=\s*\[(.*?)\n\]", vp, re.S)
+        if m_core:
+            core_declarado = set(re.findall(r'"(\w+)"', m_core.group(1)))
+            faltan_c = core_ddl - core_declarado
+            sobran_c = core_declarado - core_ddl
+            if faltan_c or sobran_c:
+                self.add("cifras", SEV_BLOQ,
+                         "CORE_TABLES no coincide con la sección CORE de schema.sql: "
+                         + (f"faltan {sorted(faltan_c)} " if faltan_c else "")
+                         + (f"sobran {sorted(sobran_c)}" if sobran_c else ""),
+                         "dt/dt-brain-auditor/validate.py")
+        else:
+            self.add("cifras", SEV_BLOQ,
+                     "validate.py ya no declara CORE_TABLES; D1 no tiene contra "
+                     "qué medir B15", "dt/dt-brain-auditor/validate.py")
+
         # reglas B reales
         br = (self.asset / "canon" / "brain-rules.md").read_text(encoding="utf-8")
         reglas_real = len(set(re.findall(r"^\*\*B(\d+)", br, re.M)))

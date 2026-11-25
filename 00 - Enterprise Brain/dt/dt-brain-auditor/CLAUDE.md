@@ -19,7 +19,7 @@
 
 ## Principio Rector
 
-El Brain Auditor **reporta, no corrige**. Su función es ejecutar las 10 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
+El Brain Auditor **reporta, no corrige**. Su función es ejecutar las 11 dimensiones de validación sobre un brain.db y emitir un reporte estructurado con hallazgos — los cuáles el equipo decide cómo resolver. No modifica el brain.db ni los archivos fuente.
 
 Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqueada). Un brain ACTIVE que falla el Brain Auditor en OBSERVE entra en estado STALE hasta que se corrija.
 
@@ -35,10 +35,11 @@ Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqu
 | Regulación coverage | Industry SME del cliente (bancario, seguros, etc.) |
 | Clase coverage | Specialist RE + Domain SME |
 | Cross-references | Enterprise Brain Agent |
+| Autonomía de las acciones | `dt-change-manager`, dueño del catálogo, con el rol accountable de cada tipo |
 
 ---
 
-## Las 10 Dimensiones de Validación
+## Las 11 Dimensiones de Validación
 
 ### Dimensión 1 — Schema Integridad
 
@@ -48,7 +49,7 @@ Un brain que no pasa el Brain Auditor **no puede activarse** (fase RELEASE bloqu
 
 | Capa | Tablas exigidas | A quién aplica |
 |------|----------------|---------------|
-| CORE | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` · `queries` · `source_catalog` · `company_profile` · `business_milestones` · `strategic_drivers` · `driver_links` | Todo brain |
+| CORE | `system_info` · `ontology_bindings` · `capabilities` · `processes` · `products` · `kpis` · `stakeholders` · `data_entities` · `technology_components` · `suppliers` · `measurements` · `costs` · `itom_layer` · `cross_dependencies` · `signals` · `knowledge_gaps` · `knowledge_lineage` · `queries` · `source_catalog` · `company_profile` · `business_milestones` · `strategic_drivers` · `driver_links` · `action_catalog` · `actions` | Todo brain |
 | SYSTEM | `components` · `component_calls` · `component_data` · `rules` · `rule_enrichment_log` · `vocabulary` · `journeys` · `component_capabilities` · `component_processes` · `regulatory_obligations` · `external_systems` | `brain_type='system'` |
 | PROJECT | `applications` · `waves` · `risks` · `decisions` · `user_stories` | `brain_type='project'` |
 | ENTERPRISE | `federated_brains` · `documents` | `brain_type='enterprise'` |
@@ -274,8 +275,44 @@ sostiene: lo único cierto es que nadie lo ha mirado.
 - Filas que nombran algo que no es del roster. Si son DTs de dimensión no van
   en esa tabla: son población libre y no se enumeran.
 
-**Métrica reportada**: cubiertos sobre 24, huecos declarados y roles sin
-mención.
+---
+
+### Dimensión 11 — Autonomía de las acciones
+
+**Qué valida**: que lo que el brain ejecutó se puede auditar después, y que el
+catálogo que lo autoriza no se contradice a sí mismo (Reglas B38 y B39 ·
+ADR-EB-018). Aplica a todo `brain_type`.
+
+**Dónde lo lee**: `action_catalog`, que es la política, y `actions`, que es el
+linaje de ejecuciones. Si alguna de las dos no existe, la dimensión queda en
+**N/A** y es D1 quien reporta la tabla ausente del CORE.
+
+**Hallazgos bloqueantes**:
+- Ejecución en A2 o A3 sin conocimiento gold que la sustente. Bajo
+  incertidumbre el brain propone y el humano decide.
+- Ejecución en A3 sin `approved_by`. A3 es aprobación explícita antes de
+  disparar, no después.
+- Ejecución cuyo `catalog_id` no está en el catálogo. Una acción que nadie
+  autorizó no es silencio, es el hallazgo.
+- Tipo con `never_below_a3` preautorizado por debajo de A3. Ningún historial
+  limpio baja lo que no se recupera o tiene consecuencia regulatoria directa.
+- Tipo con `creates_only` en 0 preautorizado por debajo de A3: reescribir el
+  registro que otra herramienta custodia como verdad no se hace sin aprobación.
+- Caso de uso sin dominio ITOM. El mapa de los casos de uso es el IT Operating
+  Model, no una lista suelta de ideas.
+- Nivel fuera de A0, A1, A2 y A3 en cualquiera de las dos tablas.
+
+**Hallazgos no bloqueantes**:
+- Catálogo vacío. Un brain en DISCOVER todavía no ejecuta nada; la lista
+  exigible se siembra desde `templates/action-catalog-seed.sql` del asset.
+- Tipo sin rol accountable. Es política muerta: `evalua_accion()` lo niega en
+  cualquier nivel.
+- Rol accountable que no resuelve contra `stakeholders.id`. Es el rebinde que la
+  semilla deja pendiente, y mientras no se haga nadie responde por esa acción
+  con nombre y apellido.
+
+**Métrica reportada**: tipos en el catálogo, ejecuciones registradas y
+ejecuciones sin autorización.
 
 ---
 
@@ -296,6 +333,9 @@ Sistema: {slug} · Build: {built_at} · Versión brain: {versión}
 [PASS/FAIL] D6 Cross-references     — seeds: {OK/MISSING} · gitignore: {OK/MISSING}
 [PASS/FAIL] D7 Process Linkage      — processes: {N} · huérfanos: {N} en {N} tabla(s)
 [PASS/FAIL] D8 Puente Change-Run    — transiciones: {N} · hallazgos: {N} · graves sin rutear: {N}
+[PASS/FAIL] D9 Calidad conocim.     — gold {N}% · silver {N}% · bronze {N}% · linaje: {N}
+[PASS/FAIL] D10 Roster exigible     — cubiertos: {N}/24 · huecos: {N} · sin mención: {N}
+[PASS/FAIL] D11 Autonomía           — catálogo: {N} tipo(s) · ejecuciones: {N} · sin autorizar: {N}
 
 RESULTADO FINAL: {PASS / FAIL — N dimensiones bloqueantes}
 
@@ -350,9 +390,9 @@ El validador abre el brain.db en modo read-only (`mode=ro`) — no puede modific
 
 ## Baseline del estate
 
-`baseline-2026-09-29.json` congela el resultado sobre los 16 brains con implementación real del estate al momento de adoptar el canon v2.0. En esa fecha el validador tenía seis dimensiones; hoy tiene 9, así que ese archivo solo es comparable en D1 a D6. Sirve para medir avance de la homologación en esas seis, no para D7, D8 ni D9.
+`baseline-2026-09-29.json` congela el resultado sobre los 16 brains con implementación real del estate al momento de adoptar el canon v2.0. En esa fecha el validador tenía seis dimensiones; hoy tiene 11, así que ese archivo solo es comparable en D1 a D6. Sirve para medir avance de la homologación en esas seis, no para D7 en adelante.
 
-**Ningún baseline mide el canon vigente.** El CORE creció tres veces desde que se tomaron: `suppliers` con ADR-EB-011, `measurements` y `costs` con ADR-EB-012, y `queries` con ADR-EB-013, que lo dejan en 18 tablas. Los tres baselines existentes miden canones anteriores y ninguno sirve como medida de avance hasta que se tome uno nuevo. Conviene tomarlo después de la homologación, no antes: un baseline contra un canon que todavía se mueve se vuelve a quedar atrás.
+**Ningún baseline mide el canon vigente.** El CORE creció seis veces desde que se tomaron: `suppliers` con ADR-EB-011, `measurements` y `costs` con ADR-EB-012, `queries` con ADR-EB-013, `source_catalog` con ADR-EB-014, las cuatro de la Etapa 0 con ADR-EB-015 y `action_catalog` con `actions` en ADR-EB-018, que lo dejan en 25 tablas. Los tres baselines existentes miden canones anteriores y ninguno sirve como medida de avance hasta que se tome uno nuevo. Conviene tomarlo después de la homologación, no antes: un baseline contra un canon que todavía se mueve se vuelve a quedar atrás.
 
 Al 2026-09-29 los 16 brains reprueban D1. Es el resultado correcto — mide la deuda real en vez de ocultarla.
 

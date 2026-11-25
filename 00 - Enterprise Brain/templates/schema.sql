@@ -26,7 +26,7 @@
 
 
 -- =============================================================================
--- CORE — obligatorio en todo brain (23 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009 a ADR-EB-015)
+-- CORE — obligatorio en todo brain (25 tablas · Reglas B15, B27, B28, B36, B37, B41 · ADR-EB-009 a ADR-EB-015)
 --
 -- Cubre cinco contratos irrenunciables:
 --   identidad       → system_info
@@ -691,6 +691,83 @@ CREATE TABLE IF NOT EXISTS driver_links (
 );
 CREATE INDEX IF NOT EXISTS ix_driverlink_driver ON driver_links(driver_id);
 CREATE INDEX IF NOT EXISTS ix_driverlink_entity ON driver_links(entity_table, entity_id);
+
+
+-- Regla B39 — del consejo a la accion. Son dos tablas porque son dos objetos
+-- distintos: la politica que preautoriza un tipo de accion, y cada ejecucion
+-- concreta con su linaje. Un tipo sin ejecuciones es politica vigente; una
+-- ejecucion sin tipo en el catalogo es una accion que nadie autorizo, y eso no
+-- es un silencio sino el hallazgo.
+--
+-- Mientras estas tablas no existieron, B39 era intencion y no control: el canon
+-- describia cuatro niveles de autonomia que nada registraba, asi que nadie podia
+-- verificar despues con que nivel se ejecuto algo, ni ganar autonomia con
+-- evidencia, ni perderla con un incidente.
+
+-- El catalogo: que tipo de accion esta preautorizado y hasta que nivel. Lo
+-- define dt-change-manager, dueno del lado Change del puente calloso (B24).
+-- Los cuatro tipos que nunca bajan de A3 viven aqui con never_below_a3 en 1 y
+-- ningun historial los baja: cambio en produccion, decommission de un sistema,
+-- cambio de configuracion de seguridad e impacto financiero directo al cliente.
+--
+-- El canon da dos razones, no una, y conviene no colapsarlas en la palabra
+-- "irreversible": o el efecto sobre lo que ya ocurrio no se recupera, o hay
+-- consecuencia regulatoria directa. La distincion importa porque muchos de
+-- estos cambios SI se deshacen: bajar un parametro se revierte con otro UPDATE.
+-- Lo que no se revierte es el tiempo que estuvo vigente, con las operaciones
+-- que ocurrieron mientras tanto.
+CREATE TABLE IF NOT EXISTS action_catalog (
+    id                TEXT PRIMARY KEY,   -- "ACT-{slug}"
+    tier              TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    action_type       TEXT NOT NULL,      -- que clase de accion es
+    itom_domain       TEXT,               -- dominio ITOM al que pertenece (Regla B23)
+    description       TEXT,
+    authorized_level  TEXT NOT NULL DEFAULT 'A1',  -- A0 | A1 | A2 | A3 (Regla B39)
+    never_below_a3    INTEGER NOT NULL DEFAULT 0,  -- 1 = siempre exige aprobacion, no baja
+                                                   -- por historial: o el efecto sobre lo ya
+                                                   -- ocurrido no se recupera, o hay
+                                                   -- consecuencia regulatoria directa
+    accountable_role  TEXT,               -- FK logica a stakeholders.id. Sin dueno humano la
+                                          -- accion no se ejecuta en ningun nivel: el brain
+                                          -- sugiere y el dueno responde
+    tool              TEXT,               -- la herramienta por cuya puerta de entrada se crea (B38)
+    creates_only      INTEGER NOT NULL DEFAULT 1,  -- 1 = solo crea registro nuevo. Modificar el
+                                                   -- registro que otra herramienta custodia como
+                                                   -- verdad lo prohibe B38 en todo nivel
+    authorized_by     TEXT,               -- quien aprobo el catalogo, no la ejecucion
+    authorized_at     TEXT,
+    demoted_reason    TEXT                -- por que regreso a A3, si regreso
+);
+CREATE INDEX IF NOT EXISTS ix_actcat_level ON action_catalog(authorized_level);
+
+-- El linaje de acciones: el equivalente de knowledge_lineage (B37) para lo que
+-- el brain hizo. Una fila por ejecucion, con el nivel, el conocimiento que la
+-- sustento, quien aprobo y como salio. Es la auditoria que permite mover un
+-- tipo de A3 a A2 con evidencia, y devolverlo a A3 el dia que causa un
+-- incidente, automaticamente y sin debate.
+CREATE TABLE IF NOT EXISTS actions (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    tier              TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37
+    catalog_id        TEXT NOT NULL,      -- FK logica a action_catalog.id
+    level             TEXT NOT NULL,      -- A0 | A1 | A2 | A3 con el que se ejecuto
+    what              TEXT NOT NULL,      -- que se hizo, en una linea
+    target_table      TEXT,               -- sobre que entidad del brain, si aplica
+    target_id         TEXT,
+    knowledge_refs    TEXT,               -- JSON: ids de knowledge_lineage que la sustentan
+    knowledge_tier    TEXT,               -- el nivel que ese conocimiento tenia AL EJECUTAR.
+                                          -- A2 y A3 exigen gold: con silver o bronze el maximo
+                                          -- posible es A1, el brain propone y el humano decide
+    approved_by       TEXT,               -- rol que aprobo esta ejecucion. Obligatorio en A3
+    approved_at       TEXT,
+    executed_at       TEXT,
+    outcome           TEXT,               -- logrado | parcial | no_logrado | revertido | pendiente
+    incident_id       TEXT,               -- si causo incidente, el tipo regresa a A3 por B39
+    outcome_notes     TEXT,
+    query_id          TEXT,               -- FK logica a queries.id: que consulta la motivo
+    decision_id       TEXT                -- FK logica a decisions.id: que decision la ordeno
+);
+CREATE INDEX IF NOT EXISTS ix_actions_catalog ON actions(catalog_id);
+CREATE INDEX IF NOT EXISTS ix_actions_incident ON actions(incident_id);
 
 -- =============================================================================
 -- SYSTEM — brains de sistema productivo (hemisphere='run')

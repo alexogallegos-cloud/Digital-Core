@@ -241,6 +241,8 @@ source/          knowledge-base/        brain.db (SQLite)
 - [ADR-EB-014](adr/ADR-EB-014-catalogo-de-fuentes.md): El catálogo de fuentes entra al esquema: el CORE llega a 19
 - [ADR-EB-015](adr/ADR-EB-015-pipeline-de-fuentes-y-etapa-identidad.md): El pipeline de fuentes y la Etapa 0: el brain deja de entrar solo por el código
 - [ADR-EB-016](adr/ADR-EB-016-roster-exigible-y-dominios-asimetricos.md): Qué exige B41 realmente, y qué hacer con un dominio que solo existe en una industria
+- [ADR-EB-017](adr/ADR-EB-017-b22-se-acota-al-nivel-proceso.md): Qué conocimiento ata a un proceso, y qué conocimiento está por encima de los procesos
+- [ADR-EB-018](adr/ADR-EB-018-catalogo-de-acciones-y-linaje.md): Del consejo a la acción: el catálogo de acciones y su linaje entran al CORE
 
 ---
 
@@ -263,7 +265,7 @@ El Enterprise Brain es un artefacto de conocimiento, no código de negocio. No a
 
 | Capa | Qué valida | Quién lo ejecuta | Fase |
 |------|-----------|-----------------|------|
-| **Brain Auditor (10 dimensiones)** | Integridad del schema, coverage, business_name quality, regulación, clase, cross-references, trazabilidad a proceso (D7), puente Change-Run (D8), calidad y linaje (D9), cobertura del roster exigible (D10) | Brain Auditor (meta-agente) | TEST · OBSERVE |
+| **Brain Auditor (11 dimensiones)** | Integridad del schema, coverage, business_name quality, regulación, clase, cross-references, trazabilidad a proceso (D7), puente Change-Run (D8), calidad y linaje (D9), cobertura del roster exigible (D10), autonomía de las acciones (D11) | Brain Auditor (meta-agente) | TEST · OBSERVE |
 | **Anti-genérico detector** | Detecta business_names con tokens de código fuente, nombres descriptivos vacíos ("proceso", "validación") o genéricos | Pipeline enrich-rules.py | BUILD |
 | **Smoke test de portal** | portal/index.html se carga sin errores, todos los KPI cards renderizan, las tablas no están vacías | Inspección visual post-build-portal.py | RELEASE |
 

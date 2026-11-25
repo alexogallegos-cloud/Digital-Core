@@ -44,8 +44,10 @@ CORE_TABLES = [
     "source_catalog",                    # de dt-source-steward (ADR-EB-014)
     # Etapa 0 Identidad — de dt-client-intelligence (ADR-EB-015)
     "company_profile", "business_milestones", "strategic_drivers", "driver_links",
+    # Reglas B38 y B39 — el catálogo de acciones y el linaje de ejecuciones,
+    # de dt-change-manager (ADR-EB-018)
+    "action_catalog", "actions",
 ]
-
 EXTENSION_TABLES = {
     "system": [
         "components", "component_calls", "component_data", "rules", "rule_enrichment_log",
@@ -214,9 +216,12 @@ CODE_TOKEN_GLOBS = [
 DIMENSIONS = [
     "schema", "coverage", "business_name", "regulacion", "clase",
     "cross_refs", "process_linkage", "callosum", "knowledge_quality",
-    "roster",
+    "roster", "autonomia",
 ]
 
+# Regla B39 — los cuatro niveles de autonomía, en orden. Cualquier otro valor
+# en `action_catalog.authorized_level` o en `actions.level` está fuera del canon.
+NIVELES_AUTONOMIA = ("A0", "A1", "A2", "A3")
 
 class Finding:
     def __init__(self, dim, blocking, message, sample=None):
@@ -1296,6 +1301,172 @@ class Validator:
                     return cand
         return None
 
+    # ── D11 · Autonomía de las acciones ──────────────────────────────────────
+
+    def d11_autonomia(self):
+        """
+        Reglas B38 y B39 — un brain que ejecuta tiene que poder ser auditado
+        después, y eso no se verifica leyendo su documentación.
+
+        Mide tres cosas que los gates de RELEASE declaran bloqueantes. La
+        primera es que cada ejecución se sostenga en lo que la regla exige: A2
+        y A3 solo sobre conocimiento gold, y A3 solo con aprobador declarado.
+        La segunda es que ninguna ejecución invoque un tipo que el catálogo no
+        tiene, porque una acción que nadie autorizó no es un silencio, es el
+        hallazgo. La tercera es que los tipos que nunca bajan de A3 sigan en
+        A3: ningún historial limpio los preautoriza.
+
+        Lo que no reprueba es el catálogo vacío. Un brain en DISCOVER todavía
+        no ejecuta nada, y exigirle casos sembrados lo reprobaría por estar
+        empezando; queda como aviso, con la ruta de la semilla.
+        """
+        dim = "autonomia"
+        if not self._has("action_catalog") or not self._has("actions"):
+            self._na(
+                dim,
+                "Este brain no tiene action_catalog o actions: la autonomía de "
+                "B39 no es evaluable, que no es lo mismo que estar en cero. D1 "
+                "ya reporta la tabla del CORE que falta",
+            )
+            return
+
+        catalogo = self._rows("SELECT * FROM action_catalog")
+        ejecuciones = self._rows("SELECT * FROM actions")
+        autorizados = {c["id"] for c in catalogo}
+        self.metrics["act_catalogo"] = len(catalogo)
+        self.metrics["act_ejecuciones"] = len(ejecuciones)
+        self.metrics["act_niveles"] = {
+            n: sum(1 for c in catalogo if (c.get("authorized_level") or "") == n)
+            for n in NIVELES_AUTONOMIA
+        }
+
+        if not catalogo:
+            self._add(
+                dim, False,
+                "El catálogo de acciones está vacío: la capa agéntica de B38 no "
+                "tiene ningún caso de uso preautorizado, así que el brain solo "
+                "puede observar y proponer. La lista exigible se siembra desde "
+                "templates/action-catalog-seed.sql del asset",
+            )
+
+        # Niveles fuera del canon, en las dos tablas
+        niveles = "|".join(NIVELES_AUTONOMIA)
+        malos = [f"{c['id']}: {c.get('authorized_level')}" for c in catalogo
+                 if (c.get("authorized_level") or "") not in NIVELES_AUTONOMIA]
+        malos += [f"actions:{e['id']} nivel {e.get('level')}" for e in ejecuciones
+                  if (e.get("level") or "") not in NIVELES_AUTONOMIA]
+        if malos:
+            self._add(
+                dim, True,
+                f"{len(malos)} fila(s) con un nivel de autonomía fuera del canon "
+                f"({niveles}, Regla B39)", malos,
+            )
+
+        # Los tipos que nunca bajan de A3, degradados en el catálogo
+        degradados = [f"{c['id']}: {c.get('authorized_level')}" for c in catalogo
+                      if c.get("never_below_a3") and c.get("authorized_level") != "A3"]
+        if degradados:
+            self._add(
+                dim, True,
+                f"{len(degradados)} tipo(s) marcados como nunca-bajo-A3 están "
+                f"preautorizados por debajo de A3. O su efecto sobre lo ya "
+                f"ocurrido no se recupera, o hay consecuencia regulatoria "
+                f"directa: ningún historial limpio los baja (Regla B39)",
+                degradados,
+            )
+
+        # La frontera de B38: modificar el registro que otra herramienta custodia
+        modifican = [f"{c['id']}: {c.get('authorized_level')} sobre {c.get('tool') or 'sin herramienta'}"
+                     for c in catalogo
+                     if not c.get("creates_only") and c.get("authorized_level") != "A3"]
+        if modifican:
+            self._add(
+                dim, True,
+                f"{len(modifican)} tipo(s) modifican el registro que otra "
+                f"herramienta custodia como verdad y están preautorizados por "
+                f"debajo de A3. B38 permite crear por la puerta de entrada de la "
+                f"herramienta, no reescribir su registro sin aprobación humana",
+                modifican,
+            )
+
+        # El ancla ITOM: un caso de uso sin dominio es una idea suelta (B38)
+        sin_itom = [c["id"] for c in catalogo
+                    if not (c.get("itom_domain") or "").strip()]
+        if sin_itom:
+            self._add(
+                dim, True,
+                f"{len(sin_itom)} tipo(s) sin dominio ITOM. Cada caso de uso se "
+                f"ancla a una sub-capacidad del IT Operating Model, y no a una "
+                f"lista suelta de ideas (Regla B38)", sin_itom,
+            )
+
+        # Ejecuciones que invocan un tipo que nadie autorizó
+        huerfanas = [f"actions:{e['id']} invoca {e.get('catalog_id')}"
+                     for e in ejecuciones if e.get("catalog_id") not in autorizados]
+        self.metrics["act_sin_autorizar"] = len(huerfanas)
+        if huerfanas:
+            self._add(
+                dim, True,
+                f"{len(huerfanas)} ejecución(es) invocan un tipo que no está en el "
+                f"catálogo. Una acción que nadie autorizó no es silencio, es "
+                f"hallazgo (Regla B39)", huerfanas,
+            )
+
+        # El sustento: A2 y A3 solo sobre gold, A3 solo con aprobador
+        sin_gold = [f"actions:{e['id']} en {e.get('level')} sobre "
+                    f"{e.get('knowledge_tier') or 'tier desconocido'}"
+                    for e in ejecuciones
+                    if (e.get("level") or "") in ("A2", "A3")
+                    and (e.get("knowledge_tier") or "").lower() != "gold"]
+        if sin_gold:
+            self._add(
+                dim, True,
+                f"{len(sin_gold)} ejecución(es) en A2 o A3 sin conocimiento gold "
+                f"que las sustente. Bajo incertidumbre el brain propone y el "
+                f"humano decide (Reglas B37 y B39)", sin_gold,
+            )
+        sin_aprobador = [f"actions:{e['id']} ({e.get('catalog_id')})"
+                         for e in ejecuciones
+                         if (e.get("level") or "") == "A3"
+                         and not (e.get("approved_by") or "").strip()]
+        if sin_aprobador:
+            self._add(
+                dim, True,
+                f"{len(sin_aprobador)} ejecución(es) en A3 sin approved_by. A3 es "
+                f"aprobación explícita del rol accountable antes de disparar, no "
+                f"después (Regla B39)", sin_aprobador,
+            )
+
+        # Dueño humano: sin rol accountable el tipo no ejecuta en ningún nivel
+        sin_dueno = [c["id"] for c in catalogo
+                     if not (c.get("accountable_role") or "").strip()]
+        if sin_dueno:
+            self._add(
+                dim, False,
+                f"{len(sin_dueno)} tipo(s) sin rol accountable. Son política "
+                f"muerta: evalua_accion() los niega en cualquier nivel, porque "
+                f"toda acción tiene dueño humano (Regla B39)", sin_dueno,
+            )
+
+        # El rebinde que la semilla deja pendiente: del nombre del rol al id real
+        if self._has("stakeholders"):
+            ids = {str(r["id"]) for r in self._rows("SELECT id FROM stakeholders")}
+            if ids:
+                sueltos = [f"{c['id']} apunta a {c.get('accountable_role')}"
+                           for c in catalogo
+                           if (c.get("accountable_role") or "").strip()
+                           and str(c["accountable_role"]) not in ids]
+                if sueltos:
+                    self._add(
+                        dim, False,
+                        f"{len(sueltos)} tipo(s) cuyo rol accountable no resuelve "
+                        f"contra stakeholders.id. Es el rebinde que la semilla "
+                        f"deja pendiente: trae el nombre del rol canónico y en un "
+                        f"brain real apunta a quien responde", sueltos,
+                    )
+
+        self._seal(dim)
+
     def run(self, only: str | None = None):
         steps = {
             "schema": self.d1_schema,
@@ -1308,6 +1479,7 @@ class Validator:
             "callosum": self.d8_callosum,
             "knowledge_quality": self.d9_knowledge_quality,
             "roster": self.d10_roster,
+            "autonomia": self.d11_autonomia,
         }
         # D1 siempre corre: fija el inventario de tablas y el brain_type
         self.d1_schema()
@@ -1354,8 +1526,8 @@ LABELS = {
     "callosum": "D8 Puente Change-Run",
     "knowledge_quality": "D9 Calidad conocim. ",
     "roster": "D10 Roster exigible",
+    "autonomia": "D11 Autonomía      ",
 }
-
 
 def render(v: Validator, summary: bool = False) -> str:
     m = v.metrics
@@ -1410,6 +1582,11 @@ def render(v: Validator, summary: bool = False) -> str:
             f"huecos declarados: {m.get('roster_huecos', 0)} · "
             f"sin mención: {m.get('roster_sin_mencion', 0)}"
             if m.get("roster_file") else "no declarado — cobertura DESCONOCIDA"
+        ),
+        "autonomia": (
+            f"catálogo: {m.get('act_catalogo', 0)} tipo(s) · "
+            f"ejecuciones: {m.get('act_ejecuciones', 0)} · "
+            f"sin autorizar: {m.get('act_sin_autorizar', 0)}"
         ),
     }
 
