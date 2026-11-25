@@ -1,7 +1,7 @@
 # DT-Java-Analysis — Digital Twin · AppMovil
 > **Artefacto propietario**: Análisis de calidad y arquitectura del código Java de los microservicios AppMovil
 > **Proyecto**: BanCoppel Application Modernization · `SPE-AM-001`
-> **Versión**: 0.1.0
+> **Versión**: 0.2.0
 > **Vigencia**: Activo desde 2026-08-13
 > **Fase**: DISCOVER
 
@@ -30,12 +30,21 @@ Mi foco no es documentar qué hace el código (eso lo hacen los otros DTs), sino
 
 ### Librerías propietarias BanCoppel (alto riesgo de migración)
 
-| Librería | Versión | Propósito | Riesgo AM |
-|---------|---------|-----------|-----------|
-| `msach-u-aop-commons:3.0.0` | 3.0.0 | AOP transversal (logging, auditoría, manejo de errores) | ALTO — depende de la arquitectura del canal; si el sistema target no la soporta, hay que reescribir todos los aspectos |
-| `msaim-u-log-application:1.0.1` | 1.0.1 | Logging estructurado estandarizado | MEDIO — puede reemplazarse con Logback/ECS si el sistema target tiene stack de logging distinto |
-| `msach-u-platform-cryptography:2.0.0` | 2.0.0 | Cifrado de credenciales y datos sensibles (PCI-DSS) | CRÍTICO — cambio requiere re-certificación PCI-DSS; no reemplazar sin proceso formal |
-| `msach-u-redis-actions:1.0.1` | 1.0.1 | Abstracción de operaciones Redis (sesiones) | MEDIO — puede reemplazarse con Spring Session si el esquema de sesiones se mantiene |
+El canal declara **19 librerías internas** con el patrón `msa{dominio}-u-{función}`.
+El inventario completo con su conteo de repos vive en el artefacto central; aquí
+quedan las cinco de mayor alcance.
+
+| Librería | Repos | Propósito | Riesgo AM |
+|---------|-------|-----------|-----------|
+| `msach-u-aop-commons` | 209 | AOP transversal (logging, auditoría, manejo de errores) | ALTO — es el sustrato del canal; si el sistema target no la soporta hay que reescribir todos los aspectos |
+| `msaim-u-log-application` | 117 | Logging estructurado estandarizado | BAJO — reemplazable con Logback o ECS |
+| `msach-u-platform-cryptography` | 115 | Cifrado de credenciales y datos sensibles (PCI-DSS) | CRÍTICO — cambiarla requiere recertificación PCI-DSS |
+| `msaim-u-security-platform` | 89 | Plataforma de seguridad del canal | ALTO — no estaba catalogada hasta la v2.0.0 del artefacto |
+| `msach-u-redis-actions` | 62 | Abstracción de operaciones Redis (sesiones) | MEDIO — reemplazable con Spring Session |
+
+Algunas de estas librerías **contienen reglas de negocio**, no solo utilidades:
+límites de transferencia, listas negras y validaciones de riesgo. Eso las vuelve
+invisibles para cualquier DT que analice únicamente el código del microservicio.
 
 ### Dimensiones de análisis (ISO 5055 adaptado a Java/Spring Boot)
 
@@ -56,7 +65,7 @@ Mi foco no es documentar qué hace el código (eso lo hacen los otros DTs), sino
 | **Constantes hardcoded de SP** | `Constants.SPCENVIOASPEI_BEX` y similares — nombres de SP acoplados al código | MEDIO: si el SP se renombra en Informix, hay que actualizar el código Java |
 | **38 parámetros en CallableStatement** | `SPCTRANSCTASPROPIASCODI_BEX` recibe 38 params posicionales | ALTO: frágil a cambios de firma del SP; dificulta pruebas |
 | **Dependencia de librerías propietarias** | `msach-u-platform-cryptography`, `msach-u-aop-commons` — no hay OSS equivalente conocido | CRÍTICO: migración requiere reescribir o llevar la librería al sistema target |
-| **MongoDB URI en properties de desarrollo** | `mongodb+srv://syscoppel:devsyscoppel@...` — credencial visible en properties | CRÍTICO: debe moverse a secretos gestionados (Vault, OpenShift Secrets) |
+| **Credencial de MongoDB en properties** | Usuario y contraseña en claro en archivos `.properties` de 108 repos, 121 ocurrencias; una sola credencial compartida cubre 115 de ellas | CRÍTICO: debe moverse a secretos gestionados (Vault, OpenShift Secrets) y rotarse. No transcribir el valor en ningún artefacto |
 
 ---
 
@@ -72,7 +81,8 @@ Mi foco no es documentar qué hace el código (eso lo hacen los otros DTs), sino
 
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
-- **Artefacto central**: `dt/dt-java-analysis/analisis-calidad-appmovil.md` — análisis por dimensión ISO 5055, inventario de librerías propietarias, anti-patterns, deuda técnica estimada
+- **Artefacto central**: `dt/dt-java-analysis/analisis-calidad-appmovil.md` — análisis por dimensión ISO 5055, inventario de librerías internas, anti-patterns, deuda técnica
+- **Generador**: `generators/build-java-analysis.py` — mide versiones, generación, librerías, datastores y pruebas sobre los 215 repos; escribe `portal/data/java-analysis.json`. Las cifras del artefacto salen de aquí, no de conteos manuales
 - **Fuente primaria**: `source/code/*/pom.xml` — dependencias y versiones; `source/code/*/src/main/java/**/*.java` — código de implementación
 - **Referencia hermana Informix**: `Informix/dt/dt-spl-analysis/` — el mismo rigor de análisis, en SPL en lugar de Java
 - **Cross-reference**: `dt-sp-dependencies` (el anti-pattern JDBC se documenta aquí y allá) · `dt-riesgos` (RISK-ARCH-001) · `dt-regulatorio` (RISK-REG-003 PCI-DSS librería de cifrado)
@@ -105,11 +115,13 @@ Mi foco no es documentar qué hace el código (eso lo hacen los otros DTs), sino
 |----|-------------|--------------------|
 | JA-01 | `dt/dt-java-analysis/analisis-calidad-appmovil.md` existe | ERROR |
 | JA-02 | El análisis cubre las 6 dimensiones: Seguridad, Confiabilidad, Mantenibilidad, Performance, Deuda Técnica, Cobertura | ERROR |
-| JA-03 | Las 4 librerías propietarias están catalogadas con su riesgo de migración | ERROR |
+| JA-03 | Las 19 librerías internas están catalogadas con su riesgo de migración | ERROR |
 | JA-04 | El anti-pattern JDBC directo (`prepareCall` sin abstracción) está documentado | ERROR |
-| JA-05 | La credencial MongoDB en properties está marcada como defecto de seguridad CRÍTICO | ERROR |
-| JA-06 | El análisis cubre al menos los ~12 microservicios alma y todos los microservicios de capa D | WARN |
+| JA-05 | La credencial MongoDB en properties está marcada como defecto de seguridad CRÍTICO, con su alcance medido | ERROR |
+| JA-06 | El análisis cubre al menos los 12 microservicios alma y todos los microservicios de capa D | WARN |
+| JA-07 | Las cifras del artefacto provienen de `generators/build-java-analysis.py` y no de un conteo manual | ERROR |
 
 ---
 
-*v0.1.0 · 2026-08-13 · AppMovil DT — DISCOVER · Equivalente de dt-spl-analysis para Java/Spring Boot*
+*v0.2.0 · 2026-11-03 · AppMovil DT — DISCOVER · Equivalente de dt-spl-analysis para Java/Spring Boot*
+*El stack AS-IS de la tabla de arriba es el de un repo de muestra. El canal real corre cuatro generaciones en paralelo, de Java 8 con Spring Boot 2.1 a Java 25 con Spring Boot 4.1: ver la sección 1 del artefacto central.*

@@ -78,7 +78,7 @@ KNOWN_ALMAS = {
     "msach-b-business-application-data",
     "msapy-d-domain-codi-payment",
     "msacm-d-domain-customer-data",
-    "msamg-p-platform-push-notifications-service-management",
+    "msaim-p-platform-push-notifications-service-management",
     "msacr-d-security-card-data-validation",
     "msasr-d-domain-services-banking-validations",
     "msach-b-business-application-configuration",
@@ -179,18 +179,24 @@ def parse_pom(pom_path: Path) -> dict:
         tree = ET.parse(pom_path)
         root = tree.getroot()
 
+        # El namespace se toma del propio root: hay poms que lo declaran con
+        # https en lugar de http, y con la constante fija las búsquedas
+        # devolvían None para artifactId, version y java.version.
+        ns = {"mvn": root.tag[1:root.tag.index("}")]} if root.tag.startswith("{") else {}
+        ns_prefix = f"{{{ns['mvn']}}}" if ns else ""
+
         def find_text(path):
-            el = root.find(path, NS)
+            el = root.find(path, ns) if ns else root.find(path.replace("mvn:", ""))
             return el.text.strip() if el is not None and el.text else None
 
         info["artifact_id"] = find_text("mvn:artifactId")
         info["version"] = find_text("mvn:version")
 
         # Java version — en properties o compiler plugin
-        props = root.find("mvn:properties", NS)
+        props = root.find("mvn:properties", ns) if ns else root.find("properties")
         if props is not None:
             for child in props:
-                tag = child.tag.replace("{http://maven.apache.org/POM/4.0.0}", "")
+                tag = child.tag.replace(ns_prefix, "")
                 if tag in ("java.version", "maven.compiler.release", "maven.compiler.source"):
                     if child.text:
                         info["java_version"] = child.text.strip()
@@ -205,7 +211,10 @@ def parse_pom(pom_path: Path) -> dict:
             info["has_informix"] = True
         if "data-mongodb" in deps_text or "mongodb" in deps_text:
             info["has_mongodb"] = True
-        if "data-redis" in deps_text or "jedis" in deps_text:
+        # lettuce es el cliente Redis por omisión de Spring Boot: hay repos que
+        # lo declaran directo, sin el starter ni jedis, y se contaban de menos.
+        if any(k in deps_text.lower() for k in
+               ("data-redis", "jedis", "lettuce", "redis-actions")):
             info["has_redis"] = True
         if "openfeign" in deps_text:
             info["has_feign"] = True
@@ -340,14 +349,49 @@ _INFORMIX_DBS = re.compile(
 )
 
 
-def extract_sp_calls_from_java(java_dir: Path) -> list:
+_JDBC_URL_RE = re.compile(r'jdbc:informix-sqli://[^/]+/(\w+)', re.IGNORECASE)
+
+
+def infer_db_from_repo(svc_dir: Path) -> str:
     """
-    Extrae llamadas a SPs Informix de TODOS los archivos *Constants.java.
+    Base Informix del microservicio, leída de los JDBC URL de su configuración.
+
+    Devuelve la base solo si TODAS las URL del repo apuntan a la misma: con más
+    de un datasource no hay forma estática de saber a cuál va un SP sin prefijo,
+    y es preferible no registrarlo que registrarlo en la base equivocada.
+    """
+    dbs = set()
+    for p in list(svc_dir.rglob("application*.properties")) + \
+             list(svc_dir.rglob("configMap.yml")):
+        if "src/test" in str(p).replace("\\", "/"):
+            continue
+        try:
+            texto = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for m in _JDBC_URL_RE.finditer(texto):
+            dbs.add(m.group(1).lower())
+    return dbs.pop() if len(dbs) == 1 else None
+
+
+def extract_sp_calls_from_java(java_dir: Path, inferred_db: str = None) -> list:
+    """
+    Extrae llamadas a SPs Informix de TODOS los archivos .java del microservicio.
+
+    El barrido es sobre *.java y no sobre *Constants.java: hay constantes de SP
+    en archivos como ApiValues.java o SqlConstants.java que el patrón estrecho
+    no veía, y por eso el inventario quedaba corto frente al catálogo curado.
+
     Patrones cubiertos:
       P1:  {call db:sp(...)} o {call db:informix.sp(...)} — JDBC clásico
       P2:  EXECUTE PROCEDURE db:sp(...) o db\\:sp(...) — JPA nativeQuery (1 backslash)
       P6c: "db:sp_name" literal plain sin CALL/EXECUTE wrapper
       P6d: "db\\\\:sp_name" colon doblemente escapado (JPA con 2 backslashes en fuente)
+      P9:  db\\:"informix".sp_name — colon escapado con el qualifier entrecomillado
+      P10: {call sp(...)}, CALL sp(...) o "sp_name" sin prefijo de base; la base se
+           infiere del JDBC URL del microservicio cuando es una sola
+
+    `inferred_db` es la base del datasource del repo, para resolver P10.
     Retorna lista de dicts: {constant_name, sp_full, db_name, sp_name, param_count, source_file}
     """
     calls = []
@@ -377,6 +421,21 @@ def extract_sp_calls_from_java(java_dir: Path) -> list:
     # Nombres a descartar en P6c — prefijos de tabla Y la palabra "informix" sola
     _TBL_PREFIX_RE = re.compile(r'^(tbl|si_|tb_|informix$)', re.IGNORECASE)
 
+    # Al barrer todo *.java aparecen referencias a TABLAS calificadas por base,
+    # con la misma forma que un SP. Son de dos tipos y ambas se reconocen por lo
+    # que las precede:
+    #   consultas SQL      — FROM bdicred\:sd_maecredcrd loan INNER JOIN ...
+    #   entidades JPA      — @Table "bdicred:sd_maecredcrd" en el Javadoc
+    #   anotación JPA      — @Table(name = "bdisac:sac_servicios_cpl")
+    _SQL_TABLE_CTX_RE = re.compile(
+        r'(?:FROM|JOIN|INTO|UPDATE|,)\s*["\s]*$'
+        r'|@?Table\s*(?:\(\s*name\s*=\s*)?["\s]*$',
+        re.IGNORECASE
+    )
+
+    def es_tabla_en_sql(texto: str, inicio: int) -> bool:
+        return bool(_SQL_TABLE_CTX_RE.search(texto[max(0, inicio - 32):inicio]))
+
     # P6d: "db\\:sp_name" — colon escapado con 2 backslashes en el fuente .java
     # Discriminante: si el qualifier "informix." está presente → es referencia a TABLA, no SP
     ESCAPED_COLON_RE = re.compile(
@@ -384,7 +443,25 @@ def extract_sp_calls_from_java(java_dir: Path) -> list:
         re.IGNORECASE
     )
 
-    for java_file in java_dir.rglob("*Constants.java"):
+    # P9: db\\:"informix".sp_name — el qualifier va entre comillas escapadas, así
+    # que P6d no lo veía y además lo habría descartado por traer qualifier.
+    # Aquí el punto tras el qualifier sí indica SP, no tabla: la forma completa
+    # es EXECUTE PROCEDURE bdicred\:"informix".sp_xxx(
+    QUOTED_QUALIFIER_RE = re.compile(
+        r'(bdi[\w]+|intercard[\w]*)\\{1,2}:\\?"informix\\?"\s*\.\s*([a-z][\w]*)\s*\(',
+        re.IGNORECASE
+    )
+
+    # P10: SP sin prefijo de base. Solo se resuelve si el repo tiene una sola base.
+    BARE_CALL_RE = re.compile(
+        r'\{?\s*[Cc][Aa][Ll][Ll]\s+((?:sp|sps|spc)[\w]*)\s*\(',
+    )
+    BARE_CONST_RE = re.compile(
+        r'public\s+static\s+final\s+String\s+(\w*(?:PROCEDURE|SP|STORE)\w*)\s*=\s*"((?:sp|sps|spc)_[\w]+)"',
+        re.IGNORECASE
+    )
+
+    for java_file in java_dir.rglob("*.java"):
         try:
             text = java_file.read_text(encoding="utf-8", errors="replace")
         except Exception:
@@ -442,6 +519,8 @@ def extract_sp_calls_from_java(java_dir: Path) -> list:
             sp_name = _normalize_sp_name(m.group(3))
             if not sp_name or _TBL_PREFIX_RE.match(sp_name):
                 continue
+            if es_tabla_en_sql(text, m.start()):
+                continue
             key = (db_name, sp_name)
             if key in seen:
                 continue
@@ -464,6 +543,8 @@ def extract_sp_calls_from_java(java_dir: Path) -> list:
             sp_name = _normalize_sp_name(m.group(3))
             if not sp_name or _TBL_PREFIX_RE.match(sp_name):
                 continue
+            if es_tabla_en_sql(text, m.start()):
+                continue
             key = (db_name, sp_name)
             if key in seen:
                 continue
@@ -476,6 +557,46 @@ def extract_sp_calls_from_java(java_dir: Path) -> list:
                 "param_count": 0,
                 "source_file": rel_path,
             })
+
+        # P9 — db\:"informix".sp_name(  con el qualifier entrecomillado
+        for m in QUOTED_QUALIFIER_RE.finditer(text):
+            db_name = m.group(1).lower()
+            sp_name = _normalize_sp_name(m.group(2))
+            if not sp_name or _TBL_PREFIX_RE.match(sp_name):
+                continue
+            key = (db_name, sp_name)
+            if key in seen:
+                continue
+            seen.add(key)
+            calls.append({
+                "constant_name": f"QUAL_P9_{sp_name.upper()[:30]}",
+                "sp_full": m.group(0)[:120],
+                "db_name": db_name,
+                "sp_name": sp_name,
+                "param_count": 0,
+                "source_file": rel_path,
+            })
+
+        # P10 — SP sin prefijo de base; la base sale del datasource del repo
+        if inferred_db:
+            for rx, etiqueta in ((BARE_CALL_RE, "BARECALL"), (BARE_CONST_RE, "BARECONST")):
+                for m in rx.finditer(text):
+                    sp_raw = m.group(2) if rx is BARE_CONST_RE else m.group(1)
+                    sp_name = _normalize_sp_name(sp_raw)
+                    if not sp_name or _TBL_PREFIX_RE.match(sp_name):
+                        continue
+                    key = (inferred_db, sp_name)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    calls.append({
+                        "constant_name": f"{etiqueta}_P10_{sp_name.upper()[:26]}",
+                        "sp_full": m.group(0)[:120],
+                        "db_name": inferred_db,
+                        "sp_name": sp_name,
+                        "param_count": 0,
+                        "source_file": rel_path,
+                    })
 
     return calls
 
@@ -505,6 +626,13 @@ def extract_vocabulary_from_java(java_dir: Path, service_id: str) -> list:
         r'webjars',
         r'@project\.',
         r'^\s*$',
+        # Ruido que aparece al minar todos los *Constants.java y no solo
+        # constant/Constants.java. Ninguno es vocabulario del negocio:
+        r'^\$\{',                                      # placeholder de properties
+        r'^\[(DEBUG|INFO|WARN|ERROR|TRACE)\]',         # prefijo de nivel de log
+        r'^\[?\s*(SERVICE|API|BUSINESS|REPOSITORY|FEIGN|MONGODB|REDIS|DAO)\s+CALL\b',  # plantilla de log
+        r'^@\w+\(',                                    # expresión de pointcut AOP
+        r'[=:]\s*$',                                   # fragmento de clave sin valor
     ]
     exclude_compiled = [re.compile(p) for p in exclude_patterns]
 
@@ -533,7 +661,12 @@ def extract_vocabulary_from_java(java_dir: Path, service_id: str) -> list:
             return "INFRAESTRUCTURA"
         return "ENTIDAD"
 
-    constants_files = list(java_dir.rglob("constant/Constants.java"))
+    # Mismo patrón amplio que usa el descubrimiento de SPs. Limitarlo a
+    # constant/Constants.java dejaba fuera 17,098 constantes en 947 archivos,
+    # sobre todo los ApiConstants.java, que son los que concentran rutas de API
+    # y términos de negocio. También perdía los Constants.java cuyo paquete se
+    # llama constants en plural.
+    constants_files = list(java_dir.rglob("*Constants.java"))
     for cf in constants_files:
         try:
             text = cf.read_text(encoding="utf-8", errors="replace")
@@ -606,6 +739,7 @@ CREATE TABLE IF NOT EXISTS signals (
 
 CREATE TABLE IF NOT EXISTS services (
     id             TEXT PRIMARY KEY,
+    artifact_id    TEXT,
     domain         TEXT,
     domain_name    TEXT,
     layer          TEXT,
@@ -730,10 +864,17 @@ def load_services(conn: sqlite3.Connection, verbose: bool = False):
         svc_dir = pom.parent
         pom_info = parse_pom(pom)
 
-        artifact_id = pom_info.get("artifact_id") or svc_dir.name
-        parsed = parse_service_name(artifact_id)
+        # La identidad del componente es el repositorio, no el artifactId del pom:
+        # 36 artifactIds están duplicados entre repos (las variantes -b declaran el
+        # mismo que su gemelo, y 3 repos nunca renombraron el scaffold
+        # jso-fwk-hello-service), así que usarlo como clave perdía 37 componentes.
+        # El resto del pipeline ya indexa por nombre de carpeta.
+        service_id  = svc_dir.name
+        artifact_id = pom_info.get("artifact_id")
+        parsed = parse_service_name(service_id)
 
         row = (
+            service_id,
             artifact_id,
             parsed["domain"],
             parsed["domain_name"],
@@ -750,18 +891,18 @@ def load_services(conn: sqlite3.Connection, verbose: bool = False):
             1 if pom_info.get("has_redis") else 0,
             1 if pom_info.get("has_feign") else 0,
             0,  # has_sp_calls — se actualiza en load_sp_calls
-            1 if artifact_id in KNOWN_ALMAS else 0,
+            1 if service_id in KNOWN_ALMAS else 0,
         )
         rows.append(row)
         if verbose:
-            print(f"  ✓ {artifact_id} [{parsed['domain']}/{parsed['layer']}] {pom_info.get('framework','?')}")
+            print(f"  ✓ {service_id} [{parsed['domain']}/{parsed['layer']}] {pom_info.get('framework','?')}")
 
     conn.executemany("""
         INSERT OR REPLACE INTO services
-        (id, domain, domain_name, layer, layer_name, function_name, has_variant,
+        (id, artifact_id, domain, domain_name, layer, layer_name, function_name, has_variant,
          version, java_version, framework, java_package,
          has_informix, has_mongodb, has_redis, has_feign, has_sp_calls, is_alma)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, rows)
     conn.commit()
     print(f"[services] {len(rows)} microservicios cargados")
@@ -770,7 +911,7 @@ def load_services(conn: sqlite3.Connection, verbose: bool = False):
 def load_sp_calls(conn: sqlite3.Connection, verbose: bool = False):
     """
     Extrae llamadas a SPs Informix desde todas las fuentes:
-    1. ALL *Constants.java — patrones {call db:sp} y EXECUTE PROCEDURE
+    1. ALL *.java — patrones {call db:sp}, EXECUTE PROCEDURE, qualifier entrecomillado y SP sin prefijo
     2. ALL application*.properties — patrones CALL, {CALL}, plain db:sp_name
     """
     sp_rows = []
@@ -782,10 +923,10 @@ def load_sp_calls(conn: sqlite3.Connection, verbose: bool = False):
             continue
         artifact_id = svc_dir.name
 
-        # 1. Todos los *Constants.java bajo src/main/java
+        # 1. Todos los .java bajo src/main/java
         java_dir = svc_dir / "src" / "main" / "java"
         if java_dir.exists():
-            calls = extract_sp_calls_from_java(java_dir)
+            calls = extract_sp_calls_from_java(java_dir, infer_db_from_repo(svc_dir))
             for c in calls:
                 sp_rows.append((
                     artifact_id,
@@ -835,7 +976,7 @@ def load_sp_calls(conn: sqlite3.Connection, verbose: bool = False):
         conn.execute("UPDATE services SET has_sp_calls = 1 WHERE id = ?", (svc_id,))
 
     conn.commit()
-    print(f"[sp_calls] {len(sp_rows)} SP calls desde *Constants.java (P1+P2+P6c+P6d)")
+    print(f"[sp_calls] {len(sp_rows)} SP calls desde *.java (P1+P2+P6c+P6d+P9+P10)")
     print(f"[sp_properties] {len(prop_rows)} SP refs desde *.properties / configMap.yml (P3+P4+P5+P_DBINFER+P8)")
 
 

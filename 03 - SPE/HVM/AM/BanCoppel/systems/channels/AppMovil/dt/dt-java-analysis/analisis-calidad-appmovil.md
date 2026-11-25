@@ -1,288 +1,334 @@
 # Análisis de Calidad Java — AppMovil BanCoppel
 > **DT**: dt-java-analysis · **Proyecto**: `SPE-AM-001` · **Canal**: AppMovil (togaf_type: channels)
-> **Versión**: 1.0.0 · **Fecha**: 2026-08-14 · **Fase**: DISCOVER
-> **Fuente**: análisis estático de `source/code/` — 216 repositorios escaneados
+> **Versión**: 2.0.0 · **Fecha**: 2026-11-03 · **Fase**: DISCOVER
+> **Fuente**: `generators/build-java-analysis.py` sobre `source/code/` — 215 repositorios con código Maven
 > **Constraint activo**: viabilidad 2027
 
 ---
 
 ## Resumen Ejecutivo
 
-El canal AppMovil de BanCoppel está implementado en **216 microservicios Spring Boot** desplegados en OpenShift, con un total de **12,110 archivos fuente Java** y **3,718 tests** (ratio 30.7%). El canal exhibe tres generaciones tecnológicas coexistiendo en producción, con 60 repositorios legacy que representan el riesgo técnico más urgente para la viabilidad del programa de modernización en 2027.
+El canal AppMovil está implementado en **215 microservicios** desplegados en OpenShift, con **12,155 archivos Java de producción** y **3,724 de prueba**. El canal arrastra cuatro generaciones tecnológicas en producción simultánea, desde Java 8 con Spring Boot 2.1 hasta Java 25 con Spring Boot 4.1.
 
-| Indicador | Valor | Semáforo |
-|-----------|-------|----------|
-| Repositorios analizados | 216 | — |
-| Repos legacy (Java 8 + SB 2.x) | **60** (27.8%) | 🔴 |
-| Ratio tests / código fuente global | **30.7%** | 🔴 |
-| Repos con dependencia AOP propietario | **210** (97.2%) | 🟡 |
-| Repos con crypto propietario PCI | **115** (53.2%) | 🟡 |
-| Repos en Java 21+ | **48** (22.2%) | 🟢 |
-| Plataforma de despliegue | OpenShift (todos) | — |
+Esta versión 2.0.0 corrige la del 2026-08-14. Aquella se construyó sobre un escaneo que no veía las 39 variantes `-b` del canal ni 773 archivos que faltaban en el working tree, y midió a mano. Las cifras de ahora salen de un generador reproducible, y tres de ellas cambian de forma material: la credencial de MongoDB no está en tres repos sino en **108**, Hystrix no está en 27 repos legacy sino en **98 repos de todas las generaciones**, y el canal no depende de 4 librerías propietarias sino de **19**.
+
+| Indicador | Valor | Lectura |
+|-----------|-------|---------|
+| Repositorios con código Maven | 215 | De 218 clonados; 3 son cascarones sin `pom.xml` |
+| Repos legacy (Java 8 u 11, SB 2.x) | **61** (28.4%) | Sin soporte de seguridad |
+| Ratio prueba sobre producción | **30.6%** | Muy por debajo del DoD |
+| Repos con credencial de base de datos en claro | **108** (50.2%) | Hallazgo más grave del canal |
+| Repos con Hystrix, en EOL | **98** (45.6%) | 45 de ellos no son legacy |
+| Repos que resuelven dependencias por HTTP sin TLS | **212** (98.6%) | Superficie de ataque de cadena de suministro |
+| Librerías internas BanCoppel distintas | **19** | El DT solo tenía 4 catalogadas |
+| Almas en stack legacy | **4 de 12** | Incluye seguridad de acceso y depósitos |
+
+Las tres cifras de seguridad de arriba son prerrequisitos bloqueantes: ninguna migración debería arrancar antes de resolverlas, porque migrar un repo con la credencial adentro la propaga al destino.
 
 ---
 
 ## 1. Distribución por Generación Tecnológica
 
-La clasificación por generación es el insumo principal para la decisión 7R y el plan de migración.
+La clasificación por generación es el insumo principal de la decisión 7R. Lo que define la urgencia es el fin de soporte, no la antigüedad nominal.
 
 | Generación | Java | Spring Boot | Repos | % | Acción requerida |
 |-----------|------|-------------|-------|---|-----------------|
-| **Legacy** | 1.8 | 2.1.x – 2.7.x | **60** | 27.8% | Migración obligatoria — EOL; sin soporte de seguridad |
-| **Modern-17** | 17 | 3.2.x – 3.3.x | **106** | 49.1% | Actualización menor a 3.5.x; considerar upgrade a Java 21 |
-| **Modern-21** | 21 | 3.x | **42** | 19.4% | Mantenimiento; LTS hasta septiembre 2026 |
-| **Modern-25** | 25 | 3.5.x | **6** | 2.8% | Vanguardia — LTS; referencia para repos restantes |
-| **Sin datos** | ? | 2.7.x | **2** | 0.9% | Revisar manualmente (pom.xml incompleto) |
+| **Legacy** | 1.8 (58) y 11 (3) | 2.1.x a 2.7.x | **61** | 28.4% | Migración obligatoria, sin parches de seguridad |
+| **Modern-17** | 17 | 3.2.x a 3.5.x | **103** | 47.9% | Actualización de rama; evaluar salto a Java 21 |
+| **Modern-21** | 21 | 3.5.x | **27** | 12.6% | Mantenimiento |
+| **Modern-25** | 25 | 3.5.x y 4.x | **24** | 11.2% | Vanguardia; referencia para el resto |
 
-### Detalle de repos legacy (60 repos · EOL)
+La distribución por rama de Spring Boot muestra **once ramas distintas en producción**:
 
-Los 60 repos legacy incluyen flujos de negocio críticos del canal: pagos CoDi/SPEI, validación de cuentas, autenticación por teléfono, inscripción biométrica, transferencias, y cuentas de inversión. No son repos auxiliares — son la capa de negocio del canal.
-
-**Agrupación funcional de los repos legacy:**
-
-| Función | Repos legacy | Impacto |
-|---------|-------------|---------|
-| Pagos (CoDi, SPEI, interbank) | 8 | CRÍTICO — flujo de dinero real |
-| Créditos (apertura, tarjeta, préstamos) | 10 | ALTO |
-| Autenticación / seguridad | 7 | CRÍTICO — acceso al canal |
-| Depósitos y cuentas | 9 | ALTO |
-| Mensajería / notificaciones | 3 | MEDIO |
-| Otros (configuración, remittance, nómina) | 23 | MEDIO |
-
----
-
-## 2. Stack Tecnológico AS-IS
-
-### 2.1 Dependencias por versión (Spring Boot)
-
-El canal tiene **32 versiones distintas** de Spring Boot en producción — este es un antipatrón de gestión: sin un BOM (Bill of Materials) centralizado, cada equipo actualiza su repo de forma independiente sin coordinación.
-
-| Rama SB | Repos | Estado |
-|---------|-------|--------|
-| 2.1.x | 27 | EOL — sin patches de seguridad |
-| 2.2.x | 21 | EOL |
-| 2.3.x | 3 | EOL |
-| 2.7.x | 8 | Soporte extendido terminado 2023-11 |
-| 3.2.x | 37 | Mantenimiento; soporte hasta 2025-08 |
-| 3.3.x | 55 | Soporte activo hasta 2026-02 |
+| Rama | Repos | Estado |
+|------|-------|--------|
+| 2.1.x | 27 | Fin de vida |
+| 2.2.x | 23 | Fin de vida |
+| 2.3.x | 3 | Fin de vida |
+| 2.7.x | 8 | Soporte extendido terminado |
+| 3.2.x | 34 | Fin de soporte |
+| 3.3.x | 58 | Fin de soporte |
 | 3.4.x | 6 | Soporte activo |
-| 3.5.x | 48 | LTS vigente — **target 2027** |
+| 3.5.x | 52 | Soporte activo, candidato a target |
+| 4.0.x | 1 | Vanguardia |
+| 4.1.x | 2 | Vanguardia |
+| Sin dato | 1 | `msamg-d-security-messaging-otp-notification`, sin `parent` ni propiedad de versión |
 
-**Implicación para 2027**: el target de versión para todos los repos es **Spring Boot 3.5.x + Java 21** como mínimo viable, con Java 25 como aspiracional.
+Hay tres repos que ya corren **Spring Boot 4.x sobre Java 25**: `msach-o-security-phone-enrollment-b`, `msacm-b-business-offer-products` y `msalo-b-business-salary-advance-reception`. Sirven como prueba de que el equipo puede llegar al stack moderno, y como referencia de configuración para las olas de migración.
 
-### 2.2 Stack de datastores
+### Las almas no están a salvo
 
-| Datastore | Repos | Rol en el canal |
-|-----------|-------|----------------|
-| **MongoDB** | 121 (56%) | Datastore primario del canal (perfil cliente, estado de sesión, datos de operación) |
-| **Informix (JDBC)** | 77 (35.6%) | Acceso al core bancario PISA vía stored procedures |
-| **Redis** | 62 (28.7%) | Gestión de sesiones y caché |
-| **Sin datastore propio** | ~20 | Orquestadores puros (solo Feign calls) |
+De las 12 almas del canal, **4 corren sobre Java 8**, y dos de ellas son de seguridad y de depósitos:
 
-### 2.3 Dependencias propietarias BanCoppel (riesgo sistémico)
+| Alma | Java | Spring Boot | Generación |
+|------|------|-------------|-----------|
+| `msach-p-security-application-validations` | 1.8 | 2.1.5 | legacy |
+| `msacm-d-domain-customer-data` | 1.8 | 2.2.0 | legacy |
+| `msadp-d-domain-deposit-accounts` | 1.8 | 2.2.4 | legacy |
+| `msaim-p-platform-push-notifications-service-management` | 1.8 | 2.2.4 | legacy |
+| `msacm-p-security-session-management` | 25 | 3.5.16 | modern-25 |
+| `msacm-d-security-customer-access-managment` | 17 | 3.5.3 | modern-17 |
+| `msapy-d-domain-codi-payment` | 21 | 3.5.13 | modern-21 |
+| `msasr-d-domain-services-banking-validations` | 21 | 3.5.3 | modern-21 |
+| `msacr-d-security-card-data-validation` | 17 | 3.3.6 | modern-17 |
+| `msach-b-business-application-configuration` | 17 | 3.3.3 | modern-17 |
+| `msach-b-business-application-data` | 17 | 3.2.5 | modern-17 |
+| `msacm-d-platform-customer-enrollment-verification` | 17 | 3.2.5 | modern-17 |
 
-Estas librerías no tienen equivalente OSS directo — su existencia en 210/216 repos las convierte en la mayor deuda técnica sistémica del canal.
+Que la validación de acceso al canal corra sobre un runtime sin parches desde 2019 es el riesgo de seguridad estructural del canal, por encima de cualquier antipatrón de código.
 
-| Librería | Versión | Repos | Riesgo AM | Bloqueo para 2027 |
-|---------|---------|-------|-----------|-------------------|
-| `msach-u-aop-commons` | 3.0.0 | **210** (97.2%) | ALTO | SÍ — si no se certifica el comportamiento del AOP, cualquier cambio puede romper logging, auditoría y manejo de errores en todos los repos |
-| `msach-u-platform-cryptography` | 2.0.0 | **115** (53.2%) | CRÍTICO | SÍ — cambio requiere re-certificación PCI-DSS (estimado 6-12 meses de proceso) |
-| `msach-u-redis-actions` | 1.0.1 | ~62 | MEDIO | CONDICIONAL — reemplazable con Spring Session, pero requiere pruebas de regresión de sesión |
-| `msaim-u-log-application` | 1.0.1 | ~120 | BAJO | NO — reemplazable con Logback/ECS sin impacto funcional |
+### Los repos legacy son la capa de negocio
+
+Los 61 repos legacy no son auxiliares. Doce de ellos operan flujos de dinero real: `codi-transactions`, `codi-transaction-repayment`, `codi-payment-b`, `codi-agreement-management`, `service-payment-validation`, `services-payment`, `interbank-card-payment` y su variante, `intrabank-card-payment` y su variante, `apply-intrabank-transfer` y `remittance-payment`. Otros **15 repos legacy hablan con Informix** por JDBC, es decir, tocan el core bancario PISA desde un runtime sin soporte.
 
 ---
 
-## 3. Análisis de Calidad — 6 Dimensiones ISO 5055
+## 2. Stack de Datos y Dependencias
 
-### 3.1 Seguridad 🔴
+### 2.1 Datastores
 
-**Hallazgos confirmados desde análisis de código:**
+Las cifras reconcilian exactamente con `brain.db::services`, que es la prueba de que ambas mediciones usan la misma definición.
 
-| Defecto | Evidencia | Repos afectados | Severidad |
-|---------|-----------|-----------------|-----------|
-| Credenciales MongoDB en `application.properties` de desarrollo | `mongodb+srv://syscoppel:devsyscoppel@...` hardcodeado en repos legacy | Al menos 3 repos de Java 8 confirmados | CRÍTICO |
-| URLs de Nexus interno sin HTTPS | `http://nexuscln.bcpl.mx/repository/bancoppel-dev` en todos los `pom.xml` | 216 repos | ALTO |
-| Versiones de dependencias con CVEs conocidos (SB 2.1.x, 2.2.x) | Spring Boot 2.1.x: múltiples CVEs abiertos desde 2021 | 48 repos | ALTO |
-| Librerías propietarias sin escaneo SAST público | `msach-u-platform-cryptography` sin evidencia de auditoría | 115 repos | MEDIO |
+| Datastore | Repos | % | Rol en el canal |
+|-----------|-------|---|----------------|
+| **OpenFeign** | 194 | 90.2% | Llamadas entre microservicios; el canal es una malla síncrona |
+| **MongoDB** | 122 | 56.7% | Datastore primario del canal |
+| **Informix por JDBC** | 77 | 35.8% | Acceso al core bancario PISA por stored procedures |
+| **Redis** | 63 | 29.3% | Sesión y caché |
 
-**Acción requerida para 2027**: los credenciales en properties deben moverse a OpenShift Secrets / Vault antes de cualquier migración. Este es un prerequisito del pipeline de CI/CD seguro.
+No hay mensajería asíncrona en ningún repo. El canal es síncrono de extremo a extremo, así que cualquier degradación de Informix o de MongoDB llega al usuario final sin amortiguación.
 
-### 3.2 Confiabilidad 🟡
+### 2.2 Las 19 librerías internas
 
-**Patrón de manejo de errores:**
+El catálogo del DT tenía 4. El fuente declara **19 librerías BanCoppel** con el patrón `msa{dominio}-u-{función}`. Ninguna tiene equivalente de código abierto, así que cada una es deuda que ninguna migración hereda gratis.
 
-Los repos analizados usan `msach-u-aop-commons` para el manejo centralizado de excepciones — este AOP intercepta excepciones no capturadas y las transforma en responses HTTP estructurados. El patrón es correcto en concepto, pero su implementación propietaria crea un riesgo de caja negra: el comportamiento en casos edge no está documentado fuera del código de la librería.
+| Librería | Repos | % | Riesgo de migración |
+|---------|-------|---|---------------------|
+| `msach-u-aop-commons` | 209 | 97.2% | ALTO, es el sustrato transversal del canal |
+| `msaim-u-log-application` | 117 | 54.4% | BAJO, sustituible por Logback |
+| `msach-u-platform-cryptography` | 115 | 53.5% | CRÍTICO, cambiarla obliga a recertificar PCI-DSS |
+| `msaim-u-security-platform` | 89 | 41.4% | ALTO, no estaba catalogada y es de seguridad |
+| `msach-u-redis-actions` | 62 | 28.8% | MEDIO, sustituible por Spring Session |
+| `msach-u-business-geolocation-common` | 42 | 19.5% | MEDIO, no estaba catalogada |
+| `msach-u-bex-business-validations` | 17 | 7.9% | MEDIO, lógica de negocio en librería |
+| `msach-u-security-risk-validations` | 16 | 7.4% | ALTO, validación de riesgo compartida |
+| `msasr-u-security-gemalto-token-validations` | 15 | 7.0% | ALTO, acopla el canal a un proveedor de token |
+| `msaxd-u-business-digital-account-validations` | 10 | 4.7% | MEDIO |
+| `msach-u-security-attempts-validation` | 5 | 2.3% | MEDIO, control de intentos de acceso |
+| `msacm-u-security-personal-loan-session-validation` | 4 | 1.9% | MEDIO |
+| `msach-u-transfer-amount-limit-validations` | 4 | 1.9% | ALTO, límites de transferencia en librería compartida |
+| `msacm-u-domain-black-lists-validation` | 4 | 1.9% | ALTO, listas negras, con implicación regulatoria |
+| `msaxd-u-mongodb-queryable-encryption` | 4 | 1.9% | ALTO, cifrado consultable sobre MongoDB |
+| `msach-u-bex-business-frequent-validations` | 3 | 1.4% | MEDIO |
+| `msaxd-u-conection-broker-configuration` | 2 | 0.9% | MEDIO |
+| `msaxd-u-domain-account-validations` | 2 | 0.9% | MEDIO |
+| `msach-u-log-application` | 1 | 0.5% | BAJO, pero ver abajo |
 
-**Hallazgos:**
+Dos observaciones que el catálogo anterior no podía ver. La primera es que **hay reglas de negocio viviendo en librerías compartidas**: límites de transferencia, listas negras y validaciones de riesgo no están en el microservicio que las aplica sino en una dependencia binaria, así que ni el catálogo de reglas ni los Digital Twins funcionales las alcanzan leyendo el código del servicio. La segunda es que `msach-u-log-application` existe en un repo mientras `msaim-u-log-application` existe en 117: son el mismo propósito con distinto prefijo de dominio, y conviene confirmar cuál es la vigente antes de estandarizar.
 
-| Patrón | Evidencia | Riesgo |
-|--------|-----------|--------|
-| Uso de AOP centralizado para excepciones | `msach-u-aop-commons:3.0.0` en 210 repos | MEDIO — dependencia no transparente |
-| `CallableStatement` con 38 parámetros posicionales a Informix | `SPCTRANSCTASPROPIASCODI_BEX` en msach-b-business-application-data | ALTO — frágil a cambios de firma en SPs |
-| Ausencia de circuit breaker explícito en repos legacy | Spring Cloud Greenwich (SB 2.1.x) tiene Hystrix en EOL | ALTO — Hystrix no recibe parches |
+---
 
-### 3.3 Mantenibilidad 🔴
+## 3. Análisis de Calidad, seis dimensiones ISO 5055
 
-**Fragmentación de versiones — antipatrón crítico:**
+### 3.1 Seguridad
 
-32 versiones distintas de Spring Boot en 216 repos es evidencia de ausencia de un BOM centralizado o un proceso de alineación de versiones. Esto significa que:
-- Cada vulnerabilidad de Spring Boot debe parchearse en N repos individualmente
-- No existe un "upgrade path" simple — hay que gestionar 32 bases de código distintas
-- El onboarding de nuevos desarrolladores requiere conocer las diferencias entre versiones
+El hallazgo más grave del canal es la credencial de base de datos escrita en claro en los archivos de configuración.
 
-**Test coverage — insuficiente para AM:**
+| Defecto | Alcance medido | Severidad |
+|---------|---------------|-----------|
+| Credencial de MongoDB en archivos `.properties` | **108 repos**, 121 ocurrencias | CRÍTICO |
+| Resolución de dependencias Maven por HTTP sin TLS | **212 repos**, contra 1 que usa HTTPS | ALTO |
+| Hystrix en fin de vida como cortacircuitos | **98 repos** | ALTO |
+| Spring Boot con vulnerabilidades conocidas (ramas 2.x) | **61 repos** | ALTO |
+| Dependencia de framework de nicho `javanes` | **5 repos** | MEDIO |
 
-| Métrica | Valor | Target DoD-SPE-AM | Gap |
-|---------|-------|-------------------|-----|
-| Archivos fuente Java | 12,110 | — | — |
-| Archivos test Java | 3,718 | — | — |
-| Ratio global | **30.7%** | ≥ 70% crítico / ≥ 70% global | **-39.3pp** |
-| Repos con test code | 216/216 | 100% | ✅ |
+Sobre la credencial, el detalle importa para dimensionar la respuesta. **Una sola credencial compartida aparece en 115 de las 121 ocurrencias**, lo que significa que rotarla es un movimiento único pero que toca medio canal a la vez. La exposición cruza todas las generaciones, con 50 repos modern-17, 41 legacy, 12 modern-21 y 5 modern-25, así que no es un pasivo de código viejo sino una práctica vigente.
 
-La existencia de tests en todos los repos es un punto positivo, pero la cobertura del 30.7% es insuficiente para garantizar equivalencia funcional en la migración. Se requiere doblar la cobertura antes del parallel-run.
+Cuatro casos son peores que el resto porque la credencial no está en el perfil de desarrollo sino en uno que puede cargarse fuera de él:
 
-**Duplicación de código entre repos -b y repos -b-b:**
+| Repo | Archivo |
+|------|---------|
+| `msamg-d-security-messaging-otp-notification` | `application.properties`, perfil por omisión |
+| `msach-i-business-credit-cards-accounts` | `application.properties`, perfil por omisión |
+| `msacm-d-platform-customer-enrollment-verification` | `application-test.properties`, y además es un alma |
+| `msacm-d-domain-customer-enrollment-status` | `application-test.properties` |
 
-Existen pares de repos `{nombre}` y `{nombre}-b` — por ejemplo `msach-b-business-application-configuration` y `msach-b-business-application-configuration-b`. Hay al menos **34 pares** de este tipo. Esto sugiere un patrón de bifurcación para versiones paralelas (A/B deployment, canary), pero sin evidencia de cuándo se consolidan.
+El patrón correcto ya existe en el canal: `msach-d-business-frequent-accounts` resuelve el usuario con `${MONGO_USER}` en lugar de escribirlo. Lo adoptó 1 repo de 108, así que la corrección no requiere inventar una solución, sino propagar la que ya está probada.
 
-### 3.4 Performance 🟡
+Este documento no transcribe el valor de la credencial de forma deliberada. La versión anterior del artefacto sí lo hacía, y ese texto se eliminó.
 
-**Patrones de latencia detectados:**
+### 3.2 Confiabilidad
 
-| Patrón | Repos afectados | Impacto en latencia |
-|--------|----------------|---------------------|
-| Llamadas JDBC síncronas a Informix (SPs remotos) | 77 repos | ALTO — Informix PISA está en AIX; latencia de red + SP execution |
-| Cadenas de Feign calls síncronos (microservicios orquestadores) | ~20 repos orchestrators | ALTO — N llamadas síncronas en serie = suma de latencias |
-| MongoDB queries sin índices visibles en el código | 121 repos | MEDIO — depende del schema de Atlas |
-| Redis sin TTL explícito en algunos repos legacy | ~15 repos | BAJO — riesgo de memory leak en Redis |
+El canal maneja excepciones con `msach-u-aop-commons`, que intercepta lo no capturado y lo convierte en respuesta HTTP estructurada. El patrón es correcto, pero su implementación propietaria lo vuelve una caja negra: el comportamiento en casos límite solo está en el código de la librería.
 
-**No hay Kafka ni mensajería asíncrona** — el canal es 100% síncrono. Esto es una decisión arquitectónica válida para el canal móvil, pero implica que cualquier degradación en Informix o MongoDB se propaga inmediatamente al usuario final.
+El hallazgo nuevo es el cortacircuitos. **Hystrix aparece en 98 repos y solo 53 son legacy**: hay 31 repos modern-17, 7 modern-21 y 5 modern-25 que siguen declarándolo pese a correr sobre stacks modernos donde Resilience4J está disponible. En paralelo, 54 repos ya usan Resilience4J. Es decir, el canal mantiene dos cortacircuitos en convivencia y uno de ellos no recibe parches. Ese solapamiento es más urgente de resolver que la propia migración de runtime, porque afecta al comportamiento ante fallas de Informix.
 
-### 3.5 Deuda Técnica 🔴
+Se mantiene el hallazgo de agosto sobre `CallableStatement` con 38 parámetros posicionales hacia Informix en `msach-b-business-application-data`.
 
-**Inventario de deuda técnica priorizado:**
+### 3.3 Mantenibilidad
 
-| ID | Ítem de deuda | Repos afectados | Esfuerzo estimado | Prioridad 2027 |
-|----|--------------|-----------------|-------------------|----------------|
-| DT-01 | Migración Java 8 → Java 21 + SB 2.x → SB 3.5.x | **60 repos** | 4-6 meses · 4 FTEs | CRÍTICA |
-| DT-02 | Eliminación de credenciales hardcodeadas en properties | ~10 repos | 2 semanas · 1 FTE | CRÍTICA |
-| DT-03 | Actualizar repos Java 17 a SB 3.5.x | **106 repos** | 2-3 meses · 2 FTEs | ALTA |
-| DT-04 | Incrementar cobertura de tests de 30.7% a 70% | 216 repos | 6-9 meses · 3 FTEs QA | ALTA |
-| DT-05 | Centralizar gestión de versiones con BOM propio | 216 repos | 1 mes arquitectura + 2 meses implementación | ALTA |
-| DT-06 | Reemplazar Hystrix por Resilience4J en repos Java 8 | 27 repos | Incluido en DT-01 | ALTA |
-| DT-07 | Plan de sustitución de `msach-u-aop-commons` | 210 repos | 3-4 meses · requiere ADR | MEDIA |
-| DT-08 | Plan de sustitución de `platform-cryptography` | 115 repos | 12+ meses · PCI-DSS recertificación | MEDIA-BAJA |
-| DT-09 | Eliminar pares `-b` repos obsoletos o consolidarlos | ~34 repos | 1 mes · revisión con BanCoppel | BAJA |
+Once ramas de Spring Boot conviviendo en 215 repos es evidencia de que no hay un BOM central. Cada vulnerabilidad del framework se parchea repo por repo, y no existe una ruta de actualización única.
 
-### 3.6 Cobertura de Tests — Detalle
+Sobre pruebas, la medición es ahora exacta y no estimada, porque el contador distingue `src/test` de los paquetes de producción que se llaman así:
 
-Todos los 216 repos tienen archivos de test, pero la distribución es desigual:
+| Categoría | Producción | Prueba | Ratio |
+|-----------|-----------|--------|-------|
+| Global | 12,155 | 3,724 | **30.6%** |
+| Repos legacy | 3,384 | 952 | 28.1% |
+| Repos no legacy | 8,771 | 2,772 | 31.6% |
 
-| Categoría | Archivos fuente | Archivos test | Ratio |
-|-----------|----------------|---------------|-------|
-| Global | 12,110 | 3,718 | **30.7%** |
-| Repos legacy (Java 8) | ~3,000 (estimado) | ~900 (estimado) | ~30% |
-| Repos modern (Java 17+) | ~9,110 (estimado) | ~2,818 (estimado) | ~30.9% |
+El dato relevante es que la diferencia entre generaciones es de apenas 3.5 puntos. La cobertura baja no es un problema heredado de los repos viejos, es la práctica actual del canal. Los 215 repos tienen al menos un archivo de prueba, y 7 están por debajo del 20%.
 
-La cobertura es homogéneamente baja en todas las generaciones — no es un problema exclusivo de los repos legacy. Esto indica una práctica de desarrollo que priorizó velocidad de entrega sobre calidad de tests sistemáticamente.
+La fragmentación `-b` queda ahora medida con precisión. Hay **39 repos que terminan en `-b`**, y **35 de ellos declaran el mismo `artifactId` que su gemelo**. Esto tiene una consecuencia operativa que va más allá del inventario: dos artefactos distintos se publican con el mismo nombre al repositorio Maven, así que cuál de los dos resuelve una dependencia transitiva depende del orden de compilación. Además, tres repos nunca renombraron el esqueleto del generador y siguen declarando `artifactId = jso-fwk-hello-service`: `msach-b-business-application-video-tours`, `msach-d-business-credit-cards-accounts` y `msacm-b-business-codi-agreement-management`. Los tres son legacy y los tres tienen el peor ratio de pruebas del canal, con 1 archivo de prueba contra 8 de producción.
+
+### 3.4 Performance
+
+| Patrón | Repos | Impacto |
+|--------|-------|---------|
+| Llamadas JDBC síncronas a Informix | 77 | ALTO, PISA corre en AIX y suma latencia de red y de ejecución del SP |
+| Cadenas de llamadas Feign síncronas | 194 declaran Feign | ALTO, las latencias se suman en serie |
+| Consultas a MongoDB sin índice visible en código | 122 | MEDIO, depende del esquema en Atlas |
+| Redis sin expiración explícita en repos legacy | Subconjunto de 63 | BAJO |
+
+La ausencia total de mensajería asíncrona confirma lo dicho arriba: el canal no tiene ningún punto donde absorber una degradación del backend.
+
+### 3.5 Deuda Técnica
+
+| ID | Ítem | Repos | Prioridad 2027 |
+|----|------|-------|----------------|
+| DT-01 | Sacar la credencial de los `.properties` y rotarla | 108 | CRÍTICA, bloqueante |
+| DT-02 | Pasar la resolución de dependencias a HTTPS | 212 | CRÍTICA, bloqueante |
+| DT-03 | Migrar de Java 8 u 11 a Java 21 con Spring Boot 3.5.x | 61 | CRÍTICA |
+| DT-04 | Retirar Hystrix y unificar en Resilience4J | 98 | ALTA |
+| DT-05 | Subir la cobertura de pruebas de 30.6% a 70% | 215 | ALTA |
+| DT-06 | Actualizar los repos Java 17 a rama con soporte | 103 | ALTA |
+| DT-07 | Centralizar versiones con un BOM propio | 215 | ALTA |
+| DT-08 | Resolver la colisión de `artifactId` entre pares `-b` | 35 | ALTA, afecta resolución de dependencias |
+| DT-09 | Catalogar y decidir destino de las 19 librerías internas | 215 | ALTA |
+| DT-10 | Extraer a servicio las reglas de negocio que viven en librerías | 25 aprox. | MEDIA |
+| DT-11 | Plan de sustitución de `msach-u-aop-commons` | 209 | MEDIA, requiere ADR |
+| DT-12 | Plan de sustitución de `platform-cryptography` | 115 | MEDIA-BAJA, depende de recertificación PCI-DSS |
+
+### 3.6 Cobertura de Pruebas, detalle
+
+Los repos con peor relación entre prueba y producción:
+
+| Repo | Prueba / Producción | Ratio | Generación |
+|------|--------------------|-------|-----------|
+| `msach-b-business-application-video-tours` | 1 / 8 | 12.5% | legacy |
+| `msach-d-business-credit-cards-accounts` | 1 / 8 | 12.5% | legacy |
+| `msacm-b-business-codi-agreement-management` | 1 / 8 | 12.5% | legacy |
+| `msach-o-business-services-payment` | 15 / 92 | 16.3% | legacy |
+| `msamg-p-platform-send-codi-process-log` | 8 / 49 | 16.3% | modern-17 |
+| `msacm-d-business-identity-data-recovery` | 15 / 83 | 18.1% | legacy |
+| `msapy-b-business-remittance-payment` | 18 / 92 | 19.6% | legacy |
+
+Cinco de los siete operan pagos o identidad, que son justo los flujos donde una regresión no detectada cuesta dinero o acceso.
 
 ---
 
 ## 4. Antipatrones Confirmados
 
-| ID | Antipatrón | Evidencia directa | Riesgo AM |
-|----|-----------|-------------------|-----------|
-| AP-01 | **JDBC directo sin abstracción de repositorio limpia** | `session.doReturningWork()` + `prepareCall()` en capa D — sin interfaz entre el SP y el servicio | ALTO: cambio de SP en Informix requiere cambio en Java; imposibilita unit tests de la capa D sin Informix real |
-| AP-02 | **Constantes de SPs hardcodeadas en código fuente** | `Constants.SPCENVIOASPEI_BEX`, `Constants.SPCTRANSCTASPROPIASCODI_BEX` — 49 SPs en 21 archivos Constants | MEDIO: refactor de SP → cambio en 21 archivos Java + re-test |
-| AP-03 | **38 parámetros posicionales en CallableStatement** | `SPCTRANSCTASPROPIASCODI_BEX(?, ?, ..., ?)` — posición importa, no el nombre | ALTO: sin names binding; cualquier reordenamiento de parámetros en el SP rompe silenciosamente |
-| AP-04 | **Credenciales en application.properties** | `mongodb+srv://syscoppel:devsyscoppel@...` | CRÍTICO: secret management desde día 0 de AM |
-| AP-05 | **32 versiones de Spring Boot sin BOM centralizado** | `pom.xml` de cada repo define su propia versión independiente | ALTO: vulnerabilidades sin parche unificado; upgrade en cascada manual |
-| AP-06 | **Hystrix como circuit breaker en repos Java 8** | Spring Cloud Greenwich · Hystrix oficialmente en EOL | ALTO: sin parches de seguridad; Resilience4J disponible pero requiere migración |
-| AP-07 | **URLs de repositorio Maven sin TLS** | `http://nexuscln.bcpl.mx/...` en 216 pom.xml | ALTO: supply chain attack surface; npm-style dependency confusion |
-| AP-08 | **Dependencia de Javanes Framework** | `com.javanes.framework.*` en 4 repos legacy — framework de tercero de nicho | MEDIO: si el framework deja de mantenerse, estos repos quedan sin soporte upstream |
+| ID | Antipatrón | Evidencia | Riesgo |
+|----|-----------|-----------|--------|
+| AP-01 | JDBC directo sin abstracción de repositorio | `session.doReturningWork()` con `prepareCall()` en capa D | ALTO, impide probar la capa D sin un Informix real |
+| AP-02 | Nombres de SP incrustados como constantes | 21 archivos `Constants.java` con 49 pares base y SP | MEDIO, renombrar un SP obliga a tocar Java y volver a probar |
+| AP-03 | 38 parámetros posicionales en `CallableStatement` | `SPCTRANSCTASPROPIASCODI_BEX` | ALTO, reordenar parámetros rompe en silencio |
+| AP-04 | Credencial de base de datos en configuración versionada | 108 repos, 121 ocurrencias | CRÍTICO |
+| AP-05 | Once ramas de Spring Boot sin BOM central | Cada `pom.xml` fija su versión | ALTO |
+| AP-06 | Hystrix en fin de vida, conviviendo con Resilience4J | 98 repos contra 54 | ALTO |
+| AP-07 | Dependencias Maven resueltas por HTTP sin TLS | 212 repos | ALTO, superficie de cadena de suministro |
+| AP-08 | Framework de nicho `javanes` | 5 repos legacy | MEDIO |
+| AP-09 | `artifactId` duplicado entre repos distintos | 35 pares `-b` y 3 con el esqueleto sin renombrar | ALTO, la resolución de dependencias deja de ser determinista |
+| AP-10 | Reglas de negocio en librerías compartidas | Límites de transferencia, listas negras, validaciones de riesgo | MEDIO, invisibles al análisis del servicio |
 
 ---
 
 ## 5. Evaluación de Viabilidad 2027
 
-### 5.1 Qué es viable para 2027
+### 5.1 Qué es viable
 
-Con el constraint explícito de viabilidad 2027 y asumiendo inicio del programa en Q4 2026:
+| Ola | Alcance | Resultado | Horizonte |
+|-----|---------|-----------|-----------|
+| **Ola 0**, prerrequisito | Rotar y externalizar la credencial (DT-01), pasar a HTTPS (DT-02), BOM central (DT-07) | Base segura para migrar | 2 meses |
+| **Ola 1** | 61 repos legacy a Java 21 con Spring Boot 3.5.x, retirando Hystrix en el camino | Canal libre de software sin soporte | 4 a 6 meses |
+| **Ola 2** | 103 repos Java 17 a rama con soporte | Todo el canal en soporte activo | 3 meses |
+| **Ola 3**, en paralelo | Cobertura de pruebas de 30.6% a 70% | Calidad suficiente para verificar equivalencia | Todo 2027 |
+| **2028** | Sustitución de `aop-commons` y de la librería de cifrado | Independencia de librerías propietarias | Fuera de 2027 |
 
-| Wave | Alcance | Resultado | Timeline |
-|------|---------|-----------|---------|
-| **Wave 0** (prerrequisito) | Credenciales en Secrets · BOM centralizado · pipeline CI/CD seguro | Infraestructura de AM lista | Q4 2026 — 2 meses |
-| **Wave 1** | Migración de 60 repos legacy a Java 21 + SB 3.5.x | Canal libre de EOL software | Q1-Q2 2027 — 4-6 meses |
-| **Wave 2** | Actualización 106 repos Java 17 a SB 3.5.x | Todos los repos en LTS activo | Q2-Q3 2027 — 3 meses |
-| **Wave 3** | Tests: subir cobertura global de 30.7% a 70% | Calidad suficiente para equivalence-check | Q1-Q4 2027 — paralelo a W1+W2 |
-| **Posible por 2028** | Sustitución de AOP commons / crypto propietaria | Independencia de librerías propietarias | 2028+ |
+La Ola 0 no es negociable y no depende de BanCoppel para arrancar: migrar un repo con la credencial adentro la copia al destino y multiplica el problema en lugar de resolverlo.
 
-### 5.2 La migración Java 8 → SB 3.x es de dos pasos
+### 5.2 La migración desde Java 8 es de dos pasos
 
-La migración directa de Spring Boot 2.x (Java 8) a Spring Boot 3.x no es posible — requiere paso intermedio:
+No existe salto directo de Spring Boot 2.x sobre Java 8 a Spring Boot 3.x. La ruta es Java 8 con SB 2.1.x, luego Java 17 con SB 2.7.x, y después Java 21 con SB 3.5.x. El segundo paso es el caro, porque Spring Boot 3 cambia `javax` por `jakarta` en todos los imports. OpenRewrite automatiza la mayor parte, pero el remanente exige revisión manual, sobre todo en las integraciones con Informix.
 
-```
-Java 8 + SB 2.1.x → [PASO A] → Java 17 + SB 2.7.x → [PASO B] → Java 21 + SB 3.5.x
-```
+Los tres repos que ya corren Spring Boot 4 sobre Java 25 demuestran que la ruta completa es transitable y sirven de plantilla.
 
-El PASO B es el más crítico: SB 3.x migra de `javax.*` a `jakarta.*` — todos los imports del código fuente deben actualizarse. Herramientas como `OpenRewrite` automatizan el 80-90% de esto, pero el 10-20% requiere revisión manual, especialmente en integraciones con Informix.
+### 5.3 El riesgo sistémico sigue siendo `aop-commons`
 
-### 5.3 El riesgo más alto: AOP Commons sistémico
+Con 209 de 215 repos dependiendo de él, sustituirlo no cabe en 2027: requiere un ADR con BanCoppel que fije el comportamiento equivalente, y pruebas de regresión sobre todos los flujos. La recomendación se mantiene: migrar conservando `msach-u-aop-commons:3.0.0`, previa verificación de que es compatible con Java 21 y Spring Boot 3.x, y abrir el reemplazo en el roadmap 2028.
 
-El `msach-u-aop-commons` en 210/216 repos es un riesgo sistémico de primer orden. **No está en scope para 2027** porque:
-1. Reemplazarlo requiere un ADR con BanCoppel que defina el comportamiento equivalente
-2. Las pruebas de regresión del comportamiento del AOP (logging, auditoría, manejo de errores) deben cubrir todos los flujos de negocio
-3. El timeline de certificación interna en BanCoppel para cambios sistémicos excede el horizonte 2027
+La novedad es que `msaim-u-security-platform`, en 89 repos, merece el mismo tratamiento de ADR y no estaba identificada.
 
-**Decisión recomendada**: migrar los repos legacy manteniendo `msach-u-aop-commons:3.0.0` — la librería es compatible con Java 21 y Spring Boot 3.x (verificar con BanCoppel). La sustitución va en el roadmap 2028.
+### 5.4 La librería de cifrado no cambia en 2027
 
-### 5.4 PCI-DSS crypto library — no cambia en 2027
-
-La librería `msach-u-platform-cryptography` tiene certificación PCI-DSS implícita. Cualquier sustitución requiere:
-- Análisis criptográfico formal del comportamiento actual
-- Re-certificación PCI-DSS (6-12 meses de proceso)
-- Validación de BanCoppel con su QSA (Qualified Security Assessor)
-
-**Decisión**: mantener la librería en las migraciones de 2027. El ADR de sustitución se inicia en 2027 para delivery en 2028.
+`msach-u-platform-cryptography` carga certificación PCI-DSS implícita en 115 repos. Sustituirla exige análisis criptográfico formal, recertificación con el QSA de BanCoppel y un proceso que no cabe en el horizonte. Se mantiene en las migraciones de 2027 y el ADR de sustitución se inicia ese año para entregar en 2028.
 
 ---
 
-## 6. Riesgos Identificados (input para DT-Riesgos)
+## 6. Riesgos Identificados, insumo para dt-riesgos
 
 | ID | Riesgo | Probabilidad | Impacto | Mitigación |
 |----|--------|-------------|---------|-----------|
-| RISK-JA-01 | Incompatibilidad de `aop-commons` con SB 3.x | MEDIA | CRÍTICO | Prueba de compatibilidad en sandbox antes de Wave 1 |
-| RISK-JA-02 | Los 34 pares repos `-b` tienen estado inconsistente | ALTA | ALTO | Inventariar cuáles son activos en producción antes de Wave 1 |
-| RISK-JA-03 | Tests insuficientes impiden detectar regresiones post-migración | ALTA | ALTO | Wave 3 de tests paralela a migraciones; golden-master tests antes del cutover |
-| RISK-JA-04 | Informix SP con 38 parámetros posicionales — cualquier refactor rompe silenciosamente | MEDIA | ALTO | Wrapper DTO en capa D antes de migrar el SP |
-| RISK-JA-05 | Supply chain attack por HTTP Maven repo | ALTA | ALTO | Migrar a HTTPS en Wave 0 como prerequisito bloqueante |
-| RISK-JA-06 | Credenciales MongoDB en properties llegan a repo migrado | ALTA | CRÍTICO | Secrets migration en Wave 0 · `gitleaks` en CI desde Wave 0 |
+| RISK-JA-01 | La credencial compartida se propaga a los repos migrados | ALTA | CRÍTICO | Ola 0 bloqueante, con detección de secretos en el pipeline |
+| RISK-JA-02 | `aop-commons` resulta incompatible con Spring Boot 3.x | MEDIA | CRÍTICO | Prueba de compatibilidad en entorno aislado antes de la Ola 1 |
+| RISK-JA-03 | La colisión de `artifactId` publica el binario equivocado | MEDIA | ALTO | Renombrar los 35 pares y los 3 esqueletos antes de tocar el pipeline |
+| RISK-JA-04 | Las pruebas insuficientes ocultan regresiones tras migrar | ALTA | ALTO | Ola 3 en paralelo, con pruebas de referencia antes del cambio |
+| RISK-JA-05 | Compromiso de cadena de suministro por Maven sin TLS | ALTA | ALTO | HTTPS como prerrequisito bloqueante de la Ola 0 |
+| RISK-JA-06 | Hystrix sin parches falla ante degradación de Informix | MEDIA | ALTO | Unificar en Resilience4J durante la Ola 1 |
+| RISK-JA-07 | Cuatro almas en Java 8 concentran el riesgo de disponibilidad | ALTA | CRÍTICO | Priorizarlas al frente de la Ola 1 |
+| RISK-JA-08 | Reglas de negocio en librerías quedan fuera del catálogo | MEDIA | MEDIO | Extraer y registrar en dt-reglas antes del cutover |
 
 ---
 
-## 7. Inputs para Otros DTs
+## 7. Insumos para Otros Digital Twins
 
-| DT receptor | Input de este análisis |
-|-------------|----------------------|
-| **dt-riesgos** | RISK-JA-01 a RISK-JA-06 (sección 6) |
-| **dt-sp-dependencies** | AP-01, AP-02, AP-03 — el antipatrón JDBC directo y los 49 SPs deben tener wrapper DTO antes del cutover |
-| **dt-regulatorio** | AP-04 (credenciales) · DT-08 (PCI-DSS crypto) — prerequisitos regulatorios del canal |
-| **dt-modelo-dominio** | Pares repos `-b` — necesitan clasificación de cuáles son activos en prod vs. archivados |
-| **dt-capacidades** | DT-05 (BOM centralizado) — prerequisito de governance para todas las capacidades |
+| DT receptor | Insumo |
+|-------------|--------|
+| **dt-riesgos** | RISK-JA-01 a RISK-JA-08 |
+| **dt-sp-dependencies** | AP-01, AP-02 y AP-03; los 49 pares base y SP necesitan envoltorio antes del cutover |
+| **dt-regulatorio** | AP-04 sobre la credencial, DT-12 sobre PCI-DSS, y las listas negras que viven en librería |
+| **dt-modelo-dominio** | Los 39 repos `-b` y sus 35 colisiones de `artifactId` necesitan clasificación de cuál está activo |
+| **dt-reglas** | AP-10; las reglas en librerías compartidas no se alcanzan leyendo el código del servicio |
+| **dt-capacidades** | DT-07 sobre el BOM central como prerrequisito de gobierno |
+| **dt-almas** | Las 4 almas en stack legacy encabezan la Ola 1 |
 
 ---
 
-## 8. Smoke Tests (para Brain Auditor)
+## 8. Reproducir este análisis
+
+```bash
+cd systems/channels/AppMovil
+python generators/build-java-analysis.py          # tablas en consola y portal/data/java-analysis.json
+python generators/build-java-analysis.py -v       # detalle por repositorio
+```
+
+El generador mide versión de Java y de Spring Boot, generación, librerías internas, datastores y archivos de prueba contra producción, para los 215 repos con `pom.xml`. Sus conteos de datastore reconcilian con `brain.db::services` por construcción. Si una cifra de este documento no coincide con la salida del generador, la del generador es la válida y este documento está vencido.
+
+---
+
+## 9. Smoke Tests, para el Brain Auditor
 
 | ID | Test | Estado |
 |----|------|--------|
-| JA-01 | `analisis-calidad-appmovil.md` existe | ✅ |
-| JA-02 | El análisis cubre las 6 dimensiones: Seguridad, Confiabilidad, Mantenibilidad, Performance, Deuda Técnica, Cobertura | ✅ |
-| JA-03 | Las 4 librerías propietarias están catalogadas con su riesgo de migración | ✅ |
-| JA-04 | El antipatrón JDBC directo (`prepareCall` sin abstracción) está documentado | ✅ |
-| JA-05 | La credencial MongoDB en properties está marcada como defecto CRÍTICO | ✅ |
-| JA-06 | El análisis cubre los repos legacy y la evaluación de viabilidad 2027 | ✅ |
+| JA-01 | `analisis-calidad-appmovil.md` existe | Pasa |
+| JA-02 | Cubre las seis dimensiones ISO 5055 | Pasa |
+| JA-03 | Las librerías propietarias están catalogadas con su riesgo | Pasa, ahora con las 19 |
+| JA-04 | El antipatrón de JDBC directo está documentado | Pasa |
+| JA-05 | La credencial en configuración está marcada como crítica | Pasa, con alcance de 108 repos |
+| JA-06 | Cubre los repos legacy y la viabilidad 2027 | Pasa |
+| JA-07 | Las cifras provienen de un generador reproducible | Pasa |
 
 ---
 
-*v1.0.0 · 2026-08-14 · Construido por dt-java-analysis desde análisis estático de 216 repos · constraint viabilidad 2027*
+*v2.0.0 · 2026-11-03 · Reconstruido por dt-java-analysis desde `build-java-analysis.py` sobre 215 repos, tras el rebuild del brain que recuperó 37 componentes invisibles. Corrige la v1.0.0 del 2026-08-14 en tres cifras materiales: credencial expuesta de 3 a 108 repos, Hystrix de 27 a 98, librerías internas de 4 a 19. Se eliminó del documento el valor de la credencial que la versión anterior transcribía.*

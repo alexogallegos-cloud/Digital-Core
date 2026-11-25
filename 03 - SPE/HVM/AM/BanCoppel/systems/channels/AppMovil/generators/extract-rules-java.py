@@ -1026,8 +1026,17 @@ def extract_from_properties(prop_file: Path, repo: str, verbose: bool) -> list:
 
 # ── Persistencia en brain.db ──────────────────────────────────────────────────
 
-def load_into_brain(rules: list, db_path: Path, verbose: bool):
-    """Carga las reglas en brain.db::rules (UPSERT por id)."""
+def load_into_brain(rules: list, db_path: Path, verbose: bool, prune: bool = True):
+    """
+    Carga las reglas en brain.db::rules (UPSERT por id).
+
+    El UPSERT nunca toca business_name: el enriquecimiento por síntesis LLM
+    (ADR-SPE-AM-010) es la capa gold y sobrevive a cada re-extracción.
+
+    Con prune=True (default) se eliminan las reglas que el fuente ya no
+    produce. Sin esta poda la tabla acumula entre cortes del fuente y deja de
+    ser reproducible: el catálogo mostraría reglas de código que ya no existe.
+    """
     con = sqlite3.connect(str(db_path))
     init_rules_table(con)
 
@@ -1059,9 +1068,27 @@ def load_into_brain(rules: list, db_path: Path, verbose: bool):
                   r["source_file"], r.get("descripcion_regla"), TS_NOW))
             inserted += 1
 
+    pruned = 0
+    if prune:
+        vigentes = {r["id"] for r in rules}
+        obsoletas = [
+            (rid, sf) for rid, sf in con.execute("SELECT id, source_file FROM rules")
+            if rid not in vigentes
+        ]
+        if obsoletas:
+            con.executemany("DELETE FROM rules WHERE id = ?",
+                            [(rid,) for rid, _ in obsoletas])
+            pruned = len(obsoletas)
+            if verbose:
+                for rid, sf in obsoletas[:20]:
+                    print(f"    - obsoleta {rid} ({sf})")
+
     con.commit()
     con.close()
-    print(f"  brain.db::rules → {inserted} insertadas, {updated} actualizadas")
+    msg = f"  brain.db::rules → {inserted} insertadas, {updated} actualizadas"
+    if prune:
+        msg += f", {pruned} obsoletas eliminadas"
+    print(msg)
 
 
 # ── Generación del catálogo Markdown ─────────────────────────────────────────
@@ -1196,7 +1223,8 @@ def render_catalog(db_path: Path, out_path: Path):
 
 # ── Pipeline principal ────────────────────────────────────────────────────────
 
-def run(source_dir: Path, db_path: Path, gen_catalog: bool, gen_json: bool, verbose: bool):
+def run(source_dir: Path, db_path: Path, gen_catalog: bool, gen_json: bool, verbose: bool,
+        prune: bool = True):
     if not source_dir.exists():
         print(f"ERROR: directorio de código fuente no encontrado: {source_dir}")
         sys.exit(1)
@@ -1274,7 +1302,7 @@ def run(source_dir: Path, db_path: Path, gen_catalog: bool, gen_json: bool, verb
 
     # Cargar en brain.db
     print(f"\n  Cargando en {db_path}...")
-    load_into_brain(deduped, db_path, verbose)
+    load_into_brain(deduped, db_path, verbose, prune)
 
     # Generar catálogo
     if gen_catalog:
@@ -1313,8 +1341,11 @@ def main():
     parser.add_argument("--catalog",     action="store_true", help="Generar catalogo-reglas-appmovil.md")
     parser.add_argument("--export-json", action="store_true", help="Exportar portal/data/rules-data.json")
     parser.add_argument("--verbose",     action="store_true", help="Output detallado por archivo")
+    parser.add_argument("--no-prune",    action="store_true",
+                        help="Conservar reglas que el fuente ya no produce (default: se eliminan)")
     args = parser.parse_args()
-    run(args.source, args.db, args.catalog, args.export_json, args.verbose)
+    run(args.source, args.db, args.catalog, args.export_json, args.verbose,
+        prune=not args.no_prune)
 
 
 if __name__ == "__main__":

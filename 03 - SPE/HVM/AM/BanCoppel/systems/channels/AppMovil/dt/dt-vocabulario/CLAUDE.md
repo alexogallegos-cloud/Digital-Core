@@ -86,7 +86,9 @@ Algunos términos del vocabulario de AppMovil tienen su contraparte directa en I
 ## GESTIÓN DE CONOCIMIENTO (Regla 14)
 
 - **Artefacto central**: `dt/dt-vocabulario/vocabulario-appmovil.md` — catálogo completo: término, dominio, definición en contexto BanCoppel, fuente, contraparte en Informix si aplica
-- **Fuente primaria**: `source/code/*/src/main/java/**/constants/Constants.java` + `source/code/*/config/application-*.properties` — nombres de SPs, operation IDs, configuración externalizada
+- **Fuente primaria**: `source/code/*/src/main/java/**/*Constants.java` y `source/code/*/config/application-*.properties` — nombres de SPs, operation IDs, configuración externalizada. El patrón es amplio a propósito: restringirlo a `constant/Constants.java` dejaba fuera 17,098 constantes en 947 archivos, sobre todo los `ApiConstants.java`, que son los que concentran rutas de API y términos de negocio
+- **Capa minada**: `brain.db::terms`, 4,291 términos extraídos del código por `digital-brain/build-brain.py`. Es materia prima, no vocabulario curado: este artefacto cura sobre ella
+- **Aguas abajo**: `generators/extract-rules-java.py` lee `terms` para anclar la detección de reglas financieras, así que ampliar o ensuciar el vocabulario mueve el catálogo de reglas
 - **Cross-reference Informix**: `Informix/digital-brain/brain.db` → tabla `terms` (438 términos del core) — el vocabulario del canal complementa, no duplica
 - **Cross-reference**: `dt-reglas` (los términos se usan en las reglas) · `dt-catalogo-errores` (términos de error) · `dt-journeys` (términos en lenguaje del cliente)
 - **Regla de naming**: todo término nuevo del canal se registra con su forma canónica (como aparece en el código o properties), su significado, y si tiene contraparte en Informix

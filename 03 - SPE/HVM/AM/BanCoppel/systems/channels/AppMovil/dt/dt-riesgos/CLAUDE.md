@@ -84,6 +84,21 @@ Los riesgos del canal son distintos a los del core Informix: mientras Informix t
 
 ---
 
+## EVIDENCIA EMPÍRICA (2026-11-04)
+
+El registro dejó de ser solo deductivo. `brain.db::incidents` guarda 16 incidentes
+originados por Controles de Cambio entre enero y noviembre de 2026, 8 de ellos en
+el canal, normalizados desde los reportes corporativos de `source/docs/`.
+
+Cinco riesgos del registro preliminar se materializaron en producción
+(`RISK-ARCH-002` dos veces, `RISK-CHAN-001`, `RISK-DATA-001`, `RISK-JDBC-003` en
+su forma inversa y `RISK-OPS-001` por omisión), dos se matizan y aparecen tres
+nuevos (`RISK-OPS-003` a `RISK-OPS-005`). El cruce completo está en el artefacto
+central.
+
+Un riesgo con folio, cronología y RCA se prioriza distinto a uno deducido de la
+arquitectura, y esa es la diferencia que aporta el corpus.
+
 ## SMOKE TESTS (Brain Auditor los invoca)
 
 | ID | Descripción | Severidad si falla |
