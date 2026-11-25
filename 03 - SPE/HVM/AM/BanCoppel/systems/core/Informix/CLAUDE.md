@@ -206,6 +206,53 @@ Todo hallazgo extraído de `source/logs/` tiene dos destinos en paralelo:
 
 **Regla de trazabilidad:** todo dato incorporado desde logs debe indicar fuente y fecha de evidencia — nunca mezclar datos de análisis estático con observaciones de producción en la misma celda de una tabla.
 
+### Lotes WAS de octubre, analizados (2026-11-04)
+
+Llegaron dos capturas más del clúster `OfiWeb`, la capa Java/SOAP que envuelve los SPs de este core, y se ubicaron aquí por continuidad con `was-log-analysis-2026-08-07.md`:
+
+| Lote | Fecha | Nodos | SOAP responses | Excepciones |
+|------|-------|-------|---------------|-------------|
+| `source/logs/revision-ofiweb-20261030` | 2026-10-30 | `WAS1-puresys20`, `WAS2-puresys30` | 767,024 | 1,687 |
+| `source/logs/revision-ofiweb-20261031` | 2026-10-31 | `puresys38` | 481,951 | 1,204 |
+
+Salidas en `knowledge-base/cross-reference/was-log-analysis-revision-ofiweb-*.md` y su JSON.
+
+**El contrato SOAP está estable.** La superficie pasó de 466 operaciones distintas en agosto a 472 en octubre. Hay 48 que no estaban y 42 que ya no aparecen, pero casi todas mueven diez llamadas o menos: son operaciones de cola larga que entran y salen según la ventana capturada, no altas ni bajas del contrato. Las únicas nuevas con volumen real son `SpGuardaRespRechazados` y `SpRegresaCatalogoRechazados`, con 563 llamadas cada una.
+
+**Los volúmenes no son comparables entre capturas.** `WAS1-puresys20` es el mismo nodo que en agosto se analizó como `10.27.31.20`, y sus respuestas SOAP pasan de 282,751 a 348,596, pero las ventanas y el número de archivos rotados difieren. Sin normalizar por hora, la diferencia no sostiene una conclusión de crecimiento.
+
+**Dos correcciones al analizador, que estaba inservible.** La constante de ruta apuntaba a `BanCoppel/Informix`, de antes de mover el sistema a `systems/core/Informix`, así que el script fallaba al arrancar; ahora deriva las rutas de su propia ubicación. Y solo buscaba el archivo `http_access.log` exacto, de modo que ignoraba los rotados: con el patrón corregido aparecieron 2,115,430 operaciones HTTP que antes se contaban como cero. El lote a analizar se pasa como argumento.
+
+Las capturas venían con los logs de tres capas mezclados. El IBM HTTP Server fue a `systems/channels/SIWEB/` y el bus al sistema nuevo `systems/integration/BUS/`.
+
+**Nota sobre la evidencia ESB de 2026-04-24:** los 13 archivos `errores_bus_20260424_*.txt` de `source/logs/2026-04-24/` no los genera este core sino el BUS. Alimentan `output/log-analysis/sp-frequency.json` y las columnas `sps.prod_*`, así que se quedan aquí como insumo del pipeline, pero su generador es `systems/integration/BUS/` y conviene declararlo al reconstruir.
+
+---
+
+## INTERLOCK CON e-global — REGLA B10 · 2026-11-04
+
+El brain de e-global (`systems/integration/EGlobal/`) se construyó el 2026-11-04 sobre un día completo de log de producción del autorizador de tarjetas, 2,844,993 transacciones. El hallazgo que obliga a este interlock: **e-global es el llamador externo de varios stored procedures que el análisis estático de Informix dejó con `fan_in = 0`**, y lo hace 3.5 millones de veces al día.
+
+| Stored procedure | Llamadas en el día | Bases donde existe en el brain | `fan_in` estático |
+|------------------|--------------------|-------------------------------|-------------------|
+| `cargo_ref_cel` | 2,771,874 | `bdicheq` D04, `bdicred` D03, `intercard` D16 | 0 en las tres |
+| `sp_registra_evento` | 638,424 | `intercard` D16 (explícito en el log), `bdimnsj` D09, `bdicheq` D04, `intercardbpi` D16 | 0 en `intercard`, 1,404 en `bdimnsj` |
+| `cons_saldo_cel` | 46,220 | `bdicheq` D04, `bdicred` D03 | 0 en ambas |
+| `reversiontd_cel` | 23,740 | `bdicheq` D04, `bdicred` D03, `intercard` D16 | 0 en las tres |
+| `abono_ref` | 80 | `bdicheq` D04 | 520 |
+| `sp_registra_evento` en `bdimnsj` | 3 | `bdimnsj` D09 | 1,404 |
+
+Dos consecuencias para el AS-IS de Informix:
+
+1. **El `fan_in = 0` no significa código muerto.** Estos procedures son la puerta de entrada de la autorización de tarjetas, la ruta transaccional más caliente del core, y ningún SP del core los llama: el llamador vive fuera. Antes de clasificar cualquier SP huérfano como candidato a retiro hay que descartar que su llamador sea un sistema externo. De los 11,391 SPs del core, 10,583 tienen `fan_in = 0`.
+2. **Queda abierto en qué base se resuelve la llamada.** Solo `sp_registra_evento` aparece en el log con la base escrita por delante (`intercard:`). Los otros cuatro se invocan sin prefijo y resuelven contra la conexión por omisión del autorizador, que el log no revela. Como tres de esos nombres están replicados en varias bases, la volumetría no puede atribuirse todavía a una copia concreta. Requiere confirmación del equipo de tarjetas.
+
+**Un error del motor sale a la terminal del cliente.** El autorizador registra el código `-243` dieciséis veces en el día y lo traduce a ISO 96, falla de sistema, que es lo que ve el tarjetahabiente. El `codret_dictionary` de este brain no contiene **ningún** código negativo: sus 329 entradas son valores de retorno de los SPs. La numeración negativa es la de errores del motor Informix, así que lo que viaja hasta la terminal es un fallo de base de datos sin traducir. La transacción de muestra tardó 2,937 milisegundos contra los cien escasos de una normal. Pendiente de confirmar con el equipo de base de datos si corresponde a contención de bloqueos, por su posible relación con los incidentes de `intercard` ya documentados.
+
+**Pendiente de carga en este brain:** la volumetría de e-global debe entrar como filas de `sp_metrics_daily` con su propia fecha de evidencia (2026-11-03) y `calling_systems = ["e-global"]`. No debe escribirse sobre las columnas `sps.prod_*`, que hoy sostienen la evidencia ESB del 2026-04-24: mezclar ambas fuentes en la misma celda viola la regla de trazabilidad de arriba.
+
+Seed disponible en `systems/integration/EGlobal/digital-brain/seeds/informix-seed.json`.
+
 ---
 
 ## HANDOFFS CANÓNICOS

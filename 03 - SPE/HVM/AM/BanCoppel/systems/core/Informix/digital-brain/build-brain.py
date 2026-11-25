@@ -1523,6 +1523,19 @@ def seed_cross_dependencies(conn):
          "Hallazgo CTM 2026-08-12: carpeta UTR-UNITY_TRANSACT en host datastage "
          "(dccinfsph2/dccinfsphe2/dccinfsph1). Relación confirmada por evidencia operativa.",
          "high"),
+        # INBOUND: SIWEB, la ventanilla de sucursal, nos consume a través del BUS.
+        ("pisa-siweb-ventanilla",
+         "siweb", "calls", "inbound",
+         "SIWEB (canal de sucursal, ventanilla y caja; ID 60 del As-Is, alias OFI_WEB) opera "
+         "contra Informix de forma indirecta: no abre JDBC, pide cada operación al BUS por un "
+         "identificador numérico de web service. El BUS resuelve esa operación contra los SPs "
+         "de PISA. Para el core es tráfico del ESB, no un consumidor con nombre propio, y por "
+         "eso el canal no aparece en external_systems pese a ser uno de los mayores consumidores.",
+         "858 identificadores de servicio catalogados en el fuente CPlaSu, 810 invocados desde "
+         "28 DAOs, de los cuales 25 declaran una base de PISA como destino: BDINTEG (223 "
+         "servicios), BDICRED (124), BDICHEQ (117), BDISOLIC (74), BDISUC (54). Evidencia en "
+         "systems/channels/SIWEB/digital-brain/brain.db::core_bridges, build 2026-11-04.",
+         "critical"),
     ]
     conn.executemany(
         """INSERT OR REPLACE INTO cross_dependencies

@@ -39,6 +39,7 @@ TOGAF_TYPE = {
     "oxxo-corresponsal":  "channels",
     "paytrue":            "channels",
     "ist-atm":            "channels",
+    "siweb":              "channels",
     # processors
     "buro-de-credito":    "processors",
     "prosa-switch":       "processors",

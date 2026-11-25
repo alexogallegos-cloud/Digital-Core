@@ -21,12 +21,13 @@ from datetime import datetime
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-BCOP = ("c:/Users/alejandro.gallegos/OneDrive - Accenture/Documents/Digital Core/"
-        "03 - SPE/HVM/AM/BanCoppel/Informix")
+# Las rutas se derivan de la ubicacion del script: la constante anterior apuntaba
+# a BanCoppel/Informix, de antes de mover el sistema a systems/core/Informix.
+BCOP      = str(pathlib.Path(__file__).resolve().parent.parent)
 LOGS_ROOT = f"{BCOP}/source/logs"
 KB_OUT    = f"{BCOP}/knowledge-base/cross-reference"
 
-# Fecha de los logs a analizar (subcarpeta bajo LOGS_ROOT)
+# Lote de logs a analizar: subcarpeta bajo LOGS_ROOT. Se puede pasar por argumento.
 LOG_DATE = "2026-08-07"
 
 # ── Regex ──────────────────────────────────────────────────────────────────────
@@ -287,11 +288,10 @@ def analyze_node(node_ip: str, log_dir: str) -> NodeStats:
         n = parse_syserr(p, stats)
         print(f"    SystemErr  {os.path.basename(p):40s}  {n:>8,} líneas")
 
-    # http_access (solo uno)
-    http_file = os.path.join(log_dir, 'http_access.log')
-    if os.path.isfile(http_file):
-        n = parse_http_access(http_file, stats)
-        print(f"    http_access  {'http_access.log':38s}  {n:>8,} líneas")
+    # http_access (incluye los rotados: http_access_26.10.30_11.20.57.log)
+    for p in sorted(glob.glob(os.path.join(log_dir, 'http_access*.log'))):
+        n = parse_http_access(p, stats)
+        print(f"    http_access  {os.path.basename(p):38s}  {n:>8,} líneas")
 
     print(f"    → SOAP responses: {sum(stats.soap_resp.values()):,} | "
           f"HTTP ops: {sum(stats.http_op.values()):,} | "
@@ -643,6 +643,9 @@ def generate_json(all_nodes: list[NodeStats], merged: NodeStats, log_date: str) 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
+    global LOG_DATE
+    if len(sys.argv) > 1:
+        LOG_DATE = sys.argv[1]
     date_dir = os.path.join(LOGS_ROOT, LOG_DATE)
     if not os.path.isdir(date_dir):
         print(f"ERROR: carpeta no encontrada: {date_dir}")
