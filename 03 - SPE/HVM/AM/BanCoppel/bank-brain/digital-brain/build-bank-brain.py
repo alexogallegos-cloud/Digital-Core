@@ -1115,6 +1115,21 @@ def build():
     else:
         print(f"  [FALTA] {grafo}")
 
+    # La clasificacion del inventario de aplicaciones (Regla B9). Va al final y
+    # despues del grafo porque lee dep_catalog.source, que el grafo acaba de
+    # resolver. Sin --apply no toca carpetas: solo recarga `app_nodes`, que se
+    # perderia en cada corrida porque esta base se borra y se recrea.
+    print()
+    print("--- Inventario de aplicaciones clasificado (Regla B9) ---")
+    inv = Path(__file__).resolve().parent.parent / "generators" / "bootstrap-from-inventory.py"
+    if inv.exists():
+        r = subprocess.run([sys.executable, str(inv)], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace")
+        salida = (r.stdout or r.stderr).strip().splitlines()
+        print("\n".join(salida[:3] + (["  ..."] + salida[-2:] if len(salida) > 5 else [])))
+    else:
+        print(f"  [FALTA] {inv}")
+
 
 if __name__ == "__main__":
     build()

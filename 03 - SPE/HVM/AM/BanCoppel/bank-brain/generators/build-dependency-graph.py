@@ -77,6 +77,14 @@ ALIAS = {
     "ofiweb": "siweb",
     "ofi_webc": "siweb",
     "ofi-webc": "siweb",
+    # Tres huerfanos que SIWEB citaba por su nombre de uso y que resultaron ser
+    # sistemas del inventario del banco, abiertos como nodos el 2026-11-27.
+    # SIWEB habla de la banca empresarial, del JBoss de remesas de Monterrey y
+    # del web service de huella; el inventario los llama Empresa Net, Motor de
+    # Pago de Remesas BTS y Motor de Huellas.
+    "banca-empresarial": "empresa-net",
+    "bts-monterrey": "motor-remesas-bts",
+    "gestor-central-huellas": "motor-huellas",
 }
 
 # Nombre de carpeta por slug, tomado del mapa que ya usa el ecosistema en
@@ -154,6 +162,65 @@ CATALOGO_MAP = {
     "Buró de Crédito": "buro-de-credito",
     "SmartVista (Unity)": "smartvista",
     "Transact (Unity)": "transact",
+
+    # Nodos abiertos por Regla B9 desde el inventario de aplicaciones del banco
+    # el 2026-11-27. La decision de cada aplicacion vive en
+    # knowledge-base/ontology/app-to-node.json; aqui solo se traduce el nombre
+    # con que el Anexo 5 la escribe al slug del nodo que la cubre.
+    "Aclaraciones": "aclaraciones",
+    "Aladdin": "aladdin",
+    "Administrador de token (CAS)": "autenticacion-token",
+    "Autentificación de Token RSA": "autenticacion-token",
+    "Autentificación de token RSA/Gemalto": "autenticacion-token",
+    "HSM/RSA/Gemalto (seguridad)": "autenticacion-token",
+    "Autenticador BC/CC": "autenticador-bc-cc",
+    "Monitor de Operaciones BPI": "banca-x-internet",
+    "CAT (01-800) Centro de atencion Telefonica": "cat-telefonico",
+    "CAT Predictivo": "cat-telefonico",
+    "Facturación Electrónica CFDI  (Interfactura / Detecno)": "cfdi-facturacion",
+    "Sistema de Cobranza iCS": "cobranza-ics",
+    "Consulta Cuentas y clientes (Coppel/ Ecomerce/ Afore)": "consulta-cuentas-clientes",
+    "Consulta INE": "consulta-ine",
+    "Consulta INE (Bus INE 4.0)": "consulta-ine",
+    "Motores de Consumo de WS(INE)": "consulta-ine",
+    "Consulta Renapo": "consulta-renapo",
+    "Motores de Consumo de WS (RENAPO)": "consulta-renapo",
+    "Data WareHouse": "data-warehouse",
+    "Dictamen Unificado": "dictamen-unificado",
+    "Prometeo - OnBase (Gestor Documental)": "digitalizacion",
+    "Empresa Net": "empresa-net",
+    "Clientes": "gestor-central-clientes",
+    "Homologación-Remesas": "homologacion-remesas",
+    "Homologación-Servicios": "homologacion-servicios",
+    "Indeval Enlace Financiero": "indeval",
+    # Modulos SPL que el Anexo 5 lista aparte y viven dentro del core
+    "Canal Corresponsales Tiendas Coppel": "informix",
+    "Canal Transferencias Préstamos Coppel": "informix",
+    "Motor de Evaluación de Crédito": "informix",
+    "Pagos Programados": "informix",
+    "Inets (servicios para Coppel)": "interfaces-coppel",
+    "Replicadores Coppel / Bancoppel": "interfaces-coppel",
+    "ION Trading": "ion-trading",
+    "GUI": "ist-atm",
+    "Netxms Monitor ATM": "ist-atm",
+    "IVR": "ivr",
+    "BancoppelSMS": "latinia",
+    "Latinia": "latinia",
+    "MAC WEB": "mac-web",
+    "Motor de Huellas": "motor-huellas",
+    "Motor de Rostros": "motor-huellas",
+    "Motor de Pago de Servicios": "motor-pago-servicios",
+    "Motor de Pago de Remesas BTS": "motor-remesas-bts",
+    "OpenBanking": "open-banking",
+    "Crédito Comercial (Orión)": "orion",
+    "Pago de TDC de Otros Bancos": "pago-tdc-otros-bancos",
+    "Pagos de la Afore": "pagos-afore",
+    "Pago de Remesas Appriza": "remesas-appriza",
+    "Pago de Remesas WU/Orlandi/Vigo": "remesas-wu-orlandi-vigo",
+    "RPA (Robots)": "rpa-robots",
+    "SICC´s": "siccs",
+    "Transferencia Electrónica de Fondos (TEF)": "tef",
+    "Ares - Veritran - Veribank": "veritran",
 }
 
 # El catalogo declara el tipo de interfaz, no la semantica de la relacion: dice
@@ -343,6 +410,21 @@ def arista(source, target, direction):
 
 # ── Fuente 1 y 2: los brains de sistema y sus seeds ──────────────────────
 
+def slug_declarado(db: Path) -> str | None:
+    """Como dice llamarse el propio brain, si lo dice."""
+    try:
+        con = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+        try:
+            if "slug" not in columnas(con, "system_info"):
+                return None
+            fila = con.execute("SELECT slug FROM system_info LIMIT 1").fetchone()
+            return fila[0] if fila and fila[0] else None
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+
+
 def leer_sistemas(verbose=False):
     """Un recorrido por systems/ que devuelve nodos, aristas y procedencia."""
     nodos, aristas = {}, []
@@ -351,7 +433,15 @@ def leer_sistemas(verbose=False):
     # propio y sin CLAUDE.md, y si la clave fuera el archivo se perderian.
     for carpeta_path in sorted(d for d in SYSTEMS.glob("*/*") if d.is_dir()):
         carpeta = carpeta_path.name
-        slug = canon(SLUG_DE_CARPETA.get(carpeta, carpeta.lower()))
+
+        # El id lo declara el brain, no la carpeta. La carpeta dice
+        # `MotorPagoServicios` y el sistema se llama `motor-pago-servicios`;
+        # dice `EGlobal` y se llama `e-global`. Sin esto, la carpeta aplastada
+        # a minusculas produce un nodo con brain al lado del nodo real que los
+        # demas brains citan, y el mismo sistema aparece dos veces en el grafo.
+        # Solo se cae al nombre de la carpeta cuando el brain no lo declara.
+        declarado = slug_declarado(carpeta_path / "digital-brain" / "brain.db")
+        slug = canon(declarado) or canon(SLUG_DE_CARPETA.get(carpeta, carpeta.lower()))
         claude = carpeta_path / "CLAUDE.md"
         texto = leer(claude) if claude.exists() else ""
         tipo = RE_TOGAF.search(texto)

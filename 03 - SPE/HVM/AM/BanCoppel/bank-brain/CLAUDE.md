@@ -156,13 +156,15 @@ Documentos en `knowledge-base/manana/` con maturity progresiva:
 
 ## FEDERACIÓN DE LA FLOTA — REGLA B4 Y SU TECHO
 
-La Regla B4 dice federar por `ATTACH` y no por un servidor de API, y eso sigue siendo correcto. Lo que no preveía es el techo: SQLite viene compilado con `SQLITE_MAX_ATTACHED = 10` y `Connection.setlimit()` no puede subirlo, porque es un límite de compilación y no de ejecución. Con 36 brains en el árbol, la flota no cabe junta en una conexión.
+La Regla B4 dice federar por `ATTACH` y no por un servidor de API, y eso sigue siendo correcto. Lo que no preveía es el techo: SQLite viene compilado con `SQLITE_MAX_ATTACHED = 10` y `Connection.setlimit()` no puede subirlo, porque es un límite de compilación y no de ejecución. Con 75 brains en el árbol, la flota no cabe junta en una conexión ni por asomo.
 
 La federación recorre en lotes de nueve, abre cada brain en modo lectura y agrega en Python en vez de en un `UNION` de SQL. El resultado es el mismo que pide B4; lo que cambia es que escala más allá de diez sistemas.
 
-**El id de un brain lo declara el brain, no la carpeta.** La carpeta dice `CajeroATM` y el sistema se llama `cajero-atm`; dice `EGlobal` y se llama `e-global`. El registro lee `system_info.slug` y sólo cae a la carpeta normalizada contra `dep_aliases` en los cinco brains que todavía no tienen esa tabla.
+**El id de un brain lo declara el brain, no la carpeta.** La carpeta dice `CajeroATM` y el sistema se llama `cajero-atm`; dice `EGlobal` y se llama `e-global`. El registro lee `system_info.slug` y sólo cae a la carpeta normalizada contra `dep_aliases` cuando el brain no lo declara.
 
-**La flota es heterogénea y la consulta se arma por brain.** Sólo cuatro brains llevan `etb_l3` y treinta y tres llevan `cross_dependencies`, con tres esquemas distintos: el de la Regla B12 dice `relationship` y `other_system`, los hechos a mano antes de esa regla dicen `dependency_type`, y AppMovil parte el par en `source_system` y `target_system`. Una lista fija de columnas dejaba fuera a Informix, ControlM y AppMovil, que son justo los que más aristas declaran, y los dejaba fuera en silencio. Ahora lo que no se puede leer queda en `fed.saltados`.
+Conviene decir que esto estuvo escrito aquí antes de ser verdad en el código. `build-dependency-graph.py` leía `brain_version` de `system_info` pero nunca `slug`, así que el id salía del nombre de la carpeta aplastado a minúsculas. Mientras las carpetas se llamaron como los sistemas no se notó. Los 38 nodos que abrió el inventario lo destaparon de golpe: `MotorPagoServicios` producía un nodo `motorpagoservicios` con brain, al lado del nodo `motor-pago-servicios` que todos los demás brains citaban, y el grafo pasó de 81 nodos reales a 131 con la mitad duplicada. Hoy el código lee el slug declarado y la frase de arriba ya describe lo que ocurre.
+
+**La flota es heterogénea y la consulta se arma por brain.** Sólo cuatro brains llevan `etb_l3` y setenta y uno llevan `cross_dependencies`, con tres esquemas distintos: el de la Regla B12 dice `relationship` y `other_system`, los hechos a mano antes de esa regla dicen `dependency_type`, y AppMovil parte el par en `source_system` y `target_system`. Una lista fija de columnas dejaba fuera a Informix, ControlM y AppMovil, que son justo los que más aristas declaran, y los dejaba fuera en silencio. Ahora lo que no se puede leer queda en `fed.saltados`.
 
 | Método | Qué responde |
 |--------|--------------|
@@ -237,7 +239,9 @@ Cinco fuentes alimentan el grafo, y el grafo recuerda cuál fue cada una: el `cr
 
 La quinta es distinta de las otras cuatro: declara el sentido de cada relación fila por fila, en columnas separadas de origen y destino, y trae su propia confianza. Por eso es la que arbitra. Su metodología lo dice sin rodeos, y el dato lo confirma en las 211 filas: **las bases de datos son siempre destino, nunca origen**. Informix aparece 70 veces como destino y ninguna como origen.
 
-El catálogo habla de 129 aplicaciones y el grafo de 43 sistemas, así que no son la misma capa. El nodo `informix` cubre la base, el SOC que corre sobre ella y los módulos SPL del core, que el Anexo 5 lista por separado; sólo se mapea lo que el inventario sostiene y el resto queda en `dep_catalog` sin inventar aristas. Las aplicaciones que el grafo no modela se consultan con `gaps`: hoy son 95, encabezadas por el Motor de Pago de Servicios con 12 interfaces.
+El catálogo habla de 129 aplicaciones y el grafo de 78 sistemas, así que no son la misma capa. El nodo `informix` cubre la base, el SOC que corre sobre ella y los módulos SPL del core, que el Anexo 5 lista por separado; sólo se mapea lo que el inventario sostiene y el resto queda en `dep_catalog` sin inventar aristas. Las aplicaciones que el grafo no modela se consultan con `gaps`: hoy son 42, y las encabezan PostgreSQL con 14 interfaces y SQL Server con 6. Que lo que queda fuera sean motores de base de datos y facturadores de servicios como Telmex, SKY o la CFE es la señal de que el mapeo está completo donde debía estarlo: eso no son sistemas del banco.
+
+**El tipo de interfaz no es la semántica de la relación.** El Anexo 5 dice que un canal entra por JDBC, no si lee o escribe, y en este core entrar por JDBC o por SPL es ejecutar procedimientos. Por eso todo se traduce a `calls` salvo la entrega de archivos, que es `feeds`. Cualquier generador que derive relaciones del catálogo tiene que usar esta misma regla: cuando `bootstrap-from-inventory.py` tradujo los mismos tipos a `reads` y `notifies` por su cuenta, el mismo hecho entró dos veces con verbos distintos y el grafo reportó 47 conflictos que no existían.
 
 **Una afirmación no es un hecho.** Un brain semilla repite, invertida, lo que le sembró el brain que lo descubrió, así que no confirma nada por sí solo: el grafo lo marca como fuente derivada y no como confirmación. Cuando ninguna fuente primaria declara el sentido de una dependencia, el par queda con `dir_confianza = 'inferida'` en vez de aparentar certeza.
 
@@ -255,6 +259,40 @@ python digital-brain/dependency-brain.py orphans
 python digital-brain/dependency-brain.py catalog siweb   # las interfaces de un sistema
 python digital-brain/dependency-brain.py gaps            # apps del Anexo 5 sin nodo
 ```
+
+---
+
+## EL INVENTARIO DEL BANCO COMO SEGUNDA FUENTE DE LA REGLA B9
+
+`bootstrap-from-seeds.py` descubre sistemas a partir de los seeds que un brain emite hacia sus vecinos, así que sólo alcanza lo que algún brain ya vio. El inventario de aplicaciones del propio banco, `Inventario_bdanalisis.xlsx` verificado el 2026-08-20, es la otra fuente, y es más rica: trae criticidad, complejidad, Stored Procedures declarados, hosts, operaciones diarias, motor de datos y middleware para 123 aplicaciones. Se carga en `applications` y `app_dbms`.
+
+La decisión de qué hace cada una de esas 123 aplicaciones no vive en el script. Vive en `knowledge-base/ontology/app-to-node.json`, que es revisable y versionado, y asigna a cada aplicación una de cinco decisiones:
+
+| Decisión | Qué significa | Cuántas |
+|----------|---------------|--------:|
+| `nueva` | Abre nodo y carpeta canónica por B9, con brain semilla por B12 | 48 |
+| `existente` | Ya es un nodo de la flota | 15 |
+| `absorbida` | Forma parte de un nodo que ya existe, sin carpeta propia | 28 |
+| `registrada` | Se queda en el inventario, no alcanza presencia significativa | 27 |
+| `fuera-alcance` | Herramienta de desarrollo o monitoreo, o marcada así por el propio inventario | 5 |
+
+Las 48 aplicaciones `nueva` se agrupan en **38 nodos**, porque algunas capabilities vienen partidas en varias filas del inventario: la autenticación por token son tres, la consulta al padrón electoral son tres, y el centro de atención telefónica son dos.
+
+**La absorción es la decisión más importante y la que más se presta a error.** Las agrupaciones `Core Bancario` y `Módulo del Core` son lógica SPL que corre dentro de la propia base del core, y este documento ya declaraba que el nodo `informix` las cubre. Abrirles carpeta habría inflado el grafo con 24 nodos que son el mismo sistema. La única excepción es Domiciliación, que ya tenía nodo propio antes de esta clasificación y se respeta.
+
+Un hueco en la clasificación es un error que detiene la corrida, no un valor por omisión: el script valida que las 123 aplicaciones del inventario tengan decisión, que ninguna decisión apunte a una aplicación que no existe, y que ningún nodo nuevo quede sin aplicaciones asignadas.
+
+El resultado queda en `app_nodes`, que se recarga en cada corrida porque esta base se borra y se recrea.
+
+Tres huérfanos que el grafo arrastraba resultaron ser sistemas de este inventario: `banca-empresarial` es Empresa Net, `bts-monterrey` es el Motor de Pago de Remesas BTS, y `gestor-central-huellas` es el Motor de Huellas. Abrirles el nodo no bastó, porque SIWEB los sigue citando por su nombre de uso; hizo falta el alias, igual que con el BUS. Quedan dos huérfanos, `mongodb-bdibex` y `redis-sessions`, que cita AppMovil y que son almacenes de datos, no sistemas.
+
+```bash
+python generators/bootstrap-from-inventory.py                       # reporte y tabla app_nodes
+python generators/bootstrap-from-inventory.py --apply               # crea estructura y brains semilla
+python generators/bootstrap-from-inventory.py --apply --rebuild-seeds  # rehace los que el script escribio
+```
+
+`--rebuild-seeds` sólo reescribe lo que este generador escribió: comprueba `system_info.seeded_by` en el brain y la firma del generador en el `CLAUDE.md`. Un brain con fuente propia o un `CLAUDE.md` editado a mano no se pisan.
 
 ---
 
@@ -279,8 +317,12 @@ python generators/build-dependency-graph.py
 
 # El catálogo de acciones solo, cuando cambia una autorización y no la base entera
 python generators/load-action-catalog.py
+
+# La clasificación del inventario sola. build-bank-brain.py ya la encadena al
+# final, después del grafo, porque lee las columnas que el grafo resuelve.
+python generators/bootstrap-from-inventory.py
 ```
 
 ---
 
-*Última actualización: 2026-11-04 · v1.2 · Catálogo de Interfaces AS-IS como quinta fuente del grafo, con reorientación de las direcciones que ninguna fuente declaraba. v1.1: grafo de dependencias de la flota dentro de bank-brain.db. v1.0: estructura canónica, Regla V1 de vocabulario y capas HOY/AYER/MAÑANA.*
+*Última actualización: 2026-11-27 · v1.3 · El inventario de aplicaciones del banco como segunda fuente de la Regla B9: 123 aplicaciones clasificadas en `knowledge-base/ontology/app-to-node.json`, 38 nodos nuevos, y el grafo pasa de 43 a 78 sistemas con el catálogo del Anexo 5 mapeado de 29 a 114 interfaces y los huérfanos de 5 a 2. Corregido que el id del nodo salía del nombre de la carpeta y no de `system_info.slug`, como este documento ya afirmaba. v1.2: Catálogo de Interfaces AS-IS como quinta fuente del grafo, con reorientación de las direcciones que ninguna fuente declaraba. v1.1: grafo de dependencias de la flota dentro de bank-brain.db. v1.0: estructura canónica, Regla V1 de vocabulario y capas HOY/AYER/MAÑANA.*
