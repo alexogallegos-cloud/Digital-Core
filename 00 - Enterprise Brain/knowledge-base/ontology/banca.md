@@ -1,6 +1,6 @@
 # Ontología Base — Banca
 > Enterprise Brain · Knowledge Base · Ontología de Negocio por Industria
-> Versión 2.0 · 2026-10-08 · Digital Core · Accenture México
+> Versión 2.1 · 2026-11-27 · Digital Core · Accenture México
 > Fuente autoritativa: **Accenture Logical Operating Model for Banking — Digital Bank 4.0 Reinvented (L2 View · BIAN Heatmap)**
 
 Clientes del estate: **BanCoppel · Banamex · Santander · MONEX · Gentera**
@@ -299,45 +299,68 @@ La banca no tiene ramo como eje raíz. El modelo Digital Bank 4.0 usa **segmento
 ### `system_info`
 
 ```sql
-industry         = 'banca'
-brain_name       = 'bank-brain'           -- solo enterprise
+industry         = 'banca'                -- vocabulario cerrado (ADR-EB-019)
 industry_sme     = 'SME/Industry/Industry Banking/'
-capability_model = 'etb'                  -- + 'bian' si el cliente adoptó BIAN
+capability_model = 'Banking Logical OM DB4.0 v4.0'  -- composición en texto legible
 process_ontology = 'banking-mx'
-regulator        = 'CNBV'               -- regulador principal
+process_ontology_version = '1.0'
 itom_model       = 'IT Operating Model v9.0'
 itom_sme         = 'SME/Framework/IT Operating Model'
+lob_dimension    = NULL                   -- banca no tiene eje de ramo
 ```
+
+El nombre del brain (`bank-brain`) no es columna de `system_info`: se deriva de
+`industry` por la tabla de tres filas de la Regla B18. El regulador tampoco: cada
+ontología trae los suyos en `ontology_bindings.regulators`, porque la regulación
+viaja con la capability y no con la empresa.
 
 ### `ontology_bindings`
 
+La columna `ontology` es la llave primaria y lleva el slug del miembro de la
+composición (ADR-EB-019). El slug de la fila `role='primary'` es idéntico a
+`system_info.industry`, y en banca eso es `banca`. El catálogo concreto va en
+`catalog`, nunca dentro del slug.
+
 ```sql
--- Negocio (modelo Digital Bank 4.0 / ETB banca)
-(model_type='etb',        catalog='Banking_Logical_OM_DB4.0', role='primary',
+-- Negocio (modelo Digital Bank 4.0 / ETB banca) — PRIMARIA
+(ontology='banca', role='primary', model_type='etb',
+ catalog='Banking_Logical_OM_DB4.0', catalog_version='4.0',
+ industry_sme='SME/Industry/Industry Banking/',
  regulators='["CNBV","Banxico","CONDUSEF","UIF","IPAB","SAT"]')
 
 -- BIAN (si el cliente adoptó BIAN — e.g. Gentera, Banamex)
-(model_type='bian',       catalog='BIAN_SL_v14', role='secondary',
- regulators='["CNBV"]')
+(ontology='bian', role='secondary', model_type='bian',
+ catalog='BIAN_SL_v14', catalog_version='14', regulators='["CNBV"]')
 
--- Regulatorio puro (si el proyecto es CAN/Open Finance)
-(model_type='regulatory', catalog='Banxico_Circ6_2025', role='primary',
- regulators='["Banxico"]')
+-- Ancla regulatoria (si el proyecto es CAN / Open Finance).
+-- El slug sigue el patrón {regulador}-{instrumento}, en minúsculas.
+(ontology='banxico-can', role='secondary', model_type='regulatory',
+ catalog='Banxico_Circ6_2025', regulators='["Banxico"]')
 
 -- TI
-(model_type='itom',       catalog='ITOM_v9.0', role='primary', regulators='[]')
+(ontology='itom', role='secondary', model_type='itom',
+ catalog='ITOM_v9.0', regulators='[]')
 ```
+
+Exactamente una fila lleva `role='primary'`: es la que fija el nombre del brain
+(Regla B18). Cuando el proyecto es puramente regulatorio, lo que cambia es el
+`catalog` de la primaria, no el rol del ancla regulatoria.
 
 ### `capabilities` — campos clave con L0
 
 ```sql
+ontology  TEXT  -- FK a ontology_bindings.ontology: 'banca' | 'bian' | 'banxico-can'
 l0        TEXT  -- 'STRATEGIZE' | 'OPERATIONALIZE' | 'ENABLE'
 l1        TEXT  -- nombre del dominio L1 (e.g. 'Cross Products Processing & Servicing')
 l2        TEXT  -- nombre de la sub-capability (e.g. 'Payment Services')
 segment   TEXT  -- segmento de cliente al que aplica; NULL = todos
-ontology  TEXT  -- 'etb' | 'bian' | 'regulatory'
 bian_ref  TEXT  -- referencia al Service Domain BIAN equivalente (si aplica)
 ```
+
+`ontology` dice **de qué ontología salió** la capability. No confundir con
+`model_type`, que dice **qué forma tiene** esa ontología: una capability del ETB
+bancario lleva `ontology='banca'`, y es su binding el que declara
+`model_type='etb'`.
 
 ### `regulatory_obligations` — estructura mínima
 
@@ -364,5 +387,5 @@ tier           -- 'gold' (DOF) | 'silver' (interpretación legal)
 
 ---
 
-*Ontología Base Banca · Enterprise Brain Knowledge Base · v2.0 · 2026-10-08*
+*Ontología Base Banca · Enterprise Brain Knowledge Base · v2.1 · 2026-11-27*
 *Fuente: Accenture Logical Operating Model for Banking — Digital Bank 4.0 Reinvented · L2 View · BIAN Heatmap*

@@ -157,6 +157,21 @@ SELECT status FROM system_info;
 
 También verifica: `git check-ignore digital-brain/brain.db` retorna positivo (brain.db en .gitignore).
 
+**Composición de ontologías** (Reglas B19, B20, B21 · ADR-EB-007, ADR-EB-019). D6 contrasta lo que el brain declara contra lo que de hecho cargó. El vocabulario de `ontology` es uno solo y rige igual en `ontology_bindings`, que es la declaración, y en `capabilities`, `processes` y `source_catalog`, que son la carga.
+
+| Hallazgo | Severidad |
+|----------|-----------|
+| `system_info.industry` ausente | bloqueante |
+| `system_info.industry` fuera del vocabulario cerrado (`banca`, `seguros`, `retail`) | bloqueante |
+| `ontology_bindings` sin exactamente una fila `role='primary'` | bloqueante |
+| El slug de la primaria no es `industry` ni `{industry}-{lob}` | bloqueante |
+| `model_type` fuera del canon de siete | bloqueante |
+| Un `ontology` de `capabilities`, `processes` o `source_catalog` que no resuelve contra `ontology_bindings` | bloqueante |
+| Ontología declarada sin conocimiento cargado en ninguna de las tres | no bloqueante |
+| Ontología declarada sin `catalog` | no bloqueante |
+
+El sufijo de ramo solo es válido cuando el brain declara `lob_dimension`. Sin ese eje, un slug como `retail-fsv` en la fila primaria es invención y bloquea: la industria no tiene ramos que calificar.
+
 ---
 
 ### Dimensión 7 — Process Linkage

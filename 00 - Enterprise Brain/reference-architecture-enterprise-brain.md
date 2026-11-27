@@ -142,7 +142,7 @@ Las 6 capas de arquitectura y las 5 etapas del Gemelo Cognitivo son taxonomías 
 | Responsabilidad única | Ser la fuente de verdad única del conocimiento sobre el sistema, con su calidad declarada, su linaje registrado y su historia preservada. |
 | Operaciones | Carga idempotente (INSERT OR IGNORE); `snapshot(date)` para reconstruir el conocimiento en una fecha de negocio pasada (B40); preservación de `RUNTIME_TABLES` entre builds; federación vía SQLite ATTACH desde el enterprise brain (ADR-EB-003). |
 | Digital Twin que la opera | `dt-build-operator` construye; `dt-brain-engineer` mantiene el schema y los templates; `dt-brain-auditor` audita. |
-| Verificación | Brain Auditor D1 (19 tablas CORE + extensión correcta + puente declarado); D7 (0 `process_id` nulos en tablas de conocimiento — B22); D8 (puente Change-Run sin transición sin `run_owner` ni SLO sin `current`); D9 (calidad y linaje — sin gold huérfano de fuente, sin gold por validación sin `validated_by`). |
+| Verificación | Brain Auditor D1 (25 tablas CORE + extensión correcta + puente declarado); D7 (0 `process_id` nulos en tablas de conocimiento — B22); D8 (puente Change-Run sin transición sin `run_owner` ni SLO sin `current`); D9 (calidad y linaje — sin gold huérfano de fuente, sin gold por validación sin `validated_by`). |
 | Qué significa que falle | `brain.db` incompleto → Brain Auditor D1 FAIL → RELEASE bloqueado. Puente incompleto → D8 FAIL — el brain no puede detectar rupturas Change↔Run. `brain.db` con datos incorrectos y validador que pasa → razonamiento incorrecto sin error visible — el error más costoso porque se detecta tarde, cuando una decisión ya se tomó. |
 
 ---
@@ -165,7 +165,7 @@ Las 6 capas de arquitectura y las 5 etapas del Gemelo Cognitivo son taxonomías 
 |-----|-----------|
 | Responsabilidad única | Exponer el conocimiento del brain para razonamiento, consulta, generación de hallazgos y portal — siempre con el nivel de certeza de cada respuesta declarado. |
 | Operaciones | `abrir_consulta()`, `responder()`, `registrar_consulta()` (B45); `autoevaluacion()` (B43); `snapshot(date)` (B40); `coverage()`, `value_chain()`, `capability_gap()`, `system_dependencies()` (análisis); `build-portal.py` (portal HTML). |
-| Digital Twin que la opera | `dt-brain-engineer` mantiene `brain.py` y `build-portal.py`; los 20 DTs en enjambre consultan vía `brain.py`. |
+| Digital Twin que la opera | `dt-brain-engineer` mantiene `brain.py` y `build-portal.py`; los 24 DTs en enjambre consultan vía `brain.py`. |
 | Verificación | DoD-EB-08 (interfaz estándar de 5 métodos expuesta); DoD-EB-07 (portal generado desde `brain.db`, nunca hand-authored); `dt/dt-brain-auditor/test-brain-api.py` (20 checks funcionales sobre B40, B42, B43, B45). |
 | Qué significa que falle | `brain.py` sin métodos obligatorios → el DT swarm no puede interrogar el brain sistémicamente. Portal hand-authored → viola ADR-EB-005 y se desincroniza del brain. Consulta respondida sin registrar → B42 y B43 no tienen evidencia para operar (propósito sin registro, uso sin contador). |
 
@@ -248,9 +248,9 @@ Las cinco etapas **no son una capa de la arquitectura: son el método de trabajo
 
 ### Alcance y fronteras
 
-La metodología de cinco etapas se declara a sí misma "del Gemelo Cognitivo del **Sistema**" y eso es literal: aplica a `brain_type = SYSTEM`, donde la fuente es código productivo de un sistema en Run. Los brains `PROJECT` y `ENTERPRISE` se pueblan de otras fuentes — artefactos firmados, documentos, brains federados — y por eso no recorren estas cuatro etapas. La arquitectura de seis capas, en cambio, rige para los tres tipos sin excepción.
+La metodología de cinco etapas se declara a sí misma "del Gemelo Cognitivo del **Sistema**" y eso es literal: aplica a `brain_type = SYSTEM`, donde la fuente es código productivo de un sistema en Run. Los brains `PROJECT` y `ENTERPRISE` se pueblan de otras fuentes — artefactos firmados, documentos, brains federados — y por eso no recorren estas cinco etapas. La arquitectura de seis capas, en cambio, rige para los tres tipos sin excepción.
 
-**Qué no es.** Las cinco etapas no son capas de la arquitectura y no deben numerarse junto a ellas. No son los niveles de calidad del conocimiento, que son bronze, silver y gold de la Regla B37. No son los `plateaus` del puente Change-Run (ADR-EB-008), que son estados de una transformación y no etapas de extracción. Y no son un pipeline alterno: el invariante P2 de la Capa 2 — todo brain se reconstruye desde cero y produce el mismo resultado — rige igual para las cuatro etapas.
+**Qué no es.** Las cinco etapas no son capas de la arquitectura y no deben numerarse junto a ellas. No son los niveles de calidad del conocimiento, que son bronze, silver y gold de la Regla B37. No son los `plateaus` del puente Change-Run (ADR-EB-008), que son estados de una transformación y no etapas de extracción. Y no son un pipeline alterno: el invariante P2 de la Capa 2 — todo brain se reconstruye desde cero y produce el mismo resultado — rige igual para las cinco etapas.
 
 ---
 
@@ -280,7 +280,7 @@ Distinto de lo anterior: aquí no se listan extractores del asset sino los **SME
 | SQL Server T-SQL | Specialist - SQL Server T-SQL | PROPOSED | — |
 | Java EE monolito | Software Engineering SME + análisis estático | via análisis | — |
 
-**Principio de reutilización**: el método (las 4 capas del Gemelo Cognitivo) es constante e independiente de la tecnología. Lo que varía por tecnología es la **mecánica de extracción** — cómo parsear el código fuente para producir el JSON crudo. El pipeline de extracción, enriquecimiento y carga es siempre el mismo. Bronze, Silver y Gold designan la calidad de cada afirmación (Regla B37), no las etapas.
+**Principio de reutilización**: el método (las 5 etapas del Gemelo Cognitivo) es constante e independiente de la tecnología. Lo que varía por tecnología es la **mecánica de extracción** — cómo parsear el código fuente para producir el JSON crudo. El pipeline de extracción, enriquecimiento y carga es siempre el mismo. Bronze, Silver y Gold designan la calidad de cada afirmación (Regla B37), no las etapas.
 
 ---
 

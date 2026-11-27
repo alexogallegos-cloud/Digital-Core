@@ -69,7 +69,7 @@ El Brain Lifecycle es una especialización del SDLC canónico de 8 fases para la
 
 ### Fase 3 — BUILD: Brain Population
 
-**Objetivo**: poblar las 4 capas del gemelo cognitivo con datos reales del sistema.
+**Objetivo**: poblar las 5 etapas del gemelo cognitivo con datos reales del sistema.
 
 **Pipeline (extracción, enriquecimiento y carga)**:
 

@@ -148,6 +148,16 @@ VALID_MODEL_TYPES = {
     "etb", "bian", "regulatory", "it-capability", "value-chain", "client-logical", "itom",
 }
 
+# ADR-EB-019 — vocabulario CERRADO de system_info.industry. Lo define qué
+# archivos existen en knowledge-base/ontology/ del asset: una industria sin
+# ontología base documentada no tiene de dónde sacar capabilities, procesos ni
+# regulador. Agregar un valor aquí exige escribir antes su archivo.
+VALID_INDUSTRIES = {"banca", "seguros", "retail"}
+
+# ADR-EB-019 — tablas cuya columna `ontology` es FK lógica a
+# ontology_bindings.ontology. El mismo vocabulario rige en las tres.
+ONTOLOGY_FK_TABLES = ("capabilities", "processes", "source_catalog")
+
 CANONICAL_FTS = ["rules_fts", "vocabulary_fts"]
 
 # Regla B37 — calidad y linaje del conocimiento
@@ -659,12 +669,23 @@ class Validator:
         self.metrics["industry"] = info.get("industry")
         self.metrics["capability_model"] = info.get("capability_model")
         self.metrics["process_ontology"] = info.get("process_ontology")
+        self.metrics["lob_dimension"] = info.get("lob_dimension")
 
-        if not (info.get("industry") or "").strip():
+        industria = (info.get("industry") or "").strip()
+        if not industria:
             self._add(
                 "cross_refs", True,
                 "system_info.industry no declarado — sin él no se resuelve "
                 "vocabulario, capabilities, procesos ni regulador (Regla B19)",
+            )
+        elif industria.lower() not in VALID_INDUSTRIES:
+            # ADR-EB-019 — vocabulario cerrado por los archivos de ontología
+            self._add(
+                "cross_refs", True,
+                f"system_info.industry='{industria}' fuera del vocabulario "
+                f"cerrado ({'|'.join(sorted(VALID_INDUSTRIES))}) — una "
+                f"industria sin ontología base en knowledge-base/ontology/ no "
+                f"tiene semántica resoluble (ADR-EB-019)",
             )
         if not (info.get("capability_model") or "").strip():
             self._add(
@@ -761,43 +782,77 @@ class Validator:
                 sin_catalogo,
             )
 
-        roles = [
-            r["role"] for r in self._rows(
-                "SELECT role FROM ontology_bindings WHERE role='primary'"
+        primarias = [
+            r["ontology"] for r in self._rows(
+                "SELECT ontology FROM ontology_bindings WHERE role='primary'"
             )
         ]
-        if declared and len(roles) != 1:
+        if declared and len(primarias) != 1:
             self._add(
                 "cross_refs", True,
                 f"ontology_bindings debe tener exactamente una ontología "
-                f"role='primary' (encontradas {len(roles)}) — es la que fija "
+                f"role='primary' (encontradas {len(primarias)}) — es la que fija "
                 f"el nombre del brain (Regla B18)",
             )
 
-        if not self._has("capabilities"):
-            return
+        # ADR-EB-019 — el slug de la primaria ES la industria. Con eje de ramo
+        # lleva el ramo como sufijo, porque cada ramo trae su propio catálogo
+        # con su propia versión y ontology_bindings guarda una versión por fila.
+        industria = (self.metrics.get("industry") or "").strip().lower()
+        if len(primarias) == 1 and industria:
+            slug = (primarias[0] or "").strip().lower()
+            con_ramo = bool((self.metrics.get("lob_dimension") or "").strip())
+            if slug != industria and not (
+                con_ramo and slug.startswith(f"{industria}-")
+            ):
+                esperado = (f"'{industria}' o '{industria}-{{lob}}'" if con_ramo
+                            else f"'{industria}'")
+                self._add(
+                    "cross_refs", True,
+                    f"el slug de la ontología primaria ('{slug}') no concuerda "
+                    f"con system_info.industry ('{industria}') — se esperaba "
+                    f"{esperado} (ADR-EB-019)",
+                )
 
-        loaded = {
-            r["ontology"] for r in self._rows(
-                "SELECT DISTINCT ontology FROM capabilities "
-                "WHERE ontology IS NOT NULL"
-            )
-        }
+        # ADR-EB-019 — la FK lógica rige en las tres tablas, no solo en
+        # capabilities. Una ontología cargada sin declarar es semántica no
+        # gobernada, y da igual en cuál de las tres aparezca.
+        loaded, por_tabla = set(), {}
+        for tabla in ONTOLOGY_FK_TABLES:
+            if not self._has(tabla):
+                continue
+            vals = {
+                r["ontology"] for r in self._rows(
+                    f"SELECT DISTINCT ontology FROM {tabla} "
+                    f"WHERE ontology IS NOT NULL AND TRIM(ontology) != ''"
+                )
+            }
+            if vals:
+                por_tabla[tabla] = vals
+                loaded |= vals
         self.metrics["ontologies_loaded"] = sorted(loaded)
 
-        sin_declarar = sorted(loaded - declared)
+        if not por_tabla:
+            return
+
+        sin_declarar = sorted(
+            f"{tabla}: {slug}"
+            for tabla, vals in por_tabla.items()
+            for slug in sorted(vals - declared)
+        )
         if sin_declarar:
             self._add(
                 "cross_refs", True,
-                "Ontologías cargadas en capabilities pero no declaradas en "
-                "ontology_bindings (Regla B20)", sin_declarar,
+                "Ontologías cargadas pero no declaradas en ontology_bindings "
+                "(Regla B20 · ADR-EB-019)", sin_declarar,
             )
 
         sin_cargar = sorted(declared - loaded)
         if sin_cargar:
             self._add(
                 "cross_refs", False,
-                "Ontologías declaradas sin capabilities cargadas (Regla B20)",
+                "Ontologías declaradas sin conocimiento cargado en "
+                "capabilities, processes ni source_catalog (Regla B20)",
                 sin_cargar,
             )
 

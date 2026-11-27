@@ -1,6 +1,6 @@
 # Mapa de tablas del canon
 
-> Generado el 2026-11-11 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
+> Generado el 2026-11-27 por `canon/build-mapa-tablas.py` desde `templates/schema.sql`. **No editar a mano**: se regenera.
 
 El canon son **48 tablas**. Ningún brain las implementa todas: implementa el CORE más la extensión que le corresponde por su `brain_type`, más su lado del puente (Reglas B14 y B15).
 
@@ -27,7 +27,7 @@ El canon son **48 tablas**. Ningún brain las implementa todas: implementa el CO
 | `signals` | `dt-service-operations-lead` | 5 | — | — |
 | `ontology_bindings` | `dt-domain-architect` | 10 | B21 | — |
 | `capabilities` | `dt-domain-architect` | 17 | B22 B37 | `ontology_bindings`, `processes` |
-| `processes` | `dt-demand-manager` | 14 | B37 | `capabilities` |
+| `processes` | `dt-demand-manager` | 14 | B37 | `capabilities`, `ontology_bindings` |
 | `knowledge_gaps` | `dt-knowledge-manager` | 13 | B22 | `processes` |
 | `itom_layer` | `dt-domain-architect` | 9 | B22 B37 | `processes` |
 | `products` | `dt-demand-manager` | 13 | B37 | `processes` |
@@ -137,7 +137,7 @@ Identidad del brain. Homologa 5 nombres en uso: system_info (MONEX scaffolds, Ap
 | `togaf_type` | TEXT | no |  |
 | `togaf_state` | TEXT | no | baseline ,  transitional ,  target |
 | `togaf_abb` | TEXT | no |  |
-| `industry` | TEXT | sí |  |
+| `industry` | TEXT | sí | banca ,  seguros ,  retail |
 | `industry_sme` | TEXT | no | "SME/Industry/Industry Retail" |
 | `capability_model` | TEXT | no |  |
 | `process_ontology` | TEXT | no |  |
@@ -194,7 +194,7 @@ Composición de ontologías de la empresa (ADR-EB-007 · Regla B20).  Toda empre
 
 | Columna | Tipo | Obligatoria | Qué guarda |
 |---------|------|-------------|------------|
-| `ontology` (PK) | TEXT | no | retail ,  financial_services ,  insurance |
+| `ontology` (PK) | TEXT | no | banca ,  seguros ,  retail ,  financial_services ,  bian ,  itom |
 | `role` | TEXT | sí | primary ,  secondary |
 | `model_type` | TEXT | sí |  |
 | `catalog` | TEXT | no | "Retail_ETB_V4" · "BIAN v14" · "Circular 6/2025" |
@@ -215,7 +215,7 @@ Ontología de negocio del brain — OBLIGATORIA en todo brain (Regla B21).  Todo
 |---------|------|-------------|------------|
 | `id` (PK) | TEXT | no |  |
 | `tier` | TEXT | sí | Regla B37: gold ,  silver ,  bronze ,  rejected |
-| `ontology` | TEXT | sí | retail ,  financial_services ,  banking ,  insurance |
+| `ontology` | TEXT | sí | banca ,  seguros ,  retail ,  financial_services ,  bian |
 | `ontology_version` | TEXT | no |  |
 | `catalog_source` | TEXT | no | "Retail_ETB_V4" ,  "Newly Added" |
 | `is_extension` | INTEGER | no |  |
@@ -243,7 +243,7 @@ Ontología de PROCESOS de la industria. Distinta de `capabilities` y distinta de
 |---------|------|-------------|------------|
 | `id` (PK) | TEXT | no |  |
 | `tier` | TEXT | sí | Regla B37: gold ,  silver ,  bronze ,  rejected |
-| `ontology` | TEXT | sí | banca-etb ,  pc-etb ,  life-etb ,  retail-valuechain |
+| `ontology` | TEXT | sí | banca ,  seguros ,  retail ,  financial_services |
 | `ontology_version` | TEXT | no |  |
 | `lob` | TEXT | no |  |
 | `l1_name` | TEXT | no | Captación · Suscripción · PLAN |
@@ -256,7 +256,7 @@ Ontología de PROCESOS de la industria. Distinta de `capabilities` y distinta de
 | `coverage_status` | TEXT | no | COVERED ,  PARTIAL ,  NOT_COVERED |
 | `source_sme` | TEXT | no | Industry SME que suministró el modelo |
 
-**Se relaciona con**: `capabilities` (por `id`)
+**Se relaciona con**: `capabilities` (por `id`), `ontology_bindings` (por `ontology`)
 
 ### `knowledge_gaps`
 
@@ -572,7 +572,7 @@ Catalogo de fuentes - ADR-EB-014. Dueno: dt-source-steward. El tier natural lo f
 | Columna | Tipo | Obligatoria | Qué guarda |
 |---------|------|-------------|------------|
 | `id` (PK) | TEXT | no |  |
-| `ontology` | TEXT | sí |  |
+| `ontology` | TEXT | sí | banca ,  seguros ,  retail ,  financial_services ,  itom |
 | `name` | TEXT | sí |  |
 | `source_type` | TEXT | no | codigo ,  doc ,  ppt ,  audio ,  git ,  jira ,  monitoring ,  cmdb ,  logs ,  regulacion |
 | `generator_type` | TEXT | no | parser (fuente estatica) ,  connector (sistema vivo) |

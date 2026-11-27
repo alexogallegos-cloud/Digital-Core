@@ -180,15 +180,19 @@ Por eso estos ocho dominios **se destilaron de los catálogos de industria exist
 | `dt-customer-owner` | Gestión de cliente | 7. Customer & Partner Mgmt | D3 Gestión de Cliente | SERVICE y lealtad |
 | `dt-operations-owner` | Operaciones del core | 3. Product and Service, lado operativo: 3.2 a 3.18 | D4 Pólizas, D5 Cobranza, D6 Siniestros | MOVE |
 | `dt-enterprise-functions-owner` | Funciones de empresa | 5. Enterprise Functions | D8 Finanzas y Regulatorio | Finanzas y personas |
-| `dt-business-support-owner` | Soporte corporativo | 4. Business Support | **[PENDIENTE]** | **[PENDIENTE]** |
-| `dt-sustainability-owner` | Sostenibilidad, ética e inclusión | 6. Responsible Business | **[PENDIENTE]** | **[PENDIENTE]** |
+| `dt-business-support-owner` | Soporte corporativo | 4. Business Support | Sin equivalente L1 en ACORD — hueco declarado | Enterprise Foundation, como subconjunto |
+| `dt-sustainability-owner` | Sostenibilidad, ética e inclusión | 6. Responsible Business | Sin equivalente — hueco declarado | ESG como L3, no como L1 |
+| `dt-client-intelligence` | Identidad de la empresa | Transversal: no es un L1, es quién es el cliente | Transversal | Transversal |
+
+**Los dos huecos de seguros son declarados, no pendientes.** `ADR-EB-016` los resolvió: un dominio sin equivalente en un catálogo no se elimina del roster, se instancia declarando el hueco. Eliminarlo haría que la responsabilidad desapareciera del brain justo en la industria donde el catálogo no ayuda a verla. El roster es exigible por cobertura de rol, no por coincidencia de etiqueta con el catálogo de la industria.
 
 ### Verificación de categoría C
 
 | Métrica | Valor |
 |---------|-------|
-| Dominios L1 con DT dueño | 6 de 6 |
-| Dominios con evidencia en 3 o más catálogos de industria | 6 de 6 |
+| Dominios L1 con DT dueño | 8 de 8 |
+| DTs de negocio en el roster | 9, los 8 dominios L1 más `dt-client-intelligence` como transversal |
+| Dominios con evidencia en 3 o más catálogos de industria | 6 de 8; los dos restantes se instancian con hueco declarado (`ADR-EB-016`) |
 | Dominio con etiqueta textual en 3 de 4 catálogos | Funciones de empresa, el de mayor respaldo |
 
 **Dos candidatos excluidos, con su razón.** Socios y ecosistema aparece en solo dos de los cuatro catálogos y se absorbe en distribución, porque en seguros el distribuidor es el socio y en retail el proveedor vive en BUY; los proveedores de tecnología son otro objeto y pertenecen a `dt-supplier-relationship-manager`. Analítica de negocio aparece también en dos de cuatro, y el lado de TI ya la cubre con `dt-information-architect` vía el proceso 34. Incluirlos habría significado inflar el roster con evidencia de dos de cuatro, que es el umbral que ADR-EB-009 obligó a documentar como excepción.

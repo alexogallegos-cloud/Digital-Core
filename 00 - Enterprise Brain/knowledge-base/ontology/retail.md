@@ -1,6 +1,6 @@
 # Ontología Base — Retail
 > Enterprise Brain · Knowledge Base · Ontología de Negocio por Industria
-> Versión 1.0 · 2026-10-08 · Digital Core · Accenture México
+> Versión 1.1 · 2026-11-27 · Digital Core · Accenture México
 
 Clientes del estate: **Liverpool · Coppel**
 
@@ -180,31 +180,53 @@ Una regla que define el proceso de garantía de 1 año en compra de electrónica
 ### `system_info` (fields específicos de retail)
 
 ```sql
-industry         = 'retail'
-brain_name       = 'retail-brain'         -- solo si es enterprise
+industry         = 'retail'               -- vocabulario cerrado (ADR-EB-019)
 industry_sme     = 'SME/Industry/Industry Retail/'
-capability_model = 'etb'                  -- Retail_ETB_V4 como base
+capability_model = 'Retail ETB V4 v5.0 (RTL) con overlay FS ETB v1.0 (FSV)'
 process_ontology = 'retail-mx'
-regulator        = 'PROFECO'              -- regulador principal; CNBV adicional si FSV
--- lob_dimension no aplica en retail puro
+process_ontology_version = '1.0'
+lob_dimension    = NULL                   -- no aplica en retail puro
 ```
+
+El nombre del brain (`retail-brain`) no es columna de `system_info`: se deriva de
+`industry` por la tabla de la Regla B18. El regulador tampoco: cada ontología
+trae los suyos en `ontology_bindings.regulators`, y en un retailer con brazo
+financiero eso es justamente lo que permite que PROFECO y CNBV convivan sin
+contradecirse.
 
 ### `ontology_bindings` (retailer con FSV activo — Liverpool pattern)
 
+La columna `ontology` es la llave primaria y lleva el slug del miembro de la
+composición (ADR-EB-019). `financial_services` es el nombre de una ontología, no
+un `model_type`: su forma de ancla es `etb`, igual que la del retail base.
+
 ```sql
--- Retail base
-(model_type='etb', catalog='Retail_ETB_V4', version='5.0', role='primary',
+-- Retail base — PRIMARIA, slug idéntico a system_info.industry
+(ontology='retail', role='primary', model_type='etb',
+ catalog='Retail_ETB_V4', catalog_version='5.0',
+ industry_sme='SME/Industry/Industry Retail/',
+ l3_base=171, l3_extension=61,
  regulators='["PROFECO","SAT","INAI"]')
--- Extensiones propias (capabilities sin equivalente en ETB base)
--- Liverpool tenía 61 "Newly Added" con is_extension=1
--- Financial Services Value (FSV)
-(model_type='financial_services', catalog='FSV_ETB', version='1.0', role='secondary',
+-- Las 61 extensiones propias ("Newly Added" en Liverpool) NO son otra fila:
+-- se cuentan en l3_extension y cada capability las marca con is_extension=1.
+
+-- Financial Services Value (FSV) — overlay financiero
+(ontology='financial_services', role='secondary', model_type='etb',
+ catalog='FSV_ETB', catalog_version='1.0', l3_base=50,
  regulators='["CNBV","CONDUSEF","Banxico"]')
--- Value chain
-(model_type='value-chain', catalog='Retail_Value_Chain_MX', role='secondary')
+
+-- Cadena de valor
+(ontology='retail-value-chain', role='secondary', model_type='value-chain',
+ catalog='Retail_Value_Chain_MX')
+
 -- TI
-(model_type='itom', catalog='ITOM_v9.0', role='primary', regulators='[]')
+(ontology='itom', role='secondary', model_type='itom',
+ catalog='ITOM_v9.0', regulators='[]')
 ```
+
+Exactamente una fila lleva `role='primary'`, y es la que fija el nombre del brain
+(Regla B18). Liverpool compone dos ontologías de capabilities y aun así es
+`retail-brain`, porque la industria ancla es retail.
 
 ---
 
@@ -217,4 +239,4 @@ regulator        = 'PROFECO'              -- regulador principal; CNBV adicional
 
 ---
 
-*Ontología Base Retail · Enterprise Brain Knowledge Base · v1.0 · 2026-10-08*
+*Ontología Base Retail · Enterprise Brain Knowledge Base · v1.1 · 2026-11-27*

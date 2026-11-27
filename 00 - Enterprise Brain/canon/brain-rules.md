@@ -244,19 +244,38 @@ La composición se declara en la tabla `ontology_bindings` y cada capability lle
 
 Caso probado — Liverpool:
 
-| Ontología | Catálogo | Versión | L3 | Rol |
-|-----------|---------|---------|-----|-----|
-| `retail` | Retail_ETB_V4 | 5.0 | 171 | primary |
-| `retail` | **Newly Added** (extensión propia) | 5.0 | **61** | primary |
-| `financial_services` | financial_services | 1.0 | 50 | secondary |
+| Ontología | Catálogo | Versión | `l3_base` | `l3_extension` | Rol |
+|-----------|---------|---------|-----------|----------------|-----|
+| `retail` | Retail_ETB_V4 | 5.0 | 171 | **61** | primary |
+| `financial_services` | FSV_ETB | 1.0 | 50 | 0 | secondary |
 
-Los 61 "Newly Added" son capabilities de Liverpool que no existen en el ETB base. Son legítimas y se marcan con `is_extension=1` — la ontología de la empresa es **ETB base + extensiones propias**, no solo el catálogo heredado.
+Los 61 "Newly Added" son capabilities de Liverpool que no existen en el ETB base. Son legítimas y se marcan con `is_extension=1` en `capabilities`. **No son una segunda fila de `ontology_bindings`**: `ontology` es llave primaria, así que la extensión propia se cuenta en `l3_extension` de la misma fila. La ontología de la empresa es el ETB base con sus extensiones propias, no solo el catálogo heredado.
 
 Tres consecuencias:
 
 - **La regulación viaja con la capability, no con la empresa.** Las 50 capabilities FSV de Liverpool cargan CONDUSEF y Banxico dentro de una empresa de retail, porque su operación de tarjeta está regulada como financiera. Por eso `regulation` es columna de `capabilities` y `regulators` es JSON array por ontología en `ontology_bindings`.
 - **El nombre del brain lo fija la industria ancla** (`system_info.industry`), no la composición. Liverpool sigue siendo `retail-brain` aunque componga dos ontologías.
-- **Declaración y carga deben coincidir.** Toda ontología presente en `capabilities` debe estar declarada en `ontology_bindings` y viceversa. El Brain Auditor contrasta ambas.
+- **Declaración y carga deben coincidir.** Toda ontología presente en `capabilities`, `processes` o `source_catalog` debe estar declarada en `ontology_bindings` y viceversa. El Brain Auditor contrasta las tres contra la declaración.
+
+#### El vocabulario de `ontology` (ADR-EB-019)
+
+La columna que une la declaración con la carga tenía cuatro definiciones distintas en el canon y ninguna compatible con las otras. Hoy tiene una sola, y rige igual en `ontology_bindings` (llave primaria), `capabilities`, `processes` y `source_catalog`.
+
+`ontology` es el slug de **un miembro de la composición**. Nunca el catálogo, que vive en `catalog`; nunca la forma del ancla, que vive en `model_type`; nunca el ramo, que vive en la columna `lob` de la tabla de conocimiento que lo necesite.
+
+| Rol | Slug |
+|-----|------|
+| Primaria, industria sin eje de ramo | idéntico a `system_info.industry`: `banca`, `seguros`, `retail` |
+| Primaria, industria con eje de ramo | `{industria}-{lob}`: `seguros-pc`, `seguros-vida-ap`, `seguros-gmm` |
+| Overlay financiero en empresa no bancaria | `financial_services` |
+| BIAN Service Landscape | `bian` |
+| Modelo de operación de TI | `itom` |
+| Ancla regulatoria | `{regulador}-{instrumento}`: `banxico-can`, `cnbv-cub` |
+| Modelo lógico propio del cliente | `{cliente}-operating-model` |
+
+El vocabulario de `system_info.industry` es cerrado y lo define qué archivos existen en `knowledge-base/ontology/`. Agregar una industria es escribir su ontología base, no inventar un valor: una industria sin archivo no tiene de dónde sacar capabilities, procesos ni regulador.
+
+La industria con eje de ramo es la excepción y tiene razón de ser, no es inconsistencia: en seguros cada ramo trae su propio catálogo con su propia versión, y `ontology_bindings` guarda una versión por fila. Un solo slug `seguros` obligaría a declarar una versión y perder las de los otros tres ramos. Aun así hay **exactamente una fila `role='primary'`**, la del ramo dominante del cliente.
 
 Consecuencias prácticas:
 
@@ -741,7 +760,7 @@ Los 24 DTs canónicos se dividen en tres categorías con **sistemas de coordenad
 | `dt-brain-auditor` | Quality Manager | Proceso 18, las 11 dimensiones | ¿Este brain puede activarse? Reporta, no corrige |
 | `dt-source-steward` | Data Source Owner | B17, B35, B37 en la frontera de entrada | ¿Con qué fuentes cuenta este brain y cuáles le faltan? Posee `source_catalog` |
 
-**Categoría C, los nueve DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos seis dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:
+**Categoría C, los nueve DTs de negocio.** No existe un marco de capacidades de negocio agnóstico de industria publicado en el ecosistema: no hay APQC ni equivalente, y el único SME de negocio tipo Framework es metodológico y no ontológico. Por eso estos ocho dominios **no se inventaron, se destilaron** de los cuatro catálogos de industria que sí existen (Banking ETB V5.0, el marco ACORD de seguros con su taxonomía L1 a L4, ETB P&C v3.0, ETB Health Payer v6.0 y la cadena de valor de retail). Cada uno aparece con etiqueta equivalente en todos ellos:
 
 | DT | Dominio L1 | Banca | Seguros | Retail |
 |----|-----------|-------|---------|--------|

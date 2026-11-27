@@ -74,7 +74,10 @@ CREATE TABLE IF NOT EXISTS system_info (
     -- Industria ANCLA — determina el nombre del brain (Regla B18) y la
     -- semántica dominante. NO es la única: la composición completa vive en
     -- `ontology_bindings`, porque la multi-industria es la norma (ADR-EB-007).
-    industry         TEXT NOT NULL,
+    -- Vocabulario CERRADO (ADR-EB-019): lo define qué archivos existen en
+    -- `knowledge-base/ontology/`. Agregar una industria es escribir su archivo.
+    -- El valor es idéntico al slug de la ontología con role='primary'.
+    industry         TEXT NOT NULL,     -- banca | seguros | retail
     industry_sme     TEXT,             -- "SME/Industry/Industry Retail"
 
     -- Ontología de CAPABILITIES — qué sabe hacer el negocio.
@@ -159,8 +162,34 @@ CREATE TABLE IF NOT EXISTS signals (
 --
 -- Esta tabla declara la INTENCIÓN; `capabilities.ontology` registra lo que
 -- de hecho está cargado. El `dt-brain-auditor` contrasta ambas.
+--
+-- ───── VOCABULARIO DE `ontology` (ADR-EB-019) ─────────────────────────────
+-- `ontology` es el slug de UN MIEMBRO de la composición. Nunca el catálogo
+-- (eso es `catalog`), nunca la forma del ancla (eso es `model_type`), nunca
+-- el ramo (eso es la columna `lob` de la tabla que lo necesite).
+--
+-- El mismo vocabulario rige en las cuatro tablas que llevan la columna:
+-- `ontology_bindings` (PK), `capabilities`, `processes` y `source_catalog`.
+-- Las tres últimas son FK lógica a esta y el `dt-brain-auditor` las contrasta.
+--
+--   PRIMARIA  — exactamente una fila. Su slug es idéntico a
+--               `system_info.industry` (banca | seguros | retail), o
+--               `{industria}-{lob}` cuando la industria tiene eje de ramo,
+--               porque cada ramo trae su propio catálogo y su propia versión:
+--               seguros-pc | seguros-vida-ap | seguros-gmm | seguros-fianzas
+--   SECUNDARIAS — slugs reservados, se eligen antes de inventar uno:
+--     financial_services        overlay financiero en empresa no bancaria
+--                               (patrón Liverpool) · model_type='etb'
+--     bian                      BIAN Service Landscape · model_type='bian'
+--     itom                      modelo de operación de TI · model_type='itom'
+--     {regulador}-{instrumento} ancla regulatoria en minúsculas con guiones:
+--                               banxico-can, cnbv-cub · model_type='regulatory'
+--     {cliente}-operating-model modelo lógico propio del cliente (patrón AXA)
+--                               · model_type='client-logical'
+-- ──────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ontology_bindings (
-    ontology       TEXT PRIMARY KEY,   -- retail | financial_services | insurance
+    -- Slug de la ontología. El de role='primary' es igual a system_info.industry.
+    ontology       TEXT PRIMARY KEY,   -- banca | seguros | retail | financial_services | bian | itom
     role           TEXT NOT NULL,      -- primary | secondary
 
     -- El ancla puede ser un ETB u otro modelo lógico de negocio (Regla B21).
@@ -201,8 +230,8 @@ CREATE TABLE IF NOT EXISTS capabilities (
     id              TEXT PRIMARY KEY,
     tier           TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37: gold | silver | bronze | rejected
 
-    -- FK lógica a ontology_bindings.ontology
-    ontology        TEXT NOT NULL,     -- retail | financial_services | banking | insurance
+    -- FK lógica a ontology_bindings.ontology — mismo vocabulario (ADR-EB-019)
+    ontology        TEXT NOT NULL,     -- banca | seguros | retail | financial_services | bian
     ontology_version TEXT,
 
     -- Distingue capability del ETB base vs. extensión propia de la empresa.
@@ -239,7 +268,10 @@ CREATE TABLE IF NOT EXISTS capabilities (
 CREATE TABLE IF NOT EXISTS processes (
     id            TEXT PRIMARY KEY,
     tier           TEXT NOT NULL DEFAULT 'bronze',  -- Regla B37: gold | silver | bronze | rejected
-    ontology      TEXT NOT NULL,       -- banca-etb | pc-etb | life-etb | retail-valuechain
+    -- FK lógica a ontology_bindings.ontology — mismo vocabulario (ADR-EB-019).
+    -- El ramo NO va aquí: va en `lob`. El catálogo tampoco: va en
+    -- ontology_bindings.catalog. Una aseguradora con cuatro ramos tiene UN slug.
+    ontology      TEXT NOT NULL,       -- banca | seguros | retail | financial_services
     ontology_version TEXT,
 
     -- Eje de línea de negocio / ramo. NULL cuando la industria no lo tiene.
@@ -605,7 +637,9 @@ CREATE INDEX IF NOT EXISTS ix_lineage_valid ON knowledge_lineage(valid_from, val
 -- Toda fila con status='ausente' genera un knowledge_gaps con gap_type='source'.
 CREATE TABLE IF NOT EXISTS source_catalog (
     id                TEXT PRIMARY KEY,
-    ontology          TEXT NOT NULL,
+    -- A que ontologia de la composicion pertenece la fuente (ADR-EB-014).
+    -- FK logica a ontology_bindings.ontology - mismo vocabulario (ADR-EB-019).
+    ontology          TEXT NOT NULL,   -- banca | seguros | retail | financial_services | itom
     name              TEXT NOT NULL,
     source_type       TEXT,            -- codigo | doc | ppt | audio | git | jira | monitoring | cmdb | logs | regulacion
     generator_type    TEXT,            -- parser (fuente estatica) | connector (sistema vivo)

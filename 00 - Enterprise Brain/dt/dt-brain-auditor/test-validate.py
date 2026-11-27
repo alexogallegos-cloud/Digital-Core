@@ -50,7 +50,7 @@ def nuevo_brain(nombre: str) -> Path:
     c.executescript((ASSET / "templates" / "schema.sql").read_text(encoding="utf-8"))
     c.execute("INSERT INTO system_info (slug, display_name, industry, "
               "brain_type, hemisphere, status) VALUES "
-              "('prueba','Brain de prueba','banking','system','run','building')")
+              "('prueba','Brain de prueba','banca','system','run','building')")
     c.commit()
     c.close()
     return db
@@ -365,6 +365,98 @@ def rol_sin_rebindear_avisa():
     assert v.dim_status["autonomia"] == "PASS", v.dim_status
     avisos = [f for f in v.findings if f.dim == "autonomia" and not f.blocking]
     assert any("stakeholders.id" in f.message for f in avisos), [f.message for f in avisos]
+# ─── ADR-EB-019 · un solo vocabulario para `ontology` ──────────────────────
+
+def _con_ontologia(nombre, industry="banca", lob=None, bindings=(), extras=()):
+    """Brain con identidad y composición de ontologías declaradas."""
+    db = nuevo_brain(nombre)
+    c = sqlite3.connect(db)
+    c.execute("UPDATE system_info SET industry=?, lob_dimension=?",
+              (industry, lob))
+    for ont, rol, modelo in bindings:
+        c.execute("INSERT INTO ontology_bindings (ontology, role, model_type, "
+                  "catalog) VALUES (?,?,?,'Catalogo_Prueba')", (ont, rol, modelo))
+    for s in extras:
+        c.execute(s)
+    c.commit()
+    c.close()
+    return db
+
+
+def _bloqueantes(db):
+    v = V.Validator(db).run("cross_refs")
+    return [f.message for f in v.findings
+            if f.dim == "cross_refs" and f.blocking]
+
+
+def industria_fuera_del_vocabulario_bloquea():
+    """El vocabulario de `industry` lo define qué ontologías base existen.
+    'banking' no es una de ellas, por más que suene razonable."""
+    db = _con_ontologia("ind-mala", industry="banking",
+                        bindings=[("banking", "primary", "etb")])
+    msgs = _bloqueantes(db)
+    assert any("fuera del vocabulario" in m for m in msgs), msgs
+
+
+def slug_primario_distinto_de_industria_bloquea():
+    db = _con_ontologia("slug-malo", industry="banca",
+                        bindings=[("banking", "primary", "etb")])
+    msgs = _bloqueantes(db)
+    assert any("no concuerda" in m for m in msgs), msgs
+
+
+def slug_primario_igual_a_industria_pasa():
+    db = _con_ontologia("slug-ok", industry="retail",
+                        bindings=[("retail", "primary", "etb"),
+                                  ("financial_services", "secondary", "etb")])
+    msgs = _bloqueantes(db)
+    assert not any("no concuerda" in m for m in msgs), msgs
+
+
+def con_eje_de_ramo_el_sufijo_es_valido():
+    """Seguros es la excepción con razón: cada ramo trae su propio catálogo."""
+    db = _con_ontologia("ramo-ok", industry="seguros", lob="ramo",
+                        bindings=[("seguros-pc", "primary", "etb"),
+                                  ("seguros-gmm", "secondary", "etb")])
+    msgs = _bloqueantes(db)
+    assert not any("no concuerda" in m for m in msgs), msgs
+
+
+def sin_eje_de_ramo_el_sufijo_bloquea():
+    """Sin lob_dimension no hay ramo que calificar: el sufijo es invención."""
+    db = _con_ontologia("ramo-inventado", industry="retail", lob=None,
+                        bindings=[("retail-fsv", "primary", "etb")])
+    msgs = _bloqueantes(db)
+    assert any("no concuerda" in m for m in msgs), msgs
+
+
+def _muestras_bloqueantes(db):
+    v = V.Validator(db).run("cross_refs")
+    return [s for f in v.findings if f.dim == "cross_refs" and f.blocking
+            for s in f.sample]
+
+
+def ontologia_sin_declarar_en_processes_bloquea():
+    """La FK lógica rige en las tres tablas, no solo en capabilities."""
+    db = _con_ontologia(
+        "proc-huerfano", industry="banca",
+        bindings=[("banca", "primary", "etb")],
+        extras=["INSERT INTO processes (id, ontology, l1_name) VALUES "
+                "('P-1','inventada','Captación')"])
+    muestras = _muestras_bloqueantes(db)
+    assert "processes: inventada" in muestras, muestras
+
+
+def ontologia_sin_declarar_en_source_catalog_bloquea():
+    db = _con_ontologia(
+        "src-huerfano", industry="banca",
+        bindings=[("banca", "primary", "etb")],
+        extras=["INSERT INTO source_catalog (id, ontology, name) VALUES "
+                "('S-1','inventada','Corpus de prueba')"])
+    muestras = _muestras_bloqueantes(db)
+    assert "source_catalog: inventada" in muestras, muestras
+
+
 caso("el roster exigido es el que existe en dt/", roster_completo)
 caso("la plantilla nombra los 24 roles", plantilla_nombra_a_todos)
 caso("sin declarar es DESCONOCIDO, no cero", sin_declarar_es_desconocido)
@@ -388,6 +480,13 @@ caso("A3 con aprobador pasa", a3_con_aprobador_pasa)
 caso("nunca-bajo-A3 degradado bloquea", nunca_bajo_a3_degradado_bloquea)
 caso("caso de uso sin ancla ITOM bloquea", caso_de_uso_sin_ancla_itom_bloquea)
 caso("rol sin rebindear avisa", rol_sin_rebindear_avisa)
+caso("industria fuera del vocabulario bloquea", industria_fuera_del_vocabulario_bloquea)
+caso("slug primario distinto de la industria bloquea", slug_primario_distinto_de_industria_bloquea)
+caso("slug primario igual a la industria pasa", slug_primario_igual_a_industria_pasa)
+caso("con eje de ramo el sufijo es válido", con_eje_de_ramo_el_sufijo_es_valido)
+caso("sin eje de ramo el sufijo bloquea", sin_eje_de_ramo_el_sufijo_bloquea)
+caso("ontología sin declarar en processes bloquea", ontologia_sin_declarar_en_processes_bloquea)
+caso("ontología sin declarar en source_catalog bloquea", ontologia_sin_declarar_en_source_catalog_bloquea)
 
 
 def main():

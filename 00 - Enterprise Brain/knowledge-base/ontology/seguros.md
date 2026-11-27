@@ -1,6 +1,6 @@
 # Ontología Base — Seguros
 > Enterprise Brain · Knowledge Base · Ontología de Negocio por Industria
-> Versión 1.0 · 2026-10-08 · Digital Core · Accenture México
+> Versión 1.1 · 2026-11-27 · Digital Core · Accenture México
 
 Clientes del estate: **AXA**
 
@@ -191,32 +191,59 @@ Una regla que calcula la reserva IBNR de siniestros de auto toca:
 ### `system_info` (fields específicos de seguros)
 
 ```sql
-industry         = 'seguros'
-brain_name       = 'insurance-brain'    -- solo si es enterprise
+industry         = 'seguros'           -- vocabulario cerrado (ADR-EB-019)
 industry_sme     = 'SME/Industry/Industry Insurance/'
-capability_model = 'etb'               -- ETB P&C / Life / GMM según ramos activos
+capability_model = 'Insurance ETB P&C v3.0 con Life v2.0 según ramos activos'
 process_ontology = 'insurance-mx-pc'   -- por ramo principal del cliente
+process_ontology_version = '1.0'
 lob_dimension    = 'ramo'              -- campo propio de seguros
-regulator        = 'CNSF'             -- regulador principal
 ```
+
+El nombre del brain (`insurance-brain`) no es columna de `system_info`: se
+deriva de `industry` por la tabla de la Regla B18. El regulador tampoco: cada
+ontología trae los suyos en `ontology_bindings.regulators`, y en seguros eso
+importa más que en ninguna otra industria porque los ramos no comparten
+regulación secundaria.
 
 ### `ontology_bindings` (entradas típicas para una aseguradora multi-ramo)
 
+Seguros es la única industria del canon donde el slug lleva el ramo:
+`{industria}-{lob}`, porque cada ramo trae su propio catálogo con su propia
+versión y `ontology_bindings` guarda una versión por fila (ADR-EB-019, punto
+2b). El ramo **no** va en esta tabla como columna — no existe — sino dentro del
+slug y, en las filas de conocimiento, en la columna `lob` de `capabilities` y
+`processes`.
+
 ```sql
--- P&C / Daños
-(model_type='etb', catalog='Insurance_ETB_PC_v3.0', role='primary',
- regulators='["CNSF","CONDUSEF"]', lob='pc')
--- Vida + AP
-(model_type='etb', catalog='Insurance_ETB_Life_v2.0', role='primary',
- regulators='["CNSF","IASB"]', lob='vida_ap')
--- GMM
-(model_type='etb', catalog='Insurance_ETB_Life_v2.0', role='primary',
- regulators='["CNSF","IMSS"]', lob='gmm')
--- Modelo propio del cliente (AXA pattern)
-(model_type='client-logical', catalog='AXA_Operating_Model', role='secondary')
+-- Daños (P&C) — PRIMARIA: es el ramo dominante del cliente y fija el nombre
+-- del brain. Para otra aseguradora la primaria puede ser otro ramo.
+(ontology='seguros-pc', role='primary', model_type='etb',
+ catalog='Insurance_ETB_PC_v3.0', catalog_version='3.0',
+ industry_sme='SME/Industry/Industry Insurance/',
+ regulators='["CNSF","CONDUSEF"]')
+
+-- Vida y Accidentes
+(ontology='seguros-vida-ap', role='secondary', model_type='etb',
+ catalog='Insurance_ETB_Life_v2.0', catalog_version='2.0',
+ regulators='["CNSF","IASB"]')
+
+-- Gastos Médicos Mayores
+(ontology='seguros-gmm', role='secondary', model_type='etb',
+ catalog='Insurance_ETB_Life_v2.0', catalog_version='2.0',
+ regulators='["CNSF","IMSS"]')
+
+-- Modelo operativo propio del cliente (patrón AXA)
+(ontology='axa-operating-model', role='secondary', model_type='client-logical',
+ catalog='AXA_Operating_Model')
+
 -- TI
-(model_type='itom', catalog='ITOM_v9.0', role='primary', regulators='[]')
+(ontology='itom', role='secondary', model_type='itom',
+ catalog='ITOM_v9.0', regulators='[]')
 ```
+
+Exactamente una fila lleva `role='primary'`. Que Vida y GMM sean secundarias no
+dice nada sobre su peso en el negocio: el rol declara cuál ancla la semántica
+del brain, no cuál factura más.
 
 ---
 
@@ -228,4 +255,4 @@ regulator        = 'CNSF'             -- regulador principal
 
 ---
 
-*Ontología Base Seguros · Enterprise Brain Knowledge Base · v1.0 · 2026-10-08*
+*Ontología Base Seguros · Enterprise Brain Knowledge Base · v1.1 · 2026-11-27*
